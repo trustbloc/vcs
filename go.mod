@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/edge-store
+module github.com/trustbloc/edge-service
 
 go 1.13
 
