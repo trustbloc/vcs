@@ -1,0 +1,86 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+run:
+  concurrency: 4
+  deadline: 3m
+  issues-exit-code: 1
+  tests: true
+  build-tags: [""]
+  skip-dirs:  [""]
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    ignore: fmt:.*,io/ioutil:^Read.*
+  govet:
+    check-shadowing: true
+  golint:
+    min-confidence: 0.6
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/trustbloc/edge-store
+  gocyclo:
+    min-complexity: 10
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+  misspell:
+    # default locale is a neutral variety of English.
+    locale:
+    ignore-words: []
+  lll:
+    line-length: 120
+    tab-width: 1
+  unused:
+    check-exported: false
+  unparam:
+    check-exported: false
+  nakedret:
+    max-func-lines: 0
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+      - opinionated
+    disabled-checks:
+      - unnamedResult
+  funlen:
+    lines: 60
+    statements: 40
+
+linters:
+  enable-all: true
+  disable:
+    - maligned
+    - prealloc
+
+issues:
+  exclude-use-default: false
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - dupl
+        - funlen
+
+  exclude:
+    # Allow package logger variables (for now)
+    - \`logger\` is a global variable
+    -  Line contains TODO/BUG/FIXME
+    # Add comments for package
+    -  at least one file in a package should have a package comment
