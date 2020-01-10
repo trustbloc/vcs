@@ -29,7 +29,7 @@ linters-settings:
   gofmt:
     simplify: true
   goimports:
-    local-prefixes: github.com/trustbloc/edge-store
+    local-prefixes: github.com/trustbloc/edge-service
   gocyclo:
     min-complexity: 10
   maligned:
