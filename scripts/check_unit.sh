@@ -19,3 +19,8 @@ if [ -f profile.out ]; then
 fi
 }
 
+# Running edge-service unit tests
+PKGS=`go list github.com/trustbloc/edge-service/... 2> /dev/null | \
+                                                  grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
