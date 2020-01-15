@@ -7,15 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"github.com/trustbloc/edge-core/pkg/storage"
+
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 )
 
 // New returns new controller instance.
-func New() (*Controller, error) {
+func New(provider storage.Provider) (*Controller, error) {
 	var allHandlers []operation.Handler
 
-	issueService := operation.New()
-	allHandlers = append(allHandlers, issueService.GetRESTHandlers()...)
+	vcService, err := operation.New(provider)
+	if err != nil {
+		return nil, err
+	}
+
+	allHandlers = append(allHandlers, vcService.GetRESTHandlers()...)
 
 	return &Controller{handlers: allHandlers}, nil
 }

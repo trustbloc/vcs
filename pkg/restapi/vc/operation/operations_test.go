@@ -14,11 +14,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/edge-core/pkg/storage"
+	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 )
 
 const (
@@ -62,9 +63,22 @@ const (
 		}
 }`
 )
+const (
+	testIssuerProfile = `{
+		"did": "did:peer:22",
+		"uri": "https://example.com/credentials"
+}`
+)
+const (
+	testIncorrectIssuerProfile = `{
+		"did": "did:peer:22",
+		"uri": "&&%^)$"
+}`
+)
 
 func TestCreateCredentialHandler(t *testing.T) {
-	op := New()
+	op, err := New(memstore.NewProvider())
+	require.NoError(t, err)
 
 	createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
 
@@ -90,51 +104,226 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.Equal(t, ID, vc.ID)
 	})
 	t.Run("create credential error by passing invalid request", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "/credentials", bytes.NewBuffer([]byte("")))
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 
 		createCredentialHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(), "Receieved invalid request: EOF")
+		require.Equal(t, rr.Body.String(), "Failed to write response for invalid request received")
 	})
 	t.Run("create credential error by passing invalid credential object", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "/credentials", bytes.NewBuffer([]byte(testIncorrectCredential)))
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+			bytes.NewBuffer([]byte(testIncorrectCredential)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 		createCredentialHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Equal(t, rr.Body.String(),
-			"validation failed for vc: failed to create new credential: build new credential: "+
-				"fill credential types from raw: credential type of unknown structure")
+			"Failed to write response for create credential failure")
 	})
 	t.Run("create credential error unable to write a response while reading the request", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "/credentials", bytes.NewBuffer([]byte("")))
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
 		require.NoError(t, err)
 		rw := mockResponseWriter{}
 		createCredentialHandler.Handle().ServeHTTP(rw, req)
 		require.Contains(t, logContents.String(),
-			"Failed to write response for credential creation failure (unable to read request)")
-	})
-	t.Run("create credential error while writing the create credential failure", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, "/credentials", bytes.NewBuffer([]byte(testIncorrectCredential)))
-		require.NoError(t, err)
-		rw := mockResponseWriter{}
-		createCredentialHandler.Handle().ServeHTTP(rw, req)
-		require.Contains(t, logContents.String(),
-			"Failed to write response for create credential failure")
+			"Unable to send error message, response writer failed")
 	})
 }
 
-func TestOperation_WriteResponse(t *testing.T) {
-	svc := New()
-	require.NotNil(t, svc)
-	svc.writeResponse(&httptest.ResponseRecorder{}, "token")
+func TestCreateProfileHandler(t *testing.T) {
+	op, err := New(memstore.NewProvider())
+	require.NoError(t, err)
+
+	createProfileHandler := getHandler(t, op, createProfileEndpoint)
+
+	var logContents bytes.Buffer
+
+	log.SetOutput(&logContents)
+
+	t.Run("create profile success", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIssuerProfile)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		profile := ProfileResponse{}
+
+		err = json.Unmarshal(rr.Body.Bytes(), &profile)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+		require.NotEmpty(t, profile.ID)
+		require.Contains(t, profile.URI, "https://example.com/credentials")
+	})
+	t.Run("missing DID information", func(t *testing.T) {
+		prBytes, err := json.Marshal(ProfileRequest{})
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(prBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), "missing DID information")
+	})
+	t.Run("missing URI information", func(t *testing.T) {
+		prBytes, err := json.Marshal(ProfileRequest{DID: "test"})
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(prBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), "missing URI information")
+	})
+	t.Run("create profile error by passing invalid request", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), "Failed to write response for invalid request received")
+	})
+	t.Run("create profile error by internal create profile failure", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIncorrectIssuerProfile)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to parse the uri: parse &&%^)$: invalid URL escape")
+	})
+
+	t.Run("create profile error unable to write a response while reading the request", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
+		require.NoError(t, err)
+		rw := mockResponseWriter{}
+		createProfileHandler.Handle().ServeHTTP(rw, req)
+		require.Contains(t, logContents.String(),
+			"Unable to send error message, response writer failed")
+	})
+	t.Run("create profile error while saving the profile", func(t *testing.T) {
+		op, err := New(memstore.NewProvider())
+		require.NoError(t, err)
+		op.profileStore = NewProfile(&mockStore{
+			get: func(s string) (bytes []byte, e error) {
+				return nil, storage.ErrValueNotFound
+			},
+			put: func(s string, bytes []byte) error {
+				return errors.New("db error while saving profile")
+			}})
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "db error while saving profile")
+	})
+}
+
+func TestGetProfileHandler(t *testing.T) {
+	op, err := New(memstore.NewProvider())
+	require.NoError(t, err)
+
+	getProfileHandler := getHandler(t, op, getProfileEndpoint)
+
+	var logContents bytes.Buffer
+
+	log.SetOutput(&logContents)
+
+	notFoundID := "test"
+	req, err := http.NewRequest(http.MethodGet,
+		"/profile/"+notFoundID,
+		bytes.NewBuffer([]byte("")))
+	require.NoError(t, err)
+
+	urlVars := make(map[string]string)
+	urlVars[profilePathVariable] = notFoundID
+
+	req = mux.SetURLVars(req, urlVars)
+
+	t.Run("get profile success", func(t *testing.T) {
+		profile := createProfileSuccess(t, op)
+
+		r, err := http.NewRequest(http.MethodGet,
+			"/profile/"+profile.ID,
+			bytes.NewBuffer([]byte("")))
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+
+		urlVars := make(map[string]string)
+		urlVars[profilePathVariable] = profile.ID
+		req = mux.SetURLVars(r, urlVars)
+
+		getProfileHandler.Handle().ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		profileResponse := &ProfileResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), profileResponse)
+		require.NoError(t, err)
+		require.Equal(t, profileResponse.ID, profile.ID)
+		require.Equal(t, profileResponse.URI, profile.URI)
+	})
+	t.Run("get profile error, bad request", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet,
+			"/profile/"+notFoundID,
+			bytes.NewBuffer([]byte("")))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		getProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+}
+
+func createProfileSuccess(t *testing.T, op *Operation) *ProfileResponse {
+	req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+
+	createProfileEndpoint := getHandler(t, op, createProfileEndpoint)
+	createProfileEndpoint.Handle().ServeHTTP(rr, req)
+
+	profile := &ProfileResponse{}
+
+	err = json.Unmarshal(rr.Body.Bytes(), &profile)
+	require.NoError(t, err)
+
+	require.Equal(t, http.StatusCreated, rr.Code)
+	require.NotEmpty(t, profile.ID)
+
+	return profile
+}
+
+func TestOperation_parseAndGetURL(t *testing.T) {
+	t.Run("parse uri success", func(t *testing.T) {
+		resp, err := parseAndGetURI("http://example.edu/credentials")
+		require.NotNil(t, resp)
+		require.NoError(t, err)
+	})
+	t.Run("parse uri failed", func(t *testing.T) {
+		resp, err := parseAndGetURI("//not-valid.&&%^)$")
+		require.Empty(t, resp)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse the uri")
+	})
 }
 
 func TestCreate(t *testing.T) {
 	b := mockResponseWriter{}
-	op := New()
+	op, err := New(memstore.NewProvider())
+	require.NoError(t, err)
 	req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
 		bytes.NewBuffer([]byte(testCreateCredentialRequest)))
 	require.NoError(t, err)
@@ -182,4 +371,19 @@ func (b mockResponseWriter) Write([]byte) (int, error) {
 }
 
 func (b mockResponseWriter) WriteHeader(statusCode int) {
+}
+
+type mockStore struct {
+	put func(string, []byte) error
+	get func(string) ([]byte, error)
+}
+
+// Put stores the key and the record
+func (m *mockStore) Put(k string, v []byte) error {
+	return m.put(k, v)
+}
+
+// Get fetches the record based on key
+func (m *mockStore) Get(k string) ([]byte, error) {
+	return m.get(k)
 }

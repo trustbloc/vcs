@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	cmdutils "github.com/trustbloc/edge-service/pkg/utils/cmd"
@@ -81,7 +82,10 @@ func startEdgeService(parameters *vcRestParameters) error {
 		return errMissingHostURL
 	}
 
-	vcService := operation.New()
+	vcService, err := operation.New(memstore.NewProvider())
+	if err != nil {
+		return err
+	}
 
 	handlers := vcService.GetRESTHandlers()
 	router := mux.NewRouter()
@@ -91,7 +95,6 @@ func startEdgeService(parameters *vcRestParameters) error {
 	}
 
 	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
-	err := parameters.srv.ListenAndServe(parameters.hostURL, router)
 
-	return err
+	return parameters.srv.ListenAndServe(parameters.hostURL, router)
 }

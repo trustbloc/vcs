@@ -11,6 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
+	github.com/trustbloc/edge-core v0.0.0-20200117135316-f80bd93997ef
 	github.com/trustbloc/edge-service v0.0.0
 )
 
