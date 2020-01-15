@@ -2,13 +2,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/edge-service
+module github.com/trustbloc/edge-service/cmd/vc-rest
 
-go 1.13
+replace github.com/trustbloc/edge-service => ../..
 
 require (
-	github.com/hyperledger/aries-framework-go v0.1.1-0.20200113160002-41ea60bef355
-	github.com/sirupsen/logrus v1.4.2
+	github.com/gorilla/mux v1.7.3
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
+	github.com/trustbloc/edge-service v0.0.0
 )
+
+go 1.13
