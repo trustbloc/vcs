@@ -41,7 +41,7 @@ func New() *Operation {
 	return svc
 }
 
-// Operation defines handlers for EDV service
+// Operation defines handlers for VC service
 type Operation struct {
 	handlers []Handler
 }

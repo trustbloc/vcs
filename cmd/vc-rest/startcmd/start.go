@@ -11,6 +11,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -89,6 +90,7 @@ func startEdgeService(parameters *vcRestParameters) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
+	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
 	err := parameters.srv.ListenAndServe(parameters.hostURL, router)
 
 	return err
