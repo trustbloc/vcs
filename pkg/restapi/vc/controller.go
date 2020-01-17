@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package edv
+package vc
 
 import (
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"

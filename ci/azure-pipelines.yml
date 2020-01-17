@@ -30,3 +30,28 @@ jobs:
         displayName: Run unit test
       - script: bash <(curl https://codecov.io/bash)
         displayName: Upload coverage to Codecov
+
+  - job: Publish
+    dependsOn:
+      - Checks
+      - UnitTest
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    pool:
+      vmImage: ubuntu-18.04
+    timeoutInMinutes: 30
+    steps:
+      - template: azp-dependencies.yml
+      - checkout: self
+      - bash: |
+          function logout {
+            docker logout
+          }
+          trap logout EXIT
+          source ci/version_var.sh
+          echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
+          make vc-rest-docker
+          docker tag docker.pkg.github.com/trustbloc/edge-service/vc-rest:latest docker.pkg.github.com/trustbloc/edge-service/vc-rest:$VC_REST_TAG
+          docker push docker.pkg.github.com/trustbloc/edge-service/vc-rest:$VC_REST_TAG
+        env:
+          DOCKER_USER: $(DOCKER_USER)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
