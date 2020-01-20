@@ -13,10 +13,10 @@ import (
 )
 
 // New returns new controller instance.
-func New(provider storage.Provider) (*Controller, error) {
+func New(provider storage.Provider, client operation.Client) (*Controller, error) {
 	var allHandlers []operation.Handler
 
-	vcService, err := operation.New(provider)
+	vcService, err := operation.New(provider, client)
 	if err != nil {
 		return nil, err
 	}

@@ -10,6 +10,8 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/trustbloc/edv/pkg/client/edv"
+
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -22,8 +24,12 @@ import (
 const (
 	hostURLFlagName      = "host-url"
 	hostURLFlagShorthand = "u"
-	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
+	hostURLFlagUsage     = "URL vc-rest instance is running on. Format: HostName:Port."
 	hostURLEnvKey        = "VC_REST_HOST_URL"
+	edvURLFlagName       = "edv-url"
+	edvURLFlagShorthand  = "e"
+	edvURLFlagUsage      = "URL EDV instance is running on. Format: HostName:Port."
+	edvURLEnvKey         = "EDV_REST_HOST_URL"
 )
 
 var errMissingHostURL = errors.New("host URL not provided")
@@ -31,6 +37,7 @@ var errMissingHostURL = errors.New("host URL not provided")
 type vcRestParameters struct {
 	srv     server
 	hostURL string
+	edvURL  string
 }
 
 type server interface {
@@ -64,9 +71,14 @@ func createStartCmd(srv server) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			edvURL, err := cmdutils.GetUserSetVar(cmd, edvURLFlagName, edvURLEnvKey)
+			if err != nil {
+				return err
+			}
 			parameters := &vcRestParameters{
 				srv:     srv,
 				hostURL: hostURL,
+				edvURL:  edvURL,
 			}
 			return startEdgeService(parameters)
 		},
@@ -75,6 +87,7 @@ func createStartCmd(srv server) *cobra.Command {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
+	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters) error {
@@ -82,7 +95,7 @@ func startEdgeService(parameters *vcRestParameters) error {
 		return errMissingHostURL
 	}
 
-	vcService, err := operation.New(memstore.NewProvider())
+	vcService, err := operation.New(memstore.NewProvider(), edv.New(parameters.edvURL))
 	if err != nil {
 		return err
 	}

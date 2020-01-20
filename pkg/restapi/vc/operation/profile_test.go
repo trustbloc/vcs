@@ -22,6 +22,7 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 		require.NotNil(t, record)
 
 		created := time.Now().UTC()
+
 		value := &ProfileResponse{
 			Name:    "issuer",
 			URI:     "https://example.com/credentials/1872",

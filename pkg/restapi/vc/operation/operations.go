@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,20 +25,23 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
+	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 )
 
 const (
 	credentialStore   = "credential"
+	profile           = "/profile"
 	credentialContext = "https://www.w3.org/2018/credentials/v1"
 
 	// endpoints
-	createCredentialEndpoint = "/credential"
-	verifyCredentialEndpoint = "/verify"
-	createProfileEndpoint    = "/profile"
-	getProfileEndpoint       = "/profile/{" + profilePathVariable
-	profilePathVariable      = "profileID"
+	createCredentialEndpoint   = "/credential"
+	verifyCredentialEndpoint   = "/verify"
+	createProfileEndpoint      = profile
+	getProfileEndpoint         = profile + "/{id}"
+	storeCredentialEndpoint    = "/store"
+	retrieveCredentialEndpoint = "/retrieve"
 
 	successMsg = "success"
 )
@@ -51,8 +55,15 @@ type Handler interface {
 	Handle() http.HandlerFunc
 }
 
+// Client interface to interact with edv client
+type Client interface {
+	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
+	CreateDocument(vaultID string, document *operation.StructuredDocument) (string, error)
+	RetrieveDocument(vaultID, docID string) ([]byte, error)
+}
+
 // New returns CreateCredential instance
-func New(provider storage.Provider) (*Operation, error) {
+func New(provider storage.Provider, client Client) (*Operation, error) {
 	store, err := provider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err
@@ -68,6 +79,7 @@ func New(provider storage.Provider) (*Operation, error) {
 		profileStore: NewProfile(store),
 		// TODO: replace private key by signer, public key by resolver
 		keySet: &keySet{private: privKey, public: pubKey},
+		client: client,
 	}
 
 	// TODO: Remove default profile when bdd test is done
@@ -92,6 +104,7 @@ type Operation struct {
 	handlers     []Handler
 	profileStore *Profile
 	keySet       *keySet
+	client       Client
 }
 
 // KeySet will be replaced with KMS/profile configuration
@@ -100,47 +113,47 @@ type keySet struct {
 	public  []byte
 }
 
-func (c *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
-	data := CreateCredential{}
+func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	data := CreateCrendentialRequest{}
 	err := json.NewDecoder(req.Body).Decode(&data)
 
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for invalid request received")
+		o.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for invalid request received")
 
 		return
 	}
 
-	profile, err := c.profileStore.GetProfile(data.Profile)
+	profile, err := o.profileStore.GetProfile(data.Profile)
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to read profile: %s", err.Error()))
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to read profile: %s", err.Error()))
 
 		return
 	}
 
 	validCredential, err := createCredential(profile, &data)
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to create credential: %s", err.Error()))
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to create credential: %s", err.Error()))
 
 		return
 	}
 
-	signedVC, err := c.signCredential(profile, validCredential)
+	signedVC, err := o.signCredential(profile, validCredential)
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential: %s", err.Error()))
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential: %s", err.Error()))
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusCreated)
-	c.writeResponse(rw, signedVC)
+	o.writeResponse(rw, signedVC)
 }
 
-func (c *Operation) signCredential(profile *ProfileResponse, vc *verifiable.Credential) (*verifiable.Credential, error) { // nolint:lll
+func (o *Operation) signCredential(profile *ProfileResponse, vc *verifiable.Credential) (*verifiable.Credential, error) { // nolint:lll
 	signingCtx := &verifiable.LinkedDataProofContext{
 		Creator:       profile.Creator,
 		SignatureType: profile.SignatureType,
 		Suite:         ed25519signature2018.New(),
-		PrivateKey:    c.keySet.private,
+		PrivateKey:    o.keySet.private,
 	}
 
 	err := vc.AddLinkedDataProof(signingCtx)
@@ -151,10 +164,10 @@ func (c *Operation) signCredential(profile *ProfileResponse, vc *verifiable.Cred
 	return vc, nil
 }
 
-func (c *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest,
+		o.writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to read request body: %s", err.Error()))
 
 		return
@@ -167,7 +180,7 @@ func (c *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	// based on signature type in proof
 	// Q: we should have default implementation for key fetcher in verifiable package as well
 	_, _, err = verifiable.NewCredential(body, verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(c.keySet.public)))
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(o.keySet.public)))
 	if err != nil {
 		verified = false
 		message = err.Error()
@@ -178,53 +191,113 @@ func (c *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		Message:  message}
 
 	rw.WriteHeader(http.StatusOK)
-	c.writeResponse(rw, response)
+	o.writeResponse(rw, response)
 }
 
-func (c *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	data := ProfileRequest{}
 	err := json.NewDecoder(req.Body).Decode(&data)
 
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for invalid request received")
+		o.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for invalid request received")
 
 		return
 	}
 
-	profileResponse, err := c.createProfile(&data)
+	profileResponse, err := o.createProfile(&data)
 
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusCreated)
-	c.writeResponse(rw, profileResponse)
+	o.writeResponse(rw, profileResponse)
 }
 
-func (c *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	profileID := vars[profilePathVariable]
+func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	profileID := mux.Vars(req)["id"]
 
-	profileResponseJSON, err := c.profileStore.GetProfile(profileID)
+	profileResponseJSON, err := o.profileStore.GetProfile(profileID)
 	if err != nil {
 		if err == errProfileNotFound {
-			c.writeErrorResponse(rw, http.StatusNotFound, "Failed to find the profile")
+			o.writeErrorResponse(rw, http.StatusNotFound, "Failed to find the profile")
 
 			return
 		}
 
-		c.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	c.writeResponse(rw, profileResponseJSON)
+	o.writeResponse(rw, profileResponseJSON)
 }
 
-func createCredential(profile *ProfileResponse, data *CreateCredential) (*verifiable.Credential, error) {
+func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
+	data := &CreateCrendentialResponse{}
+	err := json.NewDecoder(req.Body).Decode(&data)
+
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, "invalid request received")
+
+		return
+	}
+
+	if err = validateRequest(data.Profile, data.ID); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	doc := operation.StructuredDocument{}
+	doc.Content = make(map[string]interface{})
+	doc.Content["message"] = data
+
+	// todo remove the stripping of the string issue-34
+	doc.ID = data.ID[strings.LastIndex(data.ID, "/")+1:]
+
+	locationOfDocument, err := o.client.CreateDocument(data.Profile, &doc)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	o.writeResponse(rw, locationOfDocument)
+}
+
+func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request) {
+	id := req.URL.Query().Get("id")
+	profile := req.URL.Query().Get("profile")
+
+	if err := validateRequest(profile, id); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	// todo remove the stripping of the string issue-34
+	credentialID := id[strings.LastIndex(id, "/")+1:]
+
+	credentialResponse, err := o.client.RetrieveDocument(profile, credentialID)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	_, err = rw.Write(credentialResponse)
+	if err != nil {
+		log.Errorf("Failed to write response for document retrieval success: %s",
+			err.Error())
+	}
+}
+
+func createCredential(profile *ProfileResponse, data *CreateCrendentialRequest) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
+
 	issueDate := time.Now().UTC()
 
 	credential.Context = []string{credentialContext}
@@ -250,7 +323,7 @@ func createCredential(profile *ProfileResponse, data *CreateCredential) (*verifi
 	return validatedCred, nil
 }
 
-func (c *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) {
+func (o *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) {
 	if err := validateProfileRequest(pr); err != nil {
 		return nil, err
 	}
@@ -265,7 +338,13 @@ func (c *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) 
 		Creator:       pr.Creator,
 	}
 
-	err := c.profileStore.SaveProfile(profileResponse)
+	err := o.profileStore.SaveProfile(profileResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	// create the vault associated with the profile
+	_, err = o.client.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: pr.Name})
 	if err != nil {
 		return nil, err
 	}
@@ -302,15 +381,27 @@ func validateProfileRequest(pr *ProfileRequest) error {
 	return nil
 }
 
+func validateRequest(profileName, vcID string) error {
+	if profileName == "" {
+		return fmt.Errorf("missing profile name")
+	}
+
+	if vcID == "" {
+		return fmt.Errorf("missing verifiable credential ID")
+	}
+
+	return nil
+}
+
 // writeResponse writes interface value to response
-func (c *Operation) writeResponse(rw io.Writer, v interface{}) {
+func (o *Operation) writeResponse(rw io.Writer, v interface{}) {
 	err := json.NewEncoder(rw).Encode(v)
 	if err != nil {
 		log.Errorf("Unable to send error response, %s", err)
 	}
 }
 
-func (c *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
+func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
 	rw.WriteHeader(status)
 
 	if _, err := rw.Write([]byte(msg)); err != nil {
@@ -319,17 +410,19 @@ func (c *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 }
 
 // registerHandler register handlers to be exposed from this service as REST API endpoints
-func (c *Operation) registerHandler() {
+func (o *Operation) registerHandler() {
 	// Add more protocol endpoints here to expose them as controller API endpoints
-	c.handlers = []Handler{
-		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, c.createCredentialHandler),
-		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, c.createProfileHandler),
-		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, c.getProfileHandler),
-		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, c.verifyCredentialHandler),
+	o.handlers = []Handler{
+		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
+		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
+		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
+		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
 	}
 }
 
 // GetRESTHandlers get all controller API handler available for this service
-func (c *Operation) GetRESTHandlers() []Handler {
-	return c.handlers
+func (o *Operation) GetRESTHandlers() []Handler {
+	return o.handlers
 }
