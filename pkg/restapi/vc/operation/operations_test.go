@@ -76,6 +76,31 @@ const (
 }`
 )
 
+const validVC = `{
+  "@context": "https://www.w3.org/2018/credentials/v1",
+  "id": "http://example.edu/credentials/1872",
+  "type": "VerifiableCredential",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+  },
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "issuanceDate": "2010-01-01T19:23:24Z"
+}`
+
+// VC without issuer
+const invalidVC = `{
+  "@context": "https://www.w3.org/2018/credentials/v1",
+  "id": "http://example.edu/credentials/1872",
+  "type": "VerifiableCredential",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+  },
+  "issuanceDate": "2010-01-01T19:23:24Z"
+}`
+
 func TestCreateCredentialHandler(t *testing.T) {
 	op, err := New(memstore.NewProvider())
 	require.NoError(t, err)
@@ -101,7 +126,7 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
 		require.Equal(t, "Example University", vc.Issuer.Name)
-		require.Equal(t, ID, vc.ID)
+		require.Equal(t, id, vc.ID)
 	})
 	t.Run("create credential error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
@@ -129,6 +154,55 @@ func TestCreateCredentialHandler(t *testing.T) {
 		createCredentialHandler.Handle().ServeHTTP(rw, req)
 		require.Contains(t, logContents.String(),
 			"Unable to send error message, response writer failed")
+	})
+}
+
+func TestVerifyCredentialHandler(t *testing.T) {
+	op, err := New(memstore.NewProvider())
+	require.NoError(t, err)
+
+	verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint)
+
+	t.Run("verify credential success", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, bytes.NewBuffer([]byte(validVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, true, response.Verified)
+		require.Equal(t, "success", response.Message)
+	})
+
+	t.Run("test error while reading http request", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, nil)
+		require.NoError(t, err)
+
+		req.Body = &mockReader{}
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "reader error")
+	})
+
+	t.Run("test error due to passing invalid credential object", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, bytes.NewBuffer([]byte(invalidVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, false, response.Verified)
+		require.Contains(t, response.Message, "unsupported format of issuer")
 	})
 }
 
@@ -386,4 +460,14 @@ func (m *mockStore) Put(k string, v []byte) error {
 // Get fetches the record based on key
 func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
+}
+
+type mockReader struct{}
+
+func (r *mockReader) Read(p []byte) (n int, err error) {
+	return 0, errors.New("reader error")
+}
+
+func (r *mockReader) Close() error {
+	return nil
 }

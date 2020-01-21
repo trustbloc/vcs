@@ -32,3 +32,9 @@ type ProfileResponse struct {
 	IssueDate *time.Time `json:"issueDate"`
 	DID       string     `json:"did"`
 }
+
+// VerifyCredentialResponse describes verify credential response
+type VerifyCredentialResponse struct {
+	Verified bool   `json:"verified"`
+	Message  string `json:"message"`
+}
