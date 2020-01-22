@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -27,16 +28,20 @@ import (
 )
 
 const (
-	credential               = "credential"
+	credentialStore   = "credential"
+	credentialContext = "https://www.w3.org/2018/credentials/v1"
+
+	// endpoints
 	createCredentialEndpoint = "/credential"
+	verifyCredentialEndpoint = "/verify"
 	createProfileEndpoint    = "/profile"
-	credentialContext        = "https://www.w3.org/2018/credentials/v1"
+	getProfileEndpoint       = "/profile/{" + profilePathVariable
 	profilePathVariable      = "profileID"
 
-	getProfileEndpoint = "/profile/{" + profilePathVariable
-	// ID is the identifier for the verifiable credential
-	ID = "https://example.com/credentials/1872"
+	successMsg = "success"
+
 	// TODO create the profile and get the prefix of the ID from the profile issue-47
+	id = "https://example.com/credentials/1872"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -50,7 +55,7 @@ type Handler interface {
 
 // New returns CreateCredential instance
 func New(provider storage.Provider) (*Operation, error) {
-	store, err := provider.OpenStore(credential)
+	store, err := provider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +95,31 @@ func (c *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Re
 
 	rw.WriteHeader(http.StatusCreated)
 	c.writeResponse(rw, validCredential)
+}
+
+func (c *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		c.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to read request body: %s", err.Error()))
+
+		return
+	}
+
+	verified := true
+	message := successMsg
+
+	_, _, err = verifiable.NewCredential(body)
+	if err != nil {
+		verified = false
+		message = err.Error()
+	}
+
+	response := &VerifyCredentialResponse{
+		Verified: verified,
+		Message:  message}
+
+	rw.WriteHeader(http.StatusOK)
+	c.writeResponse(rw, response)
 }
 
 func (c *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
@@ -133,6 +163,7 @@ func (c *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 
 	c.writeResponse(rw, profileResponseJSON)
 }
+
 func createCredential(data *CreateCrendential) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 	issueDate := time.Now().UTC()
@@ -143,7 +174,7 @@ func createCredential(data *CreateCrendential) (*verifiable.Credential, error) {
 	credential.Issuer = data.Issuer
 	credential.Issued = &issueDate
 	// TODO to be replaced by getting profile ID issue-47
-	credential.ID = ID
+	credential.ID = id
 
 	cred, err := json.Marshal(credential)
 	if err != nil {
@@ -221,6 +252,7 @@ func (c *Operation) registerHandler() {
 		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, c.createCredentialHandler),
 		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, c.createProfileHandler),
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, c.getProfileHandler),
+		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, c.verifyCredentialHandler),
 	}
 }
 
