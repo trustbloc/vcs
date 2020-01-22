@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,12 +16,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"path"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -39,9 +40,6 @@ const (
 	profilePathVariable      = "profileID"
 
 	successMsg = "success"
-
-	// TODO create the profile and get the prefix of the ID from the profile issue-47
-	id = "https://example.com/credentials/1872"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -60,10 +58,30 @@ func New(provider storage.Provider) (*Operation, error) {
 		return nil, err
 	}
 
-	profileStore := NewProfile(store)
-	svc := &Operation{
-		profileStore: profileStore,
+	// TODO: replace by KMS
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
 	}
+
+	svc := &Operation{
+		profileStore: NewProfile(store),
+		// TODO: replace private key by signer, public key by resolver
+		keySet: &keySet{private: privKey, public: pubKey},
+	}
+
+	// TODO: Remove default profile when bdd test is done
+	err = svc.profileStore.SaveProfile(&ProfileResponse{
+		Name:          "issuer",
+		DID:           "did:method:abc",
+		URI:           "https://issuer.com/credentials",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:method:abc#key1",
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	svc.registerHandler()
 
 	return svc, nil
@@ -73,10 +91,17 @@ func New(provider storage.Provider) (*Operation, error) {
 type Operation struct {
 	handlers     []Handler
 	profileStore *Profile
+	keySet       *keySet
+}
+
+// KeySet will be replaced with KMS/profile configuration
+type keySet struct {
+	private []byte
+	public  []byte
 }
 
 func (c *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
-	data := CreateCrendential{}
+	data := CreateCredential{}
 	err := json.NewDecoder(req.Body).Decode(&data)
 
 	if err != nil {
@@ -85,22 +110,52 @@ func (c *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	validCredential, err := createCredential(&data)
-
+	profile, err := c.profileStore.GetProfile(data.Profile)
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for create credential failure")
+		c.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to read profile: %s", err.Error()))
+
+		return
+	}
+
+	validCredential, err := createCredential(profile, &data)
+	if err != nil {
+		c.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to create credential: %s", err.Error()))
+
+		return
+	}
+
+	signedVC, err := c.signCredential(profile, validCredential)
+	if err != nil {
+		c.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential: %s", err.Error()))
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusCreated)
-	c.writeResponse(rw, validCredential)
+	c.writeResponse(rw, signedVC)
+}
+
+func (c *Operation) signCredential(profile *ProfileResponse, vc *verifiable.Credential) (*verifiable.Credential, error) { // nolint:lll
+	signingCtx := &verifiable.LinkedDataProofContext{
+		Creator:       profile.Creator,
+		SignatureType: profile.SignatureType,
+		Suite:         ed25519signature2018.New(),
+		PrivateKey:    c.keySet.private,
+	}
+
+	err := vc.AddLinkedDataProof(signingCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	return vc, nil
 }
 
 func (c *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		c.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to read request body: %s", err.Error()))
+		c.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to read request body: %s", err.Error()))
 
 		return
 	}
@@ -108,7 +163,11 @@ func (c *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	verified := true
 	message := successMsg
 
-	_, _, err = verifiable.NewCredential(body)
+	// Q: should signature suite this be passed in or handled (loaded automatically) by verifiable package
+	// based on signature type in proof
+	// Q: we should have default implementation for key fetcher in verifiable package as well
+	_, _, err = verifiable.NewCredential(body, verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(c.keySet.public)))
 	if err != nil {
 		verified = false
 		message = err.Error()
@@ -164,7 +223,7 @@ func (c *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 	c.writeResponse(rw, profileResponseJSON)
 }
 
-func createCredential(data *CreateCrendential) (*verifiable.Credential, error) {
+func createCredential(profile *ProfileResponse, data *CreateCredential) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 	issueDate := time.Now().UTC()
 
@@ -173,8 +232,7 @@ func createCredential(data *CreateCrendential) (*verifiable.Credential, error) {
 	credential.Types = data.Type
 	credential.Issuer = data.Issuer
 	credential.Issued = &issueDate
-	// TODO to be replaced by getting profile ID issue-47
-	credential.ID = id
+	credential.ID = profile.URI + "/" + uuid.New().String()
 
 	cred, err := json.Marshal(credential)
 	if err != nil {
@@ -190,43 +248,55 @@ func createCredential(data *CreateCrendential) (*verifiable.Credential, error) {
 }
 
 func (c *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) {
-	if pr.DID == "" {
-		return nil, fmt.Errorf("missing DID information")
-	}
-
-	if pr.URI == "" {
-		return nil, fmt.Errorf("missing URI information")
-	}
-
-	u, err := parseAndGetURI(pr.URI)
-	if err != nil {
+	if err := validateProfileRequest(pr); err != nil {
 		return nil, err
 	}
 
 	issueDate := time.Now().UTC()
 	profileResponse := &ProfileResponse{
-		ID:        uuid.New().String(),
-		URI:       u,
-		IssueDate: &issueDate,
-		DID:       pr.DID,
+		Name:          pr.Name,
+		URI:           pr.URI,
+		IssueDate:     &issueDate,
+		DID:           pr.DID,
+		SignatureType: pr.SignatureType,
+		Creator:       pr.Creator,
 	}
 
-	err = c.profileStore.SaveProfile(profileResponse)
+	err := c.profileStore.SaveProfile(profileResponse)
 	if err != nil {
 		return nil, err
 	}
 
 	return profileResponse, nil
 }
-func parseAndGetURI(uri string) (string, error) {
-	u, err := url.Parse(uri)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse the uri: %s", err.Error())
+
+func validateProfileRequest(pr *ProfileRequest) error {
+	if pr.Name == "" {
+		return fmt.Errorf("missing profile name")
 	}
 
-	u.Path = path.Join(u.Path, uuid.New().String())
+	if pr.DID == "" {
+		return fmt.Errorf("missing DID information")
+	}
 
-	return u.String(), nil
+	if pr.URI == "" {
+		return fmt.Errorf("missing URI information")
+	}
+
+	if pr.Creator == "" {
+		return fmt.Errorf("missing creator")
+	}
+
+	if pr.SignatureType == "" {
+		return fmt.Errorf("missing signature type")
+	}
+
+	_, err := url.Parse(pr.URI)
+	if err != nil {
+		return fmt.Errorf("invalid uri: %s", err.Error())
+	}
+
+	return nil
 }
 
 // writeResponse writes interface value to response

@@ -12,25 +12,31 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
-// CreateCrendential input data for edge service issuer rest api
-type CreateCrendential struct {
+// CreateCredential input data for edge service issuer rest api
+type CreateCredential struct {
 	Subject verifiable.Subject `json:"credentialSubject"`
 	Issuer  verifiable.Issuer  `json:"issuer"`
 	Type    []string           `json:"type,omitempty"`
+	Profile string             `json:"profile,omitempty"`
 }
 
 // ProfileRequest struct the input for creating profile
 type ProfileRequest struct {
-	DID string `json:"did"`
-	URI string `json:"uri"`
+	Name          string `json:"name"`
+	DID           string `json:"did"`
+	URI           string `json:"uri"`
+	SignatureType string `json:"signatureType"`
+	Creator       string `json:"creator"`
 }
 
 // ProfileResponse struct the output for creating profile
 type ProfileResponse struct {
-	ID        string     `json:"id"`
-	URI       string     `json:"uri"`
-	IssueDate *time.Time `json:"issueDate"`
-	DID       string     `json:"did"`
+	Name          string     `json:"name"`
+	DID           string     `json:"did"`
+	URI           string     `json:"uri"`
+	SignatureType string     `json:"signatureType"`
+	Creator       string     `json:"creator"`
+	IssueDate     *time.Time `json:"issueDate"`
 }
 
 // VerifyCredentialResponse describes verify credential response

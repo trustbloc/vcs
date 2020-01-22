@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
@@ -24,7 +23,7 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 
 		issueDate := time.Now().UTC()
 		value := &ProfileResponse{
-			ID:        uuid.New().String(),
+			Name:      "issuer",
 			URI:       "https://example.com/credentials/1872",
 			IssueDate: &issueDate,
 		}
@@ -33,7 +32,7 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotEmpty(t, store)
-		k := fmt.Sprintf(keyPattern, profileKeyPrefix, value.ID)
+		k := fmt.Sprintf(keyPattern, profileKeyPrefix, value.Name)
 		v, err := record.store.Get(k)
 		require.NoError(t, err)
 		require.NotEmpty(t, v)
@@ -48,8 +47,8 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 
 		issueDate := time.Now().UTC()
 		valueStored := &ProfileResponse{
-			ID:        uuid.New().String(),
-			URI:       "https://example.com/credentials/1872",
+			Name:      "issuer",
+			URI:       "https://example.com/credentials",
 			IssueDate: &issueDate,
 		}
 
@@ -58,7 +57,7 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 
 		require.NotEmpty(t, store)
 
-		valueFound, err := record.GetProfile(valueStored.ID)
+		valueFound, err := record.GetProfile(valueStored.Name)
 		require.NoError(t, err)
 		require.Equal(t, valueStored, valueFound)
 	})
