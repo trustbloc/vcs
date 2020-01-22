@@ -1,0 +1,18 @@
+
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  vc.rest.example.com:
+    container_name: vc.rest.example.com
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=0.0.0.0:8070
+    ports:
+      - 8070:8070
+    command: start
