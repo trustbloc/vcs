@@ -29,7 +29,7 @@ type Profile struct {
 
 // SaveProfile saves issuer profile to underlying store
 func (c *Profile) SaveProfile(profileResponse *ProfileResponse) error {
-	k := fmt.Sprintf(keyPattern, profileKeyPrefix, profileResponse.ID)
+	k := fmt.Sprintf(keyPattern, profileKeyPrefix, profileResponse.Name)
 	bytes, err := json.Marshal(profileResponse)
 
 	if err != nil {
@@ -39,10 +39,9 @@ func (c *Profile) SaveProfile(profileResponse *ProfileResponse) error {
 	return c.store.Put(k, bytes)
 }
 
-// GetProfile returns profile id for given key from underlying store and
-// stores the result in the value pointed to by v
-func (c *Profile) GetProfile(id string) (*ProfileResponse, error) {
-	k := fmt.Sprintf(keyPattern, profileKeyPrefix, id)
+// GetProfile returns profile information for given profile name from underlying store
+func (c *Profile) GetProfile(name string) (*ProfileResponse, error) {
+	k := fmt.Sprintf(keyPattern, profileKeyPrefix, name)
 
 	bytes, err := c.store.Get(k)
 	if err != nil {

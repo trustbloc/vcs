@@ -22,8 +22,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 )
 
-const (
-	testCreateCredentialRequest = `{
+const testCreateCredentialRequest = `{
 "context":"https://www.w3.org/2018/credentials/examples/v1",
 "type": [
     "VerifiableCredential",
@@ -38,15 +37,18 @@ const (
     "name": "Jayden Doe",
     "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
   },
-
+  "profile": "issuer",
   "issuer": {
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
     "name": "Example University"
   }
 }`
-)
-const (
-	testIncorrectCredential = `{
+
+const testInvalidProfileForCreateCredential = `{
+  "profile": "invalid"
+}`
+
+const testIncorrectCredential = `{
 		"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"degree": {
@@ -56,25 +58,20 @@ const (
 		"name": "Jayden Doe",
 		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 		},
-		
+		"profile": "test",
 		"issuer": {
 		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
 		"name": "Example University"
 		}
 }`
-)
-const (
-	testIssuerProfile = `{
+
+const testIssuerProfile = `{
+		"name": "issuer",
 		"did": "did:peer:22",
-		"uri": "https://example.com/credentials"
+		"uri": "https://example.com/credentials",
+		"signatureType": "Ed25519Signature2018",
+		"creator": "did:peer:22#key1"
 }`
-)
-const (
-	testIncorrectIssuerProfile = `{
-		"did": "did:peer:22",
-		"uri": "&&%^)$"
-}`
-)
 
 const validVC = `{
   "@context": "https://www.w3.org/2018/credentials/v1",
@@ -105,6 +102,9 @@ func TestCreateCredentialHandler(t *testing.T) {
 	op, err := New(memstore.NewProvider())
 	require.NoError(t, err)
 
+	err = op.profileStore.SaveProfile(getTestProfile())
+	require.NoError(t, err)
+
 	createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
 
 	var logContents bytes.Buffer
@@ -126,7 +126,6 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
 		require.Equal(t, "Example University", vc.Issuer.Name)
-		require.Equal(t, id, vc.ID)
 	})
 	t.Run("create credential error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
@@ -137,6 +136,15 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Equal(t, rr.Body.String(), "Failed to write response for invalid request received")
 	})
+	t.Run("create credential error by passing invalid profile name", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+			bytes.NewBuffer([]byte(testInvalidProfileForCreateCredential)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		createCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to read profile")
+	})
 	t.Run("create credential error by passing invalid credential object", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
 			bytes.NewBuffer([]byte(testIncorrectCredential)))
@@ -144,8 +152,7 @@ func TestCreateCredentialHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		createCredentialHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(),
-			"Failed to write response for create credential failure")
+		require.Contains(t, rr.Body.String(), "failed to create credential")
 	})
 	t.Run("create credential error unable to write a response while reading the request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
@@ -155,6 +162,28 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.Contains(t, logContents.String(),
 			"Unable to send error message, response writer failed")
 	})
+}
+
+func TestCreateCredentialHandler_SignatureError(t *testing.T) {
+	op, err := New(memstore.NewProvider())
+	require.NoError(t, err)
+
+	err = op.profileStore.SaveProfile(getTestProfile())
+	require.NoError(t, err)
+
+	// clear private key
+	op.keySet.private = nil
+
+	createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
+
+	req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+		bytes.NewBuffer([]byte(testCreateCredentialRequest)))
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+	createCredentialHandler.Handle().ServeHTTP(rr, req)
+	require.Equal(t, http.StatusInternalServerError, rr.Code)
+	require.Contains(t, rr.Body.String(), "failed to sign credential")
 }
 
 func TestVerifyCredentialHandler(t *testing.T) {
@@ -229,22 +258,11 @@ func TestCreateProfileHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusCreated, rr.Code)
-		require.NotEmpty(t, profile.ID)
+		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
 	})
-	t.Run("missing DID information", func(t *testing.T) {
-		prBytes, err := json.Marshal(ProfileRequest{})
-		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(prBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(), "missing DID information")
-	})
-	t.Run("missing URI information", func(t *testing.T) {
+	t.Run("missing profile name", func(t *testing.T) {
 		prBytes, err := json.Marshal(ProfileRequest{DID: "test"})
 		require.NoError(t, err)
 
@@ -254,7 +272,7 @@ func TestCreateProfileHandler(t *testing.T) {
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(), "missing URI information")
+		require.Equal(t, rr.Body.String(), "missing profile name")
 	})
 	t.Run("create profile error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
@@ -265,17 +283,6 @@ func TestCreateProfileHandler(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Equal(t, rr.Body.String(), "Failed to write response for invalid request received")
 	})
-	t.Run("create profile error by internal create profile failure", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
-			bytes.NewBuffer([]byte(testIncorrectIssuerProfile)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to parse the uri: parse &&%^)$: invalid URL escape")
-	})
-
 	t.Run("create profile error unable to write a response while reading the request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
 		require.NoError(t, err)
@@ -330,14 +337,14 @@ func TestGetProfileHandler(t *testing.T) {
 		profile := createProfileSuccess(t, op)
 
 		r, err := http.NewRequest(http.MethodGet,
-			"/profile/"+profile.ID,
+			"/profile/"+profile.Name,
 			bytes.NewBuffer([]byte("")))
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
 
 		urlVars := make(map[string]string)
-		urlVars[profilePathVariable] = profile.ID
+		urlVars[profilePathVariable] = profile.Name
 		req = mux.SetURLVars(r, urlVars)
 
 		getProfileHandler.Handle().ServeHTTP(rr, req)
@@ -346,7 +353,7 @@ func TestGetProfileHandler(t *testing.T) {
 		profileResponse := &ProfileResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), profileResponse)
 		require.NoError(t, err)
-		require.Equal(t, profileResponse.ID, profile.ID)
+		require.Equal(t, profileResponse.Name, profile.Name)
 		require.Equal(t, profileResponse.URI, profile.URI)
 	})
 	t.Run("get profile error, bad request", func(t *testing.T) {
@@ -375,23 +382,9 @@ func createProfileSuccess(t *testing.T, op *Operation) *ProfileResponse {
 	require.NoError(t, err)
 
 	require.Equal(t, http.StatusCreated, rr.Code)
-	require.NotEmpty(t, profile.ID)
+	require.NotEmpty(t, profile.Name)
 
 	return profile
-}
-
-func TestOperation_parseAndGetURL(t *testing.T) {
-	t.Run("parse uri success", func(t *testing.T) {
-		resp, err := parseAndGetURI("http://example.edu/credentials")
-		require.NotNil(t, resp)
-		require.NoError(t, err)
-	})
-	t.Run("parse uri failed", func(t *testing.T) {
-		resp, err := parseAndGetURI("//not-valid.&&%^)$")
-		require.Empty(t, resp)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse the uri")
-	})
 }
 
 func TestCreate(t *testing.T) {
@@ -408,6 +401,65 @@ func TestCreate(t *testing.T) {
 
 	op.createCredentialHandler(b, req)
 	require.Contains(t, logContents.String(), "Unable to send error response, response writer failed")
+}
+
+func TestOperation_validateProfileRequest(t *testing.T) {
+	t.Run("valid profile ", func(t *testing.T) {
+		profile := getProfileRequest()
+		err := validateProfileRequest(profile)
+		require.NoError(t, err)
+	})
+	t.Run("missing profile name", func(t *testing.T) {
+		profile := getProfileRequest()
+		profile.Name = ""
+		err := validateProfileRequest(profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing profile name")
+	})
+	t.Run("missing DID", func(t *testing.T) {
+		profile := getProfileRequest()
+		profile.DID = ""
+		err := validateProfileRequest(profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing DID information")
+	})
+	t.Run("missing URI ", func(t *testing.T) {
+		profile := getProfileRequest()
+		profile.URI = ""
+		err := validateProfileRequest(profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing URI information")
+	})
+	t.Run("missing creator ", func(t *testing.T) {
+		profile := getProfileRequest()
+		profile.Creator = ""
+		err := validateProfileRequest(profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing creator")
+	})
+	t.Run("missing signature type ", func(t *testing.T) {
+		profile := getProfileRequest()
+		profile.SignatureType = ""
+		err := validateProfileRequest(profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing signature type")
+	})
+	t.Run("parse uri failed", func(t *testing.T) {
+		profile := getProfileRequest()
+		profile.URI = "//not-valid.&&%^)$"
+		err := validateProfileRequest(profile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid uri")
+	})
+}
+
+func getProfileRequest() *ProfileRequest {
+	return &ProfileRequest{
+		Name:          "issuer",
+		DID:           "did:method:abc",
+		URI:           "http://example.com/credentials",
+		Creator:       "did:method:abc#key2",
+		SignatureType: "Ed25519Signature2018"}
 }
 
 func getHandler(t *testing.T, op *Operation, lookup string) Handler {
@@ -431,6 +483,16 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
 	require.Fail(t, "unable to find handler")
 
 	return nil
+}
+
+func getTestProfile() *ProfileResponse {
+	return &ProfileResponse{
+		Name:          "test",
+		DID:           "did:test:abc",
+		URI:           "https://test.com/credentials",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:test:abc#key1",
+	}
 }
 
 type mockResponseWriter struct {
