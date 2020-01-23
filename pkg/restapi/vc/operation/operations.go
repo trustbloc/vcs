@@ -230,7 +230,10 @@ func createCredential(profile *ProfileResponse, data *CreateCredential) (*verifi
 	credential.Context = []string{credentialContext}
 	credential.Subject = data.Subject
 	credential.Types = data.Type
-	credential.Issuer = data.Issuer
+	credential.Issuer = verifiable.Issuer{
+		ID:   profile.DID,
+		Name: profile.Name,
+	}
 	credential.Issued = &issueDate
 	credential.ID = profile.URI + "/" + uuid.New().String()
 
@@ -252,11 +255,11 @@ func (c *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) 
 		return nil, err
 	}
 
-	issueDate := time.Now().UTC()
+	created := time.Now().UTC()
 	profileResponse := &ProfileResponse{
 		Name:          pr.Name,
 		URI:           pr.URI,
-		IssueDate:     &issueDate,
+		Created:       &created,
 		DID:           pr.DID,
 		SignatureType: pr.SignatureType,
 		Creator:       pr.Creator,

@@ -37,11 +37,7 @@ const testCreateCredentialRequest = `{
     "name": "Jayden Doe",
     "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
   },
-  "profile": "issuer",
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-  }
+  "profile": "test"
 }`
 
 const testInvalidProfileForCreateCredential = `{
@@ -58,11 +54,7 @@ const testIncorrectCredential = `{
 		"name": "Jayden Doe",
 		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 		},
-		"profile": "test",
-		"issuer": {
-		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		"name": "Example University"
-		}
+		"profile": "test"
 }`
 
 const testIssuerProfile = `{
@@ -124,8 +116,8 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusCreated, rr.Code)
-		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f", vc.Issuer.ID)
-		require.Equal(t, "Example University", vc.Issuer.Name)
+		require.Equal(t, getTestProfile().DID, vc.Issuer.ID)
+		require.Equal(t, getTestProfile().Name, vc.Issuer.Name)
 	})
 	t.Run("create credential error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
@@ -400,7 +392,7 @@ func TestCreate(t *testing.T) {
 	log.SetOutput(&logContents)
 
 	op.createCredentialHandler(b, req)
-	require.Contains(t, logContents.String(), "Unable to send error response, response writer failed")
+	require.Contains(t, logContents.String(), "Unable to send error message, response writer failed")
 }
 
 func TestOperation_validateProfileRequest(t *testing.T) {

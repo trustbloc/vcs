@@ -36,7 +36,7 @@ type ProfileResponse struct {
 	URI           string     `json:"uri"`
 	SignatureType string     `json:"signatureType"`
 	Creator       string     `json:"creator"`
-	IssueDate     *time.Time `json:"issueDate"`
+	Created       *time.Time `json:"created"`
 }
 
 // VerifyCredentialResponse describes verify credential response

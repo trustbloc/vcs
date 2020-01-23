@@ -21,11 +21,11 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 		record := NewProfile(store)
 		require.NotNil(t, record)
 
-		issueDate := time.Now().UTC()
+		created := time.Now().UTC()
 		value := &ProfileResponse{
-			Name:      "issuer",
-			URI:       "https://example.com/credentials/1872",
-			IssueDate: &issueDate,
+			Name:    "issuer",
+			URI:     "https://example.com/credentials/1872",
+			Created: &created,
 		}
 
 		err := record.SaveProfile(value)
@@ -45,11 +45,11 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 		record := NewProfile(store)
 		require.NotNil(t, record)
 
-		issueDate := time.Now().UTC()
+		created := time.Now().UTC()
 		valueStored := &ProfileResponse{
-			Name:      "issuer",
-			URI:       "https://example.com/credentials",
-			IssueDate: &issueDate,
+			Name:    "issuer",
+			URI:     "https://example.com/credentials",
+			Created: &created,
 		}
 
 		err := record.SaveProfile(valueStored)
