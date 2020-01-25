@@ -20,6 +20,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
+
+	"github.com/trustbloc/edge-service/pkg/internal/mock"
 )
 
 const testCreateCredentialRequest = `{
@@ -44,7 +47,54 @@ const testInvalidProfileForCreateCredential = `{
   "profile": "invalid"
 }`
 
-const testIncorrectCredential = `{
+const (
+	testStoreCredentialRequest = `{
+"context":"https://www.w3.org/2018/credentials/examples/v1",
+"type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "id": "https://example.com/credentials/1872",
+ "profile": "issuer",
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  }
+}`
+)
+const (
+	testStoreIncorrectCredentialRequest = `{
+"context":"https://www.w3.org/2018/credentials/examples/v1",
+"type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  }
+}`
+)
+const (
+	testIncorrectCredential = `{
 		"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"degree": {
@@ -56,6 +106,7 @@ const testIncorrectCredential = `{
 		},
 		"profile": "test"
 }`
+)
 
 const testIssuerProfile = `{
 		"name": "issuer",
@@ -90,8 +141,15 @@ const invalidVC = `{
   "issuanceDate": "2010-01-01T19:23:24Z"
 }`
 
+// errVaultNotFound throws an error when vault is not found
+var errVaultNotFound = errors.New("vault not found")
+
+// errDocumentNotFound throws an error when document associated with ID is not found
+var errDocumentNotFound = errors.New("edv does not have a document associated with ID")
+
 func TestCreateCredentialHandler(t *testing.T) {
-	op, err := New(memstore.NewProvider())
+	client := mock.NewMockEDVClient("test")
+	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
 	err = op.profileStore.SaveProfile(getTestProfile())
@@ -157,7 +215,8 @@ func TestCreateCredentialHandler(t *testing.T) {
 }
 
 func TestCreateCredentialHandler_SignatureError(t *testing.T) {
-	op, err := New(memstore.NewProvider())
+	client := mock.NewMockEDVClient("test")
+	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
 	err = op.profileStore.SaveProfile(getTestProfile())
@@ -179,7 +238,8 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 }
 
 func TestVerifyCredentialHandler(t *testing.T) {
-	op, err := New(memstore.NewProvider())
+	client := mock.NewMockEDVClient("test")
+	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
 	verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint)
@@ -228,7 +288,8 @@ func TestVerifyCredentialHandler(t *testing.T) {
 }
 
 func TestCreateProfileHandler(t *testing.T) {
-	op, err := New(memstore.NewProvider())
+	client := mock.NewMockEDVClient("test")
+	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint)
@@ -284,7 +345,8 @@ func TestCreateProfileHandler(t *testing.T) {
 			"Unable to send error message, response writer failed")
 	})
 	t.Run("create profile error while saving the profile", func(t *testing.T) {
-		op, err := New(memstore.NewProvider())
+		client := mock.NewMockEDVClient("test")
+		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
 		op.profileStore = NewProfile(&mockStore{
 			get: func(s string) (bytes []byte, e error) {
@@ -305,7 +367,8 @@ func TestCreateProfileHandler(t *testing.T) {
 }
 
 func TestGetProfileHandler(t *testing.T) {
-	op, err := New(memstore.NewProvider())
+	client := mock.NewMockEDVClient("test")
+	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
 	getProfileHandler := getHandler(t, op, getProfileEndpoint)
@@ -321,7 +384,7 @@ func TestGetProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	urlVars := make(map[string]string)
-	urlVars[profilePathVariable] = notFoundID
+	urlVars["id"] = notFoundID
 
 	req = mux.SetURLVars(req, urlVars)
 
@@ -336,7 +399,7 @@ func TestGetProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		urlVars := make(map[string]string)
-		urlVars[profilePathVariable] = profile.Name
+		urlVars["id"] = profile.Name
 		req = mux.SetURLVars(r, urlVars)
 
 		getProfileHandler.Handle().ServeHTTP(rr, req)
@@ -379,20 +442,155 @@ func createProfileSuccess(t *testing.T, op *Operation) *ProfileResponse {
 	return profile
 }
 
-func TestCreate(t *testing.T) {
-	b := mockResponseWriter{}
-	op, err := New(memstore.NewProvider())
-	require.NoError(t, err)
-	req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-		bytes.NewBuffer([]byte(testCreateCredentialRequest)))
-	require.NoError(t, err)
+func TestStoreVCHandler(t *testing.T) {
+	t.Run("store vc success", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test")
 
-	var logContents bytes.Buffer
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		op.storeVCHandler(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+	t.Run("store vc err while creating the document", func(t *testing.T) {
+		client := NewMockEDVClient("test")
 
-	log.SetOutput(&logContents)
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		op.storeVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), errVaultNotFound.Error())
+	})
+	t.Run("store vc error while writing success response", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test")
 
-	op.createCredentialHandler(b, req)
-	require.Contains(t, logContents.String(), "Unable to send error message, response writer failed")
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
+		require.NoError(t, err)
+
+		rr := mockResponseWriter{}
+		var logContents bytes.Buffer
+
+		log.SetOutput(&logContents)
+
+		op.storeVCHandler(rr, req)
+		require.Contains(t, logContents.String(), "Unable to send error response, response writer failed")
+	})
+	t.Run("store vc err invalid request", func(t *testing.T) {
+		client := NewMockEDVClient("test")
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(validVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		op.storeVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), "invalid request received")
+	})
+	t.Run("store vc err missing profile name", func(t *testing.T) {
+		client := NewMockEDVClient("test")
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(testStoreIncorrectCredentialRequest)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		op.storeVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), "missing profile name")
+	})
+}
+
+func TestRetrieveVCHandler(t *testing.T) {
+	t.Run("retrieve vc success", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test")
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+
+		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		profile := getTestProfile()
+
+		q := r.URL.Query()
+		q.Add("id", "test")
+		q.Add("profile", profile.Name)
+		r.URL.RawQuery = q.Encode()
+		rr := httptest.NewRecorder()
+
+		op.retrieveVCHandler(rr, r)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test")
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+
+		op.retrieveVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "missing profile name")
+	})
+	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test")
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		profile := getTestProfile()
+
+		rr := httptest.NewRecorder()
+		q := req.URL.Query()
+		q.Add("profile", profile.Name)
+		req.URL.RawQuery = q.Encode()
+		op.retrieveVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "missing verifiable credential ID")
+	})
+	t.Run("retrieve vc error when no document is found", func(t *testing.T) {
+		client := NewMockEDVClient("test")
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		profile := getTestProfile()
+
+		q := req.URL.Query()
+		q.Add("id", "test")
+		q.Add("profile", profile.Name)
+		req.URL.RawQuery = q.Encode()
+
+		rr := httptest.NewRecorder()
+
+		op.retrieveVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), errDocumentNotFound.Error())
+	})
 }
 
 func TestOperation_validateProfileRequest(t *testing.T) {
@@ -524,4 +722,28 @@ func (r *mockReader) Read(p []byte) (n int, err error) {
 
 func (r *mockReader) Close() error {
 	return nil
+}
+
+type TestClient struct {
+	edvServerURL string
+}
+
+// NewMockEDVClient
+func NewMockEDVClient(edvServerURL string) *TestClient {
+	return &TestClient{edvServerURL: edvServerURL}
+}
+
+// CreateDataVault sends the EDV server a request to create a new data vault.
+func (c *TestClient) CreateDataVault(config *operation.DataVaultConfiguration) (string, error) {
+	return "", nil
+}
+
+// CreateDocument sends the EDV server a request to store the specified document.
+func (c *TestClient) CreateDocument(vaultID string, document *operation.StructuredDocument) (string, error) {
+	return "", errVaultNotFound
+}
+
+// RetrieveDocument sends the Mock EDV server a request to retrieve the specified document.
+func (c *TestClient) RetrieveDocument(vaultID, docID string) ([]byte, error) {
+	return nil, errDocumentNotFound
 }
