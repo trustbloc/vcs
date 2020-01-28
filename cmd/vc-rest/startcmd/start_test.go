@@ -33,12 +33,23 @@ func TestStartCmdContents(t *testing.T) {
 func TestStartCmdWithBlankHostArg(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, ""}
+	args := []string{"--" + hostURLFlagName, "", "--" + edvURLFlagName, ""}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
 
 	require.Equal(t, errMissingHostURL.Error(), err.Error())
+}
+
+func TestStartCmdWithBlankEDVHostArg(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, ""}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+
+	require.Equal(t, errMissingEDVHostURL.Error(), err.Error())
 }
 
 func TestStartCmdWithMissingHostArg(t *testing.T) {
@@ -62,7 +73,7 @@ func TestStartEdgeStoreWithBlankHost(t *testing.T) {
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080"}
+	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName, "localhost:8081"}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -74,6 +85,9 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
+	require.Nil(t, err)
+
+	err = os.Setenv(edvURLEnvKey, "localhost:8081")
 	require.Nil(t, err)
 
 	err = startCmd.Execute()

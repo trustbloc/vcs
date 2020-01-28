@@ -24,7 +24,7 @@ import (
 const (
 	hostURLFlagName      = "host-url"
 	hostURLFlagShorthand = "u"
-	hostURLFlagUsage     = "URL vc-rest instance is running on. Format: HostName:Port."
+	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
 	hostURLEnvKey        = "VC_REST_HOST_URL"
 	edvURLFlagName       = "edv-url"
 	edvURLFlagShorthand  = "e"
@@ -33,6 +33,7 @@ const (
 )
 
 var errMissingHostURL = errors.New("host URL not provided")
+var errMissingEDVHostURL = errors.New("edv host URL not provided")
 
 type vcRestParameters struct {
 	srv     server
@@ -93,6 +94,10 @@ func createFlags(startCmd *cobra.Command) {
 func startEdgeService(parameters *vcRestParameters) error {
 	if parameters.hostURL == "" {
 		return errMissingHostURL
+	}
+
+	if parameters.edvURL == "" {
+		return errMissingEDVHostURL
 	}
 
 	vcService, err := operation.New(memstore.NewProvider(), edv.New(parameters.edvURL))
