@@ -110,8 +110,8 @@ github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81P
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/trustbloc/edge-core v0.0.0-20200117175518-7997acf8ed7a h1:461cXE3gwaUQpVtUX0xZpNLMHHQDOJmiDd3PAps/U08=
 github.com/trustbloc/edge-core v0.0.0-20200117175518-7997acf8ed7a/go.mod h1:aEkFOyP99eRGPLwCN/4XKFe4ZAPmtroMkf49SRirXkU=
-github.com/trustbloc/edv v0.0.0-20200117213234-9e415c572513 h1:Oekjpu5Sy7F80w5q8oI6nJPvTGDg0/KwcvQe6KGhsB4=
-github.com/trustbloc/edv v0.0.0-20200117213234-9e415c572513/go.mod h1:NLcjKKzcNi096J1ikORIGODxhj/r4HMiaDswXtJdUN4=
+github.com/trustbloc/edv v0.0.0-20200127235150-0c7f32ff9d88 h1:0NIGF3R6mDM6RXHytPQZBnsB+40kgft6+0K2DvPkqAY=
+github.com/trustbloc/edv v0.0.0-20200127235150-0c7f32ff9d88/go.mod h1:NLcjKKzcNi096J1ikORIGODxhj/r4HMiaDswXtJdUN4=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=

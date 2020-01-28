@@ -527,7 +527,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		profile := getTestProfile()
 
 		q := r.URL.Query()
-		q.Add("id", "test")
+		q.Add("id", "http://test.com")
 		q.Add("profile", profile.Name)
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
@@ -744,6 +744,6 @@ func (c *TestClient) CreateDocument(vaultID string, document *operation.Structur
 }
 
 // RetrieveDocument sends the Mock EDV server a request to retrieve the specified document.
-func (c *TestClient) RetrieveDocument(vaultID, docID string) ([]byte, error) {
+func (c *TestClient) ReadDocument(vaultID, docID string) ([]byte, error) {
 	return nil, errDocumentNotFound
 }
