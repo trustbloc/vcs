@@ -29,7 +29,7 @@ func (c *Client) CreateDocument(vaultID string, document *operation.StructuredDo
 	return "", nil
 }
 
-// RetrieveDocument retrieves the specified document.
-func (c *Client) RetrieveDocument(vaultID, docID string) ([]byte, error) {
+// ReadDocument reads the specified document.
+func (c *Client) ReadDocument(vaultID, docID string) ([]byte, error) {
 	return nil, nil
 }

@@ -16,7 +16,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,7 +58,7 @@ type Handler interface {
 type Client interface {
 	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
 	CreateDocument(vaultID string, document *operation.StructuredDocument) (string, error)
-	RetrieveDocument(vaultID, docID string) ([]byte, error)
+	ReadDocument(vaultID, docID string) ([]byte, error)
 }
 
 // New returns CreateCredential instance
@@ -254,9 +253,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	doc := operation.StructuredDocument{}
 	doc.Content = make(map[string]interface{})
 	doc.Content["message"] = data
-
-	// todo remove the stripping of the string issue-34
-	doc.ID = data.ID[strings.LastIndex(data.ID, "/")+1:]
+	doc.ID = data.ID
 
 	locationOfDocument, err := o.client.CreateDocument(data.Profile, &doc)
 	if err != nil {
@@ -278,10 +275,7 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	// todo remove the stripping of the string issue-34
-	credentialID := id[strings.LastIndex(id, "/")+1:]
-
-	credentialResponse, err := o.client.RetrieveDocument(profile, credentialID)
+	credentialResponse, err := o.client.ReadDocument(profile, id)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
