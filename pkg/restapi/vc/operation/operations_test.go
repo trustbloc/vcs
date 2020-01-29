@@ -49,12 +49,14 @@ const testInvalidProfileForCreateCredential = `{
 
 const (
 	testStoreCredentialRequest = `{
-"context":"https://www.w3.org/2018/credentials/examples/v1",
-"type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "credentialSubject": {
+"profile": "issuer",
+"credential" : {
+	"@context":"https://www.w3.org/2018/credentials/examples/v1",
+	"type": [
+    	"VerifiableCredential",
+   		 "UniversityDegreeCredential"
+ 	 ],
+   "credentialSubject": {
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
     "degree": {
       "type": "BachelorDegree",
@@ -62,23 +64,25 @@ const (
     },
     "name": "Jayden Doe",
     "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "id": "https://example.com/credentials/1872",
- "profile": "issuer",
-  "issuer": {
+  	},
+  	"id": "https://example.com/credentials/1872",
+  	"issuer": {
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
     "name": "Example University"
+    }
   }
 }`
 )
 const (
 	testStoreIncorrectCredentialRequest = `{
-"context":"https://www.w3.org/2018/credentials/examples/v1",
-"type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "credentialSubject": {
+"profile": "",
+"credential" : {
+	"@context":"https://www.w3.org/2018/credentials/examples/v1",
+	"type": [
+    	"VerifiableCredential",
+   		 "UniversityDegreeCredential"
+ 	 ],
+   "credentialSubject": {
     "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
     "degree": {
       "type": "BachelorDegree",
@@ -86,10 +90,12 @@ const (
     },
     "name": "Jayden Doe",
     "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "issuer": {
+  	},
+  	"id": "https://example.com/credentials/1872",
+  	"issuer": {
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
     "name": "Example University"
+    }
   }
 }`
 )
@@ -487,18 +493,18 @@ func TestStoreVCHandler(t *testing.T) {
 		op.storeVCHandler(rr, req)
 		require.Contains(t, logContents.String(), "Unable to send error response, response writer failed")
 	})
-	t.Run("store vc err invalid request", func(t *testing.T) {
+	t.Run("store vc err value not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
 		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
-			bytes.NewBuffer([]byte(validVC)))
+			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(), "invalid request received")
+		require.Equal(t, rr.Body.String(), "vault not found")
 	})
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		client := NewMockEDVClient("test")
