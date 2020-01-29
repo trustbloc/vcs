@@ -20,10 +20,10 @@ type CreateCrendentialRequest struct {
 	Profile string             `json:"profile,omitempty"`
 }
 
-// CreateCrendentialResponse returns the credential with an ID
-type CreateCrendentialResponse struct {
-	ID string `json:"id"`
-	CreateCrendentialRequest
+// StoreVCRequest stores the credential with profile name
+type StoreVCRequest struct {
+	Profile    string                 `json:"profile"`
+	Credential *verifiable.Credential `json:"credential"`
 }
 
 // ProfileRequest struct the input for creating profile

@@ -223,7 +223,7 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 }
 
 func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
-	data := &CreateCrendentialResponse{}
+	data := &StoreVCRequest{}
 	err := json.NewDecoder(req.Body).Decode(&data)
 
 	if err != nil {
@@ -232,7 +232,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err = validateRequest(data.Profile, data.ID); err != nil {
+	if err = validateRequest(data.Profile, data.Credential.ID); err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -241,7 +241,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	doc := operation.StructuredDocument{}
 	doc.Content = make(map[string]interface{})
 	doc.Content["message"] = data
-	doc.ID = data.ID
+	doc.ID = data.Credential.ID
 
 	locationOfDocument, err := o.client.CreateDocument(data.Profile, &doc)
 	if err != nil {
