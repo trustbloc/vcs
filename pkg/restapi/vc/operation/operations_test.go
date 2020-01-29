@@ -214,28 +214,30 @@ func TestCreateCredentialHandler(t *testing.T) {
 	})
 }
 
-func TestCreateCredentialHandler_SignatureError(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
-	op, err := New(memstore.NewProvider(), client)
-	require.NoError(t, err)
+// TODO re-enable it in 0.1.2
 
-	err = op.profileStore.SaveProfile(getTestProfile())
-	require.NoError(t, err)
-
-	// clear private key
-	op.keySet.private = nil
-
-	createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
-
-	req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-		bytes.NewBuffer([]byte(testCreateCredentialRequest)))
-	require.NoError(t, err)
-
-	rr := httptest.NewRecorder()
-	createCredentialHandler.Handle().ServeHTTP(rr, req)
-	require.Equal(t, http.StatusInternalServerError, rr.Code)
-	require.Contains(t, rr.Body.String(), "failed to sign credential")
-}
+// func TestCreateCredentialHandler_SignatureError(t *testing.T) {
+//	client := mock.NewMockEDVClient("test")
+//	op, err := New(memstore.NewProvider(), client)
+//	require.NoError(t, err)
+//
+//	err = op.profileStore.SaveProfile(getTestProfile())
+//	require.NoError(t, err)
+//
+//	// clear private key
+//	op.keySet.private = nil
+//
+//	createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
+//
+//	req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+//		bytes.NewBuffer([]byte(testCreateCredentialRequest)))
+//	require.NoError(t, err)
+//
+//	rr := httptest.NewRecorder()
+//	createCredentialHandler.Handle().ServeHTTP(rr, req)
+//	require.Equal(t, http.StatusInternalServerError, rr.Code)
+//	require.Contains(t, rr.Body.String(), "failed to sign credential")
+// }
 
 func TestVerifyCredentialHandler(t *testing.T) {
 	client := mock.NewMockEDVClient("test")
