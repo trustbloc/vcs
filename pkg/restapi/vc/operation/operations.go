@@ -81,18 +81,6 @@ func New(provider storage.Provider, client Client) (*Operation, error) {
 		client: client,
 	}
 
-	// TODO: Remove default profile when bdd test is done
-	err = svc.profileStore.SaveProfile(&ProfileResponse{
-		Name:          "issuer",
-		DID:           "did:method:abc",
-		URI:           "https://issuer.com/credentials",
-		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:method:abc#key1",
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	svc.registerHandler()
 
 	return svc, nil
