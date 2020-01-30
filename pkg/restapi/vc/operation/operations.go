@@ -252,7 +252,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 
 	doc := operation.StructuredDocument{}
 	doc.Content = make(map[string]interface{})
-	doc.Content["message"] = data
+	doc.Content["message"] = data.Credential
 	doc.ID = data.Credential.ID
 
 	locationOfDocument, err := o.client.CreateDocument(data.Profile, &doc)
