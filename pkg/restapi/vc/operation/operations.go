@@ -148,6 +148,18 @@ func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Re
 }
 
 func (o *Operation) signCredential(profile *ProfileResponse, vc *verifiable.Credential) (*verifiable.Credential, error) { // nolint:lll
+	signingCtx := &verifiable.LinkedDataProofContext{
+		Creator:       profile.Creator,
+		SignatureType: profile.SignatureType,
+		Suite:         ed25519signature2018.New(),
+		PrivateKey:    o.keySet.private,
+	}
+
+	err := vc.AddLinkedDataProof(signingCtx)
+	if err != nil {
+		return nil, err
+	}
+
 	return vc, nil
 }
 
