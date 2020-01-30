@@ -17,14 +17,14 @@ import (
 )
 
 func TestController_New(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	controller, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 }
 
 func TestController_GetOperations(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	controller, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 	require.NotNil(t, controller)

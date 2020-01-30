@@ -1,0 +1,24 @@
+
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  edv.rest.example.com:
+    container_name: edv.rest.example.com
+    image: ${EDV_REST_IMAGE}:${EDV_REST_IMAGE_TAG}
+    environment:
+      - EDV_HOST_URL=${EDV_HOST}:${EDV_PORT}
+    ports:
+      - ${EDV_PORT}:${EDV_PORT}
+    command: start
+    networks:
+      - vc-rest_bdd_net
+
+networks:
+  vc-rest_bdd_net:
+    external: true

@@ -27,3 +27,4 @@ coverage.txt
 
 # Exclude build directory
 build
+*.log

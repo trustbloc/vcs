@@ -11,12 +11,13 @@ import (
 
 // Client is the mock edv client
 type Client struct {
-	edvServerURL string
+	edvServerURL            string
+	readDocumentReturnValue []byte
 }
 
 // NewMockEDVClient is the mock version of edv client
-func NewMockEDVClient(edvServerURL string) *Client {
-	return &Client{edvServerURL: edvServerURL}
+func NewMockEDVClient(edvServerURL string, readDocumentReturnValue []byte) *Client {
+	return &Client{edvServerURL: edvServerURL, readDocumentReturnValue: readDocumentReturnValue}
 }
 
 // CreateDataVault creates a new data vault.
@@ -31,5 +32,5 @@ func (c *Client) CreateDocument(vaultID string, document *operation.StructuredDo
 
 // ReadDocument reads the specified document.
 func (c *Client) ReadDocument(vaultID, docID string) ([]byte, error) {
-	return nil, nil
+	return c.readDocumentReturnValue, nil
 }

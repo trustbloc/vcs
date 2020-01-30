@@ -13,7 +13,7 @@ ALPINE_VER ?= 3.10
 GO_VER ?= 1.13.1
 
 .PHONY: all
-all: checks unit-test
+all: checks unit-test bdd-test
 
 .PHONY: checks
 checks: license lint
@@ -38,6 +38,11 @@ vc-rest-docker:
 	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
+
+.PHONY: bdd-test
+bdd-test: vc-rest-docker
+	@rm -Rf ./test/bdd/*.log
+	@scripts/check_integration.sh
 
 unit-test:
 	@scripts/check_unit.sh

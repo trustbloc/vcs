@@ -113,7 +113,7 @@ type keySet struct {
 }
 
 func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
-	data := CreateCrendentialRequest{}
+	data := CreateCredentialRequest{}
 	err := json.NewDecoder(req.Body).Decode(&data)
 
 	if err != nil {
@@ -255,14 +255,12 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	doc.Content["message"] = data.Credential
 	doc.ID = data.Credential.ID
 
-	locationOfDocument, err := o.client.CreateDocument(data.Profile, &doc)
+	_, err = o.client.CreateDocument(data.Profile, &doc)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
-
-	o.writeResponse(rw, locationOfDocument)
 }
 
 func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request) {
@@ -275,21 +273,35 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	credentialResponse, err := o.client.ReadDocument(profile, id)
+	documentBytes, err := o.client.ReadDocument(profile, id)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	_, err = rw.Write(credentialResponse)
+	document := operation.StructuredDocument{}
+
+	err = json.Unmarshal(documentBytes, &document)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("structured document unmarshalling failed: %s", err.Error()))
+	}
+
+	responseMsg, err := json.Marshal(document.Content["message"])
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("structured document content marshalling failed: %s", err.Error()))
+	}
+
+	_, err = rw.Write(responseMsg)
 	if err != nil {
 		log.Errorf("Failed to write response for document retrieval success: %s",
 			err.Error())
 	}
 }
 
-func createCredential(profile *ProfileResponse, data *CreateCrendentialRequest) (*verifiable.Credential, error) {
+func createCredential(profile *ProfileResponse, data *CreateCredentialRequest) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 
 	issueDate := time.Now().UTC()

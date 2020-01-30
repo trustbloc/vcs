@@ -31,6 +31,25 @@ jobs:
       - script: bash <(curl https://codecov.io/bash)
         displayName: Upload coverage to Codecov
 
+  - job: BDDTest
+    pool:
+      vmImage: ubuntu-16.04
+    timeoutInMinutes: 30
+    steps:
+      - template: azp-dependencies.yml
+      - checkout: self
+      - bash: |
+          function logout {
+            docker logout
+          }
+          trap logout EXIT
+          echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
+          make bdd-test
+        env:
+          DOCKER_USER: $(DOCKER_USER)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+        displayName: Run BDD tests
+
   - job: Publish
     dependsOn:
       - Checks
