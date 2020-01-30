@@ -12,7 +12,14 @@ services:
     container_name: vc.rest.example.com
     image: ${VC_REST_IMAGE}:latest
     environment:
-      - VC_REST_HOST_URL=0.0.0.0:8070
+      - VC_REST_HOST_URL=${VC_HOST}:${VC_PORT}
+      - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
     ports:
-      - 8070:8070
+      - ${VC_PORT}:${VC_PORT}
     command: start
+    networks:
+      - bdd_net
+
+networks:
+  bdd_net:
+    driver: bridge

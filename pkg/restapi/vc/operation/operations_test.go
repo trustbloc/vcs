@@ -147,6 +147,16 @@ const invalidVC = `{
   "issuanceDate": "2010-01-01T19:23:24Z"
 }`
 
+const testStructuredDocument = `{
+  "id":"someID",
+  "meta": {
+    "created": "2019-06-18"
+  },
+  "content": {
+    "message": "Hello World!"
+  }
+}`
+
 // errVaultNotFound throws an error when vault is not found
 var errVaultNotFound = errors.New("vault not found")
 
@@ -154,7 +164,7 @@ var errVaultNotFound = errors.New("vault not found")
 var errDocumentNotFound = errors.New("edv does not have a document associated with ID")
 
 func TestCreateCredentialHandler(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
@@ -223,7 +233,7 @@ func TestCreateCredentialHandler(t *testing.T) {
 // TODO re-enable it in 0.1.2
 
 func TestCreateCredentialHandler_SignatureError(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
@@ -246,7 +256,7 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 }
 
 func TestVerifyCredentialHandler(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
@@ -296,7 +306,7 @@ func TestVerifyCredentialHandler(t *testing.T) {
 }
 
 func TestCreateProfileHandler(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
@@ -353,7 +363,7 @@ func TestCreateProfileHandler(t *testing.T) {
 			"Unable to send error message, response writer failed")
 	})
 	t.Run("create profile error while saving the profile", func(t *testing.T) {
-		client := mock.NewMockEDVClient("test")
+		client := mock.NewMockEDVClient("test", nil)
 		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
 		op.profileStore = NewProfile(&mockStore{
@@ -375,7 +385,7 @@ func TestCreateProfileHandler(t *testing.T) {
 }
 
 func TestGetProfileHandler(t *testing.T) {
-	client := mock.NewMockEDVClient("test")
+	client := mock.NewMockEDVClient("test", nil)
 	op, err := New(memstore.NewProvider(), client)
 	require.NoError(t, err)
 
@@ -452,7 +462,7 @@ func createProfileSuccess(t *testing.T, op *Operation) *ProfileResponse {
 
 func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc success", func(t *testing.T) {
-		client := mock.NewMockEDVClient("test")
+		client := mock.NewMockEDVClient("test", nil)
 
 		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
@@ -475,23 +485,6 @@ func TestStoreVCHandler(t *testing.T) {
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Equal(t, rr.Body.String(), errVaultNotFound.Error())
-	})
-	t.Run("store vc error while writing success response", func(t *testing.T) {
-		client := mock.NewMockEDVClient("test")
-
-		op, err := New(memstore.NewProvider(), client)
-		require.NoError(t, err)
-		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
-			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
-		require.NoError(t, err)
-
-		rr := mockResponseWriter{}
-		var logContents bytes.Buffer
-
-		log.SetOutput(&logContents)
-
-		op.storeVCHandler(rr, req)
-		require.Contains(t, logContents.String(), "Unable to send error response, response writer failed")
 	})
 	t.Run("store vc err vault not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
@@ -523,7 +516,7 @@ func TestStoreVCHandler(t *testing.T) {
 
 func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc success", func(t *testing.T) {
-		client := mock.NewMockEDVClient("test")
+		client := mock.NewMockEDVClient("test", []byte(testStructuredDocument))
 
 		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
@@ -542,9 +535,10 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		op.retrieveVCHandler(rr, r)
 		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, `"Hello World!"`, rr.Body.String())
 	})
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
-		client := mock.NewMockEDVClient("test")
+		client := mock.NewMockEDVClient("test", nil)
 
 		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
@@ -559,7 +553,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "missing profile name")
 	})
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
-		client := mock.NewMockEDVClient("test")
+		client := mock.NewMockEDVClient("test", nil)
 
 		op, err := New(memstore.NewProvider(), client)
 		require.NoError(t, err)
@@ -598,6 +592,52 @@ func TestRetrieveVCHandler(t *testing.T) {
 		op.retrieveVCHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Equal(t, rr.Body.String(), errDocumentNotFound.Error())
+	})
+	t.Run("retrieve vc unmarshal structured document error", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test", nil)
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+
+		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		profile := getTestProfile()
+
+		q := r.URL.Query()
+		q.Add("id", "http://test.com")
+		q.Add("profile", profile.Name)
+		r.URL.RawQuery = q.Encode()
+		rr := httptest.NewRecorder()
+
+		op.retrieveVCHandler(rr, r)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+	})
+	t.Run("retrieve vc fail when writing document retrieval success", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test", []byte(testStructuredDocument))
+
+		var logContents bytes.Buffer
+		log.SetOutput(&logContents)
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+
+		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint)
+
+		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		q := req.URL.Query()
+		q.Add("id", "http://test.com")
+		q.Add("profile", "test")
+		req.URL.RawQuery = q.Encode()
+
+		rw := mockResponseWriter{}
+		retrieveVCHandler.Handle().ServeHTTP(rw, req)
+		require.Contains(t, logContents.String(),
+			"Failed to write response for document retrieval success: response writer failed")
 	})
 }
 
