@@ -13,6 +13,6 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
-	github.com/trustbloc/edge-core v0.0.0-20200117175518-7997acf8ed7a
-	github.com/trustbloc/edv v0.0.0-20200127235150-0c7f32ff9d88
+	github.com/trustbloc/edge-core v0.1.1
+	github.com/trustbloc/edv v0.1.1
 )

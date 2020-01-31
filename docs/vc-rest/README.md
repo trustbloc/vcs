@@ -92,7 +92,7 @@ Mandatory fields:
     "profile": "issuer"
 }
 ```
-### 3. Verify verifiable credential - POST /verify
+### 4. Verify verifiable credential - POST /verify
 
 Invokes [aries-framework-go](https://github.com/hyperledger/aries-framework-go/tree/master/pkg/doc/verifiable) to verify the credential
 

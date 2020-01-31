@@ -52,8 +52,6 @@ github.com/hashicorp/golang-lru v0.5.0/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ4Ao+sR/qLZy8=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/hyperledger/aries-framework-go v0.1.1-0.20200121182508-01fa9ee94644 h1:BRYsh0ubFrsDYRdjQrl/i6baBy/jGEzGfUA70GT9bFc=
-github.com/hyperledger/aries-framework-go v0.1.1-0.20200121182508-01fa9ee94644/go.mod h1:EWYMDfPqWVI/XxSvvCQJHJYEwYRWChhN7ItoM1SGinI=
 github.com/hyperledger/aries-framework-go v0.1.1 h1:E9ZbE1ob3yvttio9K4xygjy0sUornEXGkO21m1r5Y+g=
 github.com/hyperledger/aries-framework-go v0.1.1/go.mod h1:EWYMDfPqWVI/XxSvvCQJHJYEwYRWChhN7ItoM1SGinI=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
@@ -80,7 +78,6 @@ github.com/multiformats/go-multihash v0.0.8/go.mod h1:YSLudS+Pi8NHE7o6tb3D8vrpKa
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
-github.com/opencontainers/runc v0.1.1/go.mod h1:qT5XzbpPznkRYVz/mWwUaVBUv2rmF59PVA73FjuZG0U=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
 github.com/piprate/json-gold v0.3.0 h1:a1vHx7Q1jOO1pjCtKwTI/WCzwaQwRt9VM7apK2uy200=
 github.com/piprate/json-gold v0.3.0/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
@@ -109,10 +106,10 @@ github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UV
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
-github.com/trustbloc/edge-core v0.0.0-20200117175518-7997acf8ed7a h1:461cXE3gwaUQpVtUX0xZpNLMHHQDOJmiDd3PAps/U08=
-github.com/trustbloc/edge-core v0.0.0-20200117175518-7997acf8ed7a/go.mod h1:aEkFOyP99eRGPLwCN/4XKFe4ZAPmtroMkf49SRirXkU=
-github.com/trustbloc/edv v0.0.0-20200127235150-0c7f32ff9d88 h1:0NIGF3R6mDM6RXHytPQZBnsB+40kgft6+0K2DvPkqAY=
-github.com/trustbloc/edv v0.0.0-20200127235150-0c7f32ff9d88/go.mod h1:NLcjKKzcNi096J1ikORIGODxhj/r4HMiaDswXtJdUN4=
+github.com/trustbloc/edge-core v0.1.1 h1:tyD0vOc1byuj1MY7gmMSGT5oe/Xs+gXTfhzm1YDd/4g=
+github.com/trustbloc/edge-core v0.1.1/go.mod h1:aEkFOyP99eRGPLwCN/4XKFe4ZAPmtroMkf49SRirXkU=
+github.com/trustbloc/edv v0.1.1 h1:ghPT3qpWvizgsQvNTR4JoshISdKogIOhMoOr5YETpy8=
+github.com/trustbloc/edv v0.1.1/go.mod h1:Lr8HY02Ql2IksI8A7dqKpE2XKcvSKfjIH2g+XDt8/qs=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
