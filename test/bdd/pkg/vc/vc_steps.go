@@ -14,13 +14,20 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/DATA-DOG/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
+)
+
+const (
+	expectedProfileResponseDIDAndIssuerID = "did:peer:22"
+	expectedProfileResponseURI            = "https://example.com/credentials"
+	expectedProfileResponseSignatureType  = "Ed25519Signature2018"
+	expectedProfileResponseCreator        = "did:peer:22#key1"
 )
 
 // Steps is steps for VC BDD tests
@@ -35,24 +42,33 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Send request to create a profile with profile request "([^"]*)"`+
-		` and receive the profile response "([^"]*)"$`, e.createProfile)
-	s.Step(`^Send request to get a profile with id "([^"]*)" and receive the profile response "([^"]*)"$`, e.getProfile)
-	s.Step(`^Send request to create a credential with credential request "([^"]*)"`+
-		` and receive a verified credential with issuer ID "([^"]*)" and issuer name "([^"]*)"$`, e.createCredential)
-	s.Step(`^Send request to store a credential with StoreVCRequest "([^"]*)"$`, e.storeCredential)
-	s.Step(`^Send request to retrieve a credential with id "([^"]*)"`+
-		` under profile "([^"]*)" and receive VC with issuer ID "([^"]*)" and issuer name "([^"]*)"$`, e.retrieveCredential)
-	s.Step(`^Verify the credential "([^"]*)"$`, e.verifyCredential)
+	s.Step(`^Profile "([^"]*)" is created$`, e.createProfile)
+	s.Step(`^We can retrieve profile "([^"]*)"$`, e.getProfile)
+	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
+	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCredential)
+	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
+	s.Step(`^Now we verify that credential$`, e.verifyCredential)
 }
 
-func (e *Steps) createProfile(profileRequestArgKey, expectedProfileResponseArgkey string) error {
-	profileRequestJSON := e.bddContext.Args[profileRequestArgKey]
+func (e *Steps) createProfile(profileName string) error {
+	profileRequest := operation.ProfileRequest{}
+
+	err := json.Unmarshal(e.bddContext.ProfileRequestTemplate, &profileRequest)
+	if err != nil {
+		return err
+	}
+
+	profileRequest.Name = profileName
+
+	requestBytes, err := json.Marshal(profileRequest)
+	if err != nil {
+		return err
+	}
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Post("http://localhost:8070/profile", "", //nolint: bodyclose
-		bytes.NewBuffer([]byte(profileRequestJSON)))
+		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -60,7 +76,7 @@ func (e *Steps) createProfile(profileRequestArgKey, expectedProfileResponseArgke
 	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("expected status code %d, received %d", http.StatusCreated, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
 	}
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
@@ -75,13 +91,13 @@ func (e *Steps) createProfile(profileRequestArgKey, expectedProfileResponseArgke
 		return err
 	}
 
-	return e.checkProfileResponse(expectedProfileResponseArgkey, &profileResponse)
+	return e.checkProfileResponse(profileName, &profileResponse)
 }
 
-func (e *Steps) getProfile(profileID, expectedProfileResponseArgkey string) error {
+func (e *Steps) getProfile(profileName string) error {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Get(fmt.Sprintf("http://localhost:8070/profile/%s", profileID)) //nolint: bodyclose
+	resp, err := http.Get(fmt.Sprintf("http://localhost:8070/profile/%s", profileName)) //nolint: bodyclose
 	if err != nil {
 		return err
 	}
@@ -100,16 +116,28 @@ func (e *Steps) getProfile(profileID, expectedProfileResponseArgkey string) erro
 		return err
 	}
 
-	return e.checkProfileResponse(expectedProfileResponseArgkey, &profileResponse)
+	return e.checkProfileResponse(profileName, &profileResponse)
 }
 
-func (e *Steps) createCredential(credentialRequestArgKey, expectedIssuerID, expectedIssuerName string) error {
-	credentialRequest := e.bddContext.Args[credentialRequestArgKey]
+func (e *Steps) createCredential(profileName string) error {
+	credentialRequest := operation.CreateCredentialRequest{}
+
+	err := json.Unmarshal(e.bddContext.CreateCredentialRequestTemplate, &credentialRequest)
+	if err != nil {
+		return err
+	}
+
+	credentialRequest.Profile = profileName
+
+	requestBytes, err := json.Marshal(credentialRequest)
+	if err != nil {
+		return err
+	}
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Post("http://localhost:8070/credential", "", //nolint: bodyclose
-		bytes.NewBuffer([]byte(credentialRequest)))
+		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -117,7 +145,7 @@ func (e *Steps) createCredential(credentialRequestArgKey, expectedIssuerID, expe
 	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("expected status code %d, received %d", http.StatusCreated, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
 	}
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
@@ -125,31 +153,26 @@ func (e *Steps) createCredential(credentialRequestArgKey, expectedIssuerID, expe
 		return err
 	}
 
-	vc := verifiable.Credential{}
+	e.bddContext.CreatedCredential = respBytes
 
-	err = json.Unmarshal(respBytes, &vc)
+	return checkVC(respBytes, profileName)
+}
+
+func (e *Steps) storeCredential(profileName string) error {
+	storeRequest := operation.StoreVCRequest{}
+
+	storeRequest.Profile = profileName
+	storeRequest.Credential = string(e.bddContext.CreatedCredential)
+
+	requestBytes, err := json.Marshal(storeRequest)
 	if err != nil {
 		return err
 	}
 
-	if vc.Issuer.ID != expectedIssuerID {
-		return fmt.Errorf("expected %s but got %s instead", expectedIssuerID, vc.Issuer.ID)
-	}
-
-	if vc.Issuer.Name != expectedIssuerName {
-		return fmt.Errorf("expected %s but got %s instead", expectedIssuerName, vc.Issuer.Name)
-	}
-
-	return nil
-}
-
-func (e *Steps) storeCredential(storeVCRequestArgKey string) error {
-	createCredentialResponse := e.bddContext.Args[storeVCRequestArgKey]
-
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Post("http://localhost:8070/store", "", //nolint: bodyclose
-		bytes.NewBuffer([]byte(createCredentialResponse)))
+		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -157,14 +180,29 @@ func (e *Steps) storeCredential(storeVCRequestArgKey string) error {
 	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected status code %d, received %d", http.StatusOK, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
 	}
 
 	return nil
 }
 
-func (e *Steps) retrieveCredential(credentialID, profileName, expectedIssuerID, expectedIssuerName string) error {
-	escapedCredentialID := url.PathEscape(credentialID)
+func (e *Steps) retrieveCredential(profileName string) error {
+	vcMap, err := getVCMap(e.bddContext.CreatedCredential)
+	if err != nil {
+		return err
+	}
+
+	vcID, found := vcMap["id"]
+	if !found {
+		return fmt.Errorf("unable to find ID in VC map")
+	}
+
+	vcIDString, ok := vcID.(string)
+	if !ok {
+		return fmt.Errorf("unable to assert vc ID field type as string")
+	}
+
+	escapedCredentialID := url.PathEscape(vcIDString)
 	escapedProfileName := url.PathEscape(profileName)
 
 	// False positive on linter bodyclose
@@ -178,7 +216,7 @@ func (e *Steps) retrieveCredential(credentialID, profileName, expectedIssuerID, 
 	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected status code %d, received %d", http.StatusOK, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
 	}
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
@@ -186,37 +224,30 @@ func (e *Steps) retrieveCredential(credentialID, profileName, expectedIssuerID, 
 		return err
 	}
 
-	response := verifiable.Credential{}
-
-	err = json.Unmarshal(respBytes, &response)
+	unescapedResponse, err := strconv.Unquote(string(respBytes))
 	if err != nil {
 		return err
 	}
 
-	if response.Issuer.ID != expectedIssuerID {
-		return fmt.Errorf("expected %s but got %s instead", expectedIssuerID, response.Issuer.ID)
-	}
-
-	if response.Issuer.Name != expectedIssuerName {
-		return fmt.Errorf("expected %s but got %s instead", expectedIssuerName, response.Issuer.Name)
+	expectedCredential := string(e.bddContext.CreatedCredential)
+	if unescapedResponse != expectedCredential {
+		return expectedStringError(expectedCredential, unescapedResponse)
 	}
 
 	return nil
 }
 
-func (e *Steps) verifyCredential(validVCArgKey string) error {
-	validVC := e.bddContext.Args[validVCArgKey]
-
+func (e *Steps) verifyCredential() error {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Post("http://localhost:8070/verify", "", //nolint: bodyclose
-		bytes.NewBuffer([]byte(validVC)))
+		bytes.NewBuffer(e.bddContext.CreatedCredential))
 	if err != nil {
 		return nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected status code %d, received %d", http.StatusOK, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
 	}
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
@@ -236,47 +267,122 @@ func (e *Steps) verifyCredential(validVCArgKey string) error {
 	}
 
 	if verifiedResp.Message != "success" {
-		return fmt.Errorf("expected %s but got %s instead", "success", verifiedResp.Message)
+		return expectedStringError("success", verifiedResp.Message)
 	}
 
 	return nil
 }
 
-func (e *Steps) checkProfileResponse(expectedProfileResponseArgkey string,
+func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
 	profileResponse *operation.ProfileResponse) error {
-	expectedProfileResponse := operation.ProfileResponse{}
-
-	err := json.Unmarshal([]byte(e.bddContext.Args[expectedProfileResponseArgkey]), &expectedProfileResponse)
-	if err != nil {
-		return err
+	if profileResponse.Name != expectedProfileResponseName {
+		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}
 
-	if profileResponse.Name != expectedProfileResponse.Name {
-		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponse.Name, profileResponse.Name)
+	if profileResponse.DID != expectedProfileResponseDIDAndIssuerID {
+		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseDIDAndIssuerID, profileResponse.DID)
 	}
 
-	if profileResponse.DID != expectedProfileResponse.DID {
-		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponse.DID, profileResponse.DID)
+	if profileResponse.URI != expectedProfileResponseURI {
+		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseURI, profileResponse.URI)
 	}
 
-	if profileResponse.URI != expectedProfileResponse.URI {
-		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponse.URI, profileResponse.URI)
-	}
-
-	if profileResponse.SignatureType != expectedProfileResponse.SignatureType {
+	if profileResponse.SignatureType != expectedProfileResponseSignatureType {
 		return fmt.Errorf("expected %s but got %s instead",
-			expectedProfileResponse.SignatureType, profileResponse.SignatureType)
+			expectedProfileResponseSignatureType, profileResponse.SignatureType)
 	}
 
-	if profileResponse.Creator != expectedProfileResponse.Creator {
-		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponse.Creator, profileResponse.Creator)
+	if profileResponse.Creator != expectedProfileResponseCreator {
+		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseCreator, profileResponse.Creator)
 	}
 
+	// The created field depends on the current time, so let's just made sure it's not nil
 	if profileResponse.Created == nil {
 		return fmt.Errorf("profile response created field was unexpectedly nil")
 	}
 
 	return nil
+}
+
+func checkVC(vcBytes []byte, profileName string) error {
+	issuerID, issuerName, err := getVCFieldsToCheck(vcBytes)
+	if err != nil {
+		return err
+	}
+
+	return checkVCFields(issuerID, issuerName, profileName)
+}
+
+func getVCFieldsToCheck(vcBytes []byte) (string, string, error) {
+	vcMap, err := getVCMap(vcBytes)
+	if err != nil {
+		return "", "", err
+	}
+
+	issuer, found := vcMap["issuer"]
+	if !found {
+		return "", "", fmt.Errorf("unable to find issuer in VC map")
+	}
+
+	issuerMap, ok := issuer.(map[string]interface{})
+	if !ok {
+		return "", "", fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
+	}
+
+	issuerID, found := issuerMap["id"]
+	if !found {
+		return "", "", fmt.Errorf("unable to find issuer ID in VC map")
+	}
+
+	issuerIDString, ok := issuerID.(string)
+	if !ok {
+		return "", "", fmt.Errorf("unable to assert issuer ID type as string")
+	}
+
+	issuerName, found := issuerMap["name"]
+	if !found {
+		return "", "", fmt.Errorf("unable to find issuer name in VC map")
+	}
+
+	issuerNameString, ok := issuerName.(string)
+	if !ok {
+		return "", "", fmt.Errorf("unable to assert issuer name type as string")
+	}
+
+	return issuerIDString, issuerNameString, nil
+}
+
+func checkVCFields(issuerID, issuerName, profileName string) error {
+	if issuerID != expectedProfileResponseDIDAndIssuerID {
+		return expectedStringError(expectedProfileResponseDIDAndIssuerID, issuerID)
+	}
+
+	if issuerName != profileName {
+		return expectedStringError(profileName, issuerName)
+	}
+
+	return nil
+}
+
+func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
+	// Can't fully unmarshall the vc using verifiable.NewCredential since we don't have the key.
+	// As a workaround we can unmarshal to a map[string]interface{}
+	var vcMap map[string]interface{}
+
+	err := json.Unmarshal(vcBytes, &vcMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return vcMap, nil
+}
+
+func expectedStringError(expected, actual string) error {
+	return fmt.Errorf("expected %s but got %s instead", expected, actual)
+}
+
+func expectedStatusCodeError(expected, actual int) error {
+	return fmt.Errorf("expected status code %d, but received status code %d instead", http.StatusCreated, actual)
 }
 
 func closeReadCloser(respBody io.ReadCloser) {

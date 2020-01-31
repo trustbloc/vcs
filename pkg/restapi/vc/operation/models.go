@@ -22,8 +22,8 @@ type CreateCredentialRequest struct {
 
 // StoreVCRequest stores the credential with profile name
 type StoreVCRequest struct {
-	Profile    string                 `json:"profile"`
-	Credential *verifiable.Credential `json:"credential"`
+	Profile    string `json:"profile"`
+	Credential string `json:"credential"`
 }
 
 // ProfileRequest struct the input for creating profile

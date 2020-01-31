@@ -232,7 +232,16 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err = validateRequest(data.Profile, data.Credential.ID); err != nil {
+	vc, _, err := verifiable.NewCredential([]byte(data.Credential),
+		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(o.keySet.public)))
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
+		return
+	}
+
+	if err = validateRequest(data.Profile, vc.ID); err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -241,7 +250,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	doc := operation.StructuredDocument{}
 	doc.Content = make(map[string]interface{})
 	doc.Content["message"] = data.Credential
-	doc.ID = data.Credential.ID
+	doc.ID = vc.ID
 
 	_, err = o.client.CreateDocument(data.Profile, &doc)
 	if err != nil {

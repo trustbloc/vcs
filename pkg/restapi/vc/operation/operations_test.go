@@ -14,6 +14,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
@@ -50,53 +52,28 @@ const testInvalidProfileForCreateCredential = `{
 const (
 	testStoreCredentialRequest = `{
 "profile": "issuer",
-"credential" : {
-	"@context":"https://www.w3.org/2018/credentials/examples/v1",
-	"type": [
-    	"VerifiableCredential",
-   		 "UniversityDegreeCredential"
- 	 ],
-   "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  	},
-  	"id": "https://example.com/credentials/1872",
-  	"issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-    }
-  }
+"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
+		`"http:\/\/example.edu\/credentials\/1872\",\"type\":\"VerifiableCredential\",\"credentialSubject\"` +
+		`:{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},\"issuer\":{\"id\":` +
+		`\"did:example:76e12ec712ebc6f1c221ebfeb1f\",\"name\":\"Example University\"}` +
+		`,\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
 }`
 )
+
+const (
+	testStoreCredentialRequestBadVC = `{
+"profile": "issuer",
+"credential" : ""
+}`
+)
+
 const (
 	testStoreIncorrectCredentialRequest = `{
 "profile": "",
-"credential" : {
-	"@context":"https://www.w3.org/2018/credentials/examples/v1",
-	"type": [
-    	"VerifiableCredential",
-   		 "UniversityDegreeCredential"
- 	 ],
-   "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  	},
-  	"id": "https://example.com/credentials/1872",
-  	"issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-    }
-  }
+"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
+		`"http:\/\/example.edu\/credentials\/1872\",\"type\":\"VerifiableCredential\",\"credentialSubject\":{\"id\` +
+		`":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},\"issuer\":{\"id\":\"did:example:76e12ec712ebc6f1c221ebfeb1f\` +
+		`",\"name\":\"Example University\"},\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
 }`
 )
 const (
@@ -184,9 +161,10 @@ func TestCreateCredentialHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		createCredentialHandler.Handle().ServeHTTP(rr, req)
-		vc := verifiable.Credential{}
 
-		err = json.Unmarshal(rr.Body.Bytes(), &vc)
+		vc, _, err := verifiable.NewCredential(rr.Body.Bytes(),
+			verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(op.keySet.public)))
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusCreated, rr.Code)
@@ -511,6 +489,20 @@ func TestStoreVCHandler(t *testing.T) {
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Equal(t, rr.Body.String(), "missing profile name")
+	})
+	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
+		client := mock.NewMockEDVClient("test", nil)
+
+		op, err := New(memstore.NewProvider(), client)
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(testStoreCredentialRequestBadVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		op.storeVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, "unable to unmarshal the VC: decode new credential: "+
+			"embedded proof is not JSON: unexpected end of JSON input", rr.Body.String())
 	})
 }
 
