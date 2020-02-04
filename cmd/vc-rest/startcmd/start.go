@@ -7,17 +7,24 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
-	"errors"
+	"fmt"
 	"net/http"
 
-	"github.com/trustbloc/edv/pkg/client/edv"
-
 	"github.com/gorilla/mux"
+	ariesapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	"github.com/trustbloc/edv/pkg/client/edv"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/vc"
 	cmdutils "github.com/trustbloc/edge-service/pkg/utils/cmd"
 )
 
@@ -30,15 +37,16 @@ const (
 	edvURLFlagShorthand  = "e"
 	edvURLFlagUsage      = "URL EDV instance is running on. Format: HostName:Port."
 	edvURLEnvKey         = "EDV_REST_HOST_URL"
+	sideTreeURLFlagName  = "sidetree-url"
+	sideTreeURLFlagUsage = "URL SideTree instance is running on. Format: HostName:Port."
+	sideTreeURLEnvKey    = "SIDETREE_HOST_URL"
 )
 
-var errMissingHostURL = errors.New("host URL not provided")
-var errMissingEDVHostURL = errors.New("edv host URL not provided")
-
 type vcRestParameters struct {
-	srv     server
-	hostURL string
-	edvURL  string
+	srv         server
+	hostURL     string
+	edvURL      string
+	sideTreeURL string
 }
 
 type server interface {
@@ -68,18 +76,26 @@ func createStartCmd(srv server) *cobra.Command {
 		Short: "Start vc-rest",
 		Long:  "Start vc-rest inside the edge-service",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			hostURL, err := cmdutils.GetUserSetVar(cmd, hostURLFlagName, hostURLEnvKey)
+			hostURL, err := cmdutils.GetUserSetVar(cmd, hostURLFlagName, hostURLEnvKey, false)
 			if err != nil {
 				return err
 			}
-			edvURL, err := cmdutils.GetUserSetVar(cmd, edvURLFlagName, edvURLEnvKey)
+
+			edvURL, err := cmdutils.GetUserSetVar(cmd, edvURLFlagName, edvURLEnvKey, false)
 			if err != nil {
 				return err
 			}
+
+			sideTreeURL, err := cmdutils.GetUserSetVar(cmd, sideTreeURLFlagName, sideTreeURLEnvKey, false)
+			if err != nil {
+				return err
+			}
+
 			parameters := &vcRestParameters{
-				srv:     srv,
-				hostURL: hostURL,
-				edvURL:  edvURL,
+				srv:         srv,
+				hostURL:     hostURL,
+				edvURL:      edvURL,
+				sideTreeURL: sideTreeURL,
 			}
 			return startEdgeService(parameters)
 		},
@@ -89,23 +105,28 @@ func createStartCmd(srv server) *cobra.Command {
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
+	startCmd.Flags().StringP(sideTreeURLFlagName, "", "", sideTreeURLFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters) error {
-	if parameters.hostURL == "" {
-		return errMissingHostURL
-	}
-
-	if parameters.edvURL == "" {
-		return errMissingEDVHostURL
-	}
-
-	vcService, err := operation.New(memstore.NewProvider(), edv.New(parameters.edvURL))
+	// Create KMS
+	kms, err := createKMS(mem.NewProvider())
 	if err != nil {
 		return err
 	}
 
-	handlers := vcService.GetRESTHandlers()
+	// Create VDRI
+	vdri, err := createVDRI(parameters.sideTreeURL, kms)
+	if err != nil {
+		return err
+	}
+
+	vcService, err := vc.New(memstore.NewProvider(), edv.New(parameters.edvURL), kms, vdri)
+	if err != nil {
+		return err
+	}
+
+	handlers := vcService.GetOperations()
 	router := mux.NewRouter()
 
 	for _, handler := range handlers {
@@ -115,4 +136,33 @@ func startEdgeService(parameters *vcRestParameters) error {
 	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
 	return parameters.srv.ListenAndServe(parameters.hostURL, router)
+}
+
+func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
+	kmsProvider, err := context.New(context.WithStorageProvider(s))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kms provider: %w", err)
+	}
+
+	kms, err := legacykms.New(kmsProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kms: %w", err)
+	}
+
+	return kms, nil
+}
+
+func createVDRI(sideTreeURL string, kms legacykms.KMS) (vdriapi.Registry, error) {
+	sideTreeVDRI, err := httpbinding.New(sideTreeURL,
+		httpbinding.WithAccept(func(method string) bool { return method == "sidetree" }))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
+	}
+
+	vdriProvider, err := context.New(context.WithLegacyKMS(kms))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
+	}
+
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(sideTreeVDRI)), nil
 }

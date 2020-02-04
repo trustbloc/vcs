@@ -3,7 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package mock
+package edv
 
 import (
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
