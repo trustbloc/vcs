@@ -1,6 +1,5 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -15,11 +14,15 @@ import (
 )
 
 // GetUserSetVar returns values either command line flag or environment variable
-func GetUserSetVar(cmd *cobra.Command, flagName, envKey string) (string, error) {
+func GetUserSetVar(cmd *cobra.Command, flagName, envKey string, isOptional bool) (string, error) {
 	if cmd.Flags().Changed(flagName) {
 		value, err := cmd.Flags().GetString(flagName)
 		if err != nil {
 			return "", fmt.Errorf(flagName+" flag not found: %s", err)
+		}
+
+		if value == "" {
+			return "", fmt.Errorf("%s value is empty", flagName)
 		}
 
 		return value, nil
@@ -27,7 +30,11 @@ func GetUserSetVar(cmd *cobra.Command, flagName, envKey string) (string, error) 
 
 	value, isSet := os.LookupEnv(envKey)
 
-	if isSet {
+	if isOptional || isSet {
+		if !isOptional && value == "" {
+			return "", fmt.Errorf("%s value is empty", envKey)
+		}
+
 		return value, nil
 	}
 

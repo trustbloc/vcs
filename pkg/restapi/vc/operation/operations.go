@@ -22,6 +22,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
@@ -62,7 +64,8 @@ type Client interface {
 }
 
 // New returns CreateCredential instance
-func New(provider storage.Provider, client Client) (*Operation, error) {
+func New(provider storage.Provider, client Client, kms legacykms.KMS,
+	vdri vdriapi.Registry) (*Operation, error) {
 	store, err := provider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err
@@ -79,6 +82,8 @@ func New(provider storage.Provider, client Client) (*Operation, error) {
 		// TODO: replace private key by signer, public key by resolver
 		keySet: &keySet{private: privKey, public: pubKey},
 		client: client,
+		kms:    kms,
+		vdri:   vdri,
 	}
 
 	svc.registerHandler()
@@ -92,6 +97,8 @@ type Operation struct {
 	profileStore *Profile
 	keySet       *keySet
 	client       Client
+	vdri         vdriapi.Registry
+	kms          legacykms.KMS
 }
 
 // KeySet will be replaced with KMS/profile configuration
