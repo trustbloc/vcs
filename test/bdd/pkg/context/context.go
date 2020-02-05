@@ -21,7 +21,6 @@ func NewBDDContext() (*BDDContext, error) {
 		Args: make(map[string]string),
 		ProfileRequestTemplate: []byte(`{
 		"name": "ToBeChangedInStep",
-		"did": "did:peer:22",
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018",
 		"creator": "did:peer:22#key1"

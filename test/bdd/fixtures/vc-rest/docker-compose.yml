@@ -14,7 +14,7 @@ services:
     environment:
       - VC_REST_HOST_URL=${VC_HOST}:${VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
-      - SIDETREE_HOST_URL=http://localhost:48326/document
+      - SIDETREE_HOST_URL=http://sidetree-mock:48326/document
     ports:
       - ${VC_PORT}:${VC_PORT}
     command: start
