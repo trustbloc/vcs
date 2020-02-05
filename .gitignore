@@ -28,3 +28,5 @@ coverage.txt
 # Exclude build directory
 build
 *.log
+
+test/bdd/fixtures/keys/tls

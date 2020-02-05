@@ -40,9 +40,26 @@ vc-rest-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: vc-rest-docker
-	@rm -Rf ./test/bdd/*.log
+bdd-test: vc-rest-docker generate-test-keys
 	@scripts/check_integration.sh
 
 unit-test:
 	@scripts/check_unit.sh
+
+.PHONY: generate-test-keys
+generate-test-keys: clean
+	@mkdir -p -p test/bdd/fixtures/keys/tls
+	@docker run -i --rm \
+		-v $(abspath .):/opt/workspace/edge-service \
+		--entrypoint "/opt/workspace/edge-service/scripts/generate_test_keys.sh" \
+		frapsoft/openssl
+
+
+.PHONY: clean
+clean: clean-build
+
+.PHONY: clean-build
+clean-build:
+	@rm -Rf ./build
+	@rm -Rf ./test/bdd/fixtures/keys/tls
+	@rm -Rf ./test/bdd/docker-compose.log
