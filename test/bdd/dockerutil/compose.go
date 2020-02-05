@@ -10,8 +10,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -152,7 +152,22 @@ func (c *Composition) GenerateLogs(dir, logName string) error {
 		return err
 	}
 
-	return ioutil.WriteFile(logName, outputBytes, 0775)
+	f, err := os.OpenFile(logName, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if errClose := f.Close(); errClose != nil {
+			fmt.Println(errClose.Error())
+		}
+	}()
+
+	if _, err = f.WriteString(string(outputBytes)); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetAPIContainerForComposeService return the docker.APIContainers with the supplied composeService name.

@@ -1,0 +1,27 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  sidetree:
+    container_name: sidetree-mock
+    image: ${SIDETREE_MOCK_IMAGE}:${SIDETREE_MOCK_IMAGE_TAG}
+    environment:
+      - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem
+      - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
+      - SIDETREE_MOCK_HOST=0.0.0.0
+      - SIDETREE_MOCK_PORT=48326
+    ports:
+      - 48326:48326
+    volumes:
+      - ../keys/tls:/etc/sidetree/tls
+    networks:
+      - vc-rest_bdd_net
+
+networks:
+  vc-rest_bdd_net:
+    external: true
