@@ -29,7 +29,6 @@ type StoreVCRequest struct {
 // ProfileRequest struct the input for creating profile
 type ProfileRequest struct {
 	Name          string `json:"name"`
-	DID           string `json:"did"`
 	URI           string `json:"uri"`
 	SignatureType string `json:"signatureType"`
 	Creator       string `json:"creator"`

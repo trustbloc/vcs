@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/DATA-DOG/godog"
 	log "github.com/sirupsen/logrus"
@@ -24,7 +25,7 @@ import (
 )
 
 const (
-	expectedProfileResponseDIDAndIssuerID = "did:peer:22"
+	expectedProfileResponseDIDAndIssuerID = "did:sidetree"
 	expectedProfileResponseURI            = "https://example.com/credentials"
 	expectedProfileResponseSignatureType  = "Ed25519Signature2018"
 	expectedProfileResponseCreator        = "did:peer:22#key1"
@@ -75,13 +76,13 @@ func (e *Steps) createProfile(profileName string) error {
 
 	defer closeReadCloser(resp.Body)
 
-	if resp.StatusCode != http.StatusCreated {
-		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
-	}
-
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
 	}
 
 	profileResponse := operation.ProfileResponse{}
@@ -144,13 +145,13 @@ func (e *Steps) createCredential(profileName string) error {
 
 	defer closeReadCloser(resp.Body)
 
-	if resp.StatusCode != http.StatusCreated {
-		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
-	}
-
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
 	}
 
 	e.bddContext.CreatedCredential = respBytes
@@ -180,7 +181,7 @@ func (e *Steps) storeCredential(profileName string) error {
 	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
+		return fmt.Errorf("received status code %d", resp.StatusCode)
 	}
 
 	return nil
@@ -215,13 +216,13 @@ func (e *Steps) retrieveCredential(profileName string) error {
 
 	defer closeReadCloser(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
-	}
-
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
 	}
 
 	unescapedResponse, err := strconv.Unquote(string(respBytes))
@@ -246,13 +247,13 @@ func (e *Steps) verifyCredential() error {
 		return nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
-	}
-
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
 	}
 
 	verifiedResp := operation.VerifyCredentialResponse{}
@@ -279,8 +280,8 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}
 
-	if profileResponse.DID != expectedProfileResponseDIDAndIssuerID {
-		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseDIDAndIssuerID, profileResponse.DID)
+	if !strings.Contains(profileResponse.DID, expectedProfileResponseDIDAndIssuerID) {
+		return fmt.Errorf("%s not containing %s", profileResponse.DID, expectedProfileResponseDIDAndIssuerID)
 	}
 
 	if profileResponse.URI != expectedProfileResponseURI {
@@ -353,8 +354,8 @@ func getVCFieldsToCheck(vcBytes []byte) (string, string, error) {
 }
 
 func checkVCFields(issuerID, issuerName, profileName string) error {
-	if issuerID != expectedProfileResponseDIDAndIssuerID {
-		return expectedStringError(expectedProfileResponseDIDAndIssuerID, issuerID)
+	if !strings.Contains(issuerID, expectedProfileResponseDIDAndIssuerID) {
+		return fmt.Errorf("%s not containing %s", issuerID, expectedProfileResponseDIDAndIssuerID)
 	}
 
 	if issuerName != profileName {
@@ -379,10 +380,6 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 
 func expectedStringError(expected, actual string) error {
 	return fmt.Errorf("expected %s but got %s instead", expected, actual)
-}
-
-func expectedStatusCodeError(expected, actual int) error {
-	return fmt.Errorf("expected status code %d, but received status code %d instead", http.StatusCreated, actual)
 }
 
 func closeReadCloser(respBody io.ReadCloser) {

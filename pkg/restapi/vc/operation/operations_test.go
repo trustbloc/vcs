@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -312,7 +313,7 @@ func TestCreateProfileHandler(t *testing.T) {
 	})
 
 	t.Run("missing profile name", func(t *testing.T) {
-		prBytes, err := json.Marshal(ProfileRequest{DID: "test"})
+		prBytes, err := json.Marshal(ProfileRequest{})
 		require.NoError(t, err)
 
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(prBytes))
@@ -360,6 +361,27 @@ func TestCreateProfileHandler(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "db error while saving profile")
 	})
+
+	t.Run("create profile error while creating did", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{CreateErr: fmt.Errorf("create did error")})
+		require.NoError(t, err)
+		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "create did error")
+	})
+}
+
+func TestBuildSideTreeRequest(t *testing.T) {
+	r, err := buildSideTreeRequest(nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, r)
 }
 
 func TestGetProfileHandler(t *testing.T) {
@@ -646,13 +668,6 @@ func TestOperation_validateProfileRequest(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing profile name")
 	})
-	t.Run("missing DID", func(t *testing.T) {
-		profile := getProfileRequest()
-		profile.DID = ""
-		err := validateProfileRequest(profile)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing DID information")
-	})
 	t.Run("missing URI ", func(t *testing.T) {
 		profile := getProfileRequest()
 		profile.URI = ""
@@ -685,8 +700,8 @@ func TestOperation_validateProfileRequest(t *testing.T) {
 
 func getProfileRequest() *ProfileRequest {
 	return &ProfileRequest{
-		Name:          "issuer",
-		DID:           "did:method:abc",
+		Name: "issuer",
+
 		URI:           "http://example.com/credentials",
 		Creator:       "did:method:abc#key2",
 		SignatureType: "Ed25519Signature2018"}

@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,6 +29,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
+	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 )
@@ -338,17 +341,23 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) 
 		return nil, err
 	}
 
+	// TODO how to figure out create method ?
+	didDoc, err := o.vdri.Create("sidetree", vdriapi.WithRequestBuilder(buildSideTreeRequest))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create did doc: %v", err)
+	}
+
 	created := time.Now().UTC()
 	profileResponse := &ProfileResponse{
 		Name:          pr.Name,
 		URI:           pr.URI,
 		Created:       &created,
-		DID:           pr.DID,
+		DID:           didDoc.ID,
 		SignatureType: pr.SignatureType,
 		Creator:       pr.Creator,
 	}
 
-	err := o.profileStore.SaveProfile(profileResponse)
+	err = o.profileStore.SaveProfile(profileResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -362,13 +371,25 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) 
 	return profileResponse, nil
 }
 
+// buildSideTreeRequest request builder for sidetree public DID creation
+func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
+	request := &model.Request{
+		Header: &model.Header{
+			Operation: model.OperationTypeCreate, Alg: "", Kid: ""},
+		Payload:   base64.URLEncoding.EncodeToString(docBytes),
+		Signature: ""}
+
+	b, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewReader(b), nil
+}
+
 func validateProfileRequest(pr *ProfileRequest) error {
 	if pr.Name == "" {
 		return fmt.Errorf("missing profile name")
-	}
-
-	if pr.DID == "" {
-		return fmt.Errorf("missing DID information")
 	}
 
 	if pr.URI == "" {
