@@ -82,7 +82,7 @@ func (e *Steps) createProfile(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
 	profileResponse := operation.ProfileResponse{}
@@ -151,7 +151,7 @@ func (e *Steps) createCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
 	e.bddContext.CreatedCredential = respBytes
@@ -180,8 +180,13 @@ func (e *Steps) storeCredential(profileName string) error {
 
 	defer closeReadCloser(resp.Body)
 
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
@@ -222,7 +227,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	unescapedResponse, err := strconv.Unquote(string(respBytes))
@@ -253,7 +258,7 @@ func (e *Steps) verifyCredential() error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	verifiedResp := operation.VerifyCredentialResponse{}
@@ -382,8 +387,9 @@ func expectedStringError(expected, actual string) error {
 	return fmt.Errorf("expected %s but got %s instead", expected, actual)
 }
 
-func expectedStatusCodeError(expected, actual int) error {
-	return fmt.Errorf("expected status code %d but got status code %d instead", expected, actual)
+func expectedStatusCodeError(expected, actual int, respBytes []byte) error {
+	return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
+		expected, actual, respBytes)
 }
 
 func closeReadCloser(respBody io.ReadCloser) {
