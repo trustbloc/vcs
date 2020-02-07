@@ -82,7 +82,7 @@ func (e *Steps) createProfile(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
+		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
 	}
 
 	profileResponse := operation.ProfileResponse{}
@@ -151,7 +151,7 @@ func (e *Steps) createCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
+		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode)
 	}
 
 	e.bddContext.CreatedCredential = respBytes
@@ -181,7 +181,7 @@ func (e *Steps) storeCredential(profileName string) error {
 	defer closeReadCloser(resp.Body)
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d", resp.StatusCode)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
 	}
 
 	return nil
@@ -222,7 +222,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
 	}
 
 	unescapedResponse, err := strconv.Unquote(string(respBytes))
@@ -253,7 +253,7 @@ func (e *Steps) verifyCredential() error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("received status code %d resp body %s", resp.StatusCode, respBytes)
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode)
 	}
 
 	verifiedResp := operation.VerifyCredentialResponse{}
@@ -380,6 +380,10 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 
 func expectedStringError(expected, actual string) error {
 	return fmt.Errorf("expected %s but got %s instead", expected, actual)
+}
+
+func expectedStatusCodeError(expected, actual int) error {
+	return fmt.Errorf("expected status code %d but got status code %d instead", expected, actual)
 }
 
 func closeReadCloser(respBody io.ReadCloser) {

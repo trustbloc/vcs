@@ -7,6 +7,7 @@ module github.com/trustbloc/edge-service
 go 1.13
 
 require (
+	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hyperledger/aries-framework-go v0.1.2-0.20200204225820-ac6563e7d7d0
