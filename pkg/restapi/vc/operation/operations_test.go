@@ -51,13 +51,28 @@ const testInvalidProfileForCreateCredential = `{
   "profile": "invalid"
 }`
 
+const testUUID = "4aae6b86-8e42-4d14-8cf5-21772ccb24aa"
+
+const testURLQueryID = "http://test.com/" + testUUID
+
 const (
 	testStoreCredentialRequest = `{
 "profile": "issuer",
 "credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
-		`"http:\/\/example.edu\/credentials\/1872\",\"type\":\"VerifiableCredential\",\"credentialSubject\"` +
-		`:{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},\"issuer\":{\"id\":` +
-		`\"did:example:76e12ec712ebc6f1c221ebfeb1f\",\"name\":\"Example University\"}` +
+		`"http:\/\/example.edu\/credentials\/1872\/` + testUUID + `\",\"type\":\` +
+		`"VerifiableCredential\",\"credentialSubject\":{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},` +
+		`\"issuer\":{\"id\":\"did:example:76e12ec712ebc6f1c221ebfeb1f\",\"name\":\"Example University\"}` +
+		`,\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
+}`
+)
+
+const (
+	testStoreCredentialRequestWithInvalidUUID = `{
+"profile": "issuer",
+"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
+		`"http:\/\/example.edu\/credentials\/1872\/ThisIsAnInvalidUUID\",\"type\":\` +
+		`"VerifiableCredential\",\"credentialSubject\":{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},` +
+		`\"issuer\":{\"id\":\"did:example:76e12ec712ebc6f1c221ebfeb1f\",\"name\":\"Example University\"}` +
 		`,\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
 }`
 )
@@ -526,6 +541,19 @@ func TestStoreVCHandler(t *testing.T) {
 		require.Equal(t, "unable to unmarshal the VC: decode new credential: "+
 			"embedded proof is not JSON: unexpected end of JSON input", rr.Body.String())
 	})
+	t.Run("store vc invalid UUID", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		require.NoError(t, err)
+		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
+			bytes.NewBuffer([]byte(testStoreCredentialRequestWithInvalidUUID)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		op.storeVCHandler(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, fmt.Sprintf("%s: %s", invalidUUIDErrMsg, "invalid UUID length: 19"), rr.Body.String())
+	})
 }
 
 func TestRetrieveVCHandler(t *testing.T) {
@@ -542,7 +570,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		profile := getTestProfile()
 
 		q := r.URL.Query()
-		q.Add("id", "http://test.com")
+		q.Add("id", testURLQueryID)
 		q.Add("profile", profile.Name)
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
@@ -597,7 +625,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		profile := getTestProfile()
 
 		q := req.URL.Query()
-		q.Add("id", "test")
+		q.Add("id", testUUID)
 		q.Add("profile", profile.Name)
 		req.URL.RawQuery = q.Encode()
 
@@ -620,7 +648,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		profile := getTestProfile()
 
 		q := r.URL.Query()
-		q.Add("id", "http://test.com")
+		q.Add("id", testURLQueryID)
 		q.Add("profile", profile.Name)
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
@@ -644,7 +672,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		q := req.URL.Query()
-		q.Add("id", "http://test.com")
+		q.Add("id", testURLQueryID)
 		q.Add("profile", "test")
 		req.URL.RawQuery = q.Encode()
 
@@ -652,6 +680,28 @@ func TestRetrieveVCHandler(t *testing.T) {
 		retrieveVCHandler.Handle().ServeHTTP(rw, req)
 		require.Contains(t, logContents.String(),
 			"Failed to write response for document retrieval success: response writer failed")
+	})
+	t.Run("retrieve vc invalid uuid", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", []byte(testStructuredDocument))
+
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		require.NoError(t, err)
+
+		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
+			bytes.NewBuffer([]byte(nil)))
+		require.NoError(t, err)
+
+		profile := getTestProfile()
+
+		q := r.URL.Query()
+		q.Add("id", "NotAValidUUID")
+		q.Add("profile", profile.Name)
+		r.URL.RawQuery = q.Encode()
+		rr := httptest.NewRecorder()
+
+		op.retrieveVCHandler(rr, r)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, `the UUID in the VC ID was not in a valid format: invalid UUID length: 13`, rr.Body.String())
 	})
 }
 

@@ -18,8 +18,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
@@ -48,6 +50,8 @@ const (
 	retrieveCredentialEndpoint = "/retrieve"
 
 	successMsg = "success"
+
+	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -260,7 +264,17 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	doc := operation.StructuredDocument{}
 	doc.Content = make(map[string]interface{})
 	doc.Content["message"] = data.Credential
-	doc.ID = vc.ID
+
+	// We need an EDV-compliant ID. The UUID that's in the VC is a good fit, since it's 128 bits long already.
+	// Let's convert it to base58 and use it as the StructuredDocument ID.
+	edvDocID, err := convertVCIDToEDVCompatibleFormat(vc.ID)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	doc.ID = edvDocID
 
 	_, err = o.client.CreateDocument(data.Profile, &doc)
 	if err != nil {
@@ -268,6 +282,22 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 
 		return
 	}
+}
+
+// This function expects the vcID that's passed in to be a URL with a "/" and then a UUID concatenated to the end.
+func convertVCIDToEDVCompatibleFormat(vcID string) (string, error) {
+	vcIDParts := strings.Split(vcID, "/")
+
+	uuidFromVCID := vcIDParts[len(vcIDParts)-1]
+
+	parsedUUID, err := uuid.Parse(uuidFromVCID)
+	if err != nil {
+		return "", fmt.Errorf("%s: %s", invalidUUIDErrMsg, err.Error())
+	}
+
+	base58EncodedUUID := base58.Encode(parsedUUID[:])
+
+	return base58EncodedUUID, nil
 }
 
 func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request) {
@@ -280,7 +310,14 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	documentBytes, err := o.client.ReadDocument(profile, id)
+	edvDocID, err := convertVCIDToEDVCompatibleFormat(id)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	documentBytes, err := o.client.ReadDocument(profile, edvDocID)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -293,18 +330,24 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError,
 			fmt.Sprintf("structured document unmarshalling failed: %s", err.Error()))
+
+		return
 	}
 
 	responseMsg, err := json.Marshal(document.Content["message"])
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError,
 			fmt.Sprintf("structured document content marshalling failed: %s", err.Error()))
+
+		return
 	}
 
 	_, err = rw.Write(responseMsg)
 	if err != nil {
 		log.Errorf("Failed to write response for document retrieval success: %s",
 			err.Error())
+
+		return
 	}
 }
 
