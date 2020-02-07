@@ -8,8 +8,6 @@ package operation
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -37,6 +35,7 @@ import (
 )
 
 const (
+	creatorParts      = 2
 	credentialStore   = "credential"
 	profile           = "/profile"
 	credentialContext = "https://www.w3.org/2018/credentials/v1"
@@ -49,12 +48,15 @@ const (
 	storeCredentialEndpoint    = "/store"
 	retrieveCredentialEndpoint = "/retrieve"
 
-	successMsg = "success"
-
+	successMsg        = "success"
 	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
+
+type keyResolver interface {
+	PublicKeyFetcher() verifiable.PublicKeyFetcher
+}
 
 // Handler http handler for each controller API endpoint
 type Handler interface {
@@ -70,27 +72,32 @@ type Client interface {
 	ReadDocument(vaultID, docID string) ([]byte, error)
 }
 
-// New returns CreateCredential instance
-func New(provider storage.Provider, client Client, kms legacykms.KMS,
-	vdri vdriapi.Registry) (*Operation, error) {
-	store, err := provider.OpenStore(credentialStore)
-	if err != nil {
-		return nil, err
-	}
+type signer struct {
+	kms   legacykms.KMS
+	keyID string
+}
 
-	// TODO: replace by KMS
-	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+func newSigner(kms legacykms.KMS, keyID string) *signer {
+	return &signer{kms: kms, keyID: keyID}
+}
+
+func (s *signer) Sign(data []byte) ([]byte, error) {
+	return s.kms.SignMessage(data, s.keyID)
+}
+
+// New returns CreateCredential instance
+func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdriapi.Registry) (*Operation, error) {
+	store, err := provider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err
 	}
 
 	svc := &Operation{
 		profileStore: NewProfile(store),
-		// TODO: replace private key by signer, public key by resolver
-		keySet: &keySet{private: privKey, public: pubKey},
-		client: client,
-		kms:    kms,
-		vdri:   vdri,
+		client:       client,
+		kms:          kms,
+		vdri:         vdri,
+		kResolver:    verifiable.NewDIDKeyResolver(vdri),
 	}
 
 	svc.registerHandler()
@@ -102,16 +109,10 @@ func New(provider storage.Provider, client Client, kms legacykms.KMS,
 type Operation struct {
 	handlers     []Handler
 	profileStore *Profile
-	keySet       *keySet
 	client       Client
 	vdri         vdriapi.Registry
 	kms          legacykms.KMS
-}
-
-// KeySet will be replaced with KMS/profile configuration
-type keySet struct {
-	private []byte
-	public  []byte
+	kResolver    keyResolver
 }
 
 func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
@@ -150,14 +151,26 @@ func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Re
 }
 
 func (o *Operation) signCredential(profile *ProfileResponse, vc *verifiable.Credential) (*verifiable.Credential, error) { // nolint:lll
+	// creator will contain didID#keyID
+	idSplit := strings.Split(profile.Creator, "#")
+	if len(idSplit) != creatorParts {
+		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	}
+
+	// idSplit[0] is didID
+	// idSplit[1] is keyID
+	key, err := o.fetchPublicKey(idSplit[0], "#"+idSplit[1])
+	if err != nil {
+		return nil, err
+	}
+
 	signingCtx := &verifiable.LinkedDataProofContext{
 		Creator:       profile.Creator,
 		SignatureType: profile.SignatureType,
-		Suite:         ed25519signature2018.New(),
-		PrivateKey:    o.keySet.private,
+		Suite:         ed25519signature2018.New(ed25519signature2018.WithSigner(newSigner(o.kms, base58.Encode(key)))),
 	}
 
-	err := vc.AddLinkedDataProof(signingCtx)
+	err = vc.AddLinkedDataProof(signingCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -177,11 +190,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	verified := true
 	message := successMsg
 
-	// Q: should signature suite this be passed in or handled (loaded automatically) by verifiable package
-	// based on signature type in proof
-	// Q: we should have default implementation for key fetcher in verifiable package as well
-	_, _, err = verifiable.NewCredential(body, verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(o.keySet.public)))
+	_, err = o.parseAndVerifyVC(body)
 	if err != nil {
 		verified = false
 		message = err.Error()
@@ -246,9 +255,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	vc, _, err := verifiable.NewCredential([]byte(data.Credential),
-		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
-		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(o.keySet.public)))
+	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
@@ -397,7 +404,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*ProfileResponse, error) 
 		Created:       &created,
 		DID:           didDoc.ID,
 		SignatureType: pr.SignatureType,
-		Creator:       pr.Creator,
+		Creator:       didDoc.ID + didDoc.PublicKey[0].ID,
 	}
 
 	err = o.profileStore.SaveProfile(profileResponse)
@@ -437,10 +444,6 @@ func validateProfileRequest(pr *ProfileRequest) error {
 
 	if pr.URI == "" {
 		return fmt.Errorf("missing URI information")
-	}
-
-	if pr.Creator == "" {
-		return fmt.Errorf("missing creator")
 	}
 
 	if pr.SignatureType == "" {
@@ -499,4 +502,29 @@ func (o *Operation) registerHandler() {
 // GetRESTHandlers get all controller API handler available for this service
 func (o *Operation) GetRESTHandlers() []Handler {
 	return o.handlers
+}
+
+func (o *Operation) fetchPublicKey(didID, keyID string) ([]byte, error) {
+	k, err := o.kResolver.PublicKeyFetcher()(didID, keyID)
+	if err != nil {
+		return nil, err
+	}
+
+	key, ok := k.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("public key not bytes")
+	}
+
+	return key, nil
+}
+
+func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
+	vc, _, err := verifiable.NewCredential(vcBytes,
+		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher()))
+	if err != nil {
+		return nil, err
+	}
+
+	return vc, nil
 }

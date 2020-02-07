@@ -31,7 +31,6 @@ type ProfileRequest struct {
 	Name          string `json:"name"`
 	URI           string `json:"uri"`
 	SignatureType string `json:"signatureType"`
-	Creator       string `json:"creator"`
 }
 
 // ProfileResponse struct the output for creating profile

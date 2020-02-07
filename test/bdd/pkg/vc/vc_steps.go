@@ -16,6 +16,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
+
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 
 	"github.com/DATA-DOG/godog"
 	log "github.com/sirupsen/logrus"
@@ -28,7 +31,7 @@ const (
 	expectedProfileResponseDIDAndIssuerID = "did:sidetree"
 	expectedProfileResponseURI            = "https://example.com/credentials"
 	expectedProfileResponseSignatureType  = "Ed25519Signature2018"
-	expectedProfileResponseCreator        = "did:peer:22#key1"
+	expectedProfileResponseCreator        = "#key-1"
 )
 
 // Steps is steps for VC BDD tests
@@ -92,7 +95,11 @@ func (e *Steps) createProfile(profileName string) error {
 		return err
 	}
 
-	return e.checkProfileResponse(profileName, &profileResponse)
+	if err := e.checkProfileResponse(profileName, &profileResponse); err != nil {
+		return err
+	}
+
+	return resolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 }
 
 func (e *Steps) getProfile(profileName string) error {
@@ -249,12 +256,12 @@ func (e *Steps) verifyCredential() error {
 	resp, err := http.Post("http://localhost:8070/verify", "", //nolint: bodyclose
 		bytes.NewBuffer(e.bddContext.CreatedCredential))
 	if err != nil {
-		return nil
+		return err
 	}
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -298,8 +305,8 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
 			expectedProfileResponseSignatureType, profileResponse.SignatureType)
 	}
 
-	if profileResponse.Creator != expectedProfileResponseCreator {
-		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseCreator, profileResponse.Creator)
+	if !strings.Contains(profileResponse.Creator, expectedProfileResponseCreator) {
+		return fmt.Errorf("%s not containing %s", profileResponse.Creator, expectedProfileResponseCreator)
 	}
 
 	// The created field depends on the current time, so let's just made sure it's not nil
@@ -397,4 +404,18 @@ func closeReadCloser(respBody io.ReadCloser) {
 	if err != nil {
 		log.Errorf("Failed to close response body: %s", err.Error())
 	}
+}
+
+func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) error {
+	var err error
+	for i := 1; i <= maxRetry; i++ {
+		_, err = vdriRegistry.Resolve(did)
+		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
+			return err
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	return err
 }

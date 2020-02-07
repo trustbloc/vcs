@@ -8,6 +8,8 @@ package operation
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,9 +17,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
+	"github.com/gorilla/mux"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	log "github.com/sirupsen/logrus"
@@ -163,6 +165,13 @@ func TestCreateCredentialHandler(t *testing.T) {
 	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
 	require.NoError(t, err)
 
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	op.kResolver = &mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
+		return []byte(pubKey), nil
+	}}
+
 	err = op.profileStore.SaveProfile(getTestProfile())
 	require.NoError(t, err)
 
@@ -180,14 +189,9 @@ func TestCreateCredentialHandler(t *testing.T) {
 
 		createCredentialHandler.Handle().ServeHTTP(rr, req)
 
-		vc, _, err := verifiable.NewCredential(rr.Body.Bytes(),
-			verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
-			verifiable.WithPublicKeyFetcher(verifiable.SingleKey(op.keySet.public)))
-		require.NoError(t, err)
-
 		require.Equal(t, http.StatusCreated, rr.Code)
-		require.Equal(t, getTestProfile().DID, vc.Issuer.ID)
-		require.Equal(t, getTestProfile().Name, vc.Issuer.Name)
+		require.Contains(t, rr.Body.String(), getTestProfile().DID)
+		require.Contains(t, rr.Body.String(), getTestProfile().Name)
 	})
 	t.Run("create credential error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
@@ -233,9 +237,6 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 
 	err = op.profileStore.SaveProfile(getTestProfile())
 	require.NoError(t, err)
-
-	// clear private key
-	op.keySet.private = nil
 
 	createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
 
@@ -725,13 +726,6 @@ func TestOperation_validateProfileRequest(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "missing URI information")
 	})
-	t.Run("missing creator ", func(t *testing.T) {
-		profile := getProfileRequest()
-		profile.Creator = ""
-		err := validateProfileRequest(profile)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "missing creator")
-	})
 	t.Run("missing signature type ", func(t *testing.T) {
 		profile := getProfileRequest()
 		profile.SignatureType = ""
@@ -750,10 +744,8 @@ func TestOperation_validateProfileRequest(t *testing.T) {
 
 func getProfileRequest() *ProfileRequest {
 	return &ProfileRequest{
-		Name: "issuer",
-
+		Name:          "issuer",
 		URI:           "http://example.com/credentials",
-		Creator:       "did:method:abc#key2",
 		SignatureType: "Ed25519Signature2018"}
 }
 
@@ -851,4 +843,12 @@ func (c *TestClient) CreateDocument(vaultID string, document *operation.Structur
 // RetrieveDocument sends the Mock EDV server a request to retrieve the specified document.
 func (c *TestClient) ReadDocument(vaultID, docID string) ([]byte, error) {
 	return nil, errDocumentNotFound
+}
+
+type mockKeyResolver struct {
+	publicKeyFetcherValue verifiable.PublicKeyFetcher
+}
+
+func (m *mockKeyResolver) PublicKeyFetcher() verifiable.PublicKeyFetcher {
+	return m.publicKeyFetcherValue
 }

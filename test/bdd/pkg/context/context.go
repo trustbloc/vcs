@@ -6,6 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 
 package context
 
+import (
+	"fmt"
+
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+)
+
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
 	Args                            map[string]string
@@ -13,18 +22,22 @@ type BDDContext struct {
 	CreateCredentialRequestTemplate []byte
 	CreatedCredential               []byte
 	StoreVCRequest                  []byte
+	VDRI                            vdriapi.Registry
 }
 
 // NewBDDContext create new BDDContext
 func NewBDDContext() (*BDDContext, error) {
+	vdri, err := createVDRI("http://localhost:48326/document")
+	if err != nil {
+		return nil, err
+	}
+
 	instance := BDDContext{
 		Args: make(map[string]string),
 		ProfileRequestTemplate: []byte(`{
 		"name": "ToBeChangedInStep",
 		"uri": "https://example.com/credentials",
-		"signatureType": "Ed25519Signature2018",
-		"creator": "did:peer:22#key1"
-}`),
+		"signatureType": "Ed25519Signature2018"}`),
 		CreateCredentialRequestTemplate: []byte(`{
 "type": [
     "VerifiableCredential",
@@ -54,7 +67,22 @@ func NewBDDContext() (*BDDContext, error) {
 			`"pm4VBH74TXY_JKYcTX5J-iygJDv-rTvs8J8VTrpdoMjd3DsVNIiHM33b5vMm336wkYqmYhaxWPOsMnrCsQNTBw\",\"type\":\` +
 			`"Ed25519Signature2018\"},\"type\":[\"VerifiableCredential\",\"UniversityDegreeCredential\"]}"
 }`),
-	}
+		VDRI: vdri}
 
 	return &instance, nil
+}
+
+func createVDRI(sideTreeURL string) (vdriapi.Registry, error) {
+	sideTreeVDRI, err := httpbinding.New(sideTreeURL,
+		httpbinding.WithAccept(func(method string) bool { return method == "sidetree" }))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
+	}
+
+	vdriProvider, err := context.New(context.WithLegacyKMS(nil))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
+	}
+
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(sideTreeVDRI)), nil
 }
