@@ -14,6 +14,7 @@ import (
 
 // CreateCredentialRequest input data for edge service issuer rest api
 type CreateCredentialRequest struct {
+	Context []string           `json:"@context,omitempty"`
 	Subject verifiable.Subject `json:"credentialSubject"`
 	Issuer  verifiable.Issuer  `json:"issuer"`
 	Type    []string           `json:"type,omitempty"`

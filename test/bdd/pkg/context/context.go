@@ -39,6 +39,7 @@ func NewBDDContext() (*BDDContext, error) {
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018"}`),
 		CreateCredentialRequestTemplate: []byte(`{
+			"@context": ["https://www.w3.org/2018/credentials/v1"],
 "type": [
     "VerifiableCredential",
     "UniversityDegreeCredential"
