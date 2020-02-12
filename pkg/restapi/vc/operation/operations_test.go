@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,8 +32,14 @@ import (
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 )
 
-const testCreateCredentialRequest = `{
-"context":"https://www.w3.org/2018/credentials/examples/v1",
+const multipleContext = `"@context":["https://www.w3.org/2018/credentials/v1","https://w3id.org/citizenship/v1"]`
+
+const validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
+
+const invalidContext = `"@context":"https://www.w3.org/2018/credentials/v1"`
+
+const testCreateCredentialRequest = `{` +
+	validContext + `,
 "type": [
     "VerifiableCredential",
     "UniversityDegreeCredential"
@@ -45,6 +52,47 @@ const testCreateCredentialRequest = `{
     },
     "name": "Jayden Doe",
     "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "profile": "test"
+}`
+
+const testInvalidContextCreateCredentialRequest = `{` +
+	invalidContext + `,
+"type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "university": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  },
+  "profile": "test"
+}`
+
+const testMultipleContextCreateCredentialRequest = `{` +
+	multipleContext + `,
+"type": [
+    "VerifiableCredential",
+    "PermanentResidentCard"
+  ],
+  "credentialSubject": {
+    "id": "did:example:b34ca6cd37bbf23",
+    "type": ["PermanentResident", "Person"],
+    "givenName": "JOHN",
+    "familyName": "SMITH",
+    "gender": "Male",
+    "image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
+    "residentSince": "2015-01-01",
+    "lprCategory": "C09",
+    "lprNumber": "999-999-999",
+    "commuterClassification": "C1",
+    "birthCountry": "Bahamas",
+    "birthDate": "1958-07-17"
   },
   "profile": "test"
 }`
@@ -96,7 +144,8 @@ const (
 }`
 )
 const (
-	testIncorrectCredential = `{
+	testIncorrectCredential = `{` +
+		validContext + `,
 		"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"degree": {
@@ -118,8 +167,8 @@ const testIssuerProfile = `{
 		"creator": "did:peer:22#key1"
 }`
 
-const validVC = `{
-  "@context": "https://www.w3.org/2018/credentials/v1",
+const validVC = `{` +
+	validContext + `,
   "id": "http://example.edu/credentials/1872",
   "type": "VerifiableCredential",
   "credentialSubject": {
@@ -133,8 +182,8 @@ const validVC = `{
 }`
 
 // VC without issuer
-const invalidVC = `{
-  "@context": "https://www.w3.org/2018/credentials/v1",
+const invalidVC = `{` +
+	validContext + `,
   "id": "http://example.edu/credentials/1872",
   "type": "VerifiableCredential",
   "credentialSubject": {
@@ -190,8 +239,37 @@ func TestCreateCredentialHandler(t *testing.T) {
 		createCredentialHandler.Handle().ServeHTTP(rr, req)
 
 		require.Equal(t, http.StatusCreated, rr.Code)
+		require.Contains(t, rr.Body.String(), validContext)
 		require.Contains(t, rr.Body.String(), getTestProfile().DID)
 		require.Contains(t, rr.Body.String(), getTestProfile().Name)
+	})
+	t.Run("create credential with multiple contexts success", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+			bytes.NewBuffer([]byte(testMultipleContextCreateCredentialRequest)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createCredentialHandler.Handle().ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+		require.Contains(t, rr.Body.String(), multipleContext)
+		require.Contains(t, rr.Body.String(), getTestProfile().DID)
+		require.Contains(t, rr.Body.String(), getTestProfile().Name)
+	})
+	t.Run("create credential error by passing invalid context", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+			bytes.NewBuffer([]byte(testInvalidContextCreateCredentialRequest)))
+		require.NoError(t, err)
+
+		body, err := ioutil.ReadAll(req.Body)
+		require.NoError(t, err)
+		require.Contains(t, string(body), invalidContext)
+
+		rr := httptest.NewRecorder()
+
+		createCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, rr.Body.String(), "Failed to write response for invalid request received")
 	})
 	t.Run("create credential error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))

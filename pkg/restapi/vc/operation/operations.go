@@ -35,10 +35,9 @@ import (
 )
 
 const (
-	creatorParts      = 2
-	credentialStore   = "credential"
-	profile           = "/profile"
-	credentialContext = "https://www.w3.org/2018/credentials/v1"
+	creatorParts    = 2
+	credentialStore = "credential"
+	profile         = "/profile"
 
 	// endpoints
 	createCredentialEndpoint   = "/credential"
@@ -363,7 +362,7 @@ func createCredential(profile *ProfileResponse, data *CreateCredentialRequest) (
 
 	issueDate := time.Now().UTC()
 
-	credential.Context = []string{credentialContext}
+	credential.Context = data.Context
 	credential.Subject = data.Subject
 	credential.Types = data.Type
 	credential.Issuer = verifiable.Issuer{
