@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DATA-DOG/godog"
+	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
