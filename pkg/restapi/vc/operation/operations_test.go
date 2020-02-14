@@ -16,6 +16,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gorilla/mux"
@@ -26,10 +27,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 )
 
@@ -179,7 +182,42 @@ const validVC = `{` +
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
     "name": "Example University"
   },
-  "issuanceDate": "2010-01-01T19:23:24Z"
+  "issuanceDate": "2010-01-01T19:23:24Z",
+  "credentialStatus": {
+    "id": "https://example.gov/status/24",
+    "type": "CredentialStatusList2017"
+  }
+}`
+
+const validVCStatus = `{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1"
+  ],
+  "credentialSchema": [],
+  "credentialSubject": {
+    "currentStatus": "Revoked",
+    "statusReason": "Disciplinary action"
+  },
+  "id": "#ID",
+  "issuanceDate": "2020-02-18T17:55:31.1381994Z",
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb12",
+    "name": "Example University"
+  },
+  "type": "VerifiableCredential"
+}`
+
+const invalidVCStatus = `{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1"
+  ],
+  "credentialSchema": [],
+  "credentialSubject": {
+    "currentStatus": "Revoked",
+    "statusReason": "Disciplinary action"
+  },
+  "id": "#ID",
+  "type": "VerifiableCredential"
 }`
 
 // VC without issuer
@@ -209,11 +247,31 @@ var errVaultNotFound = errors.New("vault not found")
 // errDocumentNotFound throws an error when document associated with ID is not found
 var errDocumentNotFound = errors.New("edv does not have a document associated with ID")
 
+func TestNew(t *testing.T) {
+	t.Run("test error from open store", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&mockstore.Provider{ErrOpenStoreHandle: fmt.Errorf("error open store")},
+			client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error open store")
+		require.Nil(t, op)
+	})
+
+	t.Run("test error from csl", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&mockstore.Provider{FailNameSpace: "credentialStatus"},
+			client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to instantiate new csl status")
+		require.Nil(t, op)
+	})
+}
+
 func TestCreateCredentialHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
 
 	kms := &kmsmock.CloseableKMS{}
-	op, err := New(memstore.NewProvider(), client, kms, &vdrimock.MockVDRIRegistry{})
+	op, err := New(memstore.NewProvider(), client, kms, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
 	require.NoError(t, err)
 
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
@@ -309,11 +367,34 @@ func TestCreateCredentialHandler(t *testing.T) {
 		require.Contains(t, logContents.String(),
 			"Unable to send error message, response writer failed")
 	})
+
+	t.Run("test error from create status id", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		kms := &kmsmock.CloseableKMS{}
+		op, err := New(memstore.NewProvider(), client, kms, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.NoError(t, err)
+
+		err = op.profileStore.SaveProfile(getTestProfile())
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{createStatusIDErr: fmt.Errorf("error create status id")}
+
+		createCredentialHandler := getHandler(t, op, createCredentialEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
+			bytes.NewBuffer([]byte(testCreateCredentialRequest)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		createCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to create status id for vc")
+	})
 }
 
 func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 	require.NoError(t, err)
 
 	err = op.profileStore.SaveProfile(getTestProfile())
@@ -333,8 +414,11 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 
 func TestVerifyCredentialHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 	require.NoError(t, err)
+
+	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
 
 	verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint)
 
@@ -379,11 +463,185 @@ func TestVerifyCredentialHandler(t *testing.T) {
 		require.Equal(t, false, response.Verified)
 		require.Contains(t, response.Message, "unsupported format of issuer")
 	})
+
+	t.Run("test error from get CSL", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
+
+		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, bytes.NewBuffer([]byte(validVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, false, response.Verified)
+		require.Contains(t, response.Message,
+			"failed to get credential status list")
+	})
+
+	t.Run("test revoked credential", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{
+			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
+				strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1873"),
+				strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1872")}}}
+
+		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, bytes.NewBuffer([]byte(validVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, false, response.Verified)
+		require.Contains(t, response.Message,
+			"Revoked")
+	})
+
+	t.Run("test error from parse vs status", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{
+			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
+				strings.ReplaceAll(invalidVCStatus, "#ID", "http://example.edu/credentials/1872")}}}
+
+		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, bytes.NewBuffer([]byte(validVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		require.Contains(t, rr.Body.String(), "failed to parse and verify status vc")
+	})
+}
+
+func TestUpdateCredentialStatusHandler(t *testing.T) {
+	client := edv.NewMockEDVClient("test", nil)
+	s := make(map[string][]byte)
+	s["profile_Example University"] = []byte(testIssuerProfile)
+	op, err := New(&mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
+		client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	require.NoError(t, err)
+
+	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
+
+	updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint)
+
+	t.Run("update credential status success", func(t *testing.T) {
+		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("test error decode request", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer([]byte("w")))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		require.Contains(t, rr.Body.String(), "failed to decode request received")
+	})
+
+	t.Run("test error from parse credential", func(t *testing.T) {
+		ucsReq := UpdateCredentialStatusRequest{Credential: invalidVC, Status: "revoked"}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		require.Contains(t, rr.Body.String(), "unable to unmarshal the VC")
+	})
+
+	t.Run("test error from get profile", func(t *testing.T) {
+		op, err := New(&mockstore.Provider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
+			edv.NewMockEDVClient("test", nil),
+			&kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.NoError(t, err)
+		op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
+		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint)
+
+		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		require.Contains(t, rr.Body.String(), "failed to get profile")
+	})
+
+	t.Run("test error from update vc status", func(t *testing.T) {
+		s := make(map[string][]byte)
+		s["profile_Example University"] = []byte(testIssuerProfile)
+		op, err := New(&mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
+			edv.NewMockEDVClient("test", nil),
+			&kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		require.NoError(t, err)
+		op.vcStatusManager = &mockVCStatusManager{updateVCStatusErr: fmt.Errorf("error update vc status")}
+		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint)
+
+		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		require.Contains(t, rr.Body.String(), "failed to update vc status")
+	})
 }
 
 func TestCreateProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 	require.NoError(t, err)
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint)
@@ -440,7 +698,8 @@ func TestCreateProfileHandler(t *testing.T) {
 	})
 	t.Run("create profile error while saving the profile", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		op.profileStore = vcprofile.New(&mockStore{
 			get: func(s string) (bytes []byte, e error) {
@@ -462,7 +721,7 @@ func TestCreateProfileHandler(t *testing.T) {
 	t.Run("create profile error while creating did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{CreateErr: fmt.Errorf("create did error")})
+			&vdrimock.MockVDRIRegistry{CreateErr: fmt.Errorf("create did error")}, "localhost:8080")
 		require.NoError(t, err)
 		createProfileHandler = getHandler(t, op, createProfileEndpoint)
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
@@ -483,7 +742,8 @@ func TestBuildSideTreeRequest(t *testing.T) {
 
 func TestGetProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 	require.NoError(t, err)
 
 	getProfileHandler := getHandler(t, op, getProfileEndpoint)
@@ -561,7 +821,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
@@ -573,7 +834,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while creating the document", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
@@ -586,7 +848,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err vault not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
@@ -599,7 +862,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreIncorrectCredentialRequest)))
@@ -612,7 +876,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequestBadVC)))
@@ -626,7 +891,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc invalid UUID", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequestWithInvalidUUID)))
@@ -642,7 +908,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", []byte(testStructuredDocument))
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -664,7 +931,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -679,7 +947,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -698,7 +967,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when no document is found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -720,7 +990,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc unmarshal structured document error", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -744,7 +1015,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		var logContents bytes.Buffer
 		log.SetOutput(&logContents)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 
 		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint)
@@ -766,7 +1038,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc invalid uuid", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", []byte(testStructuredDocument))
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -932,4 +1205,25 @@ type mockKeyResolver struct {
 
 func (m *mockKeyResolver) PublicKeyFetcher() verifiable.PublicKeyFetcher {
 	return m.publicKeyFetcherValue
+}
+
+type mockVCStatusManager struct {
+	createStatusIDValue *verifiable.TypedID
+	createStatusIDErr   error
+	updateVCStatusErr   error
+	getCSLValue         *cslstatus.CSL
+	getCSLErr           error
+}
+
+func (m *mockVCStatusManager) CreateStatusID() (*verifiable.TypedID, error) {
+	return m.createStatusIDValue, m.createStatusIDErr
+}
+
+func (m *mockVCStatusManager) UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile,
+	status, statusReason string) error {
+	return m.updateVCStatusErr
+}
+
+func (m *mockVCStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
+	return m.getCSLValue, m.getCSLErr
 }

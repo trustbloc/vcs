@@ -29,24 +29,30 @@ import (
 )
 
 const (
-	hostURLFlagName      = "host-url"
-	hostURLFlagShorthand = "u"
-	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
-	hostURLEnvKey        = "VC_REST_HOST_URL"
-	edvURLFlagName       = "edv-url"
-	edvURLFlagShorthand  = "e"
-	edvURLFlagUsage      = "URL EDV instance is running on. Format: HostName:Port."
-	edvURLEnvKey         = "EDV_REST_HOST_URL"
-	sideTreeURLFlagName  = "sidetree-url"
-	sideTreeURLFlagUsage = "URL SideTree instance is running on. Format: HostName:Port."
-	sideTreeURLEnvKey    = "SIDETREE_HOST_URL"
+	hostURLFlagName                   = "host-url"
+	hostURLFlagShorthand              = "u"
+	hostURLFlagUsage                  = "URL to run the vc-rest instance on. Format: HostName:Port."
+	hostURLEnvKey                     = "VC_REST_HOST_URL"
+	edvURLFlagName                    = "edv-url"
+	edvURLFlagShorthand               = "e"
+	edvURLFlagUsage                   = "URL EDV instance is running on. Format: HostName:Port."
+	edvURLEnvKey                      = "EDV_REST_HOST_URL"
+	sideTreeURLFlagName               = "sidetree-url"
+	sideTreeURLFlagUsage              = "URL SideTree instance is running on. Format: HostName:Port."
+	sideTreeURLEnvKey                 = "SIDETREE_HOST_URL"
+	hostURLExternalFlagName           = "host-url-external"
+	hostURLExternalEnvKey             = "VC_REST_HOST_URL_EXTERNAL"
+	agentInboundHostExternalFlagUsage = "Host External Name:Port This is the URL for the host server as seen externally." +
+		" If not provided, then the host url will be used here." +
+		" Alternatively, this can be set with the following environment variable: " + hostURLExternalEnvKey
 )
 
 type vcRestParameters struct {
-	srv         server
-	hostURL     string
-	edvURL      string
-	sideTreeURL string
+	srv             server
+	hostURL         string
+	edvURL          string
+	sideTreeURL     string
+	hostURLExternal string
 }
 
 type server interface {
@@ -91,11 +97,18 @@ func createStartCmd(srv server) *cobra.Command {
 				return err
 			}
 
+			hostURLExternal, err := cmdutils.GetUserSetVar(cmd, hostURLExternalFlagName,
+				hostURLExternalEnvKey, true)
+			if err != nil {
+				return err
+			}
+
 			parameters := &vcRestParameters{
-				srv:         srv,
-				hostURL:     hostURL,
-				edvURL:      edvURL,
-				sideTreeURL: sideTreeURL,
+				srv:             srv,
+				hostURL:         hostURL,
+				edvURL:          edvURL,
+				sideTreeURL:     sideTreeURL,
+				hostURLExternal: hostURLExternal,
 			}
 			return startEdgeService(parameters)
 		},
@@ -106,6 +119,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
 	startCmd.Flags().StringP(sideTreeURLFlagName, "", "", sideTreeURLFlagUsage)
+	startCmd.Flags().StringP(hostURLExternalFlagName, "", "", agentInboundHostExternalFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters) error {
@@ -121,7 +135,12 @@ func startEdgeService(parameters *vcRestParameters) error {
 		return err
 	}
 
-	vcService, err := vc.New(memstore.NewProvider(), edv.New(parameters.edvURL), kms, vdri)
+	externalHostURL := parameters.hostURL
+	if parameters.hostURLExternal != "" {
+		externalHostURL = parameters.hostURLExternal
+	}
+
+	vcService, err := vc.New(memstore.NewProvider(), edv.New(parameters.edvURL), kms, vdri, externalHostURL)
 	if err != nil {
 		return err
 	}

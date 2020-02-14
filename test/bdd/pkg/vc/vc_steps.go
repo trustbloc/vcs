@@ -23,6 +23,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
@@ -51,7 +52,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCredential)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
-	s.Step(`^Now we verify that credential$`, e.verifyCredential)
+	s.Step(`^Now we verify that credential with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`,
+		e.verifyCredential)
+	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
 }
 
 func (e *Steps) createProfile(profileName string) error {
@@ -250,7 +253,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	return nil
 }
 
-func (e *Steps) verifyCredential() error {
+func (e *Steps) verifyCredential(verifiedFlag, verifiedMsg string) error {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Post("http://localhost:8070/verify", "", //nolint: bodyclose
@@ -275,12 +278,46 @@ func (e *Steps) verifyCredential() error {
 		return err
 	}
 
-	if !verifiedResp.Verified {
-		return fmt.Errorf("the VC server says that the provided VC isn't valid")
+	if strconv.FormatBool(verifiedResp.Verified) != verifiedFlag {
+		return fmt.Errorf("resp verified %t not equal verified flag %s", verifiedResp.Verified, verifiedFlag)
 	}
 
-	if verifiedResp.Message != "success" {
-		return expectedStringError("success", verifiedResp.Message)
+	if !strings.Contains(verifiedResp.Message, verifiedMsg) {
+		return fmt.Errorf("resp verified msg %s not contains %s", verifiedResp.Message, verifiedMsg)
+	}
+
+	return nil
+}
+
+func (e *Steps) updateCredentialStatus(status, statusReason string) error {
+	storeRequest := operation.UpdateCredentialStatusRequest{}
+
+	storeRequest.Status = status
+	storeRequest.StatusReason = statusReason
+	storeRequest.Credential = string(e.bddContext.CreatedCredential)
+
+	requestBytes, err := json.Marshal(storeRequest)
+	if err != nil {
+		return err
+	}
+
+	// False positive on linter bodyclose
+	// https://github.com/golangci/golangci-lint/issues/637
+	resp, err := http.Post("http://localhost:8070/updateStatus", "", //nolint: bodyclose
+		bytes.NewBuffer(requestBytes))
+	if err != nil {
+		return err
+	}
+
+	defer closeReadCloser(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
@@ -318,60 +355,88 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
 }
 
 func checkVC(vcBytes []byte, profileName string) error {
-	issuerID, issuerName, err := getVCFieldsToCheck(vcBytes)
+	issuerID, issuerName, credentialStatusMap, err := getVCFieldsToCheck(vcBytes)
 	if err != nil {
 		return err
 	}
 
-	return checkVCFields(issuerID, issuerName, profileName)
+	return checkVCFields(issuerID, issuerName, credentialStatusMap, profileName)
 }
 
-func getVCFieldsToCheck(vcBytes []byte) (string, string, error) {
+func getVCFieldsToCheck(vcBytes []byte) (string, string, string, error) {
 	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	issuer, found := vcMap["issuer"]
 	if !found {
-		return "", "", fmt.Errorf("unable to find issuer in VC map")
+		return "", "", "", fmt.Errorf("unable to find issuer in VC map")
 	}
 
 	issuerMap, ok := issuer.(map[string]interface{})
 	if !ok {
-		return "", "", fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
+		return "", "", "", fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
 	}
 
 	issuerID, found := issuerMap["id"]
 	if !found {
-		return "", "", fmt.Errorf("unable to find issuer ID in VC map")
+		return "", "", "", fmt.Errorf("unable to find issuer ID in VC map")
 	}
 
 	issuerIDString, ok := issuerID.(string)
 	if !ok {
-		return "", "", fmt.Errorf("unable to assert issuer ID type as string")
+		return "", "", "", fmt.Errorf("unable to assert issuer ID type as string")
 	}
 
 	issuerName, found := issuerMap["name"]
 	if !found {
-		return "", "", fmt.Errorf("unable to find issuer name in VC map")
+		return "", "", "", fmt.Errorf("unable to find issuer name in VC map")
 	}
 
 	issuerNameString, ok := issuerName.(string)
 	if !ok {
-		return "", "", fmt.Errorf("unable to assert issuer name type as string")
+		return "", "", "", fmt.Errorf("unable to assert issuer name type as string")
 	}
 
-	return issuerIDString, issuerNameString, nil
+	credentialStatusType, err := getCredentialStatusType(vcMap)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return issuerIDString, issuerNameString, credentialStatusType, nil
 }
 
-func checkVCFields(issuerID, issuerName, profileName string) error {
+func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
+	credentialStatus, found := vcMap["credentialStatus"]
+	if !found {
+		return "nil", fmt.Errorf("unable to find credentialStatus in VC map")
+	}
+
+	credentialStatusMap, ok := credentialStatus.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unable to assert credentialStatus field type as map[string]interface{}")
+	}
+
+	credentialStatusType, found := credentialStatusMap["type"]
+	if !found {
+		return "", fmt.Errorf("unable to find credentialStatus type in VC map")
+	}
+
+	return credentialStatusType.(string), nil
+}
+
+func checkVCFields(issuerID, issuerName, credentialStatusType, profileName string) error {
 	if !strings.Contains(issuerID, expectedProfileResponseDIDAndIssuerID) {
 		return fmt.Errorf("%s not containing %s", issuerID, expectedProfileResponseDIDAndIssuerID)
 	}
 
 	if issuerName != profileName {
 		return expectedStringError(profileName, issuerName)
+	}
+
+	if credentialStatusType != csl.CredentialStatusType {
+		return expectedStringError(csl.CredentialStatusType, credentialStatusType)
 	}
 
 	return nil

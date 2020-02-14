@@ -33,6 +33,7 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 )
 
@@ -41,15 +42,17 @@ const (
 	profile         = "/profile"
 
 	// endpoints
-	createCredentialEndpoint   = "/credential"
-	verifyCredentialEndpoint   = "/verify"
-	createProfileEndpoint      = profile
-	getProfileEndpoint         = profile + "/{id}"
-	storeCredentialEndpoint    = "/store"
-	retrieveCredentialEndpoint = "/retrieve"
+	createCredentialEndpoint       = "/credential"
+	verifyCredentialEndpoint       = "/verify"
+	updateCredentialStatusEndpoint = "/updateStatus"
+	createProfileEndpoint          = profile
+	getProfileEndpoint             = profile + "/{id}"
+	storeCredentialEndpoint        = "/store"
+	retrieveCredentialEndpoint     = "/retrieve"
 
 	successMsg        = "success"
 	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
+	cslSize           = 50
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -61,6 +64,12 @@ type Handler interface {
 	Handle() http.HandlerFunc
 }
 
+type vcStatusManager interface {
+	CreateStatusID() (*verifiable.TypedID, error)
+	UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile, status, statusReason string) error
+	GetCSL(id string) (*cslstatus.CSL, error)
+}
+
 // Client interface to interact with edv client
 type Client interface {
 	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
@@ -69,17 +78,26 @@ type Client interface {
 }
 
 // New returns CreateCredential instance
-func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdriapi.Registry) (*Operation, error) {
+func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdriapi.Registry,
+	hostURL string) (*Operation, error) {
 	store, err := provider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err
 	}
 
+	c := crypto.New(kms, verifiable.NewDIDKeyResolver(vdri))
+
+	vcStatusManager, err := cslstatus.New(provider, hostURL, cslSize, c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
+	}
+
 	svc := &Operation{
-		profileStore: vcprofile.New(store),
-		client:       client,
-		vdri:         vdri,
-		crypto:       crypto.New(kms, verifiable.NewDIDKeyResolver(vdri)),
+		profileStore:    vcprofile.New(store),
+		client:          client,
+		vdri:            vdri,
+		crypto:          c,
+		vcStatusManager: vcStatusManager,
 	}
 
 	svc.registerHandler()
@@ -89,11 +107,12 @@ func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdria
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	handlers     []Handler
-	profileStore *vcprofile.Profile
-	client       Client
-	vdri         vdriapi.Registry
-	crypto       *crypto.Crypto
+	handlers        []Handler
+	profileStore    *vcprofile.Profile
+	client          Client
+	vdri            vdriapi.Registry
+	crypto          *crypto.Crypto
+	vcStatusManager vcStatusManager
 }
 
 func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
@@ -113,7 +132,7 @@ func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	validCredential, err := createCredential(profile, &data)
+	validCredential, err := o.createCredential(profile, &data)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to create credential: %s", err.Error()))
 
@@ -140,21 +159,101 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	verified := true
-	message := successMsg
-
-	_, err = o.parseAndVerifyVC(body)
+	// verify vc
+	vc, err := o.parseAndVerifyVC(body)
 	if err != nil {
-		verified = false
-		message = err.Error()
+		response := &VerifyCredentialResponse{
+			Verified: false,
+			Message:  err.Error()}
+
+		rw.WriteHeader(http.StatusOK)
+		o.writeResponse(rw, response)
+
+		return
 	}
 
-	response := &VerifyCredentialResponse{
-		Verified: verified,
-		Message:  message}
+	// vc is verified
+	// now to check vc status
+	resp, err := o.checkVCStatus(vc.Status.ID, vc.ID)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			err.Error())
+
+		return
+	}
 
 	rw.WriteHeader(http.StatusOK)
-	o.writeResponse(rw, response)
+	o.writeResponse(rw, resp)
+}
+
+func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse, error) {
+	vcResp := &VerifyCredentialResponse{
+		Verified: false}
+
+	csl, err := o.vcStatusManager.GetCSL(vclID)
+	if err != nil {
+		vcResp.Message = fmt.Sprintf("failed to get credential status list: %s", err.Error())
+		return vcResp, nil
+	}
+
+	for _, vcStatus := range csl.VC {
+		if !strings.Contains(vcStatus, vcID) {
+			continue
+		}
+
+		statusVc, err := o.parseAndVerifyVC([]byte(vcStatus))
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse and verify status vc: %s", err.Error())
+		}
+
+		subjectBytes, err := json.Marshal(statusVc.Subject)
+		if err != nil {
+			return nil, fmt.Errorf(fmt.Sprintf("failed to marshal status vc subject: %s", err.Error()))
+		}
+
+		vcResp.Message = string(subjectBytes)
+
+		return vcResp, nil
+	}
+
+	vcResp.Verified = true
+	vcResp.Message = successMsg
+
+	return vcResp, nil
+}
+
+func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *http.Request) {
+	data := UpdateCredentialStatusRequest{}
+	err := json.NewDecoder(req.Body).Decode(&data)
+
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to decode request received: %s", err.Error()))
+		return
+	}
+
+	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
+		return
+	}
+
+	// get profile
+	profile, err := o.profileStore.GetProfile(vc.Issuer.Name)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to get profile: %s", err.Error()))
+		return
+	}
+
+	if err := o.vcStatusManager.UpdateVCStatus(vc, profile, data.Status, data.StatusReason); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to update vc status: %s", err.Error()))
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
 }
 
 func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
@@ -200,8 +299,8 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 
 func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	data := &StoreVCRequest{}
-	err := json.NewDecoder(req.Body).Decode(&data)
 
+	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, "invalid request received")
 
@@ -311,7 +410,8 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 	}
 }
 
-func createCredential(profile *vcprofile.DataProfile, data *CreateCredentialRequest) (*verifiable.Credential, error) {
+func (o *Operation) createCredential(profile *vcprofile.DataProfile,
+	data *CreateCredentialRequest) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 
 	issueDate := time.Now().UTC()
@@ -325,6 +425,13 @@ func createCredential(profile *vcprofile.DataProfile, data *CreateCredentialRequ
 	}
 	credential.Issued = &issueDate
 	credential.ID = profile.URI + "/" + uuid.New().String()
+
+	var err error
+
+	credential.Status, err = o.vcStatusManager.CreateStatusID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create status id for vc: %w", err)
+	}
 
 	cred, err := json.Marshal(credential)
 	if err != nil {
@@ -448,6 +555,7 @@ func (o *Operation) registerHandler() {
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
 		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
 		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
 	}
 }

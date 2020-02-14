@@ -13,6 +13,7 @@ services:
     image: ${VC_REST_IMAGE}:latest
     environment:
       - VC_REST_HOST_URL=${VC_HOST}:${VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://localhost:${VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
       - SIDETREE_HOST_URL=http://sidetree-mock:48326/document
     ports:
