@@ -3,7 +3,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package operation
+package profile
 
 import (
 	"fmt"
@@ -18,12 +18,12 @@ import (
 func TestCredentialRecord_SaveProfile(t *testing.T) {
 	t.Run("test save profile success", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewProfile(store)
+		record := New(store)
 		require.NotNil(t, record)
 
 		created := time.Now().UTC()
 
-		value := &ProfileResponse{
+		value := &DataProfile{
 			Name:    "issuer",
 			URI:     "https://example.com/credentials/1872",
 			Created: &created,
@@ -43,11 +43,11 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 func TestCredentialRecord_GetProfile(t *testing.T) {
 	t.Run("test get profile success", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewProfile(store)
+		record := New(store)
 		require.NotNil(t, record)
 
 		created := time.Now().UTC()
-		valueStored := &ProfileResponse{
+		valueStored := &DataProfile{
 			Name:    "issuer",
 			URI:     "https://example.com/credentials",
 			Created: &created,
@@ -65,7 +65,7 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 
 	t.Run("test get profile failure due to invalid id", func(t *testing.T) {
 		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := NewProfile(store)
+		record := New(store)
 		require.NotNil(t, record)
 
 		profileByte, err := record.GetProfile("")

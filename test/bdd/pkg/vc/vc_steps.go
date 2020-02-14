@@ -18,11 +18,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cucumber/godog"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-
-	"github.com/DATA-DOG/godog"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
@@ -88,7 +88,7 @@ func (e *Steps) createProfile(profileName string) error {
 		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := operation.ProfileResponse{}
+	profileResponse := profile.DataProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -117,7 +117,7 @@ func (e *Steps) getProfile(profileName string) error {
 		return err
 	}
 
-	profileResponse := operation.ProfileResponse{}
+	profileResponse := profile.DataProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -287,7 +287,7 @@ func (e *Steps) verifyCredential() error {
 }
 
 func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
-	profileResponse *operation.ProfileResponse) error {
+	profileResponse *profile.DataProfile) error {
 	if profileResponse.Name != expectedProfileResponseName {
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}

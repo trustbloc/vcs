@@ -18,9 +18,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +28,8 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
 
+	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 )
 
@@ -211,15 +212,17 @@ var errDocumentNotFound = errors.New("edv does not have a document associated wi
 func TestCreateCredentialHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
 
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
+	kms := &kmsmock.CloseableKMS{}
+	op, err := New(memstore.NewProvider(), client, kms, &vdrimock.MockVDRIRegistry{})
 	require.NoError(t, err)
 
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	op.kResolver = &mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
-		return []byte(pubKey), nil
-	}}
+	op.crypto = crypto.New(kms,
+		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
+			return []byte(pubKey), nil
+		}})
 
 	err = op.profileStore.SaveProfile(getTestProfile())
 	require.NoError(t, err)
@@ -396,7 +399,7 @@ func TestCreateProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
-		profile := ProfileResponse{}
+		profile := vcprofile.DataProfile{}
 
 		err = json.Unmarshal(rr.Body.Bytes(), &profile)
 		require.NoError(t, err)
@@ -439,7 +442,7 @@ func TestCreateProfileHandler(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{})
 		require.NoError(t, err)
-		op.profileStore = NewProfile(&mockStore{
+		op.profileStore = vcprofile.New(&mockStore{
 			get: func(s string) (bytes []byte, e error) {
 				return nil, storage.ErrValueNotFound
 			},
@@ -517,7 +520,7 @@ func TestGetProfileHandler(t *testing.T) {
 		getProfileHandler.Handle().ServeHTTP(rr, req)
 
 		require.Equal(t, http.StatusOK, rr.Code)
-		profileResponse := &ProfileResponse{}
+		profileResponse := &vcprofile.DataProfile{}
 		err = json.Unmarshal(rr.Body.Bytes(), profileResponse)
 		require.NoError(t, err)
 		require.Equal(t, profileResponse.Name, profile.Name)
@@ -534,7 +537,7 @@ func TestGetProfileHandler(t *testing.T) {
 	})
 }
 
-func createProfileSuccess(t *testing.T, op *Operation) *ProfileResponse {
+func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.DataProfile {
 	req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
 	require.NoError(t, err)
 
@@ -543,7 +546,7 @@ func createProfileSuccess(t *testing.T, op *Operation) *ProfileResponse {
 	createProfileEndpoint := getHandler(t, op, createProfileEndpoint)
 	createProfileEndpoint.Handle().ServeHTTP(rr, req)
 
-	profile := &ProfileResponse{}
+	profile := &vcprofile.DataProfile{}
 
 	err = json.Unmarshal(rr.Body.Bytes(), &profile)
 	require.NoError(t, err)
@@ -850,8 +853,8 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
 	return nil
 }
 
-func getTestProfile() *ProfileResponse {
-	return &ProfileResponse{
+func getTestProfile() *vcprofile.DataProfile {
+	return &vcprofile.DataProfile{
 		Name:          "test",
 		DID:           "did:test:abc",
 		URI:           "https://test.com/credentials",

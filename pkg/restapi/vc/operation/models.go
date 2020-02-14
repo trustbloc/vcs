@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"time"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -32,16 +30,6 @@ type ProfileRequest struct {
 	Name          string `json:"name"`
 	URI           string `json:"uri"`
 	SignatureType string `json:"signatureType"`
-}
-
-// ProfileResponse struct the output for creating profile
-type ProfileResponse struct {
-	Name          string     `json:"name"`
-	DID           string     `json:"did"`
-	URI           string     `json:"uri"`
-	SignatureType string     `json:"signatureType"`
-	Creator       string     `json:"creator"`
-	Created       *time.Time `json:"created"`
 }
 
 // VerifyCredentialResponse describes verify credential response
