@@ -12,9 +12,9 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
-	github.com/trustbloc/edge-core v0.1.1
+	github.com/trustbloc/edge-core v0.1.2-0.20200224194621-9b39cfa7fb77
 	github.com/trustbloc/edge-service v0.0.0
-	github.com/trustbloc/edv v0.1.1
+	github.com/trustbloc/edv v0.1.2-0.20200221145649-344b0ac87c80
 )
 
 go 1.13

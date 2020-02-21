@@ -277,6 +277,10 @@ type storeProvider struct {
 	store *mockStore
 }
 
+func (p *storeProvider) CreateStore(name string) error {
+	return nil
+}
+
 // OpenStore opens and returns a store for given name space.
 func (p *storeProvider) OpenStore(name string) (storage.Store, error) {
 	return p.store, nil

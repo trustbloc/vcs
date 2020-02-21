@@ -15,7 +15,7 @@ import (
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	storagemock "github.com/trustbloc/edge-core/pkg/storage/mockstore"
+	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 )
@@ -30,7 +30,7 @@ func TestController_New(t *testing.T) {
 
 	t.Run("test error", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		controller, err := New(&storagemock.Provider{
+		controller, err := New(&mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, client, &kmsmock.CloseableKMS{},
 			&vdrimock.MockVDRIRegistry{}, "")
 		require.Error(t, err)
