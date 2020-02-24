@@ -66,9 +66,11 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
-		Creator:       dataProfile.Creator,
-		SignatureType: dataProfile.SignatureType,
-		Suite:         ed25519signature2018.New(ed25519signature2018.WithSigner(newSigner(c.kms, base58.Encode(key)))),
+		Creator:                 dataProfile.Creator,
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		SignatureType:           dataProfile.SignatureType,
+		Suite: ed25519signature2018.New(
+			ed25519signature2018.WithSigner(newSigner(c.kms, base58.Encode(key)))),
 	}
 
 	err = vc.AddLinkedDataProof(signingCtx)
