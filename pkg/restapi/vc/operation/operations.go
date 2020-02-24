@@ -80,6 +80,11 @@ type Client interface {
 // New returns CreateCredential instance
 func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdriapi.Registry,
 	hostURL string) (*Operation, error) {
+	err := provider.CreateStore(credentialStore)
+	if err != nil {
+		return nil, err
+	}
+
 	store, err := provider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err

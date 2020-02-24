@@ -64,6 +64,11 @@ type VCStatus struct {
 
 // New returns new Credential Status List
 func New(provider storage.Provider, url string, listSize int, c crypto) (*CredentialStatusManager, error) {
+	err := provider.CreateStore(credentialStatusStore)
+	if err != nil {
+		return nil, err
+	}
+
 	store, err := provider.OpenStore(credentialStatusStore)
 	if err != nil {
 		return nil, err

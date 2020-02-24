@@ -13,6 +13,8 @@ services:
     image: ${EDV_REST_IMAGE}:${EDV_REST_IMAGE_TAG}
     environment:
       - EDV_HOST_URL=${EDV_HOST}:${EDV_PORT}
+      - EDV_DATABASE_TYPE=${EDV_DATABASE_TYPE}
+      - EDV_DATABASE_URL=${EDV_DATABASE_URL}
     ports:
       - ${EDV_PORT}:${EDV_PORT}
     command: start
