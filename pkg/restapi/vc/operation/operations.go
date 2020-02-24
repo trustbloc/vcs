@@ -488,10 +488,23 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 // buildSideTreeRequest request builder for sidetree public DID creation
 func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
+	encodeDidDocument := base64.URLEncoding.EncodeToString(docBytes)
+
+	schema := createPayloadSchema{
+		Operation:           model.OperationTypeCreate,
+		DidDocument:         encodeDidDocument,
+		NextUpdateOTPHash:   "",
+		NextRecoveryOTPHash: "",
+	}
+
+	payload, err := json.Marshal(schema)
+	if err != nil {
+		return nil, err
+	}
+
 	request := &model.Request{
-		Header: &model.Header{
-			Operation: model.OperationTypeCreate, Alg: "", Kid: ""},
-		Payload:   base64.URLEncoding.EncodeToString(docBytes),
+		Protected: &model.Header{Alg: "", Kid: ""},
+		Payload:   base64.URLEncoding.EncodeToString(payload),
 		Signature: ""}
 
 	b, err := json.Marshal(request)
@@ -500,6 +513,22 @@ func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
 	}
 
 	return bytes.NewReader(b), nil
+}
+
+// createPayloadSchema is the struct for create payload
+type createPayloadSchema struct {
+
+	// operation
+	Operation model.OperationType `json:"type"`
+
+	// Encoded original DID document
+	DidDocument string `json:"didDocument"`
+
+	// Hash of the one-time password for the next update operation
+	NextUpdateOTPHash string `json:"nextUpdateOtpHash"`
+
+	// Hash of the one-time password for this recovery/checkpoint/revoke operation.
+	NextRecoveryOTPHash string `json:"nextRecoveryOtpHash"`
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
