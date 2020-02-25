@@ -15,6 +15,7 @@ services:
       - EDV_HOST_URL=${EDV_HOST}:${EDV_PORT}
       - EDV_DATABASE_TYPE=${EDV_DATABASE_TYPE}
       - EDV_DATABASE_URL=${EDV_DATABASE_URL}
+      - EDV_DATABASE_PREFIX=${EDV_DATABASE_PREFIX}
     ports:
       - ${EDV_PORT}:${EDV_PORT}
     command: start

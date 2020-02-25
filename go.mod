@@ -16,6 +16,6 @@ require (
 	github.com/stretchr/testify v1.4.0
 
 	github.com/trustbloc/edge-core v0.1.2-0.20200224194621-9b39cfa7fb77
-	github.com/trustbloc/edv v0.1.2-0.20200221145649-344b0ac87c80
+	github.com/trustbloc/edv v0.1.2-0.20200225151411-a7b80552f14e
 	github.com/trustbloc/sidetree-core-go v0.1.2-0.20200220212110-5676c1827fc3
 )
