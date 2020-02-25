@@ -146,12 +146,10 @@ github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJy
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
-github.com/trustbloc/edge-core v0.1.2-0.20200219194804-6de326a7d1c4 h1:SqKuhgc3kyozEZjy/lusG0FrPzdaPQiwj+4ixXQ9DOI=
-github.com/trustbloc/edge-core v0.1.2-0.20200219194804-6de326a7d1c4/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
 github.com/trustbloc/edge-core v0.1.2-0.20200224194621-9b39cfa7fb77 h1:RDM5t9CM00+VxT2C6UGrPbLrY2Bo0n4xkNZDkqbqZUM=
 github.com/trustbloc/edge-core v0.1.2-0.20200224194621-9b39cfa7fb77/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
-github.com/trustbloc/edv v0.1.2-0.20200221145649-344b0ac87c80 h1:UC54PQz6a9f4vnPMKdsA3GPyeg5qyBuuJiwHTS1FuYM=
-github.com/trustbloc/edv v0.1.2-0.20200221145649-344b0ac87c80/go.mod h1:7Qu0l1mK0bj15bFHVyBT5XLnLTcP8Is797xQSn89vIw=
+github.com/trustbloc/edv v0.1.2-0.20200225151411-a7b80552f14e h1:hTlhSy2vXCZnLnE6iDeZSgB87wU+5F72Q9ozGQWRLlg=
+github.com/trustbloc/edv v0.1.2-0.20200225151411-a7b80552f14e/go.mod h1:1PRR/xdsV7Qnj3iTIPWV1EIuRLm+1vP200LTAM8O02g=
 github.com/trustbloc/sidetree-core-go v0.1.2-0.20200220212110-5676c1827fc3 h1:3T1YFMcoLJl0r7c945BF7MFm9MDMCase+JEBZV/4pcU=
 github.com/trustbloc/sidetree-core-go v0.1.2-0.20200220212110-5676c1827fc3/go.mod h1:qJ7oOPveEqrxTsO4KJsSHUM/Yivym221Dvd+IUq1V1U=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
