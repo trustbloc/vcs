@@ -26,7 +26,7 @@ vendor
 coverage.txt
 
 # Exclude build directory
-build
+.build
 *.log
 
 test/bdd/fixtures/keys/tls

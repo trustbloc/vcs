@@ -29,30 +29,37 @@ import (
 )
 
 const (
-	hostURLFlagName                   = "host-url"
-	hostURLFlagShorthand              = "u"
-	hostURLFlagUsage                  = "URL to run the vc-rest instance on. Format: HostName:Port."
-	hostURLEnvKey                     = "VC_REST_HOST_URL"
-	edvURLFlagName                    = "edv-url"
-	edvURLFlagShorthand               = "e"
-	edvURLFlagUsage                   = "URL EDV instance is running on. Format: HostName:Port."
-	edvURLEnvKey                      = "EDV_REST_HOST_URL"
-	sideTreeURLFlagName               = "sidetree-url"
-	sideTreeURLFlagUsage              = "URL SideTree instance is running on. Format: HostName:Port."
-	sideTreeURLEnvKey                 = "SIDETREE_HOST_URL"
-	hostURLExternalFlagName           = "host-url-external"
-	hostURLExternalEnvKey             = "VC_REST_HOST_URL_EXTERNAL"
-	agentInboundHostExternalFlagUsage = "Host External Name:Port This is the URL for the host server as seen externally." +
+	hostURLFlagName          = "host-url"
+	hostURLFlagShorthand     = "u"
+	hostURLFlagUsage         = "URL to run the vc-rest instance on. Format: HostName:Port."
+	hostURLEnvKey            = "VC_REST_HOST_URL"
+	edvURLFlagName           = "edv-url"
+	edvURLFlagShorthand      = "e"
+	edvURLFlagUsage          = "URL EDV instance is running on. Format: HostName:Port."
+	edvURLEnvKey             = "EDV_REST_HOST_URL"
+	sideTreeURLFlagName      = "sidetree-url"
+	sideTreeURLFlagUsage     = "URL SideTree instance is running on. Format: HostName:Port."
+	sideTreeURLEnvKey        = "SIDETREE_HOST_URL"
+	hostURLExternalFlagName  = "host-url-external"
+	hostURLExternalEnvKey    = "VC_REST_HOST_URL_EXTERNAL"
+	hostURLExternalFlagUsage = "Host External Name:Port This is the URL for the host server as seen externally." +
 		" If not provided, then the host url will be used here." +
 		" Alternatively, this can be set with the following environment variable: " + hostURLExternalEnvKey
+	universalResolverURLFlagName  = "universal-resolver-url"
+	universalResolverURLFlagUsage = "Universal Resolver instance is running on. Format: HostName:Port."
+	universalResolverURLEnvKey    = "UNIVERSAL_RESOLVER_HOST_URL"
+
+	didMethodVeres    = "v1"
+	didMethodSidetree = "sidetree"
 )
 
 type vcRestParameters struct {
-	srv             server
-	hostURL         string
-	edvURL          string
-	sideTreeURL     string
-	hostURLExternal string
+	srv                  server
+	hostURL              string
+	edvURL               string
+	sideTreeURL          string
+	hostURLExternal      string
+	universalResolverURL string
 }
 
 type server interface {
@@ -92,7 +99,7 @@ func createStartCmd(srv server) *cobra.Command {
 				return err
 			}
 
-			sideTreeURL, err := cmdutils.GetUserSetVar(cmd, sideTreeURLFlagName, sideTreeURLEnvKey, false)
+			sideTreeURL, err := cmdutils.GetUserSetVar(cmd, sideTreeURLFlagName, sideTreeURLEnvKey, true)
 			if err != nil {
 				return err
 			}
@@ -103,12 +110,19 @@ func createStartCmd(srv server) *cobra.Command {
 				return err
 			}
 
+			universalResolverURL, err := cmdutils.GetUserSetVar(cmd, universalResolverURLFlagName,
+				universalResolverURLEnvKey, true)
+			if err != nil {
+				return err
+			}
+
 			parameters := &vcRestParameters{
-				srv:             srv,
-				hostURL:         hostURL,
-				edvURL:          edvURL,
-				sideTreeURL:     sideTreeURL,
-				hostURLExternal: hostURLExternal,
+				srv:                  srv,
+				hostURL:              hostURL,
+				edvURL:               edvURL,
+				sideTreeURL:          sideTreeURL,
+				hostURLExternal:      hostURLExternal,
+				universalResolverURL: universalResolverURL,
 			}
 			return startEdgeService(parameters)
 		},
@@ -119,7 +133,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
 	startCmd.Flags().StringP(sideTreeURLFlagName, "", "", sideTreeURLFlagUsage)
-	startCmd.Flags().StringP(hostURLExternalFlagName, "", "", agentInboundHostExternalFlagUsage)
+	startCmd.Flags().StringP(hostURLExternalFlagName, "", "", hostURLExternalFlagUsage)
+	startCmd.Flags().StringP(universalResolverURLFlagName, "", "", universalResolverURLFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters) error {
@@ -130,7 +145,7 @@ func startEdgeService(parameters *vcRestParameters) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.sideTreeURL, kms)
+	vdri, err := createVDRI(parameters.sideTreeURL, parameters.universalResolverURL, kms)
 	if err != nil {
 		return err
 	}
@@ -171,11 +186,27 @@ func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
 	return kms, nil
 }
 
-func createVDRI(sideTreeURL string, kms legacykms.KMS) (vdriapi.Registry, error) {
-	sideTreeVDRI, err := httpbinding.New(sideTreeURL,
-		httpbinding.WithAccept(func(method string) bool { return method == "sidetree" }))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
+func createVDRI(sideTreeURL, universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
+	var opts []vdripkg.Option
+
+	if sideTreeURL != "" {
+		sideTreeVDRI, err := httpbinding.New(sideTreeURL,
+			httpbinding.WithAccept(func(method string) bool { return method == didMethodSidetree }))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
+		}
+
+		opts = append(opts, vdripkg.WithVDRI(sideTreeVDRI))
+	}
+
+	if universalResolver != "" {
+		universalResolverVDRI, err := httpbinding.New(universalResolver,
+			httpbinding.WithAccept(func(method string) bool { return method == didMethodVeres }))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
+		}
+
+		opts = append(opts, vdripkg.WithVDRI(universalResolverVDRI))
 	}
 
 	vdriProvider, err := context.New(context.WithLegacyKMS(kms))
@@ -183,5 +214,5 @@ func createVDRI(sideTreeURL string, kms legacykms.KMS) (vdriapi.Registry, error)
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(sideTreeVDRI)), nil
+	return vdripkg.New(vdriProvider, opts...), nil
 }

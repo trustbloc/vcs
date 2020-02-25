@@ -92,20 +92,6 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither edv-url (command line flag) nor EDV_REST_HOST_URL (environment variable) have been set.",
 			err.Error())
 	})
-
-	t.Run("test missing sidetree url arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName, "localhost:8081"}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-
-		require.Error(t, err)
-		require.Equal(t,
-			"Neither sidetree-url (command line flag) nor SIDETREE_HOST_URL (environment variable) have been set.",
-			err.Error())
-	})
 }
 
 func TestStartCmdWithBlankEnvVar(t *testing.T) {
@@ -132,23 +118,6 @@ func TestStartCmdWithBlankEnvVar(t *testing.T) {
 		err = startCmd.Execute()
 		require.Error(t, err)
 		require.Equal(t, "EDV_REST_HOST_URL value is empty", err.Error())
-	})
-
-	t.Run("test blank sidetree url env var", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		err := os.Setenv(hostURLEnvKey, "localhost:8080")
-		require.NoError(t, err)
-
-		err = os.Setenv(edvURLEnvKey, "localhost:8081")
-		require.NoError(t, err)
-
-		err = os.Setenv(sideTreeURLEnvKey, "")
-		require.NoError(t, err)
-
-		err = startCmd.Execute()
-		require.Error(t, err)
-		require.Equal(t, "SIDETREE_HOST_URL value is empty", err.Error())
 	})
 }
 
@@ -196,7 +165,7 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new sidetree vdri", func(t *testing.T) {
-		v, err := createVDRI("wrong", nil)
+		v, err := createVDRI("wrong", "", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new sidetree vdri")
 		require.Nil(t, v)
@@ -208,8 +177,21 @@ func TestCreateVDRI(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create new sidetree vdri")
 	})
 
+	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
+		v, err := createVDRI("localhost:8082", "wrong", nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
+		require.Nil(t, v)
+	})
+
+	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{sideTreeURL: "localhost:8082", universalResolverURL: "wrong"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
+	})
+
 	t.Run("test success", func(t *testing.T) {
-		v, err := createVDRI("localhost:8082", nil)
+		v, err := createVDRI("localhost:8082", "localhost:8083", nil)
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
