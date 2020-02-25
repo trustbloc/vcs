@@ -29,8 +29,8 @@ license:
 .PHONY: vc-rest
 vc-rest:
 	@echo "Building vc-rest"
-	@mkdir -p ./build/bin
-	@cd ${VC_REST_PATH} && go build -o ../../build/bin/vc-rest main.go
+	@mkdir -p ./.build/bin
+	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
 
 .PHONY: vc-rest-docker
 vc-rest-docker:
@@ -55,11 +55,15 @@ generate-test-keys: clean
 		frapsoft/openssl
 
 
+create-veres-did: clean
+	@mkdir -p .build
+	@scripts/create_veres_did.sh
+
 .PHONY: clean
 clean: clean-build
 
 .PHONY: clean-build
 clean-build:
-	@rm -Rf ./build
+	@rm -Rf ./.build
 	@rm -Rf ./test/bdd/fixtures/keys/tls
 	@rm -Rf ./test/bdd/docker-compose.log

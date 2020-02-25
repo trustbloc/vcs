@@ -16,6 +16,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://localhost:${VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
       - SIDETREE_HOST_URL=http://sidetree-mock:48326/document
+      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
     ports:
       - ${VC_PORT}:${VC_PORT}
     command: start

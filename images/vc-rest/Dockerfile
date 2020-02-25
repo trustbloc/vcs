@@ -24,5 +24,5 @@ RUN make vc-rest
 
 
 FROM alpine:${ALPINE_VER} as base
-COPY --from=edge-service /go/src/github.com/trustbloc/edge-service/build/bin/vc-rest /usr/local/bin
+COPY --from=edge-service /go/src/github.com/trustbloc/edge-service/.build/bin/vc-rest /usr/local/bin
 ENTRYPOINT ["vc-rest"]

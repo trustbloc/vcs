@@ -1,0 +1,8 @@
+{
+  "drivers": [
+    {
+      "pattern": "^(did:v1:test:nym:.+)$",
+      "url": "https://ashburn.capybara.veres.one/dids/$1"
+    }
+  ]
+}
