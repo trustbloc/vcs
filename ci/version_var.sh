@@ -7,8 +7,8 @@
 
 
 # Release Parameters
-BASE_VERSION=0.1.2
-IS_RELEASE=true
+BASE_VERSION=0.1.3
+IS_RELEASE=false
 
 if [ $IS_RELEASE == false ]
 then
