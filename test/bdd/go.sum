@@ -121,6 +121,8 @@ github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/hyperledger/aries-framework-go v0.1.2 h1:7KIj/6Z9xYb+M951/GlIE48LqFAVbTBju1rB/e4zCgk=
 github.com/hyperledger/aries-framework-go v0.1.2/go.mod h1:p7zzPz5BTer52kgbbEaLuNFtZ83Q7GnW1cUnKkIRDc0=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200228182955-180fe4b23791 h1:PmaBV+C730zejE7wHTkhbLCGti6VcV0rBZek1OAtoQY=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200228182955-180fe4b23791/go.mod h1:BfCxeQKuT77qZ3ACoi6kZPqaFDSv+g1WPNhfCzhpG4k=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
@@ -209,6 +211,7 @@ github.com/syndtr/gocapability v0.0.0-20170704070218-db04d3cc01c8/go.mod h1:hkRG
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/trustbloc/edge-core v0.1.2 h1:NhytMOSi4mU1etaKydl9mciOl3C+V/tAsizvfDGBv40=
 github.com/trustbloc/edge-core v0.1.2/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
+github.com/trustbloc/edge-service v0.1.3-0.20200227180409-ab98ce56350e/go.mod h1:dSrLHR9WbqvT6wkpzkHKaDxbQ6wH+UTZuyANMYmt9BM=
 github.com/trustbloc/edv v0.1.2 h1:uOnGM9sEJPSPpSJYohUlO+mnU/QKmQwlD+ZE53qNz6A=
 github.com/trustbloc/edv v0.1.2/go.mod h1:KhyPK/M+j0jbEjfXbVUSa1oge63h24FdV6Gr4hMX8A4=
 github.com/trustbloc/sidetree-core-go v0.1.2 h1:u0/6JShQV3laQ9jp/VlBLi/hFDSl8Yyl6/XU4p8C07Y=

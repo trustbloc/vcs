@@ -29,10 +29,9 @@ import (
 )
 
 const (
-	expectedProfileResponseDIDAndIssuerID = "did:sidetree"
-	expectedProfileResponseURI            = "https://example.com/credentials"
-	expectedProfileResponseSignatureType  = "Ed25519Signature2018"
-	expectedProfileResponseCreator        = "#key-1"
+	expectedProfileDID                   = "did:sidetree"
+	expectedProfileResponseURI           = "https://example.com/credentials"
+	expectedProfileResponseSignatureType = "Ed25519Signature2018"
 )
 
 // Steps is steps for VC BDD tests
@@ -47,8 +46,8 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created$`, e.createProfile)
-	s.Step(`^We can retrieve profile "([^"]*)"$`, e.getProfile)
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)" and privateKey "([^"]*)"$`, e.createProfile)
+	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)"$`, e.getProfile)
 	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCredential)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
@@ -57,7 +56,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
 }
 
-func (e *Steps) createProfile(profileName string) error {
+func (e *Steps) createProfile(profileName, did, privateKey string) error {
 	profileRequest := operation.ProfileRequest{}
 
 	err := json.Unmarshal(e.bddContext.ProfileRequestTemplate, &profileRequest)
@@ -66,6 +65,8 @@ func (e *Steps) createProfile(profileName string) error {
 	}
 
 	profileRequest.Name = profileName
+	profileRequest.DID = did
+	profileRequest.DIDPrivateKey = privateKey
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -98,14 +99,20 @@ func (e *Steps) createProfile(profileName string) error {
 		return err
 	}
 
-	if err := e.checkProfileResponse(profileName, &profileResponse); err != nil {
+	profileDID := expectedProfileDID
+
+	if profileRequest.DID != "" {
+		profileDID = profileRequest.DID
+	}
+
+	if err := e.checkProfileResponse(profileName, profileDID, &profileResponse); err != nil {
 		return err
 	}
 
 	return resolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 }
 
-func (e *Steps) getProfile(profileName string) error {
+func (e *Steps) getProfile(profileName, did string) error {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Get(fmt.Sprintf("http://localhost:8070/profile/%s", profileName)) //nolint: bodyclose
@@ -127,7 +134,13 @@ func (e *Steps) getProfile(profileName string) error {
 		return err
 	}
 
-	return e.checkProfileResponse(profileName, &profileResponse)
+	profileDID := expectedProfileDID
+
+	if did != "" {
+		profileDID = did
+	}
+
+	return e.checkProfileResponse(profileName, profileDID, &profileResponse)
 }
 
 func (e *Steps) createCredential(profileName string) error {
@@ -323,14 +336,14 @@ func (e *Steps) updateCredentialStatus(status, statusReason string) error {
 	return nil
 }
 
-func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
+func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfileDID string,
 	profileResponse *profile.DataProfile) error {
 	if profileResponse.Name != expectedProfileResponseName {
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}
 
-	if !strings.Contains(profileResponse.DID, expectedProfileResponseDIDAndIssuerID) {
-		return fmt.Errorf("%s not containing %s", profileResponse.DID, expectedProfileResponseDIDAndIssuerID)
+	if !strings.Contains(profileResponse.DID, expectedProfileDID) {
+		return fmt.Errorf("%s not containing %s", profileResponse.DID, expectedProfileDID)
 	}
 
 	if profileResponse.URI != expectedProfileResponseURI {
@@ -342,10 +355,6 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
 			expectedProfileResponseSignatureType, profileResponse.SignatureType)
 	}
 
-	if !strings.Contains(profileResponse.Creator, expectedProfileResponseCreator) {
-		return fmt.Errorf("%s not containing %s", profileResponse.Creator, expectedProfileResponseCreator)
-	}
-
 	// The created field depends on the current time, so let's just made sure it's not nil
 	if profileResponse.Created == nil {
 		return fmt.Errorf("profile response created field was unexpectedly nil")
@@ -355,56 +364,46 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName string,
 }
 
 func checkVC(vcBytes []byte, profileName string) error {
-	issuerID, issuerName, credentialStatusMap, err := getVCFieldsToCheck(vcBytes)
+	issuerName, credentialStatusMap, err := getVCFieldsToCheck(vcBytes)
 	if err != nil {
 		return err
 	}
 
-	return checkVCFields(issuerID, issuerName, credentialStatusMap, profileName)
+	return checkVCFields(issuerName, credentialStatusMap, profileName)
 }
 
-func getVCFieldsToCheck(vcBytes []byte) (string, string, string, error) {
+func getVCFieldsToCheck(vcBytes []byte) (string, string, error) {
 	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 
 	issuer, found := vcMap["issuer"]
 	if !found {
-		return "", "", "", fmt.Errorf("unable to find issuer in VC map")
+		return "", "", fmt.Errorf("unable to find issuer in VC map")
 	}
 
 	issuerMap, ok := issuer.(map[string]interface{})
 	if !ok {
-		return "", "", "", fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
-	}
-
-	issuerID, found := issuerMap["id"]
-	if !found {
-		return "", "", "", fmt.Errorf("unable to find issuer ID in VC map")
-	}
-
-	issuerIDString, ok := issuerID.(string)
-	if !ok {
-		return "", "", "", fmt.Errorf("unable to assert issuer ID type as string")
+		return "", "", fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
 	}
 
 	issuerName, found := issuerMap["name"]
 	if !found {
-		return "", "", "", fmt.Errorf("unable to find issuer name in VC map")
+		return "", "", fmt.Errorf("unable to find issuer name in VC map")
 	}
 
 	issuerNameString, ok := issuerName.(string)
 	if !ok {
-		return "", "", "", fmt.Errorf("unable to assert issuer name type as string")
+		return "", "", fmt.Errorf("unable to assert issuer name type as string")
 	}
 
 	credentialStatusType, err := getCredentialStatusType(vcMap)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 
-	return issuerIDString, issuerNameString, credentialStatusType, nil
+	return issuerNameString, credentialStatusType, nil
 }
 
 func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
@@ -426,11 +425,7 @@ func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
 	return credentialStatusType.(string), nil
 }
 
-func checkVCFields(issuerID, issuerName, credentialStatusType, profileName string) error {
-	if !strings.Contains(issuerID, expectedProfileResponseDIDAndIssuerID) {
-		return fmt.Errorf("%s not containing %s", issuerID, expectedProfileResponseDIDAndIssuerID)
-	}
-
+func checkVCFields(issuerName, credentialStatusType, profileName string) error {
 	if issuerName != profileName {
 		return expectedStringError(profileName, issuerName)
 	}

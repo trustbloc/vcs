@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"strings"
 
@@ -26,17 +27,52 @@ type keyResolver interface {
 	PublicKeyFetcher() verifiable.PublicKeyFetcher
 }
 
-type signer struct {
+type signer interface {
+	// Sign will sign document and return signature
+	Sign(data []byte) ([]byte, error)
+}
+
+type kmsSigner struct {
 	kms   legacykms.KMS
 	keyID string
 }
 
-func newSigner(kms legacykms.KMS, keyID string) *signer {
-	return &signer{kms: kms, keyID: keyID}
+type privateKeySigner struct {
+	privateKey []byte
 }
 
-func (s *signer) Sign(data []byte) ([]byte, error) {
+func newKMSSigner(kms legacykms.KMS, kResolver keyResolver, creator string) (*kmsSigner, error) {
+	// creator will contain didID#keyID
+	idSplit := strings.Split(creator, "#")
+	if len(idSplit) != creatorParts {
+		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	}
+
+	k, err := kResolver.PublicKeyFetcher()(idSplit[0], "#"+idSplit[1])
+	if err != nil {
+		return nil, err
+	}
+
+	key, ok := k.([]byte)
+	if !ok {
+		return nil, fmt.Errorf("public key not bytes")
+	}
+
+	keyID := base58.Encode(key)
+
+	return &kmsSigner{kms: kms, keyID: keyID}, nil
+}
+
+func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return s.kms.SignMessage(data, s.keyID)
+}
+
+func newPrivateKeySigner(privateKey []byte) *privateKeySigner {
+	return &privateKeySigner{privateKey: privateKey}
+}
+
+func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
+	return ed25519.Sign(s.privateKey, data), nil
 }
 
 // New return new instance of vc crypto
@@ -52,17 +88,17 @@ type Crypto struct {
 
 // SignCredential sign vc
 func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential) (*verifiable.Credential, error) { // nolint:lll
-	// creator will contain didID#keyID
-	idSplit := strings.Split(dataProfile.Creator, "#")
-	if len(idSplit) != creatorParts {
-		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
-	}
+	var s signer
 
-	// idSplit[0] is didID
-	// idSplit[1] is keyID
-	key, err := c.fetchPublicKey(idSplit[0], "#"+idSplit[1])
-	if err != nil {
-		return nil, err
+	s = newPrivateKeySigner(base58.Decode(dataProfile.DIDPrivateKey))
+
+	if dataProfile.DIDPrivateKey == "" {
+		var err error
+
+		s, err = newKMSSigner(c.kms, c.kResolver, dataProfile.Creator)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
@@ -70,27 +106,13 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		SignatureRepresentation: verifiable.SignatureProofValue,
 		SignatureType:           dataProfile.SignatureType,
 		Suite: ed25519signature2018.New(
-			ed25519signature2018.WithSigner(newSigner(c.kms, base58.Encode(key)))),
+			ed25519signature2018.WithSigner(s)),
 	}
 
-	err = vc.AddLinkedDataProof(signingCtx)
+	err := vc.AddLinkedDataProof(signingCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}
 
 	return vc, nil
-}
-
-func (c *Crypto) fetchPublicKey(didID, keyID string) ([]byte, error) {
-	k, err := c.kResolver.PublicKeyFetcher()(didID, keyID)
-	if err != nil {
-		return nil, err
-	}
-
-	key, ok := k.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("public key not bytes")
-	}
-
-	return key, nil
 }

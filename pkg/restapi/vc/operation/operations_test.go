@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -165,10 +166,16 @@ const (
 
 const testIssuerProfile = `{
 		"name": "issuer",
-		"did": "did:peer:22",
+		"uri": "https://example.com/credentials",
+		"signatureType": "Ed25519Signature2018"
+}`
+
+const testIssuerProfileWithDID = `{
+		"name": "issuer",
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018",
-		"creator": "did:peer:22#key1"
+        "did": "did:peer:22",
+        "didPrivateKey": "key"
 }`
 
 const validVC = `{` +
@@ -665,6 +672,71 @@ func TestCreateProfileHandler(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
+	})
+
+	t.Run("create profile success without creating did", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
+				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
+			"localhost:8080")
+		require.NoError(t, err)
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		profile := vcprofile.DataProfile{}
+
+		err = json.Unmarshal(rr.Body.Bytes(), &profile)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+		require.NotEmpty(t, profile.Name)
+		require.Contains(t, profile.URI, "https://example.com/credentials")
+		require.Equal(t, "did1#key1", profile.Creator)
+	})
+
+	t.Run("test public key not found", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1"}},
+			"localhost:8080")
+		require.NoError(t, err)
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, "can't find public key in DID", rr.Body.String())
+	})
+
+	t.Run("test failed to resolve did", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+			&vdrimock.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
+			"localhost:8080")
+		require.NoError(t, err)
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to resolve did")
 	})
 
 	t.Run("missing profile name", func(t *testing.T) {

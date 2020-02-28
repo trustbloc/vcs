@@ -22,6 +22,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -456,10 +457,37 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		return nil, err
 	}
 
-	// TODO how to figure out create method ?
-	didDoc, err := o.vdri.Create("sidetree", vdriapi.WithRequestBuilder(buildSideTreeRequest))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create did doc: %v", err)
+	var didDoc *did.Doc
+
+	var err error
+
+	if pr.DID == "" {
+		didDoc, err = o.vdri.Create("sidetree", vdriapi.WithRequestBuilder(buildSideTreeRequest))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create did doc: %v", err)
+		}
+	} else {
+		didDoc, err = o.vdri.Resolve(pr.DID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve did: %v", err)
+		}
+	}
+
+	var publicKeyID string
+
+	var creator string
+
+	switch {
+	case len(didDoc.PublicKey) > 0:
+		publicKeyID = didDoc.PublicKey[0].ID
+		// TODO remove creator after sidetree create public key with this format DID#KEYID
+		// sidetree now return #KEYID
+		creator = didDoc.ID + publicKeyID
+	case len(didDoc.Authentication) > 0:
+		publicKeyID = didDoc.Authentication[0].PublicKey.ID
+		creator = publicKeyID
+	default:
+		return nil, fmt.Errorf("can't find public key in DID")
 	}
 
 	created := time.Now().UTC()
@@ -469,7 +497,8 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		Created:       &created,
 		DID:           didDoc.ID,
 		SignatureType: pr.SignatureType,
-		Creator:       didDoc.ID + didDoc.PublicKey[0].ID,
+		Creator:       creator,
+		DIDPrivateKey: pr.DIDPrivateKey,
 	}
 
 	err = o.profileStore.SaveProfile(profileResponse)

@@ -27,7 +27,7 @@ type BDDContext struct {
 
 // NewBDDContext create new BDDContext
 func NewBDDContext() (*BDDContext, error) {
-	vdri, err := createVDRI("http://localhost:48326/document")
+	vdri, err := createVDRI("http://localhost:48326/document", "http://localhost:8080/1.0/identifiers")
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +73,17 @@ func NewBDDContext() (*BDDContext, error) {
 	return &instance, nil
 }
 
-func createVDRI(sideTreeURL string) (vdriapi.Registry, error) {
+func createVDRI(sideTreeURL, universalResolver string) (vdriapi.Registry, error) {
 	sideTreeVDRI, err := httpbinding.New(sideTreeURL,
 		httpbinding.WithAccept(func(method string) bool { return method == "sidetree" }))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
+	}
+
+	universalResolverVDRI, err := httpbinding.New(universalResolver,
+		httpbinding.WithAccept(func(method string) bool { return method == "v1" }))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
 	}
 
 	vdriProvider, err := context.New(context.WithLegacyKMS(nil))
@@ -85,5 +91,5 @@ func createVDRI(sideTreeURL string) (vdriapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(sideTreeVDRI)), nil
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(sideTreeVDRI), vdripkg.WithVDRI(universalResolverVDRI)), nil
 }
