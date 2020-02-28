@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	"github.com/stretchr/testify/require"
@@ -31,6 +32,21 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		signedVC, err := c.SignCredential(
 			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+	})
+
+	t.Run("test success with private key", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(nil, nil)
+
+		p := getTestProfile()
+		p.DIDPrivateKey = base58.Encode(privateKey)
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
