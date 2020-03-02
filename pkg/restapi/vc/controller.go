@@ -16,7 +16,7 @@ import (
 
 // New returns new controller instance.
 func New(provider storage.Provider, client operation.Client, kms legacykms.KMS,
-	vdri vdriapi.Registry, hostURL string) (*Controller, error) {
+	vdri vdriapi.Registry, hostURL, mode string) (*Controller, error) {
 	var allHandlers []operation.Handler
 
 	vcService, err := operation.New(provider, client, kms, vdri, hostURL)
@@ -24,7 +24,12 @@ func New(provider storage.Provider, client operation.Client, kms legacykms.KMS,
 		return nil, err
 	}
 
-	allHandlers = append(allHandlers, vcService.GetRESTHandlers()...)
+	handlers, err := vcService.GetRESTHandlers(mode)
+	if err != nil {
+		return nil, err
+	}
+
+	allHandlers = append(allHandlers, handlers...)
 
 	return &Controller{handlers: allHandlers}, nil
 }
