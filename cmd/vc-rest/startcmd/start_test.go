@@ -65,6 +65,20 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "sidetree-url value is empty", err.Error())
 	})
+
+	t.Run("invalid mode", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "test",
+			"--" + edvURLFlagName, "test",
+			"--" + modeFlagName, "invalid"}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported mode")
+	})
 }
 
 func TestStartCmdWithMissingArg(t *testing.T) {

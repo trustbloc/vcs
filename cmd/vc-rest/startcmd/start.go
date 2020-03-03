@@ -48,9 +48,22 @@ const (
 	universalResolverURLFlagName  = "universal-resolver-url"
 	universalResolverURLFlagUsage = "Universal Resolver instance is running on. Format: HostName:Port."
 	universalResolverURLEnvKey    = "UNIVERSAL_RESOLVER_HOST_URL"
+	modeFlagName                  = "mode"
+	modeFlagShorthand             = "m"
+	modeFlagUsage                 = "Mode in which the vc-rest service will run. Possible values: " +
+		"['issuer', 'verifier'] (default: issuer)."
+	modeEnvKey = "VC_REST_MODE"
 
 	didMethodVeres    = "v1"
 	didMethodSidetree = "sidetree"
+)
+
+// mode in which to run the vc-rest service
+type mode string
+
+const (
+	verifier mode = "verifier"
+	issuer   mode = "issuer"
 )
 
 type vcRestParameters struct {
@@ -60,6 +73,7 @@ type vcRestParameters struct {
 	sideTreeURL          string
 	hostURLExternal      string
 	universalResolverURL string
+	mode                 string
 }
 
 type server interface {
@@ -116,6 +130,19 @@ func createStartCmd(srv server) *cobra.Command {
 				return err
 			}
 
+			mode, err := cmdutils.GetUserSetVar(cmd, modeFlagName, modeEnvKey, true)
+			if err != nil {
+				return err
+			}
+
+			if !supportedMode(mode) {
+				return fmt.Errorf("unsupported mode: %s", mode)
+			}
+
+			if mode == "" {
+				mode = string(issuer)
+			}
+
 			parameters := &vcRestParameters{
 				srv:                  srv,
 				hostURL:              hostURL,
@@ -123,6 +150,7 @@ func createStartCmd(srv server) *cobra.Command {
 				sideTreeURL:          sideTreeURL,
 				hostURLExternal:      hostURLExternal,
 				universalResolverURL: universalResolverURL,
+				mode:                 mode,
 			}
 			return startEdgeService(parameters)
 		},
@@ -135,6 +163,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(sideTreeURLFlagName, "", "", sideTreeURLFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, "", "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, "", "", universalResolverURLFlagUsage)
+	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters) error {
@@ -155,7 +184,13 @@ func startEdgeService(parameters *vcRestParameters) error {
 		externalHostURL = parameters.hostURLExternal
 	}
 
-	vcService, err := vc.New(memstore.NewProvider(), edv.New(parameters.edvURL), kms, vdri, externalHostURL)
+	vcService, err := vc.New(
+		memstore.NewProvider(),
+		edv.New(parameters.edvURL),
+		kms,
+		vdri,
+		externalHostURL,
+		parameters.mode)
 	if err != nil {
 		return err
 	}
@@ -215,4 +250,12 @@ func createVDRI(sideTreeURL, universalResolver string, kms legacykms.KMS) (vdria
 	}
 
 	return vdripkg.New(vdriProvider, opts...), nil
+}
+
+func supportedMode(mode string) bool {
+	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) {
+		return false
+	}
+
+	return true
 }

@@ -106,14 +106,11 @@ func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdria
 		vcStatusManager: vcStatusManager,
 	}
 
-	svc.registerHandler()
-
 	return svc, nil
 }
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	handlers        []Handler
 	profileStore    *vcprofile.Profile
 	client          Client
 	vdri            vdriapi.Registry
@@ -609,29 +606,36 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 	}
 }
 
-// registerHandler register handlers to be exposed from this service as REST API endpoints
-func (o *Operation) registerHandler() {
-	// Add more protocol endpoints here to expose them as controller API endpoints
-	o.handlers = []Handler{
-		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
-		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
-		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
-		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
-		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
-		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
-		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
+// GetRESTHandlers get all controller API handler available for this service
+func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
+	switch mode {
+	case "verifier":
+		return []Handler{
+			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		}, nil
+	case "issuer":
+		return []Handler{
+			support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
+			support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
+			support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+			support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
+			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
+			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
+		}, nil
+	default:
+		return nil, fmt.Errorf("invalid operation mode: %s", mode)
 	}
 }
 
-// GetRESTHandlers get all controller API handler available for this service
-func (o *Operation) GetRESTHandlers() []Handler {
-	return o.handlers
-}
-
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, _, err := verifiable.NewCredential(vcBytes,
+	vc, _, err := verifiable.NewCredential(
+		vcBytes,
 		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+		),
+	)
 	if err != nil {
 		return nil, err
 	}
