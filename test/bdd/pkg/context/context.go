@@ -21,6 +21,7 @@ type BDDContext struct {
 	ProfileRequestTemplate          []byte
 	CreateCredentialRequestTemplate []byte
 	CreatedCredential               []byte
+	CreatedPresentation             []byte
 	StoreVCRequest                  []byte
 	VDRI                            vdriapi.Registry
 }
@@ -56,8 +57,8 @@ func NewBDDContext() (*BDDContext, error) {
   "profile": "ToBeChangedInStep"
 }`),
 		StoreVCRequest: []byte(`{
-"profile": "ToBeChangedInStep",
-"credential" : "{\"@context\":[\"https:\/\/www.w3.org\/2018\/credentials\/v1\"],\"credentialSchema\":[],` +
+			"profile": "ToBeChangedInStep",
+			"credential" : "{\"@context\":[\"https:\/\/www.w3.org\/2018\/credentials\/v1\"],\"credentialSchema\":[],` +
 			`\"credentialSubject\":{\"degree\":{\"type\":\"BachelorDegree\",\"university\":\"MIT\"},\"id\":` +
 			`\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\` +
 			`"did:example:c276e12ec21ebfeb1f712ebc6f1\"},\"id\":\` +

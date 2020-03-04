@@ -196,6 +196,93 @@ const validVC = `{` +
   }
 }`
 
+//nolint:lll
+const validVP = `{
+	"@context": [
+		"https://www.w3.org/2018/credentials/v1",
+		"https://www.w3.org/2018/credentials/examples/v1"
+	],
+	"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+	"type": "VerifiablePresentation",
+	"verifiableCredential": [{
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"
+		],
+		"id": "http://example.edu/credentials/1872",
+		"type": "VerifiableCredential",
+		"credentialSubject": {
+			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+		},
+		"issuer": {
+			"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			"name": "Example University"
+		},
+		"issuanceDate": "2010-01-01T19:23:24Z",
+		"credentialStatus": {
+			"id": "https://example.gov/status/24",
+			"type": "CredentialStatusList2017"
+		}
+	}],
+	"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+	"proof": {
+		"type": "Ed25519Signature2018",
+		"created": "2020-01-21T16:44:53+02:00",
+		"proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
+	},
+	"refreshService": {
+		"id": "https://example.edu/refresh/3732",
+		"type": "ManualRefreshService2018"
+	}
+}`
+
+//nolint:lll
+const inValidVP = `{` +
+	validContext + `,
+  "type": "VerifiablePresentation",
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2020-01-21T16:44:53+02:00",
+    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
+  }
+}`
+
+//nolint:lll
+const inValidVCinVP = `{` +
+	validContext + `,
+  "type": "VerifiablePresentation",
+  "verifiableCredential": [
+    {
+      "id": "http://example.edu/credentials/1872",
+      "type": [
+        "VerifiableCredential",
+        "AlumniCredential"
+      ],
+      "issuer": "https://example.edu/issuers/565049",
+      "issuanceDate": "2010-01-01T19:03:24Z",
+      "credentialSubject": {
+        "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "alumniOf": {
+          "id": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+          "name": [
+            {
+              "value": "Example University",
+              "lang": "en"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+  "proof": {
+    "type": "Ed25519Signature2018",
+    "created": "2020-01-21T16:44:53+02:00",
+    "proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01mq-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVBAh4vGHSrQyHUGlcTwLtjPAnKb78"
+  }
+}`
+
 const validVCStatus = `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1"
@@ -419,6 +506,92 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 	createCredentialHandler.Handle().ServeHTTP(rr, req)
 	require.Equal(t, http.StatusInternalServerError, rr.Code)
 	require.Contains(t, rr.Body.String(), "failed to sign credential")
+}
+
+func TestVerifyPresentationHandlerIssuer(t *testing.T) {
+	const mode = "issuer"
+
+	client := edv.NewMockEDVClient("test", nil)
+	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
+		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	require.NoError(t, err)
+
+	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
+
+	verifyPresentationHandler := getHandler(t, op, verifyPresentationEndpoint, mode)
+
+	t.Run("verify presentation success", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyPresentationEndpoint, bytes.NewBuffer([]byte(validVP)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+		verifyPresentationHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, "success", response.Message)
+		require.Equal(t, true, response.Verified)
+	})
+
+	t.Run("verify presentation failure", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyPresentationEndpoint, bytes.NewBuffer([]byte(inValidVP)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyPresentationHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, false, response.Verified)
+		require.Equal(t, "verifiable presentation is not valid:\n- (root):"+
+			" verifiableCredential is required\n", response.Message)
+	})
+	t.Run("verify presentation failure", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyPresentationEndpoint, bytes.NewBuffer([]byte(inValidVP)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyPresentationHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, false, response.Verified)
+		require.Equal(t, "verifiable presentation is not valid:\n- (root):"+
+			" verifiableCredential is required\n", response.Message)
+	})
+
+	t.Run("invalid credential inside presentation", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyPresentationEndpoint, bytes.NewBuffer([]byte(inValidVCinVP)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyPresentationHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		response := VerifyCredentialResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, false, response.Verified)
+		require.Equal(t, "build new credential: fill credential context from raw: credential context of "+
+			"unknown type", response.Message)
+	})
+
+	t.Run("test error while reading http request", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodPost, verifyPresentationEndpoint, nil)
+		require.NoError(t, err)
+
+		req.Body = &mockReader{}
+		rr := httptest.NewRecorder()
+
+		verifyPresentationHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "reader error")
+	})
 }
 
 func TestVerifyCredentialHandlerIssuer(t *testing.T) {

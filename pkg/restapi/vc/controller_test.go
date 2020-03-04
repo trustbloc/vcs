@@ -97,7 +97,7 @@ func TestIssuerController_GetOperations(t *testing.T) {
 
 	ops := controller.GetOperations()
 
-	require.Equal(t, 7, len(ops))
+	require.Equal(t, 8, len(ops))
 
 	require.Equal(t, "/credential", ops[0].Path())
 	require.Equal(t, http.MethodPost, ops[0].Method())
