@@ -8,8 +8,12 @@ package vc
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -18,7 +22,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	"github.com/cucumber/godog"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	log "github.com/sirupsen/logrus"
 
@@ -53,7 +60,76 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
 	s.Step(`^Now we verify that credential with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`,
 		e.verifyCredential)
+	s.Step(`^Now we verify that presentation with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`,
+		e.verifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
+}
+
+func getSigner(privKey []byte) *signer {
+	return &signer{privateKey: privKey}
+}
+
+type signer struct {
+	privateKey []byte
+}
+
+func (s *signer) Sign(doc []byte) ([]byte, error) {
+	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
+
+	return ed25519.Sign(s.privateKey, doc), nil
+}
+
+func (e *Steps) verifyPresentation(verifiedFlag, verifiedMsg string) error {
+	vp, err := e.createPresentation(e.bddContext.CreatedCredential)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post("http://localhost:8070/verifyPresentation", "", //nolint: bodyclose
+		bytes.NewBuffer(vp))
+
+	if err != nil {
+		return err
+	}
+
+	return verify(resp, verifiedFlag, verifiedMsg)
+}
+
+func (e *Steps) createPresentation(vcBytes []byte) ([]byte, error) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privateKey))),
+	}
+
+	// parse vc
+	vc, _, err := verifiable.NewCredential(vcBytes,
+		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
+	if err != nil {
+		return nil, err
+	}
+
+	// create verifiable presentation from vc
+	vp, err := vc.Presentation()
+	if err != nil {
+		return nil, err
+	}
+
+	// add linked data proof
+	err = vp.AddLinkedDataProof(ldpContext)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(vp)
 }
 
 func (e *Steps) createProfile(profileName, did, privateKey string) error {
@@ -275,6 +351,10 @@ func (e *Steps) verifyCredential(verifiedFlag, verifiedMsg string) error {
 		return err
 	}
 
+	return verify(resp, verifiedFlag, verifiedMsg)
+}
+
+func verify(resp *http.Response, verifiedFlag, verifiedMsg string) error {
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err

@@ -50,6 +50,7 @@ const (
 	getProfileEndpoint             = profile + "/{id}"
 	storeCredentialEndpoint        = "/store"
 	retrieveCredentialEndpoint     = "/retrieve"
+	verifyPresentationEndpoint     = "/verifyPresentation"
 
 	successMsg        = "success"
 	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
@@ -413,6 +414,36 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 	}
 }
 
+func (o *Operation) verifyVPHandler(rw http.ResponseWriter, req *http.Request) {
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to read request body: %s", err.Error()))
+
+		return
+	}
+	// verify vp
+	_, err = o.parseAndVerifyVP(body)
+	if err != nil {
+		response := &VerifyCredentialResponse{
+			Verified: false,
+			Message:  err.Error()}
+
+		rw.WriteHeader(http.StatusOK)
+		o.writeResponse(rw, response)
+
+		return
+	}
+
+	resp := &VerifyCredentialResponse{
+		Verified: true,
+		Message:  successMsg,
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	o.writeResponse(rw, resp)
+}
+
 func (o *Operation) createCredential(profile *vcprofile.DataProfile,
 	data *CreateCredentialRequest) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
@@ -622,6 +653,7 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
 			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
 			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
+			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)
@@ -641,4 +673,33 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	}
 
 	return vc, nil
+}
+
+func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
+	vp, err := verifiable.NewPresentation(
+		vpBytes,
+		verifiable.WithPresEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	// vp is verified
+
+	// verify if the credentials in vp are valid
+	for _, cred := range vp.Credentials() {
+		vcBytes, err := json.Marshal(cred)
+		if err != nil {
+			return nil, err
+		}
+		// verify if the credential in vp is valid
+		_, err = o.parseAndVerifyVC(vcBytes)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return vp, nil
 }
