@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	"github.com/trustbloc/bloc-did-method/pkg/vdri/bloc"
 )
 
 // BDDContext is a global context shared between different test suites in bddtests
@@ -28,7 +29,7 @@ type BDDContext struct {
 
 // NewBDDContext create new BDDContext
 func NewBDDContext() (*BDDContext, error) {
-	vdri, err := createVDRI("http://localhost:48326/document", "http://localhost:8080/1.0/identifiers")
+	vdri, err := createVDRI("http://localhost:8080/1.0/identifiers")
 	if err != nil {
 		return nil, err
 	}
@@ -74,13 +75,7 @@ func NewBDDContext() (*BDDContext, error) {
 	return &instance, nil
 }
 
-func createVDRI(sideTreeURL, universalResolver string) (vdriapi.Registry, error) {
-	sideTreeVDRI, err := httpbinding.New(sideTreeURL,
-		httpbinding.WithAccept(func(method string) bool { return method == "sidetree" }))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
-	}
-
+func createVDRI(universalResolver string) (vdriapi.Registry, error) {
 	universalResolverVDRI, err := httpbinding.New(universalResolver,
 		httpbinding.WithAccept(func(method string) bool { return method == "v1" }))
 	if err != nil {
@@ -92,5 +87,6 @@ func createVDRI(sideTreeURL, universalResolver string) (vdriapi.Registry, error)
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(sideTreeVDRI), vdripkg.WithVDRI(universalResolverVDRI)), nil
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(bloc.New(bloc.WithResolverURL(universalResolver))),
+		vdripkg.WithVDRI(universalResolverVDRI)), nil
 }

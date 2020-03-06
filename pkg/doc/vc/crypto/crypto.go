@@ -102,7 +102,7 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 	}
 
 	signingCtx := &verifiable.LinkedDataProofContext{
-		Creator:                 dataProfile.Creator,
+		VerificationMethod:      dataProfile.Creator,
 		SignatureRepresentation: verifiable.SignatureProofValue,
 		SignatureType:           dataProfile.SignatureType,
 		Suite: ed25519signature2018.New(

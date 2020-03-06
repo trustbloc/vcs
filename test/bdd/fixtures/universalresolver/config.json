@@ -3,6 +3,10 @@
     {
       "pattern": "^(did:v1:test:nym:.+)$",
       "url": "https://ashburn.capybara.veres.one/dids/$1"
+    },
+    {
+      "pattern": "^(did:bloc:sidetree-mock:.+)$",
+      "url": "http://bloc.did.method.example.com:8060/resolveDID?did=$1"
     }
   ]
 }

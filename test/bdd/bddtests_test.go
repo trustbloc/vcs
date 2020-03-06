@@ -50,7 +50,8 @@ func runBDDTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		var composition []*dockerutil.Composition
 		var composeFiles = []string{"./fixtures/vc-rest", "./fixtures/couchdb",
-			"./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver"}
+			"./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
+			"./fixtures/did-method-rest"}
 		s.BeforeSuite(func() {
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
 				// Need a unique name, but docker does not allow '-' in names
@@ -64,7 +65,7 @@ func runBDDTests(tags, format string) int {
 					composition = append(composition, newComposition)
 				}
 				fmt.Println("docker-compose up ... waiting for containers to start ...")
-				testSleep := 5
+				testSleep := 15
 				if os.Getenv("TEST_SLEEP") != "" {
 					var e error
 
