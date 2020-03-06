@@ -31,28 +31,36 @@ import (
 )
 
 const (
-	hostURLFlagName          = "host-url"
-	hostURLFlagShorthand     = "u"
-	hostURLFlagUsage         = "URL to run the vc-rest instance on. Format: HostName:Port."
-	hostURLEnvKey            = "VC_REST_HOST_URL"
-	edvURLFlagName           = "edv-url"
-	edvURLFlagShorthand      = "e"
-	edvURLFlagUsage          = "URL EDV instance is running on. Format: HostName:Port."
-	edvURLEnvKey             = "EDV_REST_HOST_URL"
-	blocDomainFlagName       = "bloc-domain"
-	blocDomainFlagUsage      = "Bloc domain"
-	blocDomainEnvKey         = "BLOC_DOMAIN"
-	hostURLExternalFlagName  = "host-url-external"
-	hostURLExternalEnvKey    = "VC_REST_HOST_URL_EXTERNAL"
-	hostURLExternalFlagUsage = "Host External Name:Port This is the URL for the host server as seen externally." +
+	hostURLFlagName      = "host-url"
+	hostURLFlagShorthand = "u"
+	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
+	hostURLEnvKey        = "VC_REST_HOST_URL"
+
+	edvURLFlagName      = "edv-url"
+	edvURLFlagShorthand = "e"
+	edvURLFlagUsage     = "URL EDV instance is running on. Format: HostName:Port."
+	edvURLEnvKey        = "EDV_REST_HOST_URL"
+
+	blocDomainFlagName      = "bloc-domain"
+	blocDomainFlagShorthand = "b"
+	blocDomainFlagUsage     = "Bloc domain"
+	blocDomainEnvKey        = "BLOC_DOMAIN"
+
+	hostURLExternalFlagName      = "host-url-external"
+	hostURLExternalFlagShorthand = "x"
+	hostURLExternalEnvKey        = "VC_REST_HOST_URL_EXTERNAL"
+	hostURLExternalFlagUsage     = "Host External Name:Port This is the URL for the host server as seen externally." +
 		" If not provided, then the host url will be used here." +
 		" Alternatively, this can be set with the following environment variable: " + hostURLExternalEnvKey
-	universalResolverURLFlagName  = "universal-resolver-url"
-	universalResolverURLFlagUsage = "Universal Resolver instance is running on. Format: HostName:Port."
-	universalResolverURLEnvKey    = "UNIVERSAL_RESOLVER_HOST_URL"
-	modeFlagName                  = "mode"
-	modeFlagShorthand             = "m"
-	modeFlagUsage                 = "Mode in which the vc-rest service will run. Possible values: " +
+
+	universalResolverURLFlagName      = "universal-resolver-url"
+	universalResolverURLFlagShorthand = "r"
+	universalResolverURLFlagUsage     = "Universal Resolver instance is running on. Format: HostName:Port."
+	universalResolverURLEnvKey        = "UNIVERSAL_RESOLVER_HOST_URL"
+
+	modeFlagName      = "mode"
+	modeFlagShorthand = "m"
+	modeFlagUsage     = "Mode in which the vc-rest service will run. Possible values: " +
 		"['issuer', 'verifier'] (default: issuer)."
 	modeEnvKey = "VC_REST_MODE"
 
@@ -68,7 +76,6 @@ const (
 )
 
 type vcRestParameters struct {
-	srv                  server
 	hostURL              string
 	edvURL               string
 	blocDomain           string
@@ -104,70 +111,78 @@ func createStartCmd(srv server) *cobra.Command {
 		Short: "Start vc-rest",
 		Long:  "Start vc-rest inside the edge-service",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			hostURL, err := cmdutils.GetUserSetVar(cmd, hostURLFlagName, hostURLEnvKey, false)
+			parameters, err := getVCRestParameters(cmd)
 			if err != nil {
 				return err
 			}
 
-			edvURL, err := cmdutils.GetUserSetVar(cmd, edvURLFlagName, edvURLEnvKey, false)
-			if err != nil {
-				return err
-			}
-
-			blocDomain, err := cmdutils.GetUserSetVar(cmd, blocDomainFlagName, blocDomainEnvKey, false)
-			if err != nil {
-				return err
-			}
-
-			hostURLExternal, err := cmdutils.GetUserSetVar(cmd, hostURLExternalFlagName,
-				hostURLExternalEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			universalResolverURL, err := cmdutils.GetUserSetVar(cmd, universalResolverURLFlagName,
-				universalResolverURLEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			mode, err := cmdutils.GetUserSetVar(cmd, modeFlagName, modeEnvKey, true)
-			if err != nil {
-				return err
-			}
-
-			if !supportedMode(mode) {
-				return fmt.Errorf("unsupported mode: %s", mode)
-			}
-
-			if mode == "" {
-				mode = string(issuer)
-			}
-
-			parameters := &vcRestParameters{
-				srv:                  srv,
-				hostURL:              hostURL,
-				edvURL:               edvURL,
-				blocDomain:           blocDomain,
-				hostURLExternal:      hostURLExternal,
-				universalResolverURL: universalResolverURL,
-				mode:                 mode,
-			}
-			return startEdgeService(parameters)
+			return startEdgeService(parameters, srv)
 		},
 	}
+}
+
+func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
+	hostURL, err := cmdutils.GetUserSetVar(cmd, hostURLFlagName, hostURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	edvURL, err := cmdutils.GetUserSetVar(cmd, edvURLFlagName, edvURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	blocDomain, err := cmdutils.GetUserSetVar(cmd, blocDomainFlagName, blocDomainEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	hostURLExternal, err := cmdutils.GetUserSetVar(cmd, hostURLExternalFlagName,
+		hostURLExternalEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	universalResolverURL, err := cmdutils.GetUserSetVar(cmd, universalResolverURLFlagName,
+		universalResolverURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	mode, err := cmdutils.GetUserSetVar(cmd, modeFlagName, modeEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if !supportedMode(mode) {
+		return nil, fmt.Errorf("unsupported mode: %s", mode)
+	}
+
+	if mode == "" {
+		mode = string(issuer)
+	}
+
+	return &vcRestParameters{
+		hostURL:              hostURL,
+		edvURL:               edvURL,
+		blocDomain:           blocDomain,
+		hostURLExternal:      hostURLExternal,
+		universalResolverURL: universalResolverURL,
+		mode:                 mode,
+	}, nil
 }
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
-	startCmd.Flags().StringP(blocDomainFlagName, "", "", blocDomainFlagUsage)
-	startCmd.Flags().StringP(hostURLExternalFlagName, "", "", hostURLExternalFlagUsage)
-	startCmd.Flags().StringP(universalResolverURLFlagName, "", "", universalResolverURLFlagUsage)
+	startCmd.Flags().StringP(blocDomainFlagName, blocDomainFlagShorthand, "", blocDomainFlagUsage)
+	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
+	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
+		universalResolverURLFlagUsage)
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
 }
 
-func startEdgeService(parameters *vcRestParameters) error {
+func startEdgeService(parameters *vcRestParameters, srv server) error {
 	// Create KMS
 	kms, err := createKMS(mem.NewProvider())
 	if err != nil {
@@ -201,7 +216,7 @@ func startEdgeService(parameters *vcRestParameters) error {
 
 	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
-	return parameters.srv.ListenAndServe(parameters.hostURL, router)
+	return srv.ListenAndServe(parameters.hostURL, router)
 }
 
 func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
