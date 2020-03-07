@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/bloc-did-method/pkg/vdri/bloc"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edv/pkg/client/edv"
 
@@ -37,9 +38,9 @@ const (
 	edvURLFlagShorthand      = "e"
 	edvURLFlagUsage          = "URL EDV instance is running on. Format: HostName:Port."
 	edvURLEnvKey             = "EDV_REST_HOST_URL"
-	sideTreeURLFlagName      = "sidetree-url"
-	sideTreeURLFlagUsage     = "URL SideTree instance is running on. Format: HostName:Port."
-	sideTreeURLEnvKey        = "SIDETREE_HOST_URL"
+	blocDomainFlagName       = "bloc-domain"
+	blocDomainFlagUsage      = "Bloc domain"
+	blocDomainEnvKey         = "BLOC_DOMAIN"
 	hostURLExternalFlagName  = "host-url-external"
 	hostURLExternalEnvKey    = "VC_REST_HOST_URL_EXTERNAL"
 	hostURLExternalFlagUsage = "Host External Name:Port This is the URL for the host server as seen externally." +
@@ -54,8 +55,7 @@ const (
 		"['issuer', 'verifier'] (default: issuer)."
 	modeEnvKey = "VC_REST_MODE"
 
-	didMethodVeres    = "v1"
-	didMethodSidetree = "sidetree"
+	didMethodVeres = "v1"
 )
 
 // mode in which to run the vc-rest service
@@ -70,7 +70,7 @@ type vcRestParameters struct {
 	srv                  server
 	hostURL              string
 	edvURL               string
-	sideTreeURL          string
+	blocDomain           string
 	hostURLExternal      string
 	universalResolverURL string
 	mode                 string
@@ -113,7 +113,7 @@ func createStartCmd(srv server) *cobra.Command {
 				return err
 			}
 
-			sideTreeURL, err := cmdutils.GetUserSetVar(cmd, sideTreeURLFlagName, sideTreeURLEnvKey, true)
+			blocDomain, err := cmdutils.GetUserSetVar(cmd, blocDomainFlagName, blocDomainEnvKey, false)
 			if err != nil {
 				return err
 			}
@@ -147,7 +147,7 @@ func createStartCmd(srv server) *cobra.Command {
 				srv:                  srv,
 				hostURL:              hostURL,
 				edvURL:               edvURL,
-				sideTreeURL:          sideTreeURL,
+				blocDomain:           blocDomain,
 				hostURLExternal:      hostURLExternal,
 				universalResolverURL: universalResolverURL,
 				mode:                 mode,
@@ -160,7 +160,7 @@ func createStartCmd(srv server) *cobra.Command {
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
-	startCmd.Flags().StringP(sideTreeURLFlagName, "", "", sideTreeURLFlagUsage)
+	startCmd.Flags().StringP(blocDomainFlagName, "", "", blocDomainFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, "", "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, "", "", universalResolverURLFlagUsage)
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
@@ -174,7 +174,7 @@ func startEdgeService(parameters *vcRestParameters) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.sideTreeURL, parameters.universalResolverURL, kms)
+	vdri, err := createVDRI(parameters.blocDomain, parameters.universalResolverURL, kms)
 	if err != nil {
 		return err
 	}
@@ -221,18 +221,13 @@ func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
 	return kms, nil
 }
 
-func createVDRI(sideTreeURL, universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
+func createVDRI(blocDomain, universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
 	var opts []vdripkg.Option
 
-	if sideTreeURL != "" {
-		sideTreeVDRI, err := httpbinding.New(sideTreeURL,
-			httpbinding.WithAccept(func(method string) bool { return method == didMethodSidetree }))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new sidetree vdri: %w", err)
-		}
+	var blocVDRIOpts []bloc.Option
 
-		opts = append(opts, vdripkg.WithVDRI(sideTreeVDRI))
-	}
+	// add bloc domain to bloc vdri
+	blocVDRIOpts = append(blocVDRIOpts, bloc.WithDomain(blocDomain))
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
@@ -241,8 +236,15 @@ func createVDRI(sideTreeURL, universalResolver string, kms legacykms.KMS) (vdria
 			return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
 		}
 
+		// add universal resolver vdri
 		opts = append(opts, vdripkg.WithVDRI(universalResolverVDRI))
+
+		// add universal resolver to bloc vdri
+		blocVDRIOpts = append(blocVDRIOpts, bloc.WithResolverURL(universalResolver))
 	}
+
+	// add bloc vdri
+	opts = append(opts, vdripkg.WithVDRI(bloc.New(blocVDRIOpts...)))
 
 	vdriProvider, err := context.New(context.WithLegacyKMS(kms))
 	if err != nil {

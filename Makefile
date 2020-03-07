@@ -40,7 +40,7 @@ vc-rest-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: vc-rest-docker generate-test-keys
+bdd-test: clean vc-rest-docker generate-test-keys
 	@scripts/check_integration.sh
 
 unit-test:

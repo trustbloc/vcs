@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	expectedProfileDID                   = "did:sidetree"
+	expectedProfileDID                   = "did:bloc"
 	expectedProfileResponseURI           = "https://example.com/credentials"
 	expectedProfileResponseSignatureType = "Ed25519Signature2018"
 )

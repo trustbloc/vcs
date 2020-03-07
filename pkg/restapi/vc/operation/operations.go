@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +28,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
-	"github.com/trustbloc/sidetree-core-go/pkg/restapi/model"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -55,6 +52,7 @@ const (
 	successMsg        = "success"
 	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
 	cslSize           = 50
+	didMethodBloc     = "bloc"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -490,7 +488,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 	var err error
 
 	if pr.DID == "" {
-		didDoc, err = o.vdri.Create("sidetree", vdriapi.WithRequestBuilder(buildSideTreeRequest))
+		didDoc, err = o.vdri.Create(didMethodBloc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create did doc: %v", err)
 		}
@@ -541,51 +539,6 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 	}
 
 	return profileResponse, nil
-}
-
-// buildSideTreeRequest request builder for sidetree public DID creation
-func buildSideTreeRequest(docBytes []byte) (io.Reader, error) {
-	encodeDidDocument := base64.URLEncoding.EncodeToString(docBytes)
-
-	schema := createPayloadSchema{
-		Operation:           model.OperationTypeCreate,
-		DidDocument:         encodeDidDocument,
-		NextUpdateOTPHash:   "",
-		NextRecoveryOTPHash: "",
-	}
-
-	payload, err := json.Marshal(schema)
-	if err != nil {
-		return nil, err
-	}
-
-	request := &model.Request{
-		Protected: &model.Header{Alg: "", Kid: ""},
-		Payload:   base64.URLEncoding.EncodeToString(payload),
-		Signature: ""}
-
-	b, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-
-	return bytes.NewReader(b), nil
-}
-
-// createPayloadSchema is the struct for create payload
-type createPayloadSchema struct {
-
-	// operation
-	Operation model.OperationType `json:"type"`
-
-	// Encoded original DID document
-	DidDocument string `json:"didDocument"`
-
-	// Hash of the one-time password for the next update operation
-	NextUpdateOTPHash string `json:"nextUpdateOtpHash"`
-
-	// Hash of the one-time password for this recovery/checkpoint/revoke operation.
-	NextRecoveryOTPHash string `json:"nextRecoveryOtpHash"`
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {

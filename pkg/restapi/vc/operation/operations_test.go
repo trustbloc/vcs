@@ -986,13 +986,6 @@ func TestCreateProfileHandler(t *testing.T) {
 	})
 }
 
-func TestBuildSideTreeRequest(t *testing.T) {
-	r, err := buildSideTreeRequest(nil)
-
-	require.NoError(t, err)
-	require.NotNil(t, r)
-}
-
 func TestGetProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
 	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
