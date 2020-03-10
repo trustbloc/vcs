@@ -14,10 +14,10 @@ services:
       - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem
       - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
       - SIDETREE_MOCK_HOST=0.0.0.0
-      - SIDETREE_MOCK_PORT=80
-      - SIDETREE_MOCK_DID_NAMESPACE=did:bloc:sidetree-mock
+      - SIDETREE_MOCK_PORT=48326
+      - SIDETREE_MOCK_DID_NAMESPACE=did:bloc:testnet.trustbloc.local
     ports:
-      - 80:80
+      - 48326:48326
     volumes:
       - ../keys/tls:/etc/sidetree/tls
     networks:

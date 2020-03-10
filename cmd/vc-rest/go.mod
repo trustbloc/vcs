@@ -12,7 +12,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.4.0
-	github.com/trustbloc/bloc-did-method v0.0.0-20200306192233-3740d06a9d0d
+	github.com/trustbloc/bloc-did-method v0.0.0-20200310192857-ca66f03621f2
 	github.com/trustbloc/edge-core v0.1.2
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.2

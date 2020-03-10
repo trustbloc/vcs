@@ -1,0 +1,9 @@
+{
+  "domain": "stakeholder.one",
+  "did": "did:bloc:testnet.trustbloc.local:zQ1234567890987654321",
+  "conf": {
+    "cache": {"max-age": 123456789}
+  },
+  "endpoints": ["http://sidetree-mock:48326/document"],
+  "previous": ""
+}
