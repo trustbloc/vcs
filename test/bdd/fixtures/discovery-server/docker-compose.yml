@@ -1,0 +1,28 @@
+#
+# SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '3'
+
+services:
+
+  static-file-server:
+    container_name: testnet.trustbloc.local
+    hostname: testnet.trustbloc.local
+    image: halverneus/static-file-server:latest
+    environment:
+      - PORT=80
+      - FOLDER=/web
+    ports:
+      - "80:80"
+    volumes:
+      - ./config:/web/.well-known/did-bloc
+    networks:
+      - vc-rest_bdd_net
+
+networks:
+  vc-rest_bdd_net:
+    external: true
+

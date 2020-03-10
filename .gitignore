@@ -30,3 +30,5 @@ coverage.txt
 *.log
 
 test/bdd/fixtures/keys/tls
+test/bdd/fixtures/discovery-server/config
+test/bdd/fixtures/stakeholder-server/config

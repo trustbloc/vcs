@@ -40,7 +40,7 @@ vc-rest-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker generate-test-keys
+bdd-test: clean generate-test-config vc-rest-docker generate-test-keys
 	@scripts/check_integration.sh
 
 unit-test:
@@ -55,6 +55,10 @@ generate-test-keys: clean
 		frapsoft/openssl
 
 
+.PHONY: generate-test-config
+generate-test-config:
+	@scripts/generate_test_config.sh
+
 create-veres-did: clean
 	@mkdir -p .build
 	@scripts/create_veres_did.sh
@@ -67,3 +71,5 @@ clean-build:
 	@rm -Rf ./.build
 	@rm -Rf ./test/bdd/fixtures/keys/tls
 	@rm -Rf ./test/bdd/docker-compose.log
+	@rm -Rf ./test/bdd/fixtures/discovery-server/config
+	@rm -Rf ./test/bdd/fixtures/stakeholder-server/config
