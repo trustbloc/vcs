@@ -180,7 +180,7 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		v, err := createVDRI("localhost:8082", "wrong", nil)
+		v, err := createVDRI("wrong", nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 		require.Nil(t, v)
@@ -193,7 +193,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createVDRI("localhost:8082", "localhost:8083", nil)
+		v, err := createVDRI("localhost:8083", nil)
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})

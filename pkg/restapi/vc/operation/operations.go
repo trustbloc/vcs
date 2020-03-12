@@ -26,6 +26,7 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	log "github.com/sirupsen/logrus"
+	didclient "github.com/trustbloc/bloc-did-method/pkg/did"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
 
@@ -52,7 +53,6 @@ const (
 	successMsg        = "success"
 	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
 	cslSize           = 50
-	didMethodBloc     = "bloc"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -70,51 +70,69 @@ type vcStatusManager interface {
 	GetCSL(id string) (*cslstatus.CSL, error)
 }
 
-// Client interface to interact with edv client
-type Client interface {
+// EDVClient interface to interact with edv client
+type EDVClient interface {
 	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
 	CreateDocument(vaultID string, document *operation.StructuredDocument) (string, error)
 	ReadDocument(vaultID, docID string) ([]byte, error)
 }
 
+type didBlocClient interface {
+	CreateDID(domain string) (*did.Doc, error)
+}
+
 // New returns CreateCredential instance
-func New(provider storage.Provider, client Client, kms legacykms.KMS, vdri vdriapi.Registry,
-	hostURL string) (*Operation, error) {
-	err := provider.CreateStore(credentialStore)
+func New(config *Config) (*Operation, error) {
+	err := config.StoreProvider.CreateStore(credentialStore)
 	if err != nil {
 		return nil, err
 	}
 
-	store, err := provider.OpenStore(credentialStore)
+	store, err := config.StoreProvider.OpenStore(credentialStore)
 	if err != nil {
 		return nil, err
 	}
 
-	c := crypto.New(kms, verifiable.NewDIDKeyResolver(vdri))
+	c := crypto.New(config.KMS, verifiable.NewDIDKeyResolver(config.VDRI))
 
-	vcStatusManager, err := cslstatus.New(provider, hostURL, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL, cslSize, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
 	svc := &Operation{
 		profileStore:    vcprofile.New(store),
-		client:          client,
-		vdri:            vdri,
+		edvClient:       config.EDVClient,
+		vdri:            config.VDRI,
 		crypto:          c,
 		vcStatusManager: vcStatusManager,
+		didBlocClient:   didclient.New(config.KMS),
+		domain:          config.Domain,
 	}
 
 	return svc, nil
 }
 
+// Config defines configuration for vcs operations
+type Config struct {
+	StoreProvider storage.Provider
+	EDVClient     EDVClient
+	KMS           legacykms.KMS
+	VDRI          vdriapi.Registry
+	HostURL       string
+	Domain        string
+	Mode          string
+}
+
 // Operation defines handlers for Edge service
 type Operation struct {
 	profileStore    *vcprofile.Profile
-	client          Client
+	edvClient       EDVClient
 	vdri            vdriapi.Registry
 	crypto          *crypto.Crypto
 	vcStatusManager vcStatusManager
+	didBlocClient   didBlocClient
+	domain          string
 }
 
 func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
@@ -337,7 +355,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 
 	doc.ID = edvDocID
 
-	_, err = o.client.CreateDocument(data.Profile, &doc)
+	_, err = o.edvClient.CreateDocument(data.Profile, &doc)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -378,7 +396,7 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	documentBytes, err := o.client.ReadDocument(profile, edvDocID)
+	documentBytes, err := o.edvClient.ReadDocument(profile, edvDocID)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -488,7 +506,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 	var err error
 
 	if pr.DID == "" {
-		didDoc, err = o.vdri.Create(didMethodBloc)
+		didDoc, err = o.didBlocClient.CreateDID(o.domain)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create did doc: %v", err)
 		}
@@ -501,17 +519,11 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 	var publicKeyID string
 
-	var creator string
-
 	switch {
 	case len(didDoc.PublicKey) > 0:
 		publicKeyID = didDoc.PublicKey[0].ID
-		// TODO remove creator after sidetree create public key with this format DID#KEYID
-		// sidetree now return #KEYID
-		creator = didDoc.ID + publicKeyID
 	case len(didDoc.Authentication) > 0:
 		publicKeyID = didDoc.Authentication[0].PublicKey.ID
-		creator = publicKeyID
 	default:
 		return nil, fmt.Errorf("can't find public key in DID")
 	}
@@ -523,7 +535,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		Created:       &created,
 		DID:           didDoc.ID,
 		SignatureType: pr.SignatureType,
-		Creator:       creator,
+		Creator:       publicKeyID,
 		DIDPrivateKey: pr.DIDPrivateKey,
 	}
 
@@ -533,7 +545,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 	}
 
 	// create the vault associated with the profile
-	_, err = o.client.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: pr.Name})
+	_, err = o.edvClient.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: pr.Name})
 	if err != nil {
 		return nil, err
 	}

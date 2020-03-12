@@ -7,24 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
-	"github.com/trustbloc/edge-core/pkg/storage"
-
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 )
 
 // New returns new controller instance.
-func New(provider storage.Provider, client operation.Client, kms legacykms.KMS,
-	vdri vdriapi.Registry, hostURL, mode string) (*Controller, error) {
+func New(config *operation.Config) (*Controller, error) {
 	var allHandlers []operation.Handler
 
-	vcService, err := operation.New(provider, client, kms, vdri, hostURL)
+	vcService, err := operation.New(config)
 	if err != nil {
 		return nil, err
 	}
 
-	handlers, err := vcService.GetRESTHandlers(mode)
+	handlers, err := vcService.GetRESTHandlers(config.Mode)
 	if err != nil {
 		return nil, err
 	}

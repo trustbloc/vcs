@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -34,6 +35,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/edge-service/pkg/internal/mock/didbloc"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 )
 
@@ -344,8 +346,8 @@ var errDocumentNotFound = errors.New("edv does not have a document associated wi
 func TestNew(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(&mockstore.Provider{ErrOpenStoreHandle: fmt.Errorf("error open store")},
-			client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{ErrOpenStoreHandle: fmt.Errorf("error open store")},
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, op)
@@ -353,8 +355,8 @@ func TestNew(t *testing.T) {
 
 	t.Run("test error from csl", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(&mockstore.Provider{FailNameSpace: "credentialStatus"},
-			client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{FailNameSpace: "credentialStatus"},
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to instantiate new csl status")
 		require.Nil(t, op)
@@ -367,7 +369,9 @@ func TestCreateCredentialHandlerIssuer(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
 
 	kms := &kmsmock.CloseableKMS{}
-	op, err := New(memstore.NewProvider(), client, kms, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+		HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
@@ -467,7 +471,8 @@ func TestCreateCredentialHandlerIssuer(t *testing.T) {
 	t.Run("test error from create status id", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 		kms := &kmsmock.CloseableKMS{}
-		op, err := New(memstore.NewProvider(), client, kms, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: kms, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		err = op.profileStore.SaveProfile(getTestProfile())
@@ -489,8 +494,8 @@ func TestCreateCredentialHandlerIssuer(t *testing.T) {
 
 func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
 	err = op.profileStore.SaveProfile(getTestProfile())
@@ -512,8 +517,8 @@ func TestVerifyPresentationHandlerIssuer(t *testing.T) {
 	const mode = "issuer"
 
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
 	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
@@ -598,8 +603,8 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 	const mode = "issuer"
 
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
 	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
@@ -650,8 +655,8 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 
 	t.Run("test error from get CSL", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
@@ -675,8 +680,8 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 
 	t.Run("test revoked credential", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		op.vcStatusManager = &mockVCStatusManager{
@@ -703,8 +708,8 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 
 	t.Run("test error from parse vs status", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		op.vcStatusManager = &mockVCStatusManager{
@@ -730,8 +735,8 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
 	s := make(map[string][]byte)
 	s["profile_Example University"] = []byte(testIssuerProfile)
-	op, err := New(&mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
-		client, &kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
 	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
@@ -778,9 +783,10 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test error from get profile", func(t *testing.T) {
-		op, err := New(&mockstore.Provider{Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-			edv.NewMockEDVClient("test", nil),
-			&kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{
+			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
+			EDVClient: edv.NewMockEDVClient("test", nil),
+			KMS:       &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, mode)
@@ -802,9 +808,9 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	t.Run("test error from update vc status", func(t *testing.T) {
 		s := make(map[string][]byte)
 		s["profile_Example University"] = []byte(testIssuerProfile)
-		op, err := New(&mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
-			edv.NewMockEDVClient("test", nil),
-			&kmsmock.CloseableKMS{}, &vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
+			EDVClient: edv.NewMockEDVClient("test", nil),
+			KMS:       &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{updateVCStatusErr: fmt.Errorf("error update vc status")}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, mode)
@@ -828,9 +834,12 @@ func TestCreateProfileHandler(t *testing.T) {
 	const mode = "issuer"
 
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+		HostURL: "localhost:8080", Domain: "testnet"})
 	require.NoError(t, err)
+
+	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint, mode)
 
@@ -848,6 +857,7 @@ func TestCreateProfileHandler(t *testing.T) {
 		profile := vcprofile.DataProfile{}
 
 		err = json.Unmarshal(rr.Body.Bytes(), &profile)
+
 		require.NoError(t, err)
 
 		require.Equal(t, http.StatusCreated, rr.Code)
@@ -857,10 +867,12 @@ func TestCreateProfileHandler(t *testing.T) {
 
 	t.Run("create profile success without creating did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
 				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
-			"localhost:8080")
+			HostURL: "localhost:8080"})
+
 		require.NoError(t, err)
 
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
@@ -884,9 +896,9 @@ func TestCreateProfileHandler(t *testing.T) {
 
 	t.Run("test public key not found", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1"}},
-			"localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1"}}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
@@ -903,9 +915,11 @@ func TestCreateProfileHandler(t *testing.T) {
 
 	t.Run("test failed to resolve did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
-			"localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{},
+			VDRI:    &vdrimock.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
+			HostURL: "localhost:8080"})
+
 		require.NoError(t, err)
 
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
@@ -951,9 +965,11 @@ func TestCreateProfileHandler(t *testing.T) {
 	})
 	t.Run("create profile error while saving the profile", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
 		op.profileStore = vcprofile.New(&mockStore{
 			get: func(s string) (bytes []byte, e error) {
 				return nil, storage.ErrValueNotFound
@@ -973,9 +989,12 @@ func TestCreateProfileHandler(t *testing.T) {
 
 	t.Run("create profile error while creating did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{CreateErr: fmt.Errorf("create did error")}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{},
+			VDRI:    &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
+		op.didBlocClient = &didbloc.Client{CreateDIDErr: fmt.Errorf("create did error")}
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
 		require.NoError(t, err)
@@ -988,9 +1007,13 @@ func TestCreateProfileHandler(t *testing.T) {
 
 func TestGetProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+		HostURL: "localhost:8080"})
+
 	require.NoError(t, err)
+
+	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
 
 	getProfileHandler := getHandler(t, op, getProfileEndpoint, "issuer")
 
@@ -1067,8 +1090,9 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
@@ -1080,8 +1104,9 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while creating the document", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
@@ -1094,8 +1119,9 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err vault not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
@@ -1108,8 +1134,9 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreIncorrectCredentialRequest)))
@@ -1122,8 +1149,9 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequestBadVC)))
@@ -1137,8 +1165,9 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc invalid UUID", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequestWithInvalidUUID)))
@@ -1154,8 +1183,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", []byte(testStructuredDocument))
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1177,8 +1207,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1193,8 +1224,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1213,8 +1245,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when no document is found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1236,8 +1269,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc unmarshal structured document error", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1261,8 +1295,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 		var logContents bytes.Buffer
 		log.SetOutput(&logContents)
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint, "issuer")
@@ -1284,8 +1319,9 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc invalid uuid", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", []byte(testStructuredDocument))
 
-		op, err := New(memstore.NewProvider(), client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "localhost:8080")
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+			HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1343,12 +1379,11 @@ func TestOperation_validateProfileRequest(t *testing.T) {
 }
 
 func TestOperation_GetRESTHandlers(t *testing.T) {
-	op, err := New(
-		memstore.NewProvider(),
-		edv.NewMockEDVClient("test", nil),
-		&kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{},
-		"localhost:8080")
+	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: edv.NewMockEDVClient("test", nil),
+		KMS:       &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
+		HostURL: "localhost:8080"})
+
 	require.NoError(t, err)
 
 	t.Run("invalid mode", func(t *testing.T) {
@@ -1405,6 +1440,45 @@ func getTestProfile() *vcprofile.DataProfile {
 		URI:           "https://test.com/credentials",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
+	}
+}
+
+func createDefaultDID() *did.Doc {
+	const (
+		didContext = "https://w3id.org/did/v1"
+		didID      = "did:local:abc"
+		creator    = didID + "#key-1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	service := did.Service{
+		ID:              "did:example:123456789abcdefghi#did-communication",
+		Type:            "did-communication",
+		ServiceEndpoint: "https://agent.example.com/",
+		RecipientKeys:   []string{creator},
+		Priority:        0,
+	}
+
+	signingKey := did.PublicKey{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:   []string{didContext},
+		ID:        didID,
+		PublicKey: []did.PublicKey{signingKey},
+		Service:   []did.Service{service},
+		Created:   &createdTime,
 	}
 }
 
