@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/edv/pkg/client/edv"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc"
+	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	cmdutils "github.com/trustbloc/edge-service/pkg/utils/cmd"
 )
 
@@ -174,7 +175,7 @@ func startEdgeService(parameters *vcRestParameters) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.blocDomain, parameters.universalResolverURL, kms)
+	vdri, err := createVDRI(parameters.universalResolverURL, kms)
 	if err != nil {
 		return err
 	}
@@ -184,13 +185,9 @@ func startEdgeService(parameters *vcRestParameters) error {
 		externalHostURL = parameters.hostURLExternal
 	}
 
-	vcService, err := vc.New(
-		memstore.NewProvider(),
-		edv.New(parameters.edvURL),
-		kms,
-		vdri,
-		externalHostURL,
-		parameters.mode)
+	vcService, err := vc.New(&operation.Config{StoreProvider: memstore.NewProvider(),
+		EDVClient: edv.New(parameters.edvURL), KMS: kms, VDRI: vdri, HostURL: externalHostURL,
+		Mode: parameters.mode, Domain: parameters.blocDomain})
 	if err != nil {
 		return err
 	}
@@ -221,13 +218,10 @@ func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
 	return kms, nil
 }
 
-func createVDRI(blocDomain, universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
+func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
 	var opts []vdripkg.Option
 
 	var blocVDRIOpts []bloc.Option
-
-	// add bloc domain to bloc vdri
-	blocVDRIOpts = append(blocVDRIOpts, bloc.WithDomain(blocDomain))
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,

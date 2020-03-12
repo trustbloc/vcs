@@ -18,27 +18,23 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
+	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 )
 
 func TestIssuerController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		controller, err := New(
-			memstore.NewProvider(),
-			client,
-			&kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{},
-			"",
-			"issuer")
+		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
+			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		controller, err := New(&mockstore.Provider{
-			ErrOpenStoreHandle: fmt.Errorf("error open store")}, client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "", "issuer")
+		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
+			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
+			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -48,22 +44,17 @@ func TestIssuerController_New(t *testing.T) {
 func TestVerifierController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		controller, err := New(
-			memstore.NewProvider(),
-			client,
-			&kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{},
-			"",
-			"verifier")
+		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
+			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		controller, err := New(&mockstore.Provider{
-			ErrOpenStoreHandle: fmt.Errorf("error open store")}, client, &kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{}, "", "verifier")
+		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
+			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
+			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -72,26 +63,19 @@ func TestVerifierController_New(t *testing.T) {
 
 func TestControllerInvalidMode_New(t *testing.T) {
 	t.Run("must return error if an invalid mode is given", func(t *testing.T) {
-		_, err := New(
-			&mockstore.Provider{ErrOpenStoreHandle: fmt.Errorf("error open store")},
-			edv.NewMockEDVClient("test", nil),
-			&kmsmock.CloseableKMS{},
-			&vdrimock.MockVDRIRegistry{},
-			"",
-			"invalid")
+		_, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
+			ErrOpenStoreHandle: fmt.Errorf("error open store")},
+			EDVClient: edv.NewMockEDVClient("test", nil),
+			KMS:       &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "invalid"})
 		require.Error(t, err)
 	})
 }
 
 func TestIssuerController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	controller, err := New(
-		memstore.NewProvider(),
-		client,
-		&kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{},
-		"",
-		"issuer")
+	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
+		KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
@@ -106,13 +90,9 @@ func TestIssuerController_GetOperations(t *testing.T) {
 
 func TestVerifierController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil)
-	controller, err := New(
-		memstore.NewProvider(),
-		client,
-		&kmsmock.CloseableKMS{},
-		&vdrimock.MockVDRIRegistry{},
-		"",
-		"verifier")
+	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
+		KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
