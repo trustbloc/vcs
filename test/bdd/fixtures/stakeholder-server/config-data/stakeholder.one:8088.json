@@ -1,6 +1,6 @@
 {
   "domain": "stakeholder.one",
-  "did": "did:bloc:testnet.trustbloc.local:zQ1234567890987654321",
+  "did": "did:trustbloc:testnet.trustbloc.local:zQ1234567890987654321",
   "conf": {
     "cache": {"max-age": 123456789}
   },

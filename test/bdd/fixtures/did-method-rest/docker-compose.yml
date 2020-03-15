@@ -8,8 +8,8 @@ version: '2'
 
 services:
 
-  bloc.did.method.example.com:
-    container_name: bloc.did.method.example.com
+  trustbloc.did.method.example.com:
+    container_name: trustbloc.did.method.example.com
     image: ${BLOC_DID_METHOD_IMAGE}:${BLOC_DID_METHOD_IMAGE_TAG}
     environment:
       - DID_METHOD_HOST_URL=0.0.0.0:8060
