@@ -214,14 +214,15 @@ github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81P
 github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/trustbloc/bloc-did-method v0.0.0-20200312153838-0d0b9f978397 h1:hcG5lmMNW1R8PZDQjCd7ynMeh8rhzzKliyLjcNae7GU=
-github.com/trustbloc/bloc-did-method v0.0.0-20200312153838-0d0b9f978397/go.mod h1:0GxWjVUkFqmvzZ9cX3uchI9CcV8ZTguYN7Z+m3cIWIE=
 github.com/trustbloc/edge-core v0.1.2 h1:NhytMOSi4mU1etaKydl9mciOl3C+V/tAsizvfDGBv40=
 github.com/trustbloc/edge-core v0.1.2/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
 github.com/trustbloc/edv v0.1.2 h1:uOnGM9sEJPSPpSJYohUlO+mnU/QKmQwlD+ZE53qNz6A=
 github.com/trustbloc/edv v0.1.2/go.mod h1:KhyPK/M+j0jbEjfXbVUSa1oge63h24FdV6Gr4hMX8A4=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200306222551-b9976a89a854 h1:uYqbC3t/YN1navNiqMxB4eJcGUUAPTlmE/TRBu1qSDI=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200306222551-b9976a89a854/go.mod h1:qJ7oOPveEqrxTsO4KJsSHUM/Yivym221Dvd+IUq1V1U=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200314220500-5d364d90f62d h1:vTyRfTtbNr5YO0HfbWTGbKA+eMisPqdgF+gQmdX5Q64=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200314220500-5d364d90f62d/go.mod h1:LoGorC6Rx1Opx2ZeFuQGe4VZKIBIDUdODixT8fjrvdY=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200315162906-e189c8677579/go.mod h1:LoGorC6Rx1Opx2ZeFuQGe4VZKIBIDUdODixT8fjrvdY=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=

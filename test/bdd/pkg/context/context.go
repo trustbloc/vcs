@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
-	"github.com/trustbloc/bloc-did-method/pkg/vdri/bloc"
+	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 )
 
 // BDDContext is a global context shared between different test suites in bddtests
@@ -87,6 +87,6 @@ func createVDRI(universalResolver string) (vdriapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(bloc.New(bloc.WithResolverURL(universalResolver))),
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(trustbloc.New(trustbloc.WithResolverURL(universalResolver))),
 		vdripkg.WithVDRI(universalResolverVDRI)), nil
 }

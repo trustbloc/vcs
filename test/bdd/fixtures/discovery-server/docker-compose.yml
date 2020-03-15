@@ -18,7 +18,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./config:/web/.well-known/did-bloc
+      - ./config:/web/.well-known/did-trustbloc
     networks:
       - vc-rest_bdd_net
 

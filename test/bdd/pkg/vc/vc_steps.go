@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	expectedProfileDID                   = "did:bloc"
+	expectedProfileDID                   = "did:trustbloc"
 	expectedProfileResponseURI           = "https://example.com/credentials"
 	expectedProfileResponseSignatureType = "Ed25519Signature2018"
 )

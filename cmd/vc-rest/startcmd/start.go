@@ -21,9 +21,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/trustbloc/bloc-did-method/pkg/vdri/bloc"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edv/pkg/client/edv"
+	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -221,7 +221,7 @@ func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
 func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
 	var opts []vdripkg.Option
 
-	var blocVDRIOpts []bloc.Option
+	var blocVDRIOpts []trustbloc.Option
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
@@ -234,11 +234,11 @@ func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, 
 		opts = append(opts, vdripkg.WithVDRI(universalResolverVDRI))
 
 		// add universal resolver to bloc vdri
-		blocVDRIOpts = append(blocVDRIOpts, bloc.WithResolverURL(universalResolver))
+		blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithResolverURL(universalResolver))
 	}
 
 	// add bloc vdri
-	opts = append(opts, vdripkg.WithVDRI(bloc.New(blocVDRIOpts...)))
+	opts = append(opts, vdripkg.WithVDRI(trustbloc.New(blocVDRIOpts...)))
 
 	vdriProvider, err := context.New(context.WithLegacyKMS(kms))
 	if err != nil {
