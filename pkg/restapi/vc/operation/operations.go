@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -37,8 +39,8 @@ import (
 )
 
 const (
-	credentialStore = "credential"
-	profile         = "/profile"
+	credentialStoreName = "credential"
+	profile             = "/profile"
 
 	// endpoints
 	createCredentialEndpoint       = "/credential"
@@ -50,9 +52,13 @@ const (
 	retrieveCredentialEndpoint     = "/retrieve"
 	verifyPresentationEndpoint     = "/verifyPresentation"
 
-	successMsg        = "success"
-	invalidUUIDErrMsg = "the UUID in the VC ID was not in a valid format"
-	cslSize           = 50
+	successMsg = "success"
+	cslSize    = 50
+
+	// IDMappingStoreName is the name given to the store that contains the VC ID -> EDV document ID mapping.
+	IDMappingStoreName = "id-mapping"
+
+	invalidRequestErrMsg = "Invalid request"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -73,22 +79,43 @@ type vcStatusManager interface {
 // EDVClient interface to interact with edv client
 type EDVClient interface {
 	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
-	CreateDocument(vaultID string, document *operation.StructuredDocument) (string, error)
-	ReadDocument(vaultID, docID string) ([]byte, error)
+	CreateDocument(vaultID string, document *operation.EncryptedDocument) (string, error)
+	ReadDocument(vaultID, docID string) (*operation.EncryptedDocument, error)
 }
 
 type didBlocClient interface {
 	CreateDID(domain string) (*did.Doc, error)
 }
 
+type kmsProvider struct {
+	kms legacykms.KeyManager
+}
+
+func (p kmsProvider) LegacyKMS() legacykms.KeyManager {
+	return p.kms
+}
+
 // New returns CreateCredential instance
 func New(config *Config) (*Operation, error) {
-	err := config.StoreProvider.CreateStore(credentialStore)
+	err := config.StoreProvider.CreateStore(credentialStoreName)
 	if err != nil {
 		return nil, err
 	}
 
-	store, err := config.StoreProvider.OpenStore(credentialStore)
+	store, err := config.StoreProvider.OpenStore(credentialStoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	//TODO: Should this be opened in the same store? https://github.com/trustbloc/edge-service/issues/112
+	err = config.StoreProvider.CreateStore(IDMappingStoreName)
+	if err != nil {
+		if err != storage.ErrStoreNotFound {
+			return nil, err
+		}
+	}
+
+	idMappingStore, err := config.StoreProvider.OpenStore(IDMappingStoreName)
 	if err != nil {
 		return nil, err
 	}
@@ -100,14 +127,28 @@ func New(config *Config) (*Operation, error) {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
+	kmsProv := kmsProvider{
+		kms: config.KMS,
+	}
+
+	packer := authcrypt.New(kmsProv)
+
+	_, senderKey, err := config.KMS.CreateKeySet()
+	if err != nil {
+		return nil, err
+	}
+
 	svc := &Operation{
 		profileStore:    vcprofile.New(store),
 		edvClient:       config.EDVClient,
 		vdri:            config.VDRI,
 		crypto:          c,
+		packer:          packer,
+		senderKey:       senderKey,
 		vcStatusManager: vcStatusManager,
 		didBlocClient:   didclient.New(config.KMS),
 		domain:          config.Domain,
+		idMappingStore:  idMappingStore,
 	}
 
 	return svc, nil
@@ -130,17 +171,20 @@ type Operation struct {
 	edvClient       EDVClient
 	vdri            vdriapi.Registry
 	crypto          *crypto.Crypto
+	packer          *authcrypt.Packer
+	senderKey       string
 	vcStatusManager vcStatusManager
 	didBlocClient   didBlocClient
 	domain          string
+	idMappingStore  storage.Store
 }
 
 func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	data := CreateCredentialRequest{}
-	err := json.NewDecoder(req.Body).Decode(&data)
 
+	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for invalid request received")
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
@@ -278,16 +322,15 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 
 func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	data := ProfileRequest{}
-	err := json.NewDecoder(req.Body).Decode(&data)
 
+	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, "Failed to write response for invalid request received")
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
 
 	profileResponse, err := o.createProfile(&data)
-
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -322,7 +365,7 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 
 	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, "invalid request received")
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
@@ -340,22 +383,47 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	doc := operation.StructuredDocument{}
-	doc.Content = make(map[string]interface{})
-	doc.Content["message"] = data.Credential
+	o.storeVC(data, vc, rw)
+}
 
-	// We need an EDV-compliant ID. The UUID that's in the VC is a good fit, since it's 128 bits long already.
-	// Let's convert it to base58 and use it as the StructuredDocument ID.
-	edvDocID, err := convertVCIDToEDVCompatibleFormat(vc.ID)
+func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw http.ResponseWriter) {
+	doc, err := o.buildStructuredDoc(data, vc)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	doc.ID = edvDocID
+	marshalledStructuredDoc, err := json.Marshal(doc)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
-	_, err = o.edvClient.CreateDocument(data.Profile, &doc)
+		return
+	}
+
+	// We have no recipients, so we pass in the sender key as the recipient key as well
+	encryptedStructuredDoc, err := o.packer.Pack(marshalledStructuredDoc,
+		base58.Decode(o.senderKey), [][]byte{base58.Decode(o.senderKey)})
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	encryptedDocument := operation.EncryptedDocument{
+		ID:       doc.ID,
+		Sequence: 0,
+		JWE:      encryptedStructuredDoc,
+	}
+
+	_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	err = o.idMappingStore.Put(vc.ID, []byte(doc.ID))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -363,18 +431,45 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// This function expects the vcID that's passed in to be a URL with a "/" and then a UUID concatenated to the end.
-func convertVCIDToEDVCompatibleFormat(vcID string) (string, error) {
-	vcIDParts := strings.Split(vcID, "/")
+func (o *Operation) buildStructuredDoc(data *StoreVCRequest,
+	vc *verifiable.Credential) (*operation.StructuredDocument, error) {
+	var edvDocID string
 
-	uuidFromVCID := vcIDParts[len(vcIDParts)-1]
-
-	parsedUUID, err := uuid.Parse(uuidFromVCID)
-	if err != nil {
-		return "", fmt.Errorf("%s: %s", invalidUUIDErrMsg, err.Error())
+	idFromMapping, err := o.idMappingStore.Get(vc.ID)
+	switch err {
+	case storage.ErrValueNotFound:
+		edvDocID, err = generateEDVCompatibleID()
+		if err != nil {
+			return nil, err
+		}
+	case nil:
+		edvDocID = string(idFromMapping)
+	default:
+		return nil, err
 	}
 
-	base58EncodedUUID := base58.Encode(parsedUUID[:])
+	doc := operation.StructuredDocument{}
+	doc.ID = edvDocID
+	doc.Content = make(map[string]interface{})
+
+	credentialBytes := []byte(data.Credential)
+
+	var credentialJSONRawMessage json.RawMessage = credentialBytes
+
+	doc.Content["message"] = credentialJSONRawMessage
+
+	return &doc, nil
+}
+
+func generateEDVCompatibleID() (string, error) {
+	randomBytes := make([]byte, 16)
+
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		return "", err
+	}
+
+	base58EncodedUUID := base58.Encode(randomBytes)
 
 	return base58EncodedUUID, nil
 }
@@ -389,31 +484,39 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	edvDocID, err := convertVCIDToEDVCompatibleFormat(id)
+	edvDocID, err := o.idMappingStore.Get(id)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	documentBytes, err := o.edvClient.ReadDocument(profile, edvDocID)
+	document, err := o.edvClient.ReadDocument(profile, string(edvDocID))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	document := operation.StructuredDocument{}
-
-	err = json.Unmarshal(documentBytes, &document)
+	decryptedEnvelope, err := o.packer.Unpack(document.JWE)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("structured document unmarshalling failed: %s", err.Error()))
+			fmt.Sprintf("decrypted envelope unpacking failed: %s", err.Error()))
 
 		return
 	}
 
-	responseMsg, err := json.Marshal(document.Content["message"])
+	decryptedDoc := operation.StructuredDocument{}
+
+	err = json.Unmarshal(decryptedEnvelope.Message, &decryptedDoc)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("decrypted structured document unmarshalling failed: %s", err.Error()))
+
+		return
+	}
+
+	responseMsg, err := json.Marshal(decryptedDoc.Content["message"])
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError,
 			fmt.Sprintf("structured document content marshalling failed: %s", err.Error()))

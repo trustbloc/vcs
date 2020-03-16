@@ -93,7 +93,6 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither host-url (command line flag) nor VC_REST_HOST_URL (environment variable) have been set.",
 			err.Error())
 	})
-
 	t.Run("test missing edv url arg", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
@@ -151,31 +150,12 @@ func TestStartCmdValidArgs(t *testing.T) {
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	err := os.Setenv(hostURLEnvKey, "localhost:8080")
-	require.Nil(t, err)
+	setEnvVars(t)
 
-	err = os.Setenv(edvURLEnvKey, "localhost:8081")
-	require.Nil(t, err)
+	defer unsetEnvVars(t)
 
-	err = os.Setenv(blocDomainEnvKey, "domain")
-	require.Nil(t, err)
-
-	err = startCmd.Execute()
-
-	require.Nil(t, err)
-}
-
-func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
-	flag := cmd.Flag(flagName)
-
-	require.NotNil(t, flag)
-	require.Equal(t, flagName, flag.Name)
-	require.Equal(t, flagShorthand, flag.Shorthand)
-	require.Equal(t, flagUsage, flag.Usage)
-	require.Equal(t, "", flag.Value.String())
-
-	flagAnnotations := flag.Annotations
-	require.Nil(t, flagAnnotations)
+	err := startCmd.Execute()
+	require.NoError(t, err)
 }
 
 func TestCreateVDRI(t *testing.T) {
@@ -187,7 +167,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong"})
+		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong"}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 	})
@@ -213,6 +193,41 @@ func TestCreateKMS(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
+}
+
+func setEnvVars(t *testing.T) {
+	err := os.Setenv(hostURLEnvKey, "localhost:8080")
+	require.NoError(t, err)
+
+	err = os.Setenv(edvURLEnvKey, "localhost:8081")
+	require.NoError(t, err)
+
+	err = os.Setenv(blocDomainEnvKey, "domain")
+	require.NoError(t, err)
+}
+
+func unsetEnvVars(t *testing.T) {
+	err := os.Unsetenv(hostURLEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(edvURLEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(blocDomainEnvKey)
+	require.NoError(t, err)
+}
+
+func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
+	flag := cmd.Flag(flagName)
+
+	require.NotNil(t, flag)
+	require.Equal(t, flagName, flag.Name)
+	require.Equal(t, flagShorthand, flag.Shorthand)
+	require.Equal(t, flagUsage, flag.Usage)
+	require.Equal(t, "", flag.Value.String())
+
+	flagAnnotations := flag.Annotations
+	require.Nil(t, flagAnnotations)
 }
 
 // MockStoreProvider mock store provider.

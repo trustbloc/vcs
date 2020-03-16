@@ -11,9 +11,8 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
-
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -329,14 +328,22 @@ func (e *Steps) retrieveCredential(profileName string) error {
 		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	unescapedResponse, err := strconv.Unquote(string(respBytes))
+	// For some reason there's an extra line at the end of the credential returned from the create credential handler.
+	// By compacting the JSON we can remove it, allowing us to directly compare them as strings.
+	// TODO: Figure out why and fix it: https://github.com/trustbloc/edge-service/issues/104
+	buffer := new(bytes.Buffer)
+
+	err = json.Compact(buffer, e.bddContext.CreatedCredential)
 	if err != nil {
 		return err
 	}
 
-	expectedCredential := string(e.bddContext.CreatedCredential)
-	if unescapedResponse != expectedCredential {
-		return expectedStringError(expectedCredential, unescapedResponse)
+	expectedCredential := buffer.String()
+
+	receivedCredential := string(respBytes)
+
+	if receivedCredential != expectedCredential {
+		return expectedStringError(expectedCredential, receivedCredential)
 	}
 
 	return nil
