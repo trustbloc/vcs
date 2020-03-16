@@ -10,11 +10,12 @@ version: '3'
 services:
 
   uni-resolver-web:
-    image: universalresolver/uni-resolver-web:latest
+    image: universalresolver/uni-resolver-web:0.1.0
     ports:
       - "8080:8080"
     volumes:
       - ./config.json:/opt/uni-resolver-java/uni-resolver-web/config.json
+      - ./run-uni-resolver-web.sh:/opt/uni-resolver-java/uni-resolver-web/docker/run-uni-resolver-web.sh
     networks:
       - vc-rest_bdd_net
 
