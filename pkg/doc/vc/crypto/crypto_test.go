@@ -51,6 +51,45 @@ func TestCrypto_SignCredential(t *testing.T) {
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
 
+	t.Run("test signature representation - JWS", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(nil, nil)
+
+		p := getTestProfile()
+		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.SignatureRepresentation = verifiable.SignatureJWS
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+
+		jwsProof := signedVC.Proofs[0]
+		_, ok := jwsProof["jws"]
+		require.True(t, ok)
+	})
+
+	t.Run("test signature representation - ProofValue", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(nil, nil)
+
+		p := getTestProfile()
+		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.SignatureRepresentation = verifiable.SignatureProofValue
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+
+		_, ok := signedVC.Proofs[0]["proofValue"]
+		require.True(t, ok)
+	})
+
 	t.Run("test error from creator", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)

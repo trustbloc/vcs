@@ -633,13 +633,14 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 	created := time.Now().UTC()
 	profileResponse := &vcprofile.DataProfile{
-		Name:          pr.Name,
-		URI:           pr.URI,
-		Created:       &created,
-		DID:           didDoc.ID,
-		SignatureType: pr.SignatureType,
-		Creator:       publicKeyID,
-		DIDPrivateKey: pr.DIDPrivateKey,
+		Name:                    pr.Name,
+		URI:                     pr.URI,
+		Created:                 &created,
+		DID:                     didDoc.ID,
+		SignatureType:           pr.SignatureType,
+		SignatureRepresentation: pr.SignatureRepresentation,
+		Creator:                 publicKeyID,
+		DIDPrivateKey:           pr.DIDPrivateKey,
 	}
 
 	err = o.profileStore.SaveProfile(profileResponse)

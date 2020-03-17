@@ -21,10 +21,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	"github.com/cucumber/godog"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	log "github.com/sirupsen/logrus"
 
@@ -52,14 +51,15 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)" and privateKey "([^"]*)"$`, e.createProfile)
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)" and signatureHolder "([^"]*)"$`,
+		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)"$`, e.getProfile)
 	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCredential)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
 	s.Step(`^Now we verify that credential with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`,
 		e.verifyCredential)
-	s.Step(`^Now we verify that presentation with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`,
+	s.Step(`^Now we verify that "([^"]*)" signed presentation with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`, //nolint: lll
 		e.verifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
 }
@@ -80,8 +80,8 @@ func (s *signer) Sign(doc []byte) ([]byte, error) {
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 
-func (e *Steps) verifyPresentation(verifiedFlag, verifiedMsg string) error {
-	vp, err := e.createPresentation(e.bddContext.CreatedCredential)
+func (e *Steps) verifyPresentation(holder, verifiedFlag, verifiedMsg string) error {
+	vp, err := e.createPresentation(e.bddContext.CreatedCredential, getSignatureRepresentation(holder))
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (e *Steps) verifyPresentation(verifiedFlag, verifiedMsg string) error {
 	return verify(resp, verifiedFlag, verifiedMsg)
 }
 
-func (e *Steps) createPresentation(vcBytes []byte) ([]byte, error) {
+func (e *Steps) createPresentation(vcBytes []byte, representation verifiable.SignatureRepresentation) ([]byte, error) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func (e *Steps) createPresentation(vcBytes []byte) ([]byte, error) {
 
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		SignatureRepresentation: verifiable.SignatureProofValue,
+		SignatureRepresentation: representation,
 		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privateKey))),
 	}
 
@@ -131,7 +131,7 @@ func (e *Steps) createPresentation(vcBytes []byte) ([]byte, error) {
 	return json.Marshal(vp)
 }
 
-func (e *Steps) createProfile(profileName, did, privateKey string) error {
+func (e *Steps) createProfile(profileName, did, privateKey, holder string) error {
 	profileRequest := operation.ProfileRequest{}
 
 	err := json.Unmarshal(e.bddContext.ProfileRequestTemplate, &profileRequest)
@@ -142,6 +142,7 @@ func (e *Steps) createProfile(profileName, did, privateKey string) error {
 	profileRequest.Name = profileName
 	profileRequest.DID = did
 	profileRequest.DIDPrivateKey = privateKey
+	profileRequest.SignatureRepresentation = getSignatureRepresentation(holder)
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -185,6 +186,17 @@ func (e *Steps) createProfile(profileName, did, privateKey string) error {
 	}
 
 	return resolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+}
+
+func getSignatureRepresentation(holder string) verifiable.SignatureRepresentation {
+	switch holder {
+	case "JWS":
+		return verifiable.SignatureJWS
+	case "ProofValue":
+		return verifiable.SignatureProofValue
+	default:
+		return verifiable.SignatureJWS
+	}
 }
 
 func (e *Steps) getProfile(profileName, did string) error {
@@ -254,7 +266,7 @@ func (e *Steps) createCredential(profileName string) error {
 
 	e.bddContext.CreatedCredential = respBytes
 
-	return checkVC(respBytes, profileName)
+	return e.checkVC(respBytes, profileName)
 }
 
 func (e *Steps) storeCredential(profileName string) error {
@@ -447,50 +459,98 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfil
 		return fmt.Errorf("profile response created field was unexpectedly nil")
 	}
 
+	e.bddContext.CreatedProfile = profileResponse
+
 	return nil
 }
 
-func checkVC(vcBytes []byte, profileName string) error {
-	issuerName, credentialStatusMap, err := getVCFieldsToCheck(vcBytes)
+func (e *Steps) checkVC(vcBytes []byte, profileName string) error {
+	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
 		return err
 	}
 
-	return checkVCFields(issuerName, credentialStatusMap, profileName)
-}
-
-func getVCFieldsToCheck(vcBytes []byte) (string, string, error) {
-	vcMap, err := getVCMap(vcBytes)
+	err = checkCredentialStatusType(vcMap, csl.CredentialStatusType)
 	if err != nil {
-		return "", "", err
+		return err
 	}
 
+	err = checkIssuer(vcMap, profileName)
+	if err != nil {
+		return err
+	}
+
+	return e.checkSignatureHolder(vcMap)
+}
+
+func (e *Steps) checkSignatureHolder(vcMap map[string]interface{}) error {
+	proof, found := vcMap["proof"]
+	if !found {
+		return fmt.Errorf("unable to find proof in VC map")
+	}
+
+	proofMap, ok := proof.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("unable to assert proof field type as map[string]interface{}")
+	}
+
+	switch e.bddContext.CreatedProfile.SignatureRepresentation {
+	case verifiable.SignatureJWS:
+		_, found := proofMap["jws"]
+		if !found {
+			return fmt.Errorf("unable to find jws in proof")
+		}
+	case verifiable.SignatureProofValue:
+		_, found := proofMap["proofValue"]
+		if !found {
+			return fmt.Errorf("unable to find proofValue in proof")
+		}
+	default:
+		return fmt.Errorf("unexpected signature representation in profile")
+	}
+
+	return nil
+}
+
+func checkCredentialStatusType(vcMap map[string]interface{}, expected string) error {
+	credentialStatusType, err := getCredentialStatusType(vcMap)
+	if err != nil {
+		return err
+	}
+
+	if credentialStatusType != expected {
+		return expectedStringError(csl.CredentialStatusType, credentialStatusType)
+	}
+
+	return nil
+}
+
+func checkIssuer(vcMap map[string]interface{}, expected string) error {
 	issuer, found := vcMap["issuer"]
 	if !found {
-		return "", "", fmt.Errorf("unable to find issuer in VC map")
+		return fmt.Errorf("unable to find issuer in VC map")
 	}
 
 	issuerMap, ok := issuer.(map[string]interface{})
 	if !ok {
-		return "", "", fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
+		return fmt.Errorf("unable to assert issuer field type as map[string]interface{}")
 	}
 
 	issuerName, found := issuerMap["name"]
 	if !found {
-		return "", "", fmt.Errorf("unable to find issuer name in VC map")
+		return fmt.Errorf("unable to find issuer name in VC map")
 	}
 
-	issuerNameString, ok := issuerName.(string)
+	issuerNameStr, ok := issuerName.(string)
 	if !ok {
-		return "", "", fmt.Errorf("unable to assert issuer name type as string")
+		return fmt.Errorf("unable to assert issuer name type as string")
 	}
 
-	credentialStatusType, err := getCredentialStatusType(vcMap)
-	if err != nil {
-		return "", "", err
+	if issuerNameStr != expected {
+		return expectedStringError(expected, issuerNameStr)
 	}
 
-	return issuerNameString, credentialStatusType, nil
+	return nil
 }
 
 func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
@@ -510,18 +570,6 @@ func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
 	}
 
 	return credentialStatusType.(string), nil
-}
-
-func checkVCFields(issuerName, credentialStatusType, profileName string) error {
-	if issuerName != profileName {
-		return expectedStringError(profileName, issuerName)
-	}
-
-	if credentialStatusType != csl.CredentialStatusType {
-		return expectedStringError(csl.CredentialStatusType, credentialStatusType)
-	}
-
-	return nil
 }
 
 func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
