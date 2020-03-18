@@ -88,7 +88,7 @@ func (e *Steps) verifyPresentation(holder, verifiedFlag, verifiedMsg string) err
 		return err
 	}
 
-	resp, err := http.Post(issuerURL+"verifyPresentation", "", //nolint: bodyclose
+	resp, err := http.Post(verifierURL+"verifyPresentation", "", //nolint: bodyclose
 		bytes.NewBuffer(vp))
 
 	if err != nil {

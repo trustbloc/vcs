@@ -41,6 +41,7 @@ import (
 const (
 	credentialStoreName = "credential"
 	profile             = "/profile"
+	vcStatus            = "/status"
 
 	// endpoints
 	createCredentialEndpoint       = "/credential"
@@ -51,6 +52,7 @@ const (
 	storeCredentialEndpoint        = "/store"
 	retrieveCredentialEndpoint     = "/retrieve"
 	verifyPresentationEndpoint     = "/verifyPresentation"
+	vcStatusEndpoint               = vcStatus + "/{id}"
 
 	successMsg = "success"
 	cslSize    = 50
@@ -81,6 +83,10 @@ type EDVClient interface {
 	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
 	CreateDocument(vaultID string, document *operation.EncryptedDocument) (string, error)
 	ReadDocument(vaultID, docID string) (*operation.EncryptedDocument, error)
+}
+
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
 }
 
 type didBlocClient interface {
@@ -124,7 +130,7 @@ func New(config *Config) (*Operation, error) {
 
 	c := crypto.New(config.KMS, verifiable.NewDIDKeyResolver(config.VDRI))
 
-	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+vcStatus, cslSize, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
@@ -151,6 +157,8 @@ func New(config *Config) (*Operation, error) {
 		didBlocClient:   didclient.New(config.KMS),
 		domain:          config.Domain,
 		idMappingStore:  idMappingStore,
+		httpClient:      &http.Client{},
+		HostURL:         config.HostURL,
 	}
 
 	return svc, nil
@@ -179,6 +187,21 @@ type Operation struct {
 	didBlocClient   didBlocClient
 	domain          string
 	idMappingStore  storage.Store
+	httpClient      httpClient
+	HostURL         string
+}
+
+func (o *Operation) vcStatus(rw http.ResponseWriter, req *http.Request) {
+	csl, err := o.vcStatusManager.GetCSL(o.HostURL + req.RequestURI)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to get credential status list: %s", err.Error()))
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	o.writeResponse(rw, csl)
 }
 
 func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
@@ -256,10 +279,19 @@ func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse
 	vcResp := &VerifyCredentialResponse{
 		Verified: false}
 
-	csl, err := o.vcStatusManager.GetCSL(vclID)
+	req, err := http.NewRequest(http.MethodGet, vclID, nil)
 	if err != nil {
-		vcResp.Message = fmt.Sprintf("failed to get credential status list: %s", err.Error())
-		return vcResp, nil
+		return nil, err
+	}
+
+	resp, err := o.sendHTTPRequest(req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	var csl cslstatus.CSL
+	if err := json.Unmarshal(resp, &csl); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal resp to csl: %w", err)
 	}
 
 	for _, vcStatus := range csl.VC {
@@ -286,6 +318,31 @@ func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse
 	vcResp.Message = successMsg
 
 	return vcResp, nil
+}
+
+func (o *Operation) sendHTTPRequest(req *http.Request, status int) ([]byte, error) {
+	resp, err := o.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			log.Warn("failed to close response body")
+		}
+	}()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
+	}
+
+	if resp.StatusCode != status {
+		return nil, fmt.Errorf("failed to read response body for status %d: %s", resp.StatusCode, string(body))
+	}
+
+	return body, nil
 }
 
 func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *http.Request) {
@@ -714,6 +771,7 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 	case "verifier":
 		return []Handler{
 			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
 		}, nil
 	case "issuer":
 		return []Handler{
@@ -724,7 +782,7 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
 			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
 			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
-			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
+			support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)

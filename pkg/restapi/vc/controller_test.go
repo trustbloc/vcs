@@ -98,7 +98,7 @@ func TestVerifierController_GetOperations(t *testing.T) {
 
 	ops := controller.GetOperations()
 
-	require.Equal(t, 1, len(ops))
+	require.Equal(t, 2, len(ops))
 
 	require.Equal(t, "/verify", ops[0].Path())
 	require.Equal(t, http.MethodPost, ops[0].Method())
