@@ -37,6 +37,8 @@ const (
 	expectedProfileDID                   = "did:trustbloc"
 	expectedProfileResponseURI           = "https://example.com/credentials"
 	expectedProfileResponseSignatureType = "Ed25519Signature2018"
+	issuerURL                            = "http://localhost:8070/"
+	verifierURL                          = "http://localhost:8069/"
 )
 
 // Steps is steps for VC BDD tests
@@ -86,7 +88,7 @@ func (e *Steps) verifyPresentation(holder, verifiedFlag, verifiedMsg string) err
 		return err
 	}
 
-	resp, err := http.Post("http://localhost:8070/verifyPresentation", "", //nolint: bodyclose
+	resp, err := http.Post(issuerURL+"verifyPresentation", "", //nolint: bodyclose
 		bytes.NewBuffer(vp))
 
 	if err != nil {
@@ -151,7 +153,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder string) error
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post("http://localhost:8070/profile", "", //nolint: bodyclose
+	resp, err := http.Post(issuerURL+"profile", "", //nolint: bodyclose
 		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
@@ -202,7 +204,7 @@ func getSignatureRepresentation(holder string) verifiable.SignatureRepresentatio
 func (e *Steps) getProfile(profileName, did string) error {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Get(fmt.Sprintf("http://localhost:8070/profile/%s", profileName)) //nolint: bodyclose
+	resp, err := http.Get(fmt.Sprintf(issuerURL+"profile/%s", profileName)) //nolint: bodyclose
 	if err != nil {
 		return err
 	}
@@ -247,7 +249,7 @@ func (e *Steps) createCredential(profileName string) error {
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post("http://localhost:8070/credential", "", //nolint: bodyclose
+	resp, err := http.Post(issuerURL+"credential", "", //nolint: bodyclose
 		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
@@ -282,7 +284,7 @@ func (e *Steps) storeCredential(profileName string) error {
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post("http://localhost:8070/store", "", //nolint: bodyclose
+	resp, err := http.Post(issuerURL+"store", "", //nolint: bodyclose
 		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
@@ -323,7 +325,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Get("http://localhost:8070/retrieve?id=" + escapedCredentialID + //nolint: bodyclose
+	resp, err := http.Get(issuerURL + "retrieve?id=" + escapedCredentialID + //nolint: bodyclose
 		"&profile=" + escapedProfileName)
 	if err != nil {
 		return err
@@ -364,7 +366,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 func (e *Steps) verifyCredential(verifiedFlag, verifiedMsg string) error {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post("http://localhost:8070/verify", "", //nolint: bodyclose
+	resp, err := http.Post(verifierURL+"verify", "", //nolint: bodyclose
 		bytes.NewBuffer(e.bddContext.CreatedCredential))
 	if err != nil {
 		return err
@@ -415,7 +417,7 @@ func (e *Steps) updateCredentialStatus(status, statusReason string) error {
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post("http://localhost:8070/updateStatus", "", //nolint: bodyclose
+	resp, err := http.Post(issuerURL+"updateStatus", "", //nolint: bodyclose
 		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err

@@ -274,6 +274,10 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/trustbloc/edge-core v0.1.2 h1:NhytMOSi4mU1etaKydl9mciOl3C+V/tAsizvfDGBv40=
 github.com/trustbloc/edge-core v0.1.2/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
+github.com/trustbloc/edge-core v0.1.3-0.20200318183227-6518c027896a h1:McGuadoYpF/PQVzXD/m4VBqP3gitQUd+BcPnTDJ/MGY=
+github.com/trustbloc/edge-core v0.1.3-0.20200318183227-6518c027896a/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
+github.com/trustbloc/edge-core v0.1.3-0.20200318193133-ec6c4caf61ae h1:pghy7n4vfpBkwDlNiTHMWRtPbtFBZQrBVfUwWVgFbXg=
+github.com/trustbloc/edge-core v0.1.3-0.20200318193133-ec6c4caf61ae/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
 github.com/trustbloc/edv v0.1.3-0.20200305035835-69c9f3cb077b h1:Mm6BaFgkNxO7ePu12vVtVFkpBmGMLhN6420qyL31lDk=
 github.com/trustbloc/edv v0.1.3-0.20200305035835-69c9f3cb077b/go.mod h1:sGaSCAXMplC+R6sDxW4Pnchd2FWtvyQ4cp9jnbtposg=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200306222551-b9976a89a854 h1:uYqbC3t/YN1navNiqMxB4eJcGUUAPTlmE/TRBu1qSDI=

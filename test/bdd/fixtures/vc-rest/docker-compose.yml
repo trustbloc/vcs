@@ -8,21 +8,44 @@ version: '2'
 
 services:
 
-  vc.rest.example.com:
-    container_name: vc.rest.example.com
+  issuer.vc.rest.example.com:
+    container_name: issuer.vc.rest.example.com
     image: ${VC_REST_IMAGE}:latest
     environment:
-      - VC_REST_HOST_URL=${VC_HOST}:${VC_PORT}
-      - VC_REST_HOST_URL_EXTERNAL=http://localhost:${VC_PORT}
+      - VC_REST_HOST_URL=${ISSUER_VC_HOST}:${ISSUER_VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://localhost:${ISSUER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
       - BLOC_DOMAIN=testnet.trustbloc.local:80
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - DATABASE_TYPE=couchdb
+      - DATABASE_URL=couchdb.example.com:5984
+      - VC_REST_MODE=issuer
     ports:
-      - ${VC_PORT}:${VC_PORT}
-    command: start
+      - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
     networks:
-      - bdd_net
+      - couchdb_bdd_net
+
+  verifier.vc.rest.example.com:
+    container_name: verifier.vc.rest.example.com
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${VERIFIER_VC_HOST}:${VERIFIER_VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://localhost:${VERIFIER_VC_PORT}
+      - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
+      - BLOC_DOMAIN=testnet.trustbloc.local:80
+      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - DATABASE_TYPE=couchdb
+      - DATABASE_URL=couchdb.example.com:5984
+      - VC_REST_MODE=verifier
+    ports:
+      - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
+    networks:
+      - couchdb_bdd_net
 
 networks:
-  bdd_net:
-    driver: bridge
+  couchdb_bdd_net:
+    external: true

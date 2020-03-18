@@ -342,27 +342,12 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("fail to create credential store", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-
-		provider := memstore.NewProvider()
-
-		err := provider.CreateStore(credentialStoreName)
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: provider, EDVClient: client,
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{
+			ErrCreateStore: fmt.Errorf("create error")}, EDVClient: client,
 			KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{},
 			HostURL: "localhost:8080"})
-		require.Equal(t, storage.ErrDuplicateStore, err)
-		require.Nil(t, op)
-	})
-	t.Run("fail to create ID mapping store", func(t *testing.T) {
-		provider := memstore.NewProvider()
-
-		err := provider.CreateStore(IDMappingStoreName)
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: provider, KMS: getTestKMS(t),
-			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
-		require.Equal(t, storage.ErrDuplicateStore, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create error")
 		require.Nil(t, op)
 	})
 	t.Run("fail to open ID mapping store", func(t *testing.T) {
@@ -376,7 +361,7 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("test error from csl", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{FailNameSpace: "credentialStatus"},
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{FailNameSpace: "credentialstatus"},
 			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to instantiate new csl status")

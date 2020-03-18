@@ -17,8 +17,8 @@ services:
       - ./config.json:/opt/uni-resolver-java/uni-resolver-web/config.json
       - ./run-uni-resolver-web.sh:/opt/uni-resolver-java/uni-resolver-web/docker/run-uni-resolver-web.sh
     networks:
-      - vc-rest_bdd_net
+      - couchdb_bdd_net
 
 networks:
-  vc-rest_bdd_net:
+  couchdb_bdd_net:
     external: true

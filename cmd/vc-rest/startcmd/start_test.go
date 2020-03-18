@@ -66,17 +66,35 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Equal(t, "bloc-domain value is empty", err.Error())
 	})
 
-	t.Run("invalid mode", func(t *testing.T) {
+	t.Run("test blank database type arg", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
-		args := []string{
-			"--" + hostURLFlagName, "test",
-			"--" + edvURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain",
-			"--" + modeFlagName, "invalid"}
+		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, ""}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Equal(t, "database-type value is empty", err.Error())
+	})
+
+	t.Run("test blank mode type arg", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + modeFlagName, ""}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Equal(t, "mode value is empty", err.Error())
+	})
+
+	t.Run("invalid mode", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{mode: "invalid"}, nil)
+		require.Error(t, err)
+
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported mode")
 	})
@@ -139,7 +157,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
 	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain"}
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -156,6 +174,20 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 
 	err := startCmd.Execute()
 	require.NoError(t, err)
+}
+
+func TestCreateProvider(t *testing.T) {
+	t.Run("test error from create new couchdb", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{databaseType: databaseTypeCouchDBOption}, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
+	})
+
+	t.Run("test invalid database type", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{databaseType: "data1"}, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "database type not set to a valid type")
+	})
 }
 
 func TestCreateVDRI(t *testing.T) {
@@ -203,6 +235,9 @@ func setEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Setenv(blocDomainEnvKey, "domain")
+	require.NoError(t, err)
+
+	err = os.Setenv(databaseTypeEnvKey, databaseTypeMemOption)
 	require.NoError(t, err)
 }
 

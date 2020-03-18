@@ -26,7 +26,7 @@ const (
 	CredentialStatusType     = "CredentialStatusList2017"
 	credentialContext        = "https://www.w3.org/2018/credentials/v1"
 	verifiableCredentialType = "VerifiableCredential"
-	credentialStatusStore    = "credentialStatus"
+	credentialStatusStore    = "credentialstatus"
 	latestListID             = "latestListID"
 )
 
@@ -66,7 +66,9 @@ type VCStatus struct {
 func New(provider storage.Provider, url string, listSize int, c crypto) (*CredentialStatusManager, error) {
 	err := provider.CreateStore(credentialStatusStore)
 	if err != nil {
-		return nil, err
+		if err != storage.ErrDuplicateStore {
+			return nil, err
+		}
 	}
 
 	store, err := provider.OpenStore(credentialStatusStore)

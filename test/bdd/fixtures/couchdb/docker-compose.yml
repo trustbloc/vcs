@@ -13,8 +13,8 @@ services:
     ports:
       - ${COUCHDB_PORT}:${COUCHDB_PORT}
     networks:
-      - vc-rest_bdd_net
+      - bdd_net
 
 networks:
-  vc-rest_bdd_net:
-    external: true
+  bdd_net:
+    driver: bridge

@@ -99,7 +99,9 @@ func (p kmsProvider) LegacyKMS() legacykms.KeyManager {
 func New(config *Config) (*Operation, error) {
 	err := config.StoreProvider.CreateStore(credentialStoreName)
 	if err != nil {
-		return nil, err
+		if err != storage.ErrDuplicateStore {
+			return nil, err
+		}
 	}
 
 	store, err := config.StoreProvider.OpenStore(credentialStoreName)
@@ -110,7 +112,7 @@ func New(config *Config) (*Operation, error) {
 	//TODO: Should this be opened in the same store? https://github.com/trustbloc/edge-service/issues/112
 	err = config.StoreProvider.CreateStore(IDMappingStoreName)
 	if err != nil {
-		if err != storage.ErrStoreNotFound {
+		if err != storage.ErrDuplicateStore {
 			return nil, err
 		}
 	}
