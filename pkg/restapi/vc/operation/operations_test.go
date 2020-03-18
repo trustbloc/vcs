@@ -518,7 +518,7 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 }
 
 func TestVerifyPresentationHandlerIssuer(t *testing.T) {
-	const mode = "issuer"
+	const mode = "verifier"
 
 	client := edv.NewMockEDVClient("test", nil)
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
@@ -611,7 +611,11 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 		EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
-	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
+	cslBytes, err := json.Marshal(&cslstatus.CSL{})
+	require.NoError(t, err)
+
+	op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+		Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
 
 	verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint, mode)
 
@@ -663,7 +667,7 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
-		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
+		op.httpClient = &mockHTTPClient{doErr: fmt.Errorf("error get csl")}
 
 		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint, mode)
 
@@ -672,14 +676,28 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "error get csl")
+	})
 
-		response := VerifyCredentialResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &response)
+	t.Run("test get CSL return 500", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
-		require.Equal(t, false, response.Verified)
-		require.Contains(t, response.Message,
-			"failed to get credential status list")
+
+		op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusInternalServerError,
+			Body: ioutil.NopCloser(strings.NewReader(""))}}
+
+		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint, mode)
+
+		req, err := http.NewRequest(http.MethodPost, verifyCredentialEndpoint, bytes.NewBuffer([]byte(validVC)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		verifyCredentialHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to read response body for status 500")
 	})
 
 	t.Run("test revoked credential", func(t *testing.T) {
@@ -688,10 +706,12 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
-		op.vcStatusManager = &mockVCStatusManager{
-			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
-				strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1873"),
-				strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1872")}}}
+		cslBytes, err := json.Marshal(&cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
+			strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1873"),
+			strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1872")}})
+		require.NoError(t, err)
+		op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+			Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
 
 		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint, mode)
 
@@ -716,9 +736,11 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 
-		op.vcStatusManager = &mockVCStatusManager{
-			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
-				strings.ReplaceAll(invalidVCStatus, "#ID", "http://example.edu/credentials/1872")}}}
+		cslBytes, err := json.Marshal(&cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
+			strings.ReplaceAll(invalidVCStatus, "#ID", "http://example.edu/credentials/1872")}})
+		require.NoError(t, err)
+		op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+			Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
 
 		verifyCredentialHandler := getHandler(t, op, verifyCredentialEndpoint, mode)
 
@@ -1373,6 +1395,52 @@ func TestRetrieveVCHandler(t *testing.T) {
 	})
 }
 
+func TestVCStatus(t *testing.T) {
+	const mode = "issuer"
+
+	t.Run("test error from get CSL", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
+
+		vcStatusHandler := getHandler(t, op, vcStatusEndpoint, mode)
+
+		req, err := http.NewRequest(http.MethodGet, vcStatus+"/1", nil)
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		vcStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "error get csl")
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{
+			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{}}}
+
+		vcStatusHandler := getHandler(t, op, vcStatusEndpoint, mode)
+
+		req, err := http.NewRequest(http.MethodGet, vcStatus+"/1", nil)
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		vcStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		var csl cslstatus.CSL
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &csl))
+		require.Equal(t, "https://example.gov/status/24", csl.ID)
+	})
+}
+
 func TestOperation_validateProfileRequest(t *testing.T) {
 	t.Run("valid profile ", func(t *testing.T) {
 		profile := getProfileRequest()
@@ -1724,4 +1792,13 @@ func (p *FailOnSecondOpenMockProvider) Close() error {
 // CloseStore never returns an error.
 func (p *FailOnSecondOpenMockProvider) CloseStore(name string) error {
 	return nil
+}
+
+type mockHTTPClient struct {
+	doValue *http.Response
+	doErr   error
+}
+
+func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return m.doValue, m.doErr
 }

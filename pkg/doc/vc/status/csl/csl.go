@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -205,16 +204,18 @@ func (c *CredentialStatusManager) getLatestCSL() (*cslWrapper, error) {
 				return nil, fmt.Errorf("failed to store latest list ID in store: %w", errPut)
 			}
 
-			return &cslWrapper{&CSL{ID: path.Join(c.url, "1")}, 0, "1"}, nil
+			return &cslWrapper{&CSL{ID: c.url + "/1"}, 0, "1"}, nil
 		}
 
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	w, err := c.getCSLWrapper(path.Join(c.url, string(id)))
+	statusID := c.url + "/" + string(id)
+	w, err := c.getCSLWrapper(statusID)
+
 	if err != nil {
 		if errors.Is(err, storage.ErrValueNotFound) {
-			return &cslWrapper{&CSL{ID: path.Join(c.url, string(id))}, 0, string(id)}, nil
+			return &cslWrapper{&CSL{ID: statusID}, 0, string(id)}, nil
 		}
 
 		return nil, fmt.Errorf("failed to get csl from store: %w", err)
