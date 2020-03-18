@@ -12,6 +12,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
@@ -48,11 +50,13 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 
 		created := time.Now().UTC()
 		valueStored := &DataProfile{
-			Name:          "issuer",
-			URI:           "https://example.com/credentials",
-			Created:       &created,
-			DID:           "did",
-			DIDPrivateKey: "privateKey",
+			Name:                    "issuer",
+			URI:                     "https://example.com/credentials",
+			Created:                 &created,
+			DID:                     "did",
+			DIDPrivateKey:           "privateKey",
+			SignatureType:           "SignatureType",
+			SignatureRepresentation: verifiable.SignatureProofValue,
 		}
 
 		err := record.SaveProfile(valueStored)

@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	"github.com/trustbloc/edge-core/pkg/storage"
 )
 
@@ -30,13 +32,14 @@ type Profile struct {
 
 // DataProfile struct for profile
 type DataProfile struct {
-	Name          string     `json:"name"`
-	DID           string     `json:"did"`
-	URI           string     `json:"uri"`
-	SignatureType string     `json:"signatureType"`
-	Creator       string     `json:"creator"`
-	Created       *time.Time `json:"created"`
-	DIDPrivateKey string     `json:"didPrivateKey"`
+	Name                    string                             `json:"name"`
+	DID                     string                             `json:"did"`
+	URI                     string                             `json:"uri"`
+	SignatureType           string                             `json:"signatureType"`
+	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
+	Creator                 string                             `json:"creator"`
+	Created                 *time.Time                         `json:"created"`
+	DIDPrivateKey           string                             `json:"didPrivateKey"`
 }
 
 // SaveProfile saves issuer profile to underlying store

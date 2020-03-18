@@ -14,6 +14,8 @@ import (
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
+
+	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 )
 
 // BDDContext is a global context shared between different test suites in bddtests
@@ -23,6 +25,7 @@ type BDDContext struct {
 	CreateCredentialRequestTemplate []byte
 	CreatedCredential               []byte
 	CreatedPresentation             []byte
+	CreatedProfile                  *profile.DataProfile
 	StoreVCRequest                  []byte
 	VDRI                            vdriapi.Registry
 }
@@ -39,7 +42,8 @@ func NewBDDContext() (*BDDContext, error) {
 		ProfileRequestTemplate: []byte(`{
 		"name": "ToBeChangedInStep",
 		"uri": "https://example.com/credentials",
-		"signatureType": "Ed25519Signature2018"}`),
+		"signatureType": "Ed25519Signature2018",
+		"signatureRepresentation": 1}`),
 		CreateCredentialRequestTemplate: []byte(`{
 			"@context": ["https://www.w3.org/2018/credentials/v1"],
 "type": [

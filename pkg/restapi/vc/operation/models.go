@@ -34,11 +34,12 @@ type StoreVCRequest struct {
 
 // ProfileRequest struct the input for creating profile
 type ProfileRequest struct {
-	Name          string `json:"name"`
-	URI           string `json:"uri"`
-	SignatureType string `json:"signatureType"`
-	DID           string `json:"did"`
-	DIDPrivateKey string `json:"didPrivateKey"`
+	Name                    string                             `json:"name"`
+	URI                     string                             `json:"uri"`
+	SignatureType           string                             `json:"signatureType"`
+	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
+	DID                     string                             `json:"did"`
+	DIDPrivateKey           string                             `json:"didPrivateKey"`
 }
 
 // VerifyCredentialResponse describes verify credential response
