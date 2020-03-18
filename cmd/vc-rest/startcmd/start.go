@@ -9,18 +9,21 @@ package startcmd
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	ariesapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesmemstore "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/storage"
+	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edv/pkg/client/edv"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
@@ -64,6 +67,22 @@ const (
 		"['issuer', 'verifier'] (default: issuer)."
 	modeEnvKey = "VC_REST_MODE"
 
+	databaseTypeFlagName      = "database-type"
+	databaseTypeEnvKey        = "DATABASE_TYPE"
+	databaseTypeFlagShorthand = "t"
+	databaseTypeFlagUsage     = "The type of database to use internally in the vc rest. Supported options: mem, couchdb." +
+		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
+
+	databaseTypeMemOption     = "mem"
+	databaseTypeCouchDBOption = "couchdb"
+
+	databaseURLFlagName      = "database-url"
+	databaseURLEnvKey        = "DATABASE_URL"
+	databaseURLFlagShorthand = "l"
+	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
+		" For CouchDB, include the username:password@ text if required." +
+		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
+
 	didMethodVeres = "v1"
 )
 
@@ -82,6 +101,8 @@ type vcRestParameters struct {
 	hostURLExternal      string
 	universalResolverURL string
 	mode                 string
+	databaseType         string
+	databaseURL          string
 }
 
 type server interface {
@@ -154,12 +175,14 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	if !supportedMode(mode) {
-		return nil, fmt.Errorf("unsupported mode: %s", mode)
+	databaseType, err := cmdutils.GetUserSetVar(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
+	if err != nil {
+		return nil, err
 	}
 
-	if mode == "" {
-		mode = string(issuer)
+	databaseURL, err := cmdutils.GetUserSetVar(cmd, databaseURLFlagName, databaseURLEnvKey, true)
+	if err != nil {
+		return nil, err
 	}
 
 	return &vcRestParameters{
@@ -169,6 +192,8 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		hostURLExternal:      hostURLExternal,
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
+		databaseType:         databaseType,
+		databaseURL:          databaseURL,
 	}, nil
 }
 
@@ -180,11 +205,21 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
+	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
+	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters, srv server) error {
+	if !supportedMode(parameters.mode) {
+		return fmt.Errorf("unsupported mode: %s", parameters.mode)
+	}
+
+	if parameters.mode == "" {
+		parameters.mode = string(issuer)
+	}
+
 	// Create KMS
-	kms, err := createKMS(mem.NewProvider())
+	kms, err := createKMS(ariesmemstore.NewProvider())
 	if err != nil {
 		return err
 	}
@@ -195,12 +230,17 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
+	storeProvider, err := createProvider(parameters)
+	if err != nil {
+		return err
+	}
+
 	externalHostURL := parameters.hostURL
 	if parameters.hostURLExternal != "" {
 		externalHostURL = parameters.hostURLExternal
 	}
 
-	vcService, err := vc.New(&operation.Config{StoreProvider: memstore.NewProvider(),
+	vcService, err := vc.New(&operation.Config{StoreProvider: storeProvider,
 		EDVClient: edv.New(parameters.edvURL), KMS: kms, VDRI: vdri, HostURL: externalHostURL,
 		Mode: parameters.mode, Domain: parameters.blocDomain})
 	if err != nil {
@@ -219,7 +259,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	return srv.ListenAndServe(parameters.hostURL, router)
 }
 
-func createKMS(s storage.Provider) (ariesapi.CloseableKMS, error) {
+func createKMS(s ariesstorage.Provider) (ariesapi.CloseableKMS, error) {
 	kmsProvider, err := context.New(context.WithStorageProvider(s))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new kms provider: %w", err)
@@ -269,4 +309,25 @@ func supportedMode(mode string) bool {
 	}
 
 	return true
+}
+
+func createProvider(parameters *vcRestParameters) (storage.Provider, error) {
+	var provider storage.Provider
+
+	switch {
+	case strings.EqualFold(parameters.databaseType, databaseTypeMemOption):
+		provider = memstore.NewProvider()
+	case strings.EqualFold(parameters.databaseType, databaseTypeCouchDBOption):
+		couchDBProvider, err := couchdbstore.NewProvider(parameters.databaseURL)
+		if err != nil {
+			return nil, err
+		}
+
+		provider = couchDBProvider
+	default:
+		return nil, fmt.Errorf("database type not set to a valid type." +
+			" run start --help to see the available options")
+	}
+
+	return provider, nil
 }

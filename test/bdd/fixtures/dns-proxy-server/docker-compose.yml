@@ -17,9 +17,9 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /etc/resolv.conf:/etc/resolv.conf
     networks:
-      - vc-rest_bdd_net
+      - couchdb_bdd_net
 
 networks:
-  vc-rest_bdd_net:
+  couchdb_bdd_net:
     external: true
 

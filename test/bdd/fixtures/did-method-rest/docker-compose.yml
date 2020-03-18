@@ -17,8 +17,8 @@ services:
       - 8060:8060
     command: start
     networks:
-      - vc-rest_bdd_net
+      - couchdb_bdd_net
 
 networks:
-  vc-rest_bdd_net:
+  couchdb_bdd_net:
     external: true
