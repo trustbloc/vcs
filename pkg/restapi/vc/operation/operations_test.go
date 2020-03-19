@@ -45,6 +45,8 @@ import (
 )
 
 const (
+	issuerMode = "issuer"
+
 	multipleContext = `"@context":["https://www.w3.org/2018/credentials/v1","https://w3id.org/citizenship/v1"]`
 	validContext    = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 	invalidContext  = `"@context":"https://www.w3.org/2018/credentials/v1"`
@@ -936,7 +938,7 @@ func TestCreateProfileHandler(t *testing.T) {
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, "can't find public key in DID", rr.Body.String())
+		require.Equal(t, "public key not found in DID Document", rr.Body.String())
 	})
 
 	t.Run("test failed to resolve did", func(t *testing.T) {
@@ -1530,8 +1532,6 @@ func TestBuildStructuredDoc(t *testing.T) {
 }
 
 func TestIssueCredential(t *testing.T) {
-	mode := "issuer"
-
 	t.Run("issue credential - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
@@ -1551,7 +1551,7 @@ func TestIssueCredential(t *testing.T) {
 
 		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1583,7 +1583,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath,
 			[]byte("invalid json"))
@@ -1599,7 +1599,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(invalidVC),
@@ -1621,7 +1621,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(invalidVC),
@@ -1644,7 +1644,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1668,7 +1668,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1681,7 +1681,7 @@ func TestIssueCredential(t *testing.T) {
 		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
 
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to get public key from DID Document")
+		require.Contains(t, rr.Body.String(), "public key not found in DID Document")
 	})
 
 	t.Run("issue credential - signing error", func(t *testing.T) {
@@ -1698,7 +1698,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1715,7 +1715,47 @@ func TestIssueCredential(t *testing.T) {
 	})
 }
 
-func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder { // nolint unparam (method is always post at the moment)
+func TestGenerateKeypair(t *testing.T) {
+	t.Run("generate key pair - success", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)},
+		})
+		require.NoError(t, err)
+
+		generateKeypairHandler := getHandler(t, op, generateKeypairPath, issuerMode)
+
+		rr := serveHTTP(t, generateKeypairHandler.Handle(), http.MethodGet, generateKeypairPath, nil)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		generateKeypairResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &generateKeypairResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, generateKeypairResp["publicKey"])
+	})
+
+	t.Run("generate key pair - failure", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+		op.kms = &kmsmock.CloseableKMS{CreateKeyErr: errors.New("kms - create keyset error")}
+
+		generateKeypairHandler := getHandler(t, op, generateKeypairPath, issuerMode)
+
+		rr := serveHTTP(t, generateKeypairHandler.Handle(), http.MethodGet, generateKeypairPath, nil)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to create key pair")
+	})
+}
+
+func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
 	httpReq, err := http.NewRequest(
 		method,
 		path,
