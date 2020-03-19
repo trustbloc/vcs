@@ -1529,6 +1529,207 @@ func TestBuildStructuredDoc(t *testing.T) {
 	})
 }
 
+func TestIssueCredential(t *testing.T) {
+	mode := "issuer"
+
+	t.Run("issue credential - success", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		kms := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts:       IssueCredentialOptions{AssertionMethod: "did:local:abc"},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		signedVCResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+	})
+
+	t.Run("issue credential - invalid request", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath,
+			[]byte("invalid json"))
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), invalidRequestErrMsg)
+	})
+
+	t.Run("issue credential - invalid vc", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(invalidVC),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to validate credential")
+	})
+
+	t.Run("issue credential - invalid vc", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(invalidVC),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to validate credential")
+	})
+
+	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("did not found")},
+		})
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts:       IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to resolve DID")
+	})
+
+	t.Run("issue credential - DID doesn't contain Public key", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{}},
+		})
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts:       IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to get public key from DID Document")
+	})
+
+	t.Run("issue credential - signing error", func(t *testing.T) {
+		kms := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           kms,
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, mode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts:       IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to sign credential")
+	})
+}
+
+func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder { // nolint unparam (method is always post at the moment)
+	httpReq, err := http.NewRequest(
+		method,
+		path,
+		bytes.NewBuffer(req),
+	)
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, httpReq)
+
+	return rr
+}
+
 func getProfileRequest() *ProfileRequest {
 	return &ProfileRequest{
 		Name:          "issuer",
@@ -1582,6 +1783,17 @@ func createDefaultDID() *did.Doc {
 	if err != nil {
 		panic(err)
 	}
+
+	return createDIDDoc(didID, pubKey)
+}
+
+func createDIDDoc(didID string, pubKey []byte) *did.Doc {
+	const (
+		didContext = "https://w3id.org/did/v1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	creator := didID + "#key-1"
 
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
