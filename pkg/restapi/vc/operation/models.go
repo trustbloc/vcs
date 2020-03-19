@@ -60,3 +60,8 @@ type IssueCredentialRequest struct {
 type IssueCredentialOptions struct {
 	AssertionMethod string `json:"assertionMethod,omitempty"`
 }
+
+// GenerateKeyPairResponse contains response from KMS generate keypair API.
+type GenerateKeyPairResponse struct {
+	PublicKey string `json:"publicKey,omitempty"`
+}

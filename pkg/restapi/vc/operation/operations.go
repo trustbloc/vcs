@@ -55,6 +55,8 @@ const (
 	vcStatusEndpoint               = vcStatus + "/{id}"
 	credentialsBasePath            = "/credentials"
 	issueCredentialPath            = credentialsBasePath + "/issueCredential"
+	kmsBasePath                    = "/kms"
+	generateKeypairPath            = kmsBasePath + "/generatekeypair"
 
 	successMsg = "success"
 	cslSize    = 50
@@ -683,15 +685,9 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		}
 	}
 
-	var publicKeyID string
-
-	switch {
-	case len(didDoc.PublicKey) > 0:
-		publicKeyID = didDoc.PublicKey[0].ID
-	case len(didDoc.Authentication) > 0:
-		publicKeyID = didDoc.Authentication[0].PublicKey.ID
-	default:
-		return nil, fmt.Errorf("can't find public key in DID")
+	publicKeyID, err := getPublicKeyID(didDoc)
+	if err != nil {
+		return nil, err
 	}
 
 	created := time.Now().UTC()
@@ -793,6 +789,7 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 
 			// issuer apis
 			// TODO update trustbloc components to use these APIs instead of above ones
+			support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
 			support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
 		}, nil
 	default:
@@ -827,16 +824,9 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	var publicKeyID string
-
-	switch {
-	case len(didDoc.PublicKey) > 0:
-		publicKeyID = didDoc.PublicKey[0].ID
-	case len(didDoc.Authentication) > 0:
-		publicKeyID = didDoc.Authentication[0].PublicKey.ID
-	default:
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("failed to get public key from DID Document"))
+	publicKeyID, err := getPublicKeyID(didDoc)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
@@ -859,6 +849,21 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	rw.WriteHeader(http.StatusOK)
 	o.writeResponse(rw, signedVC)
+}
+
+func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {
+	_, signKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("failed to create key pair: %s", err.Error()))
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	o.writeResponse(rw, &GenerateKeyPairResponse{
+		PublicKey: signKey,
+	})
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
@@ -903,4 +908,19 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 	}
 
 	return vp, nil
+}
+
+func getPublicKeyID(didDoc *did.Doc) (string, error) {
+	var publicKeyID string
+
+	switch {
+	case len(didDoc.PublicKey) > 0:
+		publicKeyID = didDoc.PublicKey[0].ID
+	case len(didDoc.Authentication) > 0:
+		publicKeyID = didDoc.Authentication[0].PublicKey.ID
+	default:
+		return "", errors.New("public key not found in DID Document")
+	}
+
+	return publicKeyID, nil
 }
