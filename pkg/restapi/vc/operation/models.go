@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
@@ -46,4 +48,15 @@ type ProfileRequest struct {
 type VerifyCredentialResponse struct {
 	Verified bool   `json:"verified"`
 	Message  string `json:"message"`
+}
+
+// IssueCredentialRequest request for issuing credential.
+type IssueCredentialRequest struct {
+	Credential json.RawMessage        `json:"credential,omitempty"`
+	Opts       IssueCredentialOptions `json:"options,omitempty"`
+}
+
+// IssueCredentialOptions options for issuing credential.
+type IssueCredentialOptions struct {
+	AssertionMethod string `json:"assertionMethod,omitempty"`
 }

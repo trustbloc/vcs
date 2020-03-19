@@ -53,6 +53,8 @@ const (
 	retrieveCredentialEndpoint     = "/retrieve"
 	verifyPresentationEndpoint     = "/verifyPresentation"
 	vcStatusEndpoint               = vcStatus + "/{id}"
+	credentialsBasePath            = "/credentials"
+	issueCredentialPath            = credentialsBasePath + "/issueCredential"
 
 	successMsg = "success"
 	cslSize    = 50
@@ -149,6 +151,7 @@ func New(config *Config) (*Operation, error) {
 	svc := &Operation{
 		profileStore:    vcprofile.New(store),
 		edvClient:       config.EDVClient,
+		kms:             config.KMS,
 		vdri:            config.VDRI,
 		crypto:          c,
 		packer:          packer,
@@ -179,6 +182,7 @@ type Config struct {
 type Operation struct {
 	profileStore    *vcprofile.Profile
 	edvClient       EDVClient
+	kms             legacykms.KeyManager
 	vdri            vdriapi.Registry
 	crypto          *crypto.Crypto
 	packer          *authcrypt.Packer
@@ -775,18 +779,86 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 		}, nil
 	case "issuer":
 		return []Handler{
-			support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
+			// profile
 			support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
 			support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+
+			// verifiable credential
+			support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
 			support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
 			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
 			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
 			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
 			support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
+
+			// issuer apis
+			// TODO update trustbloc components to use these APIs instead of above ones
+			support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)
 	}
+}
+
+func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the request
+	cred := IssueCredentialRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&cred)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	// validate the VC
+	validatedCred, _, err := verifiable.NewCredential(cred.Credential)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
+
+		return
+	}
+
+	// Resolve DID and get the public keyID
+	didDoc, err := o.vdri.Resolve(cred.Opts.AssertionMethod)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID : %s", err.Error()))
+
+		return
+	}
+
+	var publicKeyID string
+
+	switch {
+	case len(didDoc.PublicKey) > 0:
+		publicKeyID = didDoc.PublicKey[0].ID
+	case len(didDoc.Authentication) > 0:
+		publicKeyID = didDoc.Authentication[0].PublicKey.ID
+	default:
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("failed to get public key from DID Document"))
+
+		return
+	}
+
+	// sign the credential
+	signedVC, err := o.crypto.SignCredential(
+		&vcprofile.DataProfile{
+			Creator: publicKeyID,
+			// TODO passed as options to request or set by environment variables ?
+			SignatureType:           "Ed25519Signature2018",
+			SignatureRepresentation: verifiable.SignatureJWS,
+		},
+		validatedCred,
+	)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential: %s", err.Error()))
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
+	o.writeResponse(rw, signedVC)
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
