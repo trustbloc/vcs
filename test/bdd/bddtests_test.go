@@ -19,6 +19,7 @@ import (
 
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/issuer"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/vc"
 )
 
@@ -125,4 +126,6 @@ func FeatureContext(s *godog.Suite) {
 	}
 
 	vc.NewSteps(bddContext).RegisterSteps(s)
+
+	issuer.NewSteps(bddContext).RegisterSteps(s)
 }
