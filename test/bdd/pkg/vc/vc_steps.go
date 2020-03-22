@@ -107,9 +107,11 @@ func (e *Steps) createPresentation(vcBytes []byte, representation verifiable.Sig
 		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privateKey))),
 	}
 
+	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+
 	// parse vc
 	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithEmbeddedSignatureSuites(suite),
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err

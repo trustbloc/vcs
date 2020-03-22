@@ -10,7 +10,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200311212058-6f509cae073a
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200325150605-2d68a4824d29
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.4.0
