@@ -21,6 +21,7 @@ import (
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/issuer"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/vc"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/verifier"
 )
 
 func TestMain(m *testing.M) {
@@ -128,4 +129,6 @@ func FeatureContext(s *godog.Suite) {
 	vc.NewSteps(bddContext).RegisterSteps(s)
 
 	issuer.NewSteps(bddContext).RegisterSteps(s)
+
+	verifier.NewSteps(bddContext).RegisterSteps(s)
 }

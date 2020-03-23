@@ -74,7 +74,8 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^A new DID Document is created using the public key stored in "([^"]*)" and store the generate DID in "([^"]*)" variable$`, //nolint: lll
 		e.createDIDDoc)
 	s.Step(`^Verify the proof value generated using the Issuer Service Issue Credential API with the DID stored in "([^"]*)" variable$`, //nolint: lll
-		e.signCredential)
+		e.verifyCredential)
+	s.Step(`^"([^"]*)" has stored her transcript from the University$`, e.createCredential)
 }
 
 func (e *Steps) generateKeypair(publicKeyVar string) error {
@@ -131,51 +132,22 @@ func (e *Steps) createSidetreeDID(base58PubKey string) (*docdid.Doc, error) {
 	return e.sendCreateRequest(req)
 }
 
-func (e *Steps) signCredential(didDocVar string) error {
-	did := e.bddContext.Args[didDocVar]
-
-	req := &operation.IssueCredentialRequest{
-		Credential: []byte(validVC),
-		Opts:       operation.IssueCredentialOptions{AssertionMethod: did},
-	}
-
-	reqBytes, err := json.Marshal(req)
+func (e *Steps) verifyCredential(didDocVar string) error {
+	signedVCByte, err := e.signCredential(didDocVar)
 	if err != nil {
-		return nil
+		return err
 	}
-
-	endpointURL := issuerURL + "/credentials/issueCredential"
-
-	resp, err := http.Post(endpointURL, "application/json",
-		bytes.NewBuffer(reqBytes))
-	if err != nil {
-		return nil
-	}
-
-	defer closeResponseBody(resp.Body)
-
-	responseBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response : %s", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("got unexpected response from %s status '%d' body %s",
-			endpointURL, resp.StatusCode, responseBytes)
-	}
-
-	log.Infof("proof value %s", string(responseBytes))
 
 	signedVCResp := make(map[string]interface{})
 
-	err = json.Unmarshal(responseBytes, &signedVCResp)
+	err = json.Unmarshal(signedVCByte, &signedVCResp)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	proof, ok := signedVCResp["proof"].(map[string]interface{})
 	if !ok {
-		return nil
+		return errors.New("unable to convert proof to a map")
 	}
 
 	if proof["type"] != "Ed25519Signature2018" {
@@ -185,6 +157,71 @@ func (e *Steps) signCredential(didDocVar string) error {
 	if proof["jws"] == "" {
 		return errors.New("proof jws value is empty")
 	}
+
+	return nil
+}
+
+func (e *Steps) signCredential(didDocVar string) ([]byte, error) {
+	did := e.bddContext.Args[didDocVar]
+	log.Infof("DID for signing %s", did)
+
+	if err := checkDIDAvailable(did); err != nil {
+		return nil, err
+	}
+
+	req := &operation.IssueCredentialRequest{
+		Credential: []byte(validVC),
+		Opts:       operation.IssueCredentialOptions{AssertionMethod: did},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	endpointURL := issuerURL + "/credentials/issueCredential"
+
+	resp, err := http.Post(endpointURL, "application/json",
+		bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	defer closeResponseBody(resp.Body)
+
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response : %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("got unexpected response from %s status '%d' body %s",
+			endpointURL, resp.StatusCode, responseBytes)
+	}
+
+	log.Infof("proof value %s", string(responseBytes))
+
+	return responseBytes, nil
+}
+
+func (e *Steps) createCredential(user string) error {
+	publicKeyVar := user + "-publicKeyVar"
+
+	if err := e.generateKeypair(publicKeyVar); err != nil {
+		return err
+	}
+
+	didVar := user + "-didVarKey"
+	if err := e.createDIDDoc(publicKeyVar, didVar); err != nil {
+		return err
+	}
+
+	signedVCByte, err := e.signCredential(didVar)
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[user] = string(signedVCByte)
 
 	return nil
 }
@@ -247,6 +284,25 @@ func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
 	}
 
 	return didDoc, nil
+}
+
+func checkDIDAvailable(did string) error {
+	for i := 1; i <= 10; i++ {
+		resp, err := http.Get(sidetreeURL + "/" + did) //nolint: bodyclose
+		if err != nil {
+			return err
+		}
+
+		defer closeResponseBody(resp.Body)
+
+		if resp.StatusCode == http.StatusOK {
+			return nil
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	return errors.New("DID not available")
 }
 
 func expectedStatusCodeError(expected, actual int, respBytes []byte) error {

@@ -45,8 +45,6 @@ import (
 )
 
 const (
-	issuerMode = "issuer"
-
 	multipleContext = `"@context":["https://www.w3.org/2018/credentials/v1","https://w3id.org/citizenship/v1"]`
 	validContext    = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 	invalidContext  = `"@context":"https://www.w3.org/2018/credentials/v1"`
@@ -180,6 +178,37 @@ const (
     "id": "https://example.gov/status/24",
     "type": "CredentialStatusList2017"
   }
+}`
+
+	validVCWithProof = `{
+   "@context":[
+      "https://www.w3.org/2018/credentials/v1"
+   ],
+   "credentialSchema":[
+
+   ],
+   "credentialStatus":{
+      "id":"https://example.gov/status/24",
+      "type":"CredentialStatusList2017"
+   },
+   "credentialSubject":{
+      "id":"did:example:ebfeb1f712ebc6f1c276e12ec21"
+   },
+   "id":"http://example.edu/credentials/1872",
+   "issuanceDate":"2010-01-01T19:23:24Z",
+   "issuer":{
+      "id":"did:example:76e12ec712ebc6f1c221ebfeb1f",
+      "name":"Example University"
+   },
+   "proof":{
+      "created":"2020-03-23T17:20:15Z",
+      "jws":"eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..` +
+		`-M4JuuSvRurmWqX0S_x2eXg-ZaaDhkAUQ1GlV9DjD0WKZUKJefSkSgevYro64aFzQEa_gK7b1akJCB7XZtH1Aw",
+      "type":"Ed25519Signature2018",
+      "verificationMethod":"did:trustbloc:testnet.trustbloc.local:EiBpn9XWyJlGpny_` +
+		`ViTH75fi43ThiIlGUyc1rQEb3VgreQ==#key-1"
+   },
+   "type":"VerifiableCredential"
 }`
 	// VC without issuer
 	invalidVC = `{` +
@@ -1755,6 +1784,148 @@ func TestGenerateKeypair(t *testing.T) {
 	})
 }
 
+func TestCredentialVerifications(t *testing.T) {
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		KMS:           &kmsmock.CloseableKMS{},
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	verificationsHandler := getHandler(t, op, credentialVerificationsEndpoint, verifierMode)
+
+	t.Run("credential verification - success", func(t *testing.T) {
+		pubKey := "8vtmYn1ymRmfh9chfhpz3sRnQ6iBJ8RuCKxkzvfJs4VV"
+
+		didDoc := createDIDDoc("did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw==", base58.Decode(pubKey))
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.vdri = &vdrimock.MockVDRIRegistry{ResolveValue: didDoc}
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		// verify credential
+		handler := getHandler(t, op, credentialVerificationsEndpoint, verifierMode)
+
+		vReq := &CredentialVerificationsRequest{
+			Credential: []byte(validVCWithProof),
+			Opts: &CredentialVerificationsOptions{
+				Checks: []string{proofCheck},
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, credentialVerificationsEndpoint, vReqBytes)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		verificationResp := &CredentialVerificationsSuccessResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0])
+	})
+
+	t.Run("credential verification - no checks", func(t *testing.T) {
+		req := &CredentialVerificationsRequest{
+			Credential: []byte(validVC),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "verification options along with one check is mandatory")
+	})
+
+	t.Run("credential verification - proof check failure", func(t *testing.T) {
+		// no proof in VC
+		req := &CredentialVerificationsRequest{
+			Credential: []byte(validVC),
+			Opts: &CredentialVerificationsOptions{
+				Checks: []string{proofCheck},
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		verificationResp := &CredentialVerificationsFailResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
+
+		// proof validation error (DID not found)
+		req = &CredentialVerificationsRequest{
+			Credential: []byte(validVCWithProof),
+			Opts: &CredentialVerificationsOptions{
+				Checks: []string{proofCheck},
+			},
+		}
+
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		verificationResp = &CredentialVerificationsFailResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Contains(t, verificationResp.Checks[0].Error, "proof validation error")
+	})
+
+	t.Run("credential verification - invalid check", func(t *testing.T) {
+		invalidCheckName := "invalidCheckName"
+
+		req := &CredentialVerificationsRequest{
+			Credential: []byte(validVC),
+			Opts: &CredentialVerificationsOptions{
+				Checks: []string{invalidCheckName},
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		verificationResp := &CredentialVerificationsFailResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, invalidCheckName, verificationResp.Checks[0].Check)
+		require.Equal(t, "check not supported", verificationResp.Checks[0].Error)
+	})
+
+	t.Run("credential verification - invalid json input", func(t *testing.T) {
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint,
+			[]byte("invalid input"))
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+}
+
 func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
 	httpReq, err := http.NewRequest(
 		method,
@@ -1813,10 +1984,7 @@ func getTestProfile() *vcprofile.DataProfile {
 
 func createDefaultDID() *did.Doc {
 	const (
-		didContext = "https://w3id.org/did/v1"
-		didID      = "did:local:abc"
-		creator    = didID + "#key-1"
-		keyType    = "Ed25519VerificationKey2018"
+		didID = "did:local:abc"
 	)
 
 	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
