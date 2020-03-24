@@ -13,23 +13,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
 
@@ -159,7 +156,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder string) error
 		return err
 	}
 
-	defer closeReadCloser(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -167,7 +164,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder string) error
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
 	profileResponse := profile.DataProfile{}
@@ -187,7 +184,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder string) error
 		return err
 	}
 
-	return resolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	return bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 }
 
 func getSignatureRepresentation(holder string) verifiable.SignatureRepresentation {
@@ -209,7 +206,7 @@ func (e *Steps) getProfile(profileName, did string) error {
 		return err
 	}
 
-	defer closeReadCloser(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -255,7 +252,7 @@ func (e *Steps) createCredential(profileName string) error {
 		return err
 	}
 
-	defer closeReadCloser(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -263,7 +260,7 @@ func (e *Steps) createCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return expectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
 	e.bddContext.CreatedCredential = respBytes
@@ -290,7 +287,7 @@ func (e *Steps) storeCredential(profileName string) error {
 		return err
 	}
 
-	defer closeReadCloser(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -298,7 +295,7 @@ func (e *Steps) storeCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
@@ -331,7 +328,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 		return err
 	}
 
-	defer closeReadCloser(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -339,7 +336,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	// For some reason there's an extra line at the end of the credential returned from the create credential handler.
@@ -357,7 +354,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	receivedCredential := string(respBytes)
 
 	if receivedCredential != expectedCredential {
-		return expectedStringError(expectedCredential, receivedCredential)
+		return bddutil.ExpectedStringError(expectedCredential, receivedCredential)
 	}
 
 	return nil
@@ -382,7 +379,7 @@ func verify(resp *http.Response, verifiedFlag, verifiedMsg string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	verifiedResp := operation.VerifyCredentialResponse{}
@@ -423,7 +420,7 @@ func (e *Steps) updateCredentialStatus(status, statusReason string) error {
 		return err
 	}
 
-	defer closeReadCloser(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -431,7 +428,7 @@ func (e *Steps) updateCredentialStatus(status, statusReason string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
@@ -521,7 +518,7 @@ func checkCredentialStatusType(vcMap map[string]interface{}, expected string) er
 	}
 
 	if credentialStatusType != expected {
-		return expectedStringError(csl.CredentialStatusType, credentialStatusType)
+		return bddutil.ExpectedStringError(csl.CredentialStatusType, credentialStatusType)
 	}
 
 	return nil
@@ -549,7 +546,7 @@ func checkIssuer(vcMap map[string]interface{}, expected string) error {
 	}
 
 	if issuerNameStr != expected {
-		return expectedStringError(expected, issuerNameStr)
+		return bddutil.ExpectedStringError(expected, issuerNameStr)
 	}
 
 	return nil
@@ -585,34 +582,4 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
-}
-
-func expectedStringError(expected, actual string) error {
-	return fmt.Errorf("expected %s but got %s instead", expected, actual)
-}
-
-func expectedStatusCodeError(expected, actual int, respBytes []byte) error {
-	return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
-		expected, actual, respBytes)
-}
-
-func closeReadCloser(respBody io.ReadCloser) {
-	err := respBody.Close()
-	if err != nil {
-		log.Errorf("Failed to close response body: %s", err.Error())
-	}
-}
-
-func resolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) error {
-	var err error
-	for i := 1; i <= maxRetry; i++ {
-		_, err = vdriRegistry.Resolve(did)
-		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
-			return err
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-
-	return err
 }
