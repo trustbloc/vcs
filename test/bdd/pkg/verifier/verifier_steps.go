@@ -10,8 +10,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -19,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
 
@@ -59,13 +58,13 @@ func (e *Steps) credentialVerifications(user string) error {
 
 	endpointURL := verifierURL + "/verifications"
 
-	resp, err := http.Post(endpointURL, "application/json",
+	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
 		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
 	}
 
-	defer closeResponseBody(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -75,7 +74,7 @@ func (e *Steps) credentialVerifications(user string) error {
 	log.Infof("verification response %s", string(respBytes))
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	verificationResp := operation.CredentialVerificationsSuccessResponse{}
@@ -90,16 +89,4 @@ func (e *Steps) credentialVerifications(user string) error {
 	}
 
 	return nil
-}
-
-func expectedStatusCodeError(expected, actual int, respBytes []byte) error {
-	return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
-		expected, actual, respBytes)
-}
-
-func closeResponseBody(respBody io.Closer) {
-	err := respBody.Close()
-	if err != nil {
-		log.Errorf("Failed to close response body: %s", err.Error())
-	}
 }

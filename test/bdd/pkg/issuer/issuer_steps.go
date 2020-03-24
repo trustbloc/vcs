@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
 
@@ -84,7 +84,7 @@ func (e *Steps) generateKeypair(publicKeyVar string) error {
 		return err
 	}
 
-	defer closeResponseBody(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -92,7 +92,7 @@ func (e *Steps) generateKeypair(publicKeyVar string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return expectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	generateKeyPairResponse := operation.GenerateKeyPairResponse{}
@@ -165,7 +165,7 @@ func (e *Steps) signCredential(didDocVar string) ([]byte, error) {
 	did := e.bddContext.Args[didDocVar]
 	log.Infof("DID for signing %s", did)
 
-	if err := checkDIDAvailable(did); err != nil {
+	if err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
 		return nil, err
 	}
 
@@ -181,13 +181,13 @@ func (e *Steps) signCredential(didDocVar string) ([]byte, error) {
 
 	endpointURL := issuerURL + "/credentials/issueCredential"
 
-	resp, err := http.Post(endpointURL, "application/json",
+	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
 		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, err
 	}
 
-	defer closeResponseBody(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -266,7 +266,7 @@ func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
 		return nil, err
 	}
 
-	defer closeResponseBody(resp.Body)
+	defer bddutil.CloseResponseBody(resp.Body)
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -284,35 +284,4 @@ func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
 	}
 
 	return didDoc, nil
-}
-
-func checkDIDAvailable(did string) error {
-	for i := 1; i <= 10; i++ {
-		resp, err := http.Get(sidetreeURL + "/" + did) //nolint: bodyclose
-		if err != nil {
-			return err
-		}
-
-		defer closeResponseBody(resp.Body)
-
-		if resp.StatusCode == http.StatusOK {
-			return nil
-		}
-
-		time.Sleep(1 * time.Second)
-	}
-
-	return errors.New("DID not available")
-}
-
-func expectedStatusCodeError(expected, actual int, respBytes []byte) error {
-	return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
-		expected, actual, respBytes)
-}
-
-func closeResponseBody(respBody io.Closer) {
-	err := respBody.Close()
-	if err != nil {
-		log.Errorf("Failed to close response body: %s", err.Error())
-	}
 }
