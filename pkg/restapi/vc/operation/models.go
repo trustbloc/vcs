@@ -65,3 +65,31 @@ type IssueCredentialOptions struct {
 type GenerateKeyPairResponse struct {
 	PublicKey string `json:"publicKey,omitempty"`
 }
+
+// CredentialVerificationsRequest request for issuing credential.
+type CredentialVerificationsRequest struct {
+	Credential json.RawMessage                 `json:"credential,omitempty"`
+	Opts       *CredentialVerificationsOptions `json:"options,omitempty"`
+}
+
+// CredentialVerificationsOptions options for credential verifications.
+type CredentialVerificationsOptions struct {
+	Checks []string `json:"checks,omitempty"`
+}
+
+// CredentialVerificationsSuccessResponse resp when credential verification is success.
+type CredentialVerificationsSuccessResponse struct {
+	Checks []string `json:"checks,omitempty"`
+}
+
+// CredentialVerificationsFailResponse resp when credential verification is failed.
+type CredentialVerificationsFailResponse struct {
+	Checks []CredentialVerificationsCheckResult `json:"checks,omitempty"`
+}
+
+// CredentialVerificationsCheckResult resp containing failure check details.
+type CredentialVerificationsCheckResult struct {
+	Check              string `json:"check,omitempty"`
+	Error              string `json:"error,omitempty"`
+	VerificationMethod string `json:"verificationMethod,omitempty"`
+}

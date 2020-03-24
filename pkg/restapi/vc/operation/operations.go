@@ -44,19 +44,20 @@ const (
 	vcStatus            = "/status"
 
 	// endpoints
-	createCredentialEndpoint       = "/credential"
-	verifyCredentialEndpoint       = "/verify"
-	updateCredentialStatusEndpoint = "/updateStatus"
-	createProfileEndpoint          = profile
-	getProfileEndpoint             = profile + "/{id}"
-	storeCredentialEndpoint        = "/store"
-	retrieveCredentialEndpoint     = "/retrieve"
-	verifyPresentationEndpoint     = "/verifyPresentation"
-	vcStatusEndpoint               = vcStatus + "/{id}"
-	credentialsBasePath            = "/credentials"
-	issueCredentialPath            = credentialsBasePath + "/issueCredential"
-	kmsBasePath                    = "/kms"
-	generateKeypairPath            = kmsBasePath + "/generatekeypair"
+	createCredentialEndpoint        = "/credential"
+	verifyCredentialEndpoint        = "/verify"
+	updateCredentialStatusEndpoint  = "/updateStatus"
+	createProfileEndpoint           = profile
+	getProfileEndpoint              = profile + "/{id}"
+	storeCredentialEndpoint         = "/store"
+	retrieveCredentialEndpoint      = "/retrieve"
+	verifyPresentationEndpoint      = "/verifyPresentation"
+	vcStatusEndpoint                = vcStatus + "/{id}"
+	credentialsBasePath             = "/credentials"
+	issueCredentialPath             = credentialsBasePath + "/issueCredential"
+	kmsBasePath                     = "/kms"
+	generateKeypairPath             = kmsBasePath + "/generatekeypair"
+	credentialVerificationsEndpoint = "/verifications"
 
 	successMsg = "success"
 	cslSize    = 50
@@ -65,6 +66,13 @@ const (
 	IDMappingStoreName = "id-mapping"
 
 	invalidRequestErrMsg = "Invalid request"
+
+	// credential verification checks
+	proofCheck = "proof"
+
+	// modes
+	issuerMode   = "issuer"
+	verifierMode = "verifier"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -768,12 +776,13 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 // GetRESTHandlers get all controller API handler available for this service
 func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 	switch mode {
-	case "verifier":
+	case verifierMode:
 		return []Handler{
 			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
 			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
+			support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialVerificationsHandler),
 		}, nil
-	case "issuer":
+	case issuerMode:
 		return []Handler{
 			// profile
 			support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
@@ -864,6 +873,77 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 	o.writeResponse(rw, &GenerateKeyPairResponse{
 		PublicKey: signKey,
 	})
+}
+
+func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the request
+	verificationReq := CredentialVerificationsRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&verificationReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	// TODO What are the checks to perform if options are not passed ? For now, made options and checks mandatory.
+	if verificationReq.Opts == nil ||
+		len(verificationReq.Opts.Checks) == 0 {
+		o.writeErrorResponse(rw, http.StatusBadRequest, "verification options along with one check is mandatory")
+
+		return
+	}
+
+	var result []CredentialVerificationsCheckResult
+
+	for _, val := range verificationReq.Opts.Checks {
+		switch val {
+		case proofCheck:
+			err := o.checkProof(verificationReq.Credential)
+			if err != nil {
+				result = append(result, CredentialVerificationsCheckResult{
+					Check: val,
+					Error: err.Error(),
+				})
+			}
+		default:
+			result = append(result, CredentialVerificationsCheckResult{
+				Check: val,
+				Error: "check not supported",
+			})
+		}
+	}
+
+	if len(result) == 0 {
+		rw.WriteHeader(http.StatusOK)
+		o.writeResponse(rw, &CredentialVerificationsSuccessResponse{
+			Checks: verificationReq.Opts.Checks,
+		})
+	} else {
+		rw.WriteHeader(http.StatusBadRequest)
+		o.writeResponse(rw, &CredentialVerificationsFailResponse{
+			Checks: result,
+		})
+	}
+}
+
+func (o *Operation) checkProof(vcByte []byte) error {
+	vc, _, err := verifiable.NewCredential(
+		vcByte,
+		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("proof validation error : %w", err)
+	}
+
+	if len(vc.Proofs) == 0 {
+		return errors.New("verifiable credential doesn't contains proof")
+	}
+
+	return nil
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
