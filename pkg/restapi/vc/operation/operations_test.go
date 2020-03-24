@@ -1833,7 +1833,7 @@ func TestCredentialVerifications(t *testing.T) {
 		require.Equal(t, proofCheck, verificationResp.Checks[0])
 	})
 
-	t.Run("credential verification - no checks", func(t *testing.T) {
+	t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
 		req := &CredentialVerificationsRequest{
 			Credential: []byte(validVC),
 		}
@@ -1844,7 +1844,14 @@ func TestCredentialVerifications(t *testing.T) {
 		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "verification options along with one check is mandatory")
+
+		// verify that the default check was performed
+		verificationResp := &CredentialVerificationsFailResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
 	})
 
 	t.Run("credential verification - proof check failure", func(t *testing.T) {

@@ -205,6 +205,39 @@ type Operation struct {
 	HostURL         string
 }
 
+// GetRESTHandlers get all controller API handler available for this service
+func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
+	switch mode {
+	case verifierMode:
+		return []Handler{
+			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
+			support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialVerificationsHandler),
+		}, nil
+	case issuerMode:
+		return []Handler{
+			// profile
+			support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
+			support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+
+			// verifiable credential
+			support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
+			support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
+			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
+			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
+			support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
+
+			// issuer apis
+			// TODO update trustbloc components to use these APIs instead of above ones
+			support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
+			support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
+		}, nil
+	default:
+		return nil, fmt.Errorf("invalid operation mode: %s", mode)
+	}
+}
+
 func (o *Operation) vcStatus(rw http.ResponseWriter, req *http.Request) {
 	csl, err := o.vcStatusManager.GetCSL(o.HostURL + req.RequestURI)
 	if err != nil {
@@ -773,39 +806,6 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 	}
 }
 
-// GetRESTHandlers get all controller API handler available for this service
-func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
-	switch mode {
-	case verifierMode:
-		return []Handler{
-			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
-			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
-			support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialVerificationsHandler),
-		}, nil
-	case issuerMode:
-		return []Handler{
-			// profile
-			support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
-			support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
-
-			// verifiable credential
-			support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
-			support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
-			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
-			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
-			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
-			support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
-
-			// issuer apis
-			// TODO update trustbloc components to use these APIs instead of above ones
-			support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
-			support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
-		}, nil
-	default:
-		return nil, fmt.Errorf("invalid operation mode: %s", mode)
-	}
-}
-
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	cred := IssueCredentialRequest{}
@@ -886,17 +886,16 @@ func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *
 		return
 	}
 
-	// TODO What are the checks to perform if options are not passed ? For now, made options and checks mandatory.
-	if verificationReq.Opts == nil ||
-		len(verificationReq.Opts.Checks) == 0 {
-		o.writeErrorResponse(rw, http.StatusBadRequest, "verification options along with one check is mandatory")
+	checks := []string{proofCheck}
 
-		return
+	// if req contains checks, then override the default checks
+	if verificationReq.Opts != nil && len(verificationReq.Opts.Checks) != 0 {
+		checks = verificationReq.Opts.Checks
 	}
 
 	var result []CredentialVerificationsCheckResult
 
-	for _, val := range verificationReq.Opts.Checks {
+	for _, val := range checks {
 		switch val {
 		case proofCheck:
 			err := o.checkProof(verificationReq.Credential)
@@ -917,7 +916,7 @@ func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *
 	if len(result) == 0 {
 		rw.WriteHeader(http.StatusOK)
 		o.writeResponse(rw, &CredentialVerificationsSuccessResponse{
-			Checks: verificationReq.Opts.Checks,
+			Checks: checks,
 		})
 	} else {
 		rw.WriteHeader(http.StatusBadRequest)
