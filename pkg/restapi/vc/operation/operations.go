@@ -73,6 +73,9 @@ const (
 	// modes
 	issuerMode   = "issuer"
 	verifierMode = "verifier"
+
+	// Ed25519VerificationKey supported Verification Key types
+	Ed25519VerificationKey = "Ed25519VerificationKey"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -927,13 +930,15 @@ func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *
 }
 
 func (o *Operation) checkProof(vcByte []byte) error {
+	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vc, _, err := verifiable.NewCredential(
 		vcByte,
-		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithEmbeddedSignatureSuites(suite),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
 	)
+
 	if err != nil {
 		return fmt.Errorf("proof validation error : %w", err)
 	}
@@ -946,13 +951,15 @@ func (o *Operation) checkProof(vcByte []byte) error {
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
+	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vc, _, err := verifiable.NewCredential(
 		vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithEmbeddedSignatureSuites(suite),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -961,13 +968,15 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 }
 
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
+	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
-		verifiable.WithPresEmbeddedSignatureSuites(ed25519signature2018.New()),
+		verifiable.WithPresEmbeddedSignatureSuites(suite),
 		verifiable.WithPresPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -990,16 +999,31 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 }
 
 func getPublicKeyID(didDoc *did.Doc) (string, error) {
-	var publicKeyID string
-
 	switch {
 	case len(didDoc.PublicKey) > 0:
-		publicKeyID = didDoc.PublicKey[0].ID
+		var publicKeyID string
+
+		for _, k := range didDoc.PublicKey {
+			if strings.HasPrefix(k.Type, Ed25519VerificationKey) {
+				publicKeyID = k.ID
+				break
+			}
+		}
+
+		// TODO this is temporary check to support public key ID's which aren't in DID format
+		// Will be removed [Issue#140]
+		if !isDID(publicKeyID) {
+			return didDoc.ID + publicKeyID, nil
+		}
+
+		return publicKeyID, nil
 	case len(didDoc.Authentication) > 0:
-		publicKeyID = didDoc.Authentication[0].PublicKey.ID
+		return didDoc.Authentication[0].PublicKey.ID, nil
 	default:
 		return "", errors.New("public key not found in DID Document")
 	}
+}
 
-	return publicKeyID, nil
+func isDID(str string) bool {
+	return strings.HasPrefix(str, "did:")
 }

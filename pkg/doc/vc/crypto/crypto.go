@@ -54,12 +54,7 @@ func newKMSSigner(kms legacykms.KMS, kResolver keyResolver, creator string) (*km
 		return nil, err
 	}
 
-	key, ok := k.([]byte)
-	if !ok {
-		return nil, fmt.Errorf("public key not bytes")
-	}
-
-	keyID := base58.Encode(key)
+	keyID := base58.Encode(k.Value)
 
 	return &kmsSigner{kms: kms, keyID: keyID}, nil
 }

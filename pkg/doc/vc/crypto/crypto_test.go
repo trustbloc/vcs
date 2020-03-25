@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
@@ -26,8 +28,8 @@ func TestCrypto_SignCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		c := New(&kmsmock.CloseableKMS{},
-			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
-				return []byte(pubKey), nil
+			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+				return &verifier.PublicKey{Value: []byte(pubKey)}, nil
 			}})
 
 		signedVC, err := c.SignCredential(
@@ -95,8 +97,8 @@ func TestCrypto_SignCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		c := New(&kmsmock.CloseableKMS{},
-			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
-				return []byte(pubKey), nil
+			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+				return &verifier.PublicKey{Value: []byte(pubKey)}, nil
 			}})
 		p := getTestProfile()
 		p.Creator = "wrongValue"
@@ -109,7 +111,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 	t.Run("test error from public key fetcher", func(t *testing.T) {
 		c := New(&kmsmock.CloseableKMS{},
-			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
+			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
 				return nil, fmt.Errorf("error getting public key")
 			}})
 
@@ -120,23 +122,10 @@ func TestCrypto_SignCredential(t *testing.T) {
 		require.Nil(t, signedVC)
 	})
 
-	t.Run("test error from public key type", func(t *testing.T) {
-		c := New(&kmsmock.CloseableKMS{},
-			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
-				return "publickey", nil
-			}})
-
-		signedVC, err := c.SignCredential(
-			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "public key not bytes")
-		require.Nil(t, signedVC)
-	})
-
 	t.Run("test error from sign credential", func(t *testing.T) {
 		c := New(&kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")},
-			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
-				return []byte(""), nil
+			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+				return &verifier.PublicKey{Value: []byte("")}, nil
 			}})
 
 		signedVC, err := c.SignCredential(

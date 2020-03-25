@@ -83,7 +83,8 @@ const (
 		" For CouchDB, include the username:password@ text if required." +
 		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
 
-	didMethodVeres = "v1"
+	didMethodVeres   = "v1"
+	didMethodElement = "elem"
 )
 
 // mode in which to run the vc-rest service
@@ -280,7 +281,7 @@ func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, 
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
-			httpbinding.WithAccept(func(method string) bool { return method == didMethodVeres }))
+			httpbinding.WithAccept(func(method string) bool { return method == didMethodVeres || method == didMethodElement }))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
 		}

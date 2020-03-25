@@ -21,9 +21,10 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-
 	"github.com/gorilla/mux"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
@@ -415,8 +416,8 @@ func TestCreateCredentialHandlerIssuer(t *testing.T) {
 	require.NoError(t, err)
 
 	op.crypto = crypto.New(kms,
-		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (i interface{}, err error) {
-			return []byte(pubKey), nil
+		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+			return &verifier.PublicKey{Value: []byte(pubKey)}, nil
 		}})
 
 	err = op.profileStore.SaveProfile(getTestProfile())
@@ -1930,6 +1931,107 @@ func TestCredentialVerifications(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+}
+
+func TestGetPublicKeyID(t *testing.T) {
+	t.Run("Test decode public key", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			didStr   string
+			expected string
+			err      string
+		}{
+			{
+				name: "Test when first public is not 'Ed25519VerificationKey2018' and id is not in DID format",
+				didStr: `{
+    "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ",
+    "@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
+    "publicKey": [{
+        "id": "#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA",
+        "usage": "signing",
+        "publicKeyJwk": {
+            "x": "DSE4CfCVKNgxNMDV6dK_DbcwshievbxwHJwOsGoSpaw",
+            "kty": "EC",
+            "crv": "secp256k1",
+            "y": "xzrnm-VHA22nfGrNGGaLL9aPHRN26qyJNli3jByQSfQ",
+            "kid": "5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA"
+        },
+        "type": "EcdsaSecp256k1VerificationKey2019",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }, {
+        "publicKeyHex": "020d213809f09528d83134c0d5e9d2bf0db730b2189ebdbc701c9c0eb06a12a5ac",
+        "type": "EcdsaSecp256k1VerificationKey2019",
+        "id": "#primary",
+        "usage": "signing",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }, {
+        "publicKeyHex": "02d5a045f28c14b3d5971b0df9aabd8ee44a3e3af52a1a14a206327991c6e54a80",
+        "type": "EcdsaSecp256k1VerificationKey2019",
+        "id": "#recovery",
+        "usage": "recovery",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }, {
+        "type": "Ed25519VerificationKey2018",
+        "publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
+        "id": "#signing-key",
+        "usage": "signing",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }]
+}`,
+				expected: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+			},
+			{
+				name: "Test when first public is not 'Ed25519VerificationKey2018' and id is in DID format",
+				didStr: `{
+    "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ",
+    "@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
+    "publicKey": [{
+        "publicKeyHex": "02d5a045f28c14b3d5971b0df9aabd8ee44a3e3af52a1a14a206327991c6e54a80",
+        "type": "EcdsaSecp256k1VerificationKey2019",
+        "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#recovery",
+        "usage": "recovery",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }, {
+        "type": "Ed25519VerificationKey2018",
+        "publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
+        "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+        "usage": "signing",
+        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
+    }]
+}`,
+				expected: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
+			},
+			{
+				name: "Test with no public keys or authentication",
+				didStr: `{
+    "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ",
+    "@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
+    "publicKey": []
+}`,
+				err: "public key not found in DID Document",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				doc, err := did.ParseDocument([]byte(tc.didStr))
+				require.NoError(t, err)
+				require.NotNil(t, doc)
+
+				id, err := getPublicKeyID(doc)
+				if tc.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.err)
+					return
+				}
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, id)
+			})
+		}
 	})
 }
 
