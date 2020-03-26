@@ -44,7 +44,9 @@ github.com/davecgh/go-spew v0.0.0-20171005155431-ecdeabc65495/go.mod h1:J7Y8YcW2
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/decred/dcrd/chaincfg/chainhash v1.0.2 h1:rt5Vlq/jM3ZawwiacWjPa+smINyLRN07EO0cNBV6DGU=
 github.com/decred/dcrd/chaincfg/chainhash v1.0.2/go.mod h1:BpbrGgrPTr3YJYRN3Bm+D9NuaFd+zGyNeIKgrhCXK60=
+github.com/decred/dcrd/crypto/blake256 v1.0.0 h1:/8DMNYp9SGi5f0w7uCm6d6M4OU2rGFK09Y2A4Xv7EE0=
 github.com/decred/dcrd/crypto/blake256 v1.0.0/go.mod h1:sQl2p6Y26YV+ZOcSTP6thNdn47hh8kt6rqSlvmrXFAc=
 github.com/decred/dcrd/dcrec v1.0.0 h1:W+z6Es+Rai3MXYVoPAxYr5U1DGis0Co33scJ6uH2J6o=
 github.com/decred/dcrd/dcrec v1.0.0/go.mod h1:HIaqbEJQ+PDzQcORxnqen5/V1FR3B4VpIfmePklt8Q8=
@@ -93,6 +95,7 @@ github.com/google/martian v2.1.0+incompatible/go.mod h1:9I4somxYTbIHy5NJKHRl3wXi
 github.com/google/pprof v0.0.0-20181206194817-3ea8567a2e57/go.mod h1:zfwlbNMJ+OItoe0UupaVj+oy1omPYYDuagoSzA8v9mc=
 github.com/google/tink v1.3.0-rc4 h1:zALbM4opXSOEf/ykXWMXgRwDPCtJz/KB4lVXHqPeFsA=
 github.com/google/tink v1.3.0-rc4/go.mod h1:xCAsc4J1ZYTyVncY9QgOTZsU0l+P3ou0VsiLslNjgAo=
+github.com/google/tink v1.3.0 h1:CMg2wQ+VP5QUDwqV89+WpKuxv3I+pBrJ4/ziUS/kIEs=
 github.com/google/tink v1.3.0/go.mod h1:xCAsc4J1ZYTyVncY9QgOTZsU0l+P3ou0VsiLslNjgAo=
 github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
@@ -231,7 +234,6 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/trustbloc/edge-core v0.1.2 h1:NhytMOSi4mU1etaKydl9mciOl3C+V/tAsizvfDGBv40=
 github.com/trustbloc/edge-core v0.1.2/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
-github.com/trustbloc/edge-core v0.1.3-0.20200318183227-6518c027896a/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
 github.com/trustbloc/edge-core v0.1.3-0.20200318193133-ec6c4caf61ae h1:pghy7n4vfpBkwDlNiTHMWRtPbtFBZQrBVfUwWVgFbXg=
 github.com/trustbloc/edge-core v0.1.3-0.20200318193133-ec6c4caf61ae/go.mod h1:si8TdEY2vD9vuNPPkW8z4bvhrXd6xFv0aLSrjl9ZiHY=
 github.com/trustbloc/edv v0.1.3-0.20200305035835-69c9f3cb077b h1:Mm6BaFgkNxO7ePu12vVtVFkpBmGMLhN6420qyL31lDk=

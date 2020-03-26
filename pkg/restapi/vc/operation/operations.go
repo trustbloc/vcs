@@ -55,6 +55,7 @@ const (
 	vcStatusEndpoint                = vcStatus + "/{id}"
 	credentialsBasePath             = "/credentials"
 	issueCredentialPath             = credentialsBasePath + "/issueCredential"
+	composeAndIssueCredentialPath   = credentialsBasePath + "/composeAndIssueCredential"
 	kmsBasePath                     = "/kms"
 	generateKeypairPath             = kmsBasePath + "/generatekeypair"
 	credentialVerificationsEndpoint = "/verifications"
@@ -235,6 +236,7 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 			// TODO update trustbloc components to use these APIs instead of above ones
 			support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
 			support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
+			support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
 		}, nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)
@@ -828,39 +830,150 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	// Resolve DID and get the public keyID
-	didDoc, err := o.vdri.Resolve(cred.Opts.AssertionMethod)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID : %s", err.Error()))
-
-		return
-	}
-
-	publicKeyID, err := getPublicKeyID(didDoc)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
-
-		return
-	}
-
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(
-		&vcprofile.DataProfile{
-			Creator: publicKeyID,
-			// TODO passed as options to request or set by environment variables ?
-			SignatureType:           "Ed25519Signature2018",
-			SignatureRepresentation: verifiable.SignatureJWS,
-		},
-		validatedCred,
-	)
+	signedVC, err := o.signCredential(validatedCred, cred.Opts.AssertionMethod)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential: %s", err.Error()))
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
+			" %s", err.Error()))
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
 	o.writeResponse(rw, signedVC)
+}
+
+func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the request
+	composeCredReq := ComposeCredentialRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&composeCredReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	// create the verifiable credential
+	credential, err := buildCredential(&composeCredReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to build credential:"+
+			" %s", err.Error()))
+
+		return
+	}
+
+	// sign the credential
+	// TODO https://github.com/trustbloc/edge-service/issues/142 sign using the proofFormat options in the
+	//  request (for now, using issuer val from the request)
+	signedVC, err := o.signCredential(credential, composeCredReq.Issuer)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
+			" %s", err.Error()))
+
+		return
+	}
+
+	// response
+	rw.WriteHeader(http.StatusOK)
+	o.writeResponse(rw, signedVC)
+}
+
+func (o *Operation) signCredential(credential *verifiable.Credential, didID string) (*verifiable.Credential, error) {
+	// Resolve DID and get the public keyID
+	didDoc, err := o.vdri.Resolve(didID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve DID : %s", err.Error())
+	}
+
+	publicKeyID, err := getPublicKeyID(didDoc)
+	if err != nil {
+		return nil, err
+	}
+
+	// sign the credential
+	signedVC, err := o.crypto.SignCredential(
+		&vcprofile.DataProfile{
+			Creator: publicKeyID,
+			// TODO https://github.com/trustbloc/edge-service/issues/125 passed as options to request or
+			//  set by environment variables ?
+			SignatureType:           "Ed25519Signature2018",
+			SignatureRepresentation: verifiable.SignatureJWS,
+		},
+		credential,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign credential: %s", err.Error())
+	}
+
+	return signedVC, nil
+}
+
+func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Credential, error) {
+	// create the verifiable credential
+	credential := &verifiable.Credential{}
+
+	// set credential data
+	credential.Context = []string{"https://www.w3.org/2018/credentials/v1"}
+	credential.Issued = composeCredReq.IssuanceDate
+	credential.Expired = composeCredReq.ExpirationDate
+	credential.Evidence = &composeCredReq.Evidence
+
+	// set default type, if request doesn't contain the type
+	credential.Types = []string{"VerifiableCredential"}
+	if len(composeCredReq.Types) != 0 {
+		credential.Types = composeCredReq.Types
+	}
+
+	// set subject
+	credentialSubject := make(map[string]interface{})
+
+	if composeCredReq.Claims != nil {
+		err := json.Unmarshal(composeCredReq.Claims, &credentialSubject)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	credentialSubject["id"] = composeCredReq.Subject
+	credential.Subject = credentialSubject
+
+	// set issuer
+	credential.Issuer = verifiable.Issuer{
+		ID: composeCredReq.Issuer,
+	}
+
+	// set terms of use
+	termsOfUse, err := decodeTypedID(composeCredReq.TermsOfUse)
+	if err != nil {
+		return nil, err
+	}
+
+	credential.TermsOfUse = termsOfUse
+
+	return credential, nil
+}
+
+func decodeTypedID(bytes json.RawMessage) ([]verifiable.TypedID, error) {
+	if len(bytes) == 0 {
+		return nil, nil
+	}
+
+	var singleTypedID verifiable.TypedID
+
+	err := json.Unmarshal(bytes, &singleTypedID)
+	if err == nil {
+		return []verifiable.TypedID{singleTypedID}, nil
+	}
+
+	var composedTypedID []verifiable.TypedID
+
+	err = json.Unmarshal(bytes, &composedTypedID)
+	if err == nil {
+		return composedTypedID, nil
+	}
+
+	return nil, err
 }
 
 func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {
