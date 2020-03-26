@@ -1686,7 +1686,7 @@ func TestIssueCredential(t *testing.T) {
 
 		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
 
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to resolve DID")
 	})
 
@@ -1742,6 +1742,186 @@ func TestIssueCredential(t *testing.T) {
 
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to sign credential")
+	})
+}
+
+func TestComposeAndIssueCredential(t *testing.T) {
+	type TermsOfUse struct {
+		ID   string `json:"id,omitempty"`
+		Type string `json:"type,omitempty"`
+	}
+
+	// vc compose request values
+	name := "John Doe"
+	customField := "customField"
+	customFieldVal := "customFieldVal"
+	subject := "did:example:oleh394sqwnlk223823ln"
+	issuer := "did:example:823jhkasjou0923bkajsdd"
+	issueDate := time.Now().UTC()
+	expiryDate := issueDate.AddDate(0, 3, 0).UTC()
+	termsOfUseID := "http://example.com/policies/credential/4"
+	termsOfUseType := "IssuerPolicy"
+	degreeType := "UniversityDegree"
+	types := []string{degreeType}
+
+	termsOfUseJSON, err := json.Marshal(&TermsOfUse{
+		ID:   termsOfUseID,
+		Type: termsOfUseType,
+	})
+	require.NoError(t, err)
+
+	claim := make(map[string]interface{})
+	claim["name"] = name
+	claim[customField] = customFieldVal
+
+	evidence := make(map[string]interface{})
+	evidence["id"] = termsOfUseID
+	evidence["type"] = termsOfUseType
+	evidence[customField] = customFieldVal
+
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		KMS:           &kmsmock.CloseableKMS{},
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	handler := getHandler(t, op, composeAndIssueCredentialPath, issuerMode)
+
+	t.Run("compose and issue credential - success", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		kms := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		restHandler := getHandler(t, op, composeAndIssueCredentialPath, issuerMode)
+
+		claimJSON, err := json.Marshal(claim)
+		require.NoError(t, err)
+
+		// test - create compose request with all the fields
+		req := &ComposeCredentialRequest{
+			Issuer:         issuer,
+			Subject:        subject,
+			IssuanceDate:   &issueDate,
+			ExpirationDate: &expiryDate,
+			Types:          types,
+			Claims:         claimJSON,
+			TermsOfUse:     termsOfUseJSON,
+			Evidence:       evidence,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		// invoke the endpoint
+		rr := serveHTTP(t, restHandler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		// validate the response
+		vcResp, err := verifiable.NewUnverifiedCredential(rr.Body.Bytes())
+		require.NoError(t, err)
+
+		// top level values
+		require.Equal(t, issuer, vcResp.Issuer.ID)
+		require.Equal(t, 1, len(vcResp.Types))
+		require.Equal(t, degreeType, vcResp.Types[0])
+		require.Equal(t, &issueDate, vcResp.Issued)
+		require.Equal(t, &expiryDate, vcResp.Expired)
+		require.NotNil(t, vcResp.Evidence)
+		require.NotNil(t, issuer, vcResp.Issuer)
+
+		// credential subject
+		credSubject, ok := vcResp.Subject.(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, subject, credSubject["id"])
+		require.Equal(t, name, credSubject["name"])
+		require.Equal(t, customFieldVal, credSubject[customField])
+
+		// terms of use
+		require.Equal(t, 1, len(vcResp.TermsOfUse))
+		require.Equal(t, termsOfUseID, vcResp.TermsOfUse[0].ID)
+		require.Equal(t, termsOfUseType, vcResp.TermsOfUse[0].Type)
+
+		// test - create compose request without fields which has default value
+		req.Types = nil
+		req.Claims = nil
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		// invoke the endpoint
+		rr = serveHTTP(t, restHandler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		// validate the response
+		vcResp, err = verifiable.NewUnverifiedCredential(rr.Body.Bytes())
+		require.NoError(t, err)
+		require.Equal(t, 1, len(vcResp.Types))
+		require.Equal(t, "VerifiableCredential", vcResp.Types[0])
+
+		credSubject, ok = vcResp.Subject.(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, subject, credSubject["id"])
+	})
+
+	t.Run("compose and issue credential - invalid request", func(t *testing.T) {
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath,
+			[]byte("invalid input"))
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+
+	t.Run("compose and issue credential - signing failure", func(t *testing.T) {
+		req := &ComposeCredentialRequest{}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to sign credential")
+	})
+
+	t.Run("compose and issue credential - build credential error (termsOfUse)", func(t *testing.T) {
+		req := `{
+			"termsOfUse":"should be object or array"
+		}`
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to build credential")
+	})
+
+	t.Run("compose and issue credential - build credential error (claims)", func(t *testing.T) {
+		req := `{
+			"claims":"invalid"
+		}`
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to build credential")
 	})
 }
 

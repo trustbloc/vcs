@@ -40,21 +40,44 @@ const (
 	validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 	validVC      = `{` +
 		validContext + `,
-  "id": "http://example.edu/credentials/1872",
-  "type": "VerifiableCredential",
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-  },
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-  },
-  "issuanceDate": "2010-01-01T19:23:24Z",
-  "credentialStatus": {
-    "id": "https://example.gov/status/24",
-    "type": "CredentialStatusList2017"
-  }
-}`
+	  "id": "http://example.edu/credentials/1872",
+	  "type": "VerifiableCredential",
+	  "credentialSubject": {
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	  },
+	  "issuer": {
+		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"name": "Example University"
+	  },
+	  "issuanceDate": "2010-01-01T19:23:24Z",
+	  "credentialStatus": {
+		"id": "https://example.gov/status/24",
+		"type": "CredentialStatusList2017"
+	  }
+	}`
+
+	composeCredReqFormat = `{
+	   "issuer":` + `"%s"` + `,
+	   "subject":"did:example:oleh394sqwnlk223823ln",
+	   "types":[
+		  "UniversityDegree"
+	   ],
+	   "issuanceDate":"2020-03-25T19:38:54.45546Z",
+	   "expirationDate":"2020-06-25T19:38:54.45546Z",
+	   "claims":{
+		  "customField":"customFieldVal",
+		  "name":"John Doe"
+	   },
+	   "evidence":{
+		  "customField":"customFieldVal",
+		  "id":"http://example.com/policies/credential/4",
+		  "type":"IssuerPolicy"
+	   },
+	   "termsOfUse":{
+		  "id":"http://example.com/policies/credential/4",
+		  "type":"IssuerPolicy"
+	   }
+	}`
 )
 
 // Steps is steps for VC BDD tests
@@ -76,6 +99,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Verify the proof value generated using the Issuer Service Issue Credential API with the DID stored in "([^"]*)" variable$`, //nolint: lll
 		e.verifyCredential)
 	s.Step(`^"([^"]*)" has stored her transcript from the University$`, e.createCredential)
+	s.Step(`^"([^"]*)" has a did$`, e.generateDID)
+	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service Issue Credential API$`, //nolint: lll
+		e.composeAndIssueCred)
 }
 
 func (e *Steps) generateKeypair(publicKeyVar string) error {
@@ -119,6 +145,23 @@ func (e *Steps) createDIDDoc(publicKeyVar, didDocVar string) error {
 	}
 
 	e.bddContext.Args[didDocVar] = doc.ID
+
+	return nil
+}
+
+func (e *Steps) generateDID(user string) error {
+	publicKeyVar := user + "-publicKeyVar"
+
+	if err := e.generateKeypair(publicKeyVar); err != nil {
+		return err
+	}
+
+	didVar := user + "-didVarKey"
+	if err := e.createDIDDoc(publicKeyVar, didVar); err != nil {
+		return err
+	}
+
+	e.bddContext.Args[user] = e.bddContext.Args[didVar]
 
 	return nil
 }
@@ -202,6 +245,61 @@ func (e *Steps) signCredential(didDocVar string) ([]byte, error) {
 	log.Infof("proof value %s", string(responseBytes))
 
 	return responseBytes, nil
+}
+
+func (e *Steps) composeAndIssueCred(user string) error {
+	did := e.bddContext.Args[user]
+	log.Infof("DID for signing %s", did)
+
+	if err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
+		return err
+	}
+
+	req := fmt.Sprintf(composeCredReqFormat, did)
+
+	endpointURL := issuerURL + "/credentials/composeAndIssueCredential"
+
+	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
+		bytes.NewBufferString(req))
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response : %s", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("got unexpected response from %s status '%d' body %s",
+			endpointURL, resp.StatusCode, responseBytes)
+	}
+
+	log.Infof("vc with proof %s", string(responseBytes))
+
+	signedVCResp := make(map[string]interface{})
+
+	err = json.Unmarshal(responseBytes, &signedVCResp)
+	if err != nil {
+		return err
+	}
+
+	proof, ok := signedVCResp["proof"].(map[string]interface{})
+	if !ok {
+		return errors.New("unable to convert proof to a map")
+	}
+
+	if proof["type"] != "Ed25519Signature2018" {
+		return errors.New("proof type is not valid")
+	}
+
+	if proof["jws"] == "" {
+		return errors.New("proof jws value is empty")
+	}
+
+	return nil
 }
 
 func (e *Steps) createCredential(user string) error {
