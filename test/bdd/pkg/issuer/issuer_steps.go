@@ -57,7 +57,7 @@ const (
 	}`
 
 	composeCredReqFormat = `{
-	   "issuer":` + `"%s"` + `,
+	   "issuer":"did:example:uoweu180928901",
 	   "subject":"did:example:oleh394sqwnlk223823ln",
 	   "types":[
 		  "UniversityDegree"
@@ -76,6 +76,10 @@ const (
 	   "termsOfUse":{
 		  "id":"http://example.com/policies/credential/4",
 		  "type":"IssuerPolicy"
+	   },
+	   "proofFormat":"jws",
+	   "proofFormatOptions":{
+		  "kid":` + `"%s"` + `
 	   }
 	}`
 )

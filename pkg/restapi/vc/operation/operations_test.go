@@ -1877,6 +1877,33 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		credSubject, ok = vcResp.Subject.(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, subject, credSubject["id"])
+
+		// test - with proof format
+		proofFormatOptions := make(map[string]interface{})
+		proofFormatOptions[keyID] = "did:test:hd9712akdsaishda7"
+
+		proofFormatOptionsJSON, err := json.Marshal(proofFormatOptions)
+		require.NoError(t, err)
+
+		req.Issuer = "different-did"
+		req.ProofFormat = "jws"
+		req.ProofFormatOptions = proofFormatOptionsJSON
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, restHandler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		signedVCResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:test:hd9712akdsaishda7#key-1", proof["verificationMethod"])
 	})
 
 	t.Run("compose and issue credential - invalid request", func(t *testing.T) {
@@ -1908,7 +1935,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		// invoke the endpoint
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
 
-		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to build credential")
 	})
 
@@ -1920,8 +1947,64 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		// invoke the endpoint
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
 
-		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to build credential")
+	})
+
+	t.Run("compose and issue credential - invalid proof format option", func(t *testing.T) {
+		req := &ComposeCredentialRequest{
+			ProofFormat: "invalid-proof-format-value",
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid proof format : invalid-proof-format-value")
+	})
+
+	t.Run("compose and issue credential - get signing DID error - invalid kid type", func(t *testing.T) {
+		proofFormatOptions := 33
+
+		proofFormatOptionsJSON, err := json.Marshal(proofFormatOptions)
+		require.NoError(t, err)
+
+		req := &ComposeCredentialRequest{
+			ProofFormatOptions: proofFormatOptionsJSON,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to get DID for signing: json: cannot unmarshal number")
+	})
+
+	t.Run("compose and issue credential - get signing DID error - invalid kid type", func(t *testing.T) {
+		proofFormatOptions := make(map[string]interface{})
+		proofFormatOptions[keyID] = 23
+
+		proofFormatOptionsJSON, err := json.Marshal(proofFormatOptions)
+		require.NoError(t, err)
+
+		req := &ComposeCredentialRequest{
+			ProofFormatOptions: proofFormatOptionsJSON,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to get DID for signing: invalid kid type")
 	})
 }
 

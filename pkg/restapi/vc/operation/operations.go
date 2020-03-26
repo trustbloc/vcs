@@ -77,6 +77,9 @@ const (
 
 	// Ed25519VerificationKey supported Verification Key types
 	Ed25519VerificationKey = "Ed25519VerificationKey"
+
+	// json keys
+	keyID = "kid"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -831,7 +834,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// sign the credential
-	signedVC, err := o.signCredential(validatedCred, cred.Opts.AssertionMethod)
+	signedVC, err := o.signCredential(validatedCred, cred.Opts.AssertionMethod, verifiable.SignatureJWS)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -857,16 +860,38 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	// create the verifiable credential
 	credential, err := buildCredential(&composeCredReq)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to build credential:"+
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to build credential:"+
+			" %s", err.Error()))
+
+		return
+	}
+
+	signatureRepresentation := verifiable.SignatureJWS
+
+	if composeCredReq.ProofFormat != "" {
+		switch composeCredReq.ProofFormat {
+		case "jws":
+			signatureRepresentation = verifiable.SignatureJWS
+		case "proofValue":
+			signatureRepresentation = verifiable.SignatureProofValue
+		default:
+			o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid proof format : %s",
+				composeCredReq.ProofFormat))
+
+			return
+		}
+	}
+
+	signerDID, err := getSignerDID(&composeCredReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to get DID for signing:"+
 			" %s", err.Error()))
 
 		return
 	}
 
 	// sign the credential
-	// TODO https://github.com/trustbloc/edge-service/issues/142 sign using the proofFormat options in the
-	//  request (for now, using issuer val from the request)
-	signedVC, err := o.signCredential(credential, composeCredReq.Issuer)
+	signedVC, err := o.signCredential(credential, signerDID, signatureRepresentation)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -879,7 +904,8 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	o.writeResponse(rw, signedVC)
 }
 
-func (o *Operation) signCredential(credential *verifiable.Credential, didID string) (*verifiable.Credential, error) {
+func (o *Operation) signCredential(credential *verifiable.Credential, didID string,
+	signRepresentation verifiable.SignatureRepresentation) (*verifiable.Credential, error) {
 	// Resolve DID and get the public keyID
 	didDoc, err := o.vdri.Resolve(didID)
 	if err != nil {
@@ -898,7 +924,7 @@ func (o *Operation) signCredential(credential *verifiable.Credential, didID stri
 			// TODO https://github.com/trustbloc/edge-service/issues/125 passed as options to request or
 			//  set by environment variables ?
 			SignatureType:           "Ed25519Signature2018",
-			SignatureRepresentation: verifiable.SignatureJWS,
+			SignatureRepresentation: signRepresentation,
 		},
 		credential,
 	)
@@ -974,6 +1000,30 @@ func decodeTypedID(bytes json.RawMessage) ([]verifiable.TypedID, error) {
 	}
 
 	return nil, err
+}
+
+func getSignerDID(composeCredReq *ComposeCredentialRequest) (string, error) {
+	signerDID := composeCredReq.Issuer
+
+	if composeCredReq.ProofFormatOptions != nil {
+		proofFormatOptions := make(map[string]interface{})
+
+		err := json.Unmarshal(composeCredReq.ProofFormatOptions, &proofFormatOptions)
+		if err != nil {
+			return "", err
+		}
+
+		if proofFormatOptions[keyID] != "" {
+			kid, ok := proofFormatOptions[keyID].(string)
+			if !ok {
+				return "", errors.New("invalid kid type")
+			}
+
+			signerDID = kid
+		}
+	}
+
+	return signerDID, nil
 }
 
 func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {
