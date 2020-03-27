@@ -24,6 +24,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -214,13 +215,13 @@ const (
 	// VC without issuer
 	invalidVC = `{` +
 		validContext + `,
-  "id": "http://example.edu/credentials/1872",
-  "type": "VerifiableCredential",
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-  },
-  "issuanceDate": "2010-01-01T19:23:24Z"
-}`
+	  "id": "http://example.edu/credentials/1872",
+	  "type": "VerifiableCredential",
+	  "credentialSubject": {
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	  },
+	  "issuanceDate": "2010-01-01T19:23:24Z"
+	}`
 
 	validVCStatus = `{
   "@context": [
@@ -1763,6 +1764,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	termsOfUseType := "IssuerPolicy"
 	degreeType := "UniversityDegree"
 	types := []string{degreeType}
+	evidenceID := "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192d4231"
+	evidenceVerifier := "https://example.edu/issuers/14"
 
 	termsOfUseJSON, err := json.Marshal(&TermsOfUse{
 		ID:   termsOfUseID,
@@ -1775,8 +1778,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	claim[customField] = customFieldVal
 
 	evidence := make(map[string]interface{})
-	evidence["id"] = termsOfUseID
-	evidence["type"] = termsOfUseType
+	evidence["id"] = evidenceID
+	evidence["verifier"] = evidenceVerifier
 	evidence[customField] = customFieldVal
 
 	op, err := New(&Config{
@@ -1812,6 +1815,9 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		claimJSON, err := json.Marshal(claim)
 		require.NoError(t, err)
 
+		evidenceJSON, err := json.Marshal(evidence)
+		require.NoError(t, err)
+
 		// test - create compose request with all the fields
 		req := &ComposeCredentialRequest{
 			Issuer:         issuer,
@@ -1821,7 +1827,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Types:          types,
 			Claims:         claimJSON,
 			TermsOfUse:     termsOfUseJSON,
-			Evidence:       evidence,
+			Evidence:       evidenceJSON,
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -1856,6 +1862,13 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, 1, len(vcResp.TermsOfUse))
 		require.Equal(t, termsOfUseID, vcResp.TermsOfUse[0].ID)
 		require.Equal(t, termsOfUseType, vcResp.TermsOfUse[0].Type)
+
+		// evidence
+		evidence, ok := vcResp.Evidence.(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, evidenceID, evidence["id"])
+		require.Equal(t, evidenceVerifier, evidence["verifier"])
+		require.Equal(t, customFieldVal, evidence[customField])
 
 		// test - create compose request without fields which has default value
 		req.Types = nil
@@ -1942,6 +1955,18 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	t.Run("compose and issue credential - build credential error (claims)", func(t *testing.T) {
 		req := `{
 			"claims":"invalid"
+		}`
+
+		// invoke the endpoint
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to build credential")
+	})
+
+	t.Run("compose and issue credential - build credential error (evidence)", func(t *testing.T) {
+		req := `{
+			"evidence":"invalid"
 		}`
 
 		// invoke the endpoint
@@ -2059,9 +2084,13 @@ func TestCredentialVerifications(t *testing.T) {
 	verificationsHandler := getHandler(t, op, credentialVerificationsEndpoint, verifierMode)
 
 	t.Run("credential verification - success", func(t *testing.T) {
-		pubKey := "8vtmYn1ymRmfh9chfhpz3sRnQ6iBJ8RuCKxkzvfJs4VV"
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
 
-		didDoc := createDIDDoc("did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw==", base58.Decode(pubKey))
+		didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
+
+		didDoc := createDIDDoc(didID, pubKey)
+		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
@@ -2070,14 +2099,13 @@ func TestCredentialVerifications(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		op.vdri = &vdrimock.MockVDRIRegistry{ResolveValue: didDoc}
 		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 
 		// verify credential
 		handler := getHandler(t, op, credentialVerificationsEndpoint, verifierMode)
 
 		vReq := &CredentialVerificationsRequest{
-			Credential: []byte(validVCWithProof),
+			Credential: getSignedVC(t, privKey, validVC, verificationMethod),
 			Opts: &CredentialVerificationsOptions{
 				Checks: []string{proofCheck},
 			},
@@ -2593,4 +2621,46 @@ type mockHTTPClient struct {
 
 func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.doValue, m.doErr
+}
+
+func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod string) []byte {
+	vc, err := verifiable.NewUnverifiedCredential([]byte(vcJSON))
+	require.NoError(t, err)
+
+	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
+	require.NoError(t, err)
+
+	signerSuite := ed25519signature2018.New(
+		ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)),
+		ed25519signature2018.WithCompactProof())
+	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   signerSuite,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		Created:                 &created,
+		VerificationMethod:      verificationMethod,
+	})
+	require.NoError(t, err)
+
+	require.Len(t, vc.Proofs, 1)
+
+	signedVC, err := vc.MarshalJSON()
+	require.NoError(t, err)
+
+	return signedVC
+}
+
+type ed25519TestSigner struct {
+	privateKey []byte
+}
+
+func (s *ed25519TestSigner) Sign(doc []byte) ([]byte, error) {
+	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
+
+	return ed25519.Sign(s.privateKey, doc), nil
+}
+func getEd25519TestSigner(privKey []byte) *ed25519TestSigner {
+	return &ed25519TestSigner{privateKey: privKey}
 }

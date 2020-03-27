@@ -64,18 +64,18 @@ type IssueCredentialOptions struct {
 
 // ComposeCredentialRequest for composing and issuing credential.
 type ComposeCredentialRequest struct {
-	Issuer                  string              `json:"issuer,omitempty"`
-	Subject                 string              `json:"subject,omitempty"`
-	Types                   []string            `json:"types,omitempty"`
-	IssuanceDate            *time.Time          `json:"issuanceDate,omitempty"`
-	ExpirationDate          *time.Time          `json:"expirationDate,omitempty"`
-	Claims                  json.RawMessage     `json:"claims,omitempty"`
-	Evidence                verifiable.Evidence `json:"evidence,omitempty"`
-	TermsOfUse              json.RawMessage     `json:"termsOfUse,omitempty"`
-	CredentialFormat        string              `json:"credentialFormat,omitempty"`
-	ProofFormat             string              `json:"proofFormat,omitempty"`
-	CredentialFormatOptions json.RawMessage     `json:"credentialFormatOptions,omitempty"`
-	ProofFormatOptions      json.RawMessage     `json:"proofFormatOptions,omitempty"`
+	Issuer                  string          `json:"issuer,omitempty"`
+	Subject                 string          `json:"subject,omitempty"`
+	Types                   []string        `json:"types,omitempty"`
+	IssuanceDate            *time.Time      `json:"issuanceDate,omitempty"`
+	ExpirationDate          *time.Time      `json:"expirationDate,omitempty"`
+	Claims                  json.RawMessage `json:"claims,omitempty"`
+	Evidence                json.RawMessage `json:"evidence,omitempty"`
+	TermsOfUse              json.RawMessage `json:"termsOfUse,omitempty"`
+	CredentialFormat        string          `json:"credentialFormat,omitempty"`
+	ProofFormat             string          `json:"proofFormat,omitempty"`
+	CredentialFormatOptions json.RawMessage `json:"credentialFormatOptions,omitempty"`
+	ProofFormatOptions      json.RawMessage `json:"proofFormatOptions,omitempty"`
 }
 
 // GenerateKeyPairResponse contains response from KMS generate keypair API.

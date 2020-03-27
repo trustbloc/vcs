@@ -943,7 +943,6 @@ func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Cred
 	credential.Context = []string{"https://www.w3.org/2018/credentials/v1"}
 	credential.Issued = composeCredReq.IssuanceDate
 	credential.Expired = composeCredReq.ExpirationDate
-	credential.Evidence = &composeCredReq.Evidence
 
 	// set default type, if request doesn't contain the type
 	credential.Types = []string{"VerifiableCredential"}
@@ -976,6 +975,18 @@ func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Cred
 	}
 
 	credential.TermsOfUse = termsOfUse
+
+	// set evidence
+	if composeCredReq.Evidence != nil {
+		evidence := make(map[string]interface{})
+
+		err := json.Unmarshal(composeCredReq.Evidence, &evidence)
+		if err != nil {
+			return nil, err
+		}
+
+		credential.Evidence = evidence
+	}
 
 	return credential, nil
 }
