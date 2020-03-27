@@ -2081,148 +2081,154 @@ func TestCredentialVerifications(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	verificationsHandler := getHandler(t, op, credentialVerificationsEndpoint, verifierMode)
+	endpoints := []string{credentialVerificationsEndpoint, credentialsVerificationEndpoint}
 
-	t.Run("credential verification - success", func(t *testing.T) {
-		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+	for _, path := range endpoints {
+		endpoint := path
 
-		didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
+		verificationsHandler := getHandler(t, op, endpoint, verifierMode)
 
-		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		t.Run("credential verification - success", func(t *testing.T) {
+			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+			require.NoError(t, err)
 
-		op, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
-			KMS:           &kmsmock.CloseableKMS{},
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
+
+			didDoc := createDIDDoc(didID, pubKey)
+			verificationMethod := didDoc.PublicKey[0].ID
+
+			op, err := New(&Config{
+				StoreProvider: memstore.NewProvider(),
+				KMS:           &kmsmock.CloseableKMS{},
+				VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			})
+			require.NoError(t, err)
+
+			op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+			// verify credential
+			handler := getHandler(t, op, endpoint, verifierMode)
+
+			vReq := &CredentialsVerificationRequest{
+				Credential: getSignedVC(t, privKey, validVC, verificationMethod),
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{proofCheck},
+				},
+			}
+
+			vReqBytes, err := json.Marshal(vReq)
+			require.NoError(t, err)
+
+			rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+			require.Equal(t, http.StatusOK, rr.Code)
+
+			verificationResp := &CredentialsVerificationSuccessResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, proofCheck, verificationResp.Checks[0])
 		})
-		require.NoError(t, err)
 
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+		t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
+			req := &CredentialsVerificationRequest{
+				Credential: []byte(validVC),
+			}
 
-		// verify credential
-		handler := getHandler(t, op, credentialVerificationsEndpoint, verifierMode)
+			reqBytes, err := json.Marshal(req)
+			require.NoError(t, err)
 
-		vReq := &CredentialVerificationsRequest{
-			Credential: getSignedVC(t, privKey, validVC, verificationMethod),
-			Opts: &CredentialVerificationsOptions{
-				Checks: []string{proofCheck},
-			},
-		}
+			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
 
-		vReqBytes, err := json.Marshal(vReq)
-		require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, credentialVerificationsEndpoint, vReqBytes)
+			// verify that the default check was performed
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+			require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
+		})
 
-		require.Equal(t, http.StatusOK, rr.Code)
+		t.Run("credential verification - proof check failure", func(t *testing.T) {
+			// no proof in VC
+			req := &CredentialsVerificationRequest{
+				Credential: []byte(validVC),
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{proofCheck},
+				},
+			}
 
-		verificationResp := &CredentialVerificationsSuccessResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
-		require.Equal(t, proofCheck, verificationResp.Checks[0])
-	})
+			reqBytes, err := json.Marshal(req)
+			require.NoError(t, err)
 
-	t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
-		req := &CredentialVerificationsRequest{
-			Credential: []byte(validVC),
-		}
+			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
 
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+			require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
 
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+			// proof validation error (DID not found)
+			req = &CredentialsVerificationRequest{
+				Credential: []byte(validVCWithProof),
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{proofCheck},
+				},
+			}
 
-		// verify that the default check was performed
-		verificationResp := &CredentialVerificationsFailResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
-		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
-	})
+			reqBytes, err = json.Marshal(req)
+			require.NoError(t, err)
 
-	t.Run("credential verification - proof check failure", func(t *testing.T) {
-		// no proof in VC
-		req := &CredentialVerificationsRequest{
-			Credential: []byte(validVC),
-			Opts: &CredentialVerificationsOptions{
-				Checks: []string{proofCheck},
-			},
-		}
+			rr = serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
 
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+			verificationResp = &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+			require.Contains(t, verificationResp.Checks[0].Error, "proof validation error")
+		})
 
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		t.Run("credential verification - invalid check", func(t *testing.T) {
+			invalidCheckName := "invalidCheckName"
 
-		verificationResp := &CredentialVerificationsFailResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
-		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
+			req := &CredentialsVerificationRequest{
+				Credential: []byte(validVC),
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{invalidCheckName},
+				},
+			}
 
-		// proof validation error (DID not found)
-		req = &CredentialVerificationsRequest{
-			Credential: []byte(validVCWithProof),
-			Opts: &CredentialVerificationsOptions{
-				Checks: []string{proofCheck},
-			},
-		}
+			reqBytes, err := json.Marshal(req)
+			require.NoError(t, err)
 
-		reqBytes, err = json.Marshal(req)
-		require.NoError(t, err)
+			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
 
-		rr = serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, invalidCheckName, verificationResp.Checks[0].Check)
+			require.Equal(t, "check not supported", verificationResp.Checks[0].Error)
+		})
 
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		t.Run("credential verification - invalid json input", func(t *testing.T) {
+			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint,
+				[]byte("invalid input"))
 
-		verificationResp = &CredentialVerificationsFailResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
-		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Contains(t, verificationResp.Checks[0].Error, "proof validation error")
-	})
-
-	t.Run("credential verification - invalid check", func(t *testing.T) {
-		invalidCheckName := "invalidCheckName"
-
-		req := &CredentialVerificationsRequest{
-			Credential: []byte(validVC),
-			Opts: &CredentialVerificationsOptions{
-				Checks: []string{invalidCheckName},
-			},
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint, reqBytes)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		verificationResp := &CredentialVerificationsFailResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
-		require.Equal(t, invalidCheckName, verificationResp.Checks[0].Check)
-		require.Equal(t, "check not supported", verificationResp.Checks[0].Error)
-	})
-
-	t.Run("credential verification - invalid json input", func(t *testing.T) {
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, credentialVerificationsEndpoint,
-			[]byte("invalid input"))
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "Invalid request")
-	})
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "Invalid request")
+		})
+	}
 }
 
 func TestGetPublicKeyID(t *testing.T) {

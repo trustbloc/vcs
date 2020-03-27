@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	verifierURL = "http://localhost:8069"
+	verifierHostURL = "http://localhost:8069"
+	verifierBaseURL = verifierHostURL + "/verifier"
 )
 
 // Steps is steps for VC BDD tests
@@ -37,16 +38,16 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Employer verifies the transcript provided by "([^"]*)"$`, e.credentialVerifications)
+	s.Step(`^Employer verifies the transcript provided by "([^"]*)"$`, e.credentialsVerification)
 }
 
-func (e *Steps) credentialVerifications(user string) error {
+func (e *Steps) credentialsVerification(user string) error {
 	vc := e.bddContext.Args[user]
 	checks := []string{"proof"}
 
-	req := &operation.CredentialVerificationsRequest{
+	req := &operation.CredentialsVerificationRequest{
 		Credential: []byte(vc),
-		Opts: &operation.CredentialVerificationsOptions{
+		Opts: &operation.CredentialsVerificationOptions{
 			Checks: checks,
 		},
 	}
@@ -56,7 +57,7 @@ func (e *Steps) credentialVerifications(user string) error {
 		return err
 	}
 
-	endpointURL := verifierURL + "/verifications"
+	endpointURL := verifierBaseURL + "/credentials"
 
 	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
 		bytes.NewBuffer(reqBytes))
@@ -77,7 +78,7 @@ func (e *Steps) credentialVerifications(user string) error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	verificationResp := operation.CredentialVerificationsSuccessResponse{}
+	verificationResp := operation.CredentialsVerificationSuccessResponse{}
 
 	err = json.Unmarshal(respBytes, &verificationResp)
 	if err != nil {
