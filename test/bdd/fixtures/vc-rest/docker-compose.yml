@@ -15,7 +15,7 @@ services:
       - VC_REST_HOST_URL=${ISSUER_VC_HOST}:${ISSUER_VC_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://issuer.vc.rest.example.com:${ISSUER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
-      - BLOC_DOMAIN=testnet.trustbloc.local:80
+      - BLOC_DOMAIN=testnet.trustbloc.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
@@ -34,7 +34,7 @@ services:
       - VC_REST_HOST_URL=${VERIFIER_VC_HOST}:${VERIFIER_VC_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://verifier.vc.rest.example.com:${VERIFIER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
-      - BLOC_DOMAIN=testnet.trustbloc.local:80
+      - BLOC_DOMAIN=testnet.trustbloc.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
       - DATABASE_TYPE=mem
       - VC_REST_MODE=verifier

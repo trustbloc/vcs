@@ -8,6 +8,7 @@ package issuer
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/cucumber/godog"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -28,12 +30,13 @@ import (
 
 const (
 	issuerURL   = "http://localhost:8070"
-	sidetreeURL = "http://localhost:48326/document"
+	sidetreeURL = "https://localhost:48326/document"
 )
 
 const (
 	sha2_256       = 18
 	recoveryOTP    = "recoveryOTP"
+	updateOTP      = "updateOTP"
 	pubKeyIndex1   = "#key-1"
 	defaultKeyType = "Ed25519VerificationKey2018"
 
@@ -352,7 +355,8 @@ func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
 	req, err := helper.NewCreateRequest(&helper.CreateRequestInfo{
 		OpaqueDocument:  string(docBytes),
 		RecoveryKey:     "recoveryKey",
-		NextRecoveryOTP: recoveryOTP,
+		NextRecoveryOTP: docutil.EncodeToString([]byte(recoveryOTP)),
+		NextUpdateOTP:   docutil.EncodeToString([]byte(updateOTP)),
 		MultihashCode:   sha2_256,
 	})
 	if err != nil {
@@ -363,7 +367,14 @@ func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
 }
 
 func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
-	resp, err := http.Post(sidetreeURL, "application/json", bytes.NewBuffer(req)) //nolint: bodyclose
+	client := &http.Client{
+		// TODO add tls config https://github.com/trustbloc/edge-service/issues/147
+		// TODO !!!!!!!remove InsecureSkipVerify after configure tls for http client
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint: gosec
+		}}
+
+	resp, err := client.Post(sidetreeURL, "application/json", bytes.NewBuffer(req)) //nolint: bodyclose
 	if err != nil {
 		return nil, err
 	}

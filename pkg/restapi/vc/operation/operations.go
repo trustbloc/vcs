@@ -109,7 +109,7 @@ type httpClient interface {
 }
 
 type didBlocClient interface {
-	CreateDID(domain string) (*did.Doc, error)
+	CreateDID(domain string, opts ...didclient.CreateDIDOption) (*did.Doc, error)
 }
 
 type kmsProvider struct {
@@ -174,7 +174,7 @@ func New(config *Config) (*Operation, error) {
 		packer:          packer,
 		senderKey:       senderKey,
 		vcStatusManager: vcStatusManager,
-		didBlocClient:   didclient.New(config.KMS),
+		didBlocClient:   didclient.New(didclient.WithKMS(config.KMS)),
 		domain:          config.Domain,
 		idMappingStore:  idMappingStore,
 		httpClient:      &http.Client{},

@@ -13,12 +13,15 @@ services:
     hostname: testnet.trustbloc.local
     image: halverneus/static-file-server:latest
     environment:
-      - PORT=80
+      - PORT=443
       - FOLDER=/web
+      - TLS_CERT=/etc/tls/ec-pubCert.pem
+      - TLS_KEY=/etc/tls/ec-key.pem
     ports:
-      - "80:80"
+      - "443:443"
     volumes:
       - ./config:/web/.well-known/did-trustbloc
+      - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
 

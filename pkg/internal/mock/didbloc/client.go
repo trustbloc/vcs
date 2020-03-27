@@ -5,7 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package didbloc
 
-import "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+import (
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
+)
 
 // Client is the mock did bloc client
 type Client struct {
@@ -14,6 +17,6 @@ type Client struct {
 }
 
 // CreateDID create did
-func (c *Client) CreateDID(domain string) (*did.Doc, error) {
+func (c *Client) CreateDID(domain string, opts ...didclient.CreateDIDOption) (*did.Doc, error) {
 	return c.CreateDIDValue, c.CreateDIDErr
 }
