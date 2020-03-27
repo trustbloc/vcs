@@ -59,6 +59,8 @@ const (
 	kmsBasePath                     = "/kms"
 	generateKeypairPath             = kmsBasePath + "/generatekeypair"
 	credentialVerificationsEndpoint = "/verifications"
+	verifierBasePath                = "/verifier"
+	credentialsVerificationEndpoint = verifierBasePath + "/credentials"
 
 	successMsg = "success"
 	cslSize    = 50
@@ -219,7 +221,10 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 		return []Handler{
 			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
 			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
-			support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialVerificationsHandler),
+			// TODO https://github.com/trustbloc/edge-service/issues/153 Remove /verifications API after
+			//  transition period
+			support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialsVerificationHandler),
+			support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
 		}, nil
 	case issuerMode:
 		return []Handler{
@@ -1052,9 +1057,9 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 	})
 }
 
-func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
-	verificationReq := CredentialVerificationsRequest{}
+	verificationReq := CredentialsVerificationRequest{}
 
 	err := json.NewDecoder(req.Body).Decode(&verificationReq)
 	if err != nil {
@@ -1070,20 +1075,20 @@ func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *
 		checks = verificationReq.Opts.Checks
 	}
 
-	var result []CredentialVerificationsCheckResult
+	var result []CredentialsVerificationCheckResult
 
 	for _, val := range checks {
 		switch val {
 		case proofCheck:
 			err := o.checkProof(verificationReq.Credential)
 			if err != nil {
-				result = append(result, CredentialVerificationsCheckResult{
+				result = append(result, CredentialsVerificationCheckResult{
 					Check: val,
 					Error: err.Error(),
 				})
 			}
 		default:
-			result = append(result, CredentialVerificationsCheckResult{
+			result = append(result, CredentialsVerificationCheckResult{
 				Check: val,
 				Error: "check not supported",
 			})
@@ -1092,12 +1097,12 @@ func (o *Operation) credentialVerificationsHandler(rw http.ResponseWriter, req *
 
 	if len(result) == 0 {
 		rw.WriteHeader(http.StatusOK)
-		o.writeResponse(rw, &CredentialVerificationsSuccessResponse{
+		o.writeResponse(rw, &CredentialsVerificationSuccessResponse{
 			Checks: checks,
 		})
 	} else {
 		rw.WriteHeader(http.StatusBadRequest)
-		o.writeResponse(rw, &CredentialVerificationsFailResponse{
+		o.writeResponse(rw, &CredentialsVerificationFailResponse{
 			Checks: result,
 		})
 	}

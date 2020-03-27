@@ -83,29 +83,29 @@ type GenerateKeyPairResponse struct {
 	PublicKey string `json:"publicKey,omitempty"`
 }
 
-// CredentialVerificationsRequest request for issuing credential.
-type CredentialVerificationsRequest struct {
+// CredentialsVerificationRequest request for verifying credential.
+type CredentialsVerificationRequest struct {
 	Credential json.RawMessage                 `json:"credential,omitempty"`
-	Opts       *CredentialVerificationsOptions `json:"options,omitempty"`
+	Opts       *CredentialsVerificationOptions `json:"options,omitempty"`
 }
 
-// CredentialVerificationsOptions options for credential verifications.
-type CredentialVerificationsOptions struct {
+// CredentialsVerificationOptions options for credential verifications.
+type CredentialsVerificationOptions struct {
 	Checks []string `json:"checks,omitempty"`
 }
 
-// CredentialVerificationsSuccessResponse resp when credential verification is success.
-type CredentialVerificationsSuccessResponse struct {
+// CredentialsVerificationSuccessResponse resp when credential verification is success.
+type CredentialsVerificationSuccessResponse struct {
 	Checks []string `json:"checks,omitempty"`
 }
 
-// CredentialVerificationsFailResponse resp when credential verification is failed.
-type CredentialVerificationsFailResponse struct {
-	Checks []CredentialVerificationsCheckResult `json:"checks,omitempty"`
+// CredentialsVerificationFailResponse resp when credential verification is failed.
+type CredentialsVerificationFailResponse struct {
+	Checks []CredentialsVerificationCheckResult `json:"checks,omitempty"`
 }
 
-// CredentialVerificationsCheckResult resp containing failure check details.
-type CredentialVerificationsCheckResult struct {
+// CredentialsVerificationCheckResult resp containing failure check details.
+type CredentialsVerificationCheckResult struct {
 	Check              string `json:"check,omitempty"`
 	Error              string `json:"error,omitempty"`
 	VerificationMethod string `json:"verificationMethod,omitempty"`
