@@ -104,10 +104,12 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^A new DID Document is created using the public key stored in "([^"]*)" and store the generate DID in "([^"]*)" variable$`, //nolint: lll
 		e.createDIDDoc)
 	s.Step(`^Verify the proof value generated using the Issuer Service Issue Credential API with the DID stored in "([^"]*)" variable$`, //nolint: lll
-		e.verifyCredential)
+		e.createAndVerifyCredential)
 	s.Step(`^"([^"]*)" has stored her transcript from the University$`, e.createCredential)
-	s.Step(`^"([^"]*)" has a did$`, e.generateDID)
-	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service Issue Credential API$`, //nolint: lll
+	s.Step(`^"([^"]*)" has a DID$`, e.generateDID)
+	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service issueCredential API with it's DID$`, //nolint: lll
+		e.issueCred)
+	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service composeAndIssueCredential API with it's DID$`, //nolint: lll
 		e.composeAndIssueCred)
 }
 
@@ -182,8 +184,12 @@ func (e *Steps) createSidetreeDID(base58PubKey string) (*docdid.Doc, error) {
 	return e.sendCreateRequest(req)
 }
 
-func (e *Steps) verifyCredential(didDocVar string) error {
-	signedVCByte, err := e.signCredential(didDocVar)
+func (e *Steps) createAndVerifyCredential(didVar string) error {
+	return e.verifyCredential(e.bddContext.Args[didVar])
+}
+
+func (e *Steps) verifyCredential(did string) error {
+	signedVCByte, err := e.signCredential(did)
 	if err != nil {
 		return err
 	}
@@ -211,8 +217,7 @@ func (e *Steps) verifyCredential(didDocVar string) error {
 	return nil
 }
 
-func (e *Steps) signCredential(didDocVar string) ([]byte, error) {
-	did := e.bddContext.Args[didDocVar]
+func (e *Steps) signCredential(did string) ([]byte, error) {
 	log.Infof("DID for signing %s", did)
 
 	if err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
@@ -252,6 +257,12 @@ func (e *Steps) signCredential(didDocVar string) ([]byte, error) {
 	log.Infof("proof value %s", string(responseBytes))
 
 	return responseBytes, nil
+}
+
+func (e *Steps) issueCred(user string) error {
+	did := e.bddContext.Args[user]
+
+	return e.verifyCredential(did)
 }
 
 func (e *Steps) composeAndIssueCred(user string) error {
@@ -321,7 +332,7 @@ func (e *Steps) createCredential(user string) error {
 		return err
 	}
 
-	signedVCByte, err := e.signCredential(didVar)
+	signedVCByte, err := e.signCredential(e.bddContext.Args[didVar])
 	if err != nil {
 		return err
 	}
