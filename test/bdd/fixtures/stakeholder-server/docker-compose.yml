@@ -15,10 +15,13 @@ services:
     environment:
       - PORT=8088
       - FOLDER=/web
+      - TLS_CERT=/etc/tls/ec-pubCert.pem
+      - TLS_KEY=/etc/tls/ec-key.pem
     ports:
       - "8088:8088"
     volumes:
       - ./config:/web/.well-known/did-trustbloc
+      - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
 

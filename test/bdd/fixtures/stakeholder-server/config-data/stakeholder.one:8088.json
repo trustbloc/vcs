@@ -4,6 +4,6 @@
   "conf": {
     "cache": {"max-age": 123456789}
   },
-  "endpoints": ["http://sidetree-mock:48326/document"],
+  "endpoints": ["https://sidetree-mock:48326/document"],
   "previous": ""
 }
