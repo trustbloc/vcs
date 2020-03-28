@@ -403,8 +403,16 @@ func TestNew(t *testing.T) {
 }
 
 func TestCreateCredentialHandlerIssuer(t *testing.T) {
-	const mode = "issuer"
+	const (
+		issuerMode   = "issuer"
+		combinedMode = "combined"
+	)
 
+	testCreateCredentialHandlerIssuer(t, issuerMode)
+	testCreateCredentialHandlerIssuer(t, combinedMode)
+}
+
+func testCreateCredentialHandlerIssuer(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil)
 
 	kms := &kmsmock.CloseableKMS{}
@@ -551,8 +559,16 @@ func TestCreateCredentialHandler_SignatureError(t *testing.T) {
 }
 
 func TestVerifyPresentationHandlerIssuer(t *testing.T) {
-	const mode = "verifier"
+	const (
+		verifierMode = "verifier"
+		combinedMode = "combined"
+	)
 
+	testVerifyPresentationHandlerIssuer(t, verifierMode)
+	testVerifyPresentationHandlerIssuer(t, combinedMode)
+}
+
+func testVerifyPresentationHandlerIssuer(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil)
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
@@ -637,8 +653,16 @@ func TestVerifyPresentationHandlerIssuer(t *testing.T) {
 }
 
 func TestVerifyCredentialHandlerIssuer(t *testing.T) {
-	const mode = "issuer"
+	const (
+		issuerMode   = "issuer"
+		combinedMode = "combined"
+	)
 
+	testVerifyCredentialHandlerIssuer(t, issuerMode)
+	testVerifyCredentialHandlerIssuer(t, combinedMode)
+}
+
+func testVerifyCredentialHandlerIssuer(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil)
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
@@ -789,8 +813,16 @@ func TestVerifyCredentialHandlerIssuer(t *testing.T) {
 }
 
 func TestUpdateCredentialStatusHandler(t *testing.T) {
-	const mode = "issuer"
+	const (
+		issuerMode   = "issuer"
+		combinedMode = "combined"
+	)
 
+	testUpdateCredentialStatusHandler(t, issuerMode)
+	testUpdateCredentialStatusHandler(t, combinedMode)
+}
+
+func testUpdateCredentialStatusHandler(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil)
 	s := make(map[string][]byte)
 	s["profile_Example University"] = []byte(testIssuerProfile)
@@ -890,8 +922,16 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 }
 
 func TestCreateProfileHandler(t *testing.T) {
-	const mode = "issuer"
+	const (
+		issuerMode   = "issuer"
+		combinedMode = "combined"
+	)
 
+	testCreateProfileHandler(t, issuerMode)
+	testCreateProfileHandler(t, combinedMode)
+}
+
+func testCreateProfileHandler(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil)
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{},
