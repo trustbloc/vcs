@@ -20,10 +20,13 @@ services:
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
       - VC_REST_MODE=issuer
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
     ports:
       - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
     entrypoint: ""
     command:  /bin/sh -c "sleep 5;vc-rest start"
+    volumes:
+      - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
 
@@ -38,9 +41,12 @@ services:
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
       - DATABASE_TYPE=mem
       - VC_REST_MODE=verifier
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
     ports:
       - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
     command:  start
+    volumes:
+      - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
 

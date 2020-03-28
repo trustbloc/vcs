@@ -14,7 +14,8 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/hyperledger/aries-framework-go v0.1.3-0.20200326195449-859928d801a6
 	github.com/sirupsen/logrus v1.4.2
+	github.com/trustbloc/edge-core v0.1.3-0.20200327203235-d7f232b27a56
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/sidetree-core-go v0.1.3-0.20200316172436-5d9ccb59942d
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200325213211-3e48939f5ff3
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200327220339-c2f631bbc668
 )

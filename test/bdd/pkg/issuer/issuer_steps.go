@@ -8,7 +8,6 @@ package issuer
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -379,10 +378,8 @@ func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
 
 func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
 	client := &http.Client{
-		// TODO add tls config https://github.com/trustbloc/edge-service/issues/147
-		// TODO !!!!!!!remove InsecureSkipVerify after configure tls for http client
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint: gosec
+			TLSClientConfig: e.bddContext.TLSConfig,
 		}}
 
 	resp, err := client.Post(sidetreeURL, "application/json", bytes.NewBuffer(req)) //nolint: bodyclose

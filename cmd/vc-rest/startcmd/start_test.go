@@ -227,6 +227,19 @@ func TestCreateKMS(t *testing.T) {
 	})
 }
 
+func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	setEnvVars(t)
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(tlsSystemCertPoolEnvKey, "wrongvalue"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
+}
+
 func setEnvVars(t *testing.T) {
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
 	require.NoError(t, err)

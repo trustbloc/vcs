@@ -8,6 +8,7 @@ package operation
 
 import (
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -176,7 +177,7 @@ func New(config *Config) (*Operation, error) {
 		packer:          packer,
 		senderKey:       senderKey,
 		vcStatusManager: vcStatusManager,
-		didBlocClient:   didclient.New(didclient.WithKMS(config.KMS)),
+		didBlocClient:   didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
 		domain:          config.Domain,
 		idMappingStore:  idMappingStore,
 		httpClient:      &http.Client{},
@@ -195,6 +196,7 @@ type Config struct {
 	HostURL       string
 	Domain        string
 	Mode          string
+	TLSConfig     *tls.Config
 }
 
 // Operation defines handlers for Edge service
