@@ -67,7 +67,7 @@ const (
 	modeFlagName      = "mode"
 	modeFlagShorthand = "m"
 	modeFlagUsage     = "Mode in which the vc-rest service will run. Possible values: " +
-		"['issuer', 'verifier'] (default: issuer)."
+		"['issuer', 'verifier', 'combined'] (default: combined)."
 	modeEnvKey = "VC_REST_MODE"
 
 	databaseTypeFlagName      = "database-type"
@@ -107,6 +107,7 @@ type mode string
 const (
 	verifier mode = "verifier"
 	issuer   mode = "issuer"
+	combined mode = "combined"
 )
 
 type vcRestParameters struct {
@@ -266,7 +267,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	if parameters.mode == "" {
-		parameters.mode = string(issuer)
+		parameters.mode = string(combined)
 	}
 
 	// Create KMS

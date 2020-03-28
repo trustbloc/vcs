@@ -77,6 +77,7 @@ const (
 	// modes
 	issuerMode   = "issuer"
 	verifierMode = "verifier"
+	combinedMode = "combined"
 
 	// Ed25519VerificationKey supported Verification Key types
 	Ed25519VerificationKey = "Ed25519VerificationKey"
@@ -220,36 +221,49 @@ type Operation struct {
 func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 	switch mode {
 	case verifierMode:
-		return []Handler{
-			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
-			support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
-			// TODO https://github.com/trustbloc/edge-service/issues/153 Remove /verifications API after
-			//  transition period
-			support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialsVerificationHandler),
-			support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
-		}, nil
+		return o.verifierHandlers(), nil
 	case issuerMode:
-		return []Handler{
-			// profile
-			support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
-			support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+		return o.issuerHandlers(), nil
+	case combinedMode:
+		vh := o.verifierHandlers()
+		ih := o.issuerHandlers()
 
-			// verifiable credential
-			support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
-			support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
-			support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
-			support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
-			support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
-			support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
-
-			// issuer apis
-			// TODO update trustbloc components to use these APIs instead of above ones
-			support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
-			support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
-			support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
-		}, nil
+		return append(vh, ih...), nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)
+	}
+}
+
+func (o *Operation) verifierHandlers() []Handler {
+	return []Handler{
+		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
+		// TODO https://github.com/trustbloc/edge-service/issues/153 Remove /verifications API after
+		//  transition period
+		support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialsVerificationHandler),
+		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
+	}
+}
+
+func (o *Operation) issuerHandlers() []Handler {
+	return []Handler{
+		// profile
+		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
+		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+
+		// verifiable credential
+		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
+		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
+		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
+		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
+		support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
+
+		// issuer apis
+		// TODO update trustbloc components to use these APIs instead of above ones
+		support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
+		support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
+		support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
 	}
 }
 
