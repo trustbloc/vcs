@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -25,12 +27,13 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage"
 	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 	"github.com/trustbloc/edv/pkg/client/edv"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
-	cmdutils "github.com/trustbloc/edge-service/pkg/utils/cmd"
 )
 
 const (
@@ -83,6 +86,17 @@ const (
 		" For CouchDB, include the username:password@ text if required." +
 		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
 
+	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
+	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
+		" Possible values [true] [false]. Defaults to false if not set." +
+		" Alternatively, this can be set with the following environment variable: " + tlsSystemCertPoolEnvKey
+	tlsSystemCertPoolEnvKey = "VC_REST_TLS_SYSTEMCERTPOOL"
+
+	tlsCACertsFlagName  = "tls-cacerts"
+	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." +
+		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
+	tlsCACertsEnvKey = "VC_REST_TLS_CACERTS"
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 )
@@ -104,6 +118,8 @@ type vcRestParameters struct {
 	mode                 string
 	databaseType         string
 	databaseURL          string
+	tlsSystemCertPool    bool
+	tlsCACerts           []string
 }
 
 type server interface {
@@ -144,44 +160,49 @@ func createStartCmd(srv server) *cobra.Command {
 }
 
 func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
-	hostURL, err := cmdutils.GetUserSetVar(cmd, hostURLFlagName, hostURLEnvKey, false)
+	hostURL, err := cmdutils.GetUserSetVarFromString(cmd, hostURLFlagName, hostURLEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
 
-	edvURL, err := cmdutils.GetUserSetVar(cmd, edvURLFlagName, edvURLEnvKey, false)
+	edvURL, err := cmdutils.GetUserSetVarFromString(cmd, edvURLFlagName, edvURLEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
 
-	blocDomain, err := cmdutils.GetUserSetVar(cmd, blocDomainFlagName, blocDomainEnvKey, false)
+	blocDomain, err := cmdutils.GetUserSetVarFromString(cmd, blocDomainFlagName, blocDomainEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
 
-	hostURLExternal, err := cmdutils.GetUserSetVar(cmd, hostURLExternalFlagName,
+	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
 		hostURLExternalEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
-	universalResolverURL, err := cmdutils.GetUserSetVar(cmd, universalResolverURLFlagName,
+	universalResolverURL, err := cmdutils.GetUserSetVarFromString(cmd, universalResolverURLFlagName,
 		universalResolverURLEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
-	mode, err := cmdutils.GetUserSetVar(cmd, modeFlagName, modeEnvKey, true)
+	mode, err := cmdutils.GetUserSetVarFromString(cmd, modeFlagName, modeEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
-	databaseType, err := cmdutils.GetUserSetVar(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
+	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
 
-	databaseURL, err := cmdutils.GetUserSetVar(cmd, databaseURLFlagName, databaseURLEnvKey, true)
+	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName, databaseURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsSystemCertPool, tlsCACerts, err := getTLS(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +216,33 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		mode:                 mode,
 		databaseType:         databaseType,
 		databaseURL:          databaseURL,
+		tlsSystemCertPool:    tlsSystemCertPool,
+		tlsCACerts:           tlsCACerts,
 	}, nil
+}
+
+func getTLS(cmd *cobra.Command) (bool, []string, error) {
+	tlsSystemCertPoolString, err := cmdutils.GetUserSetVarFromString(cmd, tlsSystemCertPoolFlagName,
+		tlsSystemCertPoolEnvKey, true)
+	if err != nil {
+		return false, nil, err
+	}
+
+	tlsSystemCertPool := false
+	if tlsSystemCertPoolString != "" {
+		tlsSystemCertPool, err = strconv.ParseBool(tlsSystemCertPoolString)
+		if err != nil {
+			return false, nil, err
+		}
+	}
+
+	tlsCACerts, err := cmdutils.GetUserSetVarFromArrayString(cmd, tlsCACertsFlagName,
+		tlsCACertsEnvKey, true)
+	if err != nil {
+		return false, nil, err
+	}
+
+	return tlsSystemCertPool, tlsCACerts, nil
 }
 
 func createFlags(startCmd *cobra.Command) {
@@ -208,6 +255,9 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
+	startCmd.Flags().BoolP(tlsSystemCertPoolFlagName, "", false,
+		tlsSystemCertPoolFlagUsage)
+	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters, srv server) error {
@@ -241,9 +291,14 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		externalHostURL = parameters.hostURLExternal
 	}
 
+	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
+	if err != nil {
+		return err
+	}
+
 	vcService, err := vc.New(&operation.Config{StoreProvider: storeProvider,
 		EDVClient: edv.New(parameters.edvURL), KMS: kms, VDRI: vdri, HostURL: externalHostURL,
-		Mode: parameters.mode, Domain: parameters.blocDomain})
+		Mode: parameters.mode, Domain: parameters.blocDomain, TLSConfig: &tls.Config{RootCAs: rootCAs}})
 	if err != nil {
 		return err
 	}

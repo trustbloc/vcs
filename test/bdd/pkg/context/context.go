@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package context
 
 import (
+	"crypto/tls"
 	"fmt"
 
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -28,10 +30,16 @@ type BDDContext struct {
 	CreatedProfile                  *profile.DataProfile
 	StoreVCRequest                  []byte
 	VDRI                            vdriapi.Registry
+	TLSConfig                       *tls.Config
 }
 
 // NewBDDContext create new BDDContext
-func NewBDDContext() (*BDDContext, error) {
+func NewBDDContext(caCertPath string) (*BDDContext, error) {
+	rootCAs, err := tlsutils.GetCertPool(false, []string{caCertPath})
+	if err != nil {
+		return nil, err
+	}
+
 	vdri, err := createVDRI("http://localhost:8080/1.0/identifiers")
 	if err != nil {
 		return nil, err
@@ -74,7 +82,8 @@ func NewBDDContext() (*BDDContext, error) {
 			`"pm4VBH74TXY_JKYcTX5J-iygJDv-rTvs8J8VTrpdoMjd3DsVNIiHM33b5vMm336wkYqmYhaxWPOsMnrCsQNTBw\",\"type\":\` +
 			`"Ed25519Signature2018\"},\"type\":[\"VerifiableCredential\",\"UniversityDegreeCredential\"]}"
 }`),
-		VDRI: vdri}
+		VDRI:      vdri,
+		TLSConfig: &tls.Config{RootCAs: rootCAs}}
 
 	return &instance, nil
 }

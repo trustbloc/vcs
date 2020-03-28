@@ -121,7 +121,7 @@ func generateUUID() string {
 }
 
 func FeatureContext(s *godog.Suite) {
-	bddContext, err := bddctx.NewBDDContext()
+	bddContext, err := bddctx.NewBDDContext("fixtures/keys/tls/ec-cacert.pem")
 	if err != nil {
 		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
 	}

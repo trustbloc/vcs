@@ -13,9 +13,12 @@ services:
     image: ${BLOC_DID_METHOD_IMAGE}:${BLOC_DID_METHOD_IMAGE_TAG}
     environment:
       - DID_METHOD_HOST_URL=0.0.0.0:8060
+      - DID_METHOD_TLS_CACERTS=/etc/tls/ec-cacert.pem
     ports:
       - 8060:8060
     command: start
+    volumes:
+      - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
 
