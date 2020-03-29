@@ -11,6 +11,12 @@
     {
       "pattern": "^(did:elem:.+$)",
       "url": "https://element-did.com/api/v1/sidetree/$1"
+    },
+    {
+      "pattern": "^(did:sov:(?:(?:\\w[-\\w]*(?::\\w[-\\w]*)*):)?(?:[1-9A-HJ-NP-Za-km-z]{21,22}))$",
+      "image": "universalresolver/driver-did-sov",
+      "imageProperties": "true",
+      "tag": "latest"
     }
   ]
 }

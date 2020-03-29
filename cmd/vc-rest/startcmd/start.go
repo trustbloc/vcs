@@ -99,6 +99,7 @@ const (
 
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
+	didMethodSov     = "sov"
 )
 
 // mode in which to run the vc-rest service
@@ -337,7 +338,7 @@ func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, 
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
-			httpbinding.WithAccept(func(method string) bool { return method == didMethodVeres || method == didMethodElement }))
+			httpbinding.WithAccept(acceptsDID))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
 		}
@@ -366,6 +367,11 @@ func supportedMode(mode string) bool {
 	}
 
 	return true
+}
+
+// acceptsDID returns if given did method is accepted by VC REST api
+func acceptsDID(method string) bool {
+	return method == didMethodVeres || method == didMethodElement || method == didMethodSov
 }
 
 func createProvider(parameters *vcRestParameters) (storage.Provider, error) {

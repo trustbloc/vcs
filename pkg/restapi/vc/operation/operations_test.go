@@ -24,7 +24,8 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -2677,8 +2678,8 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod string
 	require.NoError(t, err)
 
 	signerSuite := ed25519signature2018.New(
-		ed25519signature2018.WithSigner(getEd25519TestSigner(privKey)),
-		ed25519signature2018.WithCompactProof())
+		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithCompactProof())
 	err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		Suite:                   signerSuite,

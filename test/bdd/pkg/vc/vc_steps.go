@@ -20,7 +20,8 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -104,14 +105,14 @@ func (e *Steps) createPresentation(vcBytes []byte, representation verifiable.Sig
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: representation,
-		Suite:                   ed25519signature2018.New(ed25519signature2018.WithSigner(getSigner(privateKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
 	}
 
-	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 
 	// parse vc
 	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(suite),
+		verifiable.WithEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err
