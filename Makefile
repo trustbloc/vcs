@@ -60,14 +60,15 @@ generate-test-keys: clean
 generate-test-config:
 	@scripts/generate_test_config.sh
 
-create-veres-did: clean
-	@mkdir -p .build
-	@scripts/create_veres_did.sh
-
 create-element-did: clean
 	@mkdir -p .build
 	@cp scripts/create-element-did.js .build/
 	@REQUEST_URL=$(DID_ELEMENT_SIDETREE_REQUEST_URL) scripts/create_element_did.sh
+
+uniregistrar-create-dids: clean
+	@mkdir -p .build
+	@cp scripts/uniregistrar-create-dids.js .build/
+	@scripts/uniregistrar_create_dids.sh
 
 .PHONY: clean
 clean: clean-build

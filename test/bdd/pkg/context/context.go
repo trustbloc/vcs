@@ -91,7 +91,7 @@ func NewBDDContext(caCertPath string) (*BDDContext, error) {
 func createVDRI(universalResolver string) (vdriapi.Registry, error) {
 	universalResolverVDRI, err := httpbinding.New(universalResolver,
 		httpbinding.WithAccept(func(method string) bool {
-			return method == "v1" || method == "elem"
+			return method == "v1" || method == "elem" || method == "sov"
 		}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)

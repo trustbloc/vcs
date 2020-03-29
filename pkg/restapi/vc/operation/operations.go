@@ -24,7 +24,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -1125,10 +1126,10 @@ func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *
 }
 
 func (o *Operation) checkProof(vcByte []byte) error {
-	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vc, _, err := verifiable.NewCredential(
 		vcByte,
-		verifiable.WithEmbeddedSignatureSuites(suite),
+		verifiable.WithEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
@@ -1146,10 +1147,10 @@ func (o *Operation) checkProof(vcByte []byte) error {
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vc, _, err := verifiable.NewCredential(
 		vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(suite),
+		verifiable.WithEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
@@ -1163,10 +1164,10 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 }
 
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
-	suite := ed25519signature2018.New(ed25519signature2018.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
-		verifiable.WithPresEmbeddedSignatureSuites(suite),
+		verifiable.WithPresEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPresPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),

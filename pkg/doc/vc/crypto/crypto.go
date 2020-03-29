@@ -13,7 +13,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 
@@ -102,7 +103,7 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		SignatureRepresentation: dataProfile.SignatureRepresentation,
 		SignatureType:           dataProfile.SignatureType,
 		Suite: ed25519signature2018.New(
-			ed25519signature2018.WithSigner(s)),
+			suite.WithSigner(s)),
 	}
 
 	err := vc.AddLinkedDataProof(signingCtx)

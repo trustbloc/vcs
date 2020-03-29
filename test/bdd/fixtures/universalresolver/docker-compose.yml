@@ -19,6 +19,18 @@ services:
     networks:
       - couchdb_bdd_net
 
+  driver-did-sov:
+    image: universalresolver/driver-did-sov:latest
+    environment:
+      uniresolver_driver_did_sov_libIndyPath: ${uniresolver_driver_did_sov_libIndyPath}
+      uniresolver_driver_did_sov_poolConfigs: ${uniresolver_driver_did_sov_poolConfigs}
+      uniresolver_driver_did_sov_poolVersions: ${uniresolver_driver_did_sov_poolVersions}
+      uniresolver_driver_did_sov_walletName: ${uniresolver_driver_did_sov_walletName}
+    ports:
+      - "8082:8080"
+    networks:
+      - couchdb_bdd_net
+
 networks:
   couchdb_bdd_net:
     external: true
