@@ -182,7 +182,7 @@ func New(config *Config) (*Operation, error) {
 		didBlocClient:   didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
 		domain:          config.Domain,
 		idMappingStore:  idMappingStore,
-		httpClient:      &http.Client{},
+		httpClient:      &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 		HostURL:         config.HostURL,
 	}
 
