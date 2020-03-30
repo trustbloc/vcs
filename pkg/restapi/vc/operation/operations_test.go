@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
@@ -1646,22 +1647,22 @@ func TestIssueCredential(t *testing.T) {
 		_, signingKey, err := kms.CreateKeySet()
 		require.NoError(t, err)
 
-		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
-
 		op, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KMS:           &kmsmock.CloseableKMS{},
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+				},
+			},
 		})
 		require.NoError(t, err)
-
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 
 		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
-			Opts:       IssueCredentialOptions{AssertionMethod: "did:local:abc"},
+			Opts:       &IssueCredentialOptions{AssertionMethod: "did:local:abc"},
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -1680,6 +1681,28 @@ func TestIssueCredential(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:local:abc#key-1", proof["verificationMethod"])
+
+		// use issuer DID for signing
+		req.Opts.AssertionMethod = ""
+
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		signedVCResp = make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok = signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f#key-1", proof["verificationMethod"])
 	})
 
 	t.Run("issue credential - invalid request", func(t *testing.T) {
@@ -1754,7 +1777,7 @@ func TestIssueCredential(t *testing.T) {
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
-			Opts:       IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -1778,7 +1801,7 @@ func TestIssueCredential(t *testing.T) {
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
-			Opts:       IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -1808,7 +1831,7 @@ func TestIssueCredential(t *testing.T) {
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
-			Opts:       IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
 		}
 
 		reqBytes, err := json.Marshal(req)

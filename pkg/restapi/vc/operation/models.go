@@ -53,8 +53,8 @@ type VerifyCredentialResponse struct {
 
 // IssueCredentialRequest request for issuing credential.
 type IssueCredentialRequest struct {
-	Credential json.RawMessage        `json:"credential,omitempty"`
-	Opts       IssueCredentialOptions `json:"options,omitempty"`
+	Credential json.RawMessage         `json:"credential,omitempty"`
+	Opts       *IssueCredentialOptions `json:"options,omitempty"`
 }
 
 // IssueCredentialOptions options for issuing credential.

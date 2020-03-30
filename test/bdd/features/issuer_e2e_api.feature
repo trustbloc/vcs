@@ -11,12 +11,12 @@ Feature: Issuer VC REST API
   @issueCred_api
   Scenario: Issue Credential API
     Given "University" has a DID
-    Then  "University" application service verifies the credential created by Issuer Service issueCredential API with it's DID
+    Then  "University" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID
 
   @composeAndIssueCred_api
   Scenario: Compose and Issue Credential API
     Given "University" has a DID
-    Then  "University" application service verifies the credential created by Issuer Service composeAndIssueCredential API with it's DID
+    Then  "University" application service verifies the credential created by Issuer Service - Compose And Issue Credential API with it's DID
 
   @createDID_issueCred_api
   Scenario: Issue Credential API with Create DID steps

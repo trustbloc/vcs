@@ -858,8 +858,14 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
+	// use issuer id if options doesn't specify the DID
+	signerDID := validatedCred.Issuer.ID
+	if cred.Opts != nil && cred.Opts.AssertionMethod != "" {
+		signerDID = cred.Opts.AssertionMethod
+	}
+
 	// sign the credential
-	signedVC, err := o.signCredential(validatedCred, cred.Opts.AssertionMethod, verifiable.SignatureJWS)
+	signedVC, err := o.signCredential(validatedCred, signerDID, verifiable.SignatureJWS)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
