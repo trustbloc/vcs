@@ -307,6 +307,40 @@ const (
 	}
 }`
 
+	vpWithoutProof = `{
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1"
+		],
+		"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+		"type": "VerifiablePresentation",
+		"verifiableCredential": [{
+			"@context": [
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1"
+			],
+			"id": "http://example.edu/credentials/1872",
+			"type": "VerifiableCredential",
+			"credentialSubject": {
+				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+			},
+			"issuer": {
+				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				"name": "Example University"
+			},
+			"issuanceDate": "2010-01-01T19:23:24Z",
+			"credentialStatus": {
+				"id": "https://example.gov/status/24",
+				"type": "CredentialStatusList2017"
+			}
+		}],
+		"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		"refreshService": {
+			"id": "https://example.edu/refresh/3732",
+			"type": "ManualRefreshService2018"
+		}
+	}`
+
 	invalidVP = `{` +
 		validContext + `,
   "type": "VerifiablePresentation",
@@ -2272,6 +2306,159 @@ func TestCredentialVerifications(t *testing.T) {
 	}
 }
 
+func TestVerifyPresentation(t *testing.T) {
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		KMS:           &kmsmock.CloseableKMS{},
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	endpoint := presentationsVerificationEndpoint
+	verificationsHandler := getHandler(t, op, endpoint, verifierMode)
+
+	t.Run("presentation verification - success", func(t *testing.T) {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
+
+		didDoc := createDIDDoc(didID, pubKey)
+		verificationMethod := didDoc.PublicKey[0].ID
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		// verify credential
+		handler := getHandler(t, op, endpoint, verifierMode)
+
+		vReq := &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, validVC, verificationMethod),
+			Opts: &VerifyPresentationOptions{
+				Checks: []string{proofCheck},
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		verificationResp := &VerifyPresentationSuccessResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0])
+	})
+
+	t.Run("presentation verification - request doesn't contain checks", func(t *testing.T) {
+		req := &VerifyPresentationRequest{
+			Presentation: []byte(vpWithoutProof),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		// verify that the default check was performed
+		verificationResp := &VerifyPresentationFailureResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Equal(t, "proof validation error : embedded proof is missing", verificationResp.Checks[0].Error)
+	})
+
+	t.Run("presentation verification - proof check failure", func(t *testing.T) {
+		// no proof in VC
+		req := &VerifyPresentationRequest{
+			Presentation: []byte(vpWithoutProof),
+			Opts: &VerifyPresentationOptions{
+				Checks: []string{proofCheck},
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		verificationResp := &VerifyPresentationFailureResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Equal(t, "proof validation error : embedded proof is missing", verificationResp.Checks[0].Error)
+
+		// proof validation error (DID not found)
+		req = &VerifyPresentationRequest{
+			Presentation: []byte(validVCWithProof),
+			Opts: &VerifyPresentationOptions{
+				Checks: []string{proofCheck},
+			},
+		}
+
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		verificationResp = &VerifyPresentationFailureResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Contains(t, verificationResp.Checks[0].Error, "proof validation error")
+	})
+
+	t.Run("presentation verification - invalid check", func(t *testing.T) {
+		invalidCheckName := "invalidCheckName"
+
+		req := &VerifyPresentationRequest{
+			Presentation: []byte(validVP),
+			Opts: &VerifyPresentationOptions{
+				Checks: []string{invalidCheckName},
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		verificationResp := &VerifyPresentationFailureResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, invalidCheckName, verificationResp.Checks[0].Check)
+		require.Equal(t, "check not supported", verificationResp.Checks[0].Error)
+	})
+
+	t.Run("presentation verification - invalid json input", func(t *testing.T) {
+		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint,
+			[]byte("invalid input"))
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+}
+
 func TestGetPublicKeyID(t *testing.T) {
 	t.Run("Test decode public key", func(t *testing.T) {
 		tests := []struct {
@@ -2695,6 +2882,36 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod string
 	require.NoError(t, err)
 
 	return signedVC
+}
+
+func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod string) []byte {
+	signedVC := getSignedVC(t, privKey, vcJSON, verificationMethod)
+
+	vc, err := verifiable.NewUnverifiedCredential(signedVC)
+	require.NoError(t, err)
+
+	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
+	require.NoError(t, err)
+
+	vp, err := vc.Presentation()
+	require.NoError(t, err)
+
+	signerSuite := ed25519signature2018.New(
+		suite.WithSigner(getEd25519TestSigner(privKey)),
+		suite.WithCompactProof())
+	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   signerSuite,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		Created:                 &created,
+		VerificationMethod:      verificationMethod,
+	})
+	require.NoError(t, err)
+
+	signedVP, err := vp.MarshalJSON()
+	require.NoError(t, err)
+
+	return signedVP
 }
 
 type ed25519TestSigner struct {

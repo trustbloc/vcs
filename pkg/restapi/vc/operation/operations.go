@@ -46,23 +46,24 @@ const (
 	vcStatus            = "/status"
 
 	// endpoints
-	createCredentialEndpoint        = "/credential"
-	verifyCredentialEndpoint        = "/verify"
-	updateCredentialStatusEndpoint  = "/updateStatus"
-	createProfileEndpoint           = profile
-	getProfileEndpoint              = profile + "/{id}"
-	storeCredentialEndpoint         = "/store"
-	retrieveCredentialEndpoint      = "/retrieve"
-	verifyPresentationEndpoint      = "/verifyPresentation"
-	vcStatusEndpoint                = vcStatus + "/{id}"
-	credentialsBasePath             = "/credentials"
-	issueCredentialPath             = credentialsBasePath + "/issueCredential"
-	composeAndIssueCredentialPath   = credentialsBasePath + "/composeAndIssueCredential"
-	kmsBasePath                     = "/kms"
-	generateKeypairPath             = kmsBasePath + "/generatekeypair"
-	credentialVerificationsEndpoint = "/verifications"
-	verifierBasePath                = "/verifier"
-	credentialsVerificationEndpoint = verifierBasePath + "/credentials"
+	createCredentialEndpoint          = "/credential"
+	verifyCredentialEndpoint          = "/verify"
+	updateCredentialStatusEndpoint    = "/updateStatus"
+	createProfileEndpoint             = profile
+	getProfileEndpoint                = profile + "/{id}"
+	storeCredentialEndpoint           = "/store"
+	retrieveCredentialEndpoint        = "/retrieve"
+	verifyPresentationEndpoint        = "/verifyPresentation"
+	vcStatusEndpoint                  = vcStatus + "/{id}"
+	credentialsBasePath               = "/credentials"
+	issueCredentialPath               = credentialsBasePath + "/issueCredential"
+	composeAndIssueCredentialPath     = credentialsBasePath + "/composeAndIssueCredential"
+	kmsBasePath                       = "/kms"
+	generateKeypairPath               = kmsBasePath + "/generatekeypair"
+	credentialVerificationsEndpoint   = "/verifications"
+	verifierBasePath                  = "/verifier"
+	credentialsVerificationEndpoint   = verifierBasePath + "/credentials"
+	presentationsVerificationEndpoint = verifierBasePath + "/presentations"
 
 	successMsg = "success"
 	cslSize    = 50
@@ -243,6 +244,8 @@ func (o *Operation) verifierHandlers() []Handler {
 		//  transition period
 		support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialsVerificationHandler),
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
+		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost,
+			o.verifyPresentationHandler),
 	}
 }
 
@@ -678,7 +681,7 @@ func (o *Operation) verifyVPHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// verify vp
-	_, err = o.parseAndVerifyVP(body)
+	err = o.parseAndVerifyVP(body)
 	if err != nil {
 		response := &VerifyCredentialResponse{
 			Verified: false,
@@ -1074,6 +1077,7 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 	})
 }
 
+// nolint dupl ()
 func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := CredentialsVerificationRequest{}
@@ -1097,7 +1101,7 @@ func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *
 	for _, val := range checks {
 		switch val {
 		case proofCheck:
-			err := o.checkProof(verificationReq.Credential)
+			err := o.validateCredentialProof(verificationReq.Credential)
 			if err != nil {
 				result = append(result, CredentialsVerificationCheckResult{
 					Check: val,
@@ -1125,15 +1129,60 @@ func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *
 	}
 }
 
-func (o *Operation) checkProof(vcByte []byte) error {
-	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
-	vc, _, err := verifiable.NewCredential(
-		vcByte,
-		verifiable.WithEmbeddedSignatureSuites(signSuite),
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
-		),
-	)
+// nolint dupl
+func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the request
+	verificationReq := VerifyPresentationRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&verificationReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	checks := []string{proofCheck}
+
+	// if req contains checks, then override the default checks
+	if verificationReq.Opts != nil && len(verificationReq.Opts.Checks) != 0 {
+		checks = verificationReq.Opts.Checks
+	}
+
+	var result []VerifyPresentationCheckResult
+
+	for _, val := range checks {
+		switch val {
+		case proofCheck:
+			err := o.validatePresentationProof(verificationReq.Presentation)
+			if err != nil {
+				result = append(result, VerifyPresentationCheckResult{
+					Check: val,
+					Error: err.Error(),
+				})
+			}
+		default:
+			result = append(result, VerifyPresentationCheckResult{
+				Check: val,
+				Error: "check not supported",
+			})
+		}
+	}
+
+	if len(result) == 0 {
+		rw.WriteHeader(http.StatusOK)
+		o.writeResponse(rw, &VerifyPresentationSuccessResponse{
+			Checks: checks,
+		})
+	} else {
+		rw.WriteHeader(http.StatusBadRequest)
+		o.writeResponse(rw, &VerifyPresentationFailureResponse{
+			Checks: result,
+		})
+	}
+}
+
+func (o *Operation) validateCredentialProof(vcByte []byte) error {
+	vc, err := o.parseAndVerifyVC(vcByte)
 
 	if err != nil {
 		return fmt.Errorf("proof validation error : %w", err)
@@ -1141,6 +1190,16 @@ func (o *Operation) checkProof(vcByte []byte) error {
 
 	if len(vc.Proofs) == 0 {
 		return errors.New("verifiable credential doesn't contains proof")
+	}
+
+	return nil
+}
+
+func (o *Operation) validatePresentationProof(vpByte []byte) error {
+	err := o.parseAndVerifyVP(vpByte)
+
+	if err != nil {
+		return fmt.Errorf("proof validation error : %w", err)
 	}
 
 	return nil
@@ -1163,7 +1222,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	return vc, nil
 }
 
-func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
+func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
 	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
@@ -1174,7 +1233,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 	)
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// vp is verified
 
@@ -1182,16 +1241,16 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 	for _, cred := range vp.Credentials() {
 		vcBytes, err := json.Marshal(cred)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		// verify if the credential in vp is valid
 		_, err = o.parseAndVerifyVC(vcBytes)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
-	return vp, nil
+	return nil
 }
 
 func getPublicKeyID(didDoc *did.Doc) (string, error) {

@@ -14,6 +14,7 @@ import (
 	"net/http"
 
 	"github.com/cucumber/godog"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -39,6 +40,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Employer verifies the transcript provided by "([^"]*)"$`, e.credentialsVerification)
+	s.Step(`^Employer verifies the transcript presented by "([^"]*)"$`, e.createAndVerifyPresentation)
 }
 
 func (e *Steps) credentialsVerification(user string) error {
@@ -79,6 +81,63 @@ func (e *Steps) credentialsVerification(user string) error {
 	}
 
 	verificationResp := operation.CredentialsVerificationSuccessResponse{}
+
+	err = json.Unmarshal(respBytes, &verificationResp)
+	if err != nil {
+		return err
+	}
+
+	if len(verificationResp.Checks) != 1 {
+		return errors.New("response checks doesn't match the checks in the request")
+	}
+
+	return nil
+}
+
+func (e *Steps) createAndVerifyPresentation(user string) error {
+	vcBytes := e.bddContext.Args[user]
+
+	vp, err := bddutil.CreatePresentation([]byte(vcBytes), verifiable.SignatureJWS, e.bddContext.VDRI)
+	if err != nil {
+		return err
+	}
+
+	checks := []string{"proof"}
+
+	req := &operation.VerifyPresentationRequest{
+		Presentation: vp,
+		Opts: &operation.VerifyPresentationOptions{
+			Checks: checks,
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	endpointURL := verifierBaseURL + "/presentations"
+
+	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("verification response %s", string(respBytes))
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	}
+
+	verificationResp := operation.VerifyPresentationSuccessResponse{}
 
 	err = json.Unmarshal(respBytes, &verificationResp)
 	if err != nil {
