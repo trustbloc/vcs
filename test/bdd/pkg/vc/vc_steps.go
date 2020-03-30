@@ -8,10 +8,7 @@ package vc
 
 import (
 	"bytes"
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -20,8 +17,6 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -64,24 +59,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
 }
 
-func getSigner(privKey []byte) *signer {
-	return &signer{privateKey: privKey}
-}
-
-type signer struct {
-	privateKey []byte
-}
-
-func (s *signer) Sign(doc []byte) ([]byte, error) {
-	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
-		return nil, errors.New("ed25519: bad private key length")
-	}
-
-	return ed25519.Sign(s.privateKey, doc), nil
-}
-
 func (e *Steps) verifyPresentation(holder, verifiedFlag, verifiedMsg string) error {
-	vp, err := e.createPresentation(e.bddContext.CreatedCredential, getSignatureRepresentation(holder))
+	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, getSignatureRepresentation(holder),
+		e.bddContext.VDRI)
 	if err != nil {
 		return err
 	}
@@ -94,43 +74,6 @@ func (e *Steps) verifyPresentation(holder, verifiedFlag, verifiedMsg string) err
 	}
 
 	return verify(resp, verifiedFlag, verifiedMsg)
-}
-
-func (e *Steps) createPresentation(vcBytes []byte, representation verifiable.SignatureRepresentation) ([]byte, error) {
-	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
-	ldpContext := &verifiable.LinkedDataProofContext{
-		SignatureType:           "Ed25519Signature2018",
-		SignatureRepresentation: representation,
-		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
-	}
-
-	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
-
-	// parse vc
-	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(signSuite),
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
-	if err != nil {
-		return nil, err
-	}
-
-	// create verifiable presentation from vc
-	vp, err := vc.Presentation()
-	if err != nil {
-		return nil, err
-	}
-
-	// add linked data proof
-	err = vp.AddLinkedDataProof(ldpContext)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(vp)
 }
 
 func (e *Steps) createProfile(profileName, did, privateKey, holder string) error {

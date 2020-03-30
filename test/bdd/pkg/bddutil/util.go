@@ -7,11 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package bddutil
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,6 +36,61 @@ func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) error {
 	}
 
 	return err
+}
+
+// CreatePresentation creates verifiable presentation from verifiable credential.
+func CreatePresentation(vcBytes []byte, representation verifiable.SignatureRepresentation,
+	vdri vdriapi.Registry) ([]byte, error) {
+	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: representation,
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
+	}
+
+	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+
+	// parse vc
+	vc, _, err := verifiable.NewCredential(vcBytes,
+		verifiable.WithEmbeddedSignatureSuites(signSuite),
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
+	if err != nil {
+		return nil, err
+	}
+
+	// create verifiable presentation from vc
+	vp, err := vc.Presentation()
+	if err != nil {
+		return nil, err
+	}
+
+	// add linked data proof
+	err = vp.AddLinkedDataProof(ldpContext)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(vp)
+}
+
+func getSigner(privKey []byte) *signer {
+	return &signer{privateKey: privKey}
+}
+
+type signer struct {
+	privateKey []byte
+}
+
+func (s *signer) Sign(doc []byte) ([]byte, error) {
+	if l := len(s.privateKey); l != ed25519.PrivateKeySize {
+		return nil, errors.New("ed25519: bad private key length")
+	}
+
+	return ed25519.Sign(s.privateKey, doc), nil
 }
 
 // ExpectedStringError formats the response error message.

@@ -110,3 +110,31 @@ type CredentialsVerificationCheckResult struct {
 	Error              string `json:"error,omitempty"`
 	VerificationMethod string `json:"verificationMethod,omitempty"`
 }
+
+// VerifyPresentationRequest request for verifying presentation.
+type VerifyPresentationRequest struct {
+	Presentation json.RawMessage            `json:"credential,omitempty"`
+	Opts         *VerifyPresentationOptions `json:"options,omitempty"`
+}
+
+// VerifyPresentationOptions options for presentation verifications.
+type VerifyPresentationOptions struct {
+	Checks []string `json:"checks,omitempty"`
+}
+
+// VerifyPresentationSuccessResponse resp when presentation verification is success.
+type VerifyPresentationSuccessResponse struct {
+	Checks []string `json:"checks,omitempty"`
+}
+
+// VerifyPresentationFailureResponse resp when presentation verification is failed.
+type VerifyPresentationFailureResponse struct {
+	Checks []VerifyPresentationCheckResult `json:"checks,omitempty"`
+}
+
+// VerifyPresentationCheckResult resp containing failure check details.
+type VerifyPresentationCheckResult struct {
+	Check              string `json:"check,omitempty"`
+	Error              string `json:"error,omitempty"`
+	VerificationMethod string `json:"verificationMethod,omitempty"`
+}
