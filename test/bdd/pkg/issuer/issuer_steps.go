@@ -106,9 +106,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.createAndVerifyCredential)
 	s.Step(`^"([^"]*)" has stored her transcript from the University$`, e.createCredential)
 	s.Step(`^"([^"]*)" has a DID$`, e.generateDID)
-	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service issueCredential API with it's DID$`, //nolint: lll
+	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID$`, //nolint: lll
 		e.issueCred)
-	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service composeAndIssueCredential API with it's DID$`, //nolint: lll
+	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Compose And Issue Credential API with it's DID$`, //nolint: lll
 		e.composeAndIssueCred)
 }
 
@@ -225,7 +225,7 @@ func (e *Steps) signCredential(did string) ([]byte, error) {
 
 	req := &operation.IssueCredentialRequest{
 		Credential: []byte(validVC),
-		Opts:       operation.IssueCredentialOptions{AssertionMethod: did},
+		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did},
 	}
 
 	reqBytes, err := json.Marshal(req)
