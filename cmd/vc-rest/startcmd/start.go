@@ -299,8 +299,9 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	vcService, err := vc.New(&operation.Config{StoreProvider: storeProvider,
-		EDVClient: edv.New(parameters.edvURL), KMS: kms, VDRI: vdri, HostURL: externalHostURL,
-		Mode: parameters.mode, Domain: parameters.blocDomain, TLSConfig: &tls.Config{RootCAs: rootCAs}})
+		EDVClient: edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
+		KMS:       kms, VDRI: vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
+		TLSConfig: &tls.Config{RootCAs: rootCAs}})
 	if err != nil {
 		return err
 	}
