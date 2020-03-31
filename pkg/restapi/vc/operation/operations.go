@@ -74,7 +74,8 @@ const (
 	invalidRequestErrMsg = "Invalid request"
 
 	// credential verification checks
-	proofCheck = "proof"
+	proofCheck  = "proof"
+	statusCheck = "status"
 
 	// modes
 	issuerMode   = "issuer"
@@ -1095,6 +1096,13 @@ func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *
 		return
 	}
 
+	vc, err := verifiable.NewUnverifiedCredential(verificationReq.Credential)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
 	checks := []string{proofCheck}
 
 	// if req contains checks, then override the default checks
@@ -1112,6 +1120,26 @@ func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *
 				result = append(result, CredentialsVerificationCheckResult{
 					Check: val,
 					Error: err.Error(),
+				})
+			}
+		case statusCheck:
+			failureMessage := ""
+			if vc.Status == nil || vc.Status.ID == "" {
+				failureMessage = "credential doesn't contain status"
+			} else {
+				ver, err := o.checkVCStatus(vc.Status.ID, vc.ID)
+
+				if err != nil {
+					failureMessage = fmt.Sprintf("failed to fetch the status : %s", err.Error())
+				} else if !ver.Verified {
+					failureMessage = ver.Message
+				}
+			}
+
+			if failureMessage != "" {
+				result = append(result, CredentialsVerificationCheckResult{
+					Check: val,
+					Error: failureMessage,
 				})
 			}
 		default:

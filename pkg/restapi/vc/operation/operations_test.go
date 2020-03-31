@@ -2172,6 +2172,9 @@ func TestGenerateKeypair(t *testing.T) {
 }
 
 func TestCredentialVerifications(t *testing.T) {
+	vc, err := verifiable.NewUnverifiedCredential([]byte(validVC))
+	require.NoError(t, err)
+
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
 		KMS:           &kmsmock.CloseableKMS{},
@@ -2195,22 +2198,35 @@ func TestCredentialVerifications(t *testing.T) {
 			didDoc := createDIDDoc(didID, pubKey)
 			verificationMethod := didDoc.PublicKey[0].ID
 
-			op, err := New(&Config{
+			ops, err := New(&Config{
 				StoreProvider: memstore.NewProvider(),
 				KMS:           &kmsmock.CloseableKMS{},
 				VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 			})
 			require.NoError(t, err)
 
-			op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+			ops.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+			cslBytes, err := json.Marshal(&cslstatus.CSL{})
+			require.NoError(t, err)
+
+			ops.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+				Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
+
+			vc.Status = &verifiable.TypedID{
+				ID:   "http://example.com/status/100",
+				Type: "type",
+			}
+
+			vcBytes, err := vc.MarshalJSON()
+			require.NoError(t, err)
 
 			// verify credential
-			handler := getHandler(t, op, endpoint, verifierMode)
+			handler := getHandler(t, ops, endpoint, verifierMode)
 
 			vReq := &CredentialsVerificationRequest{
-				Credential: getSignedVC(t, privKey, validVC, verificationMethod),
+				Credential: getSignedVC(t, privKey, string(vcBytes), verificationMethod),
 				Opts: &CredentialsVerificationOptions{
-					Checks: []string{proofCheck},
+					Checks: []string{proofCheck, statusCheck},
 				},
 			}
 
@@ -2224,8 +2240,7 @@ func TestCredentialVerifications(t *testing.T) {
 			verificationResp := &CredentialsVerificationSuccessResponse{}
 			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 			require.NoError(t, err)
-			require.Equal(t, 1, len(verificationResp.Checks))
-			require.Equal(t, proofCheck, verificationResp.Checks[0])
+			require.Equal(t, 2, len(verificationResp.Checks))
 		})
 
 		t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
@@ -2247,6 +2262,20 @@ func TestCredentialVerifications(t *testing.T) {
 			require.Equal(t, 1, len(verificationResp.Checks))
 			require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
 			require.Equal(t, "verifiable credential doesn't contains proof", verificationResp.Checks[0].Error)
+		})
+
+		t.Run("credential verification - invalid credential", func(t *testing.T) {
+			req := &CredentialsVerificationRequest{
+				Credential: []byte(testIssuerProfileWithDID),
+			}
+
+			reqBytes, err := json.Marshal(req)
+			require.NoError(t, err)
+
+			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "Invalid request: build new credential")
 		})
 
 		t.Run("credential verification - proof check failure", func(t *testing.T) {
@@ -2293,6 +2322,103 @@ func TestCredentialVerifications(t *testing.T) {
 			require.Equal(t, 1, len(verificationResp.Checks))
 			require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
 			require.Contains(t, verificationResp.Checks[0].Error, "proof validation error")
+		})
+
+		t.Run("credential verification - status check failure", func(t *testing.T) {
+			t.Run("status check failure - no status in VC", func(t *testing.T) {
+				vc.Status = nil
+
+				vcBytes, err := vc.MarshalJSON()
+				require.NoError(t, err)
+
+				req := &CredentialsVerificationRequest{
+					Credential: vcBytes,
+					Opts: &CredentialsVerificationOptions{
+						Checks: []string{statusCheck},
+					},
+				}
+
+				reqBytes, err := json.Marshal(req)
+				require.NoError(t, err)
+
+				rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+				require.Equal(t, http.StatusBadRequest, rr.Code)
+
+				verificationResp := &CredentialsVerificationFailResponse{}
+				err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(verificationResp.Checks))
+				require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+				require.Equal(t, "credential doesn't contain status", verificationResp.Checks[0].Error)
+			})
+
+			t.Run("status check failure - error fetching status", func(t *testing.T) {
+				vc.Status = &verifiable.TypedID{
+					ID: "http://example.com/status/100",
+				}
+
+				vcBytes, err := vc.MarshalJSON()
+				require.NoError(t, err)
+
+				req := &CredentialsVerificationRequest{
+					Credential: vcBytes,
+					Opts: &CredentialsVerificationOptions{
+						Checks: []string{statusCheck},
+					},
+				}
+
+				reqBytes, err := json.Marshal(req)
+				require.NoError(t, err)
+
+				rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+				require.Equal(t, http.StatusBadRequest, rr.Code)
+
+				verificationResp := &CredentialsVerificationFailResponse{}
+				err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(verificationResp.Checks))
+				require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+				require.Contains(t, verificationResp.Checks[0].Error, "failed to fetch the status")
+			})
+
+			t.Run("status check failure - revoked", func(t *testing.T) {
+				cslBytes, err := json.Marshal(&cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
+					strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1873"),
+					strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1872")}})
+				require.NoError(t, err)
+				op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+					Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
+
+				vc.Status = &verifiable.TypedID{
+					ID: "http://example.com/status/100",
+				}
+
+				vcBytes, err := vc.MarshalJSON()
+				require.NoError(t, err)
+
+				req := &CredentialsVerificationRequest{
+					Credential: vcBytes,
+					Opts: &CredentialsVerificationOptions{
+						Checks: []string{statusCheck},
+					},
+				}
+
+				reqBytes, err := json.Marshal(req)
+				require.NoError(t, err)
+
+				rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+
+				require.Equal(t, http.StatusBadRequest, rr.Code)
+
+				verificationResp := &CredentialsVerificationFailResponse{}
+				err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(verificationResp.Checks))
+				require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+				require.Contains(t, verificationResp.Checks[0].Error, "Revoked")
+			})
 		})
 
 		t.Run("credential verification - invalid check", func(t *testing.T) {
