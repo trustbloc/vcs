@@ -85,7 +85,7 @@ type GenerateKeyPairResponse struct {
 
 // CredentialsVerificationRequest request for verifying credential.
 type CredentialsVerificationRequest struct {
-	Credential json.RawMessage                 `json:"credential,omitempty"`
+	Credential json.RawMessage                 `json:"verifiableCredential,omitempty"`
 	Opts       *CredentialsVerificationOptions `json:"options,omitempty"`
 }
 
@@ -113,7 +113,7 @@ type CredentialsVerificationCheckResult struct {
 
 // VerifyPresentationRequest request for verifying presentation.
 type VerifyPresentationRequest struct {
-	Presentation json.RawMessage            `json:"credential,omitempty"`
+	Presentation json.RawMessage            `json:"verifiablePresentation,omitempty"`
 	Opts         *VerifyPresentationOptions `json:"options,omitempty"`
 }
 
