@@ -15,11 +15,11 @@ Feature: Using VC REST API
     And   New credential is created under "<profile>" profile
     And   That credential is stored under "<profile>" profile
     Then  We can retrieve credential under "<profile>" profile
-    And   Now we verify that credential with verified flag is "true" and verified msg contains "success"
-    And   Now we verify that "JWS" signed presentation with verified flag is "true" and verified msg contains "success"
-    And   Now we verify that "ProofValue" signed presentation with verified flag is "true" and verified msg contains "success"
+    And   Now we verify that credential for checks "proof,status" is "successful" with message "proof,status"
+    And   Now we verify that "JWS" signed presentation for checks "proof" is "successful" with message "proof"
+    And   Now we verify that "ProofValue" signed presentation for checks "proof" is "successful" with message "proof"
     Then  Update created credential status "Revoked" and status reason "Disciplinary action"
-    And   Now we verify that credential with verified flag is "false" and verified msg contains "Revoked"
+    And   Now we verify that credential for checks "proof,status" is "failed" with message "Revoked"
     Examples:
       | profile | did | privateKey | signatureHolder |
       | myprofile |   |            | ProofValue |
