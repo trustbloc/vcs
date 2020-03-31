@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/cucumber/godog"
@@ -31,7 +30,7 @@ const (
 	expectedProfileResponseURI           = "https://example.com/credentials"
 	expectedProfileResponseSignatureType = "Ed25519Signature2018"
 	issuerURL                            = "http://localhost:8070/"
-	verifierURL                          = "http://localhost:8069/"
+	verifierURL                          = "http://localhost:8069/verifier"
 )
 
 // Steps is steps for VC BDD tests
@@ -52,28 +51,42 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCredential)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
-	s.Step(`^Now we verify that credential with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`,
+	s.Step(`^Now we verify that credential for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`,
 		e.verifyCredential)
-	s.Step(`^Now we verify that "([^"]*)" signed presentation with verified flag is "([^"]*)" and verified msg contains "([^"]*)"$`, //nolint: lll
+	s.Step(`^Now we verify that "([^"]*)" signed presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.verifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
 }
 
-func (e *Steps) verifyPresentation(holder, verifiedFlag, verifiedMsg string) error {
+func (e *Steps) verifyPresentation(holder, checksList, result, respMessage string) error {
 	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, getSignatureRepresentation(holder),
 		e.bddContext.VDRI)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.Post(verifierURL+"verifyPresentation", "", //nolint: bodyclose
-		bytes.NewBuffer(vp))
+	checks := strings.Split(checksList, ",")
+
+	req := &operation.VerifyPresentationRequest{
+		Presentation: vp,
+		Opts: &operation.VerifyPresentationOptions{
+			Checks: checks,
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(verifierURL+"/presentations", "", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
 
 	if err != nil {
 		return err
 	}
 
-	return verify(resp, verifiedFlag, verifiedMsg)
+	return verify(resp, checks, result, respMessage)
 }
 
 func (e *Steps) createProfile(profileName, did, privateKey, holder string) error {
@@ -306,41 +319,63 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	return nil
 }
 
-func (e *Steps) verifyCredential(verifiedFlag, verifiedMsg string) error {
-	// False positive on linter bodyclose
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(verifierURL+"verify", "", //nolint: bodyclose
-		bytes.NewBuffer(e.bddContext.CreatedCredential))
+func (e *Steps) verifyCredential(checksList, result, respMessage string) error {
+	checks := strings.Split(checksList, ",")
+
+	req := &operation.CredentialsVerificationRequest{
+		Credential: e.bddContext.CreatedCredential,
+		Opts: &operation.CredentialsVerificationOptions{
+			Checks: checks,
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	return verify(resp, verifiedFlag, verifiedMsg)
+	// False positive on linter bodyclose
+	// https://github.com/golangci/golangci-lint/issues/637
+	resp, err := http.Post(verifierURL+"/credentials", "", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return err
+	}
+
+	return verify(resp, checks, result, respMessage)
 }
 
-func verify(resp *http.Response, verifiedFlag, verifiedMsg string) error {
+func verify(resp *http.Response, checks []string, result, respMessage string) error {
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
-	}
+	if result == "successful" {
+		if resp.StatusCode != http.StatusOK {
+			return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		}
 
-	verifiedResp := operation.VerifyCredentialResponse{}
+		verifiedResp := operation.CredentialsVerificationSuccessResponse{}
 
-	err = json.Unmarshal(respBytes, &verifiedResp)
-	if err != nil {
-		return err
-	}
+		err = json.Unmarshal(respBytes, &verifiedResp)
+		if err != nil {
+			return err
+		}
 
-	if strconv.FormatBool(verifiedResp.Verified) != verifiedFlag {
-		return fmt.Errorf("resp verified %t not equal verified flag %s", verifiedResp.Verified, verifiedFlag)
-	}
+		respChecks := strings.Split(respMessage, ",")
 
-	if !strings.Contains(verifiedResp.Message, verifiedMsg) {
-		return fmt.Errorf("resp verified msg %s not contains %s", verifiedResp.Message, verifiedMsg)
+		if len(respChecks) != len(verifiedResp.Checks) {
+			return fmt.Errorf("resp checks %d doesn't equal to requested checks %d", len(verifiedResp.Checks), len(checks))
+		}
+	} else {
+		if resp.StatusCode != http.StatusBadRequest {
+			return bddutil.ExpectedStatusCodeError(http.StatusBadRequest, resp.StatusCode, respBytes)
+		}
+
+		if !strings.Contains(string(respBytes), respMessage) {
+			return fmt.Errorf("resp verified msg %s not contains %s", string(respBytes), respMessage)
+		}
 	}
 
 	return nil
