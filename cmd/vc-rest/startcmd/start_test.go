@@ -6,6 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -192,7 +193,7 @@ func TestCreateProvider(t *testing.T) {
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		v, err := createVDRI("wrong", nil)
+		v, err := createVDRI("wrong", nil, &tls.Config{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 		require.Nil(t, v)
@@ -205,7 +206,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createVDRI("localhost:8083", nil)
+		v, err := createVDRI("localhost:8083", nil, &tls.Config{})
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
