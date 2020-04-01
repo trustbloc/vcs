@@ -15,5 +15,5 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/trustbloc/edge-core v0.1.3-0.20200318193133-ec6c4caf61ae
 	github.com/trustbloc/edv v0.1.3-0.20200305035835-69c9f3cb077b
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200401180214-c51c8a66c762
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200401211047-51191c718d4a
 )
