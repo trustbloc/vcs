@@ -271,6 +271,13 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		parameters.mode = string(combined)
 	}
 
+	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
+	if err != nil {
+		return err
+	}
+
+	tlsConfig := &tls.Config{RootCAs: rootCAs}
+
 	// Create KMS
 	kms, err := createKMS(ariesmemstore.NewProvider())
 	if err != nil {
@@ -278,7 +285,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.universalResolverURL, kms)
+	vdri, err := createVDRI(parameters.universalResolverURL, kms, tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -293,15 +300,10 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		externalHostURL = parameters.hostURLExternal
 	}
 
-	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
-	if err != nil {
-		return err
-	}
-
 	vcService, err := vc.New(&operation.Config{StoreProvider: storeProvider,
-		EDVClient: edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
+		EDVClient: edv.New(parameters.edvURL, edv.WithTLSConfig(tlsConfig)),
 		KMS:       kms, VDRI: vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
-		TLSConfig: &tls.Config{RootCAs: rootCAs}})
+		TLSConfig: tlsConfig})
 	if err != nil {
 		return err
 	}
@@ -332,14 +334,14 @@ func createKMS(s ariesstorage.Provider) (ariesapi.CloseableKMS, error) {
 	return kms, nil
 }
 
-func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, error) {
+func createVDRI(universalResolver string, kms legacykms.KMS, tlsConfig *tls.Config) (vdriapi.Registry, error) {
 	var opts []vdripkg.Option
 
 	var blocVDRIOpts []trustbloc.Option
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
-			httpbinding.WithAccept(acceptsDID))
+			httpbinding.WithAccept(acceptsDID), httpbinding.WithTLSConfig(tlsConfig))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
 		}
@@ -348,7 +350,8 @@ func createVDRI(universalResolver string, kms legacykms.KMS) (vdriapi.Registry, 
 		opts = append(opts, vdripkg.WithVDRI(universalResolverVDRI))
 
 		// add universal resolver to bloc vdri
-		blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithResolverURL(universalResolver))
+		blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithResolverURL(universalResolver),
+			trustbloc.WithTLSConfig(tlsConfig))
 	}
 
 	// add bloc vdri
