@@ -16,6 +16,6 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/trustbloc/edge-core v0.1.3-0.20200327203235-d7f232b27a56
 	github.com/trustbloc/edge-service v0.0.0
-	github.com/trustbloc/sidetree-core-go v0.1.3-0.20200316172436-5d9ccb59942d
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200327220339-c2f631bbc668
+	github.com/trustbloc/sidetree-core-go v0.1.3-0.20200329202924-b30de8bf5c8a
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200401180214-c51c8a66c762
 )
