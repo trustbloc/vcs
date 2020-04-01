@@ -47,13 +47,11 @@ const (
 
 	// endpoints
 	createCredentialEndpoint          = "/credential"
-	verifyCredentialEndpoint          = "/verify"
 	updateCredentialStatusEndpoint    = "/updateStatus"
 	createProfileEndpoint             = profile
 	getProfileEndpoint                = profile + "/{id}"
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
-	verifyPresentationEndpoint        = "/verifyPresentation"
 	vcStatusEndpoint                  = vcStatus + "/{id}"
 	credentialsBasePath               = "/credentials"
 	issueCredentialPath               = credentialsBasePath + "/issueCredential"
@@ -239,8 +237,6 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 
 func (o *Operation) verifierHandlers() []Handler {
 	return []Handler{
-		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
-		support.NewHTTPHandler(verifyPresentationEndpoint, http.MethodPost, o.verifyVPHandler),
 		// TODO https://github.com/trustbloc/edge-service/issues/153 Remove /verifications API after
 		//  transition period
 		support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialsVerificationHandler),
@@ -259,7 +255,9 @@ func (o *Operation) issuerHandlers() []Handler {
 		// verifiable credential
 		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
-		support.NewHTTPHandler(verifyCredentialEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		// TODO https://github.com/trustbloc/edge-service/issues/181 verifyCredential API present in both issuer
+		//  and verifier mode. Is this valid ?
+		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
 		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
 		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
 		support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
@@ -318,42 +316,6 @@ func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Re
 
 	rw.WriteHeader(http.StatusCreated)
 	o.writeResponse(rw, signedVC)
-}
-
-func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to read request body: %s", err.Error()))
-
-		return
-	}
-
-	// verify vc
-	vc, err := o.parseAndVerifyVC(body)
-	if err != nil {
-		response := &VerifyCredentialResponse{
-			Verified: false,
-			Message:  err.Error()}
-
-		rw.WriteHeader(http.StatusOK)
-		o.writeResponse(rw, response)
-
-		return
-	}
-
-	// vc is verified
-	// now to check vc status
-	resp, err := o.checkVCStatus(vc.Status.ID, vc.ID)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			err.Error())
-
-		return
-	}
-
-	rw.WriteHeader(http.StatusOK)
-	o.writeResponse(rw, resp)
 }
 
 func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse, error) {
@@ -671,36 +633,6 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 
 		return
 	}
-}
-
-func (o *Operation) verifyVPHandler(rw http.ResponseWriter, req *http.Request) {
-	body, err := ioutil.ReadAll(req.Body)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to read request body: %s", err.Error()))
-
-		return
-	}
-	// verify vp
-	err = o.parseAndVerifyVP(body)
-	if err != nil {
-		response := &VerifyCredentialResponse{
-			Verified: false,
-			Message:  err.Error()}
-
-		rw.WriteHeader(http.StatusOK)
-		o.writeResponse(rw, response)
-
-		return
-	}
-
-	resp := &VerifyCredentialResponse{
-		Verified: true,
-		Message:  successMsg,
-	}
-
-	rw.WriteHeader(http.StatusOK)
-	o.writeResponse(rw, resp)
 }
 
 func (o *Operation) createCredential(profile *vcprofile.DataProfile,

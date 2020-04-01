@@ -8,7 +8,6 @@ package vc
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
@@ -94,9 +93,5 @@ func TestVerifierController_GetOperations(t *testing.T) {
 
 	ops := controller.GetOperations()
 
-	require.Equal(t, 5, len(ops))
-
-	require.Equal(t, "/verify", ops[0].Path())
-	require.Equal(t, http.MethodPost, ops[0].Method())
-	require.NotNil(t, ops[0].Handle())
+	require.Equal(t, 3, len(ops))
 }
