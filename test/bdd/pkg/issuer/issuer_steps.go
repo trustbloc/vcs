@@ -19,7 +19,6 @@ import (
 	"github.com/cucumber/godog"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	log "github.com/sirupsen/logrus"
-	"github.com/trustbloc/sidetree-core-go/pkg/docutil"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -33,11 +32,11 @@ const (
 )
 
 const (
-	sha2_256       = 18
-	recoveryOTP    = "recoveryOTP"
-	updateOTP      = "updateOTP"
-	pubKeyIndex1   = "#key-1"
-	defaultKeyType = "Ed25519VerificationKey2018"
+	sha2_256            = 18
+	recoveryRevealValue = "recoveryOTP"
+	updateRevealValue   = "updateOTP"
+	pubKeyIndex1        = "#key-1"
+	defaultKeyType      = "Ed25519VerificationKey2018"
 
 	validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 	validVC      = `{` +
@@ -363,11 +362,11 @@ func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
 	}
 
 	req, err := helper.NewCreateRequest(&helper.CreateRequestInfo{
-		OpaqueDocument:  string(docBytes),
-		RecoveryKey:     "recoveryKey",
-		NextRecoveryOTP: docutil.EncodeToString([]byte(recoveryOTP)),
-		NextUpdateOTP:   docutil.EncodeToString([]byte(updateOTP)),
-		MultihashCode:   sha2_256,
+		OpaqueDocument:          string(docBytes),
+		RecoveryKey:             "recoveryKey",
+		NextRecoveryRevealValue: []byte(recoveryRevealValue),
+		NextUpdateRevealValue:   []byte(updateRevealValue),
+		MultihashCode:           sha2_256,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sidetree request: %w", err)
