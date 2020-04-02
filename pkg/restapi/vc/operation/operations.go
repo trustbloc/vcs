@@ -44,6 +44,7 @@ const (
 	credentialStoreName = "credential"
 	profile             = "/profile"
 	vcStatus            = "/status"
+	profileIDPathParam  = "profileID"
 
 	// endpoints
 	createCredentialEndpoint          = "/credential"
@@ -53,7 +54,7 @@ const (
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
 	vcStatusEndpoint                  = vcStatus + "/{id}"
-	credentialsBasePath               = "/credentials"
+	credentialsBasePath               = "/" + "{" + profileIDPathParam + "}" + "/credentials"
 	issueCredentialPath               = credentialsBasePath + "/issueCredential"
 	composeAndIssueCredentialPath     = credentialsBasePath + "/composeAndIssueCredential"
 	kmsBasePath                       = "/kms"
@@ -248,7 +249,7 @@ func (o *Operation) verifierHandlers() []Handler {
 
 func (o *Operation) issuerHandlers() []Handler {
 	return []Handler{
-		// profile
+		// issuer profile
 		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
 
@@ -773,10 +774,21 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 }
 
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the issuer profile
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	profile, err := o.profileStore.GetProfile(profileID)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile - id=%s: err=%s",
+			profileID, err.Error()))
+
+		return
+	}
+
 	// get the request
 	cred := IssueCredentialRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&cred)
+	err = json.NewDecoder(req.Body).Decode(&cred)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
@@ -784,21 +796,24 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// validate the VC
-	validatedCred, _, err := verifiable.NewCredential(cred.Credential)
+	credential, _, err := verifiable.NewCredential(cred.Credential)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
 
 		return
 	}
 
-	// use issuer id if options doesn't specify the DID
-	signerDID := validatedCred.Issuer.ID
-	if cred.Opts != nil && cred.Opts.AssertionMethod != "" {
-		signerDID = cred.Opts.AssertionMethod
+	// update the signing profile with the request options
+	err = updateIssueCredSigningProfile(o.vdri, &cred, profile)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to update signing profile:"+
+			" %s", err.Error()))
+
+		return
 	}
 
 	// sign the credential
-	signedVC, err := o.signCredential(validatedCred, signerDID, verifiable.SignatureJWS)
+	signedVC, err := o.crypto.SignCredential(profile, credential)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -811,10 +826,20 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 }
 
 func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the issuer profile
+	id := mux.Vars(req)[profileIDPathParam]
+
+	profile, err := o.profileStore.GetProfile(id)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile: %s", err.Error()))
+
+		return
+	}
+
 	// get the request
 	composeCredReq := ComposeCredentialRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&composeCredReq)
+	err = json.NewDecoder(req.Body).Decode(&composeCredReq)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
@@ -830,32 +855,17 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		return
 	}
 
-	signatureRepresentation := verifiable.SignatureJWS
-
-	if composeCredReq.ProofFormat != "" {
-		switch composeCredReq.ProofFormat {
-		case "jws":
-			signatureRepresentation = verifiable.SignatureJWS
-		case "proofValue":
-			signatureRepresentation = verifiable.SignatureProofValue
-		default:
-			o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid proof format : %s",
-				composeCredReq.ProofFormat))
-
-			return
-		}
-	}
-
-	signerDID, err := getSignerDID(&composeCredReq)
+	// update the signing profile with the request options
+	err = updateComposeAndIssueSigningProfile(&composeCredReq, profile)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to get DID for signing:"+
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to update signing profile:"+
 			" %s", err.Error()))
 
 		return
 	}
 
 	// sign the credential
-	signedVC, err := o.signCredential(credential, signerDID, signatureRepresentation)
+	signedVC, err := o.crypto.SignCredential(profile, credential)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -866,37 +876,6 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	// response
 	rw.WriteHeader(http.StatusOK)
 	o.writeResponse(rw, signedVC)
-}
-
-func (o *Operation) signCredential(credential *verifiable.Credential, didID string,
-	signRepresentation verifiable.SignatureRepresentation) (*verifiable.Credential, error) {
-	// Resolve DID and get the public keyID
-	didDoc, err := o.vdri.Resolve(didID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve DID : %s", err.Error())
-	}
-
-	publicKeyID, err := getPublicKeyID(didDoc)
-	if err != nil {
-		return nil, err
-	}
-
-	// sign the credential
-	signedVC, err := o.crypto.SignCredential(
-		&vcprofile.DataProfile{
-			Creator: publicKeyID,
-			// TODO https://github.com/trustbloc/edge-service/issues/125 passed as options to request or
-			//  set by environment variables ?
-			SignatureType:           "Ed25519Signature2018",
-			SignatureRepresentation: signRepresentation,
-		},
-		credential,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign credential: %s", err.Error())
-	}
-
-	return signedVC, nil
 }
 
 func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Credential, error) {
@@ -977,9 +956,85 @@ func decodeTypedID(bytes json.RawMessage) ([]verifiable.TypedID, error) {
 	return nil, err
 }
 
-func getSignerDID(composeCredReq *ComposeCredentialRequest) (string, error) {
-	signerDID := composeCredReq.Issuer
+func getSignatureRepresentation(signRep string) (*verifiable.SignatureRepresentation, error) {
+	var signatureRepresentation verifiable.SignatureRepresentation
 
+	switch signRep {
+	case "jws":
+		signatureRepresentation = verifiable.SignatureJWS
+	case "proofValue":
+		signatureRepresentation = verifiable.SignatureProofValue
+	default:
+		return nil, fmt.Errorf("invalid proof format : %s", signRep)
+	}
+
+	return &signatureRepresentation, nil
+}
+
+func resolveAndGetKeyID(vdri vdriapi.Registry, didID string) (string, error) {
+	// Resolve DID and get the public keyID
+	didDoc, err := vdri.Resolve(didID)
+	if err != nil {
+		return "", err
+	}
+
+	keyID, err := getPublicKeyID(didDoc)
+	if err != nil {
+		return "", err
+	}
+
+	return keyID, nil
+}
+
+func updateIssueCredSigningProfile(vdri vdriapi.Registry, req *IssueCredentialRequest,
+	profile *vcprofile.DataProfile) error {
+	// use issuer default DID, if the request option doesn't specify the DID
+	if req.Opts != nil && req.Opts.AssertionMethod != "" {
+		keyID, err := resolveAndGetKeyID(vdri, req.Opts.AssertionMethod)
+		if err != nil {
+			return err
+		}
+
+		profile.Creator = keyID
+
+		// signer first checks for private key - set this to nil as this need to
+		// be overridden by the options
+		profile.DIDPrivateKey = ""
+	}
+
+	if &profile.SignatureRepresentation != nil {
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+	}
+
+	return nil
+}
+
+func updateComposeAndIssueSigningProfile(composeCredReq *ComposeCredentialRequest,
+	profile *vcprofile.DataProfile) error {
+	if composeCredReq.ProofFormat != "" {
+		signatureRepresentation, err := getSignatureRepresentation(composeCredReq.ProofFormat)
+		if err != nil {
+			return err
+		}
+
+		profile.SignatureRepresentation = *signatureRepresentation
+	}
+
+	if &profile.SignatureRepresentation != nil {
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+	}
+
+	keyID, err := getKeyIDFromReq(composeCredReq, profile.Creator)
+	if err != nil {
+		return err
+	}
+
+	profile.Creator = keyID
+
+	return nil
+}
+
+func getKeyIDFromReq(composeCredReq *ComposeCredentialRequest, defaultKeyID string) (string, error) {
 	if composeCredReq.ProofFormatOptions != nil {
 		proofFormatOptions := make(map[string]interface{})
 
@@ -994,11 +1049,11 @@ func getSignerDID(composeCredReq *ComposeCredentialRequest) (string, error) {
 				return "", errors.New("invalid kid type")
 			}
 
-			signerDID = kid
+			return kid, nil
 		}
 	}
 
-	return signerDID, nil
+	return defaultKeyID, nil
 }
 
 func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {

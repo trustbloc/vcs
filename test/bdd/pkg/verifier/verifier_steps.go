@@ -44,7 +44,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) credentialsVerification(user string) error {
-	vc := e.bddContext.Args[user]
+	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
 	checks := []string{"proof"}
 
 	req := &operation.CredentialsVerificationRequest{
@@ -95,7 +95,7 @@ func (e *Steps) credentialsVerification(user string) error {
 }
 
 func (e *Steps) createAndVerifyPresentation(user string) error {
-	vcBytes := e.bddContext.Args[user]
+	vcBytes := e.bddContext.Args[bddutil.GetCredentialKey(user)]
 
 	vp, err := bddutil.CreatePresentation([]byte(vcBytes), verifiable.SignatureJWS, e.bddContext.VDRI)
 	if err != nil {
