@@ -111,3 +111,18 @@ func CloseResponseBody(respBody io.Closer) {
 		log.Errorf("Failed to close response body: %s", err.Error())
 	}
 }
+
+// GetDIDKey key for storing did.
+func GetDIDKey(user string) string {
+	return user + "-did"
+}
+
+// GetProfileNameKey key for storing profile name.
+func GetProfileNameKey(user string) string {
+	return user + "-profileName"
+}
+
+// GetCredentialKey key for storing credential.
+func GetCredentialKey(user string) string {
+	return user + "-vc"
+}

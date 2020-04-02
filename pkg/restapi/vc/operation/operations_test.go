@@ -1324,6 +1324,25 @@ func TestBuildStructuredDoc(t *testing.T) {
 }
 
 func TestIssueCredential(t *testing.T) {
+	endpoint := "/test/credentials/issueCredential"
+	issuerProfileDIDKey := "did:test:abc#key-1"
+	profile := getTestProfile()
+	profile.Creator = issuerProfileDIDKey
+
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		KMS:           &kmsmock.CloseableKMS{},
+	})
+	require.NoError(t, err)
+
+	err = op.profileStore.SaveProfile(profile)
+	require.NoError(t, err)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = profile.Name
+
+	handler := getHandler(t, op, issueCredentialPath, issuerMode)
+
 	t.Run("issue credential - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
@@ -1332,7 +1351,7 @@ func TestIssueCredential(t *testing.T) {
 		_, signingKey, err := kms.CreateKeySet()
 		require.NoError(t, err)
 
-		op, err := New(&Config{
+		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KMS:           &kmsmock.CloseableKMS{},
 			VDRI: &vdrimock.MockVDRIRegistry{
@@ -1343,7 +1362,10 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
+		err = ops.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1353,7 +1375,7 @@ func TestIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -1368,13 +1390,13 @@ func TestIssueCredential(t *testing.T) {
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#key-1", proof["verificationMethod"])
 
-		// use issuer DID for signing
+		// default - DID from the issuer profile
 		req.Opts.AssertionMethod = ""
 
 		reqBytes, err = json.Marshal(req)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr = serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -1387,34 +1409,32 @@ func TestIssueCredential(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
-		require.Equal(t, "did:example:76e12ec712ebc6f1c221ebfeb1f#key-1", proof["verificationMethod"])
+		require.Equal(t, issuerProfileDIDKey, proof["verificationMethod"])
 	})
 
-	t.Run("issue credential - invalid request", func(t *testing.T) {
-		op, err := New(&Config{
+	t.Run("issue credential - invalid profile", func(t *testing.T) {
+		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KMS:           &kmsmock.CloseableKMS{},
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, issuerMode)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath,
-			[]byte("invalid json"))
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid issuer profile")
+	})
+
+	t.Run("issue credential - invalid request", func(t *testing.T) {
+		rr := serveHTTPMux(t, handler, endpoint, []byte("invalid json"), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), invalidRequestErrMsg)
 	})
 
 	t.Run("issue credential - invalid vc", func(t *testing.T) {
-		op, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
-			KMS:           &kmsmock.CloseableKMS{},
-		})
-		require.NoError(t, err)
-
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
-
 		req := &IssueCredentialRequest{
 			Credential: []byte(invalidVC),
 		}
@@ -1422,21 +1442,13 @@ func TestIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to validate credential")
 	})
 
 	t.Run("issue credential - invalid vc", func(t *testing.T) {
-		op, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
-			KMS:           &kmsmock.CloseableKMS{},
-		})
-		require.NoError(t, err)
-
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
-
 		req := &IssueCredentialRequest{
 			Credential: []byte(invalidVC),
 		}
@@ -1444,21 +1456,14 @@ func TestIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to validate credential")
 	})
 
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
-		op, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
-			KMS:           &kmsmock.CloseableKMS{},
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("did not found")},
-		})
-		require.NoError(t, err)
-
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
+		op.vdri = &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("did not found")}
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1468,21 +1473,14 @@ func TestIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
-		require.Equal(t, http.StatusInternalServerError, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to resolve DID")
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to update signing profile: did not found")
 	})
 
 	t.Run("issue credential - DID doesn't contain Public key", func(t *testing.T) {
-		op, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
-			KMS:           &kmsmock.CloseableKMS{},
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{}},
-		})
-		require.NoError(t, err)
-
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
+		op.vdri = &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{}}
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1492,9 +1490,9 @@ func TestIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
-		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "public key not found in DID Document")
 	})
 
@@ -1512,6 +1510,9 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
 		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
@@ -1522,7 +1523,7 @@ func TestIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, issueCredentialHandler.Handle(), http.MethodPost, issueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to sign credential")
@@ -1574,6 +1575,17 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	handler := getHandler(t, op, composeAndIssueCredentialPath, issuerMode)
 
+	endpoint := "/test/credentials/composeAndIssueCredential"
+	issuerProfileDIDKey := "did:test:abc#key-1"
+	profile := getTestProfile()
+	profile.Creator = issuerProfileDIDKey
+
+	err = op.profileStore.SaveProfile(profile)
+	require.NoError(t, err)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = profile.Name
+
 	t.Run("compose and issue credential - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
@@ -1587,11 +1599,16 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		op, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KMS:           &kmsmock.CloseableKMS{},
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+				return createDIDDoc(didID, base58.Decode(signingKey)), nil
+			}},
 		})
 		require.NoError(t, err)
 
 		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		err = op.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
 
 		restHandler := getHandler(t, op, composeAndIssueCredentialPath, issuerMode)
 
@@ -1617,8 +1634,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// invoke the endpoint
-		rr := serveHTTP(t, restHandler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
-
+		rr := serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
 		require.Equal(t, http.StatusOK, rr.Code)
 
 		// validate the response
@@ -1660,7 +1676,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// invoke the endpoint
-		rr = serveHTTP(t, restHandler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		rr = serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -1676,7 +1692,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 		// test - with proof format
 		proofFormatOptions := make(map[string]interface{})
-		proofFormatOptions[keyID] = "did:test:hd9712akdsaishda7"
+		proofFormatOptions[keyID] = "did:test:hd9712akdsaishda7#key-1"
 
 		proofFormatOptionsJSON, err := json.Marshal(proofFormatOptions)
 		require.NoError(t, err)
@@ -1687,7 +1703,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		reqBytes, err = json.Marshal(req)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, restHandler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		rr = serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
 		require.Equal(t, http.StatusOK, rr.Code)
 
 		signedVCResp := make(map[string]interface{})
@@ -1702,9 +1718,23 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, "did:test:hd9712akdsaishda7#key-1", proof["verificationMethod"])
 	})
 
+	t.Run("compose and issue credential - invalid profile", func(t *testing.T) {
+		ops, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+
+		restHandler := getHandler(t, ops, composeAndIssueCredentialPath, issuerMode)
+
+		rr := serveHTTPMux(t, restHandler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid issuer profile")
+	})
+
 	t.Run("compose and issue credential - invalid request", func(t *testing.T) {
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath,
-			[]byte("invalid input"))
+		rr := serveHTTPMux(t, handler, endpoint, []byte("invalid input"), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
@@ -1717,7 +1747,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to sign credential")
@@ -1729,7 +1759,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		}`
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
+		rr := serveHTTPMux(t, handler, endpoint, []byte(req), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to build credential")
@@ -1741,7 +1771,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		}`
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
+		rr := serveHTTPMux(t, handler, endpoint, []byte(req), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to build credential")
@@ -1753,7 +1783,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		}`
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, []byte(req))
+		rr := serveHTTPMux(t, handler, endpoint, []byte(req), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to build credential")
@@ -1768,7 +1798,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid proof format : invalid-proof-format-value")
@@ -1788,10 +1818,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to get DID for signing: json: cannot unmarshal number")
+		require.Contains(t, rr.Body.String(), "failed to update signing profile: json: cannot unmarshal number")
 	})
 
 	t.Run("compose and issue credential - get signing DID error - invalid kid type", func(t *testing.T) {
@@ -1809,10 +1839,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// invoke the endpoint
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, composeAndIssueCredentialPath, reqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to get DID for signing: invalid kid type")
+		require.Contains(t, rr.Body.String(), "failed to update signing profile: invalid kid type")
 	})
 }
 
@@ -2405,6 +2435,20 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, httpReq)
+
+	return rr
+}
+
+func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byte,
+	urlVars map[string]string) *httptest.ResponseRecorder {
+	r, err := http.NewRequest(handler.Method(), endpoint, bytes.NewBuffer(reqBytes))
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+
+	req1 := mux.SetURLVars(r, urlVars)
+
+	handler.Handle().ServeHTTP(rr, req1)
 
 	return rr
 }
