@@ -20,7 +20,7 @@ const driverOpts = {
         options: {"options":{"network":"danube"}},
         // send request to '' because of issue in local universal registrar
         // local universal registrar issue '"org.hyperledger.indy.sdk.ledger.TimeoutException: Timeout happens for ledger operation"'
-        url: "https://uniregistrar.io"
+        remote: true
     },
 }
 
@@ -38,7 +38,8 @@ const createDIDFromRegistrar = async (url, drivers) => {
 
         var resp
         try {
-            const registrarURL = (opts.url) ? `${opts.url}${opts.path}` : `${url}${opts.path}`
+            const registrarURL = (opts.remote) ? `${process.env.RegistrarRemoteURL}${opts.path}` : `${url}${opts.path}`
+            console.debug(`Sending create did request for driver '${driver}' to endpoint '${registrarURL}'`)
             resp = await axios.post(registrarURL, opts.options)
         } catch (error) {
             console.log(`Failed to create DID for driver ${driver}, cause ${error}`)
@@ -67,7 +68,7 @@ const createDIDFromRegistrar = async (url, drivers) => {
 }
 
 
-if (!process.env.ResolverURL) {
+if (!process.env.RegistrarLocalURL) {
     console.log("Please provide registrar endpoint for submitting requests.")
     return
 }
@@ -81,5 +82,5 @@ if (!process.env.DRIVERS) {
 const drivers = process.env.DRIVERS.split(",")
 
 // create DIDs by calling universal registrar for given drivers
-createDIDFromRegistrar(process.env.ResolverURL, drivers)
+createDIDFromRegistrar(process.env.RegistrarLocalURL, drivers)
 

@@ -9,6 +9,8 @@ package context
 import (
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -22,19 +24,16 @@ import (
 
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
-	Args                            map[string]string
-	ProfileRequestTemplate          []byte
-	CreateCredentialRequestTemplate []byte
-	CreatedCredential               []byte
-	CreatedPresentation             []byte
-	CreatedProfile                  *profile.DataProfile
-	StoreVCRequest                  []byte
-	VDRI                            vdriapi.Registry
-	TLSConfig                       *tls.Config
+	Args              map[string]string
+	CreatedCredential []byte
+	CreatedProfile    *profile.DataProfile
+	VDRI              vdriapi.Registry
+	TLSConfig         *tls.Config
+	TestData          map[string][]byte
 }
 
 // NewBDDContext create new BDDContext
-func NewBDDContext(caCertPath string) (*BDDContext, error) {
+func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 	rootCAs, err := tlsutils.GetCertPool(false, []string{caCertPath})
 	if err != nil {
 		return nil, err
@@ -45,45 +44,26 @@ func NewBDDContext(caCertPath string) (*BDDContext, error) {
 		return nil, err
 	}
 
+	testData := make(map[string][]byte)
+
+	files, err := ioutil.ReadDir(testDataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read test data directory: %w", err)
+	}
+
+	for _, file := range files {
+		testData[file.Name()], err = ioutil.ReadFile(filepath.Join(testDataPath, file.Name())) //nolint: gosec
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tesdata '%s' : %w", file.Name(), err)
+		}
+	}
+
 	instance := BDDContext{
-		Args: make(map[string]string),
-		ProfileRequestTemplate: []byte(`{
-		"name": "ToBeChangedInStep",
-		"uri": "https://example.com/credentials",
-		"signatureType": "Ed25519Signature2018",
-		"signatureRepresentation": 1}`),
-		CreateCredentialRequestTemplate: []byte(`{
-			"@context": ["https://www.w3.org/2018/credentials/v1"],
-"type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "profile": "ToBeChangedInStep"
-}`),
-		StoreVCRequest: []byte(`{
-			"profile": "ToBeChangedInStep",
-			"credential" : "{\"@context\":[\"https:\/\/www.w3.org\/2018\/credentials\/v1\"],\"credentialSchema\":[],` +
-			`\"credentialSubject\":{\"degree\":{\"type\":\"BachelorDegree\",\"university\":\"MIT\"},\"id\":` +
-			`\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\` +
-			`"did:example:c276e12ec21ebfeb1f712ebc6f1\"},\"id\":\` +
-			`"https:\/\/example.com\/credentials\/60ee5363-be83-4f6b-b4a5-894a678fdcfa\",\"issuanceDate\":` +
-			`\"2020-01-31T00:05:14.2705985Z\",\"issuer\":{\"id\":\"did:peer:22\",\"name\":\"MyProfile\"},\"proof\"` +
-			`:{\"created\":\"2020-01-31T00:05:14Z\",\"creator\":\"did:peer:22#key1\",\"domain\":\"\",\"nonce` +
-			`\":\"\",\"proofValue\":\` +
-			`"pm4VBH74TXY_JKYcTX5J-iygJDv-rTvs8J8VTrpdoMjd3DsVNIiHM33b5vMm336wkYqmYhaxWPOsMnrCsQNTBw\",\"type\":\` +
-			`"Ed25519Signature2018\"},\"type\":[\"VerifiableCredential\",\"UniversityDegreeCredential\"]}"
-}`),
+		Args:      make(map[string]string),
 		VDRI:      vdri,
-		TLSConfig: &tls.Config{RootCAs: rootCAs}}
+		TLSConfig: &tls.Config{RootCAs: rootCAs},
+		TestData:  testData,
+	}
 
 	return &instance, nil
 }
@@ -91,7 +71,7 @@ func NewBDDContext(caCertPath string) (*BDDContext, error) {
 func createVDRI(universalResolver string) (vdriapi.Registry, error) {
 	universalResolverVDRI, err := httpbinding.New(universalResolver,
 		httpbinding.WithAccept(func(method string) bool {
-			return method == "v1" || method == "elem" || method == "sov"
+			return method == "v1" || method == "elem" || method == "sov" || method == "web"
 		}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)

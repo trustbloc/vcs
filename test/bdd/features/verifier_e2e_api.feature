@@ -9,11 +9,20 @@
 Feature: Verifier VC REST API
 
   @verifyCred_api
-  Scenario: Verify Credential
-    Given "Alice" has stored her transcript from the University
+  Scenario Outline: Verify Credential
+    Given "Alice" has stored her transcript "<verifiableCredential>" from the University
     Then  Employer verifies the transcript provided by "Alice"
+    Examples:
+    Examples:
+      |   verifiableCredential  |
+      |                         |
+      |     transmute_vc.json   |
 
   @verifyPresentation_api
-  Scenario: Verify Presentation
-    Given "Alice" has stored her transcript from the University
+  Scenario Outline: Verify Presentation
+    Given "Alice" has stored her transcript "<verifiablePresentation>" presented from the University
     Then  Employer verifies the transcript presented by "Alice"
+    Examples:
+      |   verifiablePresentation  |
+      |                           |
+      |     transmute_vp.json     |

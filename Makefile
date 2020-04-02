@@ -8,6 +8,10 @@ VC_REST_PATH=cmd/vc-rest
 DOCKER_OUTPUT_NS   ?= docker.pkg.github.com
 VC_REST_IMAGE_NAME   ?= trustbloc/edge-service/vc-rest
 DID_ELEMENT_SIDETREE_REQUEST_URL ?= https://element-did.com/api/v1/sidetree/requests
+# LOCAL UNIVERSAL REGISTRAR ENDPOINT
+UNIVERSAL_REGISTRAR_LOCAL ?= http://localhost:9080
+# REMOTE UNIVERSAL REGISTRAR ENDPOINT
+UNIVERSAL_REGISTRAR_REMOTE ?= https://uniregistrar.io
 
 # Tool commands (overridable)
 ALPINE_VER ?= 3.10
@@ -68,7 +72,13 @@ create-element-did: clean
 uniregistrar-create-dids: clean
 	@mkdir -p .build
 	@cp scripts/uniregistrar-create-dids.js .build/
-	@scripts/uniregistrar_create_dids.sh
+	@UNIREGISTRAR_LOCAL=$(UNIVERSAL_REGISTRAR_LOCAL) UNIREGISTRAR_REMOTE=$(UNIVERSAL_REGISTRAR_REMOTE) scripts/uniregistrar_create_dids.sh
+
+# this target creates VCs and VPs from other systems for interop tests
+prepare-test-verifiables: clean
+	@mkdir -p .build
+	@cp scripts/prepare-test-verifiables.js .build/
+	@scripts/prepare_test_verifiables.sh
 
 .PHONY: clean
 clean: clean-build

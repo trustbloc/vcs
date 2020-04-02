@@ -508,7 +508,7 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 	encryptedStructuredDoc, err := o.packer.Pack(marshalledStructuredDoc,
 		base58.Decode(o.senderKey), [][]byte{base58.Decode(o.senderKey)})
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
@@ -520,15 +520,24 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 	}
 
 	_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
+
+	if err != nil && strings.Contains(err.Error(), operation.VaultNotFoundErrMsg) {
+		// create the new vault for this profile, if it doesn't exist
+		_, err = o.edvClient.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: data.Profile})
+		if err == nil {
+			_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
+		}
+	}
+
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
 
 	err = o.idMappingStore.Put(vc.ID, []byte(doc.ID))
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
@@ -589,14 +598,16 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 
 	edvDocID, err := o.idMappingStore.Get(id)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("failed to get ID mapping : %s", err.Error()))
 
 		return
 	}
 
 	document, err := o.edvClient.ReadDocument(profile, string(edvDocID))
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		o.writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("failed to read document : %s", err.Error()))
 
 		return
 	}

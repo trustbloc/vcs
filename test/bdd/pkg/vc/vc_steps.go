@@ -49,7 +49,8 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)"$`, e.getProfile)
 	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
-	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCredential)
+	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCreatedCredential)
+	s.Step(`^Given "([^"]*)" is stored under "([^"]*)" profile$`, e.storeCredentialFromFile)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
 	s.Step(`^Now we verify that credential for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`,
 		e.verifyCredential)
@@ -90,9 +91,14 @@ func (e *Steps) verifyPresentation(holder, checksList, result, respMessage strin
 }
 
 func (e *Steps) createProfile(profileName, did, privateKey, holder string) error {
+	template, ok := e.bddContext.TestData["profile_request_template.json"]
+	if !ok {
+		return fmt.Errorf("unable to find profile request template")
+	}
+
 	profileRequest := operation.ProfileRequest{}
 
-	err := json.Unmarshal(e.bddContext.ProfileRequestTemplate, &profileRequest)
+	err := json.Unmarshal(template, &profileRequest)
 	if err != nil {
 		return err
 	}
@@ -189,9 +195,14 @@ func (e *Steps) getProfile(profileName, did string) error {
 }
 
 func (e *Steps) createCredential(profileName string) error {
+	template, ok := e.bddContext.TestData["university_degree_credential.json"]
+	if !ok {
+		return fmt.Errorf("unable to find credential request template")
+	}
+
 	credentialRequest := operation.CreateCredentialRequest{}
 
-	err := json.Unmarshal(e.bddContext.CreateCredentialRequestTemplate, &credentialRequest)
+	err := json.Unmarshal(template, &credentialRequest)
 	if err != nil {
 		return err
 	}
@@ -227,11 +238,19 @@ func (e *Steps) createCredential(profileName string) error {
 	return e.checkVC(respBytes, profileName)
 }
 
-func (e *Steps) storeCredential(profileName string) error {
+func (e *Steps) storeCreatedCredential(profileName string) error {
+	return e.storeCredential(profileName, e.bddContext.CreatedCredential)
+}
+
+func (e *Steps) storeCredentialFromFile(vcFile, profileName string) error {
+	return e.storeCredential(profileName, e.bddContext.TestData[vcFile])
+}
+
+func (e *Steps) storeCredential(profileName string, vcBytes []byte) error {
 	storeRequest := operation.StoreVCRequest{}
 
 	storeRequest.Profile = profileName
-	storeRequest.Credential = string(e.bddContext.CreatedCredential)
+	storeRequest.Credential = string(vcBytes)
 
 	requestBytes, err := json.Marshal(storeRequest)
 	if err != nil {
@@ -257,13 +276,15 @@ func (e *Steps) storeCredential(profileName string) error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
+	e.bddContext.Args[profileName] = storeRequest.Credential
+
 	return nil
 }
 
 func (e *Steps) retrieveCredential(profileName string) error {
-	vcMap, err := getVCMap(e.bddContext.CreatedCredential)
+	vcMap, err := getVCMap([]byte(e.bddContext.Args[profileName]))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get vc : %w", err)
 	}
 
 	vcID, found := vcMap["id"]
@@ -284,36 +305,27 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	resp, err := http.Get(issuerURL + "retrieve?id=" + escapedCredentialID + //nolint: bodyclose
 		"&profile=" + escapedProfileName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to make http request : %w", err)
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read response bytes : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	// For some reason there's an extra line at the end of the credential returned from the create credential handler.
-	// By compacting the JSON we can remove it, allowing us to directly compare them as strings.
-	// TODO: Figure out why and fix it: https://github.com/trustbloc/edge-service/issues/104
-	buffer := new(bytes.Buffer)
-
-	err = json.Compact(buffer, e.bddContext.CreatedCredential)
+	b, err := bddutil.AreEqualJSON([]byte(e.bddContext.Args[profileName]), respBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to validate of retrieved VC : %s", err.Error())
 	}
 
-	expectedCredential := buffer.String()
-
-	receivedCredential := string(respBytes)
-
-	if receivedCredential != expectedCredential {
-		return bddutil.ExpectedStringError(expectedCredential, receivedCredential)
+	if !b {
+		return fmt.Errorf("validation of retrieved VC failed")
 	}
 
 	return nil

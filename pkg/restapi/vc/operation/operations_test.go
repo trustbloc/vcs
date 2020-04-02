@@ -933,7 +933,7 @@ func TestStoreVCHandler(t *testing.T) {
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Equal(t, rr.Body.String(), "key is nil")
 	})
 	t.Run("store vc err while creating the document - vault not found", func(t *testing.T) {
@@ -948,7 +948,7 @@ func TestStoreVCHandler(t *testing.T) {
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Equal(t, rr.Body.String(), errVaultNotFound.Error())
 	})
 	t.Run("store vc err missing profile name", func(t *testing.T) {
@@ -1074,8 +1074,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		op.retrieveVCHandler(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, errDocumentNotFound.Error(), rr.Body.String())
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), errDocumentNotFound.Error())
 	})
 	t.Run("retrieve vc fail when writing document retrieval success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
@@ -1184,8 +1184,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		op.retrieveVCHandler(rr, r)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, storage.ErrValueNotFound.Error(), rr.Body.String())
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), storage.ErrValueNotFound.Error())
 	})
 }
 

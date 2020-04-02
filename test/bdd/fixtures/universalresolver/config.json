@@ -17,6 +17,12 @@
       "image": "universalresolver/driver-did-sov",
       "imageProperties": "true",
       "tag": "latest"
+    },
+    {
+      "pattern": "^(did:web:.+)$",
+      "image": "uport/uni-resolver-driver-did-uport",
+      "imagePort": "8081",
+      "tag": "latest"
     }
   ]
 }
