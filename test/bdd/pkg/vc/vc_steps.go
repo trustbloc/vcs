@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -31,6 +32,8 @@ const (
 	expectedProfileResponseSignatureType = "Ed25519Signature2018"
 	issuerURL                            = "http://localhost:8070/"
 	verifierURL                          = "http://localhost:8069/verifier"
+
+	issueCredentialURLFormat = issuerURL + "%s" + "/credentials/issueCredential"
 )
 
 // Steps is steps for VC BDD tests
@@ -163,24 +166,33 @@ func getSignatureRepresentation(holder string) verifiable.SignatureRepresentatio
 	}
 }
 
-func (e *Steps) getProfile(profileName, did string) error {
+func (e *Steps) getProfileData(profileName string) (*profile.DataProfile, error) {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := http.Get(fmt.Sprintf(issuerURL+"profile/%s", profileName)) //nolint: bodyclose
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	profileResponse := profile.DataProfile{}
+	profileResponse := &profile.DataProfile{}
 
-	err = json.Unmarshal(respBytes, &profileResponse)
+	err = json.Unmarshal(respBytes, profileResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	return profileResponse, nil
+}
+
+func (e *Steps) getProfile(profileName, did string) error {
+	profileResponse, err := e.getProfileData(profileName)
 	if err != nil {
 		return err
 	}
@@ -191,7 +203,7 @@ func (e *Steps) getProfile(profileName, did string) error {
 		profileDID = did
 	}
 
-	return e.checkProfileResponse(profileName, profileDID, &profileResponse)
+	return e.checkProfileResponse(profileName, profileDID, profileResponse)
 }
 
 func (e *Steps) createCredential(profileName string) error {
@@ -200,24 +212,39 @@ func (e *Steps) createCredential(profileName string) error {
 		return fmt.Errorf("unable to find credential request template")
 	}
 
-	credentialRequest := operation.CreateCredentialRequest{}
-
-	err := json.Unmarshal(template, &credentialRequest)
+	cred, err := verifiable.NewUnverifiedCredential(template)
 	if err != nil {
 		return err
 	}
 
-	credentialRequest.Profile = profileName
+	profileResponse, err := e.getProfileData(profileName)
+	if err != nil {
+		return fmt.Errorf("unable to fetch profile - %s", err)
+	}
 
-	requestBytes, err := json.Marshal(credentialRequest)
+	cred.Issuer.ID = profileResponse.DID
+	cred.Issuer.Name = profileResponse.Name
+	cred.ID = profileResponse.URI + "/" + uuid.New().String()
+
+	credBytes, err := cred.MarshalJSON()
 	if err != nil {
 		return err
 	}
+
+	req := &operation.IssueCredentialRequest{
+		Credential: credBytes,
+	}
+
+	requestBytes, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	endpointURL := fmt.Sprintf(issueCredentialURLFormat, profileName)
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(issuerURL+"credential", "", //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := http.Post(endpointURL, "", bytes.NewBuffer(requestBytes)) //nolint
 	if err != nil {
 		return err
 	}
@@ -229,7 +256,7 @@ func (e *Steps) createCredential(profileName string) error {
 		return err
 	}
 
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK {
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 

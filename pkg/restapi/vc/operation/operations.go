@@ -823,6 +823,15 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
+	// set credential status
+	credential.Status, err = o.vcStatusManager.CreateStatusID()
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+			" %s", err.Error()))
+
+		return
+	}
+
 	// sign the credential
 	signedVC, err := o.crypto.SignCredential(profile, credential)
 	if err != nil {
@@ -870,6 +879,15 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	err = updateComposeAndIssueSigningProfile(&composeCredReq, profile)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to update signing profile:"+
+			" %s", err.Error()))
+
+		return
+	}
+
+	// set credential status
+	credential.Status, err = o.vcStatusManager.CreateStatusID()
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 			" %s", err.Error()))
 
 		return
@@ -1011,10 +1029,6 @@ func updateIssueCredSigningProfile(vdri vdriapi.Registry, req *IssueCredentialRe
 		// signer first checks for private key - set this to nil as this need to
 		// be overridden by the options
 		profile.DIDPrivateKey = ""
-	}
-
-	if &profile.SignatureRepresentation != nil {
-		profile.SignatureRepresentation = verifiable.SignatureJWS
 	}
 
 	return nil
