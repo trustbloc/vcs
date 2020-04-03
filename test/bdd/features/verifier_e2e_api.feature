@@ -20,7 +20,7 @@ Feature: Verifier VC REST API
 
   @verifyPresentation_api
   Scenario Outline: Verify Presentation
-    Given "Alice" has stored her transcript "<verifiablePresentation>" presented from the University
+    Given "Alice" has stored presentation of her transcript "<verifiablePresentation>" from the University
     Then  Employer verifies the transcript presented by "Alice"
     Examples:
       |   verifiablePresentation  |
