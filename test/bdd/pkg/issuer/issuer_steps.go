@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -102,7 +104,8 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" has stored her transcript from the University$`, e.createCredential)
+	s.Step(`^"([^"]*)" has stored her transcript "([^"]*)" from the University$`, e.getCredential)
+	s.Step(`^"([^"]*)" has stored her transcript "([^"]*)" presented from the University$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
 	s.Step(`^"([^"]*)" creates an Issuer Service profile "([^"]*)" with the DID$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID$`, //nolint: lll
@@ -155,9 +158,14 @@ func (e *Steps) generateKeypair() (string, error) {
 }
 
 func (e *Steps) createIssuerProfile(user, profileName string) error {
+	template, ok := e.bddContext.TestData["profile_request_template.json"]
+	if !ok {
+		return fmt.Errorf("unable to find profile request template")
+	}
+
 	profileRequest := operation.ProfileRequest{}
 
-	err := json.Unmarshal(e.bddContext.ProfileRequestTemplate, &profileRequest)
+	err := json.Unmarshal(template, &profileRequest)
 	if err != nil {
 		return err
 	}
@@ -318,25 +326,74 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 	return e.verifyCredential(responseBytes)
 }
 
-func (e *Steps) createCredential(user string) error {
+func (e *Steps) createCredential(user string) ([]byte, error) {
 	if err := e.createDID(user); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := e.createIssuerProfile(user, uuid.New().String()); err != nil {
-		return err
+		return nil, err
 	}
 
 	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := e.verifyCredential(signedVCByte); err != nil {
-		return err
+		return nil, err
 	}
 
-	e.bddContext.Args[bddutil.GetCredentialKey(user)] = string(signedVCByte)
+	return signedVCByte, nil
+}
+
+func (e *Steps) getCredential(user, vcFile string) error {
+	// create credential if not provided in test data file
+	if vcFile == "" {
+		vcBytes, err := e.createCredential(user)
+		if err != nil {
+			return err
+		}
+
+		e.bddContext.Args[bddutil.GetCredentialKey(user)] = string(vcBytes)
+
+		return nil
+	}
+
+	vcBytes, ok := e.bddContext.TestData[vcFile]
+	if !ok {
+		return fmt.Errorf("unable to find verifiable credential '%s'", vcFile)
+	}
+
+	e.bddContext.Args[user] = string(vcBytes)
+
+	return nil
+}
+
+func (e *Steps) getPresentation(user, vpFile string) error {
+	// create presentation if not provided in test data file
+	if vpFile == "" {
+		vcBytes, err := e.createCredential(user)
+		if err != nil {
+			return err
+		}
+
+		vpBytes, err := bddutil.CreatePresentation(vcBytes, verifiable.SignatureJWS, e.bddContext.VDRI)
+		if err != nil {
+			return err
+		}
+
+		e.bddContext.Args[user] = string(vpBytes)
+
+		return nil
+	}
+
+	vpBytes, ok := e.bddContext.TestData[vpFile]
+	if !ok {
+		return fmt.Errorf("unable to find verifiable presentation '%s'", vpFile)
+	}
+
+	e.bddContext.Args[user] = string(vpBytes)
 
 	return nil
 }

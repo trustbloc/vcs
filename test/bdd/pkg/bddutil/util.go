@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
 
@@ -102,6 +103,23 @@ func ExpectedStringError(expected, actual string) error {
 func ExpectedStatusCodeError(expected, actual int, respBytes []byte) error {
 	return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
 		expected, actual, respBytes)
+}
+
+// AreEqualJSON compares if 2 JSON bytes are equal
+func AreEqualJSON(b1, b2 []byte) (bool, error) {
+	var o1, o2 interface{}
+
+	err := json.Unmarshal(b1, &o1)
+	if err != nil {
+		return false, fmt.Errorf("error mashalling bytes 1 : %s", err.Error())
+	}
+
+	err = json.Unmarshal(b2, &o2)
+	if err != nil {
+		return false, fmt.Errorf("error mashalling bytes 2 : %s", err.Error())
+	}
+
+	return reflect.DeepEqual(o1, o2), nil
 }
 
 // CloseResponseBody closes the response body.

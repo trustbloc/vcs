@@ -14,7 +14,6 @@ import (
 	"net/http"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -95,17 +94,11 @@ func (e *Steps) credentialsVerification(user string) error {
 }
 
 func (e *Steps) createAndVerifyPresentation(user string) error {
-	vcBytes := e.bddContext.Args[bddutil.GetCredentialKey(user)]
-
-	vp, err := bddutil.CreatePresentation([]byte(vcBytes), verifiable.SignatureJWS, e.bddContext.VDRI)
-	if err != nil {
-		return err
-	}
-
+	vp := e.bddContext.Args[user]
 	checks := []string{"proof"}
 
 	req := &operation.VerifyPresentationRequest{
-		Presentation: vp,
+		Presentation: []byte(vp),
 		Opts: &operation.VerifyPresentationOptions{
 			Checks: checks,
 		},
