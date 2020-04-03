@@ -14,7 +14,6 @@ import (
 	"net/http"
 
 	"github.com/cucumber/godog"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
@@ -73,8 +72,6 @@ func (e *Steps) credentialsVerification(user string) error {
 		return err
 	}
 
-	log.Infof("verification response %s", string(respBytes))
-
 	if resp.StatusCode != http.StatusOK {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
@@ -123,8 +120,6 @@ func (e *Steps) createAndVerifyPresentation(user string) error {
 	if err != nil {
 		return err
 	}
-
-	log.Infof("verification response %s", string(respBytes))
 
 	if resp.StatusCode != http.StatusOK {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)

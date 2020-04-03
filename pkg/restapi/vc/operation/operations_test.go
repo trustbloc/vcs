@@ -1362,6 +1362,8 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+
 		err = ops.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
@@ -1404,6 +1406,7 @@ func TestIssueCredential(t *testing.T) {
 		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
 		require.NoError(t, err)
 		require.NotEmpty(t, signedVCResp["proof"])
+		require.NotEmpty(t, signedVCResp["credentialStatus"])
 
 		proof, ok = signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
@@ -1494,6 +1497,40 @@ func TestIssueCredential(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "public key not found in DID Document")
+	})
+
+	t.Run("issue credential - add credential status error", func(t *testing.T) {
+		kms := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           kms,
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		err = op.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		op.vcStatusManager = &mockCredentialStatusManager{CreateErr: errors.New("csl error")}
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to add credential status: csl error")
 	})
 
 	t.Run("issue credential - signing error", func(t *testing.T) {
@@ -1710,6 +1747,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
 		require.NoError(t, err)
 		require.NotEmpty(t, signedVCResp["proof"])
+		require.NotEmpty(t, signedVCResp["credentialStatus"])
 
 		proof, ok := signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
@@ -1738,6 +1776,32 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+
+	t.Run("compose and issue credential - add credential status error", func(t *testing.T) {
+		ops, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+
+		ops.vcStatusManager = &mockCredentialStatusManager{CreateErr: errors.New("csl error")}
+
+		err = ops.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		req := &ComposeCredentialRequest{}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		restHandler := getHandler(t, ops, composeAndIssueCredentialPath, issuerMode)
+
+		// invoke the endpoint
+		rr := serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to add credential status: csl error")
 	})
 
 	t.Run("compose and issue credential - signing failure", func(t *testing.T) {
@@ -2795,4 +2859,25 @@ func (s *ed25519TestSigner) Sign(doc []byte) ([]byte, error) {
 }
 func getEd25519TestSigner(privKey []byte) *ed25519TestSigner {
 	return &ed25519TestSigner{privateKey: privKey}
+}
+
+type mockCredentialStatusManager struct {
+	CreateErr error
+}
+
+func (m *mockCredentialStatusManager) CreateStatusID() (*verifiable.TypedID, error) {
+	if m.CreateErr != nil {
+		return nil, m.CreateErr
+	}
+
+	return nil, nil
+}
+
+func (m *mockCredentialStatusManager) UpdateVCStatus(v *verifiable.Credential,
+	profile *vcprofile.DataProfile, status, statusReason string) error {
+	return nil
+}
+
+func (m *mockCredentialStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
+	return nil, nil
 }
