@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -47,7 +46,6 @@ const (
 	profileIDPathParam  = "profileID"
 
 	// endpoints
-	createCredentialEndpoint          = "/credential"
 	updateCredentialStatusEndpoint    = "/updateStatus"
 	createProfileEndpoint             = profile
 	getProfileEndpoint                = profile + "/{id}"
@@ -254,7 +252,6 @@ func (o *Operation) issuerHandlers() []Handler {
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
 
 		// verifiable credential
-		support.NewHTTPHandler(createCredentialEndpoint, http.MethodPost, o.createCredentialHandler),
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
 		// TODO https://github.com/trustbloc/edge-service/issues/181 verifyCredential API present in both issuer
 		//  and verifier mode. Is this valid ?
@@ -264,7 +261,6 @@ func (o *Operation) issuerHandlers() []Handler {
 		support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
 
 		// issuer apis
-		// TODO update trustbloc components to use these APIs instead of above ones
 		support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
 		support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
 		support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
@@ -282,41 +278,6 @@ func (o *Operation) vcStatus(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(http.StatusOK)
 	o.writeResponse(rw, csl)
-}
-
-func (o *Operation) createCredentialHandler(rw http.ResponseWriter, req *http.Request) {
-	data := CreateCredentialRequest{}
-
-	err := json.NewDecoder(req.Body).Decode(&data)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
-
-		return
-	}
-
-	profile, err := o.profileStore.GetProfile(data.Profile)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to read profile: %s", err.Error()))
-
-		return
-	}
-
-	validCredential, err := o.createCredential(profile, &data)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to create credential: %s", err.Error()))
-
-		return
-	}
-
-	signedVC, err := o.crypto.SignCredential(profile, validCredential)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential: %s", err.Error()))
-
-		return
-	}
-
-	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, signedVC)
 }
 
 func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse, error) {
@@ -645,42 +606,6 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 
 		return
 	}
-}
-
-func (o *Operation) createCredential(profile *vcprofile.DataProfile,
-	data *CreateCredentialRequest) (*verifiable.Credential, error) {
-	credential := &verifiable.Credential{}
-
-	issueDate := time.Now().UTC()
-
-	credential.Context = data.Context
-	credential.Subject = data.Subject
-	credential.Types = data.Type
-	credential.Issuer = verifiable.Issuer{
-		ID:   profile.DID,
-		Name: profile.Name,
-	}
-	credential.Issued = &issueDate
-	credential.ID = profile.URI + "/" + uuid.New().String()
-
-	var err error
-
-	credential.Status, err = o.vcStatusManager.CreateStatusID()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create status id for vc: %w", err)
-	}
-
-	cred, err := json.Marshal(credential)
-	if err != nil {
-		return nil, fmt.Errorf("create credential marshalling failed: %s", err.Error())
-	}
-
-	validatedCred, _, err := verifiable.NewCredential(cred)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new credential: %s", err.Error())
-	}
-
-	return validatedCred, nil
 }
 
 func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {

@@ -26,7 +26,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -41,7 +40,6 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/didbloc"
@@ -49,70 +47,7 @@ import (
 )
 
 const (
-	multipleContext = `"@context":["https://www.w3.org/2018/credentials/v1","https://w3id.org/citizenship/v1"]`
-	validContext    = `"@context":["https://www.w3.org/2018/credentials/v1"]`
-	invalidContext  = `"@context":"https://www.w3.org/2018/credentials/v1"`
-
-	testCreateCredentialRequest = `{` +
-		validContext + `,
-"type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "profile": "test"
-}`
-	testInvalidContextCreateCredentialRequest = `{` +
-		invalidContext + `,
-"type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "degree": {
-      "type": "BachelorDegree",
-      "university": "MIT"
-    },
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  },
-  "profile": "test"
-}`
-	testMultipleContextCreateCredentialRequest = `{` +
-		multipleContext + `,
-"type": [
-    "VerifiableCredential",
-    "PermanentResidentCard"
-  ],
-  "credentialSubject": {
-    "id": "did:example:b34ca6cd37bbf23",
-    "type": ["PermanentResident", "Person"],
-    "givenName": "JOHN",
-    "familyName": "SMITH",
-    "gender": "Male",
-    "image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
-    "residentSince": "2015-01-01",
-    "lprCategory": "C09",
-    "lprNumber": "999-999-999",
-    "commuterClassification": "C1",
-    "birthCountry": "Bahamas",
-    "birthDate": "1958-07-17"
-  },
-  "profile": "test"
-}`
-
-	testInvalidProfileForCreateCredential = `{
-  "profile": "invalid"
-}`
+	validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 
 	testUUID = "4aae6b86-8e42-4d14-8cf5-21772ccb24aa"
 
@@ -140,19 +75,6 @@ const (
 		`",\"name\":\"Example University\"},\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
 }`
 
-	testIncorrectCredential = `{` +
-		validContext + `,
-		"credentialSubject": {
-		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-		"degree": {
-		"type": "BachelorDegree",
-		"university": "MIT"
-		},
-		"name": "Jayden Doe",
-		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-		},
-		"profile": "test"
-}`
 	testIssuerProfile = `{
 		"name": "issuer",
 		"uri": "https://example.com/credentials",
@@ -375,162 +297,6 @@ func TestNew(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to instantiate new csl status")
 		require.Nil(t, op)
 	})
-}
-
-func TestCreateCredentialHandlerIssuer(t *testing.T) {
-	const (
-		issuerMode   = "issuer"
-		combinedMode = "combined"
-	)
-
-	testCreateCredentialHandlerIssuer(t, issuerMode)
-	testCreateCredentialHandlerIssuer(t, combinedMode)
-}
-
-func testCreateCredentialHandlerIssuer(t *testing.T, mode string) {
-	client := edv.NewMockEDVClient("test", nil)
-
-	kms := &kmsmock.CloseableKMS{}
-	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-		EDVClient: client, KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{},
-		HostURL: "localhost:8080"})
-	require.NoError(t, err)
-
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
-	op.crypto = crypto.New(kms,
-		&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-			return &verifier.PublicKey{Value: []byte(pubKey)}, nil
-		}})
-
-	err = op.profileStore.SaveProfile(getTestProfile())
-	require.NoError(t, err)
-
-	createCredentialHandler := getHandler(t, op, createCredentialEndpoint, mode)
-
-	var logContents bytes.Buffer
-
-	log.SetOutput(&logContents)
-
-	t.Run("create credential success", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-			bytes.NewBuffer([]byte(testCreateCredentialRequest)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-		require.Contains(t, rr.Body.String(), validContext)
-		require.Contains(t, rr.Body.String(), getTestProfile().DID)
-		require.Contains(t, rr.Body.String(), getTestProfile().Name)
-	})
-	t.Run("create credential with multiple contexts success", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-			bytes.NewBuffer([]byte(testMultipleContextCreateCredentialRequest)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-		require.Contains(t, rr.Body.String(), multipleContext)
-		require.Contains(t, rr.Body.String(), getTestProfile().DID)
-		require.Contains(t, rr.Body.String(), getTestProfile().Name)
-	})
-	t.Run("create credential error by passing invalid context", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-			bytes.NewBuffer([]byte(testInvalidContextCreateCredentialRequest)))
-		require.NoError(t, err)
-
-		body, err := ioutil.ReadAll(req.Body)
-		require.NoError(t, err)
-		require.Contains(t, string(body), invalidContext)
-
-		rr := httptest.NewRecorder()
-
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, invalidRequestErrMsg+": EOF", rr.Body.String())
-	})
-	t.Run("create credential error by passing invalid request", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, invalidRequestErrMsg+": EOF", rr.Body.String())
-	})
-	t.Run("create credential error by passing invalid profile name", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-			bytes.NewBuffer([]byte(testInvalidProfileForCreateCredential)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to read profile")
-	})
-	t.Run("create credential error by passing invalid credential object", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-			bytes.NewBuffer([]byte(testIncorrectCredential)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to create credential")
-	})
-	t.Run("create credential error unable to write a response while reading the request", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint, bytes.NewBuffer([]byte("")))
-		require.NoError(t, err)
-		rw := mockResponseWriter{}
-		createCredentialHandler.Handle().ServeHTTP(rw, req)
-		require.Contains(t, logContents.String(),
-			"Unable to send error message, response writer failed")
-	})
-	t.Run("test error from create status id", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil)
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
-		require.NoError(t, err)
-
-		err = op.profileStore.SaveProfile(getTestProfile())
-		require.NoError(t, err)
-
-		op.vcStatusManager = &mockVCStatusManager{createStatusIDErr: fmt.Errorf("error create status id")}
-
-		createCredentialHandler := getHandler(t, op, createCredentialEndpoint, mode)
-
-		req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-			bytes.NewBuffer([]byte(testCreateCredentialRequest)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		createCredentialHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to create status id for vc")
-	})
-}
-
-func TestCreateCredentialHandler_SignatureError(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil)
-	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-		EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
-	require.NoError(t, err)
-
-	err = op.profileStore.SaveProfile(getTestProfile())
-	require.NoError(t, err)
-
-	createCredentialHandler := getHandler(t, op, createCredentialEndpoint, "issuer")
-
-	req, err := http.NewRequest(http.MethodPost, createCredentialEndpoint,
-		bytes.NewBuffer([]byte(testCreateCredentialRequest)))
-	require.NoError(t, err)
-
-	rr := httptest.NewRecorder()
-	createCredentialHandler.Handle().ServeHTTP(rr, req)
-	require.Equal(t, http.StatusInternalServerError, rr.Code)
-	require.Contains(t, rr.Body.String(), "failed to sign credential")
 }
 
 func TestUpdateCredentialStatusHandler(t *testing.T) {
@@ -2718,14 +2484,6 @@ func (c *TestClient) CreateDocument(vaultID string, document *operation.Encrypte
 // RetrieveDocument sends the Mock EDV server a request to retrieve the specified document.
 func (c *TestClient) ReadDocument(vaultID, docID string) (*operation.EncryptedDocument, error) {
 	return nil, errDocumentNotFound
-}
-
-type mockKeyResolver struct {
-	publicKeyFetcherValue verifiable.PublicKeyFetcher
-}
-
-func (m *mockKeyResolver) PublicKeyFetcher() verifiable.PublicKeyFetcher {
-	return m.publicKeyFetcherValue
 }
 
 type mockVCStatusManager struct {
