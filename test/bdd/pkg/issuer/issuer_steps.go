@@ -105,7 +105,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" has stored her transcript "([^"]*)" from the University$`, e.getCredential)
-	s.Step(`^"([^"]*)" has stored her transcript "([^"]*)" presented from the University$`, e.getPresentation)
+	s.Step(`^"([^"]*)" has stored presentation of her transcript "([^"]*)" from the University$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
 	s.Step(`^"([^"]*)" creates an Issuer Service profile "([^"]*)" with the DID$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID$`, //nolint: lll
