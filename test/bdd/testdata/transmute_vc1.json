@@ -9,6 +9,7 @@
 	],
 	"id": "http://example.gov/credentials/3732",
 	"issuanceDate": "2020-03-16T22:37:26.544Z",
+	"issuer": "did:web:vc.transmute.world",
 	"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"degree": {
@@ -18,7 +19,6 @@
 		"name": "Jayden Doe",
 		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 	},
-	"issuer": "did:web:vc.transmute.world",
 	"proof": {
 		"type": "Ed25519Signature2018",
 		"created": "2019-12-11T03:50:55Z",

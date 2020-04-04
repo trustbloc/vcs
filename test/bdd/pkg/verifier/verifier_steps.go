@@ -37,8 +37,8 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Employer verifies the transcript provided by "([^"]*)"$`, e.credentialsVerification)
-	s.Step(`^Employer verifies the transcript presented by "([^"]*)"$`, e.createAndVerifyPresentation)
+	s.Step(`^Employer verifies the credential provided by "([^"]*)"$`, e.credentialsVerification)
+	s.Step(`^Employer verifies the presentation provided by "([^"]*)"$`, e.createAndVerifyPresentation)
 }
 
 func (e *Steps) credentialsVerification(user string) error {

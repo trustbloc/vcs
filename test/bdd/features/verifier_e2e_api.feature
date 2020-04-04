@@ -10,19 +10,23 @@ Feature: Verifier VC REST API
 
   @verifyCred_api
   Scenario Outline: Verify Credential
-    Given "Alice" has stored her transcript "<verifiableCredential>" from the University
-    Then  Employer verifies the transcript provided by "Alice"
+    Given "Alice" has her "<credential>" verified as "<verifiable credential>"
+    Then  Employer verifies the credential provided by "Alice"
     Examples:
     Examples:
-      |   verifiableCredential  |
-      |                         |
-      |     transmute_vc.json   |
+      | credential                   | verifiable credential |
+      | university_degree.json       |                       |
+      | permanent_resident_card.json |                       |
+      | university_degree.json       | transmute_vc1.json    |
+      | permanent_resident_card.json | transmute_vc2.json    |
 
   @verifyPresentation_api
   Scenario Outline: Verify Presentation
-    Given "Alice" has stored presentation of her transcript "<verifiablePresentation>" from the University
-    Then  Employer verifies the transcript presented by "Alice"
+    Given "Alice" has her "<credential>" presentable as "<verifiable presentation>"
+    Then  Employer verifies the presentation provided by "Alice"
     Examples:
-      |   verifiablePresentation  |
-      |                           |
-      |     transmute_vp.json     |
+      | credential                   | verifiable presentation |
+      | university_degree.json       |                         |
+      | permanent_resident_card.json |                         |
+      | university_degree.json       | transmute_vp1.json      |
+      | permanent_resident_card.json | transmute_vp2.json      |
