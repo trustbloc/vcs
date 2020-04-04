@@ -15,6 +15,7 @@
 		],
 		"id": "http://example.gov/credentials/3732",
 		"issuanceDate": "2020-03-16T22:37:26.544Z",
+		"issuer": "did:web:vc.transmute.world",
 		"credentialSubject": {
 			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"degree": {
@@ -24,7 +25,6 @@
 			"name": "Jayden Doe",
 			"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 		},
-		"issuer": "did:web:vc.transmute.world",
 		"proof": {
 			"type": "Ed25519Signature2018",
 			"created": "2019-12-11T03:50:55Z",
@@ -35,9 +35,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-04-02T23:58:15Z",
+		"created": "2020-04-04T04:55:09Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..xpfST1sFKnUXNYyEJTwlQrukKETZraDv5tU7KhJldyQ0yDsykzx70ueOa9RHIqNpRIqFFFfUA9lgfY_I4VLwBg"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..Y36doG3Asej0JIdlsaoYA0zJI02ykm_hVnaIgT250onB2iSFhY2hsJiE9xsGAHNyPcEJWY_9qMCU90qA7hwlAQ"
 	}
 }

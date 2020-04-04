@@ -45,25 +45,6 @@ const (
 	pubKeyIndex1        = "#key-1"
 	defaultKeyType      = "Ed25519VerificationKey2018"
 
-	validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
-	validVC      = `{` +
-		validContext + `,
-	  "id": "http://example.edu/credentials/1872",
-	  "type": "VerifiableCredential",
-	  "credentialSubject": {
-		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-	  },
-	  "issuer": {
-		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		"name": "Example University"
-	  },
-	  "issuanceDate": "2010-01-01T19:23:24Z",
-	  "credentialStatus": {
-		"id": "https://example.gov/status/24",
-		"type": "CredentialStatusList2017"
-	  }
-	}`
-
 	composeCredReqFormat = `{
 	   "issuer":"did:example:uoweu180928901",
 	   "subject":"did:example:oleh394sqwnlk223823ln",
@@ -104,8 +85,8 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" has stored her transcript "([^"]*)" from the University$`, e.getCredential)
-	s.Step(`^"([^"]*)" has stored presentation of her transcript "([^"]*)" from the University$`, e.getPresentation)
+	s.Step(`^"([^"]*)" has her "([^"]*)" verified as "([^"]*)"$`, e.getCredential)
+	s.Step(`^"([^"]*)" has her "([^"]*)" presentable as "([^"]*)"$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
 	s.Step(`^"([^"]*)" creates an Issuer Service profile "([^"]*)" with the DID$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID$`, //nolint: lll
@@ -245,13 +226,13 @@ func (e *Steps) verifyCredential(signedVCByte []byte) error {
 	return nil
 }
 
-func (e *Steps) issueCredential(user, did string) ([]byte, error) {
+func (e *Steps) issueCredential(user, did, cred string) ([]byte, error) {
 	if err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
 		return nil, err
 	}
 
 	req := &operation.IssueCredentialRequest{
-		Credential: []byte(validVC),
+		Credential: e.bddContext.TestData[cred],
 		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did},
 	}
 
@@ -286,7 +267,7 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 	did := e.bddContext.Args[bddutil.GetDIDKey(user)]
 	log.Infof("DID for signing %s", did)
 
-	signedVCByte, err := e.issueCredential(user, did)
+	signedVCByte, err := e.issueCredential(user, did, "university_certificate.json")
 	if err != nil {
 		return err
 	}
@@ -326,7 +307,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 	return e.verifyCredential(responseBytes)
 }
 
-func (e *Steps) createCredential(user string) ([]byte, error) {
+func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 	if err := e.createDID(user); err != nil {
 		return nil, err
 	}
@@ -335,7 +316,7 @@ func (e *Steps) createCredential(user string) ([]byte, error) {
 		return nil, err
 	}
 
-	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)])
+	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)], cred)
 	if err != nil {
 		return nil, err
 	}
@@ -347,10 +328,10 @@ func (e *Steps) createCredential(user string) ([]byte, error) {
 	return signedVCByte, nil
 }
 
-func (e *Steps) getCredential(user, vcFile string) error {
+func (e *Steps) getCredential(user, cred, verifiedCred string) error {
 	// create credential if not provided in test data file
-	if vcFile == "" {
-		vcBytes, err := e.createCredential(user)
+	if verifiedCred == "" {
+		vcBytes, err := e.createCredential(user, cred)
 		if err != nil {
 			return err
 		}
@@ -360,9 +341,9 @@ func (e *Steps) getCredential(user, vcFile string) error {
 		return nil
 	}
 
-	vcBytes, ok := e.bddContext.TestData[vcFile]
+	vcBytes, ok := e.bddContext.TestData[verifiedCred]
 	if !ok {
-		return fmt.Errorf("unable to find verifiable credential '%s'", vcFile)
+		return fmt.Errorf("unable to find verifiable credential '%s'", verifiedCred)
 	}
 
 	e.bddContext.Args[user] = string(vcBytes)
@@ -370,10 +351,10 @@ func (e *Steps) getCredential(user, vcFile string) error {
 	return nil
 }
 
-func (e *Steps) getPresentation(user, vpFile string) error {
+func (e *Steps) getPresentation(user, cred, verifiablePres string) error {
 	// create presentation if not provided in test data file
-	if vpFile == "" {
-		vcBytes, err := e.createCredential(user)
+	if verifiablePres == "" {
+		vcBytes, err := e.createCredential(user, cred)
 		if err != nil {
 			return err
 		}
@@ -388,9 +369,9 @@ func (e *Steps) getPresentation(user, vpFile string) error {
 		return nil
 	}
 
-	vpBytes, ok := e.bddContext.TestData[vpFile]
+	vpBytes, ok := e.bddContext.TestData[verifiablePres]
 	if !ok {
-		return fmt.Errorf("unable to find verifiable presentation '%s'", vpFile)
+		return fmt.Errorf("unable to find verifiable presentation '%s'", verifiablePres)
 	}
 
 	e.bddContext.Args[user] = string(vpBytes)

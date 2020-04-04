@@ -1,0 +1,54 @@
+{
+	"@context": [
+		"https://www.w3.org/2018/credentials/v1",
+		"https://www.w3.org/2018/credentials/examples/v1"
+	],
+	"type": "VerifiablePresentation",
+	"verifiableCredential": {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1",
+			"https://w3id.org/citizenship/v1"
+		],
+		"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+		"type": [
+			"VerifiableCredential",
+			"PermanentResidentCard"
+		],
+		"name": "Permanent Resident Card",
+		"description": "Permanent Resident Card",
+		"issuer": "did:web:vc.transmute.world",
+		"issuanceDate": "2019-12-03T12:19:52Z",
+		"expirationDate": "2029-12-03T12:19:52Z",
+		"credentialSubject": {
+			"id": "did:example:b34ca6cd37bbf23",
+			"type": [
+				"PermanentResident",
+				"Person"
+			],
+			"givenName": "JOHN",
+			"familyName": "SMITH",
+			"gender": "Male",
+			"image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
+			"residentSince": "2015-01-01",
+			"lprCategory": "C09",
+			"lprNumber": "999-999-999",
+			"commuterClassification": "C1",
+			"birthCountry": "Bahamas",
+			"birthDate": "1958-07-17"
+		},
+		"proof": {
+			"type": "Ed25519Signature2018",
+			"created": "2019-12-11T03:50:55Z",
+			"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+			"proofPurpose": "assertionMethod",
+			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..mNFJaBIEqf6Pc6zKm5TZ17d89PvS_6oveLPeY1qUSi8dgB0MEHrRbPNmkvZ0K3JvmHMb3ixiEYfRDbEUaPPPBw"
+		}
+	},
+	"proof": {
+		"type": "Ed25519Signature2018",
+		"created": "2020-04-04T04:55:10Z",
+		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"proofPurpose": "assertionMethod",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..qWw1AkRjlprFAQrPUPbwkHfgWMhd_VLpVHBhdEbCcD3y8Og7CM8YFnlceKxJjArq2tVtUFQ5vJmeeW3Ct1NQAA"
+	}
+}

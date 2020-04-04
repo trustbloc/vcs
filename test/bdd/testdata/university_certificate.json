@@ -1,0 +1,17 @@
+{
+  "@context":["https://www.w3.org/2018/credentials/v1"],
+  "id": "http://example.edu/credentials/1872",
+  "type": "VerifiableCredential",
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+  },
+  "issuer": {
+    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+    "name": "Example University"
+  },
+  "issuanceDate": "2010-01-01T19:23:24Z",
+  "credentialStatus": {
+    "id": "https://example.gov/status/24",
+    "type": "CredentialStatusList2017"
+  }
+}

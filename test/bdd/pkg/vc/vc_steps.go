@@ -51,7 +51,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)" and signatureHolder "([^"]*)"$`,
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)"$`, e.getProfile)
-	s.Step(`^New credential is created under "([^"]*)" profile$`, e.createCredential)
+	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCreatedCredential)
 	s.Step(`^Given "([^"]*)" is stored under "([^"]*)" profile$`, e.storeCredentialFromFile)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
@@ -206,10 +206,10 @@ func (e *Steps) getProfile(profileName, did string) error {
 	return e.checkProfileResponse(profileName, profileDID, profileResponse)
 }
 
-func (e *Steps) createCredential(profileName string) error {
-	template, ok := e.bddContext.TestData["university_degree_credential.json"]
+func (e *Steps) createCredential(credential, profileName string) error {
+	template, ok := e.bddContext.TestData[credential]
 	if !ok {
-		return fmt.Errorf("unable to find credential request template")
+		return fmt.Errorf("unable to find credential '%s' request template", credential)
 	}
 
 	cred, err := verifiable.NewUnverifiedCredential(template)
