@@ -10,7 +10,7 @@
 	],
 	"name": "Permanent Resident Card",
 	"description": "Permanent Resident Card",
-	"issuer": "did:v1:test:nym:z6Mkeac33uiSWFAfDM5wPUWDhGZFUWDvTji3zJ1yg4ADUpiW",
+	"issuer": "did:sov:danube:CDEabPCipwE51bg7KF9yXt",
 	"issuanceDate": "2019-12-03T12:19:52Z",
 	"expirationDate": "2029-12-03T12:19:52Z",
 	"credentialSubject": {
@@ -32,9 +32,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-04-05T00:53:32Z",
+		"created": "2020-04-05T18:50:53Z",
 		"proofPurpose": "assertionMethod",
-		"verificationMethod": "did:v1:test:nym:z6Mkeac33uiSWFAfDM5wPUWDhGZFUWDvTji3zJ1yg4ADUpiW#z6MkgsfYhDVtJJ3mcQhmfxA8xERiGu8NrwWpLaGXBpXbQqdp",
-		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..j-beHbw1UYI4GMHYx-1c5hDUlhF0nSi7yE5DkYLtp-MRD40GXLyh6copjuoQpgTB5cwvbnbuoIa8MTiMrgeJDg"
+		"verificationMethod": "did:sov:danube:CDEabPCipwE51bg7KF9yXt#key-1",
+		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..RKrl5OFgvgN8stcw3C8U7ITv2sTwVrmZ6L-UluX79aPSe2jk54LUX55i-ZF07tUGpZvvH8757TWNAHSbgnSMDQ"
 	}
 }

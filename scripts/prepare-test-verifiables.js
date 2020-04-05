@@ -49,7 +49,7 @@ const opts = {
             types: ["UniversityDegreeCredential", "PermanentResidentCard"],
             vc: {
                 path: "https://uniissuer.io/danubetech/credential-issuer/0.0.1/credentials/issueCredential",
-                issuer: "did:v1:test:nym:z6Mkeac33uiSWFAfDM5wPUWDhGZFUWDvTji3zJ1yg4ADUpiW",
+                issuer: "did:sov:danube:CDEabPCipwE51bg7KF9yXt",
                 request: `{
                 "credential": %credential%
                     }`,
