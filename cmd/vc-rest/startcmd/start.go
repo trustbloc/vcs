@@ -101,6 +101,7 @@ const (
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
 	didMethodWeb     = "web"
+	didMethodKey     = "key"
 )
 
 // mode in which to run the vc-rest service
@@ -376,7 +377,8 @@ func supportedMode(mode string) bool {
 
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
-	return method == didMethodVeres || method == didMethodElement || method == didMethodSov || method == didMethodWeb
+	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
+		method == didMethodWeb || method == didMethodKey
 }
 
 func createProvider(parameters *vcRestParameters) (storage.Provider, error) {

@@ -31,8 +31,10 @@ Feature: Using VC REST API
 
   @store_retrieve_vcs
   Scenario Outline: Store, retrieve verifiable credentials
-    When  Given "<verifiableCredential>" is stored under "<profile>" profile
+    When  Given "<verifiable credential>" is stored under "<profile>" profile
     Then  We can retrieve credential under "<profile>" profile
     Examples:
-      | profile           | verifiableCredential |
-      | transmute-profile | transmute_vc1.json    |
+      | profile               | verifiable credential  |
+      | transmute-profile     | transmute_vc1.json     |
+      | danubetech-profile    | danubetech_vc1.json    |
+      | digitalbazaar-profile | digitalbazaar_vc1.json |

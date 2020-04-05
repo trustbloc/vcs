@@ -14,11 +14,14 @@ Feature: Verifier VC REST API
     Then  Employer verifies the credential provided by "Alice"
     Examples:
     Examples:
-      | credential                   | verifiable credential |
-      | university_degree.json       |                       |
-      | permanent_resident_card.json |                       |
-      | university_degree.json       | transmute_vc1.json    |
-      | permanent_resident_card.json | transmute_vc2.json    |
+      | credential                   | verifiable credential  |
+      | university_degree.json       |                        |
+      | permanent_resident_card.json |                        |
+      | university_degree.json       | transmute_vc1.json     |
+      | permanent_resident_card.json | transmute_vc2.json     |
+      | university_degree.json       | danubetech_vc1.json    |
+      | permanent_resident_card.json | danubetech_vc2.json    |
+      | permanent_resident_card.json | digitalbazaar_vc1.json |
 
   @verifyPresentation_api
   Scenario Outline: Verify Presentation
