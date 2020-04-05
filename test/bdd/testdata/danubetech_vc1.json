@@ -9,7 +9,7 @@
 	],
 	"id": "http://example.gov/credentials/3732",
 	"issuanceDate": "2020-03-16T22:37:26.544Z",
-	"issuer": "did:v1:test:nym:z6Mkeac33uiSWFAfDM5wPUWDhGZFUWDvTji3zJ1yg4ADUpiW",
+	"issuer": "did:sov:danube:CDEabPCipwE51bg7KF9yXt",
 	"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"degree": {
@@ -21,9 +21,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-04-05T00:53:30Z",
+		"created": "2020-04-05T18:50:51Z",
 		"proofPurpose": "assertionMethod",
-		"verificationMethod": "did:v1:test:nym:z6Mkeac33uiSWFAfDM5wPUWDhGZFUWDvTji3zJ1yg4ADUpiW#z6MkgsfYhDVtJJ3mcQhmfxA8xERiGu8NrwWpLaGXBpXbQqdp",
-		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..b3pb1qfRgRUaov3o2lTvUEyLaq2FZx-SYfgnOz2AqMu86mMUeauoR3es21w36nsX-Tei6-q8gazAsFI7BLKwCg"
+		"verificationMethod": "did:sov:danube:CDEabPCipwE51bg7KF9yXt#key-1",
+		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..ZsZBKP6tj3bd-VHM-MMVCvjoaz16w237stLDqP78mtWO5zMOWeLw0emj7aO2xVcwVwfZvcV99VLqzG-5g2fgBA"
 	}
 }
