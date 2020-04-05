@@ -97,6 +97,10 @@ const (
 		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
 	tlsCACertsEnvKey = "VC_REST_TLS_CACERTS"
 
+	universalRegistrarURLFlagName  = "universal-registrar-url"
+	universalRegistrarURLFlagUsage = "Universal Registrar instance is running on. Format: HostName:Port."
+	universalRegistrarURLEnvKey    = "UNIVERSAL_REGISTRAR_HOST_URL"
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -114,16 +118,17 @@ const (
 )
 
 type vcRestParameters struct {
-	hostURL              string
-	edvURL               string
-	blocDomain           string
-	hostURLExternal      string
-	universalResolverURL string
-	mode                 string
-	databaseType         string
-	databaseURL          string
-	tlsSystemCertPool    bool
-	tlsCACerts           []string
+	hostURL               string
+	edvURL                string
+	blocDomain            string
+	hostURLExternal       string
+	universalResolverURL  string
+	mode                  string
+	databaseType          string
+	databaseURL           string
+	tlsSystemCertPool     bool
+	tlsCACerts            []string
+	universalRegistrarURL string
 }
 
 type server interface {
@@ -196,12 +201,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
-	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName, databaseURLEnvKey, true)
+	databaseType, databaseURL, err := getDB(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -211,18 +211,38 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	universalRegistrarURL, err := cmdutils.GetUserSetVarFromString(cmd, universalRegistrarURLFlagName,
+		universalRegistrarURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vcRestParameters{
-		hostURL:              hostURL,
-		edvURL:               edvURL,
-		blocDomain:           blocDomain,
-		hostURLExternal:      hostURLExternal,
-		universalResolverURL: universalResolverURL,
-		mode:                 mode,
-		databaseType:         databaseType,
-		databaseURL:          databaseURL,
-		tlsSystemCertPool:    tlsSystemCertPool,
-		tlsCACerts:           tlsCACerts,
-	}, nil
+		hostURL:               hostURL,
+		edvURL:                edvURL,
+		blocDomain:            blocDomain,
+		hostURLExternal:       hostURLExternal,
+		universalResolverURL:  universalResolverURL,
+		mode:                  mode,
+		databaseType:          databaseType,
+		databaseURL:           databaseURL,
+		tlsSystemCertPool:     tlsSystemCertPool,
+		tlsCACerts:            tlsCACerts,
+		universalRegistrarURL: universalRegistrarURL}, nil
+}
+
+func getDB(cmd *cobra.Command) (string, string, error) {
+	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
+	if err != nil {
+		return "", "", err
+	}
+
+	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName, databaseURLEnvKey, true)
+	if err != nil {
+		return "", "", err
+	}
+
+	return databaseType, databaseURL, nil
 }
 
 func getTLS(cmd *cobra.Command) (bool, []string, error) {
@@ -262,6 +282,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().BoolP(tlsSystemCertPoolFlagName, "", false,
 		tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
+	startCmd.Flags().StringP(universalRegistrarURLFlagName, "", "",
+		universalRegistrarURLFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters, srv server) error {
@@ -305,7 +327,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	vcService, err := vc.New(&operation.Config{StoreProvider: storeProvider,
 		EDVClient: edv.New(parameters.edvURL, edv.WithTLSConfig(tlsConfig)),
 		KMS:       kms, VDRI: vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
-		TLSConfig: tlsConfig})
+		TLSConfig: tlsConfig, UniversalRegistrarURL: parameters.universalRegistrarURL})
 	if err != nil {
 		return err
 	}

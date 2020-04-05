@@ -138,15 +138,7 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
-	//TODO: Should this be opened in the same store? https://github.com/trustbloc/edge-service/issues/112
-	err = config.StoreProvider.CreateStore(IDMappingStoreName)
-	if err != nil {
-		if err != storage.ErrDuplicateStore {
-			return nil, err
-		}
-	}
-
-	idMappingStore, err := config.StoreProvider.OpenStore(IDMappingStoreName)
+	idMappingStore, err := openIDMappingStore(config)
 	if err != nil {
 		return nil, err
 	}
@@ -170,51 +162,66 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
-		profileStore:    vcprofile.New(store),
-		edvClient:       config.EDVClient,
-		kms:             config.KMS,
-		vdri:            config.VDRI,
-		crypto:          c,
-		packer:          packer,
-		senderKey:       senderKey,
-		vcStatusManager: vcStatusManager,
-		didBlocClient:   didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
-		domain:          config.Domain,
-		idMappingStore:  idMappingStore,
-		httpClient:      &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
-		HostURL:         config.HostURL,
+		profileStore:          vcprofile.New(store),
+		edvClient:             config.EDVClient,
+		kms:                   config.KMS,
+		vdri:                  config.VDRI,
+		crypto:                c,
+		packer:                packer,
+		senderKey:             senderKey,
+		vcStatusManager:       vcStatusManager,
+		didBlocClient:         didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
+		domain:                config.Domain,
+		idMappingStore:        idMappingStore,
+		httpClient:            &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		hostURL:               config.HostURL,
+		universalRegistrarURL: config.UniversalRegistrarURL,
 	}
 
 	return svc, nil
 }
 
+func openIDMappingStore(config *Config) (storage.Store, error) {
+	//TODO: Should this be opened in the same store? https://github.com/trustbloc/edge-service/issues/112
+	err := config.StoreProvider.CreateStore(IDMappingStoreName)
+	if err != nil {
+		if err != storage.ErrDuplicateStore {
+			return nil, err
+		}
+	}
+
+	return config.StoreProvider.OpenStore(IDMappingStoreName)
+}
+
 // Config defines configuration for vcs operations
 type Config struct {
-	StoreProvider storage.Provider
-	EDVClient     EDVClient
-	KMS           legacykms.KMS
-	VDRI          vdriapi.Registry
-	HostURL       string
-	Domain        string
-	Mode          string
-	TLSConfig     *tls.Config
+	StoreProvider         storage.Provider
+	EDVClient             EDVClient
+	KMS                   legacykms.KMS
+	VDRI                  vdriapi.Registry
+	HostURL               string
+	Domain                string
+	Mode                  string
+	TLSConfig             *tls.Config
+	UniversalRegistrarURL string
 }
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore    *vcprofile.Profile
-	edvClient       EDVClient
-	kms             legacykms.KeyManager
-	vdri            vdriapi.Registry
-	crypto          *crypto.Crypto
-	packer          *authcrypt.Packer
-	senderKey       string
-	vcStatusManager vcStatusManager
-	didBlocClient   didBlocClient
-	domain          string
-	idMappingStore  storage.Store
-	httpClient      httpClient
-	HostURL         string
+	profileStore          *vcprofile.Profile
+	edvClient             EDVClient
+	kms                   legacykms.KeyManager
+	vdri                  vdriapi.Registry
+	crypto                *crypto.Crypto
+	packer                *authcrypt.Packer
+	senderKey             string
+	vcStatusManager       vcStatusManager
+	didBlocClient         didBlocClient
+	domain                string
+	idMappingStore        storage.Store
+	httpClient            httpClient
+	hostURL               string
+	universalRegistrarURL string
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -268,7 +275,7 @@ func (o *Operation) issuerHandlers() []Handler {
 }
 
 func (o *Operation) vcStatus(rw http.ResponseWriter, req *http.Request) {
-	csl, err := o.vcStatusManager.GetCSL(o.HostURL + req.RequestURI)
+	csl, err := o.vcStatusManager.GetCSL(o.hostURL + req.RequestURI)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to get credential status list: %s", err.Error()))
