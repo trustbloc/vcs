@@ -32,6 +32,30 @@ const opts = {
                 }`,
                 replace: "%presentation%"
             }
+        },
+        {
+            name: "digitalbazaar",
+            types: ["PermanentResidentCard"],
+            vc: {
+                path: "https://issuer.interop.digitalbazaar.com/credentials/issueCredential",
+                request: `{
+                "credential": %credential%
+                    }`,
+                replace: "%credential%"
+            }
+        },
+        {
+            name: "danubetech",
+            types: ["UniversityDegreeCredential", "PermanentResidentCard"],
+            vc: {
+                path: "https://uniissuer.io/danubetech/credential-issuer/0.0.1/credentials/issueCredential",
+                issuer: "did:v1:test:nym:z6Mkeac33uiSWFAfDM5wPUWDhGZFUWDvTji3zJ1yg4ADUpiW",
+                request: `{
+                "credential": %credential%
+                    }`,
+                replace: "%credential%",
+                responseKey: "credential"
+            }
         }
     ]
 }
@@ -67,10 +91,15 @@ const createVerifiables = async (credentials) => {
             }
 
             fileSuffix++
-            const credentialStr = JSON.stringify(credential)
             // create vc
             if (provider.vc) {
                 console.log(`Creating verifiable credential of type ${type} for ${provider.name} submitting request to ${provider.vc.path}`)
+                var credentialStr = JSON.stringify(credential)
+                if (provider.vc.issuer) {
+                    const cred = Object.assign({}, credential)
+                    cred.issuer = provider.vc.issuer
+                    credentialStr = JSON.stringify(cred)
+                }
 
                 const rqst = provider.vc.request.replace(provider.vc.replace, credentialStr)
                 let resp
@@ -84,9 +113,10 @@ const createVerifiables = async (credentials) => {
                 if (resp.status = 200) {
                     const output = `${process.env.OutputDir}${provider.name}_vc${fileSuffix}.json`
                     console.log(`Successfully created vc for ${provider.name}, writing to ${output}`)
-                    writeToFile(output, resp.data)
+                    const vcdata = (provider.vc.responseKey) ? JSON.parse(resp.data[provider.vc.responseKey]) : resp.data
+                    writeToFile(output, vcdata)
                     response.output.push(output)
-                    response.vc = resp.data
+                    response.vc = vcdata
                 } else {
                     console.log(`Failed to create VC for ${provider.name} : ${resp.data}`)
                     return
@@ -141,11 +171,11 @@ function createPresentation(vc) {
 function printResponseMessage(responses) {
     console.log(bgGreen)
     responses.forEach((response, index) => {
-        console.log(`Successfully created verifiables for ${response.name}`)
-        console.log("Generated below files: ")
+        console.log(`Successfully created verifiables for ${response.name}, generated below files`,)
         response.output.forEach((file, index) => {
             console.log(bgGreen, `\t${file}`)
         })
+        console.log("")
     })
     console.log(reset)
 }

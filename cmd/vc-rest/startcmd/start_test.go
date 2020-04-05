@@ -228,6 +228,53 @@ func TestCreateKMS(t *testing.T) {
 	})
 }
 
+func TestAcceptedDIDs(t *testing.T) {
+	t.Run("Test accepted DID methods", func(t *testing.T) {
+		tests := []struct {
+			method string
+			result bool
+		}{
+			{
+				method: didMethodVeres,
+				result: true,
+			},
+			{
+				method: didMethodKey,
+				result: true,
+			},
+			{
+				method: didMethodSov,
+				result: true,
+			},
+			{
+				method: didMethodElement,
+				result: true,
+			},
+			{
+				method: didMethodWeb,
+				result: true,
+			},
+			{
+				method: "edge",
+				result: false,
+			},
+			{
+				method: "invalid",
+				result: false,
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.method, func(t *testing.T) {
+				require.Equal(t, tc.result, acceptsDID(tc.method))
+			})
+		}
+	})
+}
+
 func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
