@@ -56,7 +56,7 @@ type issueCredentialReq struct { // nolint: unused,deadcode
 	ID string `json:"id"`
 
 	// in: body
-	Params issueCredentialRequest
+	Params IssueCredentialRequest
 }
 
 // issueCredentialReq model for OpenAPI annotation
@@ -70,7 +70,7 @@ type composeCredentialReq struct { // nolint: unused,deadcode
 	ID string `json:"id"`
 
 	// in: body
-	Params composeCredentialRequest
+	Params ComposeCredentialRequest
 }
 
 // verifiableCredentialRes model contains the verifiable credential
@@ -92,42 +92,12 @@ type dataProfile struct { // nolint: unused
 	DIDPrivateKey           string     `json:"didPrivateKey,omitempty"`
 }
 
-// issueCredentialRequest request for issuing credential. Added a new struct definition as OpenAPI
-// shows json.RawMessage as array in the specification instead of object.
-type issueCredentialRequest struct { // nolint: unused
-	Credential interface{}             `json:"credential,omitempty"`
-	Opts       *IssueCredentialOptions `json:"options,omitempty"`
-}
-
-// ComposeCredentialRequest for composing and issuing credential. Added a new struct definition as OpenAPI
-// shows json.RawMessage as array in the specification instead of object.
-type composeCredentialRequest struct { // nolint: unused
-	Issuer                  string      `json:"issuer,omitempty"`
-	Subject                 string      `json:"subject,omitempty"`
-	Types                   []string    `json:"types,omitempty"`
-	IssuanceDate            *time.Time  `json:"issuanceDate,omitempty"`
-	ExpirationDate          *time.Time  `json:"expirationDate,omitempty"`
-	Claims                  interface{} `json:"claims,omitempty"`
-	Evidence                interface{} `json:"evidence,omitempty"`
-	TermsOfUse              interface{} `json:"termsOfUse,omitempty"`
-	CredentialFormat        string      `json:"credentialFormat,omitempty"`
-	ProofFormat             string      `json:"proofFormat,omitempty"`
-	CredentialFormatOptions interface{} `json:"credentialFormatOptions,omitempty"`
-	ProofFormatOptions      interface{} `json:"proofFormatOptions,omitempty"`
-}
-
 // verifyCredentialReq model
 //
 // swagger:parameters verifyCredentialReq
 type verifyCredentialReq struct { // nolint: unused,deadcode
 	// in: body
-	Params verifyCredentialRequest
-}
-
-// verifyCredentialRequest request for verifying credential.
-type verifyCredentialRequest struct { // nolint: unused
-	Credential interface{}                     `json:"verifiableCredential,omitempty"`
-	Opts       *CredentialsVerificationOptions `json:"options,omitempty"`
+	Params CredentialsVerificationRequest
 }
 
 // verifyCredentialSuccessResp model
@@ -151,13 +121,7 @@ type verifyCredentialFailureResp struct { // nolint: unused,deadcode
 // swagger:parameters verifyPresentationReq
 type verifyPresentationReq struct { // nolint: unused,deadcode
 	// in: body
-	Params verifyPresentationRequest
-}
-
-// verifyCredentialRequest request for verifying credential.
-type verifyPresentationRequest struct { // nolint: unused
-	Presentation interface{}                `json:"verifiablePresentation,omitempty"`
-	Opts         *VerifyPresentationOptions `json:"options,omitempty"`
+	Params VerifyPresentationRequest
 }
 
 // verifyPresentationSuccessResp model
