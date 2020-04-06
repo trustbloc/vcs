@@ -1140,7 +1140,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	}
 }
 
-// VerifyPresentation swagger:route POST /verifier//verifier/presentations verifier verifyPresentationReq
+// VerifyPresentation swagger:route POST /verifier/presentations verifier verifyPresentationReq
 //
 // Verifies a presentation.
 //
