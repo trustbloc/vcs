@@ -13,6 +13,11 @@ UNIVERSAL_REGISTRAR_LOCAL ?= http://localhost:9080
 # REMOTE UNIVERSAL REGISTRAR ENDPOINT
 UNIVERSAL_REGISTRAR_REMOTE ?= https://uniregistrar.io
 
+# OpenAPI spec
+OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
+OPENAPI_SPEC_PATH=build/rest/openapi/spec
+OPENAPI_DOCKER_IMG_VERSION=v0.23.0
+
 # Tool commands (overridable)
 ALPINE_VER ?= 3.10
 GO_VER ?= 1.13.1
@@ -21,7 +26,7 @@ GO_VER ?= 1.13.1
 all: checks unit-test bdd-test
 
 .PHONY: checks
-checks: license lint
+checks: license lint generate-openapi-spec
 
 .PHONY: lint
 lint:
@@ -79,6 +84,27 @@ prepare-test-verifiables: clean
 	@mkdir -p .build
 	@cp scripts/prepare-test-verifiables.js .build/
 	@scripts/prepare_test_verifiables.sh
+
+.PHONY: generate-openapi-spec
+generate-openapi-spec: clean
+	@echo "Generating and validating controller API specifications using Open API"
+	@mkdir -p build/rest/openapi/spec
+	@SPEC_META=$(VC_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
+	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+	scripts/generate-openapi-spec.sh
+
+.PHONY: generate-openapi-demo-specs
+generate-openapi-demo-specs: clean generate-openapi-spec vc-rest-docker
+	@echo "Generate demo agent rest controller API specifications using Open API"
+	@SPEC_PATH=${OPENAPI_SPEC_PATH} OPENAPI_DEMO_PATH=test/bdd/fixtures/openapi-demo \
+    	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+    	scripts/generate-openapi-demo-specs.sh
+
+.PHONY: run-openapi-demo
+run-openapi-demo: generate-test-keys generate-openapi-demo-specs
+	@echo "Starting demo vc rest containers ..."
+	@FIXTURES_PATH=test/bdd/fixtures  \
+        scripts/run-openapi-demo.sh
 
 .PHONY: clean
 clean: clean-build

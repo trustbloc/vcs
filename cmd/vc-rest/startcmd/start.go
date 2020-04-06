@@ -22,6 +22,7 @@ import (
 	ariesmemstore "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	"github.com/rs/cors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -319,7 +320,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
-	return srv.ListenAndServe(parameters.hostURL, router)
+	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
 }
 
 func createKMS(s ariesstorage.Provider) (ariesapi.CloseableKMS, error) {
@@ -400,4 +401,13 @@ func createProvider(parameters *vcRestParameters) (storage.Provider, error) {
 	}
 
 	return provider, nil
+}
+
+func constructCORSHandler(handler http.Handler) http.Handler {
+	return cors.New(
+		cors.Options{
+			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodHead},
+			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
+		},
+	).Handler(handler)
 }
