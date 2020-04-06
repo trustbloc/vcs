@@ -111,7 +111,6 @@ const (
       "https://www.w3.org/2018/credentials/v1"
    ],
    "credentialSchema":[
-
    ],
    "credentialStatus":{
       "id":"https://example.gov/status/24",
@@ -496,7 +495,12 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, "public key not found in DID Document", rr.Body.String())
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
+		require.Equal(t, "public key not found in DID Document", errResp.Message)
 	})
 
 	t.Run("test failed to resolve did", func(t *testing.T) {
@@ -530,7 +534,12 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(), "missing profile name")
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
+		require.Equal(t, errResp.Message, "missing profile name")
 	})
 	t.Run("create profile error by passing invalid request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
@@ -539,7 +548,12 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, invalidRequestErrMsg+": EOF", rr.Body.String())
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
+		require.Equal(t, invalidRequestErrMsg+": EOF", errResp.Message)
 	})
 	t.Run("create profile error unable to write a response while reading the request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
@@ -700,7 +714,12 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
-		require.Equal(t, rr.Body.String(), "key is nil")
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
+		require.Equal(t, errResp.Message, "key is nil")
 	})
 	t.Run("store vc err while creating the document - vault not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
@@ -715,7 +734,12 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
-		require.Equal(t, rr.Body.String(), errVaultNotFound.Error())
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
+		require.Equal(t, errResp.Message, errVaultNotFound.Error())
 	})
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		client := NewMockEDVClient("test")
@@ -730,7 +754,12 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Equal(t, rr.Body.String(), "missing profile name")
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
+		require.Equal(t, errResp.Message, "missing profile name")
 	})
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil)
@@ -745,8 +774,13 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeVCHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
 		require.Equal(t, "unable to unmarshal the VC: decode new credential: "+
-			"embedded proof is not JSON: unexpected end of JSON input", rr.Body.String())
+			"embedded proof is not JSON: unexpected end of JSON input", errResp.Message)
 	})
 }
 
@@ -930,8 +964,13 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		op.retrieveVCHandler(rr, r)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		errResp := &ErrorResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
+		require.NoError(t, err)
+
 		require.Equal(t, `decrypted envelope unpacking failed: no key accessible key not found`,
-			rr.Body.String())
+			errResp.Message)
 	})
 	t.Run("ID map doesn't contain the specified ID", func(t *testing.T) {
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),

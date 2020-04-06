@@ -138,3 +138,8 @@ type VerifyPresentationCheckResult struct {
 	Error              string `json:"error,omitempty"`
 	VerificationMethod string `json:"verificationMethod,omitempty"`
 }
+
+// ErrorResponse to send error message in the response
+type ErrorResponse struct {
+	Message string `json:"errMessage,omitempty"`
+}

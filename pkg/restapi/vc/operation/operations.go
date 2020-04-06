@@ -704,7 +704,11 @@ func (o *Operation) writeResponse(rw io.Writer, v interface{}) {
 func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
 	rw.WriteHeader(status)
 
-	if _, err := rw.Write([]byte(msg)); err != nil {
+	err := json.NewEncoder(rw).Encode(ErrorResponse{
+		Message: msg,
+	})
+
+	if err != nil {
 		log.Errorf("Unable to send error message, %s", err)
 	}
 }
