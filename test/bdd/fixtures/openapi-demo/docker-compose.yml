@@ -1,0 +1,25 @@
+#
+# Copyright IBM Corp, SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  openapi.demo.com:
+    container_name: openapi.demo.com
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/specs/openapi-${OPEN_API_HOST}.yml
+      - BASE_URL=/openapi
+    ports:
+      - 8089:8080
+    volumes:
+      - ./specs:/specs
+    networks:
+      - couchdb_bdd_net
+
+networks:
+  couchdb_bdd_net:
+    external: true

@@ -28,7 +28,9 @@ coverage.txt
 # Exclude build directory
 .build
 *.log
+build/
 
 test/bdd/fixtures/keys/tls
 test/bdd/fixtures/discovery-server/config
 test/bdd/fixtures/stakeholder-server/config
+test/bdd/fixtures/openapi-demo/specs/

@@ -238,8 +238,8 @@ func (o *Operation) verifierHandlers() []Handler {
 	return []Handler{
 		// TODO https://github.com/trustbloc/edge-service/issues/153 Remove /verifications API after
 		//  transition period
-		support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.credentialsVerificationHandler),
-		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
+		support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.verifyCredentialHandler),
+		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost,
 			o.verifyPresentationHandler),
 	}
@@ -255,7 +255,7 @@ func (o *Operation) issuerHandlers() []Handler {
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
 		// TODO https://github.com/trustbloc/edge-service/issues/181 verifyCredential API present in both issuer
 		//  and verifier mode. Is this valid ?
-		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.credentialsVerificationHandler),
+		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
 		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
 		support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
@@ -384,6 +384,13 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 	rw.WriteHeader(http.StatusOK)
 }
 
+// CreateIssuerProfile swagger:route POST /profile issuer issuerProfileReq
+//
+// Creates issuer profile.
+//
+// Responses:
+//    default: genericError
+//        201: issuerProfileRes
 func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	data := ProfileRequest{}
 
@@ -405,6 +412,13 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 	o.writeResponse(rw, profileResponse)
 }
 
+// RetrieveIssuerProfile swagger:route GET /profile/{id} issuer retrieveProfileReq
+//
+// Retrieves issuer profile.
+//
+// Responses:
+//    default: genericError
+//        200: issuerProfileRes
 func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	profileID := mux.Vars(req)["id"]
 
@@ -713,6 +727,13 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 	}
 }
 
+// IssueCredential swagger:route POST /{id}/credentials/issueCredential issuer issueCredentialReq
+//
+// Issues a credential.
+//
+// Responses:
+//    default: genericError
+//        200: verifiableCredentialRes
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
 	profileID := mux.Vars(req)[profileIDPathParam]
@@ -774,6 +795,13 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	o.writeResponse(rw, signedVC)
 }
 
+// composeAndIssueCredential swagger:route POST /{id}/credentials/composeAndIssueCredential issuer composeCredentialReq
+//
+// Composes and Issues a credential.
+//
+// Responses:
+//    default: genericError
+//        200: verifiableCredentialRes
 func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
 	id := mux.Vars(req)[profileIDPathParam]
@@ -1025,8 +1053,16 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 	})
 }
 
-// nolint dupl ()
-func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *http.Request) {
+// nolint dupl
+// VerifyCredential swagger:route POST /verifier/credentials verifier verifyCredentialReq
+//
+// Verifies a credential.
+//
+// Responses:
+//    default: genericError
+//        200: verifyCredentialSuccessResp
+//        400: verifyCredentialFailureResp
+func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := CredentialsVerificationRequest{}
 
@@ -1104,7 +1140,14 @@ func (o *Operation) credentialsVerificationHandler(rw http.ResponseWriter, req *
 	}
 }
 
-// nolint dupl
+// VerifyPresentation swagger:route POST /verifier//verifier/presentations verifier verifyPresentationReq
+//
+// Verifies a presentation.
+//
+// Responses:
+//    default: genericError
+//        200: verifyPresentationSuccessResp
+//        400: verifyPresentationFailureResp
 func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := VerifyPresentationRequest{}

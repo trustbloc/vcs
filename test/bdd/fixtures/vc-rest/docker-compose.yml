@@ -50,6 +50,25 @@ services:
     networks:
       - couchdb_bdd_net
 
+  vc.rest.example.com:
+    container_name: vc.rest.example.com
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${VC_REST_HOST}:${VC_REST_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://vc.rest.example.com:${VC_REST_PORT}
+      - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
+      - BLOC_DOMAIN=testnet.trustbloc.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - DATABASE_TYPE=mem
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+    ports:
+      - ${VC_REST_PORT}:${VC_REST_PORT}
+    command:  start
+    volumes:
+      - ../keys/tls:/etc/tls
+    networks:
+      - couchdb_bdd_net
+
 networks:
   couchdb_bdd_net:
     external: true
