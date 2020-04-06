@@ -86,7 +86,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" has her "([^"]*)" verified as "([^"]*)"$`, e.getCredential)
-	s.Step(`^"([^"]*)" has her "([^"]*)" presentable as "([^"]*)"$`, e.getPresentation)
+	s.Step(`^"([^"]*)" has her "([^"]*)" verified as "([^"]*)" and presentable as "([^"]*)"$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
 	s.Step(`^"([^"]*)" creates an Issuer Service profile "([^"]*)" with the DID$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID$`, //nolint: lll
@@ -351,9 +351,35 @@ func (e *Steps) getCredential(user, cred, verifiedCred string) error {
 	return nil
 }
 
-func (e *Steps) getPresentation(user, cred, verifiablePres string) error {
-	// create presentation if not provided in test data file
-	if verifiablePres == "" {
+func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolint: gocyclo
+	var userEmpty, credEmpty, vcredEmpty, vpresEmpty = user == "", cred == "", vcred == "", vpres == ""
+
+	switch {
+	case userEmpty || credEmpty:
+		return fmt.Errorf("'user' and 'credential' are mandatory in example data")
+	case !vpresEmpty:
+		// verifiable presentation is provided in test example data.
+		vpBytes, ok := e.bddContext.TestData[vpres]
+		if !ok {
+			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
+		}
+
+		e.bddContext.Args[user] = string(vpBytes)
+	case !vcredEmpty:
+		// create verifiable presentation using verifiable credential from example data.
+		vcBytes, ok := e.bddContext.TestData[vcred]
+		if !ok {
+			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
+		}
+
+		vpBytes, err := bddutil.CreatePresentation(vcBytes, verifiable.SignatureJWS, e.bddContext.VDRI)
+		if err != nil {
+			return err
+		}
+
+		e.bddContext.Args[user] = string(vpBytes)
+	default:
+		// create verifiable credential and then verifiable presentation from example data credential.
 		vcBytes, err := e.createCredential(user, cred)
 		if err != nil {
 			return err
@@ -368,13 +394,6 @@ func (e *Steps) getPresentation(user, cred, verifiablePres string) error {
 
 		return nil
 	}
-
-	vpBytes, ok := e.bddContext.TestData[verifiablePres]
-	if !ok {
-		return fmt.Errorf("unable to find verifiable presentation '%s'", verifiablePres)
-	}
-
-	e.bddContext.Args[user] = string(vpBytes)
 
 	return nil
 }
