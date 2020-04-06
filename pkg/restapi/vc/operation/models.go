@@ -43,6 +43,13 @@ type ProfileRequest struct {
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
 	DID                     string                             `json:"did"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
+	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
+}
+
+// UNIRegistrar uni-registrar
+type UNIRegistrar struct {
+	DriverURL string            `json:"driverURL,omitempty"`
+	Options   map[string]string `json:"options,omitempty"`
 }
 
 // VerifyCredentialResponse describes verify credential response

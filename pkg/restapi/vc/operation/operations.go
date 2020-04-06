@@ -32,7 +32,9 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
+	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
+	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
@@ -84,6 +86,9 @@ const (
 
 	// json keys
 	keyID = "kid"
+
+	pubKeyIndex1 = "#key-1"
+	keyType      = "Ed25519VerificationKey2018"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -114,6 +119,10 @@ type httpClient interface {
 
 type didBlocClient interface {
 	CreateDID(domain string, opts ...didclient.CreateDIDOption) (*did.Doc, error)
+}
+
+type uniRegistrarClient interface {
+	CreateDID(driverURL string, opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error)
 }
 
 type kmsProvider struct {
@@ -158,9 +167,7 @@ func New(config *Config) (*Operation, error) {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
-	kmsProv := kmsProvider{
-		kms: config.KMS,
-	}
+	kmsProv := kmsProvider{kms: config.KMS}
 
 	packer := authcrypt.New(kmsProv)
 
@@ -170,19 +177,20 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
-		profileStore:    vcprofile.New(store),
-		edvClient:       config.EDVClient,
-		kms:             config.KMS,
-		vdri:            config.VDRI,
-		crypto:          c,
-		packer:          packer,
-		senderKey:       senderKey,
-		vcStatusManager: vcStatusManager,
-		didBlocClient:   didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
-		domain:          config.Domain,
-		idMappingStore:  idMappingStore,
-		httpClient:      &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
-		HostURL:         config.HostURL,
+		profileStore:       vcprofile.New(store),
+		edvClient:          config.EDVClient,
+		kms:                config.KMS,
+		vdri:               config.VDRI,
+		crypto:             c,
+		packer:             packer,
+		senderKey:          senderKey,
+		vcStatusManager:    vcStatusManager,
+		didBlocClient:      didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
+		domain:             config.Domain,
+		idMappingStore:     idMappingStore,
+		httpClient:         &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		HostURL:            config.HostURL,
+		uniRegistrarClient: uniregistrar.New(uniregistrar.WithTLSConfig(config.TLSConfig)),
 	}
 
 	return svc, nil
@@ -202,19 +210,20 @@ type Config struct {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore    *vcprofile.Profile
-	edvClient       EDVClient
-	kms             legacykms.KeyManager
-	vdri            vdriapi.Registry
-	crypto          *crypto.Crypto
-	packer          *authcrypt.Packer
-	senderKey       string
-	vcStatusManager vcStatusManager
-	didBlocClient   didBlocClient
-	domain          string
-	idMappingStore  storage.Store
-	httpClient      httpClient
-	HostURL         string
+	profileStore       *vcprofile.Profile
+	edvClient          EDVClient
+	kms                legacykms.KeyManager
+	vdri               vdriapi.Registry
+	crypto             *crypto.Crypto
+	packer             *authcrypt.Packer
+	senderKey          string
+	vcStatusManager    vcStatusManager
+	didBlocClient      didBlocClient
+	domain             string
+	idMappingStore     storage.Store
+	httpClient         httpClient
+	HostURL            string
+	uniRegistrarClient uniRegistrarClient
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -394,14 +403,34 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	data := ProfileRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&data)
-	if err != nil {
+	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
 
-	profileResponse, err := o.createProfile(&data)
+	if err := validateProfileRequest(&data); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	profile, err := o.createProfile(&data)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	err = o.profileStore.SaveProfile(profile)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	// create the vault associated with the profile
+	_, err = o.edvClient.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: profile.Name})
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -409,7 +438,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 	}
 
 	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, profileResponse)
+	o.writeResponse(rw, profile)
 }
 
 // RetrieveIssuerProfile swagger:route GET /profile/{id} issuer retrieveProfileReq
@@ -623,55 +652,63 @@ func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request)
 }
 
 func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
-	if err := validateProfileRequest(pr); err != nil {
-		return nil, err
-	}
+	var didID string
 
-	var didDoc *did.Doc
+	var publicKeyID string
 
-	var err error
+	didPrivateKey := pr.DIDPrivateKey
 
-	if pr.DID == "" {
-		didDoc, err = o.didBlocClient.CreateDID(o.domain)
+	switch {
+	case pr.UNIRegistrar.DriverURL != "":
+		_, base58PubKey, err := o.kms.CreateKeySet()
+		if err != nil {
+			return nil, err
+		}
+
+		identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL,
+			uniregistrar.WithPublicKey(didmethodoperation.PublicKey{ID: pubKeyIndex1, Type: keyType, Value: base58PubKey}),
+			uniregistrar.WithOptions(pr.UNIRegistrar.Options))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
+		}
+
+		didID = identifier
+		publicKeyID = keys[0].PublicKeyDIDURL
+		didPrivateKey = keys[0].PrivateKeyBase58
+
+	case pr.DID == "":
+		didDoc, err := o.didBlocClient.CreateDID(o.domain)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create did doc: %v", err)
 		}
-	} else {
-		didDoc, err = o.vdri.Resolve(pr.DID)
+
+		didID = didDoc.ID
+
+		publicKeyID, err = getPublicKeyID(didDoc)
+		if err != nil {
+			return nil, err
+		}
+
+	case pr.DID != "":
+		didDoc, err := o.vdri.Resolve(pr.DID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve did: %v", err)
 		}
-	}
 
-	publicKeyID, err := getPublicKeyID(didDoc)
-	if err != nil {
-		return nil, err
+		didID = didDoc.ID
+
+		publicKeyID, err = getPublicKeyID(didDoc)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	created := time.Now().UTC()
-	profileResponse := &vcprofile.DataProfile{
-		Name:                    pr.Name,
-		URI:                     pr.URI,
-		Created:                 &created,
-		DID:                     didDoc.ID,
-		SignatureType:           pr.SignatureType,
-		SignatureRepresentation: pr.SignatureRepresentation,
-		Creator:                 publicKeyID,
-		DIDPrivateKey:           pr.DIDPrivateKey,
-	}
 
-	err = o.profileStore.SaveProfile(profileResponse)
-	if err != nil {
-		return nil, err
-	}
-
-	// create the vault associated with the profile
-	_, err = o.edvClient.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: pr.Name})
-	if err != nil {
-		return nil, err
-	}
-
-	return profileResponse, nil
+	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID,
+		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation,
+		Creator: publicKeyID, DIDPrivateKey: didPrivateKey,
+	}, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {

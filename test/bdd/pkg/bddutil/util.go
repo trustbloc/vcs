@@ -33,7 +33,8 @@ func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) error {
 			return err
 		}
 
-		time.Sleep(1 * time.Second)
+		fmt.Printf("did %s not found will retry %d of %d\n", did, i, maxRetry)
+		time.Sleep(3 * time.Second)
 	}
 
 	return err

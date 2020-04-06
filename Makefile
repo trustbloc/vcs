@@ -8,10 +8,6 @@ VC_REST_PATH=cmd/vc-rest
 DOCKER_OUTPUT_NS   ?= docker.pkg.github.com
 VC_REST_IMAGE_NAME   ?= trustbloc/edge-service/vc-rest
 DID_ELEMENT_SIDETREE_REQUEST_URL ?= https://element-did.com/api/v1/sidetree/requests
-# LOCAL UNIVERSAL REGISTRAR ENDPOINT
-UNIVERSAL_REGISTRAR_LOCAL ?= http://localhost:9080
-# REMOTE UNIVERSAL REGISTRAR ENDPOINT
-UNIVERSAL_REGISTRAR_REMOTE ?= https://uniregistrar.io
 
 # OpenAPI spec
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
@@ -73,11 +69,6 @@ create-element-did: clean
 	@mkdir -p .build
 	@cp scripts/create-element-did.js .build/
 	@REQUEST_URL=$(DID_ELEMENT_SIDETREE_REQUEST_URL) scripts/create_element_did.sh
-
-uniregistrar-create-dids: clean
-	@mkdir -p .build
-	@cp scripts/uniregistrar-create-dids.js .build/
-	@UNIREGISTRAR_LOCAL=$(UNIVERSAL_REGISTRAR_LOCAL) UNIREGISTRAR_REMOTE=$(UNIVERSAL_REGISTRAR_REMOTE) scripts/uniregistrar_create_dids.sh
 
 # this target creates VCs and VPs from other systems for interop tests
 prepare-test-verifiables: clean

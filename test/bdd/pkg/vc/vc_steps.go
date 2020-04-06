@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	expectedProfileDID                   = "did:trustbloc"
 	expectedProfileResponseURI           = "https://example.com/credentials"
 	expectedProfileResponseSignatureType = "Ed25519Signature2018"
 	issuerURL                            = "http://localhost:8070/"
@@ -48,7 +47,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)" and signatureHolder "([^"]*)"$`,
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)' and didMethod "([^"]*)"$`, //nolint: lll
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)"$`, e.getProfile)
 	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
@@ -93,7 +92,7 @@ func (e *Steps) verifyPresentation(holder, checksList, result, respMessage strin
 	return verify(resp, checks, result, respMessage)
 }
 
-func (e *Steps) createProfile(profileName, did, privateKey, holder string) error {
+func (e *Steps) createProfile(profileName, did, privateKey, holder, uniRegistrar, didMethod string) error { //nolint: funlen gocyclo
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
 		return fmt.Errorf("unable to find profile request template")
@@ -106,10 +105,20 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder string) error
 		return err
 	}
 
+	var u operation.UNIRegistrar
+
+	if uniRegistrar != "" {
+		err = json.Unmarshal([]byte(uniRegistrar), &u)
+		if err != nil {
+			return err
+		}
+	}
+
 	profileRequest.Name = profileName
 	profileRequest.DID = did
 	profileRequest.DIDPrivateKey = privateKey
 	profileRequest.SignatureRepresentation = getSignatureRepresentation(holder)
+	profileRequest.UNIRegistrar = u
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -142,13 +151,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder string) error
 		return err
 	}
 
-	profileDID := expectedProfileDID
-
-	if profileRequest.DID != "" {
-		profileDID = profileRequest.DID
-	}
-
-	if err := e.checkProfileResponse(profileName, profileDID, &profileResponse); err != nil {
+	if err := e.checkProfileResponse(profileName, didMethod, &profileResponse); err != nil {
 		return err
 	}
 
@@ -197,13 +200,7 @@ func (e *Steps) getProfile(profileName, did string) error {
 		return err
 	}
 
-	profileDID := expectedProfileDID
-
-	if did != "" {
-		profileDID = did
-	}
-
-	return e.checkProfileResponse(profileName, profileDID, profileResponse)
+	return e.checkProfileResponse(profileName, did, profileResponse)
 }
 
 func (e *Steps) createCredential(credential, profileName string) error {

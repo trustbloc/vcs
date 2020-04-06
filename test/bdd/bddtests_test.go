@@ -54,7 +54,7 @@ func runBDDTests(tags, format string) int {
 		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/vc-rest",
 			"./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/did-method-rest", "./fixtures/discovery-server", "./fixtures/stakeholder-server",
-			"./fixtures/dns-proxy-server"}
+			"./fixtures/dns-proxy-server", "./fixtures/universal-registrar"}
 		s.BeforeSuite(func() {
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
 				// Need a unique name, but docker does not allow '-' in names
