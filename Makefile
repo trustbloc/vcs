@@ -92,7 +92,7 @@ generate-openapi-demo-specs: clean generate-openapi-spec vc-rest-docker
     	scripts/generate-openapi-demo-specs.sh
 
 .PHONY: run-openapi-demo
-run-openapi-demo: generate-test-keys generate-openapi-demo-specs
+run-openapi-demo: generate-test-keys generate-test-config generate-openapi-demo-specs
 	@echo "Starting demo vc rest containers ..."
 	@FIXTURES_PATH=test/bdd/fixtures  \
         scripts/run-openapi-demo.sh
