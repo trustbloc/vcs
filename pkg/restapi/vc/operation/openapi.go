@@ -8,6 +8,8 @@ package operation
 
 import (
 	"time"
+
+	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 )
 
 // genericError model
@@ -138,4 +140,70 @@ type verifyPresentationSuccessResp struct { // nolint: unused,deadcode
 type verifyPresentationFailureResp struct { // nolint: unused,deadcode
 	// in: body
 	Checks []*VerifyPresentationCheckResult `json:"checks,omitempty"`
+}
+
+// generateKeypairResp model
+//
+// swagger:response generateKeypairResp
+type generateKeypairResp struct { // nolint: unused,deadcode
+	// in: body
+	GenerateKeyPairResponse
+}
+
+// storeCredentialReq model
+//
+// swagger:parameters storeCredentialReq
+type storeCredentialReq struct { // nolint: unused,deadcode
+	// in: body
+	Params StoreVCRequest
+}
+
+// emptyRes model
+//
+// swagger:response emptyRes
+type emptyRes struct { // nolint: unused,deadcode
+}
+
+// retrieveCredentialReq model
+//
+// swagger:parameters retrieveCredentialReq
+type retrieveCredentialReq struct { // nolint: unused,deadcode
+	// credential id
+	//
+	// in: query
+	// required: true
+	ID string `json:"id"`
+
+	// profile
+	//
+	// in: query
+	// required: true
+	Profile string `json:"profile"`
+}
+
+// updateCredentialStatusReq model
+//
+// swagger:parameters updateCredentialStatusReq
+type updateCredentialStatusReq struct { // nolint: unused,deadcode
+	// in: body
+	Params UpdateCredentialStatusRequest
+}
+
+// retrieveCredentialStatusReq model
+//
+// swagger:parameters retrieveCredentialStatusReq
+type retrieveCredentialStatusReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// retrieveCredentialStatusResp model
+//
+// swagger:response retrieveCredentialStatusResp
+type retrieveCredentialStatusResp struct { // nolint: unused,deadcode
+	// in: body
+	cslstatus.CSL
 }

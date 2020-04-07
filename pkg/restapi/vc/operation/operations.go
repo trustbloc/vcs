@@ -44,7 +44,7 @@ import (
 const (
 	credentialStoreName = "credential"
 	profile             = "/profile"
-	vcStatus            = "/status"
+	credentialStatus    = "/status"
 	profileIDPathParam  = "profileID"
 
 	// endpoints
@@ -53,7 +53,7 @@ const (
 	getProfileEndpoint                = profile + "/{id}"
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
-	vcStatusEndpoint                  = vcStatus + "/{id}"
+	credentialStatusEndpoint          = credentialStatus + "/{id}"
 	credentialsBasePath               = "/" + "{" + profileIDPathParam + "}" + "/credentials"
 	issueCredentialPath               = credentialsBasePath + "/issueCredential"
 	composeAndIssueCredentialPath     = credentialsBasePath + "/composeAndIssueCredential"
@@ -162,7 +162,7 @@ func New(config *Config) (*Operation, error) {
 
 	c := crypto.New(config.KMS, verifiable.NewDIDKeyResolver(config.VDRI))
 
-	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+vcStatus, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
@@ -260,14 +260,16 @@ func (o *Operation) issuerHandlers() []Handler {
 		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
 
-		// verifiable credential
-		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeVCHandler),
+		// verifiable credential store
+		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeCredentialHandler),
+		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveCredentialHandler),
 		// TODO https://github.com/trustbloc/edge-service/issues/181 verifyCredential API present in both issuer
 		//  and verifier mode. Is this valid ?
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
+
+		// verifiable credential status
 		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
-		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveVCHandler),
-		support.NewHTTPHandler(vcStatusEndpoint, http.MethodGet, o.vcStatus),
+		support.NewHTTPHandler(credentialStatusEndpoint, http.MethodGet, o.retrieveCredentialStatus),
 
 		// issuer apis
 		support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
@@ -276,7 +278,14 @@ func (o *Operation) issuerHandlers() []Handler {
 	}
 }
 
-func (o *Operation) vcStatus(rw http.ResponseWriter, req *http.Request) {
+// RetrieveCredentialStatus swagger:route GET /status/{id} issuer retrieveCredentialStatusReq
+//
+// Retrieves the credential status.
+//
+// Responses:
+//    default: genericError
+//        200: retrieveCredentialStatusResp
+func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.Request) {
 	csl, err := o.vcStatusManager.GetCSL(o.HostURL + req.RequestURI)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
@@ -359,6 +368,13 @@ func (o *Operation) sendHTTPRequest(req *http.Request, status int) ([]byte, erro
 	return body, nil
 }
 
+// UpdateCredentialStatus swagger:route POST /updateStatus issuer updateCredentialStatusReq
+//
+// Updates credential status.
+//
+// Responses:
+//    default: genericError
+//        200: emptyRes
 func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *http.Request) {
 	data := UpdateCredentialStatusRequest{}
 	err := json.NewDecoder(req.Body).Decode(&data)
@@ -369,6 +385,8 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
+	// TODO https://github.com/trustbloc/edge-service/issues/208 credential is bundled into string type - update
+	//  this to json.RawMessage
 	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
@@ -467,7 +485,14 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 	o.writeResponse(rw, profileResponseJSON)
 }
 
-func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
+// StoreVerifiableCredential swagger:route POST /store issuer storeCredentialReq
+//
+// Stores a credential.
+//
+// Responses:
+//    default: genericError
+//        200: emptyRes
+func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	data := &StoreVCRequest{}
 
 	err := json.NewDecoder(req.Body).Decode(&data)
@@ -477,6 +502,8 @@ func (o *Operation) storeVCHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// TODO https://github.com/trustbloc/edge-service/issues/208 credential is bundled into string type - update
+	//  this to json.RawMessage
 	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
@@ -590,7 +617,14 @@ func generateEDVCompatibleID() (string, error) {
 	return base58EncodedUUID, nil
 }
 
-func (o *Operation) retrieveVCHandler(rw http.ResponseWriter, req *http.Request) {
+// StoreVerifiableCredential swagger:route POST /retrieve issuer retrieveCredentialReq
+//
+// Retrieves a stored credential.
+//
+// Responses:
+//    default: genericError
+//        200: emptyRes
+func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	id := req.URL.Query().Get("id")
 	profile := req.URL.Query().Get("profile")
 
@@ -1075,6 +1109,13 @@ func getKeyIDFromReq(composeCredReq *ComposeCredentialRequest, defaultKeyID stri
 	return defaultKeyID, nil
 }
 
+// GenerateKeypair swagger:route GET /kms/generatekeypair issuer req
+//
+// Generates a keypair, stores it in the KMS and returns the public key.
+//
+// Responses:
+//    default: genericError
+//        200: generateKeypairResp
 func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {
 	_, signKey, err := o.kms.CreateKeySet()
 	if err != nil {
