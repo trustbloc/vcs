@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -39,6 +40,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Employer verifies the verifiable credential provided by "([^"]*)"$`, e.credentialsVerification)
 	s.Step(`^Employer verifies the verifiable presentation provided by "([^"]*)"$`, e.createAndVerifyPresentation)
+	s.Step(`^"([^"]*)" verifies the verifiable credential provided by "([^"]*)"$`, e.verifyCredentialUsingEndppint)
 }
 
 func (e *Steps) credentialsVerification(user string) error {
@@ -135,6 +137,28 @@ func (e *Steps) createAndVerifyPresentation(user string) error {
 	if len(verificationResp.Checks) != 1 {
 		return errors.New("response checks doesn't match the checks in the request")
 	}
+
+	return nil
+}
+
+func (e *Steps) verifyCredentialUsingEndppint(endpoint, user string) error {
+
+	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
+	checks := []string{"proof"}
+
+	req := &operation.CredentialsVerificationRequest{
+		Credential: []byte(vc),
+		Opts: &operation.CredentialsVerificationOptions{
+			Checks: checks,
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("request :: ", string(reqBytes))
 
 	return nil
 }

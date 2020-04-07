@@ -84,8 +84,9 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^"([^"]*)" has her "([^"]*)" verified as "([^"]*)"$`, e.getCredential)
-	s.Step(`^"([^"]*)" has her "([^"]*)" verified as "([^"]*)" and presentable as "([^"]*)"$`, e.getPresentation)
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as "([^"]*)"$`, e.prepareCredential)
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable using "([^"]*)" and "([^"]*)"$`, e.createCredentialUsingDID)
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as "([^"]*)" and presentable as "([^"]*)"$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
 	s.Step(`^"([^"]*)" creates an Issuer Service profile "([^"]*)" with the DID$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" application service verifies the credential created by Issuer Service - Issue Credential API with it's DID$`, //nolint: lll
@@ -331,25 +332,33 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 	return signedVCByte, nil
 }
 
-func (e *Steps) getCredential(user, cred, verifiedCred string) error {
-	// create credential if not provided in test data file
-	if verifiedCred == "" {
+func (e *Steps) createCredentialUsingDID(user, cred, did, privateKey string) error {
+	return e.prepareCredential(user, cred, "")
+}
+
+func (e *Steps) prepareCredential(user, cred, vcred string) error {
+	var credEmpty, vcredEmpty = cred == "", vcred == ""
+
+	switch {
+	case !vcredEmpty:
+		// verifiable credential found in example data.
+		vcBytes, ok := e.bddContext.TestData[vcred]
+		if !ok {
+			return fmt.Errorf("unable to find verifiable credential '%s'", vcred)
+		}
+
+		e.bddContext.Args[user] = string(vcBytes)
+	case !credEmpty:
+		// credential found in example data, create verifiable credential.
 		vcBytes, err := e.createCredential(user, cred)
 		if err != nil {
 			return err
 		}
 
 		e.bddContext.Args[bddutil.GetCredentialKey(user)] = string(vcBytes)
-
-		return nil
+	default:
+		return fmt.Errorf("invalid args, 'user' and 'credential' are mandatory")
 	}
-
-	vcBytes, ok := e.bddContext.TestData[verifiedCred]
-	if !ok {
-		return fmt.Errorf("unable to find verifiable credential '%s'", verifiedCred)
-	}
-
-	e.bddContext.Args[user] = string(vcBytes)
 
 	return nil
 }
