@@ -55,87 +55,87 @@ const (
 	testURLQueryID = "http://test.com/" + testUUID
 
 	testStoreCredentialRequest = `{
-"profile": "issuer",
-"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
+		"profile": "issuer",
+		"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
 		`"http:\/\/example.edu\/credentials\/1872\/` + testUUID + `\",\"type\":\` +
 		`"VerifiableCredential\",\"credentialSubject\":{\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},` +
 		`\"issuer\":{\"id\":\"did:example:76e12ec712ebc6f1c221ebfeb1f\",\"name\":\"Example University\"}` +
 		`,\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
-}`
+	}`
 
 	testStoreCredentialRequestBadVC = `{
-"profile": "issuer",
-"credential" : ""
-}`
+	   "profile":"issuer",
+	   "credential":""
+	}`
 
 	testStoreIncorrectCredentialRequest = `{
-"profile": "",
-"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
+		"profile": "",
+		"credential" : "{\"@context\":\"https:\/\/www.w3.org\/2018\/credentials\/v1\",\"id\":\` +
 		`"http:\/\/example.edu\/credentials\/1872\",\"type\":\"VerifiableCredential\",\"credentialSubject\":{\"id\` +
 		`":\"did:example:ebfeb1f712ebc6f1c276e12ec21\"},\"issuer\":{\"id\":\"did:example:76e12ec712ebc6f1c221ebfeb1f\` +
 		`",\"name\":\"Example University\"},\"issuanceDate\":\"2010-01-01T19:23:24Z\"}"
-}`
+	}`
 
 	testIssuerProfile = `{
 		"name": "issuer",
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018"
-}`
+	}`
 	testIssuerProfileWithDID = `{
 		"name": "issuer",
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018",
         "did": "did:peer:22",
         "didPrivateKey": "key"
-}`
+	}`
 
 	validVC = `{` +
 		validContext + `,
-  "id": "http://example.edu/credentials/1872",
-  "type": "VerifiableCredential",
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-  },
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-    "name": "Example University"
-  },
-  "issuanceDate": "2010-01-01T19:23:24Z",
-  "credentialStatus": {
-    "id": "https://example.gov/status/24",
-    "type": "CredentialStatusList2017"
-  }
-}`
+	  "id": "http://example.edu/credentials/1872",
+	  "type": "VerifiableCredential",
+	  "credentialSubject": {
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	  },
+	  "issuer": {
+		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"name": "Example University"
+	  },
+	  "issuanceDate": "2010-01-01T19:23:24Z",
+	  "credentialStatus": {
+		"id": "https://example.gov/status/24",
+		"type": "CredentialStatusList2017"
+	  }
+	}`
 
 	validVCWithProof = `{
-   "@context":[
-      "https://www.w3.org/2018/credentials/v1"
-   ],
-   "credentialSchema":[
-   ],
-   "credentialStatus":{
-      "id":"https://example.gov/status/24",
-      "type":"CredentialStatusList2017"
-   },
-   "credentialSubject":{
-      "id":"did:example:ebfeb1f712ebc6f1c276e12ec21"
-   },
-   "id":"http://example.edu/credentials/1872",
-   "issuanceDate":"2010-01-01T19:23:24Z",
-   "issuer":{
-      "id":"did:example:76e12ec712ebc6f1c221ebfeb1f",
-      "name":"Example University"
-   },
-   "proof":{
-      "created":"2020-03-23T17:20:15Z",
-      "jws":"eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..` +
+	   "@context":[
+		  "https://www.w3.org/2018/credentials/v1"
+	   ],
+	   "credentialSchema":[
+	   ],
+	   "credentialStatus":{
+		  "id":"https://example.gov/status/24",
+		  "type":"CredentialStatusList2017"
+	   },
+	   "credentialSubject":{
+		  "id":"did:example:ebfeb1f712ebc6f1c276e12ec21"
+	   },
+	   "id":"http://example.edu/credentials/1872",
+	   "issuanceDate":"2010-01-01T19:23:24Z",
+	   "issuer":{
+		  "id":"did:example:76e12ec712ebc6f1c221ebfeb1f",
+		  "name":"Example University"
+	   },
+	   "proof":{
+		  "created":"2020-03-23T17:20:15Z",
+		  "jws":"eyJhbGciOiJFZDI1NTE5U2lnbmF0dXJlMjAxOCIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..` +
 		`-M4JuuSvRurmWqX0S_x2eXg-ZaaDhkAUQ1GlV9DjD0WKZUKJefSkSgevYro64aFzQEa_gK7b1akJCB7XZtH1Aw",
-      "type":"Ed25519Signature2018",
-      "verificationMethod":"did:trustbloc:testnet.trustbloc.local:EiBpn9XWyJlGpny_` +
+		  "type":"Ed25519Signature2018",
+		  "verificationMethod":"did:trustbloc:testnet.trustbloc.local:EiBpn9XWyJlGpny_` +
 		`ViTH75fi43ThiIlGUyc1rQEb3VgreQ==#key-1"
-   },
-   "type":"VerifiableCredential"
-}`
+	   },
+	   "type":"VerifiableCredential"
+	}`
 	// VC without issuer
 	invalidVC = `{` +
 		validContext + `,
@@ -148,75 +148,75 @@ const (
 	}`
 
 	validVCStatus = `{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1"
-  ],
-  "credentialSchema": [],
-  "credentialSubject": {
-    "currentStatus": "Revoked",
-    "statusReason": "Disciplinary action"
-  },
-  "id": "#ID",
-  "issuanceDate": "2020-02-18T17:55:31.1381994Z",
-  "issuer": {
-    "id": "did:example:76e12ec712ebc6f1c221ebfeb12",
-    "name": "Example University"
-  },
-  "type": "VerifiableCredential"
-}`
+	  "@context": [
+		"https://www.w3.org/2018/credentials/v1"
+	  ],
+	  "credentialSchema": [],
+	  "credentialSubject": {
+		"currentStatus": "Revoked",
+		"statusReason": "Disciplinary action"
+	  },
+	  "id": "#ID",
+	  "issuanceDate": "2020-02-18T17:55:31.1381994Z",
+	  "issuer": {
+		"id": "did:example:76e12ec712ebc6f1c221ebfeb12",
+		"name": "Example University"
+	  },
+	  "type": "VerifiableCredential"
+	}`
 
 	testDocID = "VJYHHJx4C8J9Fsgz7rZqSp"
 
 	testStructuredDocument = `{
- "id":"someID",
- "meta": {
-   "created": "2019-06-18"
- },
- "content": {
-   "message": "Hello World!"
- }
-}`
+	   "id":"someID",
+	   "meta":{
+		  "created":"2019-06-18"
+	   },
+	   "content":{
+		  "message":"Hello World!"
+	   }
+	}`
 
 	validVP = `{
-	"@context": [
-		"https://www.w3.org/2018/credentials/v1",
-		"https://www.w3.org/2018/credentials/examples/v1"
-	],
-	"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-	"type": "VerifiablePresentation",
-	"verifiableCredential": [{
 		"@context": [
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1"
 		],
-		"id": "http://example.edu/credentials/1872",
-		"type": "VerifiableCredential",
-		"credentialSubject": {
-			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-		},
-		"issuer": {
-			"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			"name": "Example University"
-		},
-		"issuanceDate": "2010-01-01T19:23:24Z",
-		"credentialStatus": {
-			"id": "https://example.gov/status/24",
-			"type": "CredentialStatusList2017"
-		}
-	}],
-	"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-	"proof": {
-		"type": "Ed25519Signature2018",
-		"created": "2020-01-21T16:44:53+02:00",
-		"proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01m` +
+		"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+		"type": "VerifiablePresentation",
+		"verifiableCredential": [{
+			"@context": [
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1"
+			],
+			"id": "http://example.edu/credentials/1872",
+			"type": "VerifiableCredential",
+			"credentialSubject": {
+				"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+			},
+			"issuer": {
+				"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				"name": "Example University"
+			},
+			"issuanceDate": "2010-01-01T19:23:24Z",
+			"credentialStatus": {
+				"id": "https://example.gov/status/24",
+				"type": "CredentialStatusList2017"
+			}
+		}],
+		"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+		"proof": {
+			"type": "Ed25519Signature2018",
+			"created": "2020-01-21T16:44:53+02:00",
+			"proofValue": "eyJhbGciOiJSUzI1NiIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kTCYt5XsITJX1CxPCT8yAV-TVIw5WEuts01m` +
 		`q-pQy7UJiN5mgREEMGlv50aqzpqh4Qq_PbChOMqsLfRoPsnsgxD-WUcX16dUOqV0G_zS245-kronKb78cPktb3rk-BuQy72IFLN25DYuNzVB` +
 		`Ah4vGHSrQyHUGlcTwLtjPAnKb78"
-	},
-	"refreshService": {
-		"id": "https://example.edu/refresh/3732",
-		"type": "ManualRefreshService2018"
-	}
-}`
+		},
+		"refreshService": {
+			"id": "https://example.edu/refresh/3732",
+			"type": "ManualRefreshService2018"
+		}
+	}`
 
 	vpWithoutProof = `{
 		"@context": [
@@ -765,7 +765,7 @@ func TestStoreVCHandler(t *testing.T) {
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
-		op.storeVCHandler(rr, req)
+		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code)
 	})
 	t.Run("store vc fail while encrypting document", func(t *testing.T) {
@@ -779,7 +779,7 @@ func TestStoreVCHandler(t *testing.T) {
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
-		op.storeVCHandler(rr, req)
+		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
 		errResp := &ErrorResponse{}
@@ -799,7 +799,7 @@ func TestStoreVCHandler(t *testing.T) {
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
-		op.storeVCHandler(rr, req)
+		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
 		errResp := &ErrorResponse{}
@@ -819,7 +819,7 @@ func TestStoreVCHandler(t *testing.T) {
 			bytes.NewBuffer([]byte(testStoreIncorrectCredentialRequest)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
-		op.storeVCHandler(rr, req)
+		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
 		errResp := &ErrorResponse{}
@@ -839,7 +839,7 @@ func TestStoreVCHandler(t *testing.T) {
 			bytes.NewBuffer([]byte(testStoreCredentialRequestBadVC)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
-		op.storeVCHandler(rr, req)
+		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
 		errResp := &ErrorResponse{}
@@ -878,7 +878,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
 
-		op.retrieveVCHandler(rr, r)
+		op.retrieveCredentialHandler(rr, r)
 		require.Equal(t, http.StatusOK, rr.Code)
 		require.Equal(t, `"Hello World!"`, rr.Body.String())
 	})
@@ -895,7 +895,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		op.retrieveVCHandler(rr, req)
+		op.retrieveCredentialHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "missing profile name")
 	})
@@ -914,7 +914,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		q := req.URL.Query()
 		q.Add("profile", getTestProfile().Name)
 		req.URL.RawQuery = q.Encode()
-		op.retrieveVCHandler(rr, req)
+		op.retrieveCredentialHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "missing verifiable credential ID")
 	})
@@ -940,7 +940,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		rr := httptest.NewRecorder()
 
-		op.retrieveVCHandler(rr, req)
+		op.retrieveCredentialHandler(rr, req)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), errDocumentNotFound.Error())
 	})
@@ -1029,7 +1029,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
 
-		op.retrieveVCHandler(rr, r)
+		op.retrieveCredentialHandler(rr, r)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
 		errResp := &ErrorResponse{}
@@ -1055,7 +1055,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
 
-		op.retrieveVCHandler(rr, r)
+		op.retrieveCredentialHandler(rr, r)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), storage.ErrValueNotFound.Error())
 	})
@@ -1072,9 +1072,9 @@ func TestVCStatus(t *testing.T) {
 
 		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
 
-		vcStatusHandler := getHandler(t, op, vcStatusEndpoint, mode)
+		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint, mode)
 
-		req, err := http.NewRequest(http.MethodGet, vcStatus+"/1", nil)
+		req, err := http.NewRequest(http.MethodGet, credentialStatus+"/1", nil)
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 
@@ -1092,9 +1092,9 @@ func TestVCStatus(t *testing.T) {
 		op.vcStatusManager = &mockVCStatusManager{
 			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{}}}
 
-		vcStatusHandler := getHandler(t, op, vcStatusEndpoint, mode)
+		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint, mode)
 
-		req, err := http.NewRequest(http.MethodGet, vcStatus+"/1", nil)
+		req, err := http.NewRequest(http.MethodGet, credentialStatus+"/1", nil)
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 
