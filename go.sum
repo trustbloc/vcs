@@ -88,6 +88,8 @@ github.com/hyperledger/aries-framework-go v0.1.3-0.20200408160748-24c4bd1cdda2 h
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200408160748-24c4bd1cdda2/go.mod h1:4SOyzXVQVIS/VWTEgMn4Li+xFRCWUSbUIF+ScN8JoxM=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200408235155-7e4eafc4b66c h1:29UJcBcUpKQGaxmeh91CHc6QIRcsRy7lxYpXSGS6lQ0=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200408235155-7e4eafc4b66c/go.mod h1:4SOyzXVQVIS/VWTEgMn4Li+xFRCWUSbUIF+ScN8JoxM=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200411010800-c043ad2f2e92 h1:lhemfcJMWVh3jtY2EyJZp35lSKKkyvu7gcGFyC2PWI8=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200411010800-c043ad2f2e92/go.mod h1:4SOyzXVQVIS/VWTEgMn4Li+xFRCWUSbUIF+ScN8JoxM=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
