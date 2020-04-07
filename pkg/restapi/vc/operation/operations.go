@@ -263,9 +263,6 @@ func (o *Operation) issuerHandlers() []Handler {
 		// verifiable credential store
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeCredentialHandler),
 		support.NewHTTPHandler(retrieveCredentialEndpoint, http.MethodGet, o.retrieveCredentialHandler),
-		// TODO https://github.com/trustbloc/edge-service/issues/181 verifyCredential API present in both issuer
-		//  and verifier mode. Is this valid ?
-		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 
 		// verifiable credential status
 		support.NewHTTPHandler(updateCredentialStatusEndpoint, http.MethodPost, o.updateCredentialStatusHandler),
