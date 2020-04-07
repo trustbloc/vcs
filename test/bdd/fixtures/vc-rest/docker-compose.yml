@@ -21,6 +21,7 @@ services:
       - DATABASE_URL=couchdb.example.com:5984
       - VC_REST_MODE=issuer
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_TLS_SYSTEMCERTPOOL=true
     ports:
       - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
     entrypoint: ""

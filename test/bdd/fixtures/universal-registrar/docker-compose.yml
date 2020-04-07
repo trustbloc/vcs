@@ -4,28 +4,25 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-version: "3.5"
-networks:
-  default:
-    name: universal-registrar
+version: '3'
+
 services:
-  driver-did-sov:
-    image: universalregistrar/driver-did-sov:latest
-    environment:
-      uniregistrar_driver_did_sov_libIndyPath: ${UNIREGISTRAR_DRIVER_DID_SOV_LIBINDYPATH}
-      uniregistrar_driver_did_sov_poolConfigs: ${UNIREGISTRAR_DRIVER_DID_SOV_POOLCONFIGS}
-      uniregistrar_driver_did_sov_poolVersions: ${UNIREGISTRAR_DRIVER_DID_SOV_POOLVERSIONS}
-      uniregistrar_driver_did_sov_walletName: ${UNIREGISTRAR_DRIVER_DID_SOV_WALLETNAME}
-      uniregistrar_driver_did_sov_trustAnchorSeed: ${UNIREGISTRAR_DRIVER_DID_SOV_TRUSTANCHORSEED}
-    ports:
-      - "9082:9080"
   driver-did-v1:
     image: universalregistrar/driver-did-v1:latest
-    environment:
-      uniregistrar_driver_did_v1_trustAnchorSeed: ${UNIREGISTRAR_DRIVER_DID_V1_TRUSTANCHORSEED}
     ports:
       - "9083:9080"
+    networks:
+      - couchdb_bdd_net
+
   uni-registrar-web:
     image: universalregistrar/uni-registrar-web:latest
+    volumes:
+      - ./config.json:/opt/uni-registrar-java/uni-registrar-web/config.json
     ports:
       - "9080:9080"
+    networks:
+      - couchdb_bdd_net
+
+networks:
+  couchdb_bdd_net:
+    external: true

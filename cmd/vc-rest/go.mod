@@ -16,7 +16,7 @@ require (
 	github.com/trustbloc/edge-core v0.1.3-0.20200327203235-d7f232b27a56
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.3-0.20200331230259-afb8871c7535
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200401211047-51191c718d4a
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200404184231-6c80112218d7
 )
 
 go 1.13

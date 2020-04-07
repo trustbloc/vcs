@@ -1,0 +1,13 @@
+{
+  "drivers": [
+    {
+      "image": "did-method-rest",
+      "url": "http://trustbloc.did.method.example.com:8060/"
+    },
+    {
+      "image": "universalregistrar/driver-did-v1",
+      "imageProperties": "true",
+      "tag": "latest"
+    }
+  ]
+}

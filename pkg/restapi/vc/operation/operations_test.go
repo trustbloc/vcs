@@ -22,7 +22,6 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gorilla/mux"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -39,7 +38,9 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
+	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
+	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/didbloc"
@@ -448,6 +449,72 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
+	})
+
+	t.Run("create profile success with uni Registrar config", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: getTestKMS(t),
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
+				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
+			HostURL: "localhost:8080"})
+
+		require.NoError(t, err)
+
+		op.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did1", CreateDIDKeys: []didmethodoperation.Key{{
+			PublicKeyDIDURL: "did1#key1"}}}
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
+
+		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
+			URI: "https://example.com/credentials", SignatureType: "type",
+			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		profile := vcprofile.DataProfile{}
+
+		err = json.Unmarshal(rr.Body.Bytes(), &profile)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+		require.NotEmpty(t, profile.Name)
+		require.Contains(t, profile.URI, "https://example.com/credentials")
+		require.Equal(t, "did1#key1", profile.Creator)
+	})
+
+	t.Run("create profile error with uni Registrar config", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil)
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			EDVClient: client, KMS: getTestKMS(t),
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
+				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
+			HostURL: "localhost:8080"})
+
+		require.NoError(t, err)
+
+		op.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDErr: fmt.Errorf("create did error")}
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
+
+		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
+			URI: "https://example.com/credentials", SignatureType: "type",
+			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to create did doc from uni-registrar")
 	})
 
 	t.Run("create profile success without creating did", func(t *testing.T) {
@@ -2677,4 +2744,15 @@ func (m *mockCredentialStatusManager) UpdateVCStatus(v *verifiable.Credential,
 
 func (m *mockCredentialStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
 	return nil, nil
+}
+
+type mockUNIRegistrarClient struct {
+	CreateDIDValue string
+	CreateDIDKeys  []didmethodoperation.Key
+	CreateDIDErr   error
+}
+
+func (m *mockUNIRegistrarClient) CreateDID(driverURL string,
+	opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error) {
+	return m.CreateDIDValue, m.CreateDIDKeys, m.CreateDIDErr
 }
