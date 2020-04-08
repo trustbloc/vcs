@@ -47,7 +47,7 @@ func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, [
 	jobID := uuid.New().String()
 
 	reqBytes, err := json.Marshal(didmethodoperation.RegisterDIDRequest{JobID: jobID,
-		AddPublicKeys: createDIDOpts.publicKeys, Options: createDIDOpts.options})
+		AddPublicKeys: createDIDOpts.publicKeys, Options: createDIDOpts.options, AddServices: createDIDOpts.services})
 	if err != nil {
 		return "", nil, err
 	}
@@ -120,6 +120,7 @@ func WithTLSConfig(tlsConfig *tls.Config) Option {
 // CreateDIDOpts create did opts
 type CreateDIDOpts struct {
 	publicKeys []*didmethodoperation.PublicKey
+	services   []*didmethodoperation.Service
 	options    map[string]string
 }
 
@@ -130,6 +131,13 @@ type CreateDIDOption func(opts *CreateDIDOpts)
 func WithPublicKey(publicKey *didmethodoperation.PublicKey) CreateDIDOption {
 	return func(opts *CreateDIDOpts) {
 		opts.publicKeys = append(opts.publicKeys, publicKey)
+	}
+}
+
+// WithService add service
+func WithService(service *didmethodoperation.Service) CreateDIDOption {
+	return func(opts *CreateDIDOpts) {
+		opts.services = append(opts.services, service)
 	}
 }
 

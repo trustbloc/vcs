@@ -21,10 +21,10 @@ func TestClient_CreateDID(t *testing.T) {
 	t.Run("test error from http post", func(t *testing.T) {
 		v := New()
 
-		did, _, err := v.CreateDID("")
+		didID, _, err := v.CreateDID("")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported protocol scheme")
-		require.Empty(t, did)
+		require.Empty(t, didID)
 	})
 
 	t.Run("test http post return 500 status", func(t *testing.T) {
@@ -35,10 +35,10 @@ func TestClient_CreateDID(t *testing.T) {
 
 		v := New()
 
-		did, _, err := v.CreateDID(serv.URL)
+		didID, _, err := v.CreateDID(serv.URL)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to read response body for status 500")
-		require.Empty(t, did)
+		require.Empty(t, didID)
 	})
 
 	t.Run("test error from unmarshal resp to register response", func(t *testing.T) {
@@ -51,10 +51,10 @@ func TestClient_CreateDID(t *testing.T) {
 
 		v := New()
 
-		did, _, err := v.CreateDID(serv.URL)
+		didID, _, err := v.CreateDID(serv.URL)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to unmarshal resp to register response")
-		require.Empty(t, did)
+		require.Empty(t, didID)
 	})
 
 	t.Run("test server return wrong jod id", func(t *testing.T) {
@@ -69,10 +69,10 @@ func TestClient_CreateDID(t *testing.T) {
 
 		v := New()
 
-		did, _, err := v.CreateDID(serv.URL)
+		didID, _, err := v.CreateDID(serv.URL)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "register response jobID=wrongValue not equal")
-		require.Empty(t, did)
+		require.Empty(t, didID)
 	})
 
 	t.Run("test server return state failure", func(t *testing.T) {
@@ -89,10 +89,10 @@ func TestClient_CreateDID(t *testing.T) {
 
 		v := New()
 
-		did, _, err := v.CreateDID(serv.URL)
+		didID, _, err := v.CreateDID(serv.URL)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failure from uniregistrar server error")
-		require.Empty(t, did)
+		require.Empty(t, didID)
 	})
 
 	t.Run("test server return unknown state", func(t *testing.T) {
@@ -108,10 +108,10 @@ func TestClient_CreateDID(t *testing.T) {
 
 		v := New()
 
-		did, _, err := v.CreateDID(serv.URL)
+		didID, _, err := v.CreateDID(serv.URL)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "uniregistrar return unknown state")
-		require.Empty(t, did)
+		require.Empty(t, didID)
 	})
 
 	t.Run("test success", func(t *testing.T) {
@@ -124,6 +124,9 @@ func TestClient_CreateDID(t *testing.T) {
 
 			require.Equal(t, 1, len(req.AddPublicKeys))
 			require.Equal(t, "key1", req.AddPublicKeys[0].ID)
+
+			require.Equal(t, 1, len(req.AddServices))
+			require.Equal(t, "service", req.AddServices[0].ID)
 
 			w.WriteHeader(http.StatusOK)
 			bytes, err := json.Marshal(didmethodoperation.RegisterResponse{JobID: "",
@@ -141,9 +144,10 @@ func TestClient_CreateDID(t *testing.T) {
 
 		opts["k1"] = "v1"
 
-		did, _, err := v.CreateDID(serv.URL, WithOptions(opts), WithPublicKey(
-			&didmethodoperation.PublicKey{ID: "key1", Type: "type1", Value: "value1"}))
+		didID, _, err := v.CreateDID(serv.URL, WithOptions(opts), WithPublicKey(
+			&didmethodoperation.PublicKey{ID: "key1", Type: "type1", Value: "value1"}),
+			WithService(&didmethodoperation.Service{ID: "service"}))
 		require.NoError(t, err)
-		require.Equal(t, "did1", did)
+		require.Equal(t, "did1", didID)
 	})
 }
