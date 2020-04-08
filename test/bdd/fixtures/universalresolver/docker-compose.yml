@@ -10,7 +10,7 @@ version: '3'
 services:
 
   uni-resolver-web:
-    image: universalresolver/uni-resolver-web:0.1.0
+    image: universalresolver/uni-resolver-web:latest
     ports:
       - "8080:8080"
     volumes:
