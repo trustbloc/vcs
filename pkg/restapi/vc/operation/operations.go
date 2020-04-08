@@ -1302,7 +1302,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
 	vc, _, err := verifiable.NewCredential(
 		vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(signSuite),
+		verifiable.WithEmbeddedSignatureSuite(signSuite),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),

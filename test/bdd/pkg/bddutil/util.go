@@ -58,7 +58,7 @@ func CreatePresentation(vcBytes []byte, representation verifiable.SignatureRepre
 
 	// parse vc
 	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(signSuite),
+		verifiable.WithEmbeddedSignatureSuite(signSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err

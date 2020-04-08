@@ -23,6 +23,7 @@ github.com/aws/aws-sdk-go v1.25.39/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpi
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/blang/semver v3.1.0+incompatible/go.mod h1:kRBLl5iJ+tD4TcOOxsy/0fnwebNt5EWlYSAyrTnjyyk=
+github.com/btcsuite/btcd v0.20.1-beta h1:Ik4hyJqN8Jfyv3S4AGBOmyouMsYE3EdYODkMbQjwPGw=
 github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13Px/pDuV7OomQ=
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f/go.mod h1:TdznJufoqS23FtqVCzL0ZqgP5MqXbb4fg/WgDys70nA=
 github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d h1:yJzD/yFppdVCf6ApMkVy8cUxV0XrxdP9rVf6D87/Mng=
@@ -133,6 +134,7 @@ github.com/google/martian v2.1.0+incompatible/go.mod h1:9I4somxYTbIHy5NJKHRl3wXi
 github.com/google/pprof v0.0.0-20181206194817-3ea8567a2e57/go.mod h1:zfwlbNMJ+OItoe0UupaVj+oy1omPYYDuagoSzA8v9mc=
 github.com/google/tink v1.3.0 h1:CMg2wQ+VP5QUDwqV89+WpKuxv3I+pBrJ4/ziUS/kIEs=
 github.com/google/tink v1.3.0/go.mod h1:xCAsc4J1ZYTyVncY9QgOTZsU0l+P3ou0VsiLslNjgAo=
+github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380/go.mod h1:LNmpZXmWvXelu16R3O10stYrGdgrtdjlSaZ1vAvAvKo=
 github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/googleapis/gax-go/v2 v2.0.4/go.mod h1:0Wqv26UfaUD9n4G6kQubkQ+KchISgw+vpHVxEJEs9eg=
@@ -163,6 +165,8 @@ github.com/hyperledger/aries-framework-go v0.1.3-0.20200328075212-b14f446f90bb h
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200328075212-b14f446f90bb/go.mod h1:ahfLvGFjR3kNGgj8xVSlaHcHHaiF6gRmF971rulr9Tg=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200401225228-e17df7efdb4b h1:OCnjgH0BGtlGt6ste6MfVWJx/lOniOc6A8sb3BuBHBM=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200401225228-e17df7efdb4b/go.mod h1:ahfLvGFjR3kNGgj8xVSlaHcHHaiF6gRmF971rulr9Tg=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200408014547-3f92fef7997f h1:AaCurWWOdSZ10Ka1x2+zVCk7RaEvydSjOSQTr+21ClQ=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200408014547-3f92fef7997f/go.mod h1:4SOyzXVQVIS/VWTEgMn4Li+xFRCWUSbUIF+ScN8JoxM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
