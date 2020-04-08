@@ -142,7 +142,7 @@ func TestClient_CreateDID(t *testing.T) {
 		opts["k1"] = "v1"
 
 		did, _, err := v.CreateDID(serv.URL, WithOptions(opts), WithPublicKey(
-			didmethodoperation.PublicKey{ID: "key1", Type: "type1", Value: "value1"}))
+			&didmethodoperation.PublicKey{ID: "key1", Type: "type1", Value: "value1"}))
 		require.NoError(t, err)
 		require.Equal(t, "did1", did)
 	})

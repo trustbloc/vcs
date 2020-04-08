@@ -697,7 +697,9 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		}
 
 		identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL,
-			uniregistrar.WithPublicKey(didmethodoperation.PublicKey{ID: pubKeyIndex1, Type: keyType, Value: base58PubKey}),
+			uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+				ID: pubKeyIndex1, Type: keyType, Value: base58PubKey,
+			}),
 			uniregistrar.WithOptions(pr.UNIRegistrar.Options))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
