@@ -4,7 +4,7 @@
   "policy": {
     "cache": {"max-age": 123456789}
   },
-  "stakeholders": [
+  "members": [
     {
       "domain": "stakeholder.one:8088"
     }

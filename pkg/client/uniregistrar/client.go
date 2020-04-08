@@ -119,7 +119,7 @@ func WithTLSConfig(tlsConfig *tls.Config) Option {
 
 // CreateDIDOpts create did opts
 type CreateDIDOpts struct {
-	publicKeys []didmethodoperation.PublicKey
+	publicKeys []*didmethodoperation.PublicKey
 	options    map[string]string
 }
 
@@ -127,7 +127,7 @@ type CreateDIDOpts struct {
 type CreateDIDOption func(opts *CreateDIDOpts)
 
 // WithPublicKey add DID public key
-func WithPublicKey(publicKey didmethodoperation.PublicKey) CreateDIDOption {
+func WithPublicKey(publicKey *didmethodoperation.PublicKey) CreateDIDOption {
 	return func(opts *CreateDIDOpts) {
 		opts.publicKeys = append(opts.publicKeys, publicKey)
 	}
