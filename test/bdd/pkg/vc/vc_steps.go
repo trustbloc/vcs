@@ -33,6 +33,9 @@ const (
 	verifierURL                          = "http://localhost:8069/verifier"
 
 	issueCredentialURLFormat = issuerURL + "%s" + "/credentials/issueCredential"
+	serviceID                = "#example"
+	didMethodTrustBloc       = "did:trustbloc"
+	didMethodSov             = "did:sov:danube "
 )
 
 // Steps is steps for VC BDD tests
@@ -92,7 +95,8 @@ func (e *Steps) verifyPresentation(holder, checksList, result, respMessage strin
 	return verify(resp, checks, result, respMessage)
 }
 
-func (e *Steps) createProfile(profileName, did, privateKey, holder, uniRegistrar, didMethod string) error { //nolint: funlen gocyclo
+func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:gocyclo,funlen]
+	uniRegistrar, didMethod string) error {
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
 		return fmt.Errorf("unable to find profile request template")
@@ -100,16 +104,14 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, uniRegistrar
 
 	profileRequest := operation.ProfileRequest{}
 
-	err := json.Unmarshal(template, &profileRequest)
-	if err != nil {
+	if err := json.Unmarshal(template, &profileRequest); err != nil {
 		return err
 	}
 
 	var u operation.UNIRegistrar
 
 	if uniRegistrar != "" {
-		err = json.Unmarshal([]byte(uniRegistrar), &u)
-		if err != nil {
+		if err := json.Unmarshal([]byte(uniRegistrar), &u); err != nil {
 			return err
 		}
 	}
@@ -151,11 +153,30 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, uniRegistrar
 		return err
 	}
 
-	if err := e.checkProfileResponse(profileName, didMethod, &profileResponse); err != nil {
+	if errCheck := e.checkProfileResponse(profileName, didMethod, &profileResponse); errCheck != nil {
+		return errCheck
+	}
+
+	didDoc, err := bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	if err != nil {
 		return err
 	}
 
-	return bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	checkService := false
+
+	if didMethod == didMethodTrustBloc || didMethod == didMethodSov {
+		checkService = true
+	}
+
+	if checkService && len(didDoc.Service) != 1 {
+		return fmt.Errorf("did doc service size not equal to 1")
+	}
+
+	if checkService && didDoc.Service[0].ID != serviceID {
+		return fmt.Errorf("did doc service size id %s not equal to %s", didDoc.Service[0].ID, serviceID)
+	}
+
+	return nil
 }
 
 func getSignatureRepresentation(holder string) verifiable.SignatureRepresentation {

@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -25,19 +26,22 @@ import (
 )
 
 // ResolveDID waits for the DID to become available for resolution.
-func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) error {
+func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdid.Doc, error) {
 	var err error
+
+	var didDoc *docdid.Doc
+
 	for i := 1; i <= maxRetry; i++ {
-		_, err = vdriRegistry.Resolve(did)
+		didDoc, err = vdriRegistry.Resolve(did)
 		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
-			return err
+			return didDoc, err
 		}
 
 		fmt.Printf("did %s not found will retry %d of %d\n", did, i, maxRetry)
 		time.Sleep(3 * time.Second)
 	}
 
-	return err
+	return didDoc, err
 }
 
 // CreatePresentation creates verifiable presentation from verifiable credential.
