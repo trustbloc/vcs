@@ -35,8 +35,10 @@ operations:
 - Retrieve verifiable credential from [EDV](https://github.com/trustbloc/edv)
 - Verify verifiable credential 
 
-# REST API 
-- [vc-rest](docs/vc-rest/README.md)
+# Documentation
+- [VC REST APIs](docs/vc-rest/README.md)
+- [OpenAPI Spec](docs/vc-rest/openapi_spec.md)
+- [OpenAPI Demo](docs/vc-rest/openapi_demo.md)
 
 ## Contributing
 Thank you for your interest in contributing. Please see our [community contribution guidelines](https://github.com/trustbloc/community/blob/master/CONTRIBUTING.md) for more information.
