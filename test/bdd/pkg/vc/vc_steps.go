@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/btcsuite/btcutil/base58"
+
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -62,6 +64,10 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Now we verify that "([^"]*)" signed presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.verifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)" and "([^"]*)"$`,
+		e.createProfileAndCredential)
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)" and "([^"]*)"$`,
+		e.createProfileAndPresentation)
 }
 
 func (e *Steps) verifyPresentation(holder, checksList, result, respMessage string) error {
@@ -283,6 +289,53 @@ func (e *Steps) createCredential(credential, profileName string) error {
 	return e.checkVC(respBytes, profileName)
 }
 
+func (e *Steps) createProfileAndCredential(user, credential, did, privateKey string) error {
+	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
+
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "")
+	if err != nil {
+		return err
+	}
+
+	err = e.createCredential(credential, profileName)
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[bddutil.GetCredentialKey(user)] = string(e.bddContext.CreatedCredential)
+
+	return nil
+}
+
+func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey string) error {
+	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
+
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "")
+	if err != nil {
+		return err
+	}
+
+	profileResponse, err := e.getProfileData(profileName)
+	if err != nil {
+		return err
+	}
+
+	err = e.createCredential(credential, profileName)
+	if err != nil {
+		return err
+	}
+
+	vp, err := bddutil.CreatePresentationWithCustomKey(e.bddContext.CreatedCredential, getSignatureRepresentation("JWS"),
+		e.bddContext.VDRI, base58.Decode(privateKey), profileResponse.Creator)
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[bddutil.GetPresentationKey(user)] = string(vp)
+
+	return nil
+}
+
 func (e *Steps) storeCreatedCredential(profileName string) error {
 	return e.storeCredential(profileName, e.bddContext.CreatedCredential)
 }
@@ -478,7 +531,7 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfil
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}
 
-	if !strings.Contains(profileResponse.DID, expectedProfileDID) {
+	if expectedProfileDID != "" && !strings.Contains(profileResponse.DID, expectedProfileDID) {
 		return fmt.Errorf("%s not containing %s", profileResponse.DID, expectedProfileDID)
 	}
 

@@ -85,7 +85,6 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as "([^"]*)"$`, e.prepareCredential)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable using "([^"]*)" and "([^"]*)"$`, e.createCredentialUsingDID)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as "([^"]*)" and presentable as "([^"]*)"$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
 	s.Step(`^"([^"]*)" creates an Issuer Service profile "([^"]*)" with the DID$`, e.createIssuerProfile)
@@ -330,10 +329,6 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 	}
 
 	return signedVCByte, nil
-}
-
-func (e *Steps) createCredentialUsingDID(user, cred, did, privateKey string) error {
-	return e.prepareCredential(user, cred, "")
 }
 
 func (e *Steps) prepareCredential(user, cred, vcred string) error {
