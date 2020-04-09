@@ -15,12 +15,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
 
@@ -108,7 +107,9 @@ func (e *Steps) createDID(user string) error {
 
 	e.bddContext.Args[bddutil.GetDIDKey(user)] = doc.ID
 
-	return bddutil.ResolveDID(e.bddContext.VDRI, doc.ID, 10)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, doc.ID, 10)
+
+	return err
 }
 
 func (e *Steps) generateKeypair() (string, error) {
@@ -190,7 +191,9 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 
 	e.bddContext.Args[bddutil.GetProfileNameKey(user)] = profileResponse.Name
 
-	return bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+
+	return err
 }
 
 func (e *Steps) createSidetreeDID(base58PubKey string) (*docdid.Doc, error) {
@@ -227,7 +230,7 @@ func (e *Steps) verifyCredential(signedVCByte []byte) error {
 }
 
 func (e *Steps) issueCredential(user, did, cred string) ([]byte, error) {
-	if err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
+	if _, err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
 		return nil, err
 	}
 
@@ -279,7 +282,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 	did := e.bddContext.Args[bddutil.GetDIDKey(user)]
 	log.Infof("DID for signing %s", did)
 
-	if err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
+	if _, err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
 		return err
 	}
 
