@@ -54,7 +54,7 @@ func CreatePresentation(vcBytes []byte, representation verifiable.SignatureRepre
 		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
 	}
 
-	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 	// parse vc
 	vc, _, err := verifiable.NewCredential(vcBytes,

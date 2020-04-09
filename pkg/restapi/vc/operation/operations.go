@@ -89,6 +89,11 @@ const (
 
 	pubKeyIndex1 = "#key-1"
 	keyType      = "Ed25519VerificationKey2018"
+
+	// TODO remove hardcode values after complete did service integration
+	serviceID       = "#example"
+	serviceType     = "example"
+	serviceEndpoint = "http://example.com"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -698,9 +703,9 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 		identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL,
 			uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-				ID: pubKeyIndex1, Type: keyType, Value: base58PubKey,
-			}),
-			uniregistrar.WithOptions(pr.UNIRegistrar.Options))
+				ID: pubKeyIndex1, Type: keyType, Value: base58PubKey}),
+			uniregistrar.WithOptions(pr.UNIRegistrar.Options), uniregistrar.WithService(
+				&didmethodoperation.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 		}
@@ -710,7 +715,8 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		didPrivateKey = keys[0].PrivateKeyBase58
 
 	case pr.DID == "":
-		didDoc, err := o.didBlocClient.CreateDID(o.domain)
+		didDoc, err := o.didBlocClient.CreateDID(o.domain,
+			didclient.WithService(&did.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create did doc: %v", err)
 		}
@@ -1301,7 +1307,7 @@ func (o *Operation) validatePresentationProof(vpByte []byte) error {
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	vc, _, err := verifiable.NewCredential(
 		vcBytes,
 		verifiable.WithEmbeddedSignatureSuite(signSuite),
@@ -1318,7 +1324,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 }
 
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
-	signSuite := ed25519signature2018.New(suite.WithVerifier(&ed25519signature2018.PublicKeyVerifier{}))
+	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
 		verifiable.WithPresEmbeddedSignatureSuites(signSuite),

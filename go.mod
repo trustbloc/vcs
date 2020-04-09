@@ -10,10 +10,10 @@ require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200408183828-f12cbc1b8777
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200408235155-7e4eafc4b66c
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.5.1
 	github.com/trustbloc/edge-core v0.1.3-0.20200318193133-ec6c4caf61ae
 	github.com/trustbloc/edv v0.1.3-0.20200305035835-69c9f3cb077b
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200408175722-457448ad951b
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200408224306-fc801792f213
 )
