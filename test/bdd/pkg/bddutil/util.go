@@ -149,3 +149,43 @@ func GetProfileNameKey(user string) string {
 func GetCredentialKey(user string) string {
 	return user + "-vc"
 }
+
+// GetPresentationKey key for storing presentation.
+func GetPresentationKey(user string) string {
+	return user + "-vp"
+}
+
+// CreatePresentationWithCustomKey creates verifiable presentation from verifiable credential and private key.
+func CreatePresentationWithCustomKey(vcBytes []byte, representation verifiable.SignatureRepresentation,
+	vdri vdriapi.Registry, privateKey []byte, verificationMethod string) ([]byte, error) {
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: representation,
+		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
+		VerificationMethod:      verificationMethod,
+	}
+
+	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
+
+	// parse vc
+	vc, _, err := verifiable.NewCredential(vcBytes,
+		verifiable.WithEmbeddedSignatureSuite(signSuite),
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
+	if err != nil {
+		return nil, err
+	}
+
+	// create verifiable presentation from vc
+	vp, err := vc.Presentation()
+	if err != nil {
+		return nil, err
+	}
+
+	// add linked data proof
+	err = vp.AddLinkedDataProof(ldpContext)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(vp)
+}

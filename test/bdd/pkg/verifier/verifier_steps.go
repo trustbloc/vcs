@@ -39,14 +39,35 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Employer verifies the verifiable credential provided by "([^"]*)"$`, e.credentialsVerification)
 	s.Step(`^Employer verifies the verifiable presentation provided by "([^"]*)"$`, e.createAndVerifyPresentation)
+	s.Step(`^"([^"]*)" verifies the verifiable credential provided by "([^"]*)"$`, e.verifyCredentialUsingEndpoint)
+	s.Step(`^"([^"]*)" verifies the verifiable presentation provided by "([^"]*)"$`, e.verifyPresentationUsingEndpoint)
 }
 
 func (e *Steps) credentialsVerification(user string) error {
 	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
+	return e.verifyCredential(verifierBaseURL+"/credentials", []byte(vc))
+}
+
+func (e *Steps) createAndVerifyPresentation(user string) error {
+	vp := e.bddContext.Args[user]
+	return e.verifyPresentation(verifierBaseURL+"/presentations", []byte(vp))
+}
+
+func (e *Steps) verifyCredentialUsingEndpoint(endpoint, user string) error {
+	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
+	return e.verifyCredential(endpoint, []byte(vc))
+}
+
+func (e *Steps) verifyPresentationUsingEndpoint(endpoint, user string) error {
+	vp := e.bddContext.Args[bddutil.GetPresentationKey(user)]
+	return e.verifyPresentation(endpoint, []byte(vp))
+}
+
+func (e *Steps) verifyCredential(endpoint string, vc []byte) error {
 	checks := []string{"proof"}
 
 	req := &operation.CredentialsVerificationRequest{
-		Credential: []byte(vc),
+		Credential: vc,
 		Opts: &operation.CredentialsVerificationOptions{
 			Checks: checks,
 		},
@@ -57,45 +78,14 @@ func (e *Steps) credentialsVerification(user string) error {
 		return err
 	}
 
-	endpointURL := verifierBaseURL + "/credentials"
-
-	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
-		bytes.NewBuffer(reqBytes))
-	if err != nil {
-		return err
-	}
-
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	respBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
-	}
-
-	verificationResp := operation.CredentialsVerificationSuccessResponse{}
-
-	err = json.Unmarshal(respBytes, &verificationResp)
-	if err != nil {
-		return err
-	}
-
-	if len(verificationResp.Checks) != 1 {
-		return errors.New("response checks doesn't match the checks in the request")
-	}
-
-	return nil
+	return e.verify(endpoint, reqBytes)
 }
 
-func (e *Steps) createAndVerifyPresentation(user string) error {
-	vp := e.bddContext.Args[user]
+func (e *Steps) verifyPresentation(endpoint string, vp []byte) error {
 	checks := []string{"proof"}
 
 	req := &operation.VerifyPresentationRequest{
-		Presentation: []byte(vp),
+		Presentation: vp,
 		Opts: &operation.VerifyPresentationOptions{
 			Checks: checks,
 		},
@@ -106,9 +96,11 @@ func (e *Steps) createAndVerifyPresentation(user string) error {
 		return err
 	}
 
-	endpointURL := verifierBaseURL + "/presentations"
+	return e.verify(endpoint, reqBytes)
+}
 
-	resp, err := http.Post(endpointURL, "application/json", //nolint: bodyclose
+func (e *Steps) verify(endpoint string, reqBytes []byte) error {
+	resp, err := http.Post(endpoint, "application/json", //nolint: bodyclose gosec
 		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
@@ -125,7 +117,9 @@ func (e *Steps) createAndVerifyPresentation(user string) error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	verificationResp := operation.VerifyPresentationSuccessResponse{}
+	verificationResp := struct {
+		Checks []string `json:"checks,omitempty"`
+	}{}
 
 	err = json.Unmarshal(respBytes, &verificationResp)
 	if err != nil {

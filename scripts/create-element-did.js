@@ -11,7 +11,7 @@ const bs58 = require('bs58')
 
 const createElementDID = async () => {
     // Instantiate the Sidetree class
-    const sidetree = new Sidetree({});
+    const sidetree = new Sidetree({parameters: {didMethodName:"elem"}});
 
     // Create did element wallet
     const wallet = await sidetree.op.getNewWallet("elem")

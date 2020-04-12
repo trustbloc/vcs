@@ -4,13 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-@all
 @verifier_rest
 Feature: Verifier VC REST API
 
   @verifyCred_api
   Scenario Outline: Verify Credential
-    Given "Alice" has her "<credential>" verified as "<verifiable credential>"
+    Given "Alice" has her "<credential>" issued as "<verifiable credential>"
     Then  Employer verifies the verifiable credential provided by "Alice"
     Examples:
     Examples:
@@ -25,7 +24,7 @@ Feature: Verifier VC REST API
 
   @verifyPresentation_api
   Scenario Outline: Verify Presentation
-    Given "Alice" has her "<credential>" verified as "<verifiable credential>" and presentable as "<verifiable presentation>"
+    Given "Alice" has her "<credential>" issued as "<verifiable credential>" and presentable as "<verifiable presentation>"
     Then  Employer verifies the verifiable presentation provided by "Alice"
     Examples:
       | credential                   | verifiable credential | verifiable presentation |
