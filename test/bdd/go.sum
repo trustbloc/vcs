@@ -294,6 +294,7 @@ github.com/trustbloc/trustbloc-did-method v0.0.0-20200408175722-457448ad951b h1:
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200408175722-457448ad951b/go.mod h1:tCRmxrbF0CXELc5TPWu5luwvKpxEvUL+1EQdi5JA5Rw=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200408224306-fc801792f213 h1:4ICORhvO4lE20QZnnVx7I61cckgEBM1gT5iUh+y11DI=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200408224306-fc801792f213/go.mod h1:tCRmxrbF0CXELc5TPWu5luwvKpxEvUL+1EQdi5JA5Rw=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200411231933-998b4498e40d/go.mod h1:tCRmxrbF0CXELc5TPWu5luwvKpxEvUL+1EQdi5JA5Rw=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=

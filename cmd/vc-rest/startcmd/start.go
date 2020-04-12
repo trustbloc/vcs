@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
-	ariesmemstore "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	"github.com/rs/cors"
@@ -107,6 +107,10 @@ const (
 
 // mode in which to run the vc-rest service
 type mode string
+
+// TODO remove leveldb store when aries starting to support couchdb
+// TODO https://github.com/hyperledger/aries-framework-go/issues/1599
+var dbPath = "/tmp/ariesstore/" //nolint: gochecknoglobals
 
 const (
 	verifier mode = "verifier"
@@ -282,7 +286,10 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	tlsConfig := &tls.Config{RootCAs: rootCAs}
 
 	// Create KMS
-	kms, err := createKMS(ariesmemstore.NewProvider())
+	// TODO remove leveldb store when aries starting to support couchdb
+	// TODO https://github.com/hyperledger/aries-framework-go/issues/1599
+	// TODO make it configurable after switching to couchdb
+	kms, err := createKMS(leveldb.NewProvider(dbPath))
 	if err != nil {
 		return err
 	}
