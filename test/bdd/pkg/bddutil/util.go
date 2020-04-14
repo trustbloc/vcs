@@ -146,7 +146,7 @@ func CreateCustomPresentation(vcBytes []byte, vdri vdriapi.Registry,
 
 	// parse vc
 	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuite(signSuite),
+		verifiable.WithEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err
