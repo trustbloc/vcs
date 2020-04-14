@@ -6,15 +6,15 @@ module github.com/trustbloc/edge-service/cmd/vc-rest
 
 require (
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200414103448-9cc485509370
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200414183703-ab951b13327a
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.5.1
-	github.com/trustbloc/edge-core v0.1.3-0.20200327203235-d7f232b27a56
+	github.com/trustbloc/edge-core v0.1.3-0.20200414165955-488d2227b903
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.3-0.20200331230259-afb8871c7535
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200411231933-998b4498e40d
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200414185052-17ef7829f706
 )
 
 replace github.com/trustbloc/edge-service => ../..

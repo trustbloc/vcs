@@ -8,7 +8,6 @@ package startcmd
 import (
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
@@ -156,11 +155,6 @@ func TestStartCmdWithBlankEnvVar(t *testing.T) {
 }
 
 func TestStartCmdValidArgs(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
-
-	dbPath = path
-
 	startCmd := GetStartCmd(&mockServer{})
 
 	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
@@ -173,11 +167,6 @@ func TestStartCmdValidArgs(t *testing.T) {
 }
 
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
-	path, cleanup := setupLevelDB(t)
-	defer cleanup()
-
-	dbPath = path
-
 	startCmd := GetStartCmd(&mockServer{})
 
 	setEnvVars(t)
@@ -190,22 +179,12 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 
 func TestCreateProvider(t *testing.T) {
 	t.Run("test error from create new couchdb", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
-		defer cleanup()
-
-		dbPath = path
-
 		err := startEdgeService(&vcRestParameters{databaseType: databaseTypeCouchDBOption}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
 	})
 
 	t.Run("test invalid database type", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
-		defer cleanup()
-
-		dbPath = path
-
 		err := startEdgeService(&vcRestParameters{databaseType: "data1"}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "database type not set to a valid type")
@@ -214,11 +193,6 @@ func TestCreateProvider(t *testing.T) {
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
-		defer cleanup()
-
-		dbPath = path
-
 		v, err := createVDRI("wrong", nil, &tls.Config{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
@@ -226,22 +200,12 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
-		defer cleanup()
-
-		dbPath = path
-
-		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong"}, nil)
+		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong", databaseType: "mem"}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		path, cleanup := setupLevelDB(t)
-		defer cleanup()
-
-		dbPath = path
-
 		v, err := createVDRI("localhost:8083", nil, &tls.Config{})
 		require.NoError(t, err)
 		require.NotNil(t, v)
@@ -360,20 +324,6 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 
 	flagAnnotations := flag.Annotations
 	require.Nil(t, flagAnnotations)
-}
-
-func setupLevelDB(t testing.TB) (string, func()) {
-	dbPath, err := ioutil.TempDir("", "db")
-	if err != nil {
-		t.Fatalf("Failed to create leveldb directory: %s", err)
-	}
-
-	return dbPath, func() {
-		err := os.RemoveAll(dbPath)
-		if err != nil {
-			t.Fatalf("Failed to clear leveldb directory: %s", err)
-		}
-	}
 }
 
 // MockStoreProvider mock store provider.
