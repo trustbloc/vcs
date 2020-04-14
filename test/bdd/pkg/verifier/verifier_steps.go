@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -50,7 +51,9 @@ func (e *Steps) credentialsVerification(user string) error {
 
 func (e *Steps) createAndVerifyPresentation(user string) error {
 	vp := e.bddContext.Args[user]
-	return e.verifyPresentation(verifierBaseURL+"/presentations", []byte(vp))
+	opts := &operation.VerifyPresentationOptions{Checks: []string{"proof"}}
+
+	return e.verifyPresentation(verifierBaseURL+"/presentations", []byte(vp), opts)
 }
 
 func (e *Steps) verifyCredentialUsingEndpoint(endpoint, user string) error {
@@ -60,7 +63,20 @@ func (e *Steps) verifyCredentialUsingEndpoint(endpoint, user string) error {
 
 func (e *Steps) verifyPresentationUsingEndpoint(endpoint, user string) error {
 	vp := e.bddContext.Args[bddutil.GetPresentationKey(user)]
-	return e.verifyPresentation(endpoint, []byte(vp))
+
+	userOpts, ok := e.bddContext.Args[bddutil.GetOptionsKey(user)]
+	if !ok {
+		return fmt.Errorf("unable to find verification for user: %s", user)
+	}
+
+	opts := &operation.VerifyPresentationOptions{}
+
+	err := json.Unmarshal([]byte(userOpts), opts)
+	if err != nil {
+		return err
+	}
+
+	return e.verifyPresentation(endpoint, []byte(vp), opts)
 }
 
 func (e *Steps) verifyCredential(endpoint string, vc []byte) error {
@@ -81,14 +97,10 @@ func (e *Steps) verifyCredential(endpoint string, vc []byte) error {
 	return e.verify(endpoint, reqBytes)
 }
 
-func (e *Steps) verifyPresentation(endpoint string, vp []byte) error {
-	checks := []string{"proof"}
-
+func (e *Steps) verifyPresentation(endpoint string, vp []byte, opts *operation.VerifyPresentationOptions) error {
 	req := &operation.VerifyPresentationRequest{
 		Presentation: vp,
-		Opts: &operation.VerifyPresentationOptions{
-			Checks: checks,
-		},
+		Opts:         opts,
 	}
 
 	reqBytes, err := json.Marshal(req)
