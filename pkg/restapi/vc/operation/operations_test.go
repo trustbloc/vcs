@@ -1251,7 +1251,7 @@ func TestIssueCredential(t *testing.T) {
 
 		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
 
-		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusCreated, rr.Code)
 
 		signedVCResp := make(map[string]interface{})
 		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
@@ -1272,7 +1272,7 @@ func TestIssueCredential(t *testing.T) {
 
 		rr = serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
 
-		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusCreated, rr.Code)
 
 		signedVCResp = make(map[string]interface{})
 		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
@@ -1544,7 +1544,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 		// invoke the endpoint
 		rr := serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
-		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
 		vcResp, err := verifiable.NewUnverifiedCredential(rr.Body.Bytes())
@@ -1587,7 +1587,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		// invoke the endpoint
 		rr = serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
 
-		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
 		vcResp, err = verifiable.NewUnverifiedCredential(rr.Body.Bytes())
@@ -1613,7 +1613,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		rr = serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
-		require.Equal(t, http.StatusOK, rr.Code)
+		require.Equal(t, http.StatusCreated, rr.Code)
 
 		signedVCResp := make(map[string]interface{})
 		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)

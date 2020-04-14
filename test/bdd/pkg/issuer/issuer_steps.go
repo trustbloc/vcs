@@ -258,7 +258,7 @@ func (e *Steps) issueCredential(user, did, cred string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read response : %s", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("got unexpected response from %s status '%d' body %s",
 			endpointURL, resp.StatusCode, responseBytes)
 	}
@@ -302,7 +302,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 		return fmt.Errorf("failed to read response : %s", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("got unexpected response from %s status '%d' body %s",
 			endpointURL, resp.StatusCode, responseBytes)
 	}
