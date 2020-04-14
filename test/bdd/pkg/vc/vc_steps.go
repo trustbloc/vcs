@@ -15,7 +15,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/btcsuite/btcutil/base58"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/mr-tron/base58"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -325,13 +327,31 @@ func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey s
 		return err
 	}
 
-	vp, err := bddutil.CreatePresentationWithCustomKey(e.bddContext.CreatedCredential, getSignatureRepresentation("JWS"),
-		e.bddContext.VDRI, base58.Decode(privateKey), profileResponse.Creator)
+	signingKey, err := base58.Decode(privateKey)
+	if err != nil {
+		return err
+	}
+
+	signatureSuite := ed25519signature2018.New(suite.WithSigner(bddutil.GetSigner(signingKey)))
+
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "Ed25519Signature2018",
+		SignatureRepresentation: getSignatureRepresentation("JWS"),
+		Suite:                   signatureSuite,
+		VerificationMethod:      profileResponse.Creator,
+		Domain:                  "issuer.example.com",
+		Challenge:               uuid.New().String(),
+		Purpose:                 "authentication",
+	}
+
+	vp, err := bddutil.CreateCustomPresentation(e.bddContext.CreatedCredential, e.bddContext.VDRI, ldpContext)
 	if err != nil {
 		return err
 	}
 
 	e.bddContext.Args[bddutil.GetPresentationKey(user)] = string(vp)
+	e.bddContext.Args[bddutil.GetOptionsKey(user)] = fmt.Sprintf(
+		`{"challenge": "%s","domain": "%s","checks": ["proof"]}`, ldpContext.Challenge, ldpContext.Domain)
 
 	return nil
 }

@@ -66,7 +66,10 @@ type IssueCredentialRequest struct {
 
 // IssueCredentialOptions options for issuing credential.
 type IssueCredentialOptions struct {
-	AssertionMethod string `json:"assertionMethod,omitempty"`
+	AssertionMethod    string     `json:"assertionMethod,omitempty"`
+	VerificationMethod string     `json:"verificationMethod,omitempty"`
+	ProofPurpose       string     `json:"proofPurpose,omitempty"`
+	Created            *time.Time `json:"created,omitempty"`
 }
 
 // ComposeCredentialRequest for composing and issuing credential.
@@ -98,7 +101,9 @@ type CredentialsVerificationRequest struct {
 
 // CredentialsVerificationOptions options for credential verifications.
 type CredentialsVerificationOptions struct {
-	Checks []string `json:"checks,omitempty"`
+	Domain    string   `json:"domain,omitempty"`
+	Challenge string   `json:"challenge,omitempty"`
+	Checks    []string `json:"checks,omitempty"`
 }
 
 // CredentialsVerificationSuccessResponse resp when credential verification is success.
@@ -126,7 +131,9 @@ type VerifyPresentationRequest struct {
 
 // VerifyPresentationOptions options for presentation verifications.
 type VerifyPresentationOptions struct {
-	Checks []string `json:"checks,omitempty"`
+	Domain    string   `json:"domain,omitempty"`
+	Challenge string   `json:"challenge,omitempty"`
+	Checks    []string `json:"checks,omitempty"`
 }
 
 // VerifyPresentationSuccessResponse resp when presentation verification is success.

@@ -55,35 +55,14 @@ func CreatePresentation(vcBytes []byte, representation verifiable.SignatureRepre
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
 		SignatureRepresentation: representation,
-		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
+		Suite:                   ed25519signature2018.New(suite.WithSigner(GetSigner(privateKey))),
 	}
 
-	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
-
-	// parse vc
-	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuite(signSuite),
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
-	if err != nil {
-		return nil, err
-	}
-
-	// create verifiable presentation from vc
-	vp, err := vc.Presentation()
-	if err != nil {
-		return nil, err
-	}
-
-	// add linked data proof
-	err = vp.AddLinkedDataProof(ldpContext)
-	if err != nil {
-		return nil, err
-	}
-
-	return json.Marshal(vp)
+	return CreateCustomPresentation(vcBytes, vdri, ldpContext)
 }
 
-func getSigner(privKey []byte) *signer {
+// GetSigner returns private key based signer for bdd tests
+func GetSigner(privKey []byte) verifiable.Signer {
 	return &signer{privateKey: privKey}
 }
 
@@ -155,16 +134,14 @@ func GetPresentationKey(user string) string {
 	return user + "-vp"
 }
 
-// CreatePresentationWithCustomKey creates verifiable presentation from verifiable credential and private key.
-func CreatePresentationWithCustomKey(vcBytes []byte, representation verifiable.SignatureRepresentation,
-	vdri vdriapi.Registry, privateKey []byte, verificationMethod string) ([]byte, error) {
-	ldpContext := &verifiable.LinkedDataProofContext{
-		SignatureType:           "Ed25519Signature2018",
-		SignatureRepresentation: representation,
-		Suite:                   ed25519signature2018.New(suite.WithSigner(getSigner(privateKey))),
-		VerificationMethod:      verificationMethod,
-	}
+// GetOptionsKey key for storing options.
+func GetOptionsKey(user string) string {
+	return user + "-opts"
+}
 
+// CreateCustomPresentation creates verifiable presentation from custom linked data proof context
+func CreateCustomPresentation(vcBytes []byte, vdri vdriapi.Registry,
+	ldpContext *verifiable.LinkedDataProofContext) ([]byte, error) {
 	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 
 	// parse vc

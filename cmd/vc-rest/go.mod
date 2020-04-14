@@ -8,7 +8,7 @@ replace github.com/trustbloc/edge-service => ../..
 
 require (
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200413142855-397839f21ed4
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200413224736-97e4ff5b5d1e
 	github.com/rs/cors v1.7.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6

@@ -810,6 +810,7 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 // Responses:
 //    default: genericError
 //        200: verifiableCredentialRes
+// TODO use request.Options to choose verification method & purpose [Issue #239]
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
 	profileID := mux.Vars(req)[profileIDPathParam]
@@ -1145,6 +1146,7 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 //    default: genericError
 //        200: verifyCredentialSuccessResp
 //        400: verifyCredentialFailureResp
+// TODO use request.options (domain, challenge) to mitigate replay attacks  [Issue #238]
 func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := CredentialsVerificationRequest{}
@@ -1231,6 +1233,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: verifyPresentationSuccessResp
 //        400: verifyPresentationFailureResp
+// TODO use request.options (domain, challenge) to mitigate replay attacks [Issue #238]
 func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := VerifyPresentationRequest{}
