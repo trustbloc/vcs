@@ -2568,6 +2568,17 @@ func (m *mockStore) Get(k string) ([]byte, error) {
 	return m.get(k)
 }
 
+// CreateIndex creates an index in the store based on the provided CreateIndexRequest.
+func (m *mockStore) CreateIndex(createIndexRequest storage.CreateIndexRequest) error {
+	return nil
+}
+
+// Query queries the store for data based on the provided query string, the format of
+// which will be dependent on what the underlying store requires.
+func (m *mockStore) Query(query string) (storage.ResultsIterator, error) {
+	return nil, nil
+}
+
 type TestClient struct {
 	edvServerURL string
 }

@@ -19,7 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/leveldb"
+	ariescouchdbstorage "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	"github.com/rs/cors"
@@ -107,10 +108,6 @@ const (
 
 // mode in which to run the vc-rest service
 type mode string
-
-// TODO remove leveldb store when aries starting to support couchdb
-// TODO https://github.com/hyperledger/aries-framework-go/issues/1599
-var dbPath = "/tmp/ariesstore/" //nolint: gochecknoglobals
 
 const (
 	verifier mode = "verifier"
@@ -285,22 +282,19 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	tlsConfig := &tls.Config{RootCAs: rootCAs}
 
+	storeProvider, ariesStoreProvider, err := createStoreProvider(parameters)
+	if err != nil {
+		return err
+	}
+
 	// Create KMS
-	// TODO remove leveldb store when aries starting to support couchdb
-	// TODO https://github.com/hyperledger/aries-framework-go/issues/1599
-	// TODO make it configurable after switching to couchdb
-	kms, err := createKMS(leveldb.NewProvider(dbPath))
+	kms, err := createKMS(ariesStoreProvider)
 	if err != nil {
 		return err
 	}
 
 	// Create VDRI
 	vdri, err := createVDRI(parameters.universalResolverURL, kms, tlsConfig)
-	if err != nil {
-		return err
-	}
-
-	storeProvider, err := createProvider(parameters)
 	if err != nil {
 		return err
 	}
@@ -389,25 +383,34 @@ func acceptsDID(method string) bool {
 		method == didMethodWeb || method == didMethodKey
 }
 
-func createProvider(parameters *vcRestParameters) (storage.Provider, error) {
+func createStoreProvider(parameters *vcRestParameters) (storage.Provider, ariesstorage.Provider, error) {
 	var provider storage.Provider
+
+	var ariesProvider ariesstorage.Provider
 
 	switch {
 	case strings.EqualFold(parameters.databaseType, databaseTypeMemOption):
 		provider = memstore.NewProvider()
+		ariesProvider = ariesmemstorage.NewProvider()
 	case strings.EqualFold(parameters.databaseType, databaseTypeCouchDBOption):
-		couchDBProvider, err := couchdbstore.NewProvider(parameters.databaseURL)
+		var err error
+		provider, err = couchdbstore.NewProvider(parameters.databaseURL)
+
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
-		provider = couchDBProvider
+		ariesProvider, err = ariescouchdbstorage.NewProvider(parameters.databaseURL)
+		if err != nil {
+			return nil, nil, err
+		}
+
 	default:
-		return nil, fmt.Errorf("database type not set to a valid type." +
+		return nil, nil, fmt.Errorf("database type not set to a valid type." +
 			" run start --help to see the available options")
 	}
 
-	return provider, nil
+	return provider, ariesProvider, nil
 }
 
 func constructCORSHandler(handler http.Handler) http.Handler {

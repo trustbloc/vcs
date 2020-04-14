@@ -40,12 +40,14 @@ services:
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
       - BLOC_DOMAIN=testnet.trustbloc.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
-      - DATABASE_TYPE=mem
+      - DATABASE_TYPE=couchdb
+      - DATABASE_URL=couchdb.example.com:5984
       - VC_REST_MODE=verifier
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
     ports:
       - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
-    command:  start
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
     volumes:
       - ../keys/tls:/etc/tls
     networks:

@@ -321,3 +321,14 @@ func (s *mockStore) Get(k string) ([]byte, error) {
 
 	return nil, nil
 }
+
+// CreateIndex creates an index in the store based on the provided CreateIndexRequest.
+func (s *mockStore) CreateIndex(createIndexRequest storage.CreateIndexRequest) error {
+	return nil
+}
+
+// Query queries the store for data based on the provided query string, the format of
+// which will be dependent on what the underlying store requires.
+func (s *mockStore) Query(query string) (storage.ResultsIterator, error) {
+	return nil, nil
+}
