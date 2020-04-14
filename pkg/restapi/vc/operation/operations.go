@@ -809,7 +809,7 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 //
 // Responses:
 //    default: genericError
-//        200: verifiableCredentialRes
+//        201: verifiableCredentialRes
 // TODO use request.Options to choose verification method & purpose [Issue #239]
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
@@ -868,7 +868,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	rw.WriteHeader(http.StatusOK)
+	rw.WriteHeader(http.StatusCreated)
 	o.writeResponse(rw, signedVC)
 }
 
@@ -878,7 +878,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 //
 // Responses:
 //    default: genericError
-//        200: verifiableCredentialRes
+//        201: verifiableCredentialRes
 func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
 	id := mux.Vars(req)[profileIDPathParam]
@@ -937,7 +937,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	}
 
 	// response
-	rw.WriteHeader(http.StatusOK)
+	rw.WriteHeader(http.StatusCreated)
 	o.writeResponse(rw, signedVC)
 }
 
