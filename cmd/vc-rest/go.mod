@@ -4,8 +4,6 @@
 
 module github.com/trustbloc/edge-service/cmd/vc-rest
 
-replace github.com/trustbloc/edge-service => ../..
-
 require (
 	github.com/gorilla/mux v1.7.4
 	github.com/hyperledger/aries-framework-go v0.1.3-0.20200414103448-9cc485509370
@@ -18,5 +16,9 @@ require (
 	github.com/trustbloc/edv v0.1.3-0.20200331230259-afb8871c7535
 	github.com/trustbloc/trustbloc-did-method v0.0.0-20200411231933-998b4498e40d
 )
+
+replace github.com/trustbloc/edge-service => ../..
+
+replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
 
 go 1.13

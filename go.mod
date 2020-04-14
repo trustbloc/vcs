@@ -17,3 +17,5 @@ require (
 	github.com/trustbloc/edv v0.1.3-0.20200305035835-69c9f3cb077b
 	github.com/trustbloc/trustbloc-did-method v0.0.0-20200411231933-998b4498e40d
 )
+
+replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
