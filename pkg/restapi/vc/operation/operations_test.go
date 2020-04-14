@@ -81,6 +81,12 @@ const (
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018"
 	}`
+	testIssuerProfileWithDisableVCStatus = `{
+		"name": "issuer",
+		"uri": "https://example.com/credentials",
+		"signatureType": "Ed25519Signature2018",
+		"disableVCStatus": true
+	}`
 	testIssuerProfileWithDID = `{
 		"name": "issuer",
 		"uri": "https://example.com/credentials",
@@ -105,6 +111,20 @@ const (
 		"id": "https://example.gov/status/24",
 		"type": "CredentialStatusList2017"
 	  }
+	}`
+
+	validVCWithoutStatus = `{` +
+		validContext + `,
+	  "id": "http://example.edu/credentials/1872",
+	  "type": "VerifiableCredential",
+	  "credentialSubject": {
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	  },
+	  "issuer": {
+		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"name": "vc without status"
+	  },
+	  "issuanceDate": "2010-01-01T19:23:24Z"
 	}`
 
 	validVCWithProof = `{
@@ -313,6 +333,8 @@ func testUpdateCredentialStatusHandler(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil)
 	s := make(map[string][]byte)
 	s["profile_Example University"] = []byte(testIssuerProfile)
+	s["profile_vc without status"] = []byte(testIssuerProfileWithDisableVCStatus)
+
 	op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
 		EDVClient: client, KMS: getTestKMS(t), VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
@@ -332,6 +354,21 @@ func testUpdateCredentialStatusHandler(t *testing.T, mode string) {
 
 		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("test disable vc status", func(t *testing.T) {
+		ucsReq := UpdateCredentialStatusRequest{Credential: validVCWithoutStatus, Status: "revoked"}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+
+		require.Contains(t, rr.Body.String(), "vc status is disabled for profile")
 	})
 
 	t.Run("test error decode request", func(t *testing.T) {
