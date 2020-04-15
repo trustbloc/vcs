@@ -752,7 +752,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID,
 		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation,
-		Creator: publicKeyID, DIDPrivateKey: didPrivateKey,
+		Creator: publicKeyID, DIDPrivateKey: didPrivateKey, DisableVCStatus: pr.DisableVCStatus,
 	}, nil
 }
 
