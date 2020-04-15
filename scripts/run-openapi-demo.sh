@@ -19,7 +19,6 @@ declare -a features=(
                 "did-method-rest"
                 "discovery-server"
                 "stakeholder-server"
-                "dns-proxy-server"
                 "openapi-demo"
                )
 
