@@ -17,8 +17,8 @@ require (
 	github.com/mr-tron/base58 v1.1.3
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.5.1
-	github.com/trustbloc/edge-core v0.1.3-0.20200414165955-488d2227b903
+	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/sidetree-core-go v0.1.3-0.20200331141546-1d1a08ef4a77
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200414185052-17ef7829f706
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200415151218-00c874fa77c2
 )
