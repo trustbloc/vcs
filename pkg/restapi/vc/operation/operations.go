@@ -85,7 +85,8 @@ const (
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 
 	// json keys
-	keyID = "kid"
+	keyID   = "kid"
+	purpose = "proofPurpose"
 
 	pubKeyIndex1 = "#key-1"
 	keyType      = "Ed25519VerificationKey2018"
@@ -751,9 +752,8 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 	created := time.Now().UTC()
 
 	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID,
-		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation,
-		Creator: publicKeyID, DIDPrivateKey: didPrivateKey, DisableVCStatus: pr.DisableVCStatus,
-	}, nil
+		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID,
+		DIDPrivateKey: didPrivateKey, DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer}, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
@@ -816,7 +816,6 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 // Responses:
 //    default: genericError
 //        201: verifiableCredentialRes
-// TODO use request.Options to choose verification method & purpose [Issue #239]
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
 	profileID := mux.Vars(req)[profileIDPathParam]
@@ -847,15 +846,6 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	// update the signing profile with the request options
-	err = updateIssueCredSigningProfile(o.vdri, &cred, profile)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to update signing profile:"+
-			" %s", err.Error()))
-
-		return
-	}
-
 	if !profile.DisableVCStatus {
 		// set credential status
 		credential.Status, err = o.vcStatusManager.CreateStatusID()
@@ -867,8 +857,11 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		}
 	}
 
+	// update credential issuer
+	updateIssuer(credential, profile)
+
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(profile, credential)
+	signedVC, err := o.crypto.SignCredential(profile, credential, getIssuerSigningOpts(cred.Opts)...)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -880,6 +873,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	o.writeResponse(rw, signedVC)
 }
 
+// nolint funlen
 // composeAndIssueCredential swagger:route POST /{id}/credentials/composeAndIssueCredential issuer composeCredentialReq
 //
 // Composes and Issues a credential.
@@ -916,15 +910,6 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		return
 	}
 
-	// update the signing profile with the request options
-	err = updateComposeAndIssueSigningProfile(&composeCredReq, profile)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to update signing profile:"+
-			" %s", err.Error()))
-
-		return
-	}
-
 	if !profile.DisableVCStatus {
 		// set credential status
 		credential.Status, err = o.vcStatusManager.CreateStatusID()
@@ -936,8 +921,20 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		}
 	}
 
+	// update credential issuer
+	updateIssuer(credential, profile)
+
+	// prepare signing options from request options
+	opts, err := getComposeSigningOpts(&composeCredReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to prepare signing options:"+
+			" %s", err.Error()))
+
+		return
+	}
+
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(profile, credential)
+	signedVC, err := o.crypto.SignCredential(profile, credential, opts...)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -1028,100 +1025,61 @@ func decodeTypedID(bytes json.RawMessage) ([]verifiable.TypedID, error) {
 	return nil, err
 }
 
-func getSignatureRepresentation(signRep string) (*verifiable.SignatureRepresentation, error) {
-	var signatureRepresentation verifiable.SignatureRepresentation
+func getComposeSigningOpts(composeCredReq *ComposeCredentialRequest) ([]crypto.SigningOpts, error) {
+	var verificationPurpose, verificationMethod, representation = "", "", "jws"
 
-	switch signRep {
-	case "jws":
-		signatureRepresentation = verifiable.SignatureJWS
-	case "proofValue":
-		signatureRepresentation = verifiable.SignatureProofValue
-	default:
-		return nil, fmt.Errorf("invalid proof format : %s", signRep)
-	}
-
-	return &signatureRepresentation, nil
-}
-
-func resolveAndGetKeyID(vdri vdriapi.Registry, didID string) (string, error) {
-	// Resolve DID and get the public keyID
-	didDoc, err := vdri.Resolve(didID)
-	if err != nil {
-		return "", err
-	}
-
-	keyID, err := getPublicKeyID(didDoc)
-	if err != nil {
-		return "", err
-	}
-
-	return keyID, nil
-}
-
-func updateIssueCredSigningProfile(vdri vdriapi.Registry, req *IssueCredentialRequest,
-	profile *vcprofile.DataProfile) error {
-	// use issuer default DID, if the request option doesn't specify the DID
-	if req.Opts != nil && req.Opts.AssertionMethod != "" {
-		keyID, err := resolveAndGetKeyID(vdri, req.Opts.AssertionMethod)
-		if err != nil {
-			return err
-		}
-
-		profile.Creator = keyID
-
-		// signer first checks for private key - set this to nil as this need to
-		// be overridden by the options
-		profile.DIDPrivateKey = ""
-	}
-
-	return nil
-}
-
-func updateComposeAndIssueSigningProfile(composeCredReq *ComposeCredentialRequest,
-	profile *vcprofile.DataProfile) error {
-	if composeCredReq.ProofFormat != "" {
-		signatureRepresentation, err := getSignatureRepresentation(composeCredReq.ProofFormat)
-		if err != nil {
-			return err
-		}
-
-		profile.SignatureRepresentation = *signatureRepresentation
-	}
-
-	if &profile.SignatureRepresentation != nil {
-		profile.SignatureRepresentation = verifiable.SignatureJWS
-	}
-
-	keyID, err := getKeyIDFromReq(composeCredReq, profile.Creator)
-	if err != nil {
-		return err
-	}
-
-	profile.Creator = keyID
-
-	return nil
-}
-
-func getKeyIDFromReq(composeCredReq *ComposeCredentialRequest, defaultKeyID string) (string, error) {
 	if composeCredReq.ProofFormatOptions != nil {
 		proofFormatOptions := make(map[string]interface{})
 
 		err := json.Unmarshal(composeCredReq.ProofFormatOptions, &proofFormatOptions)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		if proofFormatOptions[keyID] != "" {
-			kid, ok := proofFormatOptions[keyID].(string)
+		if k, ok := proofFormatOptions[keyID]; ok {
+			verificationMethod, ok = k.(string)
 			if !ok {
-				return "", errors.New("invalid kid type")
+				return nil, errors.New("invalid kid type")
 			}
+		}
 
-			return kid, nil
+		if p, ok := proofFormatOptions[purpose]; ok {
+			verificationPurpose, ok = p.(string)
+			if !ok {
+				return nil, errors.New("invalid purpose type")
+			}
 		}
 	}
 
-	return defaultKeyID, nil
+	if composeCredReq.ProofFormat != "" {
+		representation = composeCredReq.ProofFormat
+	}
+
+	return []crypto.SigningOpts{
+		crypto.WithPurpose(verificationPurpose),
+		crypto.WithVerificationMethod(verificationMethod),
+		crypto.WithSigningRepresentation(representation),
+	}, nil
+}
+
+func getIssuerSigningOpts(opts *IssueCredentialOptions) []crypto.SigningOpts {
+	var signingOpts []crypto.SigningOpts
+
+	if opts != nil {
+		// verification method takes priority
+		verificationMethod := opts.VerificationMethod
+
+		if verificationMethod == "" {
+			verificationMethod = opts.AssertionMethod
+		}
+
+		signingOpts = []crypto.SigningOpts{
+			crypto.WithVerificationMethod(verificationMethod),
+			crypto.WithPurpose(opts.ProofPurpose),
+		}
+	}
+
+	return signingOpts
 }
 
 // GenerateKeypair swagger:route GET /kms/generatekeypair issuer req
@@ -1394,4 +1352,14 @@ func getPublicKeyID(didDoc *did.Doc) (string, error) {
 
 func isDID(str string) bool {
 	return strings.HasPrefix(str, "did:")
+}
+
+// updateIssuer overrides credential issuer form profile if
+// 'profile.OverwriteIssuer=true' or credential issuer is missing
+// credential issue will always be DID
+func updateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
+	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
+		// override credential issuer.
+		credential.Issuer = verifiable.Issuer{ID: profile.DID, Name: profile.Name}
+	}
 }

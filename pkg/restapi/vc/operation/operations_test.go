@@ -1280,7 +1280,10 @@ func TestIssueCredential(t *testing.T) {
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
-			Opts:       &IssueCredentialOptions{AssertionMethod: "did:local:abc"},
+			Opts: &IssueCredentialOptions{
+				AssertionMethod:    "did:local:abc#key-1",
+				VerificationMethod: "did:local:abc#key-1",
+			},
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -1300,9 +1303,33 @@ func TestIssueCredential(t *testing.T) {
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#key-1", proof["verificationMethod"])
+		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+
+		// default - DID from the issuer profile
+		req.Opts.VerificationMethod = ""
+
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		signedVCResp = make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok = signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:local:abc#key-1", proof["verificationMethod"])
+		require.Equal(t, "assertionMethod", proof["proofPurpose"])
 
 		// default - DID from the issuer profile
 		req.Opts.AssertionMethod = ""
+		req.Opts.VerificationMethod = ""
 
 		reqBytes, err = json.Marshal(req)
 		require.NoError(t, err)
@@ -1322,6 +1349,64 @@ func TestIssueCredential(t *testing.T) {
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, issuerProfileDIDKey, proof["verificationMethod"])
+		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+	})
+
+	t.Run("issue credential with opts - success", func(t *testing.T) {
+		customVerificationMethod := "did:test:zzz#key-1"
+		customPurpose := "authentication"
+
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		kms := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		ops, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+
+		err = ops.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, issuerMode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts: &IssueCredentialOptions{
+				AssertionMethod: customVerificationMethod,
+				ProofPurpose:    customPurpose,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		signedVCResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, customVerificationMethod, proof["verificationMethod"])
+		require.Equal(t, customPurpose, proof["proofPurpose"])
 	})
 
 	t.Run("issue credential - invalid profile", func(t *testing.T) {
@@ -1375,37 +1460,30 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
-		op.vdri = &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("did not found")}
+		op1, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
+					return nil, errors.New("did not found")
+				}},
+		})
+		require.NoError(t, err)
+
+		issueHandler := getHandler(t, op1, issueCredentialPath, issuerMode)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
-			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y#key-1"},
 		}
 
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+		rr := serveHTTPMux(t, issueHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to update signing profile: did not found")
-	})
-
-	t.Run("issue credential - DID doesn't contain Public key", func(t *testing.T) {
-		op.vdri = &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{}}
-
-		req := &IssueCredentialRequest{
-			Credential: []byte(validVC),
-			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "public key not found in DID Document")
+		require.Contains(t, rr.Body.String(), "does not have a value associated with this key")
 	})
 
 	t.Run("issue credential - add credential status error", func(t *testing.T) {
@@ -1764,16 +1842,32 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - invalid proof format option", func(t *testing.T) {
 		req := &ComposeCredentialRequest{
-			ProofFormat: "invalid-proof-format-value",
+			ProofFormat:        "invalid-proof-format-value",
+			ProofFormatOptions: []byte(`{"kid":"did:local:abc#key-1"}`),
 		}
 
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		// invoke the endpoint
-		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+		op1, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
+					return createDefaultDID(), nil
+				}},
+		})
+		require.NoError(t, err)
 
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		err = op1.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		handler1 := getHandler(t, op1, composeAndIssueCredentialPath, issuerMode)
+
+		// invoke the endpoint
+		rr := serveHTTPMux(t, handler1, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid proof format : invalid-proof-format-value")
 	})
 
@@ -1794,7 +1888,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to update signing profile: json: cannot unmarshal number")
+		require.Contains(t, rr.Body.String(), "failed to prepare signing options")
 	})
 
 	t.Run("compose and issue credential - get signing DID error - invalid kid type", func(t *testing.T) {
@@ -1815,7 +1909,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to update signing profile: invalid kid type")
+		require.Contains(t, rr.Body.String(), "failed to prepare signing options: invalid kid type")
 	})
 }
 

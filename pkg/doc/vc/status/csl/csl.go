@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
@@ -30,7 +32,8 @@ const (
 )
 
 type crypto interface {
-	SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential) (*verifiable.Credential, error)
+	SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential,
+		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
 // CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-csl2017/

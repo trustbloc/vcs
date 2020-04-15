@@ -129,6 +129,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 	profileRequest.DIDPrivateKey = privateKey
 	profileRequest.SignatureRepresentation = getSignatureRepresentation(holder)
 	profileRequest.UNIRegistrar = u
+	profileRequest.OverwriteIssuer = true
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -248,8 +249,6 @@ func (e *Steps) createCredential(credential, profileName string) error {
 		return fmt.Errorf("unable to fetch profile - %s", err)
 	}
 
-	cred.Issuer.ID = profileResponse.DID
-	cred.Issuer.Name = profileResponse.Name
 	cred.ID = profileResponse.URI + "/" + uuid.New().String()
 
 	credBytes, err := cred.MarshalJSON()

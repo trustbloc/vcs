@@ -67,7 +67,8 @@ const (
 	   },
 	   "proofFormat":"jws",
 	   "proofFormatOptions":{
-		  "kid":` + `"%s"` + `
+		  "kid":` + `"%s"` + `,
+          "proofPurpose": "authentication"
 	   }
 	}`
 )
@@ -205,7 +206,7 @@ func (e *Steps) createSidetreeDID(base58PubKey string) (*docdid.Doc, error) {
 	return e.sendCreateRequest(req)
 }
 
-func (e *Steps) verifyCredential(signedVCByte []byte) error {
+func (e *Steps) verifyCredential(signedVCByte []byte, verifyfProof func(proof map[string]interface{}) error) error {
 	signedVCResp := make(map[string]interface{})
 
 	err := json.Unmarshal(signedVCByte, &signedVCResp)
@@ -226,6 +227,10 @@ func (e *Steps) verifyCredential(signedVCByte []byte) error {
 		return errors.New("proof jws value is empty")
 	}
 
+	if verifyfProof != nil {
+		return verifyfProof(proof)
+	}
+
 	return nil
 }
 
@@ -236,7 +241,7 @@ func (e *Steps) issueCredential(user, did, cred string) ([]byte, error) {
 
 	req := &operation.IssueCredentialRequest{
 		Credential: e.bddContext.TestData[cred],
-		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did},
+		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did + pubKeyIndex1},
 	}
 
 	reqBytes, err := json.Marshal(req)
@@ -275,7 +280,7 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 		return err
 	}
 
-	return e.verifyCredential(signedVCByte)
+	return e.verifyCredential(signedVCByte, nil)
 }
 
 func (e *Steps) composeIssueAndVerifyCredential(user string) error {
@@ -307,7 +312,17 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 			endpointURL, resp.StatusCode, responseBytes)
 	}
 
-	return e.verifyCredential(responseBytes)
+	verifyProof := func(proof map[string]interface{}) error {
+		if purpose, ok := proof["proofPurpose"]; ok {
+			if purpose.(string) == "authentication" {
+				return nil
+			}
+		}
+
+		return fmt.Errorf("unexpected 'proofPurpose' found in proof")
+	}
+
+	return e.verifyCredential(responseBytes, verifyProof)
 }
 
 func (e *Steps) createCredential(user, cred string) ([]byte, error) {
@@ -324,7 +339,7 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 		return nil, err
 	}
 
-	if err := e.verifyCredential(signedVCByte); err != nil {
+	if err := e.verifyCredential(signedVCByte, nil); err != nil {
 		return nil, err
 	}
 

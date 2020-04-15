@@ -38,6 +38,88 @@ func TestCrypto_SignCredential(t *testing.T) {
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
 
+	t.Run("test successful sign credential using opts", func(t *testing.T) {
+		tests := []struct {
+			name              string
+			signingOpts       []SigningOpts
+			responsePurpose   string
+			responseVerMethod string
+			err               string
+		}{
+			{
+				name:              "signing with purpose option",
+				signingOpts:       []SigningOpts{WithPurpose("sample-purpose")},
+				responsePurpose:   "sample-purpose",
+				responseVerMethod: "did:test:abc#key1",
+			},
+			{
+				name:              "signing with verification method option",
+				signingOpts:       []SigningOpts{WithVerificationMethod("did:sample:xyz#key999")},
+				responsePurpose:   "assertionMethod",
+				responseVerMethod: "did:sample:xyz#key999",
+			},
+			{
+				name: "signing with verification method, purpose options & representation(proofValue)",
+				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
+					WithVerificationMethod("did:sample:xyz#key999"),
+					WithSigningRepresentation("proofValue")},
+				responsePurpose:   "sample-purpose",
+				responseVerMethod: "did:sample:xyz#key999",
+			},
+			{
+				name: "signing with verification method, purpose options & representation(jws)",
+				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
+					WithVerificationMethod("did:sample:xyz#key999"),
+					WithSigningRepresentation("jws")},
+				responsePurpose:   "sample-purpose",
+				responseVerMethod: "did:sample:xyz#key999",
+			},
+			{
+				name:              "signing with verification method & purpose options",
+				signingOpts:       []SigningOpts{},
+				responsePurpose:   "assertionMethod",
+				responseVerMethod: "did:test:abc#key1",
+			},
+			{
+				name: "failed with invalid signing representation",
+				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
+					WithVerificationMethod("did:sample:xyz#key999"),
+					WithSigningRepresentation("xyz")},
+				err: "invalid proof format : xyz",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				c := New(&kmsmock.CloseableKMS{},
+					&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+						return &verifier.PublicKey{Value: []byte(pubKey)}, nil
+					}})
+
+				signedVC, err := c.SignCredential(
+					getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+					tc.signingOpts...)
+
+				if tc.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.err)
+					return
+				}
+
+				require.NoError(t, err)
+				require.Equal(t, 1, len(signedVC.Proofs))
+				require.Equal(t, tc.responsePurpose, signedVC.Proofs[0]["proofPurpose"])
+				require.Equal(t, tc.responseVerMethod, signedVC.Proofs[0]["verificationMethod"])
+			})
+		}
+	})
+
 	t.Run("test success with private key", func(t *testing.T) {
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
