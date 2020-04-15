@@ -404,6 +404,12 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
+	if profile.DisableVCStatus {
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("vc status is disabled for profile %s", profile.Name))
+		return
+	}
+
 	if err := o.vcStatusManager.UpdateVCStatus(vc, profile, data.Status, data.StatusReason); err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to update vc status: %s", err.Error()))
@@ -850,13 +856,15 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	// set credential status
-	credential.Status, err = o.vcStatusManager.CreateStatusID()
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
-			" %s", err.Error()))
+	if !profile.DisableVCStatus {
+		// set credential status
+		credential.Status, err = o.vcStatusManager.CreateStatusID()
+		if err != nil {
+			o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+				" %s", err.Error()))
 
-		return
+			return
+		}
 	}
 
 	// sign the credential
@@ -880,7 +888,6 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 //    default: genericError
 //        201: verifiableCredentialRes
 func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
-	// get the issuer profile
 	id := mux.Vars(req)[profileIDPathParam]
 
 	profile, err := o.profileStore.GetProfile(id)
@@ -918,13 +925,15 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		return
 	}
 
-	// set credential status
-	credential.Status, err = o.vcStatusManager.CreateStatusID()
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
-			" %s", err.Error()))
+	if !profile.DisableVCStatus {
+		// set credential status
+		credential.Status, err = o.vcStatusManager.CreateStatusID()
+		if err != nil {
+			o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+				" %s", err.Error()))
 
-		return
+			return
+		}
 	}
 
 	// sign the credential
