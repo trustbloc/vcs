@@ -44,6 +44,7 @@ type ProfileRequest struct {
 	DID                     string                             `json:"did"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
+	DisableVCStatus         bool                               `json:"disableVCStatus"`
 }
 
 // UNIRegistrar uni-registrar
