@@ -99,6 +99,11 @@ const (
 		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
 	tlsCACertsEnvKey = "VC_REST_TLS_CACERTS"
 
+	databasePrefixFlagName  = "database-prefix"
+	databasePrefixEnvKey    = "DATABASE_PREFIX"
+	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases." +
+		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -126,6 +131,7 @@ type vcRestParameters struct {
 	databaseURL          string
 	tlsSystemCertPool    bool
 	tlsCACerts           []string
+	databasePrefix       string
 }
 
 type server interface {
@@ -198,17 +204,12 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName, databaseTypeEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
-	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName, databaseURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsSystemCertPool, tlsCACerts, err := getTLS(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	databaseType, databaseURL, databasePrefix, err := getDBConfig(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +225,30 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		databaseURL:          databaseURL,
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
+		databasePrefix:       databasePrefix,
 	}, nil
+}
+
+func getDBConfig(cmd *cobra.Command) (string, string, string, error) {
+	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName,
+		databaseTypeEnvKey, false)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName,
+		databaseURLEnvKey, true)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	databasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, databasePrefixFlagName,
+		databasePrefixEnvKey, true)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return databaseType, databaseURL, databasePrefix, nil
 }
 
 func getTLS(cmd *cobra.Command) (bool, []string, error) {
@@ -264,6 +288,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "",
 		tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
+	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters, srv server) error {
@@ -394,13 +419,15 @@ func createStoreProvider(parameters *vcRestParameters) (storage.Provider, ariess
 		ariesProvider = ariesmemstorage.NewProvider()
 	case strings.EqualFold(parameters.databaseType, databaseTypeCouchDBOption):
 		var err error
-		provider, err = couchdbstore.NewProvider(parameters.databaseURL)
+		provider, err = couchdbstore.NewProvider(parameters.databaseURL,
+			couchdbstore.WithDBPrefix(parameters.databasePrefix))
 
 		if err != nil {
 			return nil, nil, err
 		}
 
-		ariesProvider, err = ariescouchdbstorage.NewProvider(parameters.databaseURL)
+		ariesProvider, err = ariescouchdbstorage.NewProvider(parameters.databaseURL,
+			ariescouchdbstorage.WithDBPrefix(parameters.databasePrefix))
 		if err != nil {
 			return nil, nil, err
 		}

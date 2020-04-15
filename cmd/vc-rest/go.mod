@@ -11,10 +11,10 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.5.1
-	github.com/trustbloc/edge-core v0.1.3-0.20200414165955-488d2227b903
+	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.3-0.20200331230259-afb8871c7535
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200414185052-17ef7829f706
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200415151218-00c874fa77c2
 )
 
 replace github.com/trustbloc/edge-service => ../..
