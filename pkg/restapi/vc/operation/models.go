@@ -45,6 +45,7 @@ type ProfileRequest struct {
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
+	OverwriteIssuer         bool                               `json:"overwriteIssuer,omitempty"`
 }
 
 // UNIRegistrar uni-registrar
@@ -67,10 +68,16 @@ type IssueCredentialRequest struct {
 
 // IssueCredentialOptions options for issuing credential.
 type IssueCredentialOptions struct {
-	AssertionMethod    string     `json:"assertionMethod,omitempty"`
-	VerificationMethod string     `json:"verificationMethod,omitempty"`
-	ProofPurpose       string     `json:"proofPurpose,omitempty"`
-	Created            *time.Time `json:"created,omitempty"`
+	// VerificationMethod is verification method to be used for credential proof
+	VerificationMethod string `json:"verificationMethod,omitempty"`
+	// AssertionMethod is verification method to be used for credential proof.
+	// When provided along with 'VerificationMethod' property, 'VerificationMethod' takes precedence.
+	// deprecated : to be removed in future, 'VerificationMethod' field will be used to pass verification method.
+	AssertionMethod string `json:"assertionMethod,omitempty"`
+	// ProofPurpose will be used for proof option purpose
+	ProofPurpose string `json:"proofPurpose,omitempty"`
+	// Created will be used for proof option created
+	Created *time.Time `json:"created,omitempty"`
 }
 
 // ComposeCredentialRequest for composing and issuing credential.

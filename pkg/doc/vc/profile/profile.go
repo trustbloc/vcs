@@ -41,6 +41,7 @@ type DataProfile struct {
 	Created                 *time.Time                         `json:"created"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
+	OverwriteIssuer         bool                               `json:"overwriteIssuer"`
 }
 
 // SaveProfile saves issuer profile to underlying store
