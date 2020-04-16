@@ -243,6 +243,8 @@ github.com/trustbloc/trustbloc-did-method v0.0.0-20200414185052-17ef7829f706 h1:
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200414185052-17ef7829f706/go.mod h1:lbtxugNP74dmklLGYFSIPh8szXau0+/unfiXsBonKYw=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200415151218-00c874fa77c2 h1:V7NhaotgDcSFo7EXXK4WJFCO3/jInXF7tRhhnWFcr1g=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200415151218-00c874fa77c2/go.mod h1:QkDAZZsNkL4LT+QsThG+8O1Y3Hd8/6d0CsFi2qG54B0=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200416005130-57c6171e5840 h1:GNAbzPB0Sp/Us7/YsDmVKoWNqGGfGCAg1OgzqZjuO1k=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200416005130-57c6171e5840/go.mod h1:QkDAZZsNkL4LT+QsThG+8O1Y3Hd8/6d0CsFi2qG54B0=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
