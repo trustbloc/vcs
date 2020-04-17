@@ -84,10 +84,6 @@ const (
 	// Ed25519VerificationKey supported Verification Key types
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 
-	// json keys
-	keyID   = "kid"
-	purpose = "proofPurpose"
-
 	pubKeyIndex1 = "#key-1"
 	keyType      = "Ed25519VerificationKey2018"
 
@@ -1026,39 +1022,29 @@ func decodeTypedID(bytes json.RawMessage) ([]verifiable.TypedID, error) {
 }
 
 func getComposeSigningOpts(composeCredReq *ComposeCredentialRequest) ([]crypto.SigningOpts, error) {
-	var verificationPurpose, verificationMethod, representation = "", "", "jws"
+	var proofFormatOptions struct {
+		KeyID   string     `json:"kid,omitempty"`
+		Purpose string     `json:"proofPurpose,omitempty"`
+		Created *time.Time `json:"created,omitempty"`
+	}
 
 	if composeCredReq.ProofFormatOptions != nil {
-		proofFormatOptions := make(map[string]interface{})
-
 		err := json.Unmarshal(composeCredReq.ProofFormatOptions, &proofFormatOptions)
 		if err != nil {
-			return nil, err
-		}
-
-		if k, ok := proofFormatOptions[keyID]; ok {
-			verificationMethod, ok = k.(string)
-			if !ok {
-				return nil, errors.New("invalid kid type")
-			}
-		}
-
-		if p, ok := proofFormatOptions[purpose]; ok {
-			verificationPurpose, ok = p.(string)
-			if !ok {
-				return nil, errors.New("invalid purpose type")
-			}
+			return nil, fmt.Errorf("failed to prepare signing opts: %w", err)
 		}
 	}
 
+	representation := "jws"
 	if composeCredReq.ProofFormat != "" {
 		representation = composeCredReq.ProofFormat
 	}
 
 	return []crypto.SigningOpts{
-		crypto.WithPurpose(verificationPurpose),
-		crypto.WithVerificationMethod(verificationMethod),
+		crypto.WithPurpose(proofFormatOptions.Purpose),
+		crypto.WithVerificationMethod(proofFormatOptions.KeyID),
 		crypto.WithSigningRepresentation(representation),
+		crypto.WithCreated(proofFormatOptions.Created),
 	}, nil
 }
 
@@ -1076,6 +1062,7 @@ func getIssuerSigningOpts(opts *IssueCredentialOptions) []crypto.SigningOpts {
 		signingOpts = []crypto.SigningOpts{
 			crypto.WithVerificationMethod(verificationMethod),
 			crypto.WithPurpose(opts.ProofPurpose),
+			crypto.WithCreated(opts.Created),
 		}
 	}
 
