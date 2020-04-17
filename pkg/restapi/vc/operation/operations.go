@@ -7,8 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -20,7 +22,11 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
 	"github.com/gorilla/mux"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -30,7 +36,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
-	"github.com/trustbloc/edv/pkg/restapi/edv/operation"
+	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
+	"github.com/trustbloc/edv/pkg/restapi/edv/models"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
@@ -43,14 +50,13 @@ import (
 
 const (
 	credentialStoreName = "credential"
-	profile             = "/profile"
 	credentialStatus    = "/status"
 	profileIDPathParam  = "profileID"
 
 	// endpoints
 	updateCredentialStatusEndpoint    = "/updateStatus"
-	createProfileEndpoint             = profile
-	getProfileEndpoint                = profile + "/{id}"
+	createProfileEndpoint             = "/profile"
+	getProfileEndpoint                = createProfileEndpoint + "/{id}"
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
 	credentialStatusEndpoint          = credentialStatus + "/{id}"
@@ -66,9 +72,6 @@ const (
 
 	successMsg = "success"
 	cslSize    = 50
-
-	// IDMappingStoreName is the name given to the store that contains the VC ID -> EDV document ID mapping.
-	IDMappingStoreName = "id-mapping"
 
 	invalidRequestErrMsg = "Invalid request"
 
@@ -97,9 +100,15 @@ const (
 	serviceID       = "#example"
 	serviceType     = "example"
 	serviceEndpoint = "http://example.com"
+
+	vcIDEDVIndexName = "vcID"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
+
+var errMultipleInconsistentVCsFoundForOneID = errors.New("multiple VCs with " +
+	"differing contents were found matching the given ID. This indicates inconsistency in " +
+	"the VC database. To solve this, delete the extra VCs and leave only one")
 
 // Handler http handler for each controller API endpoint
 type Handler interface {
@@ -116,9 +125,10 @@ type vcStatusManager interface {
 
 // EDVClient interface to interact with edv client
 type EDVClient interface {
-	CreateDataVault(config *operation.DataVaultConfiguration) (string, error)
-	CreateDocument(vaultID string, document *operation.EncryptedDocument) (string, error)
-	ReadDocument(vaultID, docID string) (*operation.EncryptedDocument, error)
+	CreateDataVault(config *models.DataVaultConfiguration) (string, error)
+	CreateDocument(vaultID string, document *models.EncryptedDocument) (string, error)
+	ReadDocument(vaultID, docID string) (*models.EncryptedDocument, error)
+	QueryVault(vaultID string, query *models.Query) ([]string, error)
 }
 
 type httpClient interface {
@@ -155,19 +165,6 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
-	//TODO: Should this be opened in the same store? https://github.com/trustbloc/edge-service/issues/112
-	err = config.StoreProvider.CreateStore(IDMappingStoreName)
-	if err != nil {
-		if err != storage.ErrDuplicateStore {
-			return nil, err
-		}
-	}
-
-	idMappingStore, err := config.StoreProvider.OpenStore(IDMappingStoreName)
-	if err != nil {
-		return nil, err
-	}
-
 	c := crypto.New(config.KMS, verifiable.NewDIDKeyResolver(config.VDRI))
 
 	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
@@ -184,24 +181,53 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
+	tinkCrypto, kh, vcIDIndexNameMACEncoded, err := createMACCrypto()
+	if err != nil {
+		return nil, err
+	}
+
 	svc := &Operation{
-		profileStore:       vcprofile.New(store),
-		edvClient:          config.EDVClient,
-		kms:                config.KMS,
-		vdri:               config.VDRI,
-		crypto:             c,
-		packer:             packer,
-		senderKey:          senderKey,
-		vcStatusManager:    vcStatusManager,
-		didBlocClient:      didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
-		domain:             config.Domain,
-		idMappingStore:     idMappingStore,
-		httpClient:         &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
-		HostURL:            config.HostURL,
-		uniRegistrarClient: uniregistrar.New(uniregistrar.WithTLSConfig(config.TLSConfig)),
+		profileStore:         vcprofile.New(store),
+		edvClient:            config.EDVClient,
+		kms:                  config.KMS,
+		vdri:                 config.VDRI,
+		crypto:               c,
+		packer:               packer,
+		senderKey:            senderKey,
+		vcStatusManager:      vcStatusManager,
+		didBlocClient:        didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
+		domain:               config.Domain,
+		httpClient:           &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		HostURL:              config.HostURL,
+		uniRegistrarClient:   uniregistrar.New(uniregistrar.WithTLSConfig(config.TLSConfig)),
+		macKeyHandle:         kh,
+		macCrypto:            tinkCrypto,
+		vcIDIndexNameEncoded: vcIDIndexNameMACEncoded,
 	}
 
 	return svc, nil
+}
+
+func createMACCrypto() (ariescrypto.Crypto, *keyset.Handle, string, error) {
+	// TODO: Store HMAC-SHA256 key in persistent store.
+	// If the edge-service instance is shut down, then any previously stored VCs will become unretrievable.
+	// https://github.com/trustbloc/edge-service/issues/237
+	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	tinkCrypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	vcIDIndexNameMAC, err := tinkCrypto.ComputeMAC([]byte(vcIDEDVIndexName), kh)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	return tinkCrypto, kh, base64.URLEncoding.EncodeToString(vcIDIndexNameMAC), nil
 }
 
 // Config defines configuration for vcs operations
@@ -218,20 +244,22 @@ type Config struct {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore       *vcprofile.Profile
-	edvClient          EDVClient
-	kms                legacykms.KeyManager
-	vdri               vdriapi.Registry
-	crypto             *crypto.Crypto
-	packer             *authcrypt.Packer
-	senderKey          string
-	vcStatusManager    vcStatusManager
-	didBlocClient      didBlocClient
-	domain             string
-	idMappingStore     storage.Store
-	httpClient         httpClient
-	HostURL            string
-	uniRegistrarClient uniRegistrarClient
+	profileStore         *vcprofile.Profile
+	edvClient            EDVClient
+	kms                  legacykms.KeyManager
+	vdri                 vdriapi.Registry
+	crypto               *crypto.Crypto
+	packer               *authcrypt.Packer
+	senderKey            string
+	vcStatusManager      vcStatusManager
+	didBlocClient        didBlocClient
+	domain               string
+	httpClient           httpClient
+	HostURL              string
+	uniRegistrarClient   uniRegistrarClient
+	macKeyHandle         *keyset.Handle
+	macCrypto            ariescrypto.Crypto
+	vcIDIndexNameEncoded string
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -459,7 +487,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 	}
 
 	// create the vault associated with the profile
-	_, err = o.edvClient.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: profile.Name})
+	_, err = o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: profile.Name})
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -531,41 +559,28 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 	o.storeVC(data, vc, rw)
 }
 
+// ToDo: data.Credential and vc seem to contain the same data... do they both need to be passed in?
+// https://github.com/trustbloc/edge-service/issues/265
 func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw http.ResponseWriter) {
-	doc, err := o.buildStructuredDoc(data, vc)
+	doc, err := o.buildStructuredDoc(data)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	marshalledStructuredDoc, err := json.Marshal(doc)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	// We have no recipients, so we pass in the sender key as the recipient key as well
-	encryptedStructuredDoc, err := o.packer.Pack(marshalledStructuredDoc,
-		base58.Decode(o.senderKey), [][]byte{base58.Decode(o.senderKey)})
+	encryptedDocument, err := o.buildEncryptedDoc(doc, vc.ID)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
 
-	encryptedDocument := operation.EncryptedDocument{
-		ID:       doc.ID,
-		Sequence: 0,
-		JWE:      encryptedStructuredDoc,
-	}
-
 	_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
 
-	if err != nil && strings.Contains(err.Error(), operation.VaultNotFoundErrMsg) {
+	if err != nil && strings.Contains(err.Error(), edverrors.ErrVaultNotFound.Error()) {
 		// create the new vault for this profile, if it doesn't exist
-		_, err = o.edvClient.CreateDataVault(&operation.DataVaultConfiguration{ReferenceID: data.Profile})
+		_, err = o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: data.Profile})
 		if err == nil {
 			_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
 		}
@@ -576,33 +591,15 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 
 		return
 	}
-
-	err = o.idMappingStore.Put(vc.ID, []byte(doc.ID))
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
-
-		return
-	}
 }
 
-func (o *Operation) buildStructuredDoc(data *StoreVCRequest,
-	vc *verifiable.Credential) (*operation.StructuredDocument, error) {
-	var edvDocID string
-
-	idFromMapping, err := o.idMappingStore.Get(vc.ID)
-	switch err {
-	case storage.ErrValueNotFound:
-		edvDocID, err = generateEDVCompatibleID()
-		if err != nil {
-			return nil, err
-		}
-	case nil:
-		edvDocID = string(idFromMapping)
-	default:
+func (o *Operation) buildStructuredDoc(data *StoreVCRequest) (*models.StructuredDocument, error) {
+	edvDocID, err := generateEDVCompatibleID()
+	if err != nil {
 		return nil, err
 	}
 
-	doc := operation.StructuredDocument{}
+	doc := models.StructuredDocument{}
 	doc.ID = edvDocID
 	doc.Content = make(map[string]interface{})
 
@@ -613,6 +610,51 @@ func (o *Operation) buildStructuredDoc(data *StoreVCRequest,
 	doc.Content["message"] = credentialJSONRawMessage
 
 	return &doc, nil
+}
+
+func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
+	vcID string) (models.EncryptedDocument, error) {
+	marshalledStructuredDoc, err := json.Marshal(structuredDoc)
+	if err != nil {
+		return models.EncryptedDocument{}, err
+	}
+
+	// We have no recipients, so we pass in the sender key as the recipient key as well
+	encryptedStructuredDoc, err := o.packer.Pack(marshalledStructuredDoc,
+		base58.Decode(o.senderKey), [][]byte{base58.Decode(o.senderKey)})
+	if err != nil {
+		return models.EncryptedDocument{}, err
+	}
+
+	vcIDMAC, err := o.macCrypto.ComputeMAC([]byte(vcID), o.macKeyHandle)
+	if err != nil {
+		return models.EncryptedDocument{}, err
+	}
+
+	vcIDIndexValueEncoded := base64.URLEncoding.EncodeToString(vcIDMAC)
+
+	indexedAttribute := models.IndexedAttribute{
+		Name:   o.vcIDIndexNameEncoded,
+		Value:  vcIDIndexValueEncoded,
+		Unique: true,
+	}
+
+	indexedAttributeCollection := models.IndexedAttributeCollection{
+		Sequence:          0,
+		HMAC:              models.IDTypePair{},
+		IndexedAttributes: []models.IndexedAttribute{indexedAttribute},
+	}
+
+	indexedAttributeCollections := []models.IndexedAttributeCollection{indexedAttributeCollection}
+
+	encryptedDocument := models.EncryptedDocument{
+		ID:                          structuredDoc.ID,
+		Sequence:                    0,
+		JWE:                         encryptedStructuredDoc,
+		IndexedAttributeCollections: indexedAttributeCollections,
+	}
+
+	return encryptedDocument, nil
 }
 
 func generateEDVCompatibleID() (string, error) {
@@ -645,55 +687,14 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		return
 	}
 
-	edvDocID, err := o.idMappingStore.Get(id)
+	docURLs, err := o.queryVault(profile, id)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("failed to get ID mapping : %s", err.Error()))
+		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
 
-	document, err := o.edvClient.ReadDocument(profile, string(edvDocID))
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("failed to read document : %s", err.Error()))
-
-		return
-	}
-
-	decryptedEnvelope, err := o.packer.Unpack(document.JWE)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("decrypted envelope unpacking failed: %s", err.Error()))
-
-		return
-	}
-
-	decryptedDoc := operation.StructuredDocument{}
-
-	err = json.Unmarshal(decryptedEnvelope.Message, &decryptedDoc)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("decrypted structured document unmarshalling failed: %s", err.Error()))
-
-		return
-	}
-
-	responseMsg, err := json.Marshal(decryptedDoc.Content["message"])
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("structured document content marshalling failed: %s", err.Error()))
-
-		return
-	}
-
-	_, err = rw.Write(responseMsg)
-	if err != nil {
-		log.Errorf("Failed to write response for document retrieval success: %s",
-			err.Error())
-
-		return
-	}
+	o.retrieveCredential(rw, profile, docURLs)
 }
 
 func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
@@ -1020,21 +1021,21 @@ func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Cred
 	return credential, nil
 }
 
-func decodeTypedID(bytes json.RawMessage) ([]verifiable.TypedID, error) {
-	if len(bytes) == 0 {
+func decodeTypedID(typedIDBytes json.RawMessage) ([]verifiable.TypedID, error) {
+	if len(typedIDBytes) == 0 {
 		return nil, nil
 	}
 
 	var singleTypedID verifiable.TypedID
 
-	err := json.Unmarshal(bytes, &singleTypedID)
+	err := json.Unmarshal(typedIDBytes, &singleTypedID)
 	if err == nil {
 		return []verifiable.TypedID{singleTypedID}, nil
 	}
 
 	var composedTypedID []verifiable.TypedID
 
-	err = json.Unmarshal(bytes, &composedTypedID)
+	err = json.Unmarshal(typedIDBytes, &composedTypedID)
 	if err == nil {
 		return composedTypedID, nil
 	}
@@ -1332,6 +1333,117 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
 	return nil
 }
 
+func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
+	vcIDMAC, err := o.macCrypto.ComputeMAC([]byte(vcID), o.macKeyHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	vcIDIndexValueEncoded := base64.URLEncoding.EncodeToString(vcIDMAC)
+
+	return o.edvClient.QueryVault(vaultID, &models.Query{
+		Name:  o.vcIDIndexNameEncoded,
+		Value: vcIDIndexValueEncoded,
+	})
+}
+
+func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName string, docURLs []string) {
+	var retrievedVC []byte
+
+	switch len(docURLs) {
+	case 0:
+		o.writeErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf(`no VC under profile "%s" was found with the given id`, profileName))
+	case 1:
+		docID := getDocIDFromURL(docURLs[0])
+
+		var err error
+
+		retrievedVC, err = o.retrieveVC(profileName, docID, "retrieving VC")
+		if err != nil {
+			o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
+
+			return
+		}
+	default:
+		// Multiple VCs were found with the same id. This is technically possible under the right circumstances
+		// when storing the same VC multiples times in a store provider that follows an "eventually consistent"
+		// consistency model. If they are all the same, then just return the first one arbitrarily.
+		// ToDo: If the multiple VCs with the same ID all are identical then delete the extras and leave only one.
+		// https://github.com/trustbloc/edge-service/issues/262
+		var err error
+
+		var statusCode int
+
+		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(profileName, docURLs)
+		if err != nil {
+			o.writeErrorResponse(rw, statusCode, err.Error())
+
+			return
+		}
+	}
+
+	_, err := rw.Write(retrievedVC)
+	if err != nil {
+		log.Errorf("Failed to write response for document retrieval success: %s",
+			err.Error())
+
+		return
+	}
+}
+
+func (o *Operation) verifyMultipleMatchingVCsAreIdentical(profileName string, docURLs []string) ([]byte, int, error) {
+	var retrievedVCs [][]byte
+
+	for _, docURL := range docURLs {
+		docID := getDocIDFromURL(docURL)
+
+		retrievedVC, err := o.retrieveVC(profileName, docID, "determining if the multiple VCs "+
+			"matching the given ID are the same")
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
+		}
+
+		retrievedVCs = append(retrievedVCs, retrievedVC)
+	}
+
+	for i := 1; i < len(retrievedVCs); i++ {
+		if !bytes.Equal(retrievedVCs[0], retrievedVCs[i]) {
+			return nil, http.StatusConflict, errMultipleInconsistentVCsFoundForOneID
+		}
+	}
+
+	return retrievedVCs[0], http.StatusOK, nil
+}
+
+func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byte, error) {
+	document, err := o.edvClient.ReadDocument(profileName, docID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read document while "+contextErrText+": %s", err)
+	}
+
+	decryptedEnvelope, err := o.packer.Unpack(document.JWE)
+	if err != nil {
+		return nil, fmt.Errorf("decrypted envelope unpacking failed while "+contextErrText+": %s", err)
+	}
+
+	decryptedDoc := models.StructuredDocument{}
+
+	err = json.Unmarshal(decryptedEnvelope.Message, &decryptedDoc)
+	if err != nil {
+		return nil, fmt.Errorf("decrypted structured document unmarshalling failed "+
+			"while "+contextErrText+": %s", err)
+	}
+
+	retrievedVC, err := json.Marshal(decryptedDoc.Content["message"])
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshall VC from decrypted document while "+
+			contextErrText+": %s", err)
+	}
+
+	return retrievedVC, nil
+}
+
 func getPublicKeyID(didDoc *did.Doc) (string, error) {
 	switch {
 	case len(didDoc.PublicKey) > 0:
@@ -1390,4 +1502,12 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 	}
 
 	return nil
+}
+
+// Given an EDV document URL, returns just the document ID
+func getDocIDFromURL(docURL string) string {
+	splitBySlashes := strings.Split(docURL, `/`)
+	docIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
+
+	return docIDToRetrieve
 }

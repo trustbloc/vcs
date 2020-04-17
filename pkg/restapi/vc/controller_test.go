@@ -22,7 +22,7 @@ import (
 
 func TestIssuerController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil)
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
 			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.NoError(t, err)
@@ -30,7 +30,7 @@ func TestIssuerController_New(t *testing.T) {
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil)
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
 			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
@@ -42,7 +42,7 @@ func TestIssuerController_New(t *testing.T) {
 
 func TestVerifierController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil)
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
 			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestVerifierController_New(t *testing.T) {
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil)
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
 			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
@@ -64,14 +64,14 @@ func TestControllerInvalidMode_New(t *testing.T) {
 	t.Run("must return error if an invalid mode is given", func(t *testing.T) {
 		_, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")},
-			EDVClient: edv.NewMockEDVClient("test", nil),
+			EDVClient: edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
 			KMS:       &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "invalid"})
 		require.Error(t, err)
 	})
 }
 
 func TestIssuerController_GetOperations(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil)
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
 		KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 
@@ -84,7 +84,7 @@ func TestIssuerController_GetOperations(t *testing.T) {
 }
 
 func TestVerifierController_GetOperations(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil)
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
 		KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 
