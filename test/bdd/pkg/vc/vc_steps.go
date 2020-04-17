@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -331,6 +332,7 @@ func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey s
 		return err
 	}
 
+	created := time.Now()
 	signatureSuite := ed25519signature2018.New(suite.WithSigner(bddutil.GetSigner(signingKey)))
 
 	ldpContext := &verifiable.LinkedDataProofContext{
@@ -341,6 +343,7 @@ func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey s
 		Domain:                  "issuer.example.com",
 		Challenge:               uuid.New().String(),
 		Purpose:                 "authentication",
+		Created:                 &created,
 	}
 
 	vp, err := bddutil.CreateCustomPresentation(e.bddContext.CreatedCredential, e.bddContext.VDRI, ldpContext)

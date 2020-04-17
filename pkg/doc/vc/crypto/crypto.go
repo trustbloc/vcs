@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 
@@ -81,7 +82,9 @@ func New(kms legacykms.KMS, kResolver keyResolver) *Crypto {
 type signingOpts struct {
 	VerificationMethod string
 	Purpose            string
-	representation     string
+	Representation     string
+	SignatureType      string
+	Created            *time.Time
 }
 
 // SigningOpts is signing credential option
@@ -104,7 +107,21 @@ func WithPurpose(purpose string) SigningOpts {
 // WithSigningRepresentation is an option to pass representation for signing
 func WithSigningRepresentation(representation string) SigningOpts {
 	return func(opts *signingOpts) {
-		opts.representation = representation
+		opts.Representation = representation
+	}
+}
+
+// WithSignatureType is an option to pass signature type for signing
+func WithSignatureType(signatureType string) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.SignatureType = signatureType
+	}
+}
+
+// WithCreated is an option to pass created time option for signing
+func WithCreated(created *time.Time) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.Created = created
 	}
 }
 
@@ -128,21 +145,27 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 	}
 
 	repres := dataProfile.SignatureRepresentation
-	if signOpts.representation != "" {
-		repres, err = getSignatureRepresentation(signOpts.representation)
+	if signOpts.Representation != "" {
+		repres, err = getSignatureRepresentation(signOpts.Representation)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// TODO Matching suite and type  for signOpts.VerificationMethod [Issue #222]
+	signatureType := dataProfile.SignatureType
+	if signOpts.SignatureType != "" {
+		signatureType = signOpts.SignatureType
+	}
+
+	// TODO Matching suite and type for signOpts.VerificationMethod [Issue #222]
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      method,
 		SignatureRepresentation: repres,
-		SignatureType:           dataProfile.SignatureType,
+		SignatureType:           signatureType,
 		Suite: ed25519signature2018.New(
 			suite.WithSigner(s)),
 		Purpose: signOpts.Purpose,
+		Created: signOpts.Created,
 	}
 
 	err = vc.AddLinkedDataProof(signingCtx)

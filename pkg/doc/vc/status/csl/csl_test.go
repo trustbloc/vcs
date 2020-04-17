@@ -9,6 +9,7 @@ package csl
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -22,6 +23,34 @@ import (
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+)
+
+const (
+	universityDegreeCred = `{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://www.w3.org/2018/credentials/examples/v1"
+  ],
+  "type": [
+    "VerifiableCredential",
+    "UniversityDegreeCredential"
+  ],
+  "id": "http://example.gov/credentials/3732",
+  "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "issuer": {
+    "id": "did:example:oakek12as93mas91220dapop092",
+    "name": "University"
+  },
+  "credentialSubject": {
+    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "degree": {
+      "type": "BachelorDegree",
+      "degree": "MIT"
+    },
+    "name": "Jayden Doe",
+    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+  }
+}`
 )
 
 func TestCredentialStatusList_New(t *testing.T) {
@@ -185,10 +214,13 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		statusValue := []string{"Revoked", "Revoked1"}
 
+		cred, _, err := verifiable.NewCredential([]byte(universityDegreeCred))
+		require.NoError(t, err)
+
 		for _, v := range statusValue {
-			require.NoError(t, s.UpdateVCStatus(&verifiable.Credential{ID: "http://example.edu/credentials/1872",
-				Status: status}, getTestProfile(),
-				v, "Disciplinary action"))
+			cred.ID = "http://example.edu/credentials/1872"
+			cred.Status = status
+			require.NoError(t, s.UpdateVCStatus(cred, getTestProfile(), v, "Disciplinary action"))
 
 			csl, err := s.GetCSL(status.ID)
 			require.NoError(t, err)
@@ -248,11 +280,134 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		status, err := s.CreateStatusID()
 		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(&verifiable.Credential{ID: "http://example.edu/credentials/1872",
-			Status: status}, getTestProfile(),
+		cred, _, err := verifiable.NewCredential([]byte(universityDegreeCred))
+		require.NoError(t, err)
+		cred.ID = "http://example.edu/credentials/1872"
+		cred.Status = status
+
+		err = s.UpdateVCStatus(cred, getTestProfile(),
 			"Revoked", "Disciplinary action")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
+	})
+}
+
+func TestPrepareSigningOpts(t *testing.T) {
+	t.Run("prepare signing opts", func(t *testing.T) {
+		profile := vcprofile.DataProfile{
+			Creator: "did:creator#key-1",
+		}
+
+		tests := []struct {
+			name   string
+			proof  string
+			result int
+			count  int
+			err    string
+		}{
+			{
+				name: "prepare proofvalue signing opts",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"proofPurpose": "assertionMethod",
+        				"proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdCJDRptPkBuqAQ",
+        				"type": "Ed25519Signature2018",
+        				"verificationMethod": "did:trustbloc:testnet.trustbloc.local#key-1"
+    				}`,
+			},
+			{
+				name: "prepare jws signing opts",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"proofPurpose": "assertionMethod",
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+        				"type": "Ed25519Signature2018",
+        				"verificationMethod": "did:creator#key-1"
+    				}`,
+				count: 3,
+			},
+			{
+				name: "prepare signing opts from proof with 3 required properties",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+        				"type": "Ed25519Signature2018",
+        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+    				}`,
+			},
+			{
+				name: "prepare signing opts from proof with 2 required properties",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+    				}`,
+			},
+			{
+				name: "prepare signing opts from proof with 1 required property",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ"
+    				}`,
+			},
+			{
+				name: "prepare jws signing opts - invalid purpose",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"proofPurpose": {},
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+        				"type": "Ed25519Signature2018",
+        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+    				}`,
+				err: "invalid 'proofPurpose' type",
+			},
+			{
+				name: "prepare jws signing opts - invalid signature type",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+        				"type": {},
+        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+    				}`,
+				err: "invalid 'type' type",
+			},
+			{
+				name: "prepare jws signing opts - invalid signature type",
+				proof: `{
+        				"created": "2020-04-17T04:17:48Z",
+        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+        				"type": {},
+        				"verificationMethod": {}
+    				}`,
+				err: "invalid 'verificationMethod' type",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				var proof map[string]interface{}
+				err := json.Unmarshal([]byte(tc.proof), &proof)
+				require.NoError(t, err)
+
+				opts, err := prepareSigningOpts(&profile, []verifiable.Proof{proof})
+
+				if tc.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.err)
+					return
+				}
+
+				if tc.count > 0 {
+					require.Len(t, opts, tc.count)
+				}
+
+				require.NoError(t, err)
+				require.NotEmpty(t, opts)
+			})
+		}
 	})
 }
 

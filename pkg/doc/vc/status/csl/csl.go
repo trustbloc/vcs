@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 
@@ -24,11 +23,16 @@ import (
 
 const (
 	// CredentialStatusType credential status type
-	CredentialStatusType     = "CredentialStatusList2017"
-	credentialContext        = "https://www.w3.org/2018/credentials/v1"
-	verifiableCredentialType = "VerifiableCredential"
-	credentialStatusStore    = "credentialstatus"
-	latestListID             = "latestListID"
+	CredentialStatusType  = "CredentialStatusList2017"
+	credentialStatusStore = "credentialstatus"
+	latestListID          = "latestListID"
+	defaultRepresentation = "jws"
+
+	// proof json keys
+	jsonKeyProofValue         = "proofValue"
+	jsonKeyProofPurpose       = "proofPurpose"
+	jsonKeyVerificationMethod = "verificationMethod"
+	jsonKeySignaturefType     = "type"
 )
 
 type crypto interface {
@@ -118,12 +122,17 @@ func (c *CredentialStatusManager) UpdateVCStatus(v *verifiable.Credential, profi
 		return err
 	}
 
-	statusCredential, err := c.createStatusCredential(v.ID, profile, status, statusReason)
+	signOpts, err := prepareSigningOpts(profile, v.Proofs)
 	if err != nil {
 		return err
 	}
 
-	signedStatusCredential, err := c.crypto.SignCredential(profile, statusCredential)
+	statusCredential, err := c.createStatusCredential(v, status, statusReason)
+	if err != nil {
+		return err
+	}
+
+	signedStatusCredential, err := c.crypto.SignCredential(profile, statusCredential, signOpts...)
 	if err != nil {
 		return err
 	}
@@ -169,23 +178,12 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 	return &w, nil
 }
 
-func (c *CredentialStatusManager) createStatusCredential(vcID string, profile *vcprofile.DataProfile,
-	status, statusReason string) (*verifiable.Credential, error) {
-	credential := &verifiable.Credential{}
+func (c *CredentialStatusManager) createStatusCredential(v *verifiable.Credential, status,
+	statusReason string) (*verifiable.Credential, error) {
+	v.Subject = VCStatus{CurrentStatus: status, StatusReason: statusReason}
+	v.Proofs = []verifiable.Proof{}
 
-	issueDate := time.Now().UTC()
-
-	credential.ID = vcID
-	credential.Context = []string{credentialContext}
-	credential.Issued = &issueDate
-	credential.Issuer = verifiable.Issuer{
-		ID:   profile.DID,
-		Name: profile.Name,
-	}
-	credential.Subject = VCStatus{CurrentStatus: status, StatusReason: statusReason}
-	credential.Types = []string{verifiableCredentialType}
-
-	cred, err := json.Marshal(credential)
+	cred, err := v.MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("create credential marshalling failed: %s", err.Error())
 	}
@@ -238,4 +236,61 @@ func (c *CredentialStatusManager) storeCSL(cslWrapper *cslWrapper) error {
 	}
 
 	return nil
+}
+
+// prepareSigningOpts prepares signing opts from recently issued proof of given credential
+func prepareSigningOpts(profile *vcprofile.DataProfile, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
+	var signingOpts []vccrypto.SigningOpts
+
+	if len(proofs) == 0 {
+		return signingOpts, nil
+	}
+
+	// pick latest proof if there are multiple
+	proof := proofs[len(proofs)-1]
+
+	representation := defaultRepresentation
+	if _, ok := proof[jsonKeyProofValue]; ok {
+		representation = jsonKeyProofValue
+	}
+
+	signingOpts = append(signingOpts, vccrypto.WithSigningRepresentation(representation))
+
+	purpose, err := getStringValue(jsonKeyProofPurpose, proof)
+	if err != nil {
+		return nil, err
+	}
+
+	signingOpts = append(signingOpts, vccrypto.WithPurpose(purpose))
+
+	vm, err := getStringValue(jsonKeyVerificationMethod, proof)
+	if err != nil {
+		return nil, err
+	}
+
+	// add verification method option only when it is not matching profile creator
+	if vm != profile.Creator {
+		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
+	}
+
+	signType, err := getStringValue(jsonKeySignaturefType, proof)
+	if err != nil {
+		return nil, err
+	}
+
+	signingOpts = append(signingOpts, vccrypto.WithSignatureType(signType))
+
+	return signingOpts, nil
+}
+
+func getStringValue(key string, vMap map[string]interface{}) (string, error) {
+	if val, ok := vMap[key]; ok {
+		if s, ok := val.(string); ok {
+			return s, nil
+		}
+
+		return "", fmt.Errorf("invalid '%s' type", key)
+	}
+
+	return "", nil
 }

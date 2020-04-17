@@ -48,6 +48,12 @@ import (
 )
 
 const (
+
+	// json keys for compose issue credential options
+	keyID   = "kid"
+	purpose = "proofPurpose"
+	created = "created"
+
 	validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 
 	testUUID = "4aae6b86-8e42-4d14-8cf5-21772ccb24aa"
@@ -1278,11 +1284,16 @@ func TestIssueCredential(t *testing.T) {
 
 		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, issuerMode)
 
+		const createdTime = "2011-04-16T18:11:09-04:00"
+		ct, err := time.Parse(time.RFC3339, createdTime)
+		require.NoError(t, err)
+
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
 			Opts: &IssueCredentialOptions{
 				AssertionMethod:    "did:local:abc#key-1",
 				VerificationMethod: "did:local:abc#key-1",
+				Created:            &ct,
 			},
 		}
 
@@ -1304,6 +1315,7 @@ func TestIssueCredential(t *testing.T) {
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#key-1", proof["verificationMethod"])
 		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+		require.Equal(t, createdTime, proof["created"])
 
 		// default - DID from the issuer profile
 		req.Opts.VerificationMethod = ""
@@ -1714,9 +1726,12 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, subject, credSubject["id"])
 
-		// test - with proof format
+		// test - with proof format, purpose & created
+		const createdTime = "2011-04-16T18:11:09-04:00"
 		proofFormatOptions := make(map[string]interface{})
 		proofFormatOptions[keyID] = "did:test:hd9712akdsaishda7#key-1"
+		proofFormatOptions[purpose] = "authentication"
+		proofFormatOptions[created] = createdTime
 
 		proofFormatOptionsJSON, err := json.Marshal(proofFormatOptions)
 		require.NoError(t, err)
@@ -1741,6 +1756,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:test:hd9712akdsaishda7#key-1", proof["verificationMethod"])
+		require.Equal(t, "authentication", proof["proofPurpose"])
+		require.Equal(t, createdTime, proof["created"])
 	})
 
 	t.Run("compose and issue credential - invalid profile", func(t *testing.T) {
@@ -1909,7 +1926,77 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to prepare signing options: invalid kid type")
+		require.Contains(t, rr.Body.String(), "failed to prepare signing options: failed to prepare signing opts:")
+	})
+}
+
+func TestGetComposeSigningOpts(t *testing.T) {
+	t.Run("get signing opts", func(t *testing.T) {
+		tests := []struct {
+			name               string
+			ProofFormatOptions string
+			ProofFormat        string
+			err                string
+		}{
+			{
+				name:               "compose signing opts kid",
+				ProofFormat:        ``,
+				ProofFormatOptions: `{"kid":"kid1"}`,
+			},
+			{
+				name:               "compose signing opts kid & purpose",
+				ProofFormat:        `jws`,
+				ProofFormatOptions: `{"kid":"kid1", "proofPurpose":"authentication"}`,
+			},
+			{
+				name:        "compose signing opts kid, purpose & created",
+				ProofFormat: `proofValue`,
+				ProofFormatOptions: `{"kid":"kid1", "proofPurpose":"authentication", 
+							"created":"2019-04-16T18:11:09-04:00"}`,
+			},
+			{
+				name:        "invalid signing opts",
+				ProofFormat: `proofValue`,
+				ProofFormatOptions: `{"kid":{}, "proofPurpose":"authentication", 
+							"created":"2019-04-16T18:11:09-04:00"}`,
+				err: "failed to prepare signing opts",
+			},
+			{
+				name:        "invalid signing opts",
+				ProofFormat: `proofValue`,
+				ProofFormatOptions: `{"kid":"", "proofPurpose":{}, 
+							"created":"2019-04-16T18:11:09-04:00"}`,
+				err: "failed to prepare signing opts",
+			},
+			{
+				name:        "invalid signing opts",
+				ProofFormat: `proofValue`,
+				ProofFormatOptions: `{"kid":"", "proofPurpose":{}, 
+							"created":"xyz"}`,
+				err: "failed to prepare signing opts",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				opts, err := getComposeSigningOpts(&ComposeCredentialRequest{
+					ProofFormatOptions: json.RawMessage([]byte(tc.ProofFormatOptions)),
+					ProofFormat:        tc.ProofFormat,
+				})
+
+				if tc.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.err)
+					return
+				}
+
+				require.NoError(t, err)
+				require.NotEmpty(t, opts)
+			})
+		}
 	})
 }
 

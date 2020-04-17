@@ -16,9 +16,11 @@ Feature: Verifier verifiable credentials and presentations in third party endpoi
     Then  "<verifier>" verifies the verifiable credential provided by "Alice"
     Examples:
     Examples:
-      | credential                   | verifier                                                                  | did                                                              | private key                                                                              |
-      | university_degree.json       | https://vc.transmute.world/verifier/credentials                           | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd         | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
-      | permanent_resident_card.json | https://vc.transmute.world/verifier/credentials                           | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd         | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
+      | credential                   | verifier                                        | did                                                      | private key                                                                              |
+      | university_degree.json       | http://localhost:8069/verifier/credentials      | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
+      | permanent_resident_card.json | http://localhost:8069/verifier/credentials      | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
+      | university_degree.json       | https://vc.transmute.world/verifier/credentials | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
+      | permanent_resident_card.json | https://vc.transmute.world/verifier/credentials | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
 #      | permanent_resident_card.json | https://univerifier.io/danubetech/credential-verifier/0.0.1/verifications | did:v1:test:nym:z6MkrNtSzgP1j3UrY44qktv7kFkN5RGjPHGCtwry6FUkgacR | 5vckXBtWX4Fp5N1q9UfAydDm5MoY9CZjbGNnQycPNSugstn2RMJG4dY1eoUWgDSBjNvknAsea8hwLWN8m7LtmLvK |
 #      | permanent_resident_card.json | https://verifier.interop.digitalbazaar.com/verifiers/credentials          | did:v1:test:nym:z6MkrNtSzgP1j3UrY44qktv7kFkN5RGjPHGCtwry6FUkgacR | 5vckXBtWX4Fp5N1q9UfAydDm5MoY9CZjbGNnQycPNSugstn2RMJG4dY1eoUWgDSBjNvknAsea8hwLWN8m7LtmLvK |
 
@@ -29,6 +31,6 @@ Feature: Verifier verifiable credentials and presentations in third party endpoi
     Then  "<verifier>" verifies the verifiable presentation provided by "Alice"
     Examples:
     Examples:
-      | credential                   | verifier                                          | did                                                        | private key                                                                              |
-      | university_degree.json       | https://vc.transmute.world/verifier/presentations | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd   | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
+      | credential                   | verifier                                          | did                                                      | private key                                                                              |
+      | university_degree.json       | https://vc.transmute.world/verifier/presentations | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |
       | permanent_resident_card.json | https://vc.transmute.world/verifier/presentations | did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd | 28xXA4NyCQinSJpaZdSuNBM4kR2GqYb8NPqAtZoGCpcRYWBcDXtzVAzpZ9BAfgV334R2FC383fiHaWWWAacRaYGs |

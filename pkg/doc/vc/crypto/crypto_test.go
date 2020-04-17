@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 
@@ -39,11 +40,18 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test successful sign credential using opts", func(t *testing.T) {
+		prepareTestCreated := func(y, m, d int) *time.Time {
+			c := time.Now().AddDate(y, m, d)
+
+			return &c
+		}
+
 		tests := []struct {
 			name              string
 			signingOpts       []SigningOpts
 			responsePurpose   string
 			responseVerMethod string
+			responseTime      *time.Time
 			err               string
 		}{
 			{
@@ -67,12 +75,14 @@ func TestCrypto_SignCredential(t *testing.T) {
 				responseVerMethod: "did:sample:xyz#key999",
 			},
 			{
-				name: "signing with verification method, purpose options & representation(jws)",
+				name: "signing with verification method, purpose, created, type & representation(jws) options",
 				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
 					WithVerificationMethod("did:sample:xyz#key999"),
-					WithSigningRepresentation("jws")},
+					WithSigningRepresentation("jws"),
+					WithCreated(prepareTestCreated(-1, -1, 0))},
 				responsePurpose:   "sample-purpose",
 				responseVerMethod: "did:sample:xyz#key999",
+				responseTime:      prepareTestCreated(-1, -1, 0),
 			},
 			{
 				name:              "signing with verification method & purpose options",
@@ -86,6 +96,13 @@ func TestCrypto_SignCredential(t *testing.T) {
 					WithVerificationMethod("did:sample:xyz#key999"),
 					WithSigningRepresentation("xyz")},
 				err: "invalid proof format : xyz",
+			},
+			{
+				name: "failed with unsupported signature type",
+				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
+					WithVerificationMethod("did:sample:xyz#key999"),
+					WithSignatureType("JsonWebSignature2020")},
+				err: "signature type JsonWebSignature2020 not supported",
 			},
 		}
 
@@ -116,6 +133,19 @@ func TestCrypto_SignCredential(t *testing.T) {
 				require.Equal(t, 1, len(signedVC.Proofs))
 				require.Equal(t, tc.responsePurpose, signedVC.Proofs[0]["proofPurpose"])
 				require.Equal(t, tc.responseVerMethod, signedVC.Proofs[0]["verificationMethod"])
+				require.NotEmpty(t, signedVC.Proofs[0]["created"])
+
+				created, err := time.Parse(time.RFC3339, signedVC.Proofs[0]["created"].(string))
+				require.NoError(t, err)
+
+				responseTime := time.Now()
+
+				if tc.responseTime != nil {
+					responseTime = *tc.responseTime
+				}
+
+				require.Equal(t, responseTime.Year(), created.Year())
+				require.Equal(t, responseTime.Month(), created.Month())
 			})
 		}
 	})

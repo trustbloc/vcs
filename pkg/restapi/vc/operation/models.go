@@ -68,15 +68,16 @@ type IssueCredentialRequest struct {
 
 // IssueCredentialOptions options for issuing credential.
 type IssueCredentialOptions struct {
-	// VerificationMethod is verification method to be used for credential proof
+	// VerificationMethod is the URI of the verificationMethod used for the proof.
+	// If omitted first ed25519 public key of DID (Issuer or Profile DID) will be used.
 	VerificationMethod string `json:"verificationMethod,omitempty"`
 	// AssertionMethod is verification method to be used for credential proof.
 	// When provided along with 'VerificationMethod' property, 'VerificationMethod' takes precedence.
 	// deprecated : to be removed in future, 'VerificationMethod' field will be used to pass verification method.
 	AssertionMethod string `json:"assertionMethod,omitempty"`
-	// ProofPurpose will be used for proof option purpose
+	// ProofPurpose is purpose of the proof. If omitted "assertionMethod" will be used.
 	ProofPurpose string `json:"proofPurpose,omitempty"`
-	// Created will be used for proof option created
+	// Created date of the proof. If omitted system time will be used.
 	Created *time.Time `json:"created,omitempty"`
 }
 
