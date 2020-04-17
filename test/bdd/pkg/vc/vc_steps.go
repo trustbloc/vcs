@@ -32,13 +32,12 @@ import (
 )
 
 const (
-	expectedProfileResponseURI           = "https://example.com/credentials"
-	expectedProfileResponseSignatureType = "Ed25519Signature2018"
-	issuerURL                            = "http://localhost:8070/"
-	verifierURL                          = "http://localhost:8069/verifier"
+	expectedProfileResponseURI = "https://example.com/credentials"
+	issuerURL                  = "http://localhost:8070/"
+	verifierURL                = "http://localhost:8069/verifier"
 
 	issueCredentialURLFormat = issuerURL + "%s" + "/credentials/issueCredential"
-	serviceID                = "#example"
+	serviceID                = "example"
 	didMethodTrustBloc       = "did:trustbloc"
 	didMethodSov             = "did:sov:danube "
 )
@@ -55,27 +54,27 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)' and didMethod "([^"]*)"$`, //nolint: lll
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)" and signatureType "([^"]*)"$`, //nolint: lll
 		e.createProfile)
-	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)"$`, e.getProfile)
+	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)"$`, e.getProfile)
 	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCreatedCredential)
 	s.Step(`^Given "([^"]*)" is stored under "([^"]*)" profile$`, e.storeCredentialFromFile)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
 	s.Step(`^Now we verify that credential for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`,
 		e.verifyCredential)
-	s.Step(`^Now we verify that "([^"]*)" signed presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
+	s.Step(`^Now we verify that "([^"]*)" signed with "([^"]*)" presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.verifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)" and "([^"]*)"$`,
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)" and signatureType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndCredential)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)" and "([^"]*)"$`,
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)" and signatureType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndPresentation)
 }
 
-func (e *Steps) verifyPresentation(holder, checksList, result, respMessage string) error {
-	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, getSignatureRepresentation(holder),
-		e.bddContext.VDRI)
+func (e *Steps) verifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
+	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, signatureType,
+		getSignatureRepresentation(holder), e.bddContext.VDRI)
 	if err != nil {
 		return err
 	}
@@ -105,7 +104,7 @@ func (e *Steps) verifyPresentation(holder, checksList, result, respMessage strin
 }
 
 func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:gocyclo,funlen]
-	uniRegistrar, didMethod string) error {
+	uniRegistrar, didMethod, signatureType string) error {
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
 		return fmt.Errorf("unable to find profile request template")
@@ -131,6 +130,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 	profileRequest.SignatureRepresentation = getSignatureRepresentation(holder)
 	profileRequest.UNIRegistrar = u
 	profileRequest.OverwriteIssuer = true
+	profileRequest.SignatureType = signatureType
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -163,7 +163,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 		return err
 	}
 
-	if errCheck := e.checkProfileResponse(profileName, didMethod, &profileResponse); errCheck != nil {
+	if errCheck := e.checkProfileResponse(profileName, didMethod, signatureType, &profileResponse); errCheck != nil {
 		return errCheck
 	}
 
@@ -182,8 +182,8 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 		return fmt.Errorf("did doc service size not equal to 1")
 	}
 
-	if checkService && didDoc.Service[0].ID != serviceID {
-		return fmt.Errorf("did doc service size id %s not equal to %s", didDoc.Service[0].ID, serviceID)
+	if checkService && didDoc.Service[0].ID != didDoc.ID+"#"+serviceID {
+		return fmt.Errorf("did doc service id %s not equal to %s", didDoc.Service[0].ID, didDoc.ID+"#"+serviceID)
 	}
 
 	return nil
@@ -225,13 +225,13 @@ func (e *Steps) getProfileData(profileName string) (*profile.DataProfile, error)
 	return profileResponse, nil
 }
 
-func (e *Steps) getProfile(profileName, did string) error {
+func (e *Steps) getProfile(profileName, did, signatureType string) error {
 	profileResponse, err := e.getProfileData(profileName)
 	if err != nil {
 		return err
 	}
 
-	return e.checkProfileResponse(profileName, did, profileResponse)
+	return e.checkProfileResponse(profileName, did, signatureType, profileResponse)
 }
 
 func (e *Steps) createCredential(credential, profileName string) error {
@@ -291,10 +291,10 @@ func (e *Steps) createCredential(credential, profileName string) error {
 	return e.checkVC(respBytes, profileName)
 }
 
-func (e *Steps) createProfileAndCredential(user, credential, did, privateKey string) error {
+func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, signatureType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "")
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType)
 	if err != nil {
 		return err
 	}
@@ -309,10 +309,10 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey str
 	return nil
 }
 
-func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey string) error {
+func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, signatureType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "")
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType)
 	if err != nil {
 		return err
 	}
@@ -547,7 +547,7 @@ func (e *Steps) updateCredentialStatus(status, statusReason string) error {
 	return nil
 }
 
-func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfileDID string,
+func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfileDID, expectedSignatureType string,
 	profileResponse *profile.DataProfile) error {
 	if profileResponse.Name != expectedProfileResponseName {
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
@@ -561,9 +561,9 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfil
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseURI, profileResponse.URI)
 	}
 
-	if profileResponse.SignatureType != expectedProfileResponseSignatureType {
+	if profileResponse.SignatureType != expectedSignatureType {
 		return fmt.Errorf("expected %s but got %s instead",
-			expectedProfileResponseSignatureType, profileResponse.SignatureType)
+			expectedSignatureType, profileResponse.SignatureType)
 	}
 
 	// The created field depends on the current time, so let's just made sure it's not nil

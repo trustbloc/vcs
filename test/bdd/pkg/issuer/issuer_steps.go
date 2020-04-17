@@ -8,12 +8,13 @@ package issuer
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
@@ -22,6 +23,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
+	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
+	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -41,8 +44,7 @@ const (
 	sha2_256            = 18
 	recoveryRevealValue = "recoveryOTP"
 	updateRevealValue   = "updateOTP"
-	pubKeyIndex1        = "#key-1"
-	defaultKeyType      = "Ed25519VerificationKey2018"
+	pubKeyIndex1        = "key-1"
 
 	composeCredReqFormat = `{
 	   "issuer":"did:example:uoweu180928901",
@@ -157,6 +159,7 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 
 	profileRequest.Name = uuid.New().String() + profileName
 	profileRequest.DID = userDID
+	profileRequest.SignatureType = "JsonWebSignature2020"
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -219,7 +222,7 @@ func (e *Steps) verifyCredential(signedVCByte []byte, verifyfProof func(proof ma
 		return errors.New("unable to convert proof to a map")
 	}
 
-	if proof["type"] != "Ed25519Signature2018" {
+	if proof["type"] != "JsonWebSignature2020" {
 		return errors.New("proof type is not valid")
 	}
 
@@ -241,7 +244,7 @@ func (e *Steps) issueCredential(user, did, cred string) ([]byte, error) {
 
 	req := &operation.IssueCredentialRequest{
 		Credential: e.bddContext.TestData[cred],
-		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did + pubKeyIndex1},
+		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did + "#" + pubKeyIndex1},
 	}
 
 	reqBytes, err := json.Marshal(req)
@@ -291,7 +294,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 		return err
 	}
 
-	req := fmt.Sprintf(composeCredReqFormat, did+pubKeyIndex1)
+	req := fmt.Sprintf(composeCredReqFormat, did+"#"+pubKeyIndex1)
 
 	endpointURL := fmt.Sprintf(composeAndIssueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
@@ -394,7 +397,8 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
 		}
 
-		vpBytes, err := bddutil.CreatePresentation(vcBytes, verifiable.SignatureJWS, e.bddContext.VDRI)
+		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", verifiable.SignatureJWS,
+			e.bddContext.VDRI)
 		if err != nil {
 			return err
 		}
@@ -407,7 +411,8 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 			return err
 		}
 
-		vpBytes, err := bddutil.CreatePresentation(vcBytes, verifiable.SignatureJWS, e.bddContext.VDRI)
+		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", verifiable.SignatureJWS,
+			e.bddContext.VDRI)
 		if err != nil {
 			return err
 		}
@@ -421,29 +426,28 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 }
 
 func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
-	publicKey := docdid.PublicKey{
-		ID:    pubKeyIndex1,
-		Type:  defaultKeyType,
+	d := didclient.Doc{PublicKey: []didclient.PublicKey{{ID: pubKeyIndex1, Type: didclient.JWSVerificationKey2020,
 		Value: base58.Decode(base58PubKey),
-	}
+		Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral}, Encoding: didclient.PublicKeyEncodingJwk}}}
 
-	t := time.Now()
-
-	didDoc := &docdid.Doc{
-		Context:   []string{},
-		PublicKey: []docdid.PublicKey{publicKey},
-		Created:   &t,
-		Updated:   &t,
-	}
-
-	docBytes, err := didDoc.JSONBytes()
+	docBytes, err := d.JSONBytes()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get document bytes : %s", err)
+		return nil, err
+	}
+
+	_, priKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	recoveryPublicKey, err := pubkey.GetPublicKeyJWK(priKey.Public())
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := helper.NewCreateRequest(&helper.CreateRequestInfo{
 		OpaqueDocument:          string(docBytes),
-		RecoveryKey:             "recoveryKey",
+		RecoveryKey:             recoveryPublicKey,
 		NextRecoveryRevealValue: []byte(recoveryRevealValue),
 		NextUpdateRevealValue:   []byte(updateRevealValue),
 		MultihashCode:           sha2_256,

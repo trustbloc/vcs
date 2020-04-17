@@ -1,6 +1,6 @@
 {
   "name": "",
   "uri": "https://example.com/credentials",
-  "signatureType": "Ed25519Signature2018",
+  "signatureType": "",
   "signatureRepresentation": 1
 }
