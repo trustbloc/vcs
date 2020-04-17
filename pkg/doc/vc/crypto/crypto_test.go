@@ -40,6 +40,9 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test successful sign credential using opts", func(t *testing.T) {
+		_, priKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
 		prepareTestCreated := func(y, m, d int) *time.Time {
 			c := time.Now().AddDate(y, m, d)
 
@@ -52,6 +55,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 			responsePurpose   string
 			responseVerMethod string
 			responseTime      *time.Time
+			profile           *vcprofile.DataProfile
 			err               string
 		}{
 			{
@@ -65,6 +69,25 @@ func TestCrypto_SignCredential(t *testing.T) {
 				signingOpts:       []SigningOpts{WithVerificationMethod("did:sample:xyz#key999")},
 				responsePurpose:   "assertionMethod",
 				responseVerMethod: "did:sample:xyz#key999",
+			},
+			{
+				name:        "signing with verification method option with profile DID",
+				signingOpts: []SigningOpts{WithVerificationMethod("did:test:abc#key-1")},
+				profile: &vcprofile.DataProfile{
+					Name:          "test",
+					DID:           "did:test:abc",
+					URI:           "https://test.com/credentials",
+					SignatureType: "Ed25519Signature2018",
+					Creator:       "did:test:abc#key1",
+					DIDPrivateKey: base58.Encode(priKey),
+				},
+				responsePurpose:   "assertionMethod",
+				responseVerMethod: "did:test:abc#key-1",
+			},
+			{
+				name:        "signing with verification method option with profile DID",
+				signingOpts: []SigningOpts{WithVerificationMethod("did:test:abc")},
+				err:         "wrong id [did:test:abc] to resolve",
 			},
 			{
 				name: "signing with verification method, purpose options & representation(proofValue)",
@@ -119,8 +142,13 @@ func TestCrypto_SignCredential(t *testing.T) {
 						return &verifier.PublicKey{Value: []byte(pubKey)}, nil
 					}})
 
+				profile := getTestProfile()
+				if tc.profile != nil {
+					profile = tc.profile
+				}
+
 				signedVC, err := c.SignCredential(
-					getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+					profile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 					tc.signingOpts...)
 
 				if tc.err != "" {
