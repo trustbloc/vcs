@@ -76,6 +76,12 @@ const (
 	proofCheck  = "proof"
 	statusCheck = "status"
 
+	// supported proof purpose
+	assertionMethod      = "assertionMethod"
+	authentication       = "authentication"
+	capabilityDelegation = "capabilityDelegation"
+	capabilityInvocation = "capabilityInvocation"
+
 	// modes
 	issuerMode   = "issuer"
 	verifierMode = "verifier"
@@ -812,6 +818,7 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 // Responses:
 //    default: genericError
 //        201: verifiableCredentialRes
+// nolint: funlen
 func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the issuer profile
 	profileID := mux.Vars(req)[profileIDPathParam]
@@ -834,10 +841,24 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
+	// validate options
+	if err = validateIssueCredOptions(cred.Opts); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
 	// validate the VC
 	credential, _, err := verifiable.NewCredential(cred.Credential)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
+
+		return
+	}
+
+	// check if issuer is a DID
+	if credential.Issuer.ID != "" && !isDID(credential.Issuer.ID) {
+		o.writeErrorResponse(rw, http.StatusBadRequest, errors.New("issuer is not a DID").Error())
 
 		return
 	}
@@ -1349,4 +1370,24 @@ func updateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProf
 		// override credential issuer.
 		credential.Issuer = verifiable.Issuer{ID: profile.DID, Name: profile.Name}
 	}
+}
+
+func validateIssueCredOptions(options *IssueCredentialOptions) error {
+	if options != nil {
+		switch {
+		case options.ProofPurpose != "":
+			switch options.ProofPurpose {
+			case assertionMethod, authentication, capabilityDelegation, capabilityInvocation:
+			default:
+				return fmt.Errorf("invalid proof option : %s", options.ProofPurpose)
+			}
+		case options.AssertionMethod != "":
+			idSplit := strings.Split(options.AssertionMethod, "#")
+			if len(idSplit) != 2 {
+				return fmt.Errorf("invalid assertion method : %s", idSplit)
+			}
+		}
+	}
+
+	return nil
 }
