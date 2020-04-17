@@ -181,7 +181,19 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 func (c *Crypto) getSigner(dataProfile *vcprofile.DataProfile, opts *signingOpts) (signer, string, error) {
 	switch {
 	case opts.VerificationMethod != "":
+		did, err := getDIDFromKeyID(opts.VerificationMethod)
+		if err != nil {
+			return nil, "", err
+		}
+
+		// if the verification method DID is added to profile externally, then fetch the private
+		// key from profile
+		if did == dataProfile.DID && dataProfile.DIDPrivateKey != "" {
+			return newPrivateKeySigner(base58.Decode(dataProfile.DIDPrivateKey)), opts.VerificationMethod, nil
+		}
+
 		s, err := newKMSSigner(c.kms, c.kResolver, opts.VerificationMethod)
+
 		return s, opts.VerificationMethod, err
 	case dataProfile.DIDPrivateKey == "":
 		s, err := newKMSSigner(c.kms, c.kResolver, dataProfile.Creator)
@@ -205,4 +217,14 @@ func getSignatureRepresentation(signRep string) (verifiable.SignatureRepresentat
 	}
 
 	return signatureRepresentation, nil
+}
+
+func getDIDFromKeyID(creator string) (string, error) {
+	// creator will contain didID#keyID
+	idSplit := strings.Split(creator, "#")
+	if len(idSplit) != creatorParts {
+		return "", fmt.Errorf("wrong id %s to resolve", idSplit)
+	}
+
+	return idSplit[0], nil
 }
