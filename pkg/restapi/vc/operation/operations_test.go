@@ -1366,7 +1366,6 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential with opts - success", func(t *testing.T) {
 		customVerificationMethod := "did:test:zzz#key-1"
-		customPurpose := "authentication"
 
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
@@ -1397,7 +1396,7 @@ func TestIssueCredential(t *testing.T) {
 			Credential: []byte(validVC),
 			Opts: &IssueCredentialOptions{
 				AssertionMethod: customVerificationMethod,
-				ProofPurpose:    customPurpose,
+				ProofPurpose:    assertionMethod,
 			},
 		}
 
@@ -1418,7 +1417,51 @@ func TestIssueCredential(t *testing.T) {
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, customVerificationMethod, proof["verificationMethod"])
-		require.Equal(t, customPurpose, proof["proofPurpose"])
+		require.Equal(t, assertionMethod, proof["proofPurpose"])
+	})
+
+	t.Run("issue credential with opts - invalid proof purpose", func(t *testing.T) {
+		customPurpose := "customPurpose"
+
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		kms := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		ops, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+
+		err = ops.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, issuerMode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts: &IssueCredentialOptions{
+				ProofPurpose: customPurpose,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid proof option : customPurpose")
 	})
 
 	t.Run("issue credential - invalid profile", func(t *testing.T) {
@@ -1469,6 +1512,28 @@ func TestIssueCredential(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to validate credential")
+	})
+
+	t.Run("issue credential - issuer ID is not a DID", func(t *testing.T) {
+		vc, err := verifiable.NewUnverifiedCredential([]byte(validVC))
+		require.NoError(t, err)
+
+		vc.Issuer.ID = "invalid did"
+
+		vcBytes, err := vc.MarshalJSON()
+		require.NoError(t, err)
+
+		req := &IssueCredentialRequest{
+			Credential: vcBytes,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "issuer is not a DID")
 	})
 
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
@@ -1532,7 +1597,7 @@ func TestIssueCredential(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "failed to add credential status: csl error")
 	})
 
-	t.Run("issue credential - signing error", func(t *testing.T) {
+	t.Run("issue credential - invalid assertion", func(t *testing.T) {
 		kms := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
 		_, signingKey, err := kms.CreateKeySet()
 		require.NoError(t, err)
@@ -1554,6 +1619,39 @@ func TestIssueCredential(t *testing.T) {
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
 			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y"},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid assertion method : [did:test:urosdjwas7823y]")
+	})
+
+	t.Run("issue credential - signing error", func(t *testing.T) {
+		kms := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+		_, signingKey, err := kms.CreateKeySet()
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           kms,
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		err = op.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, issuerMode)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts:       &IssueCredentialOptions{AssertionMethod: "did:test:urosdjwas7823y#key-1"},
 		}
 
 		reqBytes, err := json.Marshal(req)
