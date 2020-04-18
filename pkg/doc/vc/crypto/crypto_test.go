@@ -13,11 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
-
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	gojose "github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -37,6 +38,42 @@ func TestCrypto_SignCredential(t *testing.T) {
 			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
+	})
+
+	t.Run("test success with jwk", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(&kmsmock.CloseableKMS{},
+			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+				return &verifier.PublicKey{JWK: &jose.JWK{
+					JSONWebKey: gojose.JSONWebKey{Key: pubKey},
+					Kty:        "OKP",
+					Crv:        "Ed25519",
+				}}, nil
+			}})
+
+		signedVC, err := c.SignCredential(
+			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+	})
+
+	t.Run("test key not supported", func(t *testing.T) {
+		c := New(&kmsmock.CloseableKMS{},
+			&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
+				return &verifier.PublicKey{JWK: &jose.JWK{
+					JSONWebKey: gojose.JSONWebKey{},
+					Kty:        "OKP",
+					Crv:        "Ed25519",
+				}}, nil
+			}})
+
+		signedVC, err := c.SignCredential(
+			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "public key not ed25519.PublicKey")
+		require.Nil(t, signedVC)
 	})
 
 	t.Run("test successful sign credential using opts", func(t *testing.T) {
@@ -121,11 +158,19 @@ func TestCrypto_SignCredential(t *testing.T) {
 				err: "invalid proof format : xyz",
 			},
 			{
-				name: "failed with unsupported signature type",
+				name: "test with JsonWebSignature2020",
 				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
 					WithVerificationMethod("did:sample:xyz#key999"),
 					WithSignatureType("JsonWebSignature2020")},
-				err: "signature type JsonWebSignature2020 not supported",
+				responsePurpose:   "sample-purpose",
+				responseVerMethod: "did:sample:xyz#key999",
+			},
+			{
+				name: "failed with unsupported signature type",
+				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
+					WithVerificationMethod("did:sample:xyz#key999"),
+					WithSignatureType("123")},
+				err: "signature type unsupported 123",
 			},
 		}
 

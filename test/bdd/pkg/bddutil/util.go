@@ -18,8 +18,10 @@ import (
 	"time"
 
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	log "github.com/sirupsen/logrus"
@@ -45,17 +47,26 @@ func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdi
 }
 
 // CreatePresentation creates verifiable presentation from verifiable credential.
-func CreatePresentation(vcBytes []byte, representation verifiable.SignatureRepresentation,
+func CreatePresentation(vcBytes []byte, signatureType string, representation verifiable.SignatureRepresentation,
 	vdri vdriapi.Registry) ([]byte, error) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
 
+	var signatureSuite ariessigner.SignatureSuite
+
+	switch signatureType {
+	case "Ed25519Signature2018":
+		signatureSuite = ed25519signature2018.New(suite.WithSigner(GetSigner(privateKey)))
+	case "JsonWebSignature2020":
+		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(GetSigner(privateKey)))
+	}
+
 	ldpContext := &verifiable.LinkedDataProofContext{
-		SignatureType:           "Ed25519Signature2018",
+		SignatureType:           signatureType,
 		SignatureRepresentation: representation,
-		Suite:                   ed25519signature2018.New(suite.WithSigner(GetSigner(privateKey))),
+		Suite:                   signatureSuite,
 	}
 
 	return CreateCustomPresentation(vcBytes, vdri, ldpContext)
@@ -142,11 +153,8 @@ func GetOptionsKey(user string) string {
 // CreateCustomPresentation creates verifiable presentation from custom linked data proof context
 func CreateCustomPresentation(vcBytes []byte, vdri vdriapi.Registry,
 	ldpContext *verifiable.LinkedDataProofContext) ([]byte, error) {
-	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
-
 	// parse vc
 	vc, _, err := verifiable.NewCredential(vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err

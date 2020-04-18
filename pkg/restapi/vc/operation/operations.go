@@ -28,9 +28,7 @@ import (
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -93,11 +91,11 @@ const (
 	// Ed25519VerificationKey supported Verification Key types
 	Ed25519VerificationKey = "Ed25519VerificationKey"
 
-	pubKeyIndex1 = "#key-1"
-	keyType      = "Ed25519VerificationKey2018"
+	pubKey1      = "key-1"
+	recoveryKey1 = "recovery-key"
 
 	// TODO remove hardcode values after complete did service integration
-	serviceID       = "#example"
+	serviceID       = "example"
 	serviceType     = "example"
 	serviceEndpoint = "http://example.com"
 
@@ -136,7 +134,7 @@ type httpClient interface {
 }
 
 type didBlocClient interface {
-	CreateDID(domain string, opts ...didclient.CreateDIDOption) (*did.Doc, error)
+	CreateDID(domain string, opts ...didclient.CreateDIDOption) (*ariesdid.Doc, error)
 }
 
 type uniRegistrarClient interface {
@@ -195,7 +193,7 @@ func New(config *Config) (*Operation, error) {
 		packer:               packer,
 		senderKey:            senderKey,
 		vcStatusManager:      vcStatusManager,
-		didBlocClient:        didclient.New(didclient.WithKMS(config.KMS), didclient.WithTLSConfig(config.TLSConfig)),
+		didBlocClient:        didclient.New(didclient.WithTLSConfig(config.TLSConfig)),
 		domain:               config.Domain,
 		httpClient:           &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 		HostURL:              config.HostURL,
@@ -697,6 +695,75 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	o.retrieveCredential(rw, profile, docURLs)
 }
 
+func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, string, error) {
+	var opts []uniregistrar.CreateDIDOption
+
+	_, base58PubKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		return "", "", "", err
+	}
+
+	_, recoveryPubKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		return "", "", "", err
+	}
+
+	opts = append(opts,
+		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+			ID: pubKey1, Type: didclient.JWSVerificationKey2020,
+			Value:    base64.StdEncoding.EncodeToString(base58.Decode(base58PubKey)),
+			Encoding: didclient.PublicKeyEncodingJwk, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}}),
+		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+			ID: recoveryKey1, Type: didclient.JWSVerificationKey2020,
+			Value:    base64.StdEncoding.EncodeToString(base58.Decode(recoveryPubKey)),
+			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
+		uniregistrar.WithOptions(pr.UNIRegistrar.Options), uniregistrar.WithService(
+			&didmethodoperation.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
+
+	identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL, opts...)
+	if err != nil {
+		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
+	}
+
+	return identifier, keys[0].PublicKeyDIDURL, keys[0].PrivateKeyBase58, nil
+}
+
+func (o *Operation) createDID() (string, string, error) {
+	var opts []didclient.CreateDIDOption
+
+	_, base58PubKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		return "", "", err
+	}
+
+	_, recoveryPubKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		return "", "", err
+	}
+
+	opts = append(opts,
+		didclient.WithPublicKey(&didclient.PublicKey{ID: pubKey1, Type: didclient.JWSVerificationKey2020,
+			Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
+			Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}}),
+		didclient.WithPublicKey(&didclient.PublicKey{ID: recoveryKey1,
+			Type: didclient.JWSVerificationKey2020, Value: base58.Decode(recoveryPubKey),
+			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
+		didclient.WithService(&ariesdid.Service{ID: serviceID, Type: serviceType,
+			ServiceEndpoint: serviceEndpoint}))
+
+	didDoc, err := o.didBlocClient.CreateDID(o.domain, opts...)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create did doc: %v", err)
+	}
+
+	publicKeyID, err := getPublicKeyID(didDoc)
+	if err != nil {
+		return "", "", err
+	}
+
+	return didDoc.ID, publicKeyID, nil
+}
+
 func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
 	var didID string
 
@@ -706,34 +773,17 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 	switch {
 	case pr.UNIRegistrar.DriverURL != "":
-		_, base58PubKey, err := o.kms.CreateKeySet()
+		var err error
+		didID, publicKeyID, didPrivateKey, err = o.createDIDUniRegistrar(pr)
+
 		if err != nil {
 			return nil, err
 		}
 
-		identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL,
-			uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-				ID: pubKeyIndex1, Type: keyType, Value: base58PubKey}),
-			uniregistrar.WithOptions(pr.UNIRegistrar.Options), uniregistrar.WithService(
-				&didmethodoperation.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
-		}
-
-		didID = identifier
-		publicKeyID = keys[0].PublicKeyDIDURL
-		didPrivateKey = keys[0].PrivateKeyBase58
-
 	case pr.DID == "":
-		didDoc, err := o.didBlocClient.CreateDID(o.domain,
-			didclient.WithService(&did.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create did doc: %v", err)
-		}
+		var err error
+		didID, publicKeyID, err = o.createDID()
 
-		didID = didDoc.ID
-
-		publicKeyID, err = getPublicKeyID(didDoc)
 		if err != nil {
 			return nil, err
 		}
@@ -1286,10 +1336,8 @@ func (o *Operation) validatePresentationProof(vpByte []byte) error {
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	vc, _, err := verifiable.NewCredential(
 		vcBytes,
-		verifiable.WithEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
@@ -1303,10 +1351,8 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 }
 
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
-	signSuite := ed25519signature2018.New(suite.WithVerifier(ed25519signature2018.NewPublicKeyVerifier()))
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
-		verifiable.WithPresEmbeddedSignatureSuites(signSuite),
 		verifiable.WithPresPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
 		),
@@ -1444,7 +1490,7 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 	return retrievedVC, nil
 }
 
-func getPublicKeyID(didDoc *did.Doc) (string, error) {
+func getPublicKeyID(didDoc *ariesdid.Doc) (string, error) {
 	switch {
 	case len(didDoc.PublicKey) > 0:
 		var publicKeyID string

@@ -14,8 +14,10 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 
+	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 
@@ -56,7 +58,18 @@ func newKMSSigner(kms legacykms.KMS, kResolver keyResolver, creator string) (*km
 		return nil, err
 	}
 
-	keyID := base58.Encode(k.Value)
+	v := k.Value
+
+	if k.JWK != nil {
+		var ok bool
+		v, ok = k.JWK.Public().Key.(ed25519.PublicKey)
+
+		if !ok {
+			return nil, fmt.Errorf("public key not ed25519.PublicKey")
+		}
+	}
+
+	keyID := base58.Encode(v)
 
 	return &kmsSigner{kms: kms, keyID: keyID}, nil
 }
@@ -157,15 +170,25 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		signatureType = signOpts.SignatureType
 	}
 
+	var signatureSuite ariessigner.SignatureSuite
+
+	switch signatureType {
+	case "Ed25519Signature2018":
+		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
+	case "JsonWebSignature2020":
+		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
+	default:
+		return nil, fmt.Errorf("signature type unsupported %s", signatureType)
+	}
+
 	// TODO Matching suite and type for signOpts.VerificationMethod [Issue #222]
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      method,
 		SignatureRepresentation: repres,
 		SignatureType:           signatureType,
-		Suite: ed25519signature2018.New(
-			suite.WithSigner(s)),
-		Purpose: signOpts.Purpose,
-		Created: signOpts.Created,
+		Suite:                   signatureSuite,
+		Purpose:                 signOpts.Purpose,
+		Created:                 signOpts.Created,
 	}
 
 	err = vc.AddLinkedDataProof(signingCtx)
