@@ -54,7 +54,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)" and signatureType "([^"]*)"$`, //nolint: lll
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)"$`, e.getProfile)
 	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
@@ -104,7 +104,7 @@ func (e *Steps) verifyPresentation(holder, signatureType, checksList, result, re
 }
 
 func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:gocyclo,funlen]
-	uniRegistrar, didMethod, signatureType string) error {
+	uniRegistrar, didMethod, signatureType, keyType string) error {
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
 		return fmt.Errorf("unable to find profile request template")
@@ -131,6 +131,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 	profileRequest.UNIRegistrar = u
 	profileRequest.OverwriteIssuer = true
 	profileRequest.SignatureType = signatureType
+	profileRequest.DIDKeyType = keyType
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -294,7 +295,7 @@ func (e *Steps) createCredential(credential, profileName string) error {
 func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, signatureType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType)
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, "")
 	if err != nil {
 		return err
 	}
@@ -312,7 +313,7 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, si
 func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, signatureType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType)
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, "")
 	if err != nil {
 		return err
 	}

@@ -7,13 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
+	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/x509"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -26,6 +29,26 @@ import (
 
 const (
 	creatorParts = 2
+)
+
+const (
+	// Ed25519Signature2018 ed25519 signature suite
+	Ed25519Signature2018 = "Ed25519Signature2018"
+	// JSONWebSignature2020 json web signature suite
+	JSONWebSignature2020 = "JsonWebSignature2020"
+
+	// Ed25519VerificationKey2018 ed25119 verification key
+	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+	// JwsVerificationKey2020 jws verification key
+	JwsVerificationKey2020 = "JwsVerificationKey2020"
+)
+
+const (
+	// Ed25519KeyType ed25519 key type
+	Ed25519KeyType = "Ed25519"
+
+	// P256KeyType EC P-256 key type
+	P256KeyType = "P256"
 )
 
 type keyResolver interface {
@@ -43,6 +66,7 @@ type kmsSigner struct {
 }
 
 type privateKeySigner struct {
+	keyType    string
 	privateKey []byte
 }
 
@@ -78,12 +102,24 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	return s.kms.SignMessage(data, s.keyID)
 }
 
-func newPrivateKeySigner(privateKey []byte) *privateKeySigner {
-	return &privateKeySigner{privateKey: privateKey}
+func newPrivateKeySigner(keyType string, privateKey []byte) *privateKeySigner {
+	return &privateKeySigner{keyType: keyType, privateKey: privateKey}
 }
 
 func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
-	return ed25519.Sign(s.privateKey, data), nil
+	switch s.keyType {
+	case "", Ed25519KeyType:
+		return ed25519.Sign(s.privateKey, data), nil
+	case P256KeyType:
+		ecPrivateKey, err := x509.ParseECPrivateKey(s.privateKey)
+		if err != nil {
+			return nil, err
+		}
+
+		return signEcdsa(data, ecPrivateKey, crypto.SHA256)
+	}
+
+	return nil, fmt.Errorf("invalid key type : %s", s.keyType)
 }
 
 // New return new instance of vc crypto
@@ -173,9 +209,9 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 	var signatureSuite ariessigner.SignatureSuite
 
 	switch signatureType {
-	case "Ed25519Signature2018":
+	case Ed25519Signature2018:
 		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
-	case "JsonWebSignature2020":
+	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
 	default:
 		return nil, fmt.Errorf("signature type unsupported %s", signatureType)
@@ -212,7 +248,8 @@ func (c *Crypto) getSigner(dataProfile *vcprofile.DataProfile, opts *signingOpts
 		// if the verification method DID is added to profile externally, then fetch the private
 		// key from profile
 		if did == dataProfile.DID && dataProfile.DIDPrivateKey != "" {
-			return newPrivateKeySigner(base58.Decode(dataProfile.DIDPrivateKey)), opts.VerificationMethod, nil
+			return newPrivateKeySigner(dataProfile.DIDKeyType, base58.Decode(dataProfile.DIDPrivateKey)),
+				opts.VerificationMethod, nil
 		}
 
 		s, err := newKMSSigner(c.kms, c.kResolver, opts.VerificationMethod)
@@ -222,7 +259,8 @@ func (c *Crypto) getSigner(dataProfile *vcprofile.DataProfile, opts *signingOpts
 		s, err := newKMSSigner(c.kms, c.kResolver, dataProfile.Creator)
 		return s, dataProfile.Creator, err
 	default:
-		return newPrivateKeySigner(base58.Decode(dataProfile.DIDPrivateKey)), dataProfile.Creator, nil
+		return newPrivateKeySigner(dataProfile.DIDKeyType, base58.Decode(dataProfile.DIDPrivateKey)),
+			dataProfile.Creator, nil
 	}
 }
 
@@ -250,4 +288,38 @@ func getDIDFromKeyID(creator string) (string, error) {
 	}
 
 	return idSplit[0], nil
+}
+
+func signEcdsa(doc []byte, privateKey *ecdsa.PrivateKey, hash crypto.Hash) ([]byte, error) {
+	hasher := hash.New()
+
+	_, err := hasher.Write(doc)
+	if err != nil {
+		return nil, err
+	}
+
+	hashed := hasher.Sum(nil)
+
+	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashed)
+	if err != nil {
+		return nil, err
+	}
+
+	curveBits := privateKey.Curve.Params().BitSize
+
+	const bitsInByte = 8
+	keyBytes := curveBits / bitsInByte
+
+	if curveBits%bitsInByte > 0 {
+		keyBytes++
+	}
+
+	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
+}
+
+func copyPadded(source []byte, size int) []byte {
+	dest := make([]byte, size)
+	copy(dest[size-len(source):], source)
+
+	return dest
 }

@@ -43,6 +43,7 @@ type ProfileRequest struct {
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
 	DID                     string                             `json:"did"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
+	DIDKeyType              string                             `json:"didKeyType"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
 	OverwriteIssuer         bool                               `json:"overwriteIssuer,omitempty"`
