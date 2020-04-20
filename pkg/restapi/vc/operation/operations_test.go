@@ -41,6 +41,7 @@ import (
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
+	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/didbloc"
@@ -493,6 +494,55 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
+	})
+
+	t.Run("create profile success - P256 key", func(t *testing.T) {
+		profileReq := ProfileRequest{
+			Name:          "issuer",
+			URI:           "https://example.com/credentials",
+			SignatureType: vccrypto.JSONWebSignature2020,
+			DIDKeyType:    "P256",
+		}
+
+		reqBytes, err := json.Marshal(profileReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+
+		profile := vcprofile.DataProfile{}
+		err = json.Unmarshal(rr.Body.Bytes(), &profile)
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+		require.NotEmpty(t, profile.Name)
+		require.Contains(t, profile.URI, "https://example.com/credentials")
+	})
+
+	t.Run("create profile - invalid key type", func(t *testing.T) {
+		profileReq := ProfileRequest{
+			Name:          "issuer",
+			URI:           "https://example.com/credentials",
+			SignatureType: vccrypto.JSONWebSignature2020,
+			DIDKeyType:    "invalid",
+		}
+
+		reqBytes, err := json.Marshal(profileReq)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(reqBytes))
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid key type")
 	})
 
 	t.Run("create profile success with uni Registrar config", func(t *testing.T) {
@@ -2772,7 +2822,7 @@ func TestGetPublicKeyID(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, doc)
 
-				id, err := getPublicKeyID(doc)
+				id, err := getPublicKeyID(doc, vccrypto.Ed25519Signature2018)
 				if tc.err != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.err)

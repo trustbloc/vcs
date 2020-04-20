@@ -40,6 +40,7 @@ type DataProfile struct {
 	Creator                 string                             `json:"creator"`
 	Created                 *time.Time                         `json:"created"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
+	DIDKeyType              string                             `json:"didKeyType"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
 	OverwriteIssuer         bool                               `json:"overwriteIssuer"`
 }

@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
 	"fmt"
 	"testing"
 	"time"
@@ -223,7 +226,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		}
 	})
 
-	t.Run("test success with private key", func(t *testing.T) {
+	t.Run("test success - ed25519 private key", func(t *testing.T) {
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
@@ -236,6 +239,53 @@ func TestCrypto_SignCredential(t *testing.T) {
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
+	})
+
+	t.Run("test success - P-256 private key", func(t *testing.T) {
+		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
+		require.NoError(t, err)
+
+		c := New(nil, nil)
+
+		p := getTestProfile()
+		p.DIDPrivateKey = base58.Encode(encodedPrivateKey)
+		p.DIDKeyType = P256KeyType
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+	})
+
+	t.Run("test P-256 private key parse failure", func(t *testing.T) {
+		c := New(nil, nil)
+
+		p := getTestProfile()
+		p.DIDPrivateKey = "invalid-private-key"
+		p.DIDKeyType = P256KeyType
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse EC private key")
+		require.Nil(t, signedVC)
+	})
+
+	t.Run("test signing failure - invalid key type", func(t *testing.T) {
+		c := New(nil, nil)
+
+		p := getTestProfile()
+		p.DIDPrivateKey = "privateKey"
+		p.DIDKeyType = "invalid-key-type"
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid key type")
+		require.Nil(t, signedVC)
 	})
 
 	t.Run("test signature representation - JWS", func(t *testing.T) {
