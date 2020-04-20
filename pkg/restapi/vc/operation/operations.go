@@ -707,9 +707,9 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, string, error) {
 	var opts []uniregistrar.CreateDIDOption
 
-	_, base58PubKey, err := o.kms.CreateKeySet()
+	publicKey, didPrivateKey, err := o.createPublicKey(pr)
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
 
 	_, recoveryPubKey, err := o.kms.CreateKeySet()
@@ -719,14 +719,16 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 
 	opts = append(opts,
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: pubKey1, Type: didclient.JWSVerificationKey2020,
-			Value:    base64.StdEncoding.EncodeToString(base58.Decode(base58PubKey)),
-			Encoding: didclient.PublicKeyEncodingJwk, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}}),
+			ID: publicKey.ID, Type: publicKey.Type,
+			Value:    base64.StdEncoding.EncodeToString(publicKey.Value),
+			KeyType:  publicKey.KeyType,
+			Encoding: publicKey.Encoding, Usage: publicKey.Usage}),
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
 			ID: recoveryKey1, Type: didclient.JWSVerificationKey2020,
 			Value:    base64.StdEncoding.EncodeToString(base58.Decode(recoveryPubKey)),
 			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
-		uniregistrar.WithOptions(pr.UNIRegistrar.Options), uniregistrar.WithService(
+		uniregistrar.WithOptions(pr.UNIRegistrar.Options),
+		uniregistrar.WithService(
 			&didmethodoperation.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
 
 	identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL, opts...)
@@ -734,7 +736,11 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 	}
 
-	return identifier, keys[0].PublicKeyDIDURL, keys[0].PrivateKeyBase58, nil
+	if didPrivateKey == "" {
+		didPrivateKey = keys[0].PrivateKeyBase58
+	}
+
+	return identifier, keys[0].PublicKeyDIDURL, didPrivateKey, nil
 }
 
 func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error) {
