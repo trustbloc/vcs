@@ -86,13 +86,15 @@ const (
 	testIssuerProfile = `{
 		"name": "issuer",
 		"uri": "https://example.com/credentials",
-		"signatureType": "Ed25519Signature2018"
+		"signatureType": "Ed25519Signature2018",
+        "didKeyType": "Ed25519"
 	}`
 	testIssuerProfileWithDisableVCStatus = `{
 		"name": "issuer",
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018",
-		"disableVCStatus": true
+		"disableVCStatus": true,
+        "didKeyType": "Ed25519"
 	}`
 	testIssuerProfileWithDID = `{
 		"name": "issuer",
@@ -561,7 +563,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
 
 		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
-			URI: "https://example.com/credentials", SignatureType: "type",
+			URI: "https://example.com/credentials", SignatureType: "type", DIDKeyType: vccrypto.Ed25519KeyType,
 			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
 		require.NoError(t, err)
 
@@ -597,7 +599,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
 
 		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
-			URI: "https://example.com/credentials", SignatureType: "type",
+			URI: "https://example.com/credentials", SignatureType: "type", DIDKeyType: vccrypto.Ed25519KeyType,
 			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
 		require.NoError(t, err)
 

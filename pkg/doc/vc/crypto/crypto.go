@@ -108,7 +108,7 @@ func newPrivateKeySigner(keyType string, privateKey []byte) *privateKeySigner {
 
 func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
 	switch s.keyType {
-	case "", Ed25519KeyType:
+	case Ed25519KeyType:
 		return ed25519.Sign(s.privateKey, data), nil
 	case P256KeyType:
 		ecPrivateKey, err := x509.ParseECPrivateKey(s.privateKey)

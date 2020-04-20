@@ -1509,7 +1509,7 @@ func (o *Operation) createPublicKey(pr *ProfileRequest) (*didclient.PublicKey, s
 	var publicKey *didclient.PublicKey
 
 	switch pr.DIDKeyType {
-	case "", crypto.Ed25519KeyType:
+	case crypto.Ed25519KeyType:
 		_, base58PubKey, err := o.kms.CreateKeySet()
 		if err != nil {
 			return nil, "", err
