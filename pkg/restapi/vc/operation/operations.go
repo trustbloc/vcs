@@ -1227,9 +1227,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 			}
 		case statusCheck:
 			failureMessage := ""
-			if vc.Status == nil || vc.Status.ID == "" {
-				failureMessage = "credential doesn't contain status"
-			} else {
+			if vc.Status != nil && vc.Status.ID != "" {
 				ver, err := o.checkVCStatus(vc.Status.ID, vc.ID)
 
 				if err != nil {
