@@ -713,7 +713,7 @@ func validatePublicKey(doc *ariesdid.Doc, keyType string) error {
 		expectedJwkKeyType = "EC"
 	}
 
-	if expectedJwkKeyType != "" && expectedJwkKeyType != doc.PublicKey[0].JSONWebKey().Kty {
+	if strings.Contains(doc.ID, didMethodTrustBloc) && expectedJwkKeyType != doc.PublicKey[0].JSONWebKey().Kty {
 		return fmt.Errorf("jwk key type : expected=%s actual=%s", expectedJwkKeyType,
 			doc.PublicKey[0].JSONWebKey().Kty)
 	}

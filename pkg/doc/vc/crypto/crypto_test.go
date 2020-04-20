@@ -120,6 +120,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 					SignatureType: "Ed25519Signature2018",
 					Creator:       "did:test:abc#key1",
 					DIDPrivateKey: base58.Encode(priKey),
+					DIDKeyType:    Ed25519KeyType,
 				},
 				responsePurpose:   "assertionMethod",
 				responseVerMethod: "did:test:abc#key-1",
@@ -234,6 +235,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		p := getTestProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.DIDKeyType = Ed25519KeyType
 
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
@@ -296,6 +298,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		p := getTestProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.DIDKeyType = Ed25519KeyType
 		p.SignatureRepresentation = verifiable.SignatureJWS
 
 		signedVC, err := c.SignCredential(
@@ -317,6 +320,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		p := getTestProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
 		p.SignatureRepresentation = verifiable.SignatureProofValue
+		p.DIDKeyType = Ed25519KeyType
 
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})

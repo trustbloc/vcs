@@ -80,6 +80,13 @@ type Steps struct {
 	bddContext *context.BDDContext
 }
 
+type didResolution struct {
+	Context          interface{}     `json:"@context"`
+	DIDDocument      json.RawMessage `json:"didDocument"`
+	ResolverMetadata json.RawMessage `json:"resolverMetadata"`
+	MethodMetadata   json.RawMessage `json:"methodMetadata"`
+}
+
 // NewSteps returns new agent from client SDK
 func NewSteps(ctx *context.BDDContext) *Steps {
 	return &Steps{bddContext: ctx}
@@ -427,7 +434,7 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 
 func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
 	d := didclient.Doc{PublicKey: []didclient.PublicKey{{ID: pubKeyIndex1, Type: didclient.JWSVerificationKey2020,
-		Value: base58.Decode(base58PubKey),
+		Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
 		Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral}, Encoding: didclient.PublicKeyEncodingJwk}}}
 
 	docBytes, err := d.JSONBytes()
@@ -482,7 +489,18 @@ func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
 			sidetreeURL, resp.StatusCode, responseBytes)
 	}
 
-	didDoc, err := docdid.ParseDocument(responseBytes)
+	var r didResolution
+	if errUnmarshal := json.Unmarshal(responseBytes, &r); errUnmarshal != nil {
+		return nil, fmt.Errorf("unmarshal data return from sidtree %w", errUnmarshal)
+	}
+
+	didDocBytes := responseBytes
+	// check if data is did resolution
+	if len(r.DIDDocument) != 0 {
+		didDocBytes = r.DIDDocument
+	}
+
+	didDoc, err := docdid.ParseDocument(didDocBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse public DID document: %s", err)
 	}
