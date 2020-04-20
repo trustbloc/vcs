@@ -2451,34 +2451,6 @@ func TestCredentialVerifications(t *testing.T) {
 		})
 
 		t.Run("credential verification - status check failure", func(t *testing.T) {
-			t.Run("status check failure - no status in VC", func(t *testing.T) {
-				vc.Status = nil
-
-				vcBytes, err := vc.MarshalJSON()
-				require.NoError(t, err)
-
-				req := &CredentialsVerificationRequest{
-					Credential: vcBytes,
-					Opts: &CredentialsVerificationOptions{
-						Checks: []string{statusCheck},
-					},
-				}
-
-				reqBytes, err := json.Marshal(req)
-				require.NoError(t, err)
-
-				rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
-
-				require.Equal(t, http.StatusBadRequest, rr.Code)
-
-				verificationResp := &CredentialsVerificationFailResponse{}
-				err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-				require.NoError(t, err)
-				require.Equal(t, 1, len(verificationResp.Checks))
-				require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
-				require.Equal(t, "credential doesn't contain status", verificationResp.Checks[0].Error)
-			})
-
 			t.Run("status check failure - error fetching status", func(t *testing.T) {
 				vc.Status = &verifiable.TypedID{
 					ID: "http://example.com/status/100",

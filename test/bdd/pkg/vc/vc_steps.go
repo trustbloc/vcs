@@ -16,14 +16,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/mr-tron/base58"
-
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/mr-tron/base58"
 
+	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
@@ -170,6 +171,10 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 
 	didDoc, err := bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 	if err != nil {
+		return err
+	}
+
+	if err := validatePublicKey(didDoc, keyType); err != nil {
 		return err
 	}
 
@@ -696,4 +701,22 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
+}
+
+func validatePublicKey(doc *ariesdid.Doc, keyType string) error {
+	expectedJwkKeyType := ""
+
+	switch keyType {
+	case vccrypto.Ed25519KeyType:
+		expectedJwkKeyType = "OKP"
+	case vccrypto.P256KeyType:
+		expectedJwkKeyType = "EC"
+	}
+
+	if expectedJwkKeyType != "" && expectedJwkKeyType != doc.PublicKey[0].JSONWebKey().Kty {
+		return fmt.Errorf("jwk key type : expected=%s actual=%s", expectedJwkKeyType,
+			doc.PublicKey[0].JSONWebKey().Kty)
+	}
+
+	return nil
 }
