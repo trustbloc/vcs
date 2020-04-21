@@ -544,7 +544,8 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "invalid key type")
+		require.Contains(t, rr.Body.String(),
+			"no key found to match key type:invalid and signature type:JsonWebSignature2020")
 	})
 
 	t.Run("create profile success with uni Registrar config", func(t *testing.T) {
@@ -552,18 +553,18 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			EDVClient: client, KMS: getTestKMS(t),
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
-				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
+				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key-1"}}}}},
 			HostURL: "localhost:8080"})
 
 		require.NoError(t, err)
 
 		op.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did1", CreateDIDKeys: []didmethodoperation.Key{{
-			PublicKeyDIDURL: "did1#key1"}}}
+			PublicKeyDIDURL: "did1#key-1"}, {PublicKeyDIDURL: "did1#key2"}}}
 
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
 
 		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
-			URI: "https://example.com/credentials", SignatureType: "type", DIDKeyType: vccrypto.Ed25519KeyType,
+			URI: "https://example.com/credentials", SignatureType: "Ed25519Signature2018", DIDKeyType: vccrypto.Ed25519KeyType,
 			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
 		require.NoError(t, err)
 
@@ -581,7 +582,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
-		require.Equal(t, "did1#key1", profile.Creator)
+		require.Equal(t, "did1#key-1", profile.Creator)
 	})
 
 	t.Run("create profile error with uni Registrar config", func(t *testing.T) {
@@ -599,7 +600,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
 
 		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
-			URI: "https://example.com/credentials", SignatureType: "type", DIDKeyType: vccrypto.Ed25519KeyType,
+			URI: "https://example.com/credentials", SignatureType: "Ed25519Signature2018", DIDKeyType: vccrypto.Ed25519KeyType,
 			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
 		require.NoError(t, err)
 
@@ -2796,7 +2797,7 @@ func TestGetPublicKeyID(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, doc)
 
-				id, err := getPublicKeyID(doc, vccrypto.Ed25519Signature2018)
+				id, err := getPublicKeyID(doc, "", vccrypto.Ed25519Signature2018)
 				if tc.err != "" {
 					require.Error(t, err)
 					require.Contains(t, err.Error(), tc.err)
