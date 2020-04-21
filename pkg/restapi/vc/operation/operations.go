@@ -93,6 +93,7 @@ const (
 
 	pubKey1 = "key-1"
 	pubKey2 = "key-2"
+	pubKey3 = "key-3"
 
 	recoveryKey1 = "recovery-key"
 
@@ -706,7 +707,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, string, error) {
 	var opts []uniregistrar.CreateDIDOption
 
-	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKey(pr)
+	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKeys(pr)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
@@ -757,7 +758,7 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error) {
 	var opts []didclient.CreateDIDOption
 
-	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKey(pr)
+	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKeys(pr)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
@@ -1517,36 +1518,36 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 	return retrievedVC, nil
 }
 
-func (o *Operation) createPublicKey(pr *ProfileRequest) ([]*didclient.PublicKey, string, string, error) {
+func (o *Operation) createPublicKeys(pr *ProfileRequest) ([]*didclient.PublicKey, string, string, error) {
 	var publicKeys []*didclient.PublicKey
 
+	// Add Ed25519VerificationKey2018 Ed25519KeyType
 	_, base58PubKey, err := o.kms.CreateKeySet()
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	// Add Ed25519VerificationKey2018 Ed25519KeyType
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey1, Type: didclient.Ed25519VerificationKey2018,
 		Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
 		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
 
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	// Add JWSVerificationKey2020 Ed25519KeyType
+	_, base58PubKey, err = o.kms.CreateKeySet()
 	if err != nil {
 		return nil, "", "", err
 	}
 
-	pubKeyBytes, err := x509.MarshalPKIXPublicKey(privateKey.Public())
-	if err != nil {
-		return nil, "", "", err
-	}
-
-	encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
-	if err != nil {
-		return nil, "", "", err
-	}
+	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey2, Type: didclient.JWSVerificationKey2020,
+		Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
+		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral}})
 
 	// Add JWSVerificationKey2020  ECKeyType
-	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey2, Type: didclient.JWSVerificationKey2020,
+	encodedPrivateKey, pubKeyBytes, err := createP256Key()
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey3, Type: didclient.JWSVerificationKey2020,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.ECKeyType,
 		Usage: []string{didclient.KeyUsageGeneral}})
 
@@ -1555,15 +1556,39 @@ func (o *Operation) createPublicKey(pr *ProfileRequest) ([]*didclient.PublicKey,
 		return publicKeys, "", pubKey1, nil
 	}
 
+	if pr.DIDKeyType == crypto.Ed25519KeyType &&
+		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[pr.SignatureType] {
+		return publicKeys, "", pubKey2, nil
+	}
+
 	if pr.DIDKeyType == crypto.P256KeyType &&
 		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[pr.SignatureType] {
 		// return private key as KMS only supports ed25519 keys
 		// TODO remove when kms support ed25519
-		return publicKeys, base58.Encode(encodedPrivateKey), pubKey2, nil
+		return publicKeys, base58.Encode(encodedPrivateKey), pubKey3, nil
 	}
 
 	return nil, "", "",
 		fmt.Errorf("no key found to match key type:%s and signature type:%s", pr.DIDKeyType, pr.SignatureType)
+}
+
+func createP256Key() ([]byte, []byte, error) {
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(privateKey.Public())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return encodedPrivateKey, pubKeyBytes, nil
 }
 
 func getPublicKeyID(didDoc *ariesdid.Doc, keyID, signatureType string) (string, error) {
