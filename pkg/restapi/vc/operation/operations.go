@@ -91,10 +91,9 @@ const (
 	verifierMode = "verifier"
 	combinedMode = "combined"
 
-	// Ed25519VerificationKey supported Verification Key types
-	Ed25519VerificationKey = "Ed25519VerificationKey"
+	pubKey1 = "key-1"
+	pubKey2 = "key-2"
 
-	pubKey1      = "key-1"
 	recoveryKey1 = "recovery-key"
 
 	// TODO remove hardcode values after complete did service integration
@@ -707,7 +706,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, string, error) {
 	var opts []uniregistrar.CreateDIDOption
 
-	publicKey, didPrivateKey, err := o.createPublicKey(pr)
+	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKey(pr)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
@@ -717,12 +716,15 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 		return "", "", "", err
 	}
 
+	for _, v := range publicKeys {
+		opts = append(opts, uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+			ID: v.ID, Type: v.Type,
+			Value:    base64.StdEncoding.EncodeToString(v.Value),
+			KeyType:  v.KeyType,
+			Encoding: v.Encoding, Usage: v.Usage}))
+	}
+
 	opts = append(opts,
-		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: publicKey.ID, Type: publicKey.Type,
-			Value:    base64.StdEncoding.EncodeToString(publicKey.Value),
-			KeyType:  publicKey.KeyType,
-			Encoding: publicKey.Encoding, Usage: publicKey.Usage}),
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
 			ID: recoveryKey1, Type: didclient.JWSVerificationKey2020,
 			Value:    base64.StdEncoding.EncodeToString(base58.Decode(recoveryPubKey)),
@@ -736,17 +738,26 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 	}
 
-	if didPrivateKey == "" {
-		didPrivateKey = keys[0].PrivateKeyBase58
+	if len(keys) > 1 {
+		for _, v := range keys {
+			if strings.Contains(v.PublicKeyDIDURL, "#"+selectedKeyID) {
+				return identifier, v.PublicKeyDIDURL, didPrivateKey, nil
+			}
+		}
+
+		return "", "", "", fmt.Errorf("selected key not found %s", selectedKeyID)
 	}
 
-	return identifier, keys[0].PublicKeyDIDURL, didPrivateKey, nil
+	// vendors not supporting addKeys feature.
+	// return first key public and private
+	// TODO remove when vendors supporting addKeys feature
+	return identifier, keys[0].PublicKeyDIDURL, keys[0].PrivateKeyBase58, nil
 }
 
 func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error) {
 	var opts []didclient.CreateDIDOption
 
-	publicKey, didPrivateKey, err := o.createPublicKey(pr)
+	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKey(pr)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
@@ -756,8 +767,11 @@ func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error
 		return "", "", "", err
 	}
 
+	for _, v := range publicKeys {
+		opts = append(opts, didclient.WithPublicKey(v))
+	}
+
 	opts = append(opts,
-		didclient.WithPublicKey(publicKey),
 		didclient.WithPublicKey(&didclient.PublicKey{ID: recoveryKey1,
 			Type: didclient.JWSVerificationKey2020, Value: base58.Decode(recoveryPubKey),
 			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
@@ -769,7 +783,7 @@ func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error
 		return "", "", "", fmt.Errorf("failed to create did doc: %v", err)
 	}
 
-	publicKeyID, err := getPublicKeyID(didDoc, pr.SignatureType)
+	publicKeyID, err := getPublicKeyID(didDoc, selectedKeyID, "")
 	if err != nil {
 		return "", "", "", err
 	}
@@ -809,7 +823,7 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 
 		didID = didDoc.ID
 
-		publicKeyID, err = getPublicKeyID(didDoc, crypto.Ed25519Signature2018)
+		publicKeyID, err = getPublicKeyID(didDoc, "", crypto.Ed25519Signature2018)
 		if err != nil {
 			return nil, err
 		}
@@ -1503,57 +1517,68 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 	return retrievedVC, nil
 }
 
-func (o *Operation) createPublicKey(pr *ProfileRequest) (*didclient.PublicKey, string, error) {
-	var didPrivateKey string
+func (o *Operation) createPublicKey(pr *ProfileRequest) ([]*didclient.PublicKey, string, string, error) {
+	var publicKeys []*didclient.PublicKey
 
-	var publicKey *didclient.PublicKey
-
-	switch pr.DIDKeyType {
-	case crypto.Ed25519KeyType:
-		_, base58PubKey, err := o.kms.CreateKeySet()
-		if err != nil {
-			return nil, "", err
-		}
-
-		publicKey = &didclient.PublicKey{ID: pubKey1, Type: didclient.JWSVerificationKey2020,
-			Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
-			KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}}
-	case crypto.P256KeyType:
-		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return nil, "", err
-		}
-
-		pubKeyBytes, err := x509.MarshalPKIXPublicKey(privateKey.Public())
-		if err != nil {
-			return nil, "", err
-		}
-
-		encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
-		if err != nil {
-			return nil, "", err
-		}
-
-		// save the private key in DID as KMS only supports ed25519 keys
-		didPrivateKey = base58.Encode(encodedPrivateKey)
-
-		publicKey = &didclient.PublicKey{ID: pubKey1, Type: didclient.JWSVerificationKey2020,
-			Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.ECKeyType,
-			Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}}
-	default:
-		return nil, "", fmt.Errorf("invalid key type : %s", pr.DIDKeyType)
+	_, base58PubKey, err := o.kms.CreateKeySet()
+	if err != nil {
+		return nil, "", "", err
 	}
 
-	return publicKey, didPrivateKey, nil
+	// Add Ed25519VerificationKey2018 Ed25519KeyType
+	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey1, Type: didclient.Ed25519VerificationKey2018,
+		Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
+		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
+
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	pubKeyBytes, err := x509.MarshalPKIXPublicKey(privateKey.Public())
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	// Add JWSVerificationKey2020  ECKeyType
+	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey2, Type: didclient.JWSVerificationKey2020,
+		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.ECKeyType,
+		Usage: []string{didclient.KeyUsageGeneral}})
+
+	if pr.DIDKeyType == crypto.Ed25519KeyType &&
+		didclient.Ed25519VerificationKey2018 == signatureKeyTypeMap[pr.SignatureType] {
+		return publicKeys, "", pubKey1, nil
+	}
+
+	if pr.DIDKeyType == crypto.P256KeyType &&
+		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[pr.SignatureType] {
+		// return private key as KMS only supports ed25519 keys
+		// TODO remove when kms support ed25519
+		return publicKeys, base58.Encode(encodedPrivateKey), pubKey2, nil
+	}
+
+	return nil, "", "",
+		fmt.Errorf("no key found to match key type:%s and signature type:%s", pr.DIDKeyType, pr.SignatureType)
 }
 
-func getPublicKeyID(didDoc *ariesdid.Doc, signatureType string) (string, error) {
+func getPublicKeyID(didDoc *ariesdid.Doc, keyID, signatureType string) (string, error) {
 	switch {
 	case len(didDoc.PublicKey) > 0:
 		var publicKeyID string
 
 		for _, k := range didDoc.PublicKey {
-			if k.Type == signatureKeyTypeMap[signatureType] {
+			// TODO remove when vendors supporting addKeys feature
+			if keyID == "" && k.Type == signatureKeyTypeMap[signatureType] {
+				publicKeyID = k.ID
+				break
+			}
+
+			if keyID != "" && strings.Contains(k.ID, "#"+keyID) {
 				publicKeyID = k.ID
 				break
 			}
