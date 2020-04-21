@@ -122,7 +122,7 @@ func (e *Steps) verifyPresentation(endpoint string, vp []byte, opts *operation.V
 }
 
 func (e *Steps) verify(endpoint string, reqBytes []byte) error {
-	resp, err := http.Post(endpoint, "application/json", //nolint: bodyclose gosec
+	resp, err := http.Post(endpoint, "application/json", //nolint: bodyclose, gosec
 		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err

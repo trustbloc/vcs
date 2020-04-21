@@ -19,10 +19,13 @@ services:
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
+      - DATABASE_PREFIX=issuer
+      - KMSSECRETS_DATABASE_TYPE=couchdb
+      - KMSSECRETS_DATABASE_URL=couchdb.example.com:5984
+      - KMSSECRETS_DATABASE_PREFIX=issuer
       - VC_REST_MODE=issuer
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
-      - DATABASE_PREFIX=issuer
     ports:
       - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
     entrypoint: ""
@@ -43,9 +46,12 @@ services:
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
+      - DATABASE_PREFIX=verifier
+      - KMSSECRETS_DATABASE_TYPE=couchdb
+      - KMSSECRETS_DATABASE_URL=couchdb.example.com:5984
+      - KMSSECRETS_DATABASE_PREFIX=verifier
       - VC_REST_MODE=verifier
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
-      - DATABASE_PREFIX=verifier
     ports:
       - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
     entrypoint: ""
@@ -65,6 +71,7 @@ services:
       - BLOC_DOMAIN=testnet.trustbloc.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
       - DATABASE_TYPE=mem
+      - KMSSECRETS_DATABASE_TYPE=mem
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
     ports:
       - ${VC_REST_PORT}:${VC_REST_PORT}

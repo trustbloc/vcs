@@ -10,8 +10,14 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
+
+	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
@@ -23,8 +29,11 @@ import (
 func TestIssuerController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
-			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err)
+		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
@@ -33,7 +42,7 @@ func TestIssuerController_New(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
-			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -43,8 +52,11 @@ func TestIssuerController_New(t *testing.T) {
 func TestVerifierController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
-			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err)
+		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
@@ -53,7 +65,7 @@ func TestVerifierController_New(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
-			KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -65,15 +77,18 @@ func TestControllerInvalidMode_New(t *testing.T) {
 		_, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")},
 			EDVClient: edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
-			KMS:       &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "invalid"})
+			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "invalid"})
 		require.Error(t, err)
 	})
 }
 
 func TestIssuerController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
-		KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+	require.NoError(t, err)
+	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 
 	require.NoError(t, err)
 	require.NotNil(t, controller)
@@ -85,8 +100,11 @@ func TestIssuerController_GetOperations(t *testing.T) {
 
 func TestVerifierController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(), EDVClient: client,
-		KMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+	require.NoError(t, err)
+	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 
 	require.NoError(t, err)
 	require.NotNil(t, controller)

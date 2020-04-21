@@ -158,7 +158,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
 	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption}
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -177,15 +178,28 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCreateProvider(t *testing.T) {
+func TestCreateProviders(t *testing.T) {
 	t.Run("test error from create new couchdb", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{databaseType: databaseTypeCouchDBOption}, nil)
+		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeCouchDBOption}}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
 	})
-
+	t.Run("test error from create new kms secrets couchdb", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{
+			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
+				kmsSecretsDatabaseType: databaseTypeCouchDBOption}}, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
+	})
 	t.Run("test invalid database type", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{databaseType: "data1"}, nil)
+		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: "data1"}}, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "database type not set to a valid type")
+	})
+	t.Run("test invalid kms secrets database type", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{
+			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
+				kmsSecretsDatabaseType: "data1"}}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "database type not set to a valid type")
 	})
@@ -200,7 +214,8 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong", databaseType: "mem"}, nil)
+		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong",
+			dbParameters: &dbParameters{databaseType: "mem", kmsSecretsDatabaseType: "mem"}}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 	})
@@ -214,7 +229,7 @@ func TestCreateVDRI(t *testing.T) {
 
 func TestCreateKMS(t *testing.T) {
 	t.Run("test error from create new kms", func(t *testing.T) {
-		v, err := createKMS(&MockStoreProvider{
+		v, err := createLegacyKMS(&MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new kms")
@@ -222,7 +237,7 @@ func TestCreateKMS(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createKMS(&MockStoreProvider{})
+		v, err := createLegacyKMS(&MockStoreProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
@@ -300,6 +315,9 @@ func setEnvVars(t *testing.T) {
 
 	err = os.Setenv(databaseTypeEnvKey, databaseTypeMemOption)
 	require.NoError(t, err)
+
+	err = os.Setenv(kmsSecretsDatabaseTypeEnvKey, databaseTypeMemOption)
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -310,6 +328,12 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(blocDomainEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(databaseTypeEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(kmsSecretsDatabasePrefixEnvKey)
 	require.NoError(t, err)
 }
 
