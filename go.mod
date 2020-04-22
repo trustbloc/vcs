@@ -11,7 +11,7 @@ require (
 	github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200418015014-682fedc8c260
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200422184723-a297d2a1d3c3
 	github.com/sirupsen/logrus v1.4.2
 	github.com/square/go-jose/v3 v3.0.0-20191119004800-96c717272387
 	github.com/stretchr/testify v1.5.1
