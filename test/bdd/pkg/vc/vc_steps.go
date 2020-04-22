@@ -72,7 +72,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) verifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
-	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, signatureType,
+	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, signatureType, "", "",
 		getSignatureRepresentation(holder), e.bddContext.VDRI)
 	if err != nil {
 		return err

@@ -221,15 +221,9 @@ github.com/trustbloc/edv v0.1.3-0.20200415141634-265a4f01a957 h1:vKslsFlP6HotTBG
 github.com/trustbloc/edv v0.1.3-0.20200415141634-265a4f01a957/go.mod h1:v9Rwqvm3ZgsXP60Hjjd2yfhLK3vpAo5g3dfmSTD7N38=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1MKGO71j3jIV7e2aKX72/DTrzLjq9R8kc6xk=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
-github.com/trustbloc/sidetree-core-go v0.1.3-0.20200415231404-4172c0d0a620 h1:HR94Q7nSoH9fmx/9JSlwn+e1Idh9gSDEq/33wEgglC4=
-github.com/trustbloc/sidetree-core-go v0.1.3-0.20200415231404-4172c0d0a620/go.mod h1:4Z1Zrxs/ut+fGmTdliYAc6sVueXb07EFJHKC/5VOvQA=
-github.com/trustbloc/sidetree-core-go v0.1.3-0.20200420172101-c406dfdf4db2 h1:a71TwYN8gqN0e0V22xFJEa5eikvb8wbOjtmb2//Qt/M=
-github.com/trustbloc/sidetree-core-go v0.1.3-0.20200420172101-c406dfdf4db2/go.mod h1:4Z1Zrxs/ut+fGmTdliYAc6sVueXb07EFJHKC/5VOvQA=
+github.com/trustbloc/sidetree-core-go v0.1.3-0.20200420215423-0c6a32299a30 h1:bd/u3vgi2ZGYBenKTooTV9FiYMfIkhzCTXt/nAUiDmg=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200420215423-0c6a32299a30/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200419183841-9c5f5178e126 h1:3bTCbTLYMgcjjrO9V4gwVIYnddnWJyj0hhT6Uzic6FI=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200419183841-9c5f5178e126/go.mod h1:LoxCrrOkVTLQjx73BmNEaHHr2wDpiwzXAOisBzKzCdc=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200420174851-e65deaa1f828 h1:jp0hK2uyTOmcWkzlnTzSQ39/pDE7l2RxFMn3Cpc8QEA=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200420174851-e65deaa1f828/go.mod h1:P8uGx1tOeRgG/YWiaWB0zpROF0xYnJuePqse9H7pxtY=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200421193632-76e5d41d8042 h1:8blwu6C6Aqfy42fvnnmChTDpRBzJharyVZmUkjDXFtc=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200421193632-76e5d41d8042/go.mod h1:k1vW8XAR2Gtc5ZTy6b6pczdyT1spDr+N9hXxXSGEM10=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=

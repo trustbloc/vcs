@@ -47,8 +47,8 @@ func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdi
 }
 
 // CreatePresentation creates verifiable presentation from verifiable credential.
-func CreatePresentation(vcBytes []byte, signatureType string, representation verifiable.SignatureRepresentation,
-	vdri vdriapi.Registry) ([]byte, error) {
+func CreatePresentation(vcBytes []byte, signatureType, domain, challenge string,
+	representation verifiable.SignatureRepresentation, vdri vdriapi.Registry) ([]byte, error) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
@@ -67,6 +67,8 @@ func CreatePresentation(vcBytes []byte, signatureType string, representation ver
 		SignatureType:           signatureType,
 		SignatureRepresentation: representation,
 		Suite:                   signatureSuite,
+		Challenge:               challenge,
+		Domain:                  domain,
 	}
 
 	return CreateCustomPresentation(vcBytes, vdri, ldpContext)
@@ -148,6 +150,16 @@ func GetPresentationKey(user string) string {
 // GetOptionsKey key for storing options.
 func GetOptionsKey(user string) string {
 	return user + "-opts"
+}
+
+// GetProofChallengeKey key for storing proof challenge.
+func GetProofChallengeKey(user string) string {
+	return user + "-challenge"
+}
+
+// GetProofDomainKey key for storing proof domain.
+func GetProofDomainKey(user string) string {
+	return user + "-domain"
 }
 
 // CreateCustomPresentation creates verifiable presentation from custom linked data proof context

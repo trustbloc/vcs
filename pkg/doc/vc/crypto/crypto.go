@@ -134,6 +134,8 @@ type signingOpts struct {
 	Representation     string
 	SignatureType      string
 	Created            *time.Time
+	Challenge          string
+	Domain             string
 }
 
 // SigningOpts is signing credential option
@@ -171,6 +173,20 @@ func WithSignatureType(signatureType string) SigningOpts {
 func WithCreated(created *time.Time) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.Created = created
+	}
+}
+
+// WithChallenge proof challenge
+func WithChallenge(challenge string) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.Challenge = challenge
+	}
+}
+
+// WithDomain proof domain
+func WithDomain(domain string) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.Domain = domain
 	}
 }
 
@@ -225,6 +241,8 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		Suite:                   signatureSuite,
 		Purpose:                 signOpts.Purpose,
 		Created:                 signOpts.Created,
+		Challenge:               signOpts.Challenge,
+		Domain:                  signOpts.Domain,
 	}
 
 	err = vc.AddLinkedDataProof(signingCtx)

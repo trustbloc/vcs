@@ -80,6 +80,10 @@ type IssueCredentialOptions struct {
 	ProofPurpose string `json:"proofPurpose,omitempty"`
 	// Created date of the proof. If omitted system time will be used.
 	Created *time.Time `json:"created,omitempty"`
+	// Challenge is added to the proof
+	Challenge string `json:"challenge,omitempty"`
+	// Domain is added to the proof
+	Domain string `json:"domain,omitempty"`
 }
 
 // ComposeCredentialRequest for composing and issuing credential.
