@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -1456,6 +1457,8 @@ func TestIssueCredential(t *testing.T) {
 				AssertionMethod:    "did:local:abc#key-1",
 				VerificationMethod: "did:local:abc#key-1",
 				Created:            &ct,
+				Challenge:          challenge,
+				Domain:             domain,
 			},
 		}
 
@@ -1478,6 +1481,8 @@ func TestIssueCredential(t *testing.T) {
 		require.Equal(t, "did:local:abc#key-1", proof["verificationMethod"])
 		require.Equal(t, "assertionMethod", proof["proofPurpose"])
 		require.Equal(t, createdTime, proof["created"])
+		require.Equal(t, challenge, proof[challenge])
+		require.Equal(t, domain, proof[domain])
 
 		// default - DID from the issuer profile
 		req.Opts.VerificationMethod = ""
@@ -2353,9 +2358,11 @@ func TestCredentialVerifications(t *testing.T) {
 			handler := getHandler(t, ops, endpoint, verifierMode)
 
 			vReq := &CredentialsVerificationRequest{
-				Credential: getSignedVC(t, privKey, string(vcBytes), verificationMethod),
+				Credential: getSignedVC(t, privKey, string(vcBytes), verificationMethod, domain, challenge),
 				Opts: &CredentialsVerificationOptions{
-					Checks: []string{proofCheck, statusCheck},
+					Checks:    []string{proofCheck, statusCheck},
+					Challenge: challenge,
+					Domain:    domain,
 				},
 			}
 
@@ -2553,6 +2560,63 @@ func TestCredentialVerifications(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, rr.Code)
 			require.Contains(t, rr.Body.String(), "Invalid request")
 		})
+
+		t.Run("credential verification - invalid challenge and domain", func(t *testing.T) {
+			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+			require.NoError(t, err)
+
+			didID := "did:test:xyz"
+
+			didDoc := createDIDDoc(didID, pubKey)
+			verificationMethod := didDoc.PublicKey[0].ID
+
+			op, err := New(&Config{
+				StoreProvider: memstore.NewProvider(),
+				KMS:           &kmsmock.CloseableKMS{},
+				VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			})
+			require.NoError(t, err)
+
+			op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+			// verify credential
+			handler := getHandler(t, op, endpoint, verifierMode)
+
+			vReq := &CredentialsVerificationRequest{
+				Credential: getSignedVC(t, privKey, validVC, verificationMethod, domain,
+					"invalid-challenge"),
+				Opts: &CredentialsVerificationOptions{
+					Checks:    []string{proofCheck, statusCheck},
+					Challenge: challenge,
+					Domain:    domain,
+				},
+			}
+
+			vReqBytes, err := json.Marshal(vReq)
+			require.NoError(t, err)
+
+			rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
+
+			vReq = &CredentialsVerificationRequest{
+				Credential: getSignedVC(t, privKey, validVC, verificationMethod, "invalid-domain", challenge),
+				Opts: &CredentialsVerificationOptions{
+					Checks:    []string{proofCheck},
+					Domain:    domain,
+					Challenge: challenge,
+				},
+			}
+
+			vReqBytes, err = json.Marshal(vReq)
+			require.NoError(t, err)
+
+			rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "invalid domain in the proof")
+		})
 	}
 }
 
@@ -2589,9 +2653,11 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint, verifierMode)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, validVC, verificationMethod),
+			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
-				Checks: []string{proofCheck},
+				Checks:    []string{proofCheck},
+				Challenge: challenge,
+				Domain:    domain,
 			},
 		}
 
@@ -2707,6 +2773,92 @@ func TestVerifyPresentation(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
 	})
+
+	t.Run("presentation verification - invalid challenge and domain", func(t *testing.T) {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		didID := "did:test:xyz"
+
+		didDoc := createDIDDoc(didID, pubKey)
+		verificationMethod := didDoc.PublicKey[0].ID
+
+		op, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			KMS:           &kmsmock.CloseableKMS{},
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		// verify credential
+		handler := getHandler(t, op, endpoint, verifierMode)
+
+		vReq := &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, uuid.New().String()),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck},
+				Domain:    domain,
+				Challenge: challenge,
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
+
+		vReq = &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, "invalid-domain", challenge),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck},
+				Domain:    domain,
+				Challenge: challenge,
+			},
+		}
+
+		vReqBytes, err = json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
+	})
+}
+
+func TestValidateProof(t *testing.T) {
+	proof := make(map[string]interface{})
+	key := "challenge"
+	value := uuid.New().String()
+
+	proof[key] = value
+
+	// success
+	err := validateProofData(proof, key, value)
+	require.NoError(t, err)
+
+	// fail - no key
+	delete(proof, key)
+	err = validateProofData(proof, key, value)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof doesn't contain challenge")
+
+	// fail - not a string
+	proof[key] = 234
+	err = validateProofData(proof, key, value)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof challenge type is not a string")
+
+	// fail - invalid
+	proof[key] = "invalid-data"
+	err = validateProofData(proof, key, value)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid challenge in the proof")
 }
 
 func TestGetPublicKeyID(t *testing.T) {
@@ -3090,7 +3242,7 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.doValue, m.doErr
 }
 
-func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod string) []byte {
+func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod, domain, challenge string) []byte {
 	vc, err := verifiable.NewUnverifiedCredential([]byte(vcJSON))
 	require.NoError(t, err)
 
@@ -3106,6 +3258,8 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod string
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      verificationMethod,
+		Domain:                  domain,
+		Challenge:               challenge,
 	})
 	require.NoError(t, err)
 
@@ -3117,8 +3271,8 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod string
 	return signedVC
 }
 
-func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod string) []byte {
-	signedVC := getSignedVC(t, privKey, vcJSON, verificationMethod)
+func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domain, challenge string) []byte {
+	signedVC := getSignedVC(t, privKey, vcJSON, verificationMethod, "", "")
 
 	vc, err := verifiable.NewUnverifiedCredential(signedVC)
 	require.NoError(t, err)
@@ -3138,6 +3292,8 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod string
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &created,
 		VerificationMethod:      verificationMethod,
+		Domain:                  domain,
+		Challenge:               challenge,
 	})
 	require.NoError(t, err)
 

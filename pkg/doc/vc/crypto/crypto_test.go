@@ -94,6 +94,8 @@ func TestCrypto_SignCredential(t *testing.T) {
 			signingOpts       []SigningOpts
 			responsePurpose   string
 			responseVerMethod string
+			responseDomain    string
+			responseChallenge string
 			responseTime      *time.Time
 			profile           *vcprofile.DataProfile
 			err               string
@@ -109,6 +111,20 @@ func TestCrypto_SignCredential(t *testing.T) {
 				signingOpts:       []SigningOpts{WithVerificationMethod("did:sample:xyz#key999")},
 				responsePurpose:   "assertionMethod",
 				responseVerMethod: "did:sample:xyz#key999",
+			},
+			{
+				name:              "signing with domain option",
+				signingOpts:       []SigningOpts{WithDomain("example.com")},
+				responsePurpose:   "assertionMethod",
+				responseVerMethod: "did:test:abc#key1",
+				responseDomain:    "example.com",
+			},
+			{
+				name:              "signing with domain option",
+				signingOpts:       []SigningOpts{WithChallenge("challenge")},
+				responsePurpose:   "assertionMethod",
+				responseVerMethod: "did:test:abc#key1",
+				responseChallenge: "challenge",
 			},
 			{
 				name:        "signing with verification method option with profile DID",
@@ -211,6 +227,14 @@ func TestCrypto_SignCredential(t *testing.T) {
 				require.Equal(t, tc.responsePurpose, signedVC.Proofs[0]["proofPurpose"])
 				require.Equal(t, tc.responseVerMethod, signedVC.Proofs[0]["verificationMethod"])
 				require.NotEmpty(t, signedVC.Proofs[0]["created"])
+
+				if signedVC.Proofs[0]["challenge"] != nil {
+					require.Equal(t, tc.responseChallenge, signedVC.Proofs[0]["challenge"].(string))
+				}
+
+				if signedVC.Proofs[0]["domain"] != nil {
+					require.Equal(t, tc.responseDomain, signedVC.Proofs[0]["domain"].(string))
+				}
 
 				created, err := time.Parse(time.RFC3339, signedVC.Proofs[0]["created"].(string))
 				require.NoError(t, err)

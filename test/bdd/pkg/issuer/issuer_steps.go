@@ -73,6 +73,8 @@ const (
           "proofPurpose": "authentication"
 	   }
 	}`
+
+	domain = "example.com"
 )
 
 // Steps is steps for VC BDD tests
@@ -216,7 +218,8 @@ func (e *Steps) createSidetreeDID(base58PubKey string) (*docdid.Doc, error) {
 	return e.sendCreateRequest(req)
 }
 
-func (e *Steps) verifyCredential(signedVCByte []byte, verifyfProof func(proof map[string]interface{}) error) error {
+func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge string,
+	verifyfProof func(proof map[string]interface{}) error) error {
 	signedVCResp := make(map[string]interface{})
 
 	err := json.Unmarshal(signedVCByte, &signedVCResp)
@@ -237,6 +240,16 @@ func (e *Steps) verifyCredential(signedVCByte []byte, verifyfProof func(proof ma
 		return errors.New("proof jws value is empty")
 	}
 
+	if challenge != "" && challenge != proof["challenge"].(string) {
+		return fmt.Errorf("proof challenge doesn't match ; expected=%s actual=%s", challenge,
+			proof["challenge"].(string))
+	}
+
+	if domain != "" && domain != proof["domain"].(string) {
+		return fmt.Errorf("proof domain doesn't match ; expected=%s actual=%s", domain,
+			proof["domain"].(string))
+	}
+
 	if verifyfProof != nil {
 		return verifyfProof(proof)
 	}
@@ -244,14 +257,18 @@ func (e *Steps) verifyCredential(signedVCByte []byte, verifyfProof func(proof ma
 	return nil
 }
 
-func (e *Steps) issueCredential(user, did, cred string) ([]byte, error) {
+func (e *Steps) issueCredential(user, did, cred, domain, challenge string) ([]byte, error) {
 	if _, err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
 		return nil, err
 	}
 
 	req := &operation.IssueCredentialRequest{
 		Credential: e.bddContext.TestData[cred],
-		Opts:       &operation.IssueCredentialOptions{AssertionMethod: did + "#" + pubKeyIndex1},
+		Opts: &operation.IssueCredentialOptions{
+			AssertionMethod: did + "#" + pubKeyIndex1,
+			Challenge:       challenge,
+			Domain:          domain,
+		},
 	}
 
 	reqBytes, err := json.Marshal(req)
@@ -285,12 +302,14 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 	did := e.bddContext.Args[bddutil.GetDIDKey(user)]
 	log.Infof("DID for signing %s", did)
 
-	signedVCByte, err := e.issueCredential(user, did, "university_certificate.json")
+	challenge := uuid.New().String()
+
+	signedVCByte, err := e.issueCredential(user, did, "university_certificate.json", domain, challenge)
 	if err != nil {
 		return err
 	}
 
-	return e.verifyCredential(signedVCByte, nil)
+	return e.verifyCredential(signedVCByte, domain, challenge, nil)
 }
 
 func (e *Steps) composeIssueAndVerifyCredential(user string) error {
@@ -332,7 +351,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 		return fmt.Errorf("unexpected 'proofPurpose' found in proof")
 	}
 
-	return e.verifyCredential(responseBytes, verifyProof)
+	return e.verifyCredential(responseBytes, "", "", verifyProof)
 }
 
 func (e *Steps) createCredential(user, cred string) ([]byte, error) {
@@ -344,14 +363,20 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 		return nil, err
 	}
 
-	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)], cred)
+	challenge := uuid.New().String()
+
+	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)], cred,
+		domain, challenge)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := e.verifyCredential(signedVCByte, nil); err != nil {
+	if err := e.verifyCredential(signedVCByte, domain, challenge, nil); err != nil {
 		return nil, err
 	}
+
+	e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = challenge
+	e.bddContext.Args[bddutil.GetProofDomainKey(user)] = domain
 
 	return signedVCByte, nil
 }
@@ -397,6 +422,8 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 		}
 
 		e.bddContext.Args[user] = string(vpBytes)
+		e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = ""
+		e.bddContext.Args[bddutil.GetProofDomainKey(user)] = ""
 	case !vcredEmpty:
 		// create verifiable presentation using verifiable credential from example data.
 		vcBytes, ok := e.bddContext.TestData[vcred]
@@ -404,13 +431,17 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
 		}
 
-		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", verifiable.SignatureJWS,
-			e.bddContext.VDRI)
+		challenge := uuid.New().String()
+
+		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", domain, challenge,
+			verifiable.SignatureJWS, e.bddContext.VDRI)
 		if err != nil {
 			return err
 		}
 
 		e.bddContext.Args[user] = string(vpBytes)
+		e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = challenge
+		e.bddContext.Args[bddutil.GetProofDomainKey(user)] = domain
 	default:
 		// create verifiable credential and then verifiable presentation from example data credential.
 		vcBytes, err := e.createCredential(user, cred)
@@ -418,13 +449,17 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 			return err
 		}
 
-		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", verifiable.SignatureJWS,
-			e.bddContext.VDRI)
+		challenge := uuid.New().String()
+
+		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", domain, challenge,
+			verifiable.SignatureJWS, e.bddContext.VDRI)
 		if err != nil {
 			return err
 		}
 
 		e.bddContext.Args[user] = string(vpBytes)
+		e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = challenge
+		e.bddContext.Args[bddutil.GetProofDomainKey(user)] = domain
 
 		return nil
 	}

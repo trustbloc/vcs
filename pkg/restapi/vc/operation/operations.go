@@ -103,6 +103,10 @@ const (
 	serviceEndpoint = "http://example.com"
 
 	vcIDEDVIndexName = "vcID"
+
+	// proof data keys
+	challenge = "challenge"
+	domain    = "domain"
 )
 
 // nolint: gochecknoglobals
@@ -1165,6 +1169,8 @@ func getIssuerSigningOpts(opts *IssueCredentialOptions) []crypto.SigningOpts {
 			crypto.WithVerificationMethod(verificationMethod),
 			crypto.WithPurpose(opts.ProofPurpose),
 			crypto.WithCreated(opts.Created),
+			crypto.WithChallenge(opts.Challenge),
+			crypto.WithDomain(opts.Domain),
 		}
 	}
 
@@ -1202,7 +1208,6 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 //    default: genericError
 //        200: verifyCredentialSuccessResp
 //        400: verifyCredentialFailureResp
-// TODO use request.options (domain, challenge) to mitigate replay attacks  [Issue #238]
 func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := CredentialsVerificationRequest{}
@@ -1233,7 +1238,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	for _, val := range checks {
 		switch val {
 		case proofCheck:
-			err := o.validateCredentialProof(verificationReq.Credential)
+			err := o.validateCredentialProof(verificationReq.Credential, verificationReq.Opts)
 			if err != nil {
 				result = append(result, CredentialsVerificationCheckResult{
 					Check: val,
@@ -1287,7 +1292,6 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: verifyPresentationSuccessResp
 //        400: verifyPresentationFailureResp
-// TODO use request.options (domain, challenge) to mitigate replay attacks [Issue #238]
 func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	verificationReq := VerifyPresentationRequest{}
@@ -1311,7 +1315,7 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 	for _, val := range checks {
 		switch val {
 		case proofCheck:
-			err := o.validatePresentationProof(verificationReq.Presentation)
+			err := o.validatePresentationProof(verificationReq.Presentation, verificationReq.Opts)
 			if err != nil {
 				result = append(result, VerifyPresentationCheckResult{
 					Check: val,
@@ -1339,7 +1343,7 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 	}
 }
 
-func (o *Operation) validateCredentialProof(vcByte []byte) error {
+func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {
 	vc, err := o.parseAndVerifyVC(vcByte)
 
 	if err != nil {
@@ -1350,14 +1354,54 @@ func (o *Operation) validateCredentialProof(vcByte []byte) error {
 		return errors.New("verifiable credential doesn't contains proof")
 	}
 
+	// validate proof challenge and domain
+	if opts != nil {
+		// TODO figure out the process when vc has more than one proof
+		proof := vc.Proofs[0]
+
+		if opts.Challenge != "" {
+			if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
+				return err
+			}
+		}
+
+		if opts.Domain != "" {
+			if err := validateProofData(proof, domain, opts.Domain); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
-func (o *Operation) validatePresentationProof(vpByte []byte) error {
-	err := o.parseAndVerifyVP(vpByte)
+func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresentationOptions) error {
+	vp, err := o.parseAndVerifyVP(vpByte)
 
 	if err != nil {
 		return fmt.Errorf("proof validation error : %w", err)
+	}
+
+	// validate proof challenge and domain
+	if opts != nil {
+		var proof verifiable.Proof
+
+		// TODO figure out the process when vp has more than one proof
+		if len(vp.Proofs) != 0 {
+			proof = vp.Proofs[0]
+		}
+
+		if opts.Challenge != "" {
+			if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
+				return err
+			}
+		}
+
+		if opts.Domain != "" {
+			if err := validateProofData(proof, domain, opts.Domain); err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -1378,7 +1422,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	return vc, nil
 }
 
-func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
+func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
 		verifiable.WithPresPublicKeyFetcher(
@@ -1387,7 +1431,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
 	)
 
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// vp is verified
 
@@ -1395,16 +1439,16 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) error {
 	for _, cred := range vp.Credentials() {
 		vcBytes, err := json.Marshal(cred)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		// verify if the credential in vp is valid
 		_, err = o.parseAndVerifyVC(vcBytes)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return vp, nil
 }
 
 func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
@@ -1663,4 +1707,22 @@ func getDocIDFromURL(docURL string) string {
 	docIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
 
 	return docIDToRetrieve
+}
+
+func validateProofData(proof verifiable.Proof, key, expectedValue string) error {
+	val, ok := proof[key]
+	if !ok {
+		return fmt.Errorf("proof doesn't contain %s", key)
+	}
+
+	actualVal, ok := val.(string)
+	if !ok {
+		return fmt.Errorf("proof %s type is not a string", key)
+	}
+
+	if expectedValue != actualVal {
+		return fmt.Errorf("invalid %s in the proof : expected=%s actual=%s", key, expectedValue, actualVal)
+	}
+
+	return nil
 }

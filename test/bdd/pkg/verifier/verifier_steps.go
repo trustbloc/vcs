@@ -46,19 +46,33 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 
 func (e *Steps) credentialsVerification(user string) error {
 	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
-	return e.verifyCredential(verifierBaseURL+"/credentials", []byte(vc))
+	opts := &operation.CredentialsVerificationOptions{
+		Checks:    []string{"proof"},
+		Challenge: e.bddContext.Args[bddutil.GetProofChallengeKey(user)],
+		Domain:    e.bddContext.Args[bddutil.GetProofDomainKey(user)],
+	}
+
+	return e.verifyCredential(verifierBaseURL+"/credentials", []byte(vc), opts)
 }
 
 func (e *Steps) createAndVerifyPresentation(user string) error {
 	vp := e.bddContext.Args[user]
-	opts := &operation.VerifyPresentationOptions{Checks: []string{"proof"}}
+	opts := &operation.VerifyPresentationOptions{
+		Checks:    []string{"proof"},
+		Challenge: e.bddContext.Args[bddutil.GetProofChallengeKey(user)],
+		Domain:    e.bddContext.Args[bddutil.GetProofDomainKey(user)],
+	}
 
 	return e.verifyPresentation(verifierBaseURL+"/presentations", []byte(vp), opts)
 }
 
 func (e *Steps) verifyCredentialUsingEndpoint(endpoint, user string) error {
 	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
-	return e.verifyCredential(endpoint, []byte(vc))
+	opts := &operation.CredentialsVerificationOptions{
+		Checks: []string{"proof"},
+	}
+
+	return e.verifyCredential(endpoint, []byte(vc), opts)
 }
 
 func (e *Steps) verifyPresentationUsingEndpoint(endpoint, user string) error {
@@ -79,14 +93,10 @@ func (e *Steps) verifyPresentationUsingEndpoint(endpoint, user string) error {
 	return e.verifyPresentation(endpoint, []byte(vp), opts)
 }
 
-func (e *Steps) verifyCredential(endpoint string, vc []byte) error {
-	checks := []string{"proof"}
-
+func (e *Steps) verifyCredential(endpoint string, vc []byte, opts *operation.CredentialsVerificationOptions) error {
 	req := &operation.CredentialsVerificationRequest{
 		Credential: vc,
-		Opts: &operation.CredentialsVerificationOptions{
-			Checks: checks,
-		},
+		Opts:       opts,
 	}
 
 	reqBytes, err := json.Marshal(req)
