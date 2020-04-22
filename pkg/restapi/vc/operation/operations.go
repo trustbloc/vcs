@@ -934,7 +934,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// validate the VC (ignore the proof)
-	credential, err := verifiable.NewUnverifiedCredential(cred.Credential)
+	credential, _, err := verifiable.NewCredential(cred.Credential, verifiable.WithDisabledProofCheck())
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
 
