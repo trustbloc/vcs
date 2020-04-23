@@ -507,7 +507,7 @@ func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
 			TLSClientConfig: e.bddContext.TLSConfig,
 		}}
 
-	resp, err := client.Post(sidetreeURL, "application/json", bytes.NewBuffer(req)) //nolint: bodyclose
+	resp, err := client.Post(sidetreeURL+"/operations", "application/json", bytes.NewBuffer(req)) //nolint: bodyclose
 	if err != nil {
 		return nil, err
 	}

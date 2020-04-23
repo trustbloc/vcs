@@ -1546,7 +1546,7 @@ func (o *Operation) createPublicKeys(pr *ProfileRequest) ([]*didclient.PublicKey
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey1, Type: didclient.Ed25519VerificationKey2018,
 		Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
-		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
+		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral}})
 
 	// Add JWSVerificationKey2020 Ed25519KeyType
 	_, base58PubKey, err = o.kms.CreateKeySet()
@@ -1556,7 +1556,7 @@ func (o *Operation) createPublicKeys(pr *ProfileRequest) ([]*didclient.PublicKey
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: pubKey2, Type: didclient.JWSVerificationKey2020,
 		Value: base58.Decode(base58PubKey), Encoding: didclient.PublicKeyEncodingJwk,
-		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral}})
+		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
 
 	// Add JWSVerificationKey2020  ECKeyType
 	encodedPrivateKey, pubKeyBytes, err := createP256Key()
