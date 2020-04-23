@@ -26,15 +26,15 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/mac"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
@@ -42,6 +42,7 @@ import (
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
+	"github.com/trustbloc/edge-service/internal/cryptosetup"
 	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -51,8 +52,9 @@ import (
 
 const (
 	credentialStoreName = "credential"
-	credentialStatus    = "/status"
-	profileIDPathParam  = "profileID"
+
+	credentialStatus   = "/status"
+	profileIDPathParam = "profileID"
 
 	// endpoints
 	updateCredentialStatusEndpoint    = "/updateStatus"
@@ -101,8 +103,6 @@ const (
 	serviceID       = "example"
 	serviceType     = "example"
 	serviceEndpoint = "http://example.com"
-
-	vcIDEDVIndexName = "vcID"
 
 	// proof data keys
 	challenge = "challenge"
@@ -154,57 +154,39 @@ type uniRegistrarClient interface {
 	CreateDID(driverURL string, opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error)
 }
 
-type kmsProvider struct {
-	kms legacykms.KeyManager
-}
-
-func (p kmsProvider) LegacyKMS() legacykms.KeyManager {
-	return p.kms
-}
-
 // New returns CreateCredential instance
 func New(config *Config) (*Operation, error) {
-	err := config.StoreProvider.CreateStore(credentialStoreName)
-	if err != nil {
-		if err != storage.ErrDuplicateStore {
-			return nil, err
-		}
-	}
-
-	store, err := config.StoreProvider.OpenStore(credentialStoreName)
+	credentialStore, err := prepareCredentialStore(config)
 	if err != nil {
 		return nil, err
 	}
 
-	c := crypto.New(config.KMS, verifiable.NewDIDKeyResolver(config.VDRI))
+	c := crypto.New(config.LegacyKMS, verifiable.NewDIDKeyResolver(config.VDRI))
 
 	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
-	kmsProv := kmsProvider{kms: config.KMS}
-
-	packer := authcrypt.New(kmsProv)
-
-	_, senderKey, err := config.KMS.CreateKeySet()
+	signingKey, packer, err := cryptosetup.PrepareJWECrypto(config.LegacyKMS, config.StoreProvider)
 	if err != nil {
 		return nil, err
 	}
 
-	tinkCrypto, kh, vcIDIndexNameMACEncoded, err := createMACCrypto()
+	tinkCrypto, kh, vcIDIndexNameMACEncoded, err :=
+		cryptosetup.PrepareMACCrypto(config.KeyManager, config.StoreProvider)
 	if err != nil {
 		return nil, err
 	}
 
 	svc := &Operation{
-		profileStore:         vcprofile.New(store),
+		profileStore:         vcprofile.New(credentialStore),
 		edvClient:            config.EDVClient,
-		kms:                  config.KMS,
+		kms:                  config.LegacyKMS,
 		vdri:                 config.VDRI,
 		crypto:               c,
 		packer:               packer,
-		senderKey:            senderKey,
+		signingKey:           signingKey,
 		vcStatusManager:      vcStatusManager,
 		didBlocClient:        didclient.New(didclient.WithTLSConfig(config.TLSConfig)),
 		domain:               config.Domain,
@@ -219,38 +201,29 @@ func New(config *Config) (*Operation, error) {
 	return svc, nil
 }
 
-func createMACCrypto() (ariescrypto.Crypto, *keyset.Handle, string, error) {
-	// TODO: Store HMAC-SHA256 key in persistent store.
-	// If the edge-service instance is shut down, then any previously stored VCs will become unretrievable.
-	// https://github.com/trustbloc/edge-service/issues/237
-	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+func prepareCredentialStore(config *Config) (storage.Store, error) {
+	err := config.StoreProvider.CreateStore(credentialStoreName)
 	if err != nil {
-		return nil, nil, "", err
+		if err != storage.ErrDuplicateStore {
+			return nil, err
+		}
 	}
 
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	vcIDIndexNameMAC, err := tinkCrypto.ComputeMAC([]byte(vcIDEDVIndexName), kh)
-	if err != nil {
-		return nil, nil, "", err
-	}
-
-	return tinkCrypto, kh, base64.URLEncoding.EncodeToString(vcIDIndexNameMAC), nil
+	return config.StoreProvider.OpenStore(credentialStoreName)
 }
 
 // Config defines configuration for vcs operations
 type Config struct {
-	StoreProvider storage.Provider
-	EDVClient     EDVClient
-	KMS           legacykms.KMS
-	VDRI          vdriapi.Registry
-	HostURL       string
-	Domain        string
-	Mode          string
-	TLSConfig     *tls.Config
+	StoreProvider      storage.Provider
+	KMSSecretsProvider ariesstorage.Provider
+	EDVClient          EDVClient
+	LegacyKMS          legacykms.KMS
+	KeyManager         kms.KeyManager
+	VDRI               vdriapi.Registry
+	HostURL            string
+	Domain             string
+	Mode               string
+	TLSConfig          *tls.Config
 }
 
 // Operation defines handlers for Edge service
@@ -261,7 +234,7 @@ type Operation struct {
 	vdri                 vdriapi.Registry
 	crypto               *crypto.Crypto
 	packer               *authcrypt.Packer
-	senderKey            string
+	signingKey           string
 	vcStatusManager      vcStatusManager
 	didBlocClient        didBlocClient
 	domain               string
@@ -521,7 +494,7 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 
 	profileResponseJSON, err := o.profileStore.GetProfile(profileID)
 	if err != nil {
-		if err == errProfileNotFound {
+		if errors.Is(err, errProfileNotFound) {
 			o.writeErrorResponse(rw, http.StatusNotFound, "Failed to find the profile")
 
 			return
@@ -632,7 +605,7 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 
 	// We have no recipients, so we pass in the sender key as the recipient key as well
 	encryptedStructuredDoc, err := o.packer.Pack(marshalledStructuredDoc,
-		base58.Decode(o.senderKey), [][]byte{base58.Decode(o.senderKey)})
+		base58.Decode(o.signingKey), [][]byte{base58.Decode(o.signingKey)})
 	if err != nil {
 		return models.EncryptedDocument{}, err
 	}

@@ -13,6 +13,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/trustbloc/edge-service/internal/cryptosetup"
+
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
+
 	"github.com/gorilla/mux"
 	ariesapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -75,11 +81,9 @@ const (
 	databaseTypeFlagName      = "database-type"
 	databaseTypeEnvKey        = "DATABASE_TYPE"
 	databaseTypeFlagShorthand = "t"
-	databaseTypeFlagUsage     = "The type of database to use internally in the vc rest. Supported options: mem, couchdb." +
-		" Alternatively, this can be set with the following environment variable: " + databaseTypeEnvKey
-
-	databaseTypeMemOption     = "mem"
-	databaseTypeCouchDBOption = "couchdb"
+	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
+		"Supported options: mem, couchdb. Alternatively, this can be set with the following environment variable: " +
+		databaseTypeEnvKey
 
 	databaseURLFlagName      = "database-url"
 	databaseURLEnvKey        = "DATABASE_URL"
@@ -87,6 +91,34 @@ const (
 	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
 		" For CouchDB, include the username:password@ text if required." +
 		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
+
+	databasePrefixFlagName  = "database-prefix"
+	databasePrefixEnvKey    = "DATABASE_PREFIX"
+	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases." +
+		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
+
+	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
+	kmsSecretsDatabaseTypeFlagName      = "kms-secrets-database-type" //nolint: gosec
+	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
+	kmsSecretsDatabaseTypeFlagShorthand = "k"
+	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
+		"Supported options: mem, couchdb. Alternatively, this can be set with the " +
+		"following environment variable: " + kmsSecretsDatabaseTypeEnvKey
+
+	kmsSecretsDatabaseURLFlagName      = "kms-secrets-database-url" //nolint: gosec
+	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
+	kmsSecretsDatabaseURLFlagShorthand = "s"
+	kmsSecretsDatabaseURLFlagUsage     = "The URL of the database. Not needed if using memstore. For CouchDB, " +
+		"include the username:password@ text if required. It's recommended to not use the same database as the one " +
+		"set in the " + databaseURLFlagName + " flag (or the " + databaseURLEnvKey + " env var) since having access " +
+		"to the KMS secrets may allow the host of the provider to decrypt EDV encrypted documents. " +
+		"Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
+
+	kmsSecretsDatabasePrefixFlagName  = "kms-secrets-database-prefix" //nolint: gosec
+	kmsSecretsDatabasePrefixEnvKey    = "KMSSECRETS_DATABASE_PREFIX"  //nolint: gosec
+	kmsSecretsDatabasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving " +
+		"the underlying KMS secrets database. Alternatively, this can be set with the following environment variable: " +
+		kmsSecretsDatabasePrefixEnvKey
 
 	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
 	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
@@ -99,16 +131,16 @@ const (
 		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
 	tlsCACertsEnvKey = "VC_REST_TLS_CACERTS"
 
-	databasePrefixFlagName  = "database-prefix"
-	databasePrefixEnvKey    = "DATABASE_PREFIX"
-	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases." +
-		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
+	databaseTypeMemOption     = "mem"
+	databaseTypeCouchDBOption = "couchdb"
 
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
 	didMethodWeb     = "web"
 	didMethodKey     = "key"
+
+	masterKeyURI = "local-lock://custom/master/key/"
 )
 
 // mode in which to run the vc-rest service
@@ -127,11 +159,18 @@ type vcRestParameters struct {
 	hostURLExternal      string
 	universalResolverURL string
 	mode                 string
-	databaseType         string
-	databaseURL          string
+	dbParameters         *dbParameters
 	tlsSystemCertPool    bool
 	tlsCACerts           []string
-	databasePrefix       string
+}
+
+type dbParameters struct {
+	databaseType             string
+	databaseURL              string
+	databasePrefix           string
+	kmsSecretsDatabaseType   string
+	kmsSecretsDatabaseURL    string
+	kmsSecretsDatabasePrefix string
 }
 
 type server interface {
@@ -209,7 +248,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	databaseType, databaseURL, databasePrefix, err := getDBConfig(cmd)
+	dbParams, err := getDBParameters(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -221,34 +260,57 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		hostURLExternal:      hostURLExternal,
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
-		databaseType:         databaseType,
-		databaseURL:          databaseURL,
+		dbParameters:         dbParams,
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
-		databasePrefix:       databasePrefix,
 	}, nil
 }
 
-func getDBConfig(cmd *cobra.Command) (string, string, string, error) {
+func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
 	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName,
 		databaseTypeEnvKey, false)
 	if err != nil {
-		return "", "", "", err
+		return &dbParameters{}, err
 	}
 
 	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName,
 		databaseURLEnvKey, true)
 	if err != nil {
-		return "", "", "", err
+		return &dbParameters{}, err
 	}
 
 	databasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, databasePrefixFlagName,
 		databasePrefixEnvKey, true)
 	if err != nil {
-		return "", "", "", err
+		return &dbParameters{}, err
 	}
 
-	return databaseType, databaseURL, databasePrefix, nil
+	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
+		kmsSecretsDatabaseTypeEnvKey, false)
+	if err != nil {
+		return &dbParameters{}, err
+	}
+
+	keyDatabaseURL, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseURLFlagName,
+		kmsSecretsDatabaseURLEnvKey, true)
+	if err != nil {
+		return &dbParameters{}, err
+	}
+
+	keyDatabasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabasePrefixFlagName,
+		kmsSecretsDatabasePrefixEnvKey, true)
+	if err != nil {
+		return &dbParameters{}, err
+	}
+
+	return &dbParameters{
+		databaseType:             databaseType,
+		databaseURL:              databaseURL,
+		databasePrefix:           databasePrefix,
+		kmsSecretsDatabaseType:   keyDatabaseType,
+		kmsSecretsDatabaseURL:    keyDatabaseURL,
+		kmsSecretsDatabasePrefix: keyDatabasePrefix,
+	}, nil
 }
 
 func getTLS(cmd *cobra.Command) (bool, []string, error) {
@@ -285,10 +347,15 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
+	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
+	startCmd.Flags().StringP(kmsSecretsDatabaseTypeFlagName, kmsSecretsDatabaseTypeFlagShorthand, "",
+		kmsSecretsDatabaseTypeFlagUsage)
+	startCmd.Flags().StringP(kmsSecretsDatabaseURLFlagName, kmsSecretsDatabaseURLFlagShorthand, "",
+		kmsSecretsDatabaseURLFlagUsage)
+	startCmd.Flags().StringP(kmsSecretsDatabasePrefixFlagName, "", "", kmsSecretsDatabasePrefixFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "",
 		tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
-	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 }
 
 func startEdgeService(parameters *vcRestParameters, srv server) error {
@@ -307,19 +374,18 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	tlsConfig := &tls.Config{RootCAs: rootCAs}
 
-	storeProvider, ariesStoreProvider, err := createStoreProvider(parameters)
+	edgeServiceProvs, err := createStoreProviders(parameters)
 	if err != nil {
 		return err
 	}
 
-	// Create KMS
-	kms, err := createKMS(ariesStoreProvider)
+	legacyKMS, localKMS, err := createKMS(edgeServiceProvs)
 	if err != nil {
 		return err
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.universalResolverURL, kms, tlsConfig)
+	vdri, err := createVDRI(parameters.universalResolverURL, legacyKMS, tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -329,9 +395,12 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		externalHostURL = parameters.hostURLExternal
 	}
 
-	vcService, err := vc.New(&operation.Config{StoreProvider: storeProvider,
-		EDVClient: edv.New(parameters.edvURL, edv.WithTLSConfig(tlsConfig)),
-		KMS:       kms, VDRI: vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
+	vcService, err := vc.New(&operation.Config{StoreProvider: edgeServiceProvs.provider,
+		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
+		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(tlsConfig)),
+		LegacyKMS:          legacyKMS,
+		KeyManager:         localKMS,
+		VDRI:               vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
 		TLSConfig: tlsConfig})
 	if err != nil {
 		return err
@@ -349,18 +418,17 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
 }
 
-func createKMS(s ariesstorage.Provider) (ariesapi.CloseableKMS, error) {
-	kmsProvider, err := context.New(context.WithStorageProvider(s))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kms provider: %w", err)
-	}
+type kmsProvider struct {
+	storageProvider   ariesstorage.Provider
+	secretLockService secretlock.Service
+}
 
-	kms, err := legacykms.New(kmsProvider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kms: %w", err)
-	}
+func (k kmsProvider) StorageProvider() ariesstorage.Provider {
+	return k.storageProvider
+}
 
-	return kms, nil
+func (k kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLockService
 }
 
 func createVDRI(universalResolver string, kms legacykms.KMS, tlsConfig *tls.Config) (vdriapi.Registry, error) {
@@ -408,36 +476,108 @@ func acceptsDID(method string) bool {
 		method == didMethodWeb || method == didMethodKey
 }
 
-func createStoreProvider(parameters *vcRestParameters) (storage.Provider, ariesstorage.Provider, error) {
-	var provider storage.Provider
+type edgeServiceProviders struct {
+	provider           storage.Provider
+	kmsSecretsProvider ariesstorage.Provider
+}
 
-	var ariesProvider ariesstorage.Provider
+func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, error) {
+	var edgeServiceProvs edgeServiceProviders
+
+	checkForSameDBParams(parameters.dbParameters)
 
 	switch {
-	case strings.EqualFold(parameters.databaseType, databaseTypeMemOption):
-		provider = memstore.NewProvider()
-		ariesProvider = ariesmemstorage.NewProvider()
-	case strings.EqualFold(parameters.databaseType, databaseTypeCouchDBOption):
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
+		edgeServiceProvs.provider = memstore.NewProvider()
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
 		var err error
-		provider, err = couchdbstore.NewProvider(parameters.databaseURL,
-			couchdbstore.WithDBPrefix(parameters.databasePrefix))
 
+		edgeServiceProvs.provider, err =
+			couchdbstore.NewProvider(parameters.dbParameters.databaseURL,
+				couchdbstore.WithDBPrefix(parameters.dbParameters.databasePrefix))
 		if err != nil {
-			return nil, nil, err
+			return &edgeServiceProviders{}, err
 		}
-
-		ariesProvider, err = ariescouchdbstorage.NewProvider(parameters.databaseURL,
-			ariescouchdbstorage.WithDBPrefix(parameters.databasePrefix))
-		if err != nil {
-			return nil, nil, err
-		}
-
 	default:
-		return nil, nil, fmt.Errorf("database type not set to a valid type." +
+		return &edgeServiceProviders{}, fmt.Errorf("database type not set to a valid type." +
 			" run start --help to see the available options")
 	}
 
-	return provider, ariesProvider, nil
+	switch {
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
+		edgeServiceProvs.kmsSecretsProvider = ariesmemstorage.NewProvider()
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
+		var err error
+
+		edgeServiceProvs.kmsSecretsProvider, err =
+			ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+				ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+		if err != nil {
+			return &edgeServiceProviders{}, err
+		}
+
+	default:
+		return &edgeServiceProviders{}, fmt.Errorf("key database type not set to a valid type." +
+			" run start --help to see the available options")
+	}
+
+	return &edgeServiceProvs, nil
+}
+
+func checkForSameDBParams(dbParams *dbParameters) {
+	if strings.EqualFold(dbParams.databaseType, dbParams.kmsSecretsDatabaseType) &&
+		strings.EqualFold(dbParams.databaseURL, dbParams.kmsSecretsDatabaseURL) {
+		log.Warnln("Database and KMS secrets database both set to the same provider. It's recommended to use a " +
+			"separate provider for storage of KMS secrets to ensure that the provider hosting the EDVs " +
+			"cannot read the stored encrypted documents.")
+	}
+}
+
+func createKMS(edgeServiceProvs *edgeServiceProviders) (ariesapi.CloseableKMS, *localkms.LocalKMS, error) {
+	legacyKMS, err := createLegacyKMS(edgeServiceProvs.kmsSecretsProvider)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	localKMS, err := createLocalKMS(edgeServiceProvs.kmsSecretsProvider)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return legacyKMS, localKMS, nil
+}
+
+func createLegacyKMS(s ariesstorage.Provider) (ariesapi.CloseableKMS, error) {
+	kmsProvider, err := context.New(context.WithStorageProvider(s))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kms provider: %w", err)
+	}
+
+	kms, err := legacykms.New(kmsProvider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kms: %w", err)
+	}
+
+	return kms, nil
+}
+
+func createLocalKMS(kmsSecretsStoreProvider ariesstorage.Provider) (*localkms.LocalKMS, error) {
+	masterKeyReader, err := cryptosetup.PrepareMasterKeyReader(kmsSecretsStoreProvider)
+	if err != nil {
+		return nil, err
+	}
+
+	secretLockService, err := local.NewService(masterKeyReader, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	kmsProv := kmsProvider{
+		storageProvider:   kmsSecretsStoreProvider,
+		secretLockService: secretLockService,
+	}
+
+	return localkms.New(masterKeyURI, kmsProv)
 }
 
 func constructCORSHandler(handler http.Handler) http.Handler {
