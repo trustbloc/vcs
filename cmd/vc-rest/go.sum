@@ -114,6 +114,7 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200414232534-822f96340163/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200422184723-a297d2a1d3c3 h1:uNTSj7nZrn6wjWk5D85Y8i0o5FNjajpMGmFyS1g1N90=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200422184723-a297d2a1d3c3/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200424133213-f121c4e6d938/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
@@ -236,6 +237,9 @@ github.com/trustbloc/trustbloc-did-method v0.0.0-20200421193632-76e5d41d8042/go.
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200423160816-e1c6f8905a9b h1:iupC5nayaCUxmKfdlae5TGQrKwbF/r9ZzdJsO8zyv3A=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200423160816-e1c6f8905a9b/go.mod h1:k1vW8XAR2Gtc5ZTy6b6pczdyT1spDr+N9hXxXSGEM10=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200423230917-544479e2c2ed/go.mod h1:Cit0kq2NGmsfutGCVmjsKEyLrpGAKqQA4usD3HR/51w=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200424154728-5c8244a83251/go.mod h1:yX7gUi8SrTmF3fSL89P6D8Qsl+Jf97oOF5MIoQwXBPo=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200424170110-e6e33aac0a7f/go.mod h1:MR8N2JqpsON9IASC8E90oHARJR3FeO6cN/HS3gRswCU=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200424180947-6f28d41ca353/go.mod h1:MR8N2JqpsON9IASC8E90oHARJR3FeO6cN/HS3gRswCU=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=

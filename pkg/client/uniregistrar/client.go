@@ -47,7 +47,8 @@ func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, [
 	jobID := uuid.New().String()
 
 	reqBytes, err := json.Marshal(didmethodoperation.RegisterDIDRequest{JobID: jobID,
-		AddPublicKeys: createDIDOpts.publicKeys, Options: createDIDOpts.options, AddServices: createDIDOpts.services})
+		DIDDocument: didmethodoperation.DIDDocument{PublicKey: createDIDOpts.publicKeys,
+			Service: createDIDOpts.services}, Options: createDIDOpts.options})
 	if err != nil {
 		return "", nil, err
 	}

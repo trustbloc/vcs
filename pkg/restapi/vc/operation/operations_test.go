@@ -631,7 +631,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		require.NoError(t, err)
 
 		op.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did1", CreateDIDKeys: []didmethodoperation.Key{{
-			PublicKeyDIDURL: "did1#key-1"}, {PublicKeyDIDURL: "did1#key2"}}}
+			ID: "did1#key-1"}, {ID: "did1#key2"}}}
 
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
 

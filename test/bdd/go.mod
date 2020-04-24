@@ -19,5 +19,5 @@ require (
 	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/sidetree-core-go v0.1.3-0.20200423155702-e30c85103a26
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200423230917-544479e2c2ed
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200424180947-6f28d41ca353
 )
