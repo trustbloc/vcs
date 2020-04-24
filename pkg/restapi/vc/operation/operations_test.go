@@ -2895,6 +2895,36 @@ func TestCredentialVerifications(t *testing.T) {
 
 			require.Equal(t, http.StatusBadRequest, rr.Code)
 			require.Contains(t, rr.Body.String(), "invalid domain in the proof")
+
+			// fail when proof has challenge and no challenge in the options
+			vReq = &CredentialsVerificationRequest{
+				Credential: getSignedVC(t, privKey, validVC, verificationMethod, domain, challenge),
+			}
+
+			vReqBytes, err = json.Marshal(vReq)
+			require.NoError(t, err)
+
+			rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
+
+			// fail when proof has domain and no domain in the options
+			vReq = &CredentialsVerificationRequest{
+				Credential: getSignedVC(t, privKey, validVC, verificationMethod, domain, challenge),
+				Opts: &CredentialsVerificationOptions{
+					Checks:    []string{proofCheck},
+					Challenge: challenge,
+				},
+			}
+
+			vReqBytes, err = json.Marshal(vReq)
+			require.NoError(t, err)
+
+			rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "invalid domain in the proof")
 		})
 	}
 }
@@ -3119,6 +3149,36 @@ func TestVerifyPresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
+
+		// fail when proof has challenge and no challenge in the options
+		vReq = &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, challenge),
+		}
+
+		vReqBytes, err = json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
+
+		// fail when proof has domain and no domain in the options
+		vReq = &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, challenge),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck},
+				Challenge: challenge,
+			},
+		}
+
+		vReqBytes, err = json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
 	})
 }
 
@@ -3133,17 +3193,11 @@ func TestValidateProof(t *testing.T) {
 	err := validateProofData(proof, key, value)
 	require.NoError(t, err)
 
-	// fail - no key
-	delete(proof, key)
-	err = validateProofData(proof, key, value)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "proof doesn't contain challenge")
-
 	// fail - not a string
 	proof[key] = 234
 	err = validateProofData(proof, key, value)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "proof challenge type is not a string")
+	require.Contains(t, err.Error(), "invalid challenge in the proof")
 
 	// fail - invalid
 	proof[key] = "invalid-data"
@@ -3703,7 +3757,7 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod, domai
 	return signedVC
 }
 
-func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domain, challenge string) []byte {
+func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domain, challenge string) []byte { // nolint
 	signedVC := getSignedVC(t, privKey, vcJSON, verificationMethod, "", "")
 
 	vc, err := verifiable.NewUnverifiedCredential(signedVC)
