@@ -12,7 +12,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -159,6 +159,21 @@ func TestStartCmdWithBlankEnvVar(t *testing.T) {
 	})
 }
 
+func TestStartCmdCreateKMSFailure(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeCouchDBOption, "--" + kmsSecretsDatabaseURLFlagName,
+		"badURL"}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+	require.NotNil(t, err)
+	require.Contains(t, err.Error(), "failed to create new kms: failed to OpenStore for 'keystore', "+
+		"cause: failed to create db: Put http://badURL/keystore: dial tcp: lookup badURL")
+}
+
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
@@ -175,7 +190,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	setEnvVars(t)
+	setEnvVars(t, databaseTypeMemOption)
 
 	defer unsetEnvVars(t)
 
@@ -210,6 +225,37 @@ func TestCreateProviders(t *testing.T) {
 	})
 }
 
+func TestCreateKMS(t *testing.T) {
+	t.Run("fail to open master key store", func(t *testing.T) {
+		closeableKMS, localKMS, err := createKMS(&edgeServiceProviders{
+			kmsSecretsProvider: &storage.MockStoreProvider{FailNamespace: "masterkey"},
+		})
+
+		require.Nil(t, closeableKMS)
+		require.Nil(t, localKMS)
+		require.EqualError(t, err, "failed to open store for name space masterkey")
+	})
+	t.Run("fail to create master key service", func(t *testing.T) {
+		masterKeyStore := storage.MockStore{
+			Store:     make(map[string][]byte),
+			ErrPut:    nil,
+			ErrGet:    nil,
+			ErrItr:    nil,
+			ErrDelete: nil,
+		}
+
+		err := masterKeyStore.Put("masterkey", []byte(""))
+		require.NoError(t, err)
+
+		closeableKMS, localKMS, err := createKMS(&edgeServiceProviders{
+			kmsSecretsProvider: &storage.MockStoreProvider{Store: &masterKeyStore},
+		})
+		require.EqualError(t, err, "masterKeyReader is empty")
+		require.Nil(t, closeableKMS)
+		require.Nil(t, localKMS)
+	})
+}
+
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
 		v, err := createVDRI("wrong", nil, &tls.Config{})
@@ -232,9 +278,9 @@ func TestCreateVDRI(t *testing.T) {
 	})
 }
 
-func TestCreateKMS(t *testing.T) {
-	t.Run("test error from create new kms", func(t *testing.T) {
-		v, err := createLegacyKMS(&MockStoreProvider{
+func TestCreateLegacyKMS(t *testing.T) {
+	t.Run("test error from create new legacy kms", func(t *testing.T) {
+		v, err := createLegacyKMS(&storage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new kms")
@@ -242,7 +288,7 @@ func TestCreateKMS(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createLegacyKMS(&MockStoreProvider{})
+		v, err := createLegacyKMS(&storage.MockStoreProvider{})
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
@@ -298,7 +344,7 @@ func TestAcceptedDIDs(t *testing.T) {
 func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	setEnvVars(t)
+	setEnvVars(t, databaseTypeMemOption)
 
 	defer unsetEnvVars(t)
 	require.NoError(t, os.Setenv(tlsSystemCertPoolEnvKey, "wrongvalue"))
@@ -308,7 +354,7 @@ func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
-func setEnvVars(t *testing.T) {
+func setEnvVars(t *testing.T, databaseType string) {
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
 	require.NoError(t, err)
 
@@ -318,7 +364,7 @@ func setEnvVars(t *testing.T) {
 	err = os.Setenv(blocDomainEnvKey, "domain")
 	require.NoError(t, err)
 
-	err = os.Setenv(databaseTypeEnvKey, databaseTypeMemOption)
+	err = os.Setenv(databaseTypeEnvKey, databaseType)
 	require.NoError(t, err)
 
 	err = os.Setenv(kmsSecretsDatabaseTypeEnvKey, databaseTypeMemOption)
@@ -353,24 +399,4 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 
 	flagAnnotations := flag.Annotations
 	require.Nil(t, flagAnnotations)
-}
-
-// MockStoreProvider mock store provider.
-type MockStoreProvider struct {
-	ErrOpenStoreHandle error
-}
-
-// OpenStore opens and returns a store for given name space.
-func (s *MockStoreProvider) OpenStore(name string) (storage.Store, error) {
-	return nil, s.ErrOpenStoreHandle
-}
-
-// Close closes all stores created under this store provider
-func (s *MockStoreProvider) Close() error {
-	return nil
-}
-
-// CloseStore closes store for given name space
-func (s *MockStoreProvider) CloseStore(name string) error {
-	return nil
 }
