@@ -122,11 +122,11 @@ func TestClient_CreateDID(t *testing.T) {
 			require.Equal(t, 1, len(req.Options))
 			require.Equal(t, "v1", req.Options["k1"])
 
-			require.Equal(t, 1, len(req.AddPublicKeys))
-			require.Equal(t, "key1", req.AddPublicKeys[0].ID)
+			require.Equal(t, 1, len(req.DIDDocument.PublicKey))
+			require.Equal(t, "key1", req.DIDDocument.PublicKey[0].ID)
 
-			require.Equal(t, 1, len(req.AddServices))
-			require.Equal(t, "service", req.AddServices[0].ID)
+			require.Equal(t, 1, len(req.DIDDocument.Service))
+			require.Equal(t, "service", req.DIDDocument.Service[0].ID)
 
 			w.WriteHeader(http.StatusOK)
 			bytes, err := json.Marshal(didmethodoperation.RegisterResponse{JobID: "",

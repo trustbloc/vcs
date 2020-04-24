@@ -716,10 +716,11 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 	}
 
-	if len(keys) > 1 {
+	// TODO remove check when vendors supporting addKeys feature
+	if strings.Contains(identifier, "did:trustbloc") {
 		for _, v := range keys {
-			if strings.Contains(v.PublicKeyDIDURL, "#"+selectedKeyID) {
-				return identifier, v.PublicKeyDIDURL, didPrivateKey, nil
+			if strings.Contains(v.ID, "#"+selectedKeyID) {
+				return identifier, v.ID, didPrivateKey, nil
 			}
 		}
 
@@ -729,7 +730,7 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 	// vendors not supporting addKeys feature.
 	// return first key public and private
 	// TODO remove when vendors supporting addKeys feature
-	return identifier, keys[0].PublicKeyDIDURL, keys[0].PrivateKeyBase58, nil
+	return identifier, keys[0].ID, keys[0].PrivateKeyBase58, nil
 }
 
 func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error) {
