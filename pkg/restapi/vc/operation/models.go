@@ -105,6 +105,7 @@ type ComposeCredentialRequest struct {
 // GenerateKeyPairResponse contains response from KMS generate keypair API.
 type GenerateKeyPairResponse struct {
 	PublicKey string `json:"publicKey,omitempty"`
+	KeyID     string `json:"keyID,omitempty"`
 }
 
 // CredentialsVerificationRequest request for verifying credential.

@@ -44,7 +44,6 @@ const (
 	sha2_256            = 18
 	recoveryRevealValue = "recoveryOTP"
 	updateRevealValue   = "updateOTP"
-	pubKeyIndex1        = "key-1"
 
 	composeCredReqFormat = `{
 	   "issuer":"did:example:uoweu180928901",
@@ -80,6 +79,7 @@ const (
 // Steps is steps for VC BDD tests
 type Steps struct {
 	bddContext *context.BDDContext
+	keyID      string
 }
 
 type didResolution struct {
@@ -107,12 +107,14 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) createDID(user string) error {
-	publicKey, err := e.generateKeypair()
+	publicKey, keyID, err := e.generateKeypair()
 	if err != nil {
 		return err
 	}
 
-	doc, err := e.createSidetreeDID(publicKey)
+	e.keyID = keyID
+
+	doc, err := e.createSidetreeDID(publicKey, keyID)
 	if err != nil {
 		return err
 	}
@@ -124,31 +126,31 @@ func (e *Steps) createDID(user string) error {
 	return err
 }
 
-func (e *Steps) generateKeypair() (string, error) {
+func (e *Steps) generateKeypair() (string, string, error) {
 	resp, err := http.Get(issuerURL + "/kms/generatekeypair") //nolint: bodyclose
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return "", "", bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	generateKeyPairResponse := operation.GenerateKeyPairResponse{}
 
 	err = json.Unmarshal(respBytes, &generateKeyPairResponse)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return generateKeyPairResponse.PublicKey, nil
+	return generateKeyPairResponse.PublicKey, generateKeyPairResponse.KeyID, nil
 }
 
 func (e *Steps) createIssuerProfile(user, profileName string) error {
@@ -209,8 +211,8 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 	return err
 }
 
-func (e *Steps) createSidetreeDID(base58PubKey string) (*docdid.Doc, error) {
-	req, err := e.buildSideTreeRequest(base58PubKey)
+func (e *Steps) createSidetreeDID(base58PubKey, keyID string) (*docdid.Doc, error) {
+	req, err := e.buildSideTreeRequest(base58PubKey, keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +259,7 @@ func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge string,
 	return nil
 }
 
-func (e *Steps) issueCredential(user, did, cred, domain, challenge string) ([]byte, error) {
+func (e *Steps) issueCredential(user, did, cred, domain, challenge, keyID string) ([]byte, error) {
 	if _, err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
 		return nil, err
 	}
@@ -265,7 +267,7 @@ func (e *Steps) issueCredential(user, did, cred, domain, challenge string) ([]by
 	req := &operation.IssueCredentialRequest{
 		Credential: e.bddContext.TestData[cred],
 		Opts: &operation.IssueCredentialOptions{
-			AssertionMethod: did + "#" + pubKeyIndex1,
+			AssertionMethod: did + "#" + keyID,
 			Challenge:       challenge,
 			Domain:          domain,
 		},
@@ -304,7 +306,7 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 
 	challenge := uuid.New().String()
 
-	signedVCByte, err := e.issueCredential(user, did, "university_certificate.json", domain, challenge)
+	signedVCByte, err := e.issueCredential(user, did, "university_certificate.json", domain, challenge, e.keyID)
 	if err != nil {
 		return err
 	}
@@ -320,7 +322,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 		return err
 	}
 
-	req := fmt.Sprintf(composeCredReqFormat, did+"#"+pubKeyIndex1)
+	req := fmt.Sprintf(composeCredReqFormat, did+"#"+e.keyID)
 
 	endpointURL := fmt.Sprintf(composeAndIssueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
@@ -366,7 +368,7 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 	challenge := uuid.New().String()
 
 	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)], cred,
-		domain, challenge)
+		domain, challenge, e.keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -467,8 +469,8 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 	return nil
 }
 
-func (e *Steps) buildSideTreeRequest(base58PubKey string) ([]byte, error) {
-	d := didclient.Doc{PublicKey: []didclient.PublicKey{{ID: pubKeyIndex1, Type: didclient.JWSVerificationKey2020,
+func (e *Steps) buildSideTreeRequest(base58PubKey, keyID string) ([]byte, error) {
+	d := didclient.Doc{PublicKey: []didclient.PublicKey{{ID: keyID, Type: didclient.JWSVerificationKey2020,
 		Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
 		Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral}, Encoding: didclient.PublicKeyEncodingJwk}}}
 

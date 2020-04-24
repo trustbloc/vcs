@@ -93,9 +93,14 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 	})
 
 	t.Run("invalid mode", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{mode: "invalid"}, nil)
-		require.Error(t, err)
+		startCmd := GetStartCmd(&mockServer{})
 
+		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + modeFlagName, "invalid"}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported mode")
 	})

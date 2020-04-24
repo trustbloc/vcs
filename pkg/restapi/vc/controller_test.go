@@ -10,11 +10,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/mac"
-
-	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-
+	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
@@ -23,16 +19,16 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
+	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 )
 
 func TestIssuerController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-		require.NoError(t, err)
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			Crypto:             &cryptomock.Crypto{},
+			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
 			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
@@ -52,10 +48,10 @@ func TestIssuerController_New(t *testing.T) {
 func TestVerifierController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-		require.NoError(t, err)
+
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			Crypto:             &cryptomock.Crypto{},
+			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
 			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
@@ -84,10 +80,9 @@ func TestControllerInvalidMode_New(t *testing.T) {
 
 func TestIssuerController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-	require.NoError(t, err)
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		Crypto:             &cryptomock.Crypto{},
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
 		LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 
 	require.NoError(t, err)
@@ -100,10 +95,9 @@ func TestIssuerController_GetOperations(t *testing.T) {
 
 func TestVerifierController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
-	require.NoError(t, err)
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		Crypto:             &cryptomock.Crypto{},
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
 		LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 
 	require.NoError(t, err)

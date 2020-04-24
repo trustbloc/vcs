@@ -12,17 +12,19 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 )
@@ -51,18 +53,14 @@ const (
 	P256KeyType = "P256"
 )
 
-type keyResolver interface {
-	PublicKeyFetcher() verifiable.PublicKeyFetcher
-}
-
 type signer interface {
 	// Sign will sign document and return signature
 	Sign(data []byte) ([]byte, error)
 }
 
 type kmsSigner struct {
-	kms   legacykms.KMS
-	keyID string
+	keyHandle interface{}
+	crypto    ariescrypto.Crypto
 }
 
 type privateKeySigner struct {
@@ -70,36 +68,33 @@ type privateKeySigner struct {
 	privateKey []byte
 }
 
-func newKMSSigner(kms legacykms.KMS, kResolver keyResolver, creator string) (*kmsSigner, error) {
+func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
 	// creator will contain didID#keyID
 	idSplit := strings.Split(creator, "#")
 	if len(idSplit) != creatorParts {
 		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
 	}
 
-	k, err := kResolver.PublicKeyFetcher()(idSplit[0], "#"+idSplit[1])
+	b, err := base64.RawURLEncoding.DecodeString(idSplit[1])
 	if err != nil {
 		return nil, err
 	}
 
-	v := k.Value
-
-	if k.JWK != nil {
-		var ok bool
-		v, ok = k.JWK.Public().Key.(ed25519.PublicKey)
-
-		if !ok {
-			return nil, fmt.Errorf("public key not ed25519.PublicKey")
-		}
+	keyHandler, err := keyManager.Get(string(b))
+	if err != nil {
+		return nil, err
 	}
 
-	keyID := base58.Encode(v)
-
-	return &kmsSigner{kms: kms, keyID: keyID}, nil
+	return &kmsSigner{keyHandle: keyHandler, crypto: c}, nil
 }
 
 func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
-	return s.kms.SignMessage(data, s.keyID)
+	v, err := s.crypto.Sign(data, s.keyHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }
 
 func newPrivateKeySigner(keyType string, privateKey []byte) *privateKeySigner {
@@ -123,8 +118,8 @@ func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
 }
 
 // New return new instance of vc crypto
-func New(kms legacykms.KMS, kResolver keyResolver) *Crypto {
-	return &Crypto{kms: kms, kResolver: kResolver}
+func New(keyManager kms.KeyManager, c ariescrypto.Crypto) *Crypto {
+	return &Crypto{keyManager: keyManager, crypto: c}
 }
 
 // signingOpts holds options for the signing credential
@@ -192,8 +187,8 @@ func WithDomain(domain string) SigningOpts {
 
 // Crypto to sign credential
 type Crypto struct {
-	kms       legacykms.KMS
-	kResolver keyResolver
+	keyManager kms.KeyManager
+	crypto     ariescrypto.Crypto
 }
 
 // SignCredential sign vc
@@ -270,11 +265,11 @@ func (c *Crypto) getSigner(dataProfile *vcprofile.DataProfile, opts *signingOpts
 				opts.VerificationMethod, nil
 		}
 
-		s, err := newKMSSigner(c.kms, c.kResolver, opts.VerificationMethod)
+		s, err := newKMSSigner(c.keyManager, c.crypto, opts.VerificationMethod)
 
 		return s, opts.VerificationMethod, err
 	case dataProfile.DIDPrivateKey == "":
-		s, err := newKMSSigner(c.kms, c.kResolver, dataProfile.Creator)
+		s, err := newKMSSigner(c.keyManager, c.crypto, dataProfile.Creator)
 		return s, dataProfile.Creator, err
 	default:
 		return newPrivateKeySigner(dataProfile.DIDKeyType, base58.Decode(dataProfile.DIDPrivateKey)),
