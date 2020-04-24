@@ -14,7 +14,6 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
@@ -71,23 +70,18 @@ func PrepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 
 // PrepareMACCrypto prepares necessary MAC crypto data for edge-service operations
 func PrepareMACCrypto(keyManager kms.KeyManager,
-	storeProvider storage.Provider) (ariescrypto.Crypto, *keyset.Handle, string, error) {
-	tinkCrypto, err := tinkcrypto.New()
-	if err != nil {
-		return nil, nil, "", err
-	}
-
+	storeProvider storage.Provider, crypto ariescrypto.Crypto) (*keyset.Handle, string, error) {
 	keyHandle, err := prepareKeyHandle(storeProvider, keyManager)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
-	vcIDIndexNameMAC, err := tinkCrypto.ComputeMAC([]byte(vcIDEDVIndexName), keyHandle)
+	vcIDIndexNameMAC, err := crypto.ComputeMAC([]byte(vcIDEDVIndexName), keyHandle)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
-	return tinkCrypto, keyHandle, base64.URLEncoding.EncodeToString(vcIDIndexNameMAC), nil
+	return keyHandle, base64.URLEncoding.EncodeToString(vcIDIndexNameMAC), nil
 }
 
 func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager) (*keyset.Handle, error) {

@@ -7,22 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package csl
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
 )
 
 const (
@@ -65,10 +62,7 @@ func TestCredentialStatusList_New(t *testing.T) {
 func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -101,10 +95,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			return nil, fmt.Errorf("get error")
 		},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -121,10 +112,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return fmt.Errorf("put error")
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -144,10 +132,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -167,10 +152,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -185,10 +167,7 @@ func TestCredentialStatusList_GetCSL(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, "localhost:8080/status", 2,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 		csl, err := s.GetCSL("1")
 		require.Error(t, err)
@@ -199,14 +178,8 @@ func TestCredentialStatusList_GetCSL(t *testing.T) {
 
 func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return &verifier.PublicKey{Value: []byte(pubKey)}, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -235,10 +208,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, "localhost:8080/status", 2,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		err = s.UpdateVCStatus(&verifiable.Credential{ID: "http://example.edu/credentials/1872",
@@ -250,10 +220,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 	t.Run("test error from creating new status credential", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kmsmock.CloseableKMS{},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return nil, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -267,14 +234,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	})
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("sign error")},
-				&mockKeyResolver{publicKeyFetcherValue: func(issuerID, keyID string) (*verifier.PublicKey, error) {
-					return &verifier.PublicKey{Value: []byte(pubKey)}, nil
-				}}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -419,14 +380,6 @@ func getTestProfile() *vcprofile.DataProfile {
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
 	}
-}
-
-type mockKeyResolver struct {
-	publicKeyFetcherValue verifiable.PublicKeyFetcher
-}
-
-func (m *mockKeyResolver) PublicKeyFetcher() verifiable.PublicKeyFetcher {
-	return m.publicKeyFetcherValue
 }
 
 // storeProvider mock store provider.

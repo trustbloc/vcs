@@ -13,13 +13,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/trustbloc/edge-service/internal/cryptosetup"
-
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ariesapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -40,6 +39,7 @@ import (
 	"github.com/trustbloc/edv/pkg/client/edv"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
+	"github.com/trustbloc/edge-service/internal/cryptosetup"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 )
@@ -238,7 +238,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	mode, err := cmdutils.GetUserSetVarFromString(cmd, modeFlagName, modeEnvKey, true)
+	mode, err := getMode(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -264,6 +264,23 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
 	}, nil
+}
+
+func getMode(cmd *cobra.Command) (string, error) {
+	mode, err := cmdutils.GetUserSetVarFromString(cmd, modeFlagName, modeEnvKey, true)
+	if err != nil {
+		return "", err
+	}
+
+	if !supportedMode(mode) {
+		return "nil", fmt.Errorf("unsupported mode: %s", mode)
+	}
+
+	if mode == "" {
+		mode = string(combined)
+	}
+
+	return mode, nil
 }
 
 func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
@@ -359,20 +376,10 @@ func createFlags(startCmd *cobra.Command) {
 }
 
 func startEdgeService(parameters *vcRestParameters, srv server) error {
-	if !supportedMode(parameters.mode) {
-		return fmt.Errorf("unsupported mode: %s", parameters.mode)
-	}
-
-	if parameters.mode == "" {
-		parameters.mode = string(combined)
-	}
-
 	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
 	if err != nil {
 		return err
 	}
-
-	tlsConfig := &tls.Config{RootCAs: rootCAs}
 
 	edgeServiceProvs, err := createStoreProviders(parameters)
 	if err != nil {
@@ -385,7 +392,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.universalResolverURL, legacyKMS, tlsConfig)
+	vdri, err := createVDRI(parameters.universalResolverURL, legacyKMS, &tls.Config{RootCAs: rootCAs})
 	if err != nil {
 		return err
 	}
@@ -395,13 +402,17 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		externalHostURL = parameters.hostURLExternal
 	}
 
+	crypto, err := tinkcrypto.New()
+	if err != nil {
+		return err
+	}
+
 	vcService, err := vc.New(&operation.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
-		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(tlsConfig)),
-		LegacyKMS:          legacyKMS,
-		KeyManager:         localKMS,
-		VDRI:               vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
-		TLSConfig: tlsConfig})
+		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
+		LegacyKMS:          legacyKMS, KeyManager: localKMS,
+		Crypto: crypto, VDRI: vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
+		TLSConfig: &tls.Config{RootCAs: rootCAs}})
 	if err != nil {
 		return err
 	}
