@@ -171,3 +171,14 @@ type VerifyPresentationCheckResult struct {
 type ErrorResponse struct {
 	Message string `json:"errMessage,omitempty"`
 }
+
+// HolderProfileRequest holder mode profile request
+type HolderProfileRequest struct {
+	Name                    string                             `json:"name"`
+	SignatureType           string                             `json:"signatureType"`
+	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
+	DID                     string                             `json:"did"`
+	DIDPrivateKey           string                             `json:"didPrivateKey"`
+	DIDKeyType              string                             `json:"didKeyType"`
+	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
+}

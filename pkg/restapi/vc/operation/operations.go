@@ -60,6 +60,8 @@ const (
 	updateCredentialStatusEndpoint    = "/updateStatus"
 	createProfileEndpoint             = "/profile"
 	getProfileEndpoint                = createProfileEndpoint + "/{id}"
+	holderProfileEndpoint             = "/holder/profile"
+	getHolderProfileEndpoint          = holderProfileEndpoint + "/{id}"
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
 	credentialStatusEndpoint          = credentialStatus + "/{id}"
@@ -91,6 +93,7 @@ const (
 	// modes
 	issuerMode   = "issuer"
 	verifierMode = "verifier"
+	holderMode   = "holder"
 	combinedMode = "combined"
 
 	pubKey1 = "key-1"
@@ -253,6 +256,8 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 		return o.verifierHandlers(), nil
 	case issuerMode:
 		return o.issuerHandlers(), nil
+	case holderMode:
+		return o.holderHandlers(), nil
 	case combinedMode:
 		vh := o.verifierHandlers()
 		ih := o.issuerHandlers()
@@ -277,8 +282,8 @@ func (o *Operation) verifierHandlers() []Handler {
 func (o *Operation) issuerHandlers() []Handler {
 	return []Handler{
 		// issuer profile
-		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createProfileHandler),
-		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createIssuerProfileHandler),
+		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getIssuerProfileHandler),
 
 		// verifiable credential store
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeCredentialHandler),
@@ -292,6 +297,14 @@ func (o *Operation) issuerHandlers() []Handler {
 		support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
 		support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
 		support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
+	}
+}
+
+func (o *Operation) holderHandlers() []Handler {
+	return []Handler{
+		// holder profile
+		support.NewHTTPHandler(holderProfileEndpoint, http.MethodPost, o.createHolderProfileHandler),
+		support.NewHTTPHandler(getHolderProfileEndpoint, http.MethodGet, o.getHolderProfileHandler),
 	}
 }
 
@@ -441,7 +454,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 // Responses:
 //    default: genericError
 //        201: issuerProfileRes
-func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	data := ProfileRequest{}
 
 	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
@@ -456,7 +469,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	profile, err := o.createProfile(&data)
+	profile, err := o.createIssuerProfile(&data)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -489,7 +502,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 // Responses:
 //    default: genericError
 //        200: issuerProfileRes
-func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) getIssuerProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	profileID := mux.Vars(req)["id"]
 
 	profileResponseJSON, err := o.profileStore.GetProfile(profileID)
@@ -681,10 +694,11 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	o.retrieveCredential(rw, profile, docURLs)
 }
 
-func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, string, error) {
+func (o *Operation) createDIDUniRegistrar(keyType, signatureType string,
+	registrar UNIRegistrar) (string, string, string, error) {
 	var opts []uniregistrar.CreateDIDOption
 
-	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKeys(pr)
+	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
@@ -707,11 +721,11 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 			ID: recoveryKey1, Type: didclient.JWSVerificationKey2020,
 			Value:    base64.StdEncoding.EncodeToString(base58.Decode(recoveryPubKey)),
 			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
-		uniregistrar.WithOptions(pr.UNIRegistrar.Options),
+		uniregistrar.WithOptions(registrar.Options),
 		uniregistrar.WithService(
 			&didmethodoperation.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
 
-	identifier, keys, err := o.uniRegistrarClient.CreateDID(pr.UNIRegistrar.DriverURL, opts...)
+	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 	}
@@ -733,10 +747,10 @@ func (o *Operation) createDIDUniRegistrar(pr *ProfileRequest) (string, string, s
 	return identifier, keys[0].ID, keys[0].PrivateKeyBase58, nil
 }
 
-func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error) {
+func (o *Operation) createDID(keyType, signatureType string) (string, string, string, error) {
 	var opts []didclient.CreateDIDOption
 
-	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKeys(pr)
+	publicKeys, didPrivateKey, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
@@ -770,42 +784,13 @@ func (o *Operation) createDID(pr *ProfileRequest) (string, string, string, error
 	return didDoc.ID, publicKeyID, didPrivateKey, nil
 }
 
-func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
-	var didID string
+func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
+	var didID, publicKeyID string
 
-	var publicKeyID string
-
-	didPrivateKey := pr.DIDPrivateKey
-
-	switch {
-	case pr.UNIRegistrar.DriverURL != "":
-		var err error
-		didID, publicKeyID, didPrivateKey, err = o.createDIDUniRegistrar(pr)
-
-		if err != nil {
-			return nil, err
-		}
-
-	case pr.DID == "":
-		var err error
-		didID, publicKeyID, didPrivateKey, err = o.createDID(pr)
-
-		if err != nil {
-			return nil, err
-		}
-
-	case pr.DID != "":
-		didDoc, err := o.vdri.Resolve(pr.DID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve did: %v", err)
-		}
-
-		didID = didDoc.ID
-
-		publicKeyID, err = getPublicKeyID(didDoc, "", crypto.Ed25519Signature2018)
-		if err != nil {
-			return nil, err
-		}
+	didID, publicKeyID, didPrivateKey, err := o.createProfile(pr.DIDKeyType, pr.SignatureType,
+		pr.DID, pr.DIDPrivateKey, pr.UNIRegistrar)
+	if err != nil {
+		return nil, err
 	}
 
 	created := time.Now().UTC()
@@ -815,6 +800,69 @@ func (o *Operation) createProfile(pr *ProfileRequest) (*vcprofile.DataProfile, e
 		DIDPrivateKey: didPrivateKey, DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
 		DIDKeyType: pr.DIDKeyType,
 	}, nil
+}
+
+func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.HolderProfile, error) {
+	var didID, publicKeyID string
+
+	didID, publicKeyID, didPrivateKey, err := o.createProfile(pr.DIDKeyType, pr.SignatureType, pr.DID,
+		pr.DIDPrivateKey, pr.UNIRegistrar)
+	if err != nil {
+		return nil, err
+	}
+
+	created := time.Now().UTC()
+
+	return &vcprofile.HolderProfile{
+		Name:                    pr.Name,
+		Created:                 &created,
+		DID:                     didID,
+		SignatureType:           pr.SignatureType,
+		SignatureRepresentation: pr.SignatureRepresentation,
+		Creator:                 publicKeyID,
+		DIDPrivateKey:           didPrivateKey,
+		DIDKeyType:              pr.DIDKeyType,
+	}, nil
+}
+
+func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey string,
+	registrar UNIRegistrar) (string, string, string, error) {
+	var didID string
+
+	var publicKeyID string
+
+	switch {
+	case registrar.DriverURL != "":
+		var err error
+		didID, publicKeyID, didPrivateKey, err = o.createDIDUniRegistrar(keyType, signatureType, registrar)
+
+		if err != nil {
+			return "", "", "", err
+		}
+
+	case did == "":
+		var err error
+		didID, publicKeyID, didPrivateKey, err = o.createDID(keyType, signatureType)
+
+		if err != nil {
+			return "", "", "", err
+		}
+
+	case did != "":
+		didDoc, err := o.vdri.Resolve(did)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to resolve did: %v", err)
+		}
+
+		didID = didDoc.ID
+
+		publicKeyID, err = getPublicKeyID(didDoc, "", crypto.Ed25519Signature2018)
+		if err != nil {
+			return "", "", "", err
+		}
+	}
+
+	return didID, publicKeyID, didPrivateKey, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
@@ -833,6 +881,14 @@ func validateProfileRequest(pr *ProfileRequest) error {
 	_, err := url.Parse(pr.URI)
 	if err != nil {
 		return fmt.Errorf("invalid uri: %s", err.Error())
+	}
+
+	return nil
+}
+
+func validateHolderProfileRequest(pr *HolderProfileRequest) error {
+	if pr.Name == "" {
+		return fmt.Errorf("missing profile name")
 	}
 
 	return nil
@@ -1317,6 +1373,68 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 	}
 }
 
+// CreateHolderProfile swagger:route POST /holder/profile holder holderProfileReq
+//
+// Creates holder profile.
+//
+// Responses:
+//    default: genericError
+//        201: holderProfileRes
+func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	request := &HolderProfileRequest{}
+
+	if err := json.NewDecoder(req.Body).Decode(request); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	if err := validateHolderProfileRequest(request); err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	profile, err := o.createHolderProfile(request)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	err = o.profileStore.SaveHolderProfile(profile)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusCreated)
+	o.writeResponse(rw, profile)
+}
+
+// RetrieveHolderProfile swagger:route GET /holder/profile/{id} holder retrieveHolderProfileReq
+//
+// Retrieves holder profile.
+//
+// Responses:
+//    default: genericError
+//        200: holderProfileRes
+func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	fmt.Println(profileID)
+
+	profile, err := o.profileStore.GetHolderProfile(profileID)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	o.writeResponse(rw, profile)
+}
+
 func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {
 	vc, err := o.parseAndVerifyVC(vcByte)
 
@@ -1536,7 +1654,7 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 	return retrievedVC, nil
 }
 
-func (o *Operation) createPublicKeys(pr *ProfileRequest) ([]*didclient.PublicKey, string, string, error) {
+func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclient.PublicKey, string, string, error) {
 	var publicKeys []*didclient.PublicKey
 
 	// Add Ed25519VerificationKey2018 Ed25519KeyType
@@ -1569,25 +1687,25 @@ func (o *Operation) createPublicKeys(pr *ProfileRequest) ([]*didclient.PublicKey
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.ECKeyType,
 		Usage: []string{didclient.KeyUsageGeneral}})
 
-	if pr.DIDKeyType == crypto.Ed25519KeyType &&
-		didclient.Ed25519VerificationKey2018 == signatureKeyTypeMap[pr.SignatureType] {
+	if keyType == crypto.Ed25519KeyType &&
+		didclient.Ed25519VerificationKey2018 == signatureKeyTypeMap[signatureType] {
 		return publicKeys, "", pubKey1, nil
 	}
 
-	if pr.DIDKeyType == crypto.Ed25519KeyType &&
-		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[pr.SignatureType] {
+	if keyType == crypto.Ed25519KeyType &&
+		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[signatureType] {
 		return publicKeys, "", pubKey2, nil
 	}
 
-	if pr.DIDKeyType == crypto.P256KeyType &&
-		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[pr.SignatureType] {
+	if keyType == crypto.P256KeyType &&
+		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[signatureType] {
 		// return private key as KMS only supports ed25519 keys
 		// TODO remove when kms support ed25519
 		return publicKeys, base58.Encode(encodedPrivateKey), pubKey3, nil
 	}
 
 	return nil, "", "",
-		fmt.Errorf("no key found to match key type:%s and signature type:%s", pr.DIDKeyType, pr.SignatureType)
+		fmt.Errorf("no key found to match key type:%s and signature type:%s", keyType, signatureType)
 }
 
 func createP256Key() ([]byte, []byte, error) {

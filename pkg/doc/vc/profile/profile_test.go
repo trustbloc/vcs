@@ -6,14 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 package profile
 
 import (
-	"fmt"
+	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
+	"github.com/stretchr/testify/require"
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
@@ -35,7 +34,7 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 		require.NoError(t, err)
 
 		require.NotEmpty(t, store)
-		k := fmt.Sprintf(keyPattern, profileKeyPrefix, value.Name)
+		k := getDBKey(issuerMode, value.Name)
 		v, err := record.store.Get(k)
 		require.NoError(t, err)
 		require.NotEmpty(t, v)
@@ -78,5 +77,97 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 		require.Nil(t, profileByte)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "store does not have a value associated with this key")
+	})
+}
+
+func TestSaveHolder(t *testing.T) {
+	t.Run("test save holder - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		require.Equal(t, 0, len(s))
+
+		profileStore := New(&mockstorage.MockStore{Store: s})
+		require.NotNil(t, profileStore)
+
+		holderProfile := &HolderProfile{
+			Name:                    "holder-1",
+			DID:                     "did",
+			SignatureType:           "SignatureType",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+		}
+
+		err := profileStore.SaveHolderProfile(holderProfile)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(s))
+	})
+
+	t.Run("test save holder - fail", func(t *testing.T) {
+		s := make(map[string][]byte)
+
+		profileStore := New(&mockstorage.MockStore{Store: s, ErrPut: errors.New("put error")})
+		require.NotNil(t, profileStore)
+
+		holderProfile := &HolderProfile{
+			Name:                    "holder-1",
+			DID:                     "did",
+			SignatureType:           "SignatureType",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+		}
+
+		err := profileStore.SaveHolderProfile(holderProfile)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "put error")
+	})
+}
+
+func TestGetHolder(t *testing.T) {
+	t.Run("test get holder - success", func(t *testing.T) {
+		s := make(map[string][]byte)
+		require.Equal(t, 0, len(s))
+
+		profileStore := New(&mockstorage.MockStore{Store: s})
+		require.NotNil(t, profileStore)
+
+		holderProfile := &HolderProfile{
+			Name:                    "holder-1",
+			DID:                     "did",
+			SignatureType:           "SignatureType",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+		}
+
+		profileJSON, err := json.Marshal(holderProfile)
+		require.NoError(t, err)
+
+		s[getDBKey(holderMode, holderProfile.Name)] = profileJSON
+
+		resp, err := profileStore.GetHolderProfile(holderProfile.Name)
+		require.NoError(t, err)
+
+		require.Equal(t, holderProfile, resp)
+	})
+
+	t.Run("test get holder - no data", func(t *testing.T) {
+		profileStore := New(&mockstorage.MockStore{Store: make(map[string][]byte)})
+		require.NotNil(t, profileStore)
+
+		resp, err := profileStore.GetHolderProfile("holder-1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "store does not have a value associated with this key")
+		require.Nil(t, resp)
+	})
+
+	t.Run("test get holder - invalid json", func(t *testing.T) {
+		s := make(map[string][]byte)
+		require.Equal(t, 0, len(s))
+
+		profileStore := New(&mockstorage.MockStore{Store: s})
+		require.NotNil(t, profileStore)
+
+		s[getDBKey(holderMode, "holder-1")] = []byte("invalid-data")
+
+		resp, err := profileStore.GetHolderProfile("holder-1")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid character")
+		require.Nil(t, resp)
 	})
 }

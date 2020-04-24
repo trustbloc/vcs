@@ -394,8 +394,8 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 func testUpdateCredentialStatusHandler(t *testing.T, mode string) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 	s := make(map[string][]byte)
-	s["profile_Example University"] = []byte(testIssuerProfile)
-	s["profile_vc without status"] = []byte(testIssuerProfileWithDisableVCStatus)
+	s["profile_"+issuerMode+"_Example University"] = []byte(testIssuerProfile)
+	s["profile_"+issuerMode+"_vc without status"] = []byte(testIssuerProfileWithDisableVCStatus)
 
 	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 	require.NoError(t, err)
@@ -492,7 +492,7 @@ func testUpdateCredentialStatusHandler(t *testing.T, mode string) {
 
 	t.Run("test error from update vc status", func(t *testing.T) {
 		s := make(map[string][]byte)
-		s["profile_Example University"] = []byte(testIssuerProfile)
+		s["profile_"+issuerMode+"_Example University"] = []byte(testIssuerProfile)
 		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 		require.NoError(t, err)
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
@@ -3150,6 +3150,147 @@ func TestValidateProof(t *testing.T) {
 	err = validateProofData(proof, key, value)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid challenge in the proof")
+}
+
+func TestCreateHolderProfile(t *testing.T) {
+	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+	require.NoError(t, err)
+
+	op, err := New(&Config{
+		StoreProvider:      memstore.NewProvider(),
+		KMSSecretsProvider: mem.NewProvider(),
+		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+		LegacyKMS:          &kmsmock.CloseableKMS{},
+		VDRI:               &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
+
+	endpoint := holderProfileEndpoint
+	handler := getHandler(t, op, endpoint, holderMode)
+
+	t.Run("create profile - success", func(t *testing.T) {
+		vReq := &HolderProfileRequest{
+			Name:          "test",
+			DIDKeyType:    vccrypto.Ed25519KeyType,
+			SignatureType: vccrypto.Ed25519Signature2018,
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		fmt.Println(rr.Body.String())
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		profileRes := &HolderProfileRequest{}
+		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
+		require.NoError(t, err)
+		require.Equal(t, "test", profileRes.Name)
+	})
+
+	t.Run("create profile - invalid request", func(t *testing.T) {
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, []byte("invalid-json"))
+
+		fmt.Println(rr.Body.String())
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+
+	t.Run("create profile - missing profile name", func(t *testing.T) {
+		vReq := &HolderProfileRequest{}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		fmt.Println(rr.Body.String())
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "missing profile name")
+	})
+
+	t.Run("create profile - failed to created DID", func(t *testing.T) {
+		ops, err := New(&Config{
+			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			LegacyKMS:          &kmsmock.CloseableKMS{},
+			VDRI:               &vdrimock.MockVDRIRegistry{},
+		})
+		require.NoError(t, err)
+
+		vReq := &HolderProfileRequest{
+			Name: "profile",
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		handler := getHandler(t, ops, endpoint, holderMode)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		fmt.Println(rr.Body.String())
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to create did public key")
+	})
+}
+
+func TestGetHolderProfile(t *testing.T) {
+	kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+	require.NoError(t, err)
+
+	op, err := New(&Config{
+		StoreProvider:      memstore.NewProvider(),
+		KMSSecretsProvider: mem.NewProvider(),
+		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+		LegacyKMS:          &kmsmock.CloseableKMS{},
+		VDRI:               &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
+
+	endpoint := getHolderProfileEndpoint
+	handler := getHandler(t, op, endpoint, holderMode)
+
+	urlVars := make(map[string]string)
+
+	t.Run("get profile - success", func(t *testing.T) {
+		vReq := &vcprofile.HolderProfile{
+			Name:          "test",
+			DIDKeyType:    vccrypto.Ed25519KeyType,
+			SignatureType: vccrypto.Ed25519Signature2018,
+		}
+
+		err := op.profileStore.SaveHolderProfile(vReq)
+		require.NoError(t, err)
+
+		urlVars[profileIDPathParam] = vReq.Name
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		profileRes := &HolderProfileRequest{}
+		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
+		require.NoError(t, err)
+		require.Equal(t, vReq.Name, profileRes.Name)
+		require.Equal(t, vReq.DIDKeyType, profileRes.DIDKeyType)
+	})
+
+	t.Run("get profile - no data found", func(t *testing.T) {
+		urlVars[profileIDPathParam] = "invalid-name"
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		fmt.Println(rr.Body.String())
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "store does not have a value associated with this key")
+	})
 }
 
 func TestGetPublicKeyID(t *testing.T) {
