@@ -207,3 +207,30 @@ type retrieveCredentialStatusResp struct { // nolint: unused,deadcode
 	// in: body
 	cslstatus.CSL
 }
+
+// holderProfileRes model
+//
+// swagger:response holderProfileRes
+type holderProfileRes struct { // nolint: unused,deadcode
+	// in: body
+	dataProfile
+}
+
+// retrieveHolderProfileReq model
+//
+// swagger:parameters retrieveHolderProfileReq
+type retrieveHolderProfileReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
+// holderProfileReq model
+//
+// swagger:parameters holderProfileReq
+type holderProfileReq struct { // nolint: unused,deadcode
+	// in: body
+	Params HolderProfileRequest
+}
