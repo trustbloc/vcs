@@ -1447,21 +1447,21 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 	}
 
 	// validate proof challenge and domain
-	if opts != nil {
-		// TODO figure out the process when vc has more than one proof
-		proof := vc.Proofs[0]
+	if opts == nil {
+		opts = &CredentialsVerificationOptions{}
+	}
 
-		if opts.Challenge != "" {
-			if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
-				return err
-			}
-		}
+	// TODO figure out the process when vc has more than one proof
+	proof := vc.Proofs[0]
 
-		if opts.Domain != "" {
-			if err := validateProofData(proof, domain, opts.Domain); err != nil {
-				return err
-			}
-		}
+	// validate challenge
+	if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
+		return err
+	}
+
+	// validate domain
+	if err := validateProofData(proof, domain, opts.Domain); err != nil {
+		return err
 	}
 
 	return nil
@@ -1475,25 +1475,25 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 	}
 
 	// validate proof challenge and domain
-	if opts != nil {
-		var proof verifiable.Proof
+	if opts == nil {
+		opts = &VerifyPresentationOptions{}
+	}
 
-		// TODO figure out the process when vp has more than one proof
-		if len(vp.Proofs) != 0 {
-			proof = vp.Proofs[0]
-		}
+	var proof verifiable.Proof
 
-		if opts.Challenge != "" {
-			if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
-				return err
-			}
-		}
+	// TODO figure out the process when vp has more than one proof
+	if len(vp.Proofs) != 0 {
+		proof = vp.Proofs[0]
+	}
 
-		if opts.Domain != "" {
-			if err := validateProofData(proof, domain, opts.Domain); err != nil {
-				return err
-			}
-		}
+	// validate challenge
+	if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
+		return err
+	}
+
+	// validate domain
+	if err := validateProofData(proof, domain, opts.Domain); err != nil {
+		return err
 	}
 
 	return nil
@@ -1802,14 +1802,11 @@ func getDocIDFromURL(docURL string) string {
 }
 
 func validateProofData(proof verifiable.Proof, key, expectedValue string) error {
-	val, ok := proof[key]
-	if !ok {
-		return fmt.Errorf("proof doesn't contain %s", key)
-	}
+	actualVal := ""
 
-	actualVal, ok := val.(string)
-	if !ok {
-		return fmt.Errorf("proof %s type is not a string", key)
+	val, ok := proof[key]
+	if ok {
+		actualVal, _ = val.(string) // nolint
 	}
 
 	if expectedValue != actualVal {
