@@ -22,6 +22,8 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -308,6 +310,7 @@ type mockProvider struct {
 	numTimesCreateStoreCalledSuccessfully   int
 	numTimesCreateStoreIsCallableWithoutErr int
 	createStoreErr                          error
+	store                                   storage.Store
 }
 
 func (m *mockProvider) CreateStore(_ string) error {
@@ -321,7 +324,7 @@ func (m *mockProvider) CreateStore(_ string) error {
 }
 
 func (m *mockProvider) OpenStore(name string) (storage.Store, error) {
-	return nil, nil
+	return m.store, nil
 }
 
 func (m *mockProvider) CloseStore(name string) error {
@@ -359,7 +362,7 @@ func TestNew(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to instantiate new csl status")
 		require.Nil(t, op)
 	})
-	t.Run("fail to create signing key store", func(t *testing.T) {
+	t.Run("fail to prepare JWE crypto", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		testCreateStoreErr := errors.New("test create store error")
 
@@ -369,6 +372,25 @@ func TestNew(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{},
+			LegacyKMS:          getTestKMS(t),
+			VDRI:               &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
+		require.Equal(t, testCreateStoreErr, err)
+		require.Nil(t, op)
+	})
+	t.Run("fail to prepare MAC crypto", func(t *testing.T) {
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		testCreateStoreErr := errors.New("test create store error")
+
+		kh, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
+		require.NoError(t, err)
+
+		op, err := New(&Config{
+			StoreProvider: &mockProvider{store: &mockstore.MockStore{Store: make(map[string][]byte)},
+				numTimesCreateStoreIsCallableWithoutErr: 3,
+				createStoreErr:                          testCreateStoreErr},
+			KMSSecretsProvider: mem.NewProvider(),
+			EDVClient:          client,
+			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			LegacyKMS:          getTestKMS(t),
 			VDRI:               &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Equal(t, testCreateStoreErr, err)
