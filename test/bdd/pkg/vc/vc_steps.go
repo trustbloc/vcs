@@ -65,9 +65,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Now we verify that "([^"]*)" signed with "([^"]*)" presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.verifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)" and signatureType "([^"]*)"$`, //nolint: lll
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndCredential)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)" and signatureType "([^"]*)"$`, //nolint: lll
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndPresentation)
 }
 
@@ -291,10 +291,10 @@ func (e *Steps) createCredential(credential, profileName string) error {
 	return e.checkVC(respBytes, profileName)
 }
 
-func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, signatureType string) error {
+func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, signatureType, keyType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, "")
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, keyType)
 	if err != nil {
 		return err
 	}
@@ -309,10 +309,10 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, si
 	return nil
 }
 
-func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, signatureType string) error {
+func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, signatureType, keyType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, "")
+	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, keyType)
 	if err != nil {
 		return err
 	}
