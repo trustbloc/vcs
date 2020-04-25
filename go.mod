@@ -13,11 +13,10 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/hyperledger/aries-framework-go v0.1.3-0.20200424174944-a1daf649cb36
 	github.com/sirupsen/logrus v1.4.2
-	github.com/square/go-jose/v3 v3.0.0-20191119004800-96c717272387
 	github.com/stretchr/testify v1.5.1
 	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edv v0.1.3-0.20200415141634-265a4f01a957
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200424180947-6f28d41ca353
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200425163130-731586afeb34
 )
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e

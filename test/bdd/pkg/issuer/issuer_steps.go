@@ -22,8 +22,6 @@ import (
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	log "github.com/sirupsen/logrus"
-	"github.com/trustbloc/sidetree-core-go/pkg/restapi/helper"
-	"github.com/trustbloc/sidetree-core-go/pkg/util/pubkey"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -33,18 +31,13 @@ import (
 )
 
 const (
-	issuerURL   = "http://localhost:8070"
-	sidetreeURL = "https://localhost:48326/document"
+	issuerURL = "http://localhost:8070"
 
 	issueCredentialURLFormat           = issuerURL + "/%s" + "/credentials/issueCredential"
 	composeAndIssueCredentialURLFormat = issuerURL + "/%s" + "/credentials/composeAndIssueCredential"
 )
 
 const (
-	sha2_256            = 18
-	recoveryRevealValue = "recoveryOTP"
-	updateRevealValue   = "updateOTP"
-
 	composeCredReqFormat = `{
 	   "issuer":"did:example:uoweu180928901",
 	   "subject":"did:example:oleh394sqwnlk223823ln",
@@ -80,13 +73,6 @@ const (
 type Steps struct {
 	bddContext *context.BDDContext
 	keyID      string
-}
-
-type didResolution struct {
-	Context          interface{}     `json:"@context"`
-	DIDDocument      json.RawMessage `json:"didDocument"`
-	ResolverMetadata json.RawMessage `json:"resolverMetadata"`
-	MethodMetadata   json.RawMessage `json:"methodMetadata"`
 }
 
 // NewSteps returns new agent from client SDK
@@ -212,12 +198,20 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 }
 
 func (e *Steps) createSidetreeDID(base58PubKey, keyID string) (*docdid.Doc, error) {
-	req, err := e.buildSideTreeRequest(base58PubKey, keyID)
+	c := didclient.New(didclient.WithTLSConfig(e.bddContext.TLSConfig))
+
+	_, ed25519PubKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
 
-	return e.sendCreateRequest(req)
+	return c.CreateDID("testnet.trustbloc.local",
+		didclient.WithPublicKey(&didclient.PublicKey{ID: keyID, Type: didclient.JWSVerificationKey2020,
+			Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
+			Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral}, Encoding: didclient.PublicKeyEncodingJwk}),
+		didclient.WithPublicKey(&didclient.PublicKey{ID: "recovery",
+			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519PubKey,
+			KeyType: didclient.Ed25519KeyType, Recovery: true}))
 }
 
 func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge string,
@@ -467,80 +461,4 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 	}
 
 	return nil
-}
-
-func (e *Steps) buildSideTreeRequest(base58PubKey, keyID string) ([]byte, error) {
-	d := didclient.Doc{PublicKey: []didclient.PublicKey{{ID: keyID, Type: didclient.JWSVerificationKey2020,
-		Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
-		Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral}, Encoding: didclient.PublicKeyEncodingJwk}}}
-
-	docBytes, err := d.JSONBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	_, priKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
-	recoveryPublicKey, err := pubkey.GetPublicKeyJWK(priKey.Public())
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := helper.NewCreateRequest(&helper.CreateRequestInfo{
-		OpaqueDocument:          string(docBytes),
-		RecoveryKey:             recoveryPublicKey,
-		NextRecoveryRevealValue: []byte(recoveryRevealValue),
-		NextUpdateRevealValue:   []byte(updateRevealValue),
-		MultihashCode:           sha2_256,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create sidetree request: %w", err)
-	}
-
-	return req, nil
-}
-
-func (e *Steps) sendCreateRequest(req []byte) (*docdid.Doc, error) {
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: e.bddContext.TLSConfig,
-		}}
-
-	resp, err := client.Post(sidetreeURL+"/operations", "application/json", bytes.NewBuffer(req)) //nolint: bodyclose
-	if err != nil {
-		return nil, err
-	}
-
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	responseBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("got unexpected response from %s status '%d' body %s",
-			sidetreeURL, resp.StatusCode, responseBytes)
-	}
-
-	var r didResolution
-	if errUnmarshal := json.Unmarshal(responseBytes, &r); errUnmarshal != nil {
-		return nil, fmt.Errorf("unmarshal data return from sidtree %w", errUnmarshal)
-	}
-
-	didDocBytes := responseBytes
-	// check if data is did resolution
-	if len(r.DIDDocument) != 0 {
-		didDocBytes = r.DIDDocument
-	}
-
-	didDoc, err := docdid.ParseDocument(didDocBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse public DID document: %s", err)
-	}
-
-	return didDoc, nil
 }
