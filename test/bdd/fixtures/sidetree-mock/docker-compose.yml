@@ -9,6 +9,7 @@ services:
 
   sidetree:
     container_name: sidetree-mock
+    hostname: sidetree-mock
     image: ${SIDETREE_MOCK_IMAGE}:${SIDETREE_MOCK_IMAGE_TAG}
     environment:
       - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem

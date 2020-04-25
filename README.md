@@ -22,6 +22,9 @@ make checks
 make unit-test
 ```
 
+## Build
+To build from source see [here](docs/build.md).
+
 # edge-service
 
 Edge Service is a reference implementation that demonstrates the following story:
