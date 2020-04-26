@@ -36,9 +36,6 @@ const (
 	verifierURL                = "http://localhost:8069/verifier"
 
 	issueCredentialURLFormat = issuerURL + "%s" + "/credentials/issueCredential"
-	serviceID                = "example"
-	didMethodTrustBloc       = "did:trustbloc"
-	didMethodSov             = "did:sov:danube "
 )
 
 // Steps is steps for VC BDD tests
@@ -167,23 +164,9 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 		return errCheck
 	}
 
-	didDoc, err := bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 	if err != nil {
 		return err
-	}
-
-	checkService := false
-
-	if didMethod == didMethodTrustBloc || didMethod == didMethodSov {
-		checkService = true
-	}
-
-	if checkService && len(didDoc.Service) != 1 {
-		return fmt.Errorf("did doc service size not equal to 1")
-	}
-
-	if checkService && didDoc.Service[0].ID != didDoc.ID+"#"+serviceID {
-		return fmt.Errorf("did doc service id %s not equal to %s", didDoc.Service[0].ID, didDoc.ID+"#"+serviceID)
 	}
 
 	return nil

@@ -95,11 +95,6 @@ const (
 
 	recoveryKey1 = "recovery-key"
 
-	// TODO remove hardcode values after complete did service integration
-	serviceID       = "example"
-	serviceType     = "example"
-	serviceEndpoint = "http://example.com"
-
 	// proof data keys
 	challenge = "challenge"
 	domain    = "domain"
@@ -720,9 +715,7 @@ func (o *Operation) createDIDUniRegistrar(keyType, signatureType string,
 			ID: recoveryKey1, Type: didclient.JWSVerificationKey2020,
 			Value:    base64.StdEncoding.EncodeToString(recoveryPubKey),
 			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
-		uniregistrar.WithOptions(registrar.Options),
-		uniregistrar.WithService(
-			&didmethodoperation.Service{ID: serviceID, Type: serviceType, ServiceEndpoint: serviceEndpoint}))
+		uniregistrar.WithOptions(registrar.Options))
 
 	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
 	if err != nil {
@@ -780,9 +773,7 @@ func (o *Operation) createDID(keyType, signatureType string) (string, string, er
 	opts = append(opts,
 		didclient.WithPublicKey(&didclient.PublicKey{ID: recoveryKey1,
 			Type: didclient.JWSVerificationKey2020, Value: recoveryPubKey,
-			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
-		didclient.WithService(&ariesdid.Service{ID: serviceID, Type: serviceType,
-			ServiceEndpoint: serviceEndpoint}))
+			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}))
 
 	didDoc, err := o.didBlocClient.CreateDID(o.domain, opts...)
 	if err != nil {
