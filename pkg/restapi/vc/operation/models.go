@@ -183,3 +183,19 @@ type HolderProfileRequest struct {
 	DIDKeyType              string                             `json:"didKeyType"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
 }
+
+// SignPresentationRequest request for signing a presentation.
+type SignPresentationRequest struct {
+	Presentation json.RawMessage          `json:"presentation,omitempty"`
+	Opts         *SignPresentationOptions `json:"options,omitempty"`
+}
+
+// SignPresentationOptions options for signing a presentation.
+type SignPresentationOptions struct {
+	VerificationMethod string     `json:"verificationMethod,omitempty"`
+	AssertionMethod    string     `json:"assertionMethod,omitempty"`
+	ProofPurpose       string     `json:"proofPurpose,omitempty"`
+	Created            *time.Time `json:"created,omitempty"`
+	Challenge          string     `json:"challenge,omitempty"`
+	Domain             string     `json:"domain,omitempty"`
+}
