@@ -1683,13 +1683,13 @@ func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclien
 		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
 
 	// Add JWSVerificationKey2020  ECKeyType
-	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256)
+	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEE1363)
 	if err != nil {
 		return nil, "", err
 	}
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key3ID, Type: didclient.JWSVerificationKey2020,
-		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.ECKeyType,
+		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.P256KeyType,
 		Usage: []string{didclient.KeyUsageGeneral}})
 
 	if keyType == crypto.Ed25519KeyType &&
