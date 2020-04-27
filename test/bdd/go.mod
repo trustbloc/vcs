@@ -13,10 +13,10 @@ require (
 	github.com/cucumber/godog v0.8.1
 	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/google/uuid v1.1.1
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200424174944-a1daf649cb36
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200426223310-e7f4259d7e56
 	github.com/mr-tron/base58 v1.1.3
 	github.com/sirupsen/logrus v1.4.2
 	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edge-service v0.0.0
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200425163130-731586afeb34
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200427004351-8941edb7a281
 )
