@@ -30,7 +30,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
 
 		signedVC, err := c.SignCredential(
-			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			getTestIssuerProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
@@ -157,7 +157,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
 
-				profile := getTestProfile()
+				profile := getTestIssuerProfile()
 				if tc.profile != nil {
 					profile = tc.profile
 				}
@@ -207,7 +207,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		c := New(nil, nil)
 
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
 		p.DIDKeyType = Ed25519KeyType
 
@@ -226,7 +226,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		c := New(nil, nil)
 
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(encodedPrivateKey)
 		p.DIDKeyType = P256KeyType
 
@@ -239,7 +239,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 	t.Run("test P-256 private key parse failure", func(t *testing.T) {
 		c := New(nil, nil)
 
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.DIDPrivateKey = "invalid-private-key"
 		p.DIDKeyType = P256KeyType
 
@@ -253,7 +253,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 	t.Run("test signing failure - invalid key type", func(t *testing.T) {
 		c := New(nil, nil)
 
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.DIDPrivateKey = "privateKey"
 		p.DIDKeyType = "invalid-key-type"
 
@@ -270,7 +270,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		c := New(nil, nil)
 
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
 		p.DIDKeyType = Ed25519KeyType
 		p.SignatureRepresentation = verifiable.SignatureJWS
@@ -291,7 +291,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 		c := New(nil, nil)
 
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
 		p.SignatureRepresentation = verifiable.SignatureProofValue
 		p.DIDKeyType = Ed25519KeyType
@@ -307,7 +307,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 	t.Run("test error from creator", func(t *testing.T) {
 		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
-		p := getTestProfile()
+		p := getTestIssuerProfile()
 		p.Creator = "wrongValue"
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
@@ -320,18 +320,62 @@ func TestCrypto_SignCredential(t *testing.T) {
 		c := New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")})
 
 		signedVC, err := c.SignCredential(
-			getTestProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			getTestIssuerProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 		require.Nil(t, signedVC)
 	})
 }
 
-func getTestProfile() *vcprofile.DataProfile {
+func TestSignPresentation(t *testing.T) {
+	t.Run("sign presentation - success", func(t *testing.T) {
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+
+		signedVP, err := c.SignPresentation(getTestHolderProfile(),
+			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
+		)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVP.Proofs))
+	})
+
+	t.Run("sign presentation - signature type opts", func(t *testing.T) {
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+
+		signedVP, err := c.SignPresentation(getTestHolderProfile(),
+			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
+			WithSignatureType(Ed25519Signature2018),
+		)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVP.Proofs))
+	})
+
+	t.Run("sign presentation - fail", func(t *testing.T) {
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+
+		signedVP, err := c.SignPresentation(getTestHolderProfile(),
+			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
+			WithSignatureType("invalid"),
+		)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "signature type unsupported invalid")
+		require.Nil(t, signedVP)
+	})
+}
+
+func getTestIssuerProfile() *vcprofile.DataProfile {
 	return &vcprofile.DataProfile{
 		Name:          "test",
 		DID:           "did:test:abc",
 		URI:           "https://test.com/credentials",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:test:abc#key1",
+	}
+}
+
+func getTestHolderProfile() *vcprofile.HolderProfile {
+	return &vcprofile.HolderProfile{
+		Name:          "test",
+		DID:           "did:test:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
 	}

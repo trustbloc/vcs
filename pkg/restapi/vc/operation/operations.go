@@ -59,6 +59,7 @@ const (
 	getProfileEndpoint                = createProfileEndpoint + "/{id}"
 	holderProfileEndpoint             = "/holder/profile"
 	getHolderProfileEndpoint          = holderProfileEndpoint + "/{id}"
+	signPresentationEndpoint          = "{id}/prove/presentations"
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
 	credentialStatusEndpoint          = credentialStatus + "/{id}"
@@ -255,8 +256,11 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 	case combinedMode:
 		vh := o.verifierHandlers()
 		ih := o.issuerHandlers()
+		hh := o.holderHandlers()
 
-		return append(vh, ih...), nil
+		handlers := append(vh, ih...)
+
+		return append(handlers, hh...), nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)
 	}
@@ -299,6 +303,7 @@ func (o *Operation) holderHandlers() []Handler {
 		// holder profile
 		support.NewHTTPHandler(holderProfileEndpoint, http.MethodPost, o.createHolderProfileHandler),
 		support.NewHTTPHandler(getHolderProfileEndpoint, http.MethodGet, o.getHolderProfileHandler),
+		support.NewHTTPHandler(signPresentationEndpoint, http.MethodPost, o.signPresentationHandler),
 	}
 }
 
@@ -1438,6 +1443,56 @@ func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Re
 	}
 
 	o.writeResponse(rw, profile)
+}
+
+// SignPresentation swagger:route POST {id}/prove/presentations holder signPresentationReq
+//
+// Signs a presentation.
+//
+// Responses:
+//    default: genericError
+//        201: signPresentationRes
+func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the holder profile
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	profile, err := o.profileStore.GetHolderProfile(profileID)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid holder profile - id=%s: err=%s",
+			profileID, err.Error()))
+
+		return
+	}
+
+	// get the request
+	presReq := SignPresentationRequest{}
+
+	err = json.NewDecoder(req.Body).Decode(&presReq)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	presentation, err := verifiable.NewPresentation(presReq.Presentation,
+		verifiable.WithDisabledPresentationProofCheck())
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	// sign presentation
+	signedVP, err := o.crypto.SignPresentation(profile, presentation)
+	if err != nil {
+		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign presentation:"+
+			" %s", err.Error()))
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusCreated)
+	o.writeResponse(rw, signedVP)
 }
 
 func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {

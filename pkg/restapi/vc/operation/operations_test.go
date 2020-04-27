@@ -3325,6 +3325,165 @@ func TestGetHolderProfile(t *testing.T) {
 	})
 }
 
+func TestSignPresentation(t *testing.T) {
+	endpoint := "/test/prove/presentations"
+	keyID := base64.RawURLEncoding.EncodeToString([]byte("key-1"))
+	issuerProfileDIDKey := "did:test:abc#" + keyID
+
+	vReq := &vcprofile.HolderProfile{
+		Name:          "test",
+		DIDKeyType:    vccrypto.Ed25519KeyType,
+		SignatureType: vccrypto.Ed25519Signature2018,
+		Creator:       issuerProfileDIDKey,
+	}
+
+	op, err := New(&Config{
+		StoreProvider:      memstore.NewProvider(),
+		KMSSecretsProvider: mem.NewProvider(),
+		KeyManager:         &kms.KeyManager{CreateKeyID: keyID},
+		LegacyKMS:          &kmsmock.CloseableKMS{},
+		Crypto:             &cryptomock.Crypto{},
+	})
+	require.NoError(t, err)
+
+	err = op.profileStore.SaveHolderProfile(vReq)
+	require.NoError(t, err)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = vReq.Name
+
+	handler := getHandler(t, op, signPresentationEndpoint, holderMode)
+
+	t.Run("sign presentation - success", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+
+		_, signingKey, err := closeableKMS.CreateKeySet()
+		require.NoError(t, err)
+
+		ops, err := New(&Config{
+			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{CreateKeyID: keyID},
+			LegacyKMS:          &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+				},
+			},
+			Crypto: &cryptomock.Crypto{},
+		})
+		require.NoError(t, err)
+
+		vReq.SignatureRepresentation = verifiable.SignatureJWS
+
+		err = ops.profileStore.SaveHolderProfile(vReq)
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, holderMode)
+
+		require.NoError(t, err)
+
+		req := &SignPresentationRequest{
+			Presentation: []byte(vpWithoutProof),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
+
+		fmt.Println(rr.Body.String())
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		signedVCResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:test:abc#"+keyID, proof["verificationMethod"])
+		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+	})
+
+	t.Run("sign presentation - invalid profile", func(t *testing.T) {
+		ops, err := New(&Config{
+			StoreProvider:      memstore.NewProvider(),
+			Crypto:             &cryptomock.Crypto{},
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{},
+			LegacyKMS:          &kmsmock.CloseableKMS{},
+		})
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, holderMode)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid holder profile")
+	})
+
+	t.Run("sign presentation - invalid request", func(t *testing.T) {
+		rr := serveHTTPMux(t, handler, endpoint, []byte("invalid json"), urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), invalidRequestErrMsg)
+	})
+
+	t.Run("sign presentation - invalid presentation", func(t *testing.T) {
+		req := &SignPresentationRequest{
+			Presentation: []byte(invalidVC),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "verifiable presentation is not valid")
+	})
+
+	t.Run("sign presentation - signing error", func(t *testing.T) {
+		closeableKMS := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+
+		op, err := New(&Config{
+			Crypto:             &cryptomock.Crypto{},
+			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{},
+			LegacyKMS:          closeableKMS,
+			VDRI:               &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
+		})
+		require.NoError(t, err)
+
+		vReq.Creator = "not a did"
+
+		err = op.profileStore.SaveHolderProfile(vReq)
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, op, signPresentationEndpoint, holderMode)
+
+		req := &SignPresentationRequest{
+			Presentation: []byte(validVP),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to sign presentation")
+	})
+}
+
 func TestGetPublicKeyID(t *testing.T) {
 	t.Run("Test decode public key", func(t *testing.T) {
 		tests := []struct {

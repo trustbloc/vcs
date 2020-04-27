@@ -192,29 +192,66 @@ type Crypto struct {
 }
 
 // SignCredential sign vc
-func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) { // nolint:lll
+func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) { // nolint:lll,dupl
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
 		opt(signOpts)
 	}
 
-	s, method, err := c.getSigner(dataProfile, signOpts)
+	signatureType := dataProfile.SignatureType
+	if signOpts.SignatureType != "" {
+		signatureType = signOpts.SignatureType
+	}
+
+	signingCtx, err := c.getLinkedDataProofContext(dataProfile.DID, dataProfile.DIDKeyType,
+		dataProfile.DIDPrivateKey, dataProfile.Creator, signatureType, dataProfile.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	repres := dataProfile.SignatureRepresentation
-	if signOpts.Representation != "" {
-		repres, err = getSignatureRepresentation(signOpts.Representation)
-		if err != nil {
-			return nil, err
-		}
+	err = vc.AddLinkedDataProof(signingCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}
 
-	signatureType := dataProfile.SignatureType
+	return vc, nil
+}
+
+// SignPresentation signs a presentation
+// nolint: dupl
+func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiable.Presentation,
+	opts ...SigningOpts) (*verifiable.Presentation, error) {
+	signOpts := &signingOpts{}
+	// apply opts
+	for _, opt := range opts {
+		opt(signOpts)
+	}
+
+	signatureType := profile.SignatureType
 	if signOpts.SignatureType != "" {
 		signatureType = signOpts.SignatureType
+	}
+
+	signingCtx, err := c.getLinkedDataProofContext(profile.DID, profile.DIDKeyType, profile.DIDPrivateKey,
+		profile.Creator, signatureType, profile.SignatureRepresentation, signOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = vp.AddLinkedDataProof(signingCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign vc: %w", err)
+	}
+
+	return vp, nil
+}
+
+func (c *Crypto) getLinkedDataProofContext(did, didKeyType, didPrivateKey, creator, signatureType string,
+	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
+	s, method, err := c.getSigner(did, didKeyType, didPrivateKey, creator, opts)
+	if err != nil {
+		return nil, err
 	}
 
 	var signatureSuite ariessigner.SignatureSuite
@@ -228,52 +265,53 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		return nil, fmt.Errorf("signature type unsupported %s", signatureType)
 	}
 
+	if opts.Representation != "" {
+		signRep, err = getSignatureRepresentation(opts.Representation)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// TODO Matching suite and type for signOpts.VerificationMethod [Issue #222]
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      method,
-		SignatureRepresentation: repres,
+		SignatureRepresentation: signRep,
 		SignatureType:           signatureType,
 		Suite:                   signatureSuite,
-		Purpose:                 signOpts.Purpose,
-		Created:                 signOpts.Created,
-		Challenge:               signOpts.Challenge,
-		Domain:                  signOpts.Domain,
+		Purpose:                 opts.Purpose,
+		Created:                 opts.Created,
+		Challenge:               opts.Challenge,
+		Domain:                  opts.Domain,
 	}
 
-	err = vc.AddLinkedDataProof(signingCtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign vc: %w", err)
-	}
-
-	return vc, nil
+	return signingCtx, nil
 }
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method
-func (c *Crypto) getSigner(dataProfile *vcprofile.DataProfile, opts *signingOpts) (signer, string, error) {
+func (c *Crypto) getSigner(did, didKeyType, didPrivateKey, creator string, opts *signingOpts) (signer, string, error) {
 	switch {
 	case opts.VerificationMethod != "":
-		did, err := getDIDFromKeyID(opts.VerificationMethod)
+		didID, err := getDIDFromKeyID(opts.VerificationMethod)
 		if err != nil {
 			return nil, "", err
 		}
 
 		// if the verification method DID is added to profile externally, then fetch the private
 		// key from profile
-		if did == dataProfile.DID && dataProfile.DIDPrivateKey != "" {
-			return newPrivateKeySigner(dataProfile.DIDKeyType, base58.Decode(dataProfile.DIDPrivateKey)),
+		if didID == did && didPrivateKey != "" {
+			return newPrivateKeySigner(didKeyType, base58.Decode(didPrivateKey)),
 				opts.VerificationMethod, nil
 		}
 
 		s, err := newKMSSigner(c.keyManager, c.crypto, opts.VerificationMethod)
 
 		return s, opts.VerificationMethod, err
-	case dataProfile.DIDPrivateKey == "":
-		s, err := newKMSSigner(c.keyManager, c.crypto, dataProfile.Creator)
-		return s, dataProfile.Creator, err
+	case didPrivateKey == "":
+		s, err := newKMSSigner(c.keyManager, c.crypto, creator)
+		return s, creator, err
 	default:
-		return newPrivateKeySigner(dataProfile.DIDKeyType, base58.Decode(dataProfile.DIDPrivateKey)),
-			dataProfile.Creator, nil
+		return newPrivateKeySigner(didKeyType, base58.Decode(didPrivateKey)), creator, nil
 	}
 }
 

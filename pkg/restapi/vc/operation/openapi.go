@@ -234,3 +234,24 @@ type holderProfileReq struct { // nolint: unused,deadcode
 	// in: body
 	Params HolderProfileRequest
 }
+
+// signPresentationReq model
+//
+// swagger:parameters signPresentationReq
+type signPresentationReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+
+	// in: body
+	Params SignPresentationRequest
+}
+
+// signPresentationRes model
+//
+// swagger:response signPresentationRes
+type signPresentationRes struct { // nolint: unused,deadcode
+	// in: body
+}
