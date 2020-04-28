@@ -99,6 +99,8 @@ const (
 	// proof data keys
 	challenge = "challenge"
 	domain    = "domain"
+
+	jsonWebSignature2020Context = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
 )
 
 // nolint: gochecknoglobals
@@ -1000,6 +1002,9 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		credential.Context = append(credential.Context, cslstatus.Context)
 	}
 
+	// update context
+	updateContext(credential, profile)
+
 	// update credential issuer
 	updateIssuer(credential, profile)
 
@@ -1065,6 +1070,9 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 		credential.Context = append(credential.Context, cslstatus.Context)
 	}
+
+	// update context
+	updateContext(credential, profile)
 
 	// update credential issuer
 	updateIssuer(credential, profile)
@@ -1849,6 +1857,12 @@ func updateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProf
 	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
 		// override credential issuer.
 		credential.Issuer = verifiable.Issuer{ID: profile.DID, Name: profile.Name}
+	}
+}
+
+func updateContext(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
+	if profile.SignatureType == crypto.JSONWebSignature2020 {
+		credential.Context = append(credential.Context, jsonWebSignature2020Context)
 	}
 }
 
