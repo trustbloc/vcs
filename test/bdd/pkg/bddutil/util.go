@@ -186,3 +186,15 @@ func CreateCustomPresentation(vcBytes []byte, vdri vdriapi.Registry,
 
 	return json.Marshal(vp)
 }
+
+// GetSignatureRepresentation parse signature representation
+func GetSignatureRepresentation(holder string) verifiable.SignatureRepresentation {
+	switch holder {
+	case "JWS":
+		return verifiable.SignatureJWS
+	case "ProofValue":
+		return verifiable.SignatureProofValue
+	default:
+		return verifiable.SignatureJWS
+	}
+}

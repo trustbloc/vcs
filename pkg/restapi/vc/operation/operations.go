@@ -58,8 +58,8 @@ const (
 	createProfileEndpoint             = "/profile"
 	getProfileEndpoint                = createProfileEndpoint + "/{id}"
 	holderProfileEndpoint             = "/holder/profile"
-	getHolderProfileEndpoint          = holderProfileEndpoint + "/{id}"
-	signPresentationEndpoint          = "{id}/prove/presentations"
+	getHolderProfileEndpoint          = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
+	signPresentationEndpoint          = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
 	storeCredentialEndpoint           = "/store"
 	retrieveCredentialEndpoint        = "/retrieve"
 	credentialStatusEndpoint          = credentialStatus + "/{id}"
@@ -1405,7 +1405,20 @@ func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http
 		return
 	}
 
-	profile, err := o.createHolderProfile(request)
+	profile, err := o.profileStore.GetHolderProfile(request.Name)
+	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if profile != nil {
+		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", profile.Name))
+
+		return
+	}
+
+	profile, err = o.createHolderProfile(request)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -1483,7 +1496,7 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 	}
 
 	// sign presentation
-	signedVP, err := o.crypto.SignPresentation(profile, presentation)
+	signedVP, err := o.crypto.SignPresentation(profile, presentation, getPresentationSigningOpts(presReq.Opts)...)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign presentation:"+
 			" %s", err.Error()))
@@ -1493,6 +1506,29 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 
 	rw.WriteHeader(http.StatusCreated)
 	o.writeResponse(rw, signedVP)
+}
+
+func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningOpts {
+	var signingOpts []crypto.SigningOpts
+
+	if opts != nil {
+		// verification method takes priority
+		verificationMethod := opts.VerificationMethod
+
+		if verificationMethod == "" {
+			verificationMethod = opts.AssertionMethod
+		}
+
+		signingOpts = []crypto.SigningOpts{
+			crypto.WithVerificationMethod(verificationMethod),
+			crypto.WithPurpose(opts.ProofPurpose),
+			crypto.WithCreated(opts.Created),
+			crypto.WithChallenge(opts.Challenge),
+			crypto.WithDomain(opts.Domain),
+		}
+	}
+
+	return signingOpts
 }
 
 func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {
