@@ -1685,6 +1685,7 @@ func TestIssueCredential(t *testing.T) {
 
 		proof, ok := signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
+		require.Equal(t, cslstatus.Context, signedVCResp["@context"].([]interface{})[1])
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#"+keyID, proof["verificationMethod"])

@@ -996,6 +996,8 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 			return
 		}
+
+		credential.Context = append(credential.Context, cslstatus.Context)
 	}
 
 	// update credential issuer
@@ -1060,6 +1062,8 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 			return
 		}
+
+		credential.Context = append(credential.Context, cslstatus.Context)
 	}
 
 	// update credential issuer
