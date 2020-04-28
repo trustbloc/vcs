@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	// Context for CredentialStatusList2017
+	Context = "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
 	// CredentialStatusType credential status type
 	CredentialStatusType  = "CredentialStatusList2017"
 	credentialStatusStore = "credentialstatus"
