@@ -39,9 +39,10 @@ operations:
 - Verify verifiable credential 
 
 # Documentation
-- [VC REST APIs](docs/vc-rest/README.md)
+- [VC REST APIs](docs/vc-rest/api_overview.md)
 - [OpenAPI Spec](docs/vc-rest/openapi_spec.md)
 - [OpenAPI Demo](docs/vc-rest/openapi_demo.md)
+- [VC Interop API Implementation Status](docs/vc-rest/vc_interop_api_impl_status.md)
 
 ## Contributing
 Thank you for your interest in contributing. Please see our [community contribution guidelines](https://github.com/trustbloc/community/blob/master/CONTRIBUTING.md) for more information.

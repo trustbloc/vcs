@@ -1458,7 +1458,7 @@ func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Re
 	o.writeResponse(rw, profile)
 }
 
-// SignPresentation swagger:route POST {id}/prove/presentations holder signPresentationReq
+// SignPresentation swagger:route POST /{id}/prove/presentations holder signPresentationReq
 //
 // Signs a presentation.
 //
