@@ -1650,6 +1650,7 @@ func TestIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		profile.SignatureRepresentation = verifiable.SignatureJWS
+		profile.SignatureType = vccrypto.JSONWebSignature2020
 
 		err = ops.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
@@ -1686,7 +1687,8 @@ func TestIssueCredential(t *testing.T) {
 		proof, ok := signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, cslstatus.Context, signedVCResp["@context"].([]interface{})[1])
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.Equal(t, jsonWebSignature2020Context, signedVCResp["@context"].([]interface{})[2])
+		require.Equal(t, vccrypto.JSONWebSignature2020, proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#"+keyID, proof["verificationMethod"])
 		require.Equal(t, "assertionMethod", proof["proofPurpose"])
@@ -1711,7 +1713,7 @@ func TestIssueCredential(t *testing.T) {
 
 		proof, ok = signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.Equal(t, vccrypto.JSONWebSignature2020, proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#"+keyID, proof["verificationMethod"])
 		require.Equal(t, "assertionMethod", proof["proofPurpose"])
@@ -1735,7 +1737,7 @@ func TestIssueCredential(t *testing.T) {
 
 		proof, ok = signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.Equal(t, vccrypto.JSONWebSignature2020, proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, issuerProfileDIDKey, proof["verificationMethod"])
 		require.Equal(t, "assertionMethod", proof["proofPurpose"])
@@ -1766,6 +1768,7 @@ func TestIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		profile.SignatureRepresentation = verifiable.SignatureJWS
+		profile.SignatureType = vccrypto.Ed25519Signature2018
 
 		err = ops.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
@@ -1794,7 +1797,8 @@ func TestIssueCredential(t *testing.T) {
 
 		proof, ok := signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.Equal(t, 2, len(signedVCResp["@context"].([]interface{})))
+		require.Equal(t, vccrypto.Ed25519Signature2018, proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, customVerificationMethod, proof["verificationMethod"])
 		require.Equal(t, assertionMethod, proof["proofPurpose"])
