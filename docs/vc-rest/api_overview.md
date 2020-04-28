@@ -1,19 +1,18 @@
 # REST API ENDPOINTS 
 
+This document provides high level overview of VC REST Services. For more details, refer [OpenAPI spec](openapi_demo.md).
+
 ## Issuer mode
 ### 1. Create issuer profile  - POST /profile
-This is the first endpoint to continue the flow the in the edge-service. 
 Mandatory fields: 
  - name : profile name (example TD etc)
- - [DID](https://www.w3.org/TR/did-core/#dfn-decentralized-identifiers)
  - [uri](https://www.w3.org/TR/vc-data-model/#dfn-uri) 
  - signatureType
- - creator
 
 #### Request 
 ```
 {
-   "name":"issuer",
+   "name":"<issuerName>",
    "did":"did:peer:22",
    "uri":"https://example.com/credentials",
    "signatureType":"Ed25519Signature2018",
@@ -24,7 +23,7 @@ Mandatory fields:
 #### Response
 ```
 {
-   "name":"issuer",
+   "name":"<issuerName>",
    "did":"did:peer:22",
    "uri":"https://example.com/credentials",
    "signatureType":"Ed25519Signature2018",
@@ -33,14 +32,12 @@ Mandatory fields:
 }
 ```
 
-### 2.  Get issuer profile  - GET /profile?id=issuer
-This is the first endpoint to continue the flow the in the edge-service. 
-Mandatory fields: name, did, uri, signatureType, creator
+### 2.  Get issuer profile  - GET /profile/<issuerName>
 
 #### Response
 ```
 {
-   "name":"issuer",
+   "name":"<issuerName>",
    "did":"did:peer:22",
    "uri":"https://example.com/credentials",
    "signatureType":"Ed25519Signature2018",
@@ -294,6 +291,48 @@ Status 200 OK
 }
 ```
 
+## Holder mode
+### 1. Create Holder profile  - POST /holder/profile
+
+#### Request 
+```
+{
+   "name":"<holderName>",
+   "signatureType":"Ed25519Signature2018",
+   "signatureRepresentation":1,
+   "didKeyType":"Ed25519"
+}
+```
+
+#### Response
+```
+{
+   "name":"<holderName>",
+   "did":"did:trustbloc:testnet.trustbloc.local:EiAmRfGoQaIbmL6C1g48r4n9cOuPgyZkXjaaebuIzfpSpA",
+   "signatureType":"Ed25519Signature2018",
+   "signatureRepresentation":1,
+   "creator":"did:trustbloc:testnet.trustbloc.local:EiAmRfGoQaIbmL6C1g48r4n9cOuPgyZkXjaaebuIzfpSpA#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L2JhRF9lcG1UVTZPTGxGYVhqQ1U4eXM0NmxYa0tTMkZTZURBbUZfWWI0NWc9",
+   "didKeyType":"Ed25519",
+   "didPrivateKey":"",
+   "created":"2020-04-28T19:00:29.806836568Z"
+}
+```
+
+### 2.  Get Holder profile  - GET /holder/profile/<holderName>
+
+#### Response
+```
+{
+   "name":"<holderName>",
+   "did":"did:trustbloc:testnet.trustbloc.local:EiAmRfGoQaIbmL6C1g48r4n9cOuPgyZkXjaaebuIzfpSpA",
+   "signatureType":"Ed25519Signature2018",
+   "signatureRepresentation":1,
+   "creator":"did:trustbloc:testnet.trustbloc.local:EiAmRfGoQaIbmL6C1g48r4n9cOuPgyZkXjaaebuIzfpSpA#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L2JhRF9lcG1UVTZPTGxGYVhqQ1U4eXM0NmxYa0tTMkZTZURBbUZfWWI0NWc9",
+   "didKeyType":"Ed25519",
+   "didPrivateKey":"",
+   "created":"2020-04-28T19:00:29.806836568Z"
+}
+```
 
 ## Verifier mode
 ### 1. Verify Credential - POST /verifier/credentials
