@@ -61,6 +61,33 @@ services:
     networks:
       - couchdb_bdd_net
 
+  holder.vc.rest.example.com:
+    container_name: holder.vc.rest.example.com
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${HOLDER_VC_HOST}:${HOLDER_VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://holder.vc.rest.example.com:${HOLDER_VC_PORT}
+      - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}
+      - BLOC_DOMAIN=testnet.trustbloc.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - DATABASE_TYPE=couchdb
+      - DATABASE_URL=couchdb.example.com:5984
+      - DATABASE_PREFIX=holder
+      - KMSSECRETS_DATABASE_TYPE=couchdb
+      - KMSSECRETS_DATABASE_URL=couchdb.example.com:5984
+      - KMSSECRETS_DATABASE_PREFIX=holder
+      - VC_REST_MODE=holder
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_TLS_SYSTEMCERTPOOL=true
+    ports:
+      - ${HOLDER_VC_PORT}:${HOLDER_VC_PORT}
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
+    volumes:
+      - ../keys/tls:/etc/tls
+    networks:
+      - couchdb_bdd_net
+
   vc.rest.example.com:
     container_name: vc.rest.example.com
     image: ${VC_REST_IMAGE}:latest

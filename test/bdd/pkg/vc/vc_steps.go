@@ -70,7 +70,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 
 func (e *Steps) verifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
 	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, signatureType, "", "",
-		getSignatureRepresentation(holder), e.bddContext.VDRI)
+		bddutil.GetSignatureRepresentation(holder), e.bddContext.VDRI)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 	profileRequest.Name = profileName
 	profileRequest.DID = did
 	profileRequest.DIDPrivateKey = privateKey
-	profileRequest.SignatureRepresentation = getSignatureRepresentation(holder)
+	profileRequest.SignatureRepresentation = bddutil.GetSignatureRepresentation(holder)
 	profileRequest.UNIRegistrar = u
 	profileRequest.OverwriteIssuer = true
 	profileRequest.SignatureType = signatureType
@@ -170,17 +170,6 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 	}
 
 	return nil
-}
-
-func getSignatureRepresentation(holder string) verifiable.SignatureRepresentation {
-	switch holder {
-	case "JWS":
-		return verifiable.SignatureJWS
-	case "ProofValue":
-		return verifiable.SignatureProofValue
-	default:
-		return verifiable.SignatureJWS
-	}
 }
 
 func (e *Steps) getProfileData(profileName string) (*profile.DataProfile, error) {
@@ -320,7 +309,7 @@ func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, 
 
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           "Ed25519Signature2018",
-		SignatureRepresentation: getSignatureRepresentation("JWS"),
+		SignatureRepresentation: bddutil.GetSignatureRepresentation("JWS"),
 		Suite:                   signatureSuite,
 		VerificationMethod:      profileResponse.Creator,
 		Domain:                  "issuer.example.com",

@@ -3215,7 +3215,6 @@ func TestCreateHolderProfile(t *testing.T) {
 
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
 
-		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		profileRes := &HolderProfileRequest{}
@@ -3227,7 +3226,6 @@ func TestCreateHolderProfile(t *testing.T) {
 	t.Run("create profile - invalid request", func(t *testing.T) {
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, []byte("invalid-json"))
 
-		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
 	})
@@ -3243,6 +3241,26 @@ func TestCreateHolderProfile(t *testing.T) {
 		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "missing profile name")
+	})
+
+	t.Run("create profile - profile already exists", func(t *testing.T) {
+		vReq := &HolderProfileRequest{
+			Name:          "test1",
+			DIDKeyType:    vccrypto.Ed25519KeyType,
+			SignatureType: vccrypto.Ed25519Signature2018,
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "profile test1 already exists")
 	})
 
 	t.Run("create profile - failed to created DID", func(t *testing.T) {
@@ -3267,7 +3285,6 @@ func TestCreateHolderProfile(t *testing.T) {
 
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
 
-		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to create did public key")
 	})
@@ -3409,6 +3426,69 @@ func TestSignPresentation(t *testing.T) {
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:test:abc#"+keyID, proof["verificationMethod"])
 		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+	})
+
+	t.Run("sign presentation - success with opts", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+
+		_, signingKey, err := closeableKMS.CreateKeySet()
+		require.NoError(t, err)
+
+		ops, err := New(&Config{
+			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{CreateKeyID: keyID},
+			LegacyKMS:          &kmsmock.CloseableKMS{},
+			VDRI: &vdrimock.MockVDRIRegistry{
+				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+				},
+			},
+			Crypto: &cryptomock.Crypto{},
+		})
+		require.NoError(t, err)
+
+		vReq.SignatureRepresentation = verifiable.SignatureJWS
+
+		err = ops.profileStore.SaveHolderProfile(vReq)
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, holderMode)
+
+		proofPurposeVal := "authentication"
+
+		req := &SignPresentationRequest{
+			Presentation: []byte(vpWithoutProof),
+			Opts: &SignPresentationOptions{
+				Challenge:       challenge,
+				Domain:          domain,
+				ProofPurpose:    proofPurposeVal,
+				AssertionMethod: "did:example:xyz#" + keyID,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		signedVCResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:example:xyz#"+keyID, proof["verificationMethod"])
+		require.Equal(t, proofPurposeVal, proof["proofPurpose"])
+		require.Equal(t, domain, proof[domain])
+		require.Equal(t, challenge, proof[challenge])
 	})
 
 	t.Run("sign presentation - invalid profile", func(t *testing.T) {

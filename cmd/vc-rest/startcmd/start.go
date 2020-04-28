@@ -75,7 +75,7 @@ const (
 	modeFlagName      = "mode"
 	modeFlagShorthand = "m"
 	modeFlagUsage     = "Mode in which the vc-rest service will run. Possible values: " +
-		"['issuer', 'verifier', 'combined'] (default: combined)."
+		"['issuer', 'verifier', 'holder', 'combined'] (default: combined)."
 	modeEnvKey = "VC_REST_MODE"
 
 	databaseTypeFlagName      = "database-type"
@@ -149,6 +149,7 @@ type mode string
 const (
 	verifier mode = "verifier"
 	issuer   mode = "issuer"
+	holder   mode = "holder"
 	combined mode = "combined"
 )
 
@@ -474,7 +475,7 @@ func createVDRI(universalResolver string, kms legacykms.KMS, tlsConfig *tls.Conf
 }
 
 func supportedMode(mode string) bool {
-	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) {
+	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) && mode != string(holder) {
 		return false
 	}
 
