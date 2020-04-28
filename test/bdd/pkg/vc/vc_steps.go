@@ -34,8 +34,10 @@ const (
 	expectedProfileResponseURI = "https://example.com/credentials"
 	issuerURL                  = "http://localhost:8070/"
 	verifierURL                = "http://localhost:8069/verifier"
+	holderURL                  = "http://localhost:8067"
 
-	issueCredentialURLFormat = issuerURL + "%s" + "/credentials/issueCredential"
+	issueCredentialURLFormat  = issuerURL + "%s" + "/credentials/issueCredential"
+	signPresentationURLFormat = holderURL + "/%s" + "/prove/presentations"
 )
 
 // Steps is steps for VC BDD tests
@@ -60,7 +62,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Now we verify that credential for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`,
 		e.verifyCredential)
 	s.Step(`^Now we verify that "([^"]*)" signed with "([^"]*)" presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
-		e.verifyPresentation)
+		e.signAndVerifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndCredential)
@@ -68,9 +70,35 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.createProfileAndPresentation)
 }
 
-func (e *Steps) verifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
-	vp, err := bddutil.CreatePresentation(e.bddContext.CreatedCredential, signatureType, "", "",
-		bddutil.GetSignatureRepresentation(holder), e.bddContext.VDRI)
+func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
+	vc, _, err := verifiable.NewCredential(e.bddContext.CreatedCredential,
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
+	if err != nil {
+		return err
+	}
+
+	// create verifiable presentation from vc
+	vp, err := vc.Presentation()
+	if err != nil {
+		return err
+	}
+
+	vpBytes, err := vp.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	profileName := "holder-" + uuid.New().String()
+
+	err = e.createHolderProfile(profileName, signatureType)
+	if err != nil {
+		return err
+	}
+
+	domain := "example.com"
+	challenge := uuid.New().String()
+
+	vpBytes, err = e.signPresentation(profileName, vpBytes, domain, challenge)
 	if err != nil {
 		return err
 	}
@@ -78,9 +106,11 @@ func (e *Steps) verifyPresentation(holder, signatureType, checksList, result, re
 	checks := strings.Split(checksList, ",")
 
 	req := &operation.VerifyPresentationRequest{
-		Presentation: vp,
+		Presentation: vpBytes,
 		Opts: &operation.VerifyPresentationOptions{
-			Checks: checks,
+			Checks:    checks,
+			Domain:    domain,
+			Challenge: challenge,
 		},
 	}
 
@@ -546,6 +576,87 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfil
 	e.bddContext.CreatedProfile = profileResponse
 
 	return nil
+}
+
+func (e *Steps) createHolderProfile(profileName, signatureType string) error {
+	profileRequest := operation.HolderProfileRequest{
+		Name:                    profileName,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		SignatureType:           signatureType,
+		DIDKeyType:              "Ed25519",
+	}
+
+	requestBytes, err := json.Marshal(profileRequest)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(holderURL+"/holder/profile", "", bytes.NewBuffer(requestBytes)) //nolint: bodyclose
+
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+	}
+
+	profileResponse := profile.HolderProfile{}
+
+	err = json.Unmarshal(respBytes, &profileResponse)
+	if err != nil {
+		return err
+	}
+
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *Steps) signPresentation(profileName string, vp []byte, domain, challenge string) ([]byte, error) {
+	req := &operation.SignPresentationRequest{
+		Presentation: vp,
+		Opts: &operation.SignPresentationOptions{
+			Challenge: challenge,
+			Domain:    domain,
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	endpointURL := fmt.Sprintf(signPresentationURLFormat, profileName)
+
+	resp, err := http.Post(endpointURL, "application/json", bytes.NewBuffer(reqBytes)) //nolint
+	if err != nil {
+		return nil, err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response : %s", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("got unexpected response from %s status '%d' body %s",
+			endpointURL, resp.StatusCode, responseBytes)
+	}
+
+	return responseBytes, nil
 }
 
 func (e *Steps) checkVC(vcBytes []byte, profileName string) error {
