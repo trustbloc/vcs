@@ -8,10 +8,12 @@ package startcmd
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -151,6 +153,9 @@ const (
 	issuer   mode = "issuer"
 	holder   mode = "holder"
 	combined mode = "combined"
+
+	// api
+	healthCheckEndpoint = "/healthcheck"
 )
 
 type vcRestParameters struct {
@@ -172,6 +177,11 @@ type dbParameters struct {
 	kmsSecretsDatabaseType   string
 	kmsSecretsDatabaseURL    string
 	kmsSecretsDatabasePrefix string
+}
+
+type healthCheckResp struct {
+	Status      string    `json:"status"`
+	CurrentTime time.Time `json:"currentTime"`
 }
 
 type server interface {
@@ -425,6 +435,9 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
+	// health check
+	router.HandleFunc(healthCheckEndpoint, healthCheckHandler).Methods(http.MethodGet)
+
 	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
@@ -599,4 +612,18 @@ func constructCORSHandler(handler http.Handler) http.Handler {
 			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
 		},
 	).Handler(handler)
+}
+
+func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
+	rw.WriteHeader(http.StatusOK)
+
+	// TODO update to send the version of the deployment
+
+	err := json.NewEncoder(rw).Encode(&healthCheckResp{
+		Status:      "success",
+		CurrentTime: time.Now(),
+	})
+	if err != nil {
+		log.Errorf("healthcheck response failure, %s", err)
+	}
 }
