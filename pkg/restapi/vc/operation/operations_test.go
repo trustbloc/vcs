@@ -2613,7 +2613,7 @@ func TestCredentialVerifications(t *testing.T) {
 
 			vc.Status = &verifiable.TypedID{
 				ID:   "http://example.com/status/100",
-				Type: "type",
+				Type: "CredentialStatusList2017",
 			}
 
 			vcBytes, err := vc.MarshalJSON()

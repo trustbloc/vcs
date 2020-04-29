@@ -111,11 +111,9 @@ github.com/hashicorp/golang-lru v0.5.1/go.mod h1:/m3WP610KZHVQ1SGc6re/UDhFvYD7pJ
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
-github.com/hyperledger/aries-framework-go v0.1.3-0.20200422184723-a297d2a1d3c3 h1:uNTSj7nZrn6wjWk5D85Y8i0o5FNjajpMGmFyS1g1N90=
-github.com/hyperledger/aries-framework-go v0.1.3-0.20200422184723-a297d2a1d3c3/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
-github.com/hyperledger/aries-framework-go v0.1.3-0.20200424174944-a1daf649cb36 h1:gSFDKY1O/H4oUDn2AogTzsku7xUgVLeTkoAxLId92co=
-github.com/hyperledger/aries-framework-go v0.1.3-0.20200424174944-a1daf649cb36/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200426223310-e7f4259d7e56/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200429130046-32f0575d5156 h1:tTF/5BvCRfpyaKqvFIPBdShHiHQ0QhSPCSFRkUmfDFI=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200429130046-32f0575d5156/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
@@ -232,8 +230,7 @@ github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1M
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200424141236-d4a225751954 h1:2dhd8U3pZU2RKgSpNM6oclzYJPgmwRyMNyRE8QNigUU=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200424141236-d4a225751954/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200425163130-731586afeb34 h1:zc3IBx51y742CXkhUTGgqcrm/viVBrY4n/wC3LbWYQ0=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200425163130-731586afeb34/go.mod h1:z4j/dwCkJnAV4mAH6FUgL65z3uOB14EcmJWGGlZvmlw=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200427004351-8941edb7a281 h1:v9W4TJ0itt2FOL1MdATE4fnZPO2Bw6MSd+838QLCfJk=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200427004351-8941edb7a281/go.mod h1:IaUhKKDvhwblEz6Rcl2TWw5j6UCbIbJ8obTWxCme9bU=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
