@@ -982,13 +982,6 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	// check if issuer is a DID
-	if credential.Issuer.ID != "" && !isDID(credential.Issuer.ID) {
-		o.writeErrorResponse(rw, http.StatusBadRequest, errors.New("issuer is not a DID").Error())
-
-		return
-	}
-
 	if !profile.DisableVCStatus {
 		// set credential status
 		credential.Status, err = o.vcStatusManager.CreateStatusID()

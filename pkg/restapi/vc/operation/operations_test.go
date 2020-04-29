@@ -1904,7 +1904,7 @@ func TestIssueCredential(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "failed to validate credential")
 	})
 
-	t.Run("issue credential - issuer ID is not a DID", func(t *testing.T) {
+	t.Run("issue credential - issuer ID validation", func(t *testing.T) {
 		vc, err := verifiable.NewUnverifiedCredential([]byte(validVC))
 		require.NoError(t, err)
 
@@ -1923,7 +1923,24 @@ func TestIssueCredential(t *testing.T) {
 		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "issuer is not a DID")
+		require.Contains(t, rr.Body.String(), "issuer.id: Does not match format 'uri'")
+
+		// valid URI
+		vc.Issuer.ID = "http://example.com/issuer"
+
+		vcBytes, err = vc.MarshalJSON()
+		require.NoError(t, err)
+
+		req = &IssueCredentialRequest{
+			Credential: vcBytes,
+		}
+
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
 	})
 
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
