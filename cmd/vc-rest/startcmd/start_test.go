@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -185,6 +186,13 @@ func TestStartCmdValidArgs(t *testing.T) {
 	err := startCmd.Execute()
 
 	require.Nil(t, err)
+}
+
+func TestHealthCheck(t *testing.T) {
+	b := &httptest.ResponseRecorder{}
+	healthCheckHandler(b, nil)
+
+	require.Equal(t, http.StatusOK, b.Code)
 }
 
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
