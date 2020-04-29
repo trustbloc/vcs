@@ -1537,7 +1537,7 @@ func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningO
 }
 
 func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {
-	vc, err := o.parseAndVerifyVC(vcByte)
+	vc, err := o.parseAndVerifyVCStrictMode(vcByte)
 
 	if err != nil {
 		return fmt.Errorf("proof validation error : %w", err)
@@ -1615,6 +1615,22 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	return vc, nil
 }
 
+func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Credential, error) {
+	vc, _, err := verifiable.NewCredential(
+		vcBytes,
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+		),
+		verifiable.WithStrictValidation(),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return vc, nil
+}
+
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
@@ -1635,7 +1651,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 			return nil, err
 		}
 		// verify if the credential in vp is valid
-		_, err = o.parseAndVerifyVC(vcBytes)
+		_, err = o.parseAndVerifyVCStrictMode(vcBytes)
 		if err != nil {
 			return nil, err
 		}
