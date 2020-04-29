@@ -25,12 +25,11 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -167,7 +166,7 @@ func New(config *Config) (*Operation, error) {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
-	signingKey, packer, err := cryptosetup.PrepareJWECrypto(config.LegacyKMS, config.StoreProvider)
+	jweEncrypter, jweDecrypter, err := cryptosetup.PrepareJWECrypto(config.KeyManager, config.StoreProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +183,8 @@ func New(config *Config) (*Operation, error) {
 		kms:                  config.KeyManager,
 		vdri:                 config.VDRI,
 		crypto:               c,
-		packer:               packer,
-		signingKey:           signingKey,
+		jweEncrypter:         jweEncrypter,
+		jweDecrypter:         jweDecrypter,
 		vcStatusManager:      vcStatusManager,
 		didBlocClient:        didclient.New(didclient.WithTLSConfig(config.TLSConfig)),
 		domain:               config.Domain,
@@ -216,7 +215,6 @@ type Config struct {
 	StoreProvider      storage.Provider
 	KMSSecretsProvider ariesstorage.Provider
 	EDVClient          EDVClient
-	LegacyKMS          legacykms.KMS
 	KeyManager         keyManager
 	VDRI               vdriapi.Registry
 	HostURL            string
@@ -233,8 +231,8 @@ type Operation struct {
 	kms                  keyManager
 	vdri                 vdriapi.Registry
 	crypto               *crypto.Crypto
-	packer               *authcrypt.Packer
-	signingKey           string
+	jweEncrypter         jose.Encrypter
+	jweDecrypter         jose.Decrypter
 	vcStatusManager      vcStatusManager
 	didBlocClient        didBlocClient
 	domain               string
@@ -617,9 +615,12 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 		return models.EncryptedDocument{}, err
 	}
 
-	// We have no recipients, so we pass in the sender key as the recipient key as well
-	encryptedStructuredDoc, err := o.packer.Pack(marshalledStructuredDoc,
-		base58.Decode(o.signingKey), [][]byte{base58.Decode(o.signingKey)})
+	jwe, err := o.jweEncrypter.Encrypt(marshalledStructuredDoc, nil)
+	if err != nil {
+		return models.EncryptedDocument{}, err
+	}
+
+	encryptedStructuredDoc, err := jwe.Serialize(json.Marshal)
 	if err != nil {
 		return models.EncryptedDocument{}, err
 	}
@@ -648,7 +649,7 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 	encryptedDocument := models.EncryptedDocument{
 		ID:                          structuredDoc.ID,
 		Sequence:                    0,
-		JWE:                         encryptedStructuredDoc,
+		JWE:                         []byte(encryptedStructuredDoc),
 		IndexedAttributeCollections: indexedAttributeCollections,
 	}
 
@@ -1749,14 +1750,19 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 		return nil, fmt.Errorf("failed to read document while "+contextErrText+": %s", err)
 	}
 
-	decryptedEnvelope, err := o.packer.Unpack(document.JWE)
+	encryptedJWE, err := jose.Deserialize(string(document.JWE))
 	if err != nil {
-		return nil, fmt.Errorf("decrypted envelope unpacking failed while "+contextErrText+": %s", err)
+		return nil, err
+	}
+
+	decryptedDocBytes, err := o.jweDecrypter.Decrypt(encryptedJWE)
+	if err != nil {
+		return nil, fmt.Errorf("decrypting document failed while "+contextErrText+": %s", err)
 	}
 
 	decryptedDoc := models.StructuredDocument{}
 
-	err = json.Unmarshal(decryptedEnvelope.Message, &decryptedDoc)
+	err = json.Unmarshal(decryptedDocBytes, &decryptedDoc)
 	if err != nil {
 		return nil, fmt.Errorf("decrypted structured document unmarshalling failed "+
 			"while "+contextErrText+": %s", err)

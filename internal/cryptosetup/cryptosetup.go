@@ -9,37 +9,33 @@ package cryptosetup
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/subtle/random"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer/legacy/authcrypt"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage"
 )
 
 const (
-	masterKeyStoreName  = "masterkey"
-	masterKeyDBKeyName  = masterKeyStoreName
-	vcIDEDVIndexName    = "vcID"
-	keyIDStoreName      = "keyid"
-	keyIDDBKeyName      = keyIDStoreName
-	signingKeyStoreName = "signingkey"
-	signingKeyDBKeyName = signingKeyStoreName
+	masterKeyStoreName   = "masterkey"
+	masterKeyDBKeyName   = masterKeyStoreName
+	vcIDEDVIndexName     = "vcID"
+	keyIDStoreName       = "keyid"
+	hmacKeyIDDBKeyName   = "hmackeyid"
+	ecdhesKeyIDDBKeyName = "ecdheskeyid"
 )
 
 var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as a key set handle pointer")
 
-type legacyKMSProvider struct {
-	kms legacykms.KeyManager
-}
-
-func (p legacyKMSProvider) LegacyKMS() legacykms.KeyManager {
-	return p.kms
-}
+type unmarshalFunc func([]byte, interface{}) error
+type newJWEEncryptFunc func(jose.EncAlg, []subtle.ECPublicKey) (*jose.JWEEncrypt, error)
 
 // PrepareMasterKeyReader prepares a master key reader for secret lock usage
 func PrepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*bytes.Reader, error) {
@@ -68,10 +64,58 @@ func PrepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 	return masterKeyReader, nil
 }
 
+// PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
+func PrepareJWECrypto(keyManager kms.KeyManager,
+	storeProvider storage.Provider) (*jose.JWEEncrypt, *jose.JWEDecrypt, error) {
+	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, ecdhesKeyIDDBKeyName, kms.ECDHES256AES256GCM)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	jweEncrypter, err := createJWEEncrypter(keyHandle, json.Unmarshal, jose.NewJWEEncrypt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	jweDecrypter := jose.NewJWEDecrypt(keyHandle)
+
+	return jweEncrypter, jweDecrypter, nil
+}
+
+func createJWEEncrypter(keyHandle *keyset.Handle, unmarshal unmarshalFunc,
+	newJWEEncrypt newJWEEncryptFunc) (*jose.JWEEncrypt, error) {
+	pubKH, err := keyHandle.Public()
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	pubKeyWriter := ecdhes.NewWriter(buf)
+
+	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
+	if err != nil {
+		return nil, err
+	}
+
+	ecPubKey := new(subtle.ECPublicKey)
+
+	err = unmarshal(buf.Bytes(), ecPubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	jweEncrypter, err := newJWEEncrypt(jose.A256GCM, []subtle.ECPublicKey{*ecPubKey})
+	if err != nil {
+		return nil, err
+	}
+
+	return jweEncrypter, nil
+}
+
 // PrepareMACCrypto prepares necessary MAC crypto data for edge-service operations
 func PrepareMACCrypto(keyManager kms.KeyManager,
 	storeProvider storage.Provider, crypto ariescrypto.Crypto) (*keyset.Handle, string, error) {
-	keyHandle, err := prepareKeyHandle(storeProvider, keyManager)
+	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, hmacKeyIDDBKeyName, kms.HMACSHA256Tag256Type)
 	if err != nil {
 		return nil, "", err
 	}
@@ -84,7 +128,8 @@ func PrepareMACCrypto(keyManager kms.KeyManager,
 	return keyHandle, base64.URLEncoding.EncodeToString(vcIDIndexNameMAC), nil
 }
 
-func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager) (*keyset.Handle, error) {
+func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
+	keyIDDBKeyName string, keyType kms.KeyType) (*keyset.Handle, error) {
 	keyIDStore, err := prepareKeyIDStore(storeProvider)
 	if err != nil {
 		return nil, err
@@ -95,7 +140,7 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager)
 	keyIDBytes, err := keyIDStore.Get(keyIDDBKeyName)
 	if err != nil {
 		if errors.Is(err, storage.ErrValueNotFound) {
-			keyID, keyHandleUntyped, createErr := keyManager.Create(kms.HMACSHA256Tag256Type)
+			keyID, keyHandleUntyped, createErr := keyManager.Create(keyType)
 			if createErr != nil {
 				return nil, createErr
 			}
@@ -140,54 +185,4 @@ func prepareKeyIDStore(storeProvider storage.Provider) (storage.Store, error) {
 	}
 
 	return storeProvider.OpenStore(keyIDStoreName)
-}
-
-// PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
-func PrepareJWECrypto(legacyKMS legacykms.KeyManager,
-	storeProvider storage.Provider) (string, *authcrypt.Packer, error) {
-	// ToDo: Switch to localKMS. https://github.com/trustbloc/edge-service/issues/309
-	kmsProv := legacyKMSProvider{kms: legacyKMS}
-
-	packer := authcrypt.New(kmsProv)
-
-	signingKeyStore, err := prepareSigningKeyStore(storeProvider)
-	if err != nil {
-		return "", nil, err
-	}
-
-	var signingKey string
-
-	signingKeyBytes, err := signingKeyStore.Get(signingKeyDBKeyName)
-	if err != nil {
-		if errors.Is(err, storage.ErrValueNotFound) {
-			var createKeySetErr error
-
-			_, signingKey, createKeySetErr = legacyKMS.CreateKeySet()
-			if createKeySetErr != nil {
-				return "", nil, createKeySetErr
-			}
-
-			err = signingKeyStore.Put(signingKeyDBKeyName, []byte(signingKey))
-			if err != nil {
-				return "", nil, err
-			}
-		} else {
-			return "", nil, err
-		}
-	} else {
-		signingKey = string(signingKeyBytes)
-	}
-
-	return signingKey, packer, nil
-}
-
-func prepareSigningKeyStore(storeProvider storage.Provider) (storage.Store, error) {
-	err := storeProvider.CreateStore(signingKeyStoreName)
-	if err != nil {
-		if !errors.Is(err, storage.ErrDuplicateStore) {
-			return nil, err
-		}
-	}
-
-	return storeProvider.OpenStore(signingKeyStoreName)
 }

@@ -112,8 +112,8 @@ github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/hyperledger/aries-framework-go v0.1.3-0.20200426223310-e7f4259d7e56/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
-github.com/hyperledger/aries-framework-go v0.1.3-0.20200429174017-1ca8de5040d9 h1:E2eA2Fkw3ExvRZLTRkG/GNOFpYdxZGhlGAgpHU5KTUo=
-github.com/hyperledger/aries-framework-go v0.1.3-0.20200429174017-1ca8de5040d9/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200429182723-7fc555ef6cb0 h1:Jzzh65wKiN/E/KpKRN3gASpJSSQmBw9dMZBpcmumJos=
+github.com/hyperledger/aries-framework-go v0.1.3-0.20200429182723-7fc555ef6cb0/go.mod h1:qDWCuZazVnPZVPmaHrqfLWir6NrC/X1SSYO176ff35M=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=

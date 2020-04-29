@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/tink/go/keyset"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
@@ -26,10 +27,14 @@ import (
 func TestIssuerController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+
+		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		require.NoError(t, err)
+
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
-			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
-			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
@@ -38,7 +43,7 @@ func TestIssuerController_New(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
-			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -49,10 +54,13 @@ func TestVerifierController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
+		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		require.NoError(t, err)
+
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
-			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
-			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
@@ -61,7 +69,7 @@ func TestVerifierController_New(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
-			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -73,17 +81,21 @@ func TestControllerInvalidMode_New(t *testing.T) {
 		_, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")},
 			EDVClient: edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
-			LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "invalid"})
+			VDRI:      &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "invalid"})
 		require.Error(t, err)
 	})
 }
 
 func TestIssuerController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+
+	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
 		Crypto:             &cryptomock.Crypto{},
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
-		LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "issuer"})
 
 	require.NoError(t, err)
 	require.NotNil(t, controller)
@@ -95,10 +107,14 @@ func TestIssuerController_GetOperations(t *testing.T) {
 
 func TestVerifierController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+
+	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	require.NoError(t, err)
+
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
 		Crypto:             &cryptomock.Crypto{},
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{},
-		LegacyKMS: &kmsmock.CloseableKMS{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "", Mode: "verifier"})
 
 	require.NoError(t, err)
 	require.NotNil(t, controller)

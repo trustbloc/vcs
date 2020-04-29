@@ -15,16 +15,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
-
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ariesapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
@@ -421,9 +420,13 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	vcService, err := vc.New(&operation.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
 		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
-		LegacyKMS:          legacyKMS, KeyManager: localKMS,
-		Crypto: crypto, VDRI: vdri, HostURL: externalHostURL, Mode: parameters.mode, Domain: parameters.blocDomain,
-		TLSConfig: &tls.Config{RootCAs: rootCAs}})
+		KeyManager:         localKMS,
+		Crypto:             crypto,
+		VDRI:               vdri,
+		HostURL:            externalHostURL,
+		Mode:               parameters.mode,
+		Domain:             parameters.blocDomain,
+		TLSConfig:          &tls.Config{RootCAs: rootCAs}})
 	if err != nil {
 		return err
 	}
