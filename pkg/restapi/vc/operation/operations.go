@@ -748,6 +748,7 @@ func (o *Operation) createDIDUniRegistrar(keyType, signatureType string,
 }
 
 func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
+	// TODO Create map between DID keyID and kmsID https://github.com/hyperledger/aries-framework-go/issues/1744
 	keyID, _, err := o.kms.Create(keyType)
 	if err != nil {
 		return "", nil, err
