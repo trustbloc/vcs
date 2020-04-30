@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1720,7 +1719,7 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 
 func TestIssueCredential(t *testing.T) {
 	endpoint := "/test/credentials/issueCredential"
-	keyID := base64.RawURLEncoding.EncodeToString([]byte("key-1"))
+	keyID := "key-1"
 	issuerProfileDIDKey := "did:test:abc#" + keyID
 	profile := getTestProfile()
 	profile.Creator = issuerProfileDIDKey
@@ -2172,14 +2171,14 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - signing error", func(t *testing.T) {
-		closeableKMS := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+		closeableKMS := &kmsmock.CloseableKMS{}
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
 
 		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
 
 		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
@@ -2227,7 +2226,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	types := []string{degreeType}
 	evidenceID := "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192d4231"
 	evidenceVerifier := "https://example.edu/issuers/14"
-	key1ID := base64.RawURLEncoding.EncodeToString([]byte("key-1"))
+	key1ID := "key-22"
 
 	termsOfUseJSON, err := json.Marshal(&TermsOfUse{
 		ID:   termsOfUseID,
@@ -3506,7 +3505,7 @@ func TestGetHolderProfile(t *testing.T) {
 
 func TestSignPresentation(t *testing.T) {
 	endpoint := "/test/prove/presentations"
-	keyID := base64.RawURLEncoding.EncodeToString([]byte("key-1"))
+	keyID := "key-333"
 	issuerProfileDIDKey := "did:test:abc#" + keyID
 
 	vReq := &vcprofile.HolderProfile{

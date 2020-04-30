@@ -11,12 +11,12 @@ require (
 	github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.3-0.20200430171117-b077c8b62a51
+	github.com/hyperledger/aries-framework-go v0.1.3-0.20200430232403-b726cc38d018
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.5.1
 	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edv v0.1.3-0.20200415141634-265a4f01a957
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200430164954-0195456471bf
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200430214705-74c65ca8acc6
 )
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e

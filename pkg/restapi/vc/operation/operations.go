@@ -760,7 +760,7 @@ func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
 		return "", nil, err
 	}
 
-	return base64.RawURLEncoding.EncodeToString([]byte(keyID)), pubKeyBytes, nil
+	return keyID, pubKeyBytes, nil
 }
 
 func (o *Operation) createDID(keyType, signatureType string) (string, string, error) {
