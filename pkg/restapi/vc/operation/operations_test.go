@@ -127,6 +127,41 @@ const (
 	  }
 	}`
 
+	prCardVC = `{
+	  "@context": [
+		"https://www.w3.org/2018/credentials/v1",
+		"https://w3id.org/citizenship/v1"
+	  ],
+	  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	  "type": [
+		"VerifiableCredential",
+		"PermanentResidentCard"
+	  ],
+	  "name": "Permanent Resident Card",
+	  "description": "Permanent Resident Card",
+	  "issuer": "did:example:28394728934792387",
+	  "issuanceDate": "2019-12-03T12:19:52Z",
+	  "expirationDate": "2029-12-03T12:19:52Z",
+	  "credentialSubject": {
+		"id": "did:example:b34ca6cd37bbf23",
+		"type": [
+		  "PermanentResident",
+		  "Person"
+		],
+		"givenName": "JOHN",
+		"familyName": "SMITH",
+		"gender": "Male",
+		"image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
+		"residentSince": "2015-01-01",
+		"lprCategory": "C09",
+		"lprNumber": "999-999-999",
+		"commuterClassification": "C1",
+		"birthCountry": "Bahamas",
+		"birthDate": "1958-07-17"
+	  }
+	}
+	`
+
 	validVCWithoutStatus = `{` +
 		validContext + `,
 	  "id": "http://example.edu/credentials/1872",
@@ -2571,27 +2606,27 @@ func TestGetComposeSigningOpts(t *testing.T) {
 			{
 				name:        "compose signing opts kid, purpose & created",
 				ProofFormat: `proofValue`,
-				ProofFormatOptions: `{"kid":"kid1", "proofPurpose":"authentication", 
+				ProofFormatOptions: `{"kid":"kid1", "proofPurpose":"authentication",
 							"created":"2019-04-16T18:11:09-04:00"}`,
 			},
 			{
 				name:        "invalid signing opts",
 				ProofFormat: `proofValue`,
-				ProofFormatOptions: `{"kid":{}, "proofPurpose":"authentication", 
-							"created":"2019-04-16T18:11:09-04:00"}`,
-				err: "failed to prepare signing opts",
-			},
-			{
-				name:        "invalid signing opts",
-				ProofFormat: `proofValue`,
-				ProofFormatOptions: `{"kid":"", "proofPurpose":{}, 
+				ProofFormatOptions: `{"kid":{}, "proofPurpose":"authentication",
 							"created":"2019-04-16T18:11:09-04:00"}`,
 				err: "failed to prepare signing opts",
 			},
 			{
 				name:        "invalid signing opts",
 				ProofFormat: `proofValue`,
-				ProofFormatOptions: `{"kid":"", "proofPurpose":{}, 
+				ProofFormatOptions: `{"kid":"", "proofPurpose":{},
+							"created":"2019-04-16T18:11:09-04:00"}`,
+				err: "failed to prepare signing opts",
+			},
+			{
+				name:        "invalid signing opts",
+				ProofFormat: `proofValue`,
+				ProofFormatOptions: `{"kid":"", "proofPurpose":{},
 							"created":"xyz"}`,
 				err: "failed to prepare signing opts",
 			},
@@ -2673,8 +2708,10 @@ func TestGenerateKeypair(t *testing.T) {
 }
 
 func TestCredentialVerifications(t *testing.T) {
-	vc, err := verifiable.NewUnverifiedCredential([]byte(validVC))
+	vc, err := verifiable.NewUnverifiedCredential([]byte(prCardVC))
 	require.NoError(t, err)
+
+	vc.Context = append(vc.Context, cslstatus.Context)
 
 	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
@@ -2755,7 +2792,7 @@ func TestCredentialVerifications(t *testing.T) {
 
 		t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
 			req := &CredentialsVerificationRequest{
-				Credential: []byte(validVC),
+				Credential: []byte(prCardVC),
 			}
 
 			reqBytes, err := json.Marshal(req)
@@ -2791,7 +2828,7 @@ func TestCredentialVerifications(t *testing.T) {
 		t.Run("credential verification - proof check failure", func(t *testing.T) {
 			// no proof in VC
 			req := &CredentialsVerificationRequest{
-				Credential: []byte(validVC),
+				Credential: []byte(prCardVC),
 				Opts: &CredentialsVerificationOptions{
 					Checks: []string{proofCheck},
 				},
@@ -2867,7 +2904,7 @@ func TestCredentialVerifications(t *testing.T) {
 
 			t.Run("status check failure - revoked", func(t *testing.T) {
 				cslBytes, err := json.Marshal(&cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
-					strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1873"),
+					strings.ReplaceAll(validVCStatus, "#ID", "https://issuer.oidp.uscis.gov/credentials/83627465"),
 					strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1872")}})
 				require.NoError(t, err)
 				op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
@@ -2907,7 +2944,7 @@ func TestCredentialVerifications(t *testing.T) {
 			invalidCheckName := "invalidCheckName"
 
 			req := &CredentialsVerificationRequest{
-				Credential: []byte(validVC),
+				Credential: []byte(prCardVC),
 				Opts: &CredentialsVerificationOptions{
 					Checks: []string{invalidCheckName},
 				},
@@ -2959,7 +2996,7 @@ func TestCredentialVerifications(t *testing.T) {
 			handler := getHandler(t, op, endpoint, verifierMode)
 
 			vReq := &CredentialsVerificationRequest{
-				Credential: getSignedVC(t, privKey, validVC, verificationMethod, domain,
+				Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, domain,
 					"invalid-challenge"),
 				Opts: &CredentialsVerificationOptions{
 					Checks:    []string{proofCheck, statusCheck},
@@ -2977,7 +3014,7 @@ func TestCredentialVerifications(t *testing.T) {
 			require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
 
 			vReq = &CredentialsVerificationRequest{
-				Credential: getSignedVC(t, privKey, validVC, verificationMethod, "invalid-domain", challenge),
+				Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, "invalid-domain", challenge),
 				Opts: &CredentialsVerificationOptions{
 					Checks:    []string{proofCheck},
 					Domain:    domain,
@@ -2995,7 +3032,7 @@ func TestCredentialVerifications(t *testing.T) {
 
 			// fail when proof has challenge and no challenge in the options
 			vReq = &CredentialsVerificationRequest{
-				Credential: getSignedVC(t, privKey, validVC, verificationMethod, domain, challenge),
+				Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, domain, challenge),
 			}
 
 			vReqBytes, err = json.Marshal(vReq)
@@ -3008,7 +3045,7 @@ func TestCredentialVerifications(t *testing.T) {
 
 			// fail when proof has domain and no domain in the options
 			vReq = &CredentialsVerificationRequest{
-				Credential: getSignedVC(t, privKey, validVC, verificationMethod, domain, challenge),
+				Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, domain, challenge),
 				Opts: &CredentialsVerificationOptions{
 					Checks:    []string{proofCheck},
 					Challenge: challenge,
@@ -3069,7 +3106,7 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint, verifierMode)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
@@ -3217,7 +3254,7 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint, verifierMode)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, uuid.New().String()),
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, uuid.New().String()),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Domain:    domain,
@@ -3234,7 +3271,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
 
 		vReq = &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, "invalid-domain", challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, "invalid-domain", challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Domain:    domain,
@@ -3252,7 +3289,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		// fail when proof has challenge and no challenge in the options
 		vReq = &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
 		}
 
 		vReqBytes, err = json.Marshal(vReq)
@@ -3265,7 +3302,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		// fail when proof has domain and no domain in the options
 		vReq = &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, validVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
