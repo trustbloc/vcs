@@ -166,13 +166,14 @@ func New(config *Config) (*Operation, error) {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
-	jweEncrypter, jweDecrypter, err := cryptosetup.PrepareJWECrypto(config.KeyManager, config.StoreProvider)
+	jweEncrypter, jweDecrypter, err := cryptosetup.PrepareJWECrypto(config.KeyManager, config.StoreProvider,
+		jose.A256GCM, kms.ECDHES256AES256GCMType)
 	if err != nil {
 		return nil, err
 	}
 
 	kh, vcIDIndexNameMACEncoded, err :=
-		cryptosetup.PrepareMACCrypto(config.KeyManager, config.StoreProvider, config.Crypto)
+		cryptosetup.PrepareMACCrypto(config.KeyManager, config.StoreProvider, config.Crypto, kms.HMACSHA256Tag256Type)
 	if err != nil {
 		return nil, err
 	}
@@ -1747,7 +1748,7 @@ func (o *Operation) verifyMultipleMatchingVCsAreIdentical(profileName string, do
 func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byte, error) {
 	document, err := o.edvClient.ReadDocument(profileName, docID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read document while "+contextErrText+": %s", err)
+		return nil, fmt.Errorf("failed to read document while %s: %s", contextErrText, err)
 	}
 
 	encryptedJWE, err := jose.Deserialize(string(document.JWE))

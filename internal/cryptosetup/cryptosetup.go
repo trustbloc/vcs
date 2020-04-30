@@ -65,14 +65,14 @@ func PrepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 }
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
-func PrepareJWECrypto(keyManager kms.KeyManager,
-	storeProvider storage.Provider) (*jose.JWEEncrypt, *jose.JWEDecrypt, error) {
-	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, ecdhesKeyIDDBKeyName, kms.ECDHES256AES256GCM)
+func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
+	encAlg jose.EncAlg, keyType kms.KeyType) (*jose.JWEEncrypt, *jose.JWEDecrypt, error) {
+	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, ecdhesKeyIDDBKeyName, keyType)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	jweEncrypter, err := createJWEEncrypter(keyHandle, json.Unmarshal, jose.NewJWEEncrypt)
+	jweEncrypter, err := createJWEEncrypter(keyHandle, encAlg, json.Unmarshal, jose.NewJWEEncrypt)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -82,7 +82,7 @@ func PrepareJWECrypto(keyManager kms.KeyManager,
 	return jweEncrypter, jweDecrypter, nil
 }
 
-func createJWEEncrypter(keyHandle *keyset.Handle, unmarshal unmarshalFunc,
+func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, unmarshal unmarshalFunc,
 	newJWEEncrypt newJWEEncryptFunc) (*jose.JWEEncrypt, error) {
 	pubKH, err := keyHandle.Public()
 	if err != nil {
@@ -104,7 +104,7 @@ func createJWEEncrypter(keyHandle *keyset.Handle, unmarshal unmarshalFunc,
 		return nil, err
 	}
 
-	jweEncrypter, err := newJWEEncrypt(jose.A256GCM, []subtle.ECPublicKey{*ecPubKey})
+	jweEncrypter, err := newJWEEncrypt(encAlg, []subtle.ECPublicKey{*ecPubKey})
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +113,9 @@ func createJWEEncrypter(keyHandle *keyset.Handle, unmarshal unmarshalFunc,
 }
 
 // PrepareMACCrypto prepares necessary MAC crypto data for edge-service operations
-func PrepareMACCrypto(keyManager kms.KeyManager,
-	storeProvider storage.Provider, crypto ariescrypto.Crypto) (*keyset.Handle, string, error) {
-	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, hmacKeyIDDBKeyName, kms.HMACSHA256Tag256Type)
+func PrepareMACCrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
+	crypto ariescrypto.Crypto, keyType kms.KeyType) (*keyset.Handle, string, error) {
+	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, hmacKeyIDDBKeyName, keyType)
 	if err != nil {
 		return nil, "", err
 	}
