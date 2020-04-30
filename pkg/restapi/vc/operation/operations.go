@@ -1790,7 +1790,8 @@ func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclien
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key1ID, Type: didclient.Ed25519VerificationKey2018,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk,
-		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral}})
+		KeyType: didclient.Ed25519KeyType,
+		Usage:   []string{didclient.KeyUsageGeneral, didclient.KeyUsageAssertion, didclient.KeyUsageAuth}})
 
 	// Add JWSVerificationKey2020 Ed25519KeyType
 	key2ID, pubKeyBytes, err := o.createKey(kms.ED25519Type)
@@ -1810,7 +1811,7 @@ func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclien
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key3ID, Type: didclient.JWSVerificationKey2020,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.P256KeyType,
-		Usage: []string{didclient.KeyUsageGeneral}})
+		Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageAssertion, didclient.KeyUsageAuth}})
 
 	if keyType == crypto.Ed25519KeyType &&
 		didclient.Ed25519VerificationKey2018 == signatureKeyTypeMap[signatureType] {
