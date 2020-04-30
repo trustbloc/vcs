@@ -1803,7 +1803,7 @@ func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclien
 		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
 
 	// Add JWSVerificationKey2020  ECKeyType
-	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEE1363)
+	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEEP1363)
 	if err != nil {
 		return nil, "", err
 	}
