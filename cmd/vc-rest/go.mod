@@ -21,4 +21,6 @@ replace github.com/trustbloc/edge-service => ../..
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
 
+replace github.com/hyperledger/aries-framework-go => github.com/sudeshrshetty/aries-framework-go v0.0.0-20200430232625-e7373e8e0d67
+
 go 1.13

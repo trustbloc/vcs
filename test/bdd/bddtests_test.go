@@ -93,9 +93,9 @@ func runBDDTests(tags, format string) int {
 					if err := c.GenerateLogs(c.Dir, "docker-compose.log"); err != nil {
 						panic(err)
 					}
-					if _, err := c.Decompose(c.Dir); err != nil {
-						panic(err)
-					}
+					// if _, err := c.Decompose(c.Dir); err != nil {
+					// 	panic(err)
+					// }
 				}
 			}
 		})
