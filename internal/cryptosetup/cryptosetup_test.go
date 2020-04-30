@@ -11,13 +11,11 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -56,7 +54,7 @@ func TestPrepareJWECrypto(t *testing.T) {
 		require.NoError(t, err)
 
 		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&kms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
-			mockstore.NewMockStoreProvider())
+			mockstore.NewMockStoreProvider(), jose.A256GCM, kmsservice.ECDHES256AES256GCMType)
 		require.EqualError(t, err, "keyset.Handle: keyset.Handle: keyset contains a non-private key")
 		require.Nil(t, jweEncrypter)
 		require.Nil(t, jweDecrypter)
@@ -68,22 +66,22 @@ func Test_createJWEEncrypter(t *testing.T) {
 		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		jweDecrypter, err := createJWEEncrypter(keyHandle, func(_ []byte, _ interface{}) error {
+		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, func(_ []byte, _ interface{}) error {
 			return errTest
 		}, nil)
 		require.Equal(t, errTest, err)
-		require.Nil(t, jweDecrypter)
+		require.Nil(t, jweEncrypter)
 	})
 	t.Run("Fail to create new JWE Encrypter", func(t *testing.T) {
 		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		jweDecrypter, err := createJWEEncrypter(keyHandle, json.Unmarshal,
+		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, json.Unmarshal,
 			func(alg jose.EncAlg, keys []subtle.ECPublicKey) (*jose.JWEEncrypt, error) {
 				return nil, errTest
 			})
 		require.Equal(t, errTest, err)
-		require.Nil(t, jweDecrypter)
+		require.Nil(t, jweEncrypter)
 	})
 }
 
@@ -98,7 +96,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 		testMACValue := []byte("testValue")
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, &mockCrypto)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, &mockCrypto,
+			kmsservice.HMACSHA256Tag256Type)
 		require.NoError(t, err)
 		require.Nil(t, keySetHandle)
 		require.Equal(t, base64.URLEncoding.EncodeToString(testMACValue), encodedVCIDIndexNameMAC)
@@ -111,7 +110,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 
 		mockKMS := kms.KeyManager{GetKeyErr: errTest}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errTest, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
@@ -124,7 +124,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 
 		mockKMS := mockKeyManager{}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errKeySetHandleAssertionFailure, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
@@ -135,7 +136,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 		require.NoError(t, err)
 		mockStoreProvider.Store.ErrGet = errTest
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(nil, mockStoreProvider, nil)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(nil, mockStoreProvider, nil,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errTest, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
@@ -148,7 +150,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 		testMACValue := []byte("keyHandle")
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, &mockCrypto)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, &mockCrypto,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errTest, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
@@ -159,7 +162,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 
 		mockKMS := mockKeyManager{}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errKeySetHandleAssertionFailure, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
@@ -170,7 +174,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 
 		mockKMS := kms.KeyManager{}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errTest, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
@@ -182,7 +187,8 @@ func TestPrepareMACCrypto(t *testing.T) {
 
 		mockCrypto := crypto.Crypto{ComputeMACErr: errTest}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, &mockCrypto)
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, &mockCrypto,
+			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errTest, err)
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
