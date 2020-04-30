@@ -7,13 +7,20 @@ package cryptosetup
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+
+	"github.com/google/tink/go/keyset"
+	"github.com/google/tink/go/mac"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/stretchr/testify/require"
@@ -43,55 +50,47 @@ func TestPrepareMasterKeyReader(t *testing.T) {
 }
 
 func TestPrepareJWECrypto(t *testing.T) {
-	t.Run("Success: signing key store already contains a signing key", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
-		err := mockStoreProvider.Store.Put(signingKeyDBKeyName, []byte("testKey"))
+	t.Run("Fail to create JWE Encrypter", func(t *testing.T) {
+		// Calling keyHandle.Public() on an HMAC key set isn't valid, which will cause PrepareJWECrypto to fail
+		keyHandleToBeCreated, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 		require.NoError(t, err)
 
-		signingKey, packer, err := PrepareJWECrypto(nil, mockStoreProvider)
+		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&kms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
+			mockstore.NewMockStoreProvider())
+		require.EqualError(t, err, "keyset.Handle: keyset.Handle: keyset contains a non-private key")
+		require.Nil(t, jweEncrypter)
+		require.Nil(t, jweDecrypter)
+	})
+}
+
+func Test_createJWEEncrypter(t *testing.T) {
+	t.Run("Fail to unmarshal", func(t *testing.T) {
+		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
-		require.Equal(t, "testKey", signingKey)
-		require.NotNil(t, packer)
-	})
-	t.Run("Failure: unexpected error while getting signing key from store", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
 
-		mockStoreProvider.Store.ErrGet = errTest
-		err := mockStoreProvider.Store.Put(signingKeyDBKeyName, []byte("testKey"))
+		jweDecrypter, err := createJWEEncrypter(keyHandle, func(_ []byte, _ interface{}) error {
+			return errTest
+		}, nil)
+		require.Equal(t, errTest, err)
+		require.Nil(t, jweDecrypter)
+	})
+	t.Run("Fail to create new JWE Encrypter", func(t *testing.T) {
+		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		signingKey, packer, err := PrepareJWECrypto(nil, mockStoreProvider)
+		jweDecrypter, err := createJWEEncrypter(keyHandle, json.Unmarshal,
+			func(alg jose.EncAlg, keys []subtle.ECPublicKey) (*jose.JWEEncrypt, error) {
+				return nil, errTest
+			})
 		require.Equal(t, errTest, err)
-		require.Empty(t, signingKey)
-		require.Nil(t, packer)
-	})
-	t.Run("Failure while creating key set when no existing signing key found", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
-
-		mockKMS := legacykms.CloseableKMS{CreateKeyErr: errTest}
-
-		signingKey, packer, err := PrepareJWECrypto(&mockKMS, mockStoreProvider)
-		require.Equal(t, errTest, err)
-		require.Empty(t, signingKey)
-		require.Nil(t, packer)
-	})
-	t.Run("Failure while putting newly created signing key into signing key store", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
-		mockStoreProvider.Store.ErrPut = errTest
-
-		mockKMS := legacykms.CloseableKMS{}
-
-		signingKey, packer, err := PrepareJWECrypto(&mockKMS, mockStoreProvider)
-		require.Equal(t, errTest, err)
-		require.Empty(t, signingKey)
-		require.Nil(t, packer)
+		require.Nil(t, jweDecrypter)
 	})
 }
 
 func TestPrepareMACCrypto(t *testing.T) {
 	t.Run("Success: key ID already in store", func(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
-		err := mockStoreProvider.Store.Put(keyIDDBKeyName, []byte("testKeyID"))
+		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
 		mockKMS := kms.KeyManager{}
@@ -107,7 +106,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	t.Run("Failure: key ID already in store, "+
 		"but failed to retrieve key handle from key manager", func(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
-		err := mockStoreProvider.Store.Put(keyIDDBKeyName, []byte("testKeyID"))
+		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
 		mockKMS := kms.KeyManager{GetKeyErr: errTest}
@@ -120,7 +119,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	t.Run("Failure: key ID already in store, "+
 		"but failed to assert retrieved key handle from key manager as a *keyset.Handle", func(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
-		err := mockStoreProvider.Store.Put(keyIDDBKeyName, []byte("testKeyID"))
+		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
 		mockKMS := mockKeyManager{}
@@ -132,7 +131,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	})
 	t.Run("Unexpected failure while getting key ID from store", func(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
-		err := mockStoreProvider.Store.Put(keyIDDBKeyName, []byte("testKeyID"))
+		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 		mockStoreProvider.Store.ErrGet = errTest
 
