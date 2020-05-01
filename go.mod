@@ -15,7 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.5.1
 	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
-	github.com/trustbloc/edv v0.1.3-0.20200415141634-265a4f01a957
+	github.com/trustbloc/edv v0.1.3-0.20200430234942-7eed5374c42e
 	github.com/trustbloc/trustbloc-did-method v0.0.0-20200430214705-74c65ca8acc6
 )
 
