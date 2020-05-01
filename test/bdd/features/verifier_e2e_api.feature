@@ -16,6 +16,7 @@ Feature: Verifier VC REST API
       | credential                      | verifiable credential  |
       | university_degree.json          |                        |
       | permanent_resident_card.json    |                        |
+      | crude_product.json              |                        |
       | certified_mill_test_report.json |                        |
       | university_degree.json          | transmute_vc1.json     |
       | permanent_resident_card.json    | transmute_vc2.json     |
@@ -28,10 +29,12 @@ Feature: Verifier VC REST API
     Given "Alice" has her "<credential>" issued as "<verifiable credential>" and presentable as "<verifiable presentation>"
     Then  Employer verifies the verifiable presentation provided by "Alice"
     Examples:
-      | credential                   | verifiable credential | verifiable presentation |
-      | university_degree.json       |                       |                         |
-      | permanent_resident_card.json |                       |                         |
-      | university_degree.json       | transmute_vc1.json    |                         |
-      | permanent_resident_card.json | transmute_vc2.json    |                         |
-      | university_degree.json       | transmute_vc1.json    | transmute_vp1.json      |
-      | permanent_resident_card.json | transmute_vc2.json    | transmute_vp2.json      |
+      | credential                      | verifiable credential | verifiable presentation |
+      | university_degree.json          |                       |                         |
+      | permanent_resident_card.json    |                       |                         |
+      | crude_product.json              |                       |                         |
+      | certified_mill_test_report.json |                       |                         |
+      | university_degree.json          | transmute_vc1.json    |                         |
+      | permanent_resident_card.json    | transmute_vc2.json    |                         |
+      | university_degree.json          | transmute_vc1.json    | transmute_vp1.json      |
+      | permanent_resident_card.json    | transmute_vc2.json    | transmute_vp2.json      |
