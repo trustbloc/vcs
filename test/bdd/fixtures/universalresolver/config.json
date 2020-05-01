@@ -2,7 +2,9 @@
   "drivers": [
     {
       "pattern": "^(did:v1:test:nym:.+)$",
-      "url": "https://ashburn.capybara.veres.one/dids/$1"
+      "image": "veresone/uni-resolver-did-v1-driver",
+      "imageProperties": "true",
+      "tag": "latest"
     },
     {
       "pattern": "^(did:trustbloc:testnet.trustbloc.local:.+)$",

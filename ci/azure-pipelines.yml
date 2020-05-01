@@ -41,6 +41,8 @@ jobs:
   - job: BDDTest
     pool:
       vmImage: ubuntu-16.04
+    strategy:
+      parallel: 3
     timeoutInMinutes: 30
     steps:
       - template: azp-dependencies.yml
