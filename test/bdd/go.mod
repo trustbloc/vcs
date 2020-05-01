@@ -20,3 +20,5 @@ require (
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/trustbloc-did-method v0.0.0-20200501024057-36f87b23fb40
 )
+
+replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e

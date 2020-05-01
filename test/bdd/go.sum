@@ -272,10 +272,12 @@ github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692 h1:hGMF+YSde
 github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692/go.mod h1:mmgEfSIoNjshnVdxEtPwh2CLs0EaBaaejgI2KNsOEOE=
 github.com/trustbloc/edv v0.1.3-0.20200430234942-7eed5374c42e h1:MOFd6qR1hJIKsio6wsCkZpNzBrJNmKebiFIgGeDCqcM=
 github.com/trustbloc/edv v0.1.3-0.20200430234942-7eed5374c42e/go.mod h1:v9Rwqvm3ZgsXP60Hjjd2yfhLK3vpAo5g3dfmSTD7N38=
+github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200430203822-5e12db11f149 h1:V1rrqI38qtR8vYQvE4MwNT1GrmkdDigsyP8fMfkxTB4=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200430203822-5e12db11f149/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200430214705-74c65ca8acc6 h1:GYq5eDXMpUSx183UO8xK11JQBGnGjtXoGhfbK+4vuvo=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200430214705-74c65ca8acc6/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200501024057-36f87b23fb40 h1:AGljfrYvxMOVAgPD/qRK7o7co7JmCEzBUlh1Y+YCtn4=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200501024057-36f87b23fb40/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
