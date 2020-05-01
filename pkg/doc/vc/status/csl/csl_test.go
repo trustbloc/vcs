@@ -7,12 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package csl
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
@@ -62,7 +67,7 @@ func TestCredentialStatusList_New(t *testing.T) {
 func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -95,7 +100,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			return nil, fmt.Errorf("get error")
 		},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -112,7 +117,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return fmt.Errorf("put error")
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -132,7 +137,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -152,7 +157,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -167,7 +172,7 @@ func TestCredentialStatusList_GetCSL(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 		csl, err := s.GetCSL("1")
 		require.Error(t, err)
@@ -179,7 +184,8 @@ func TestCredentialStatusList_GetCSL(t *testing.T) {
 func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{},
+				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -208,7 +214,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{},
+				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
 		err = s.UpdateVCStatus(&verifiable.Credential{ID: "http://example.edu/credentials/1872",
@@ -220,7 +227,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 	t.Run("test error from creating new status credential", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{},
+				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -235,7 +243,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}))
+			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
+				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -439,4 +448,48 @@ func (s *mockStore) CreateIndex(createIndexRequest storage.CreateIndexRequest) e
 // which will be dependent on what the underlying store requires.
 func (s *mockStore) Query(query string) (storage.ResultsIterator, error) {
 	return nil, nil
+}
+
+// nolint: unparam
+func createDIDDoc(didID string) *did.Doc {
+	const (
+		didContext = "https://w3id.org/did/v1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	creator := didID + "#key1"
+
+	service := did.Service{
+		ID:              "did:example:123456789abcdefghi#did-communication",
+		Type:            "did-communication",
+		ServiceEndpoint: "https://agent.example.com/",
+		RecipientKeys:   []string{creator},
+		Priority:        0,
+	}
+
+	signingKey := did.PublicKey{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:              []string{didContext},
+		ID:                   didID,
+		PublicKey:            []did.PublicKey{signingKey},
+		Service:              []did.Service{service},
+		Created:              &createdTime,
+		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
+		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
+	}
 }

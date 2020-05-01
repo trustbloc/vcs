@@ -96,8 +96,10 @@ const (
 	recoveryKey1 = "recovery-key"
 
 	// proof data keys
-	challenge = "challenge"
-	domain    = "domain"
+	challenge          = "challenge"
+	domain             = "domain"
+	proofPurpose       = "proofPurpose"
+	verificationMethod = "verificationMethod"
 
 	jsonWebSignature2020Context = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
 )
@@ -159,7 +161,7 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
-	c := crypto.New(config.KeyManager, config.Crypto)
+	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI)
 
 	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
 	if err != nil {
@@ -697,7 +699,8 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	o.retrieveCredential(rw, profile, docURLs)
 }
 
-func (o *Operation) createDIDUniRegistrar(keyType, signatureType string,
+// nolint: gocyclo
+func (o *Operation) createDIDUniRegistrar(keyType, signatureType, purpose string,
 	registrar UNIRegistrar) (string, string, string, error) {
 	var opts []uniregistrar.CreateDIDOption
 
@@ -740,6 +743,18 @@ func (o *Operation) createDIDUniRegistrar(keyType, signatureType string,
 		}
 
 		return "", "", "", fmt.Errorf("selected key not found %s", selectedKeyID)
+	}
+
+	if strings.Contains(identifier, "did:v1") {
+		for _, v := range keys {
+			for _, p := range v.Purpose {
+				if purpose == p {
+					return identifier, v.ID, v.PrivateKeyBase58, nil
+				}
+			}
+		}
+
+		return "", "", "", fmt.Errorf("did:v1 - not able to find key with purpose %s", purpose)
 	}
 
 	// vendors not supporting addKeys feature.
@@ -802,7 +817,7 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 	var didID, publicKeyID string
 
 	didID, publicKeyID, didPrivateKey, err := o.createProfile(pr.DIDKeyType, pr.SignatureType,
-		pr.DID, pr.DIDPrivateKey, pr.UNIRegistrar)
+		pr.DID, pr.DIDPrivateKey, crypto.AssertionMethod, pr.UNIRegistrar)
 	if err != nil {
 		return nil, err
 	}
@@ -820,7 +835,7 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 	var didID, publicKeyID string
 
 	didID, publicKeyID, didPrivateKey, err := o.createProfile(pr.DIDKeyType, pr.SignatureType, pr.DID,
-		pr.DIDPrivateKey, pr.UNIRegistrar)
+		pr.DIDPrivateKey, crypto.Authentication, pr.UNIRegistrar)
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +854,7 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 	}, nil
 }
 
-func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey string,
+func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey, purpose string,
 	registrar UNIRegistrar) (string, string, string, error) {
 	var didID string
 
@@ -848,7 +863,7 @@ func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey str
 	switch {
 	case registrar.DriverURL != "":
 		var err error
-		didID, publicKeyID, didPrivateKey, err = o.createDIDUniRegistrar(keyType, signatureType, registrar)
+		didID, publicKeyID, didPrivateKey, err = o.createDIDUniRegistrar(keyType, signatureType, purpose, registrar)
 
 		if err != nil {
 			return "", "", "", err
@@ -1568,6 +1583,11 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 		return err
 	}
 
+	// validate proof purpose
+	if err := validateProofPurpose(proof, o.vdri); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1597,6 +1617,11 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 
 	// validate domain
 	if err := validateProofData(proof, domain, opts.Domain); err != nil {
+		return err
+	}
+
+	// validate proof purpose
+	if err := validateProofPurpose(proof, o.vdri); err != nil {
 		return err
 	}
 
@@ -1801,7 +1826,8 @@ func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclien
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key2ID, Type: didclient.JWSVerificationKey2020,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk,
-		KeyType: didclient.Ed25519KeyType, Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageOps}})
+		KeyType: didclient.Ed25519KeyType,
+		Usage:   []string{didclient.KeyUsageGeneral, didclient.KeyUsageAssertion, didclient.KeyUsageAuth}})
 
 	// Add JWSVerificationKey2020  ECKeyType
 	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEEP1363)
@@ -1925,4 +1951,28 @@ func validateProofData(proof verifiable.Proof, key, expectedValue string) error 
 	}
 
 	return nil
+}
+
+func validateProofPurpose(proof verifiable.Proof, vdri vdriapi.Registry) error {
+	purposeVal, ok := proof[proofPurpose]
+	if !ok {
+		return errors.New("proof doesn't have purpose")
+	}
+
+	purpose, ok := purposeVal.(string)
+	if !ok {
+		return errors.New("proof purpose is not a string")
+	}
+
+	verificationMethodVal, ok := proof[verificationMethod]
+	if !ok {
+		return errors.New("proof doesn't have verification method")
+	}
+
+	verificationMethod, ok := verificationMethodVal.(string)
+	if !ok {
+		return errors.New("proof verification method is not a string")
+	}
+
+	return crypto.ValidateProofPurpose(purpose, verificationMethod, vdri)
 }

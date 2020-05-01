@@ -18,11 +18,13 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -50,6 +52,22 @@ const (
 
 	// P256KeyType EC P-256 key type
 	P256KeyType = "P256"
+)
+
+const (
+	// supported proof purpose
+
+	// AssertionMethod assertionMethod
+	AssertionMethod = "assertionMethod"
+
+	// Authentication authentication
+	Authentication = "authentication"
+
+	// CapabilityDelegation capabilityDelegation
+	CapabilityDelegation = "capabilityDelegation"
+
+	// CapabilityInvocation capabilityInvocation
+	CapabilityInvocation = "capabilityInvocation"
 )
 
 type signer interface {
@@ -112,8 +130,8 @@ func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
 }
 
 // New return new instance of vc crypto
-func New(keyManager kms.KeyManager, c ariescrypto.Crypto) *Crypto {
-	return &Crypto{keyManager: keyManager, crypto: c}
+func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdri vdriapi.Registry) *Crypto {
+	return &Crypto{keyManager: keyManager, crypto: c, vdri: vdri}
 }
 
 // signingOpts holds options for the signing credential
@@ -183,6 +201,7 @@ func WithDomain(domain string) SigningOpts {
 type Crypto struct {
 	keyManager kms.KeyManager
 	crypto     ariescrypto.Crypto
+	vdri       vdriapi.Registry
 }
 
 // SignCredential sign vc
@@ -199,7 +218,8 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 	}
 
 	signingCtx, err := c.getLinkedDataProofContext(dataProfile.DID, dataProfile.DIDKeyType,
-		dataProfile.DIDPrivateKey, dataProfile.Creator, signatureType, dataProfile.SignatureRepresentation, signOpts)
+		dataProfile.DIDPrivateKey, dataProfile.Creator, signatureType, AssertionMethod,
+		dataProfile.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +248,7 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	}
 
 	signingCtx, err := c.getLinkedDataProofContext(profile.DID, profile.DIDKeyType, profile.DIDPrivateKey,
-		profile.Creator, signatureType, profile.SignatureRepresentation, signOpts)
+		profile.Creator, signatureType, Authentication, profile.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -241,9 +261,18 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(did, didKeyType, didPrivateKey, creator, signatureType string,
+func (c *Crypto) getLinkedDataProofContext(didID, didKeyType, didPrivateKey, creator, signatureType, proofPurpose string, // nolint: lll
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, method, err := c.getSigner(did, didKeyType, didPrivateKey, creator, opts)
+	s, method, err := c.getSigner(didID, didKeyType, didPrivateKey, creator, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	if opts.Purpose != "" {
+		proofPurpose = opts.Purpose
+	}
+
+	err = ValidateProofPurpose(proofPurpose, method, c.vdri)
 	if err != nil {
 		return nil, err
 	}
@@ -283,17 +312,17 @@ func (c *Crypto) getLinkedDataProofContext(did, didKeyType, didPrivateKey, creat
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method
-func (c *Crypto) getSigner(did, didKeyType, didPrivateKey, creator string, opts *signingOpts) (signer, string, error) {
+func (c *Crypto) getSigner(didID, didKeyType, didPrivateKey, creator string, opts *signingOpts) (signer, string, error) { // nolint: lll
 	switch {
 	case opts.VerificationMethod != "":
-		didID, err := getDIDFromKeyID(opts.VerificationMethod)
+		verificationDID, err := getDIDFromKeyID(opts.VerificationMethod)
 		if err != nil {
 			return nil, "", err
 		}
 
 		// if the verification method DID is added to profile externally, then fetch the private
 		// key from profile
-		if didID == did && didPrivateKey != "" {
+		if verificationDID == didID && didPrivateKey != "" {
 			return newPrivateKeySigner(didKeyType, base58.Decode(didPrivateKey)),
 				opts.VerificationMethod, nil
 		}
@@ -307,6 +336,63 @@ func (c *Crypto) getSigner(did, didKeyType, didPrivateKey, creator string, opts 
 	default:
 		return newPrivateKeySigner(didKeyType, base58.Decode(didPrivateKey)), creator, nil
 	}
+}
+
+// ValidateProofPurpose validates the proof purpose
+func ValidateProofPurpose(proofPurpose, method string, vdri vdriapi.Registry) error {
+	if strings.Contains(method, "did:sov") {
+		return nil
+	}
+
+	didID, err := getDIDFromKeyID(method)
+	if err != nil {
+		return err
+	}
+
+	didDoc, err := vdri.Resolve(didID)
+	if err != nil {
+		return err
+	}
+
+	vmMatched := false
+
+	switch proofPurpose {
+	case AssertionMethod:
+		assertionMethods := didDoc.VerificationMethods(did.AssertionMethod)[did.AssertionMethod]
+
+		vmMatched = isValidVerificationMethod(method, assertionMethods)
+	case Authentication:
+		authMethods := didDoc.VerificationMethods(did.Authentication)[did.Authentication]
+
+		vmMatched = isValidVerificationMethod(method, authMethods)
+	case CapabilityDelegation:
+		capabilityDelegationMethods := didDoc.VerificationMethods(did.CapabilityDelegation)[did.CapabilityDelegation]
+
+		vmMatched = isValidVerificationMethod(method, capabilityDelegationMethods)
+	case CapabilityInvocation:
+		capabilityInvocationMethods := didDoc.VerificationMethods(did.CapabilityInvocation)[did.CapabilityInvocation]
+
+		vmMatched = isValidVerificationMethod(method, capabilityInvocationMethods)
+	default:
+		return fmt.Errorf("proof purpose %s not supported", proofPurpose)
+	}
+
+	if !vmMatched {
+		return fmt.Errorf("unable to find matching %s key IDs for given verification method %s",
+			proofPurpose, method)
+	}
+
+	return nil
+}
+
+func isValidVerificationMethod(method string, vms []did.VerificationMethod) bool {
+	for _, vm := range vms {
+		if method == vm.PublicKey.ID {
+			return true
+		}
+	}
+
+	return false
 }
 
 // getSignatureRepresentation returns signing repsentation for given representation key
