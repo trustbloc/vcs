@@ -18,7 +18,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/trustbloc/edge-core v0.1.3-0.20200414220734-842cc197e692
 	github.com/trustbloc/edge-service v0.0.0
-	github.com/trustbloc/trustbloc-did-method v0.0.0-20200501024057-36f87b23fb40
+	github.com/trustbloc/trustbloc-did-method v0.0.0-20200501225957-e5811af4585d
 )
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
