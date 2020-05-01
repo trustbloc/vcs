@@ -3640,8 +3640,6 @@ func TestSignPresentation(t *testing.T) {
 
 		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
 
-		fmt.Println(rr.Body.String())
-
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		signedVCResp := make(map[string]interface{})
@@ -3654,7 +3652,34 @@ func TestSignPresentation(t *testing.T) {
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:test:abc#"+keyID, proof["verificationMethod"])
-		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+		require.Equal(t, vccrypto.Authentication, proof["proofPurpose"])
+
+		// pass proof purpose option
+		req = &SignPresentationRequest{
+			Presentation: []byte(vpWithoutProof),
+			Opts: &SignPresentationOptions{
+				ProofPurpose: vccrypto.AssertionMethod,
+			},
+		}
+
+		reqBytes, err = json.Marshal(req)
+		require.NoError(t, err)
+
+		rr = serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		signedVCResp = make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok = signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, "Ed25519Signature2018", proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:test:abc#"+keyID, proof["verificationMethod"])
+		require.Equal(t, vccrypto.AssertionMethod, proof["proofPurpose"])
 	})
 
 	t.Run("sign presentation - success with opts", func(t *testing.T) {
