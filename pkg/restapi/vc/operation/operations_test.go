@@ -1727,11 +1727,18 @@ func TestIssueCredential(t *testing.T) {
 	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
 	op, err := New(&Config{
 		StoreProvider:      memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
 		KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 		Crypto:             &cryptomock.Crypto{},
+		VDRI: &vdrimock.MockVDRIRegistry{
+			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
+				return createDIDDocWithKeyID(didID, keyID, pubKey), nil
+			}},
 	})
 	require.NoError(t, err)
 
@@ -1760,7 +1767,7 @@ func TestIssueCredential(t *testing.T) {
 			KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: keyHandle},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
 				},
 			},
 			Crypto: &cryptomock.Crypto{},
@@ -1880,7 +1887,7 @@ func TestIssueCredential(t *testing.T) {
 			KeyManager:         &kms.KeyManager{CreateKeyValue: keyHandle},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
 				},
 			},
 			Crypto: &cryptomock.Crypto{},
@@ -2283,7 +2290,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-				return createDIDDoc(didID, base58.Decode(signingKey)), nil
+				return createDIDDocWithKeyID(didID, key1ID, base58.Decode(signingKey)), nil
 			}},
 			Crypto: &cryptomock.Crypto{},
 		})
@@ -2510,6 +2517,12 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	})
 
 	t.Run("compose and issue credential - invalid proof format option", func(t *testing.T) {
+		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		require.NoError(t, err)
+
 		req := &ComposeCredentialRequest{
 			ProofFormat:        "invalid-proof-format-value",
 			ProofFormatOptions: []byte(fmt.Sprintf(`{"kid":"did:local:abc#%s"}`, key1ID)),
@@ -2525,7 +2538,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
-					return createDefaultDID(), nil
+					return createDIDDocWithKeyID(didID, key1ID, pubKey), nil
 				}},
 		})
 		require.NoError(t, err)
@@ -2725,6 +2738,7 @@ func TestCredentialVerifications(t *testing.T) {
 	require.NoError(t, err)
 
 	endpoints := []string{credentialVerificationsEndpoint, credentialsVerificationEndpoint}
+	didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
 
 	for _, path := range endpoints {
 		endpoint := path
@@ -2734,8 +2748,6 @@ func TestCredentialVerifications(t *testing.T) {
 		t.Run("credential verification - success", func(t *testing.T) {
 			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 			require.NoError(t, err)
-
-			didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
 
 			didDoc := createDIDDoc(didID, pubKey)
 			verificationMethod := didDoc.PublicKey[0].ID
@@ -3342,6 +3354,59 @@ func TestValidateProof(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid challenge in the proof")
 }
 
+func TestValidateProofPurpose(t *testing.T) {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	didID := "did:test:xyz123"
+
+	didDoc := createDIDDoc(didID, pubKey)
+	kid := didDoc.PublicKey[0].ID
+
+	vdriReg := &vdrimock.MockVDRIRegistry{ResolveValue: didDoc}
+
+	proof := make(map[string]interface{})
+	key := "challenge"
+	value := uuid.New().String()
+
+	proof[proofPurpose] = assertionMethod
+	proof[verificationMethod] = kid
+
+	// success
+	err = validateProofPurpose(proof, vdriReg)
+	require.NoError(t, err)
+
+	// fail - no value
+	delete(proof, proofPurpose)
+	err = validateProofPurpose(proof, vdriReg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof doesn't have purpose")
+
+	proof[proofPurpose] = assertionMethod
+	delete(proof, verificationMethod)
+	err = validateProofPurpose(proof, vdriReg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof doesn't have verification method")
+
+	// fail - not a string
+	proof[proofPurpose] = 234
+	err = validateProofPurpose(proof, vdriReg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof purpose is not a string")
+
+	proof[proofPurpose] = assertionMethod
+	proof[verificationMethod] = 234
+	err = validateProofPurpose(proof, vdriReg)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof verification method is not a string")
+
+	// fail - invalid
+	proof[key] = "invalid-data"
+	err = validateProofData(proof, key, value)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid challenge in the proof")
+}
+
 func TestCreateHolderProfile(t *testing.T) {
 	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
@@ -3395,7 +3460,6 @@ func TestCreateHolderProfile(t *testing.T) {
 
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
 
-		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "missing profile name")
 	})
@@ -3551,7 +3615,7 @@ func TestSignPresentation(t *testing.T) {
 			KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
 				},
 			},
 			Crypto: &cryptomock.Crypto{},
@@ -3610,7 +3674,7 @@ func TestSignPresentation(t *testing.T) {
 			KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
 				},
 			},
 			Crypto: &cryptomock.Crypto{},
@@ -3943,14 +4007,55 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 	createdTime := time.Now()
 
 	return &did.Doc{
-		Context:   []string{didContext},
-		ID:        didID,
-		PublicKey: []did.PublicKey{signingKey},
-		Service:   []did.Service{service},
-		Created:   &createdTime,
+		Context:              []string{didContext},
+		ID:                   didID,
+		PublicKey:            []did.PublicKey{signingKey},
+		Service:              []did.Service{service},
+		Created:              &createdTime,
+		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
+		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
 	}
 }
 
+func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
+	const (
+		didContext = "https://w3id.org/did/v1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	creator := didID + "#" + keyID
+
+	service := did.Service{
+		ID:              "did:example:123456789abcdefghi#did-communication",
+		Type:            "did-communication",
+		ServiceEndpoint: "https://agent.example.com/",
+		RecipientKeys:   []string{creator},
+		Priority:        0,
+	}
+
+	signingKey := did.PublicKey{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:              []string{didContext},
+		ID:                   didID,
+		PublicKey:            []did.PublicKey{signingKey},
+		Service:              []did.Service{service},
+		Created:              &createdTime,
+		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
+		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
+	}
+}
 func setMockEDVClientReadDocumentReturnValue(t *testing.T, client *edv.Client, op *Operation,
 	structuredDocForSubsequentCalls string) {
 	firstEncryptedDocToReturn := prepareEncryptedDocument(t, op, testStructuredDocument1)

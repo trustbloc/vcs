@@ -17,8 +17,10 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -27,7 +29,9 @@ import (
 
 func TestCrypto_SignCredential(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
 
 		signedVC, err := c.SignCredential(
 			getTestIssuerProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
@@ -57,94 +61,88 @@ func TestCrypto_SignCredential(t *testing.T) {
 			err               string
 		}{
 			{
-				name:              "signing with purpose option",
-				signingOpts:       []SigningOpts{WithPurpose("sample-purpose")},
-				responsePurpose:   "sample-purpose",
-				responseVerMethod: "did:test:abc#key1",
-			},
-			{
 				name:              "signing with verification method option",
-				signingOpts:       []SigningOpts{WithVerificationMethod("did:sample:xyz#key999")},
+				signingOpts:       []SigningOpts{WithVerificationMethod("did:trustbloc:abc#key1")},
 				responsePurpose:   "assertionMethod",
-				responseVerMethod: "did:sample:xyz#key999",
+				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
 				name:              "signing with domain option",
 				signingOpts:       []SigningOpts{WithDomain("example.com")},
 				responsePurpose:   "assertionMethod",
-				responseVerMethod: "did:test:abc#key1",
+				responseVerMethod: "did:trustbloc:abc#key1",
 				responseDomain:    "example.com",
 			},
 			{
 				name:              "signing with domain option",
 				signingOpts:       []SigningOpts{WithChallenge("challenge")},
 				responsePurpose:   "assertionMethod",
-				responseVerMethod: "did:test:abc#key1",
+				responseVerMethod: "did:trustbloc:abc#key1",
 				responseChallenge: "challenge",
 			},
 			{
 				name:        "signing with verification method option with profile DID",
-				signingOpts: []SigningOpts{WithVerificationMethod("did:test:abc#key-1")},
+				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc#key1")},
 				profile: &vcprofile.DataProfile{
 					Name:          "test",
-					DID:           "did:test:abc",
+					DID:           "did:trustbloc:abc",
 					URI:           "https://test.com/credentials",
 					SignatureType: "Ed25519Signature2018",
-					Creator:       "did:test:abc#key1",
+					Creator:       "did:trustbloc:abc#key1",
 					DIDPrivateKey: base58.Encode(priKey),
 					DIDKeyType:    Ed25519KeyType,
 				},
-				responsePurpose:   "assertionMethod",
-				responseVerMethod: "did:test:abc#key-1",
+				responsePurpose:   AssertionMethod,
+				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
 				name:        "signing with verification method option with profile DID",
-				signingOpts: []SigningOpts{WithVerificationMethod("did:test:abc")},
-				err:         "wrong id [did:test:abc] to resolve",
+				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc")},
+				err:         "wrong id [did:trustbloc:abc] to resolve",
 			},
 			{
 				name: "signing with verification method, purpose options & representation(proofValue)",
-				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
-					WithVerificationMethod("did:sample:xyz#key999"),
+				signingOpts: []SigningOpts{WithPurpose(AssertionMethod),
+					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSigningRepresentation("proofValue")},
-				responsePurpose:   "sample-purpose",
-				responseVerMethod: "did:sample:xyz#key999",
+				responsePurpose:   AssertionMethod,
+				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
 				name: "signing with verification method, purpose, created, type & representation(jws) options",
-				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
-					WithVerificationMethod("did:sample:xyz#key999"),
+				signingOpts: []SigningOpts{WithPurpose(AssertionMethod),
+					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSigningRepresentation("jws"),
 					WithCreated(prepareTestCreated(-1, -1, 0))},
-				responsePurpose:   "sample-purpose",
-				responseVerMethod: "did:sample:xyz#key999",
+				responsePurpose:   AssertionMethod,
+				responseVerMethod: "did:trustbloc:abc#key1",
 				responseTime:      prepareTestCreated(-1, -1, 0),
 			},
 			{
 				name:              "signing with verification method & purpose options",
 				signingOpts:       []SigningOpts{},
 				responsePurpose:   "assertionMethod",
-				responseVerMethod: "did:test:abc#key1",
+				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
 				name: "failed with invalid signing representation",
-				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
-					WithVerificationMethod("did:sample:xyz#key999"),
+				signingOpts: []SigningOpts{
+					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSigningRepresentation("xyz")},
 				err: "invalid proof format : xyz",
 			},
 			{
 				name: "test with JsonWebSignature2020",
-				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
-					WithVerificationMethod("did:sample:xyz#key999"),
+				signingOpts: []SigningOpts{
+					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSignatureType("JsonWebSignature2020")},
-				responsePurpose:   "sample-purpose",
-				responseVerMethod: "did:sample:xyz#key999",
+				responsePurpose:   AssertionMethod,
+				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
 				name: "failed with unsupported signature type",
-				signingOpts: []SigningOpts{WithPurpose("sample-purpose"),
-					WithVerificationMethod("did:sample:xyz#key999"),
+				signingOpts: []SigningOpts{
+					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSignatureType("123")},
 				err: "signature type unsupported 123",
 			},
@@ -155,7 +153,9 @@ func TestCrypto_SignCredential(t *testing.T) {
 		for _, test := range tests {
 			tc := test
 			t.Run(tc.name, func(t *testing.T) {
-				c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+				c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+					&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+				)
 
 				profile := getTestIssuerProfile()
 				if tc.profile != nil {
@@ -205,7 +205,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		c := New(nil, nil)
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
@@ -224,7 +224,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
 		require.NoError(t, err)
 
-		c := New(nil, nil)
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(encodedPrivateKey)
@@ -237,7 +237,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test P-256 private key parse failure", func(t *testing.T) {
-		c := New(nil, nil)
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
 		p.DIDPrivateKey = "invalid-private-key"
@@ -251,7 +251,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test signing failure - invalid key type", func(t *testing.T) {
-		c := New(nil, nil)
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
 		p.DIDPrivateKey = "privateKey"
@@ -268,7 +268,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		c := New(nil, nil)
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
@@ -289,7 +289,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		c := New(nil, nil)
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
 		p.DIDPrivateKey = base58.Encode(privateKey)
@@ -306,7 +306,9 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test error from creator", func(t *testing.T) {
-		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
 		p := getTestIssuerProfile()
 		p.Creator = "wrongValue"
 		signedVC, err := c.SignCredential(
@@ -317,19 +319,74 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test error from sign credential", func(t *testing.T) {
-		c := New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")})
-
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
 		signedVC, err := c.SignCredential(
 			getTestIssuerProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 		require.Nil(t, signedVC)
 	})
+
+	t.Run("sign vc - invalid proof purpose", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
+
+		p := getTestIssuerProfile()
+		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.DIDKeyType = Ed25519KeyType
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			WithPurpose("invalid"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "proof purpose invalid not supported")
+		require.Nil(t, signedVC)
+	})
+
+	t.Run("sign vc - capability invocation proof purpose", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
+
+		p := getTestIssuerProfile()
+		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.DIDKeyType = Ed25519KeyType
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			WithPurpose(CapabilityInvocation))
+		require.NoError(t, err)
+		require.NotNil(t, signedVC)
+	})
+
+	t.Run("sign vc - capability delegation proof purpose", func(t *testing.T) {
+		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
+
+		p := getTestIssuerProfile()
+		p.DIDPrivateKey = base58.Encode(privateKey)
+		p.DIDKeyType = Ed25519KeyType
+
+		signedVC, err := c.SignCredential(
+			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			WithPurpose(CapabilityInvocation))
+		require.NoError(t, err)
+		require.NotNil(t, signedVC)
+	})
 }
 
 func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - success", func(t *testing.T) {
-		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
 
 		signedVP, err := c.SignPresentation(getTestHolderProfile(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
@@ -339,7 +396,9 @@ func TestSignPresentation(t *testing.T) {
 	})
 
 	t.Run("sign presentation - signature type opts", func(t *testing.T) {
-		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
 
 		signedVP, err := c.SignPresentation(getTestHolderProfile(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
@@ -350,7 +409,9 @@ func TestSignPresentation(t *testing.T) {
 	})
 
 	t.Run("sign presentation - fail", func(t *testing.T) {
-		c := New(&kms.KeyManager{}, &cryptomock.Crypto{})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
 
 		signedVP, err := c.SignPresentation(getTestHolderProfile(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
@@ -365,18 +426,62 @@ func TestSignPresentation(t *testing.T) {
 func getTestIssuerProfile() *vcprofile.DataProfile {
 	return &vcprofile.DataProfile{
 		Name:          "test",
-		DID:           "did:test:abc",
+		DID:           "did:trustbloc:abc",
 		URI:           "https://test.com/credentials",
 		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:test:abc#key1",
+		Creator:       "did:trustbloc:abc#key1",
 	}
 }
 
 func getTestHolderProfile() *vcprofile.HolderProfile {
 	return &vcprofile.HolderProfile{
 		Name:          "test",
-		DID:           "did:test:abc",
+		DID:           "did:trustbloc:abc",
 		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:test:abc#key1",
+		Creator:       "did:trustbloc:abc#key1",
+	}
+}
+
+// nolint: unparam
+func createDIDDoc(didID string) *did.Doc {
+	const (
+		didContext = "https://w3id.org/did/v1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	creator := didID + "#key1"
+
+	service := did.Service{
+		ID:              "did:example:123456789abcdefghi#did-communication",
+		Type:            "did-communication",
+		ServiceEndpoint: "https://agent.example.com/",
+		RecipientKeys:   []string{creator},
+		Priority:        0,
+	}
+
+	signingKey := did.PublicKey{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:              []string{didContext},
+		ID:                   didID,
+		PublicKey:            []did.PublicKey{signingKey},
+		Service:              []did.Service{service},
+		Created:              &createdTime,
+		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
+		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
+		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
 	}
 }

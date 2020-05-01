@@ -208,7 +208,9 @@ func (e *Steps) createSidetreeDID(base58PubKey, keyID string) (*docdid.Doc, erro
 	return c.CreateDID("testnet.trustbloc.local",
 		didclient.WithPublicKey(&didclient.PublicKey{ID: keyID, Type: didclient.JWSVerificationKey2020,
 			Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
-			Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral}, Encoding: didclient.PublicKeyEncodingJwk}),
+			Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral, didclient.KeyUsageAssertion,
+				didclient.KeyUsageAuth},
+			Encoding: didclient.PublicKeyEncodingJwk}),
 		didclient.WithPublicKey(&didclient.PublicKey{ID: "recovery",
 			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519PubKey,
 			KeyType: didclient.Ed25519KeyType, Recovery: true}))
