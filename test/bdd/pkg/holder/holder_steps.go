@@ -235,21 +235,36 @@ func (e *Steps) signPresentation(profileName string) ([]byte, error) {
 	return responseBytes, nil
 }
 
-func (e *Steps) validatePresentation(signedVCByte []byte) error {
-	signedVCResp := make(map[string]interface{})
+func (e *Steps) validatePresentation(signedVPByte []byte) error {
+	signedVPResp := make(map[string]interface{})
 
-	err := json.Unmarshal(signedVCByte, &signedVCResp)
+	err := json.Unmarshal(signedVPByte, &signedVPResp)
 	if err != nil {
 		return err
 	}
 
-	proof, ok := signedVCResp["proof"].(map[string]interface{})
+	proof, ok := signedVPResp["proof"].(map[string]interface{})
 	if !ok {
 		return errors.New("unable to convert proof to a map")
 	}
 
 	if proof["type"] == "" {
 		return errors.New("proof type in empty")
+	}
+
+	proofPurpose, ok := proof["proofPurpose"]
+	if !ok {
+		return fmt.Errorf("proof purpose not found")
+	}
+
+	proofPurposeStr, ok := proofPurpose.(string)
+	if !ok {
+		return fmt.Errorf("proof purpose not a string")
+	}
+
+	expected := "authentication"
+	if proofPurposeStr != expected {
+		return bddutil.ExpectedStringError(expected, proofPurposeStr)
 	}
 
 	return nil

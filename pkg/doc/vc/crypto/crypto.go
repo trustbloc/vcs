@@ -253,6 +253,10 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 		return nil, err
 	}
 
+	if signingCtx.Purpose == "" {
+		signingCtx.Purpose = Authentication
+	}
+
 	err = vp.AddLinkedDataProof(signingCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)

@@ -62,11 +62,13 @@ const (
 	   "proofFormat":"jws",
 	   "proofFormatOptions":{
 		  "kid":` + `"%s"` + `,
-          "proofPurpose": "authentication"
+          "proofPurpose":` + `"%s"` + `
 	   }
 	}`
 
-	domain = "example.com"
+	domain          = "example.com"
+	assertionMethod = "assertionMethod"
+	authentication  = "authentication"
 )
 
 // Steps is steps for VC BDD tests
@@ -216,8 +218,7 @@ func (e *Steps) createSidetreeDID(base58PubKey, keyID string) (*docdid.Doc, erro
 			KeyType: didclient.Ed25519KeyType, Recovery: true}))
 }
 
-func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge string,
-	verifyfProof func(proof map[string]interface{}) error) error {
+func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge, purpose string) error { // nolint: gocyclo
 	signedVCResp := make(map[string]interface{})
 
 	err := json.Unmarshal(signedVCByte, &signedVCResp)
@@ -248,8 +249,18 @@ func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge string,
 			proof["domain"].(string))
 	}
 
-	if verifyfProof != nil {
-		return verifyfProof(proof)
+	proofPurpose, ok := proof["proofPurpose"]
+	if !ok {
+		return fmt.Errorf("proof purpose not found")
+	}
+
+	proofPurposeStr, ok := proofPurpose.(string)
+	if !ok {
+		return fmt.Errorf("proof purpose not a string")
+	}
+
+	if proofPurposeStr != purpose {
+		return bddutil.ExpectedStringError(purpose, proofPurposeStr)
 	}
 
 	return nil
@@ -307,7 +318,7 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 		return err
 	}
 
-	return e.verifyCredential(signedVCByte, domain, challenge, nil)
+	return e.verifyCredential(signedVCByte, domain, challenge, assertionMethod)
 }
 
 func (e *Steps) composeIssueAndVerifyCredential(user string) error {
@@ -318,7 +329,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 		return err
 	}
 
-	req := fmt.Sprintf(composeCredReqFormat, did+"#"+e.keyID)
+	req := fmt.Sprintf(composeCredReqFormat, did+"#"+e.keyID, authentication)
 
 	endpointURL := fmt.Sprintf(composeAndIssueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
@@ -339,17 +350,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 			endpointURL, resp.StatusCode, responseBytes)
 	}
 
-	verifyProof := func(proof map[string]interface{}) error {
-		if purpose, ok := proof["proofPurpose"]; ok {
-			if purpose.(string) == "authentication" {
-				return nil
-			}
-		}
-
-		return fmt.Errorf("unexpected 'proofPurpose' found in proof")
-	}
-
-	return e.verifyCredential(responseBytes, "", "", verifyProof)
+	return e.verifyCredential(responseBytes, "", "", authentication)
 }
 
 func (e *Steps) createCredential(user, cred string) ([]byte, error) {
@@ -369,7 +370,7 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 		return nil, err
 	}
 
-	if err := e.verifyCredential(signedVCByte, domain, challenge, nil); err != nil {
+	if err := e.verifyCredential(signedVCByte, domain, challenge, assertionMethod); err != nil {
 		return nil, err
 	}
 
