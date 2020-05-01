@@ -29,21 +29,38 @@ import (
 
 // ResolveDID waits for the DID to become available for resolution.
 func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdid.Doc, error) {
-	var err error
-
 	var didDoc *docdid.Doc
 
 	for i := 1; i <= maxRetry; i++ {
+		var err error
 		didDoc, err = vdriRegistry.Resolve(did)
-		if err == nil || !strings.Contains(err.Error(), "DID does not exist") {
-			return didDoc, err
+
+		if err != nil {
+			if !strings.Contains(err.Error(), "DID does not exist") {
+				return nil, err
+			}
+
+			fmt.Printf("did %s not found will retry %d of %d\n", did, i, maxRetry)
+			time.Sleep(3 * time.Second)
+
+			continue
 		}
 
-		fmt.Printf("did %s not found will retry %d of %d\n", did, i, maxRetry)
-		time.Sleep(3 * time.Second)
+		// check v1 DID is register
+		// v1 will return DID with placeholder keys ID (DID#DID) when not register
+		// will not return 404
+		if strings.Contains(didDoc.ID, "did:v1") {
+			split := strings.Split(didDoc.AssertionMethod[0].PublicKey.ID, "#")
+			if strings.Contains(didDoc.ID, split[1]) {
+				fmt.Printf("v1 did %s not register yet will retry %d of %d\n", did, i, maxRetry)
+				time.Sleep(3 * time.Second)
+
+				continue
+			}
+		}
 	}
 
-	return didDoc, err
+	return didDoc, nil
 }
 
 // CreatePresentation creates verifiable presentation from verifiable credential.
