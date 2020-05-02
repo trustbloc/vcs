@@ -56,7 +56,7 @@ func TestMain(m *testing.M) {
 func runBDDTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		var composition []*dockerutil.Composition
-		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/vc-rest",
+		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/vc-rest", "./fixtures/did-rest",
 			"./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/did-method-rest", "./fixtures/discovery-server", "./fixtures/stakeholder-server",
 			"./fixtures/dns-proxy-server", "./fixtures/universal-registrar"}

@@ -1,0 +1,12 @@
+{
+  "rules": [
+    {
+      "pattern": "^(did:trustbloc:testnet.trustbloc.local:.+)$",
+      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$0"
+    },
+    {
+      "pattern": "^(did:.+)$",
+      "url": "http://uni-resolver-web:8080/1.0/identifiers/$0"
+    }
+  ]
+}

@@ -16,7 +16,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://issuer.vc.rest.example.com:${ISSUER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.trustbloc.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
       - DATABASE_PREFIX=issuer
@@ -43,7 +43,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://verifier.vc.rest.example.com:${VERIFIER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.trustbloc.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
       - DATABASE_PREFIX=verifier
@@ -69,7 +69,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://holder.vc.rest.example.com:${HOLDER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.trustbloc.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=couchdb.example.com:5984
       - DATABASE_PREFIX=holder
@@ -96,7 +96,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://vc.rest.example.com:${VC_REST_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.trustbloc.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://uni-resolver-web:8080/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mem
       - KMSSECRETS_DATABASE_TYPE=mem
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem

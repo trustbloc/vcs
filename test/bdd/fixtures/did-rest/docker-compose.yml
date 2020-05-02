@@ -1,0 +1,30 @@
+
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  did.rest.example.com:
+    container_name: did.rest.example.com
+    image: ${DID_REST_IMAGE}:latest
+    environment:
+      - DID_REST_HOST_URL=${DID_REST_HOST}:${DID_REST_PORT}
+      - DID_REST_HOST_URL_EXTERNAL=http://did.rest.example.com:${DID_REST_PORT}
+      - DID_REST_CONFIG_FILE=/opt/did-rest/config.json
+      - DID_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+    ports:
+      - ${DID_REST_PORT}:${DID_REST_PORT}
+    command:  start
+    volumes:
+      - ../keys/tls:/etc/tls
+      - ./config.json:/opt/did-rest/config.json
+    networks:
+      - couchdb_bdd_net
+
+networks:
+  couchdb_bdd_net:
+    external: true
