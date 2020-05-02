@@ -208,8 +208,6 @@ github.com/otiai10/copy v1.0.2/go.mod h1:c7RpqBkwMom4bYTSkLSym4VSJz/XtncWRAj/J4P
 github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95/go.mod h1:9qAhocn7zKJG+0mI8eUu6xqkFDYS2kb2saOteoSB3cE=
 github.com/otiai10/mint v1.3.0/go.mod h1:F5AjcsTsWUqX+Na9fpHb52P8pcRX2CI6A3ctIT91xUo=
 github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/94hg7ilaic=
-github.com/piprate/json-gold v0.3.0 h1:a1vHx7Q1jOO1pjCtKwTI/WCzwaQwRt9VM7apK2uy200=
-github.com/piprate/json-gold v0.3.0/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -276,15 +274,8 @@ github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1M
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200430203822-5e12db11f149 h1:V1rrqI38qtR8vYQvE4MwNT1GrmkdDigsyP8fMfkxTB4=
 github.com/trustbloc/sidetree-core-go v0.1.3-0.20200430203822-5e12db11f149/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200430214705-74c65ca8acc6 h1:GYq5eDXMpUSx183UO8xK11JQBGnGjtXoGhfbK+4vuvo=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200430214705-74c65ca8acc6/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200501024057-36f87b23fb40 h1:AGljfrYvxMOVAgPD/qRK7o7co7JmCEzBUlh1Y+YCtn4=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200501024057-36f87b23fb40/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200501181537-8db813d84e52 h1:djZAXfy+jgEqQKbs5DseHDRDqa0RZHgdpGYcHO3IKj4=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200501181537-8db813d84e52/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200501225957-e5811af4585d h1:h4QFvud3VolIBgHkLUkjZ8F44e/vpK8pfuOumsAi+D4=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200501225957-e5811af4585d/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
-github.com/trustbloc/trustbloc-did-method v0.0.0-20200502005420-882eacf6fed8/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200502015848-52b7b5d1e9b7 h1:QIauz3aCEElus+FqyJ5FsBRobQJudTSWdLdai4Wa4SE=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200502015848-52b7b5d1e9b7/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
