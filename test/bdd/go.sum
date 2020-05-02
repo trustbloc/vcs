@@ -284,6 +284,7 @@ github.com/trustbloc/trustbloc-did-method v0.0.0-20200501181537-8db813d84e52 h1:
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200501181537-8db813d84e52/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200501225957-e5811af4585d h1:h4QFvud3VolIBgHkLUkjZ8F44e/vpK8pfuOumsAi+D4=
 github.com/trustbloc/trustbloc-did-method v0.0.0-20200501225957-e5811af4585d/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
+github.com/trustbloc/trustbloc-did-method v0.0.0-20200502005420-882eacf6fed8/go.mod h1:/PZnz122KU0dHfefXS+BNKj1dBZkohYhtLr7KKbHtCI=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/urfave/cli v0.0.0-20171014202726-7bc6a0acffa5/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
