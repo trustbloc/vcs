@@ -3,10 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 VC_REST_PATH=cmd/vc-rest
+DID_REST_PATH=cmd/did-rest
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS   ?= docker.pkg.github.com
 VC_REST_IMAGE_NAME   ?= trustbloc/edge-service/vc-rest
+DID_REST_IMAGE_NAME   ?= trustbloc/edge-service/did-rest
 DID_ELEMENT_SIDETREE_REQUEST_URL ?= https://element-did.com/api/v1/sidetree/requests
 
 # OpenAPI spec
@@ -45,12 +47,25 @@ vc-rest-docker:
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
+.PHONY: did-rest
+did-rest:
+	@echo "Building did-rest"
+	@mkdir -p ./.build/bin
+	@cd ${DID_REST_PATH} && go build -o ../../.build/bin/did-rest main.go
+
+.PHONY: did-rest-docker
+did-rest-docker:
+	@echo "Building did rest docker image"
+	@docker build -f ./images/did-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(DID_REST_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) .
+
 .PHONY: bdd-test
-bdd-test: clean generate-test-config vc-rest-docker generate-test-keys
+bdd-test: clean generate-test-config vc-rest-docker did-rest-docker generate-test-keys
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean generate-test-config vc-rest-docker generate-test-keys
+bdd-interop-test:clean generate-test-config vc-rest-docker did-rest-docker generate-test-keys
 	@TAGS=interop scripts/check_integration.sh
 
 unit-test:
@@ -89,7 +104,7 @@ generate-openapi-spec: clean
 	scripts/generate-openapi-spec.sh
 
 .PHONY: generate-openapi-demo-specs
-generate-openapi-demo-specs: clean generate-openapi-spec vc-rest-docker
+generate-openapi-demo-specs: clean generate-openapi-spec vc-rest-docker did-rest-docker
 	@echo "Generate demo agent rest controller API specifications using Open API"
 	@SPEC_PATH=${OPENAPI_SPEC_PATH} OPENAPI_DEMO_PATH=test/bdd/fixtures/openapi-demo \
     	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
