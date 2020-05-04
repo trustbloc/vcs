@@ -3623,6 +3623,8 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		vReq.SignatureRepresentation = verifiable.SignatureJWS
+		vReq.OverwriteHolder = true
+		vReq.DID = "did:trustbloc:xyz"
 
 		err = ops.profileStore.SaveHolderProfile(vReq)
 		require.NoError(t, err)
@@ -3642,12 +3644,13 @@ func TestSignPresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusCreated, rr.Code)
 
-		signedVCResp := make(map[string]interface{})
-		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		signedVPResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVPResp)
 		require.NoError(t, err)
-		require.NotEmpty(t, signedVCResp["proof"])
+		require.NotEmpty(t, signedVPResp["proof"])
+		require.Equal(t, vReq.DID, signedVPResp["holder"])
 
-		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		proof, ok := signedVPResp["proof"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])
@@ -3669,12 +3672,12 @@ func TestSignPresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusCreated, rr.Code)
 
-		signedVCResp = make(map[string]interface{})
-		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		signedVPResp = make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVPResp)
 		require.NoError(t, err)
-		require.NotEmpty(t, signedVCResp["proof"])
+		require.NotEmpty(t, signedVPResp["proof"])
 
-		proof, ok = signedVCResp["proof"].(map[string]interface{})
+		proof, ok = signedVPResp["proof"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, "Ed25519Signature2018", proof["type"])
 		require.NotEmpty(t, proof["jws"])

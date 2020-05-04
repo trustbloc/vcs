@@ -9,6 +9,7 @@ package vc
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -38,6 +39,8 @@ const (
 
 	issueCredentialURLFormat  = issuerURL + "%s" + "/credentials/issueCredential"
 	signPresentationURLFormat = holderURL + "/%s" + "/prove/presentations"
+
+	domain = "example.com"
 )
 
 // Steps is steps for VC BDD tests
@@ -68,6 +71,19 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.createProfileAndCredential)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndPresentation)
+
+	// CHAPI
+	s.Step(`^"([^"]*)" has a profile created with the Issuer HTTP Service$`, e.createDefaultIssuerProfile)
+	s.Step(`^"([^"]*)" sends DIDAuth request to "([^"]*)" for authentication$`, e.createAndSendDIDAuthRequest)
+	s.Step(`^"([^"]*)" issues the education degree to "([^"]*)"$`, e.issueCredential)
+	s.Step(`^"([^"]*)" issues the "([^"]*)" with credential "([^"]*)" to "([^"]*)"$`, e.issueCredential)
+
+	s.Step(`^"([^"]*)" has a holder profile$`, e.createDefaultHolderProfile)
+	s.Step(`^"([^"]*)" sends response to DIDAuth request from "([^"]*)"$`, e.sendDIDAuthResponse)
+	s.Step(`^"([^"]*)" stores the "([^"]*)" in wallet$`, e.storeCredentialHolder)
+
+	s.Step(`^"([^"]*)" verifies the DIDAuth response from "([^"]*)"$`, e.validateDIDAuthResponse)
+	s.Step(`^"([^"]*)" verifies the "([^"]*)" presented by "([^"]*)"$`, e.generateAndVerifyPresentation)
 }
 
 func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
@@ -778,4 +794,262 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
+}
+
+func (e *Steps) createDefaultIssuerProfile(profileName string) error {
+	return e.createProfile(profileName, "", "", "JWS", "", "did:trustbloc", "Ed25519Signature2018", "Ed25519")
+}
+
+func (e *Steps) createDefaultHolderProfile(profileName string) error {
+	profileRequest := &operation.HolderProfileRequest{}
+
+	profileRequest.Name = profileName
+	profileRequest.SignatureType = "Ed25519Signature2018"
+	profileRequest.DIDKeyType = "Ed25519"
+	profileRequest.OverwriteHolder = true
+
+	return e.callHolderProfileService(profileRequest)
+}
+
+func (e *Steps) callHolderProfileService(profileRequest *operation.HolderProfileRequest) error {
+	requestBytes, err := json.Marshal(profileRequest)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(holderURL+"/holder/profile", "", bytes.NewBuffer(requestBytes)) //nolint: bodyclose
+
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+	}
+
+	profileResponse := profile.HolderProfile{}
+
+	err = json.Unmarshal(respBytes, &profileResponse)
+	if err != nil {
+		return err
+	}
+
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *Steps) createAndSendDIDAuthRequest(issuer, holder string) error {
+	challenge := uuid.New().String()
+	e.bddContext.Args[bddutil.GetProofChallengeKey(issuer)] = challenge
+
+	// replacement for CHAPI call
+	e.bddContext.Data[bddutil.GetIssuerHolderCommKey(issuer, holder)] = &bddutil.ProofDataOpts{
+		Challenge: challenge,
+		Domain:    domain,
+	}
+
+	return nil
+}
+
+func (e *Steps) sendDIDAuthResponse(holder, issuer string) error {
+	data, ok := e.bddContext.Data[bddutil.GetIssuerHolderCommKey(issuer, holder)]
+	if !ok {
+		return errors.New("no DID Auth request found")
+	}
+
+	didAuthReq, ok := data.(*bddutil.ProofDataOpts)
+	if !ok {
+		return errors.New("invalid did auth request type")
+	}
+
+	pres := verifiable.Presentation{
+		Context: []string{"https://www.w3.org/2018/credentials/v1"},
+		Type:    []string{"VerifiablePresentation"},
+	}
+
+	presByte, err := pres.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	req := &operation.SignPresentationRequest{
+		Presentation: presByte,
+		Opts: &operation.SignPresentationOptions{
+			Challenge: didAuthReq.Challenge,
+			Domain:    didAuthReq.Domain,
+		},
+	}
+
+	signedVPByte, err := e.callSignPresentation(holder, req)
+	if err != nil {
+		return err
+	}
+
+	err = e.validatePresentation(signedVPByte)
+	if err != nil {
+		return err
+	}
+
+	// replacement for CHAPI response for DIDAuth
+	e.bddContext.Args[bddutil.GetIssuerHolderCommKey(issuer, holder)] = string(signedVPByte)
+
+	return nil
+}
+
+func (e *Steps) callSignPresentation(profileName string, req *operation.SignPresentationRequest) ([]byte, error) {
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	endpointURL := fmt.Sprintf(signPresentationURLFormat, profileName)
+
+	resp, err := http.Post(endpointURL, "application/json", bytes.NewBuffer(reqBytes)) //nolint
+	if err != nil {
+		return nil, err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response : %s", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("got unexpected response from %s status '%d' body %s",
+			endpointURL, resp.StatusCode, responseBytes)
+	}
+
+	return responseBytes, nil
+}
+
+func (e *Steps) validatePresentation(signedVCByte []byte) error {
+	signedVCResp := make(map[string]interface{})
+
+	err := json.Unmarshal(signedVCByte, &signedVCResp)
+	if err != nil {
+		return err
+	}
+
+	proof, ok := signedVCResp["proof"].(map[string]interface{})
+	if !ok {
+		return errors.New("unable to convert proof to a map")
+	}
+
+	if proof["type"] == "" {
+		return errors.New("proof type in empty")
+	}
+
+	return nil
+}
+
+func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
+	didAuthRespByte := e.bddContext.Args[bddutil.GetIssuerHolderCommKey(issuer, holder)]
+
+	checks := []string{"proof"}
+
+	req := &operation.VerifyPresentationRequest{
+		Presentation: []byte(didAuthRespByte),
+		Opts: &operation.VerifyPresentationOptions{
+			Checks:    checks,
+			Domain:    domain,
+			Challenge: e.bddContext.Args[bddutil.GetProofChallengeKey(issuer)],
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(verifierURL+"/presentations", "", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
+
+	if err != nil {
+		return err
+	}
+
+	return verify(resp, checks, "successful", "proof")
+}
+
+func (e *Steps) issueCredential(issuer, flow, credentialFile, holder string) error {
+	return e.createCredential(credentialFile, issuer)
+}
+
+func (e *Steps) storeCredentialHolder(holder, flow string) error {
+	e.bddContext.Args[bddutil.GetCredentialKey(holder)] = string(e.bddContext.CreatedCredential)
+
+	return nil
+}
+
+func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) error {
+	cred := e.bddContext.Args[bddutil.GetCredentialKey(holder)]
+
+	vc, err := verifiable.NewUnverifiedCredential([]byte(cred))
+	if err != nil {
+		return err
+	}
+
+	pres, err := vc.Presentation()
+	if err != nil {
+		return err
+	}
+
+	presByte, err := pres.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	challenge := uuid.New().String()
+	verifierDomain := "verifier.example.com"
+
+	req := &operation.SignPresentationRequest{
+		Presentation: presByte,
+		Opts: &operation.SignPresentationOptions{
+			Challenge: challenge,
+			Domain:    verifierDomain,
+		},
+	}
+
+	signedVPByte, err := e.callSignPresentation(holder, req)
+	if err != nil {
+		return err
+	}
+
+	checks := []string{"proof"}
+
+	verifiyReq := &operation.VerifyPresentationRequest{
+		Presentation: signedVPByte,
+		Opts: &operation.VerifyPresentationOptions{
+			Checks:    checks,
+			Domain:    verifierDomain,
+			Challenge: challenge,
+		},
+	}
+
+	reqBytes, err := json.Marshal(verifiyReq)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.Post(verifierURL+"/presentations", "", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
+
+	if err != nil {
+		return err
+	}
+
+	return verify(resp, checks, "successful", "proof")
 }

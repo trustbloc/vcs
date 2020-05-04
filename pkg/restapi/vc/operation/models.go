@@ -182,6 +182,7 @@ type HolderProfileRequest struct {
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	DIDKeyType              string                             `json:"didKeyType"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
+	OverwriteHolder         bool                               `json:"overwriteHolder,omitempty"`
 }
 
 // SignPresentationRequest request for signing a presentation.
