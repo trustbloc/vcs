@@ -85,11 +85,11 @@ const validConfig = `
   "rules": [
     {
       "pattern": "^(did:trustbloc:testnet.trustbloc.local:.+)$",
-      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$0"
+      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
     },
     {
       "pattern": "^(did:.+)$",
-      "url": "http://uniresolver.example.com:8070/1.0/identifiers/$0"
+      "url": "http://uniresolver.example.com:8070/1.0/identifiers/$1"
     }
   ]
 }
@@ -99,7 +99,7 @@ const invalidJSON = `
   "rules": [
     {
       "pattern": "^(did:trustbloc:testnet.trustbloc.local:.+)$",
-      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$0"
+      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
     }
 `
 
@@ -107,7 +107,7 @@ const invalidPattern = `{
   "rules": [
     {
       "pattern": "BOOM\\",
-      "url": "http://example.com/$0"
+      "url": "http://example.com/$1"
     }
   ]
 }
