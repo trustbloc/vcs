@@ -57,6 +57,7 @@ type HolderProfile struct {
 	Creator                 string                             `json:"creator"`
 	DIDKeyType              string                             `json:"didKeyType"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
+	OverwriteHolder         bool                               `json:"overwriteHolder,omitempty"`
 	Created                 *time.Time                         `json:"created"`
 }
 

@@ -851,6 +851,7 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 		Creator:                 publicKeyID,
 		DIDPrivateKey:           didPrivateKey,
 		DIDKeyType:              pr.DIDKeyType,
+		OverwriteHolder:         pr.OverwriteHolder,
 	}, nil
 }
 
@@ -1518,6 +1519,9 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
+	// update holder
+	updateHolder(presentation, profile)
+
 	// sign presentation
 	signedVP, err := o.crypto.SignPresentation(profile, presentation, getPresentationSigningOpts(presReq.Opts)...)
 	if err != nil {
@@ -1552,6 +1556,13 @@ func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningO
 	}
 
 	return signingOpts
+}
+
+// updateHolder overrides presentation holder form profile.
+func updateHolder(presentation *verifiable.Presentation, profile *vcprofile.HolderProfile) {
+	if profile.OverwriteHolder || presentation.Holder == "" {
+		presentation.Holder = profile.DID
+	}
 }
 
 func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {

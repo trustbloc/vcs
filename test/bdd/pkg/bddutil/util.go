@@ -27,6 +27,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// ProofDataOpts for storing proof options.
+type ProofDataOpts struct {
+	Challenge string
+	Domain    string
+}
+
 // ResolveDID waits for the DID to become available for resolution.
 func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdid.Doc, error) {
 	var didDoc *docdid.Doc
@@ -177,6 +183,11 @@ func GetProofChallengeKey(user string) string {
 // GetProofDomainKey key for storing proof domain.
 func GetProofDomainKey(user string) string {
 	return user + "-domain"
+}
+
+// GetIssuerHolderCommKey key for storing data moving between issuer and holder.
+func GetIssuerHolderCommKey(issuer, holder string) string {
+	return issuer + holder + "-data"
 }
 
 // CreateCustomPresentation creates verifiable presentation from custom linked data proof context

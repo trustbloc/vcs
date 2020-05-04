@@ -30,6 +30,7 @@ type BDDContext struct {
 	VDRI              vdriapi.Registry
 	TLSConfig         *tls.Config
 	TestData          map[string][]byte
+	Data              map[string]interface{}
 }
 
 // NewBDDContext create new BDDContext
@@ -63,6 +64,7 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 		VDRI:      vdri,
 		TLSConfig: &tls.Config{RootCAs: rootCAs},
 		TestData:  testData,
+		Data:      make(map[string]interface{}),
 	}
 
 	return &instance, nil
