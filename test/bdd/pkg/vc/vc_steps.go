@@ -73,12 +73,14 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.createProfileAndPresentation)
 
 	// CHAPI
-	s.Step(`^"([^"]*)" has a profile created with the Issuer HTTP Service$`, e.createDefaultIssuerProfile)
+	s.Step(`^"([^"]*)" has a profile with signature type "([^"]*)" and DID key type "([^"]*)" created with the Issuer HTTP Service$`, //nolint: lll
+		e.createBasicIssuerProfile)
 	s.Step(`^"([^"]*)" sends DIDAuth request to "([^"]*)" for authentication$`, e.createAndSendDIDAuthRequest)
 	s.Step(`^"([^"]*)" issues the education degree to "([^"]*)"$`, e.issueCredential)
 	s.Step(`^"([^"]*)" issues the "([^"]*)" with credential "([^"]*)" to "([^"]*)"$`, e.issueCredential)
 
-	s.Step(`^"([^"]*)" has a holder profile$`, e.createDefaultHolderProfile)
+	s.Step(`^"([^"]*)" has a holder profile with signature type "([^"]*)" and DID key type "([^"]*)"$`,
+		e.createBasicHolderProfile)
 	s.Step(`^"([^"]*)" sends response to DIDAuth request from "([^"]*)"$`, e.sendDIDAuthResponse)
 	s.Step(`^"([^"]*)" stores the "([^"]*)" in wallet$`, e.storeCredentialHolder)
 
@@ -796,16 +798,16 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	return vcMap, nil
 }
 
-func (e *Steps) createDefaultIssuerProfile(profileName string) error {
-	return e.createProfile(profileName, "", "", "JWS", "", "did:trustbloc", "Ed25519Signature2018", "Ed25519")
+func (e *Steps) createBasicIssuerProfile(profileName, signatureType, keyType string) error {
+	return e.createProfile(profileName, "", "", "JWS", "", "did:trustbloc", signatureType, keyType)
 }
 
-func (e *Steps) createDefaultHolderProfile(profileName string) error {
+func (e *Steps) createBasicHolderProfile(profileName, signatureType, keyType string) error {
 	profileRequest := &operation.HolderProfileRequest{}
 
 	profileRequest.Name = profileName
-	profileRequest.SignatureType = "Ed25519Signature2018"
-	profileRequest.DIDKeyType = "Ed25519"
+	profileRequest.SignatureType = signatureType
+	profileRequest.DIDKeyType = keyType
 	profileRequest.OverwriteHolder = true
 
 	return e.callHolderProfileService(profileRequest)

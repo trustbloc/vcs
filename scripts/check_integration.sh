@@ -10,6 +10,7 @@ declare -a tests=(
    "holder_rest"
    "issuer_rest"
    "vc_rest"
+   "w3c_workflow"
 )
 
 PWD=`pwd`
