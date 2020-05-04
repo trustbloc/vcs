@@ -17,8 +17,7 @@ import (
 func TestProxy_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller := New(&operation.Config{
-			RuleProvider: &mockRuleProvider{},
-			HostURL:      ""})
+			RuleProvider: &mockRuleProvider{}})
 		require.NotNil(t, controller)
 	})
 }
@@ -26,8 +25,7 @@ func TestProxy_New(t *testing.T) {
 func TestProxy_GetOperations(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller := New(&operation.Config{
-			RuleProvider: &mockRuleProvider{},
-			HostURL:      ""})
+			RuleProvider: &mockRuleProvider{}})
 		require.NotNil(t, controller)
 
 		ops := controller.GetOperations()

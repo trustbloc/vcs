@@ -43,7 +43,6 @@ func New(config *Config) *Operation {
 	svc := &Operation{
 		ruleProvider: config.RuleProvider,
 		httpClient:   &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
-		HostURL:      config.HostURL,
 	}
 
 	return svc
@@ -51,7 +50,6 @@ func New(config *Config) *Operation {
 
 // Config defines configuration for vcs operations
 type Config struct {
-	HostURL      string
 	TLSConfig    *tls.Config
 	RuleProvider rules.Provider
 }
@@ -60,7 +58,6 @@ type Config struct {
 type Operation struct {
 	ruleProvider rules.Provider
 	httpClient   httpClient
-	HostURL      string
 }
 
 type httpClient interface {

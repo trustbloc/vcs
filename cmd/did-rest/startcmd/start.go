@@ -32,13 +32,6 @@ const (
 	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
 	hostURLEnvKey        = "DID_REST_HOST_URL"
 
-	hostURLExternalFlagName      = "host-url-external"
-	hostURLExternalFlagShorthand = "x"
-	hostURLExternalEnvKey        = "DID_REST_HOST_URL_EXTERNAL"
-	hostURLExternalFlagUsage     = "Host External Name:Port This is the URL for the host server as seen externally." +
-		" If not provided, then the host url will be used here." +
-		" Alternatively, this can be set with the following environment variable: " + hostURLExternalEnvKey
-
 	configFlagName      = "config-file"
 	configFlagShorthand = "f"
 	configFlagUsage     = "Path to configuration file with proxy rules."
@@ -64,7 +57,6 @@ const (
 
 type didRestParameters struct {
 	hostURL           string
-	hostURLExternal   string
 	configFile        string
 	tlsSystemCertPool bool
 	tlsCACerts        []string
@@ -123,12 +115,6 @@ func getDIDRestParameters(cmd *cobra.Command) (*didRestParameters, error) {
 		return nil, err
 	}
 
-	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
-		hostURLExternalEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsSystemCertPool, tlsCACerts, err := getTLS(cmd)
 	if err != nil {
 		return nil, err
@@ -137,7 +123,6 @@ func getDIDRestParameters(cmd *cobra.Command) (*didRestParameters, error) {
 	return &didRestParameters{
 		hostURL:           hostURL,
 		configFile:        configFile,
-		hostURLExternal:   hostURLExternal,
 		tlsSystemCertPool: tlsSystemCertPool,
 		tlsCACerts:        tlsCACerts,
 	}, nil
@@ -168,7 +153,6 @@ func getTLS(cmd *cobra.Command) (bool, []string, error) {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
-	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(configFlagName, configFlagShorthand, "", configFlagUsage)
@@ -180,11 +164,6 @@ func startDidService(parameters *didRestParameters, srv server) error {
 		return err
 	}
 
-	externalHostURL := parameters.hostURL
-	if parameters.hostURLExternal != "" {
-		externalHostURL = parameters.hostURLExternal
-	}
-
 	ruleProvider, err := filerules.New(parameters.configFile)
 	if err != nil {
 		return err
@@ -192,7 +171,6 @@ func startDidService(parameters *didRestParameters, srv server) error {
 
 	didService := did.New(&operation.Config{
 		RuleProvider: ruleProvider,
-		HostURL:      externalHostURL,
 		TLSConfig:    &tls.Config{RootCAs: rootCAs}})
 
 	handlers := didService.GetOperations()

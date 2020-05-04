@@ -27,7 +27,7 @@ func TestProxy(t *testing.T) {
 		}))
 		defer dest.Close()
 
-		op := New(&Config{HostURL: "localhost:8080",
+		op := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: dest.URL + "/identifiers/did:method:abc"},
 		})
 
@@ -46,7 +46,7 @@ func TestProxy(t *testing.T) {
 	})
 
 	t.Run("error - rule provider error", func(t *testing.T) {
-		op := New(&Config{HostURL: "localhost:8080",
+		op := New(&Config{
 			RuleProvider: &mockRuleProvider{Err: errors.New("rule provider error")},
 		})
 
@@ -67,7 +67,7 @@ func TestProxy(t *testing.T) {
 		}))
 		defer dest.Close()
 
-		op := New(&Config{HostURL: "localhost:8080",
+		op := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: dest.URL + "/identifiers/did:method:abc"},
 		})
 
@@ -83,7 +83,7 @@ func TestProxy(t *testing.T) {
 	})
 
 	t.Run("error - destination server not available", func(t *testing.T) {
-		op := New(&Config{HostURL: "localhost:8080",
+		op := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: "https://213abfg8989.com/identifiers/did:method:abc"},
 		})
 
@@ -99,7 +99,7 @@ func TestProxy(t *testing.T) {
 	})
 
 	t.Run("error - invalid destination URL", func(t *testing.T) {
-		op := New(&Config{HostURL: "localhost:8080",
+		op := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: "not a good one"},
 		})
 
