@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +30,8 @@ const (
 	// inbound headers
 	authorizationHeader = "Authorization"
 	acceptHeader        = "Accept"
+
+	defaultTimeout = 240 * time.Second
 )
 
 // Handler http handler for each controller API endpoint
@@ -42,7 +45,9 @@ type Handler interface {
 func New(config *Config) *Operation {
 	svc := &Operation{
 		ruleProvider: config.RuleProvider,
-		httpClient:   &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		httpClient: &http.Client{
+			Timeout:   defaultTimeout,
+			Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
 
 	return svc
