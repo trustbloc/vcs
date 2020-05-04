@@ -7,11 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
@@ -29,6 +31,8 @@ const (
 	// inbound headers
 	authorizationHeader = "Authorization"
 	acceptHeader        = "Accept"
+
+	defaultTimeout = 240 * time.Second
 )
 
 // Handler http handler for each controller API endpoint
@@ -42,7 +46,8 @@ type Handler interface {
 func New(config *Config) *Operation {
 	svc := &Operation{
 		ruleProvider: config.RuleProvider,
-		httpClient:   &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		httpClient: &http.Client{
+			Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
 
 	return svc
@@ -86,6 +91,9 @@ func (o *Operation) proxy(rw http.ResponseWriter, req *http.Request) {
 
 	log.Debugf("proxy resolved DID '%s' to destination URL '%s'", did, destinationURL)
 
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
 	newReq, err := http.NewRequest(http.MethodGet, destinationURL, nil)
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
@@ -95,7 +103,7 @@ func (o *Operation) proxy(rw http.ResponseWriter, req *http.Request) {
 
 	addRequestHeaders(req, newReq)
 
-	resp, err := o.httpClient.Do(newReq)
+	resp, err := o.httpClient.Do(newReq.WithContext(ctx))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to proxy: %s", err.Error()))
