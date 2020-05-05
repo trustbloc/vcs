@@ -140,6 +140,7 @@ const (
 	didMethodSov     = "sov"
 	didMethodWeb     = "web"
 	didMethodKey     = "key"
+	didMethodFactom  = "factom"
 
 	masterKeyURI = "local-lock://custom/master/key/"
 )
@@ -501,7 +502,7 @@ func supportedMode(mode string) bool {
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodKey
+		method == didMethodWeb || method == didMethodKey || method == didMethodFactom
 }
 
 type edgeServiceProviders struct {

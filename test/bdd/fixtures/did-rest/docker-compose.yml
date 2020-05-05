@@ -15,6 +15,7 @@ services:
       - DID_REST_HOST_URL=${DID_REST_HOST}:${DID_REST_PORT}
       - DID_REST_HOST_URL_EXTERNAL=http://did.rest.example.com:${DID_REST_PORT}
       - DID_REST_CONFIG_FILE=/opt/did-rest/config.json
+      - DID_REST_TLS_SYSTEMCERTPOOL=true
       - DID_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
     ports:
       - ${DID_REST_PORT}:${DID_REST_PORT}
