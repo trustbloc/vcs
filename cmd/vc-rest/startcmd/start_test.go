@@ -175,6 +175,57 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to create db: Put http://badURL/masterkey")
 }
 
+func TestStartCmdWithNegativeMaxRetries(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + maxRetriesFlagName, "-5"}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+	require.EqualError(t, err, `the given max retries value "-5" is not a valid non-negative integer: `+
+		`strconv.ParseUint: parsing "-5": invalid syntax`)
+}
+
+func TestStartCmdWithNegativeInitialBackoff(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + initialBackoffMillisecFlagName, "-500"}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+	require.EqualError(t, err, `the given initial backoff value "-500" is not a valid non-negative integer: `+
+		`strconv.ParseUint: parsing "-500": invalid syntax`)
+}
+
+func TestStartCmdWithInvalidFloatingPointBackoffFactor(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "1.1.1"}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+	require.EqualError(t, err, `the given backoff factor "1.1.1" is not a valid floating point number: `+
+		`strconv.ParseFloat: parsing "1.1.1": invalid syntax`)
+}
+
+func TestStartCmdWithNegativeBackoffFactor(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "-2"}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+	require.Equal(t, errNegativeBackoffFactor, err)
+}
+
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 

@@ -38,6 +38,7 @@ import (
 	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 	"github.com/trustbloc/edv/pkg/client/edv"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
@@ -51,6 +52,8 @@ import (
 )
 
 const (
+	commonEnvVarUsageText = "Alternatively, this can be set with the following environment variable: "
+
 	hostURLFlagName      = "host-url"
 	hostURLFlagShorthand = "u"
 	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
@@ -70,8 +73,7 @@ const (
 	hostURLExternalFlagShorthand = "x"
 	hostURLExternalEnvKey        = "VC_REST_HOST_URL_EXTERNAL"
 	hostURLExternalFlagUsage     = "Host External Name:Port This is the URL for the host server as seen externally." +
-		" If not provided, then the host url will be used here." +
-		" Alternatively, this can be set with the following environment variable: " + hostURLExternalEnvKey
+		" If not provided, then the host url will be used here. " + commonEnvVarUsageText + hostURLExternalEnvKey
 
 	universalResolverURLFlagName      = "universal-resolver-url"
 	universalResolverURLFlagShorthand = "r"
@@ -88,28 +90,25 @@ const (
 	databaseTypeEnvKey        = "DATABASE_TYPE"
 	databaseTypeFlagShorthand = "t"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb. Alternatively, this can be set with the following environment variable: " +
-		databaseTypeEnvKey
+		"Supported options: mem, couchdb. " + commonEnvVarUsageText + databaseTypeEnvKey
 
 	databaseURLFlagName      = "database-url"
 	databaseURLEnvKey        = "DATABASE_URL"
 	databaseURLFlagShorthand = "l"
 	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
-		" For CouchDB, include the username:password@ text if required." +
-		" Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
+		" For CouchDB, include the username:password@ text if required. " + commonEnvVarUsageText + databaseURLEnvKey
 
 	databasePrefixFlagName  = "database-prefix"
 	databasePrefixEnvKey    = "DATABASE_PREFIX"
-	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases." +
-		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
+	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
+		commonEnvVarUsageText + databasePrefixEnvKey
 
 	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
 	kmsSecretsDatabaseTypeFlagName      = "kms-secrets-database-type" //nolint: gosec
 	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
 	kmsSecretsDatabaseTypeFlagShorthand = "k"
 	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
-		"Supported options: mem, couchdb. Alternatively, this can be set with the " +
-		"following environment variable: " + kmsSecretsDatabaseTypeEnvKey
+		"Supported options: mem, couchdb. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
 
 	kmsSecretsDatabaseURLFlagName      = "kms-secrets-database-url" //nolint: gosec
 	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
@@ -118,24 +117,44 @@ const (
 		"include the username:password@ text if required. It's recommended to not use the same database as the one " +
 		"set in the " + databaseURLFlagName + " flag (or the " + databaseURLEnvKey + " env var) since having access " +
 		"to the KMS secrets may allow the host of the provider to decrypt EDV encrypted documents. " +
-		"Alternatively, this can be set with the following environment variable: " + databaseURLEnvKey
+		commonEnvVarUsageText + databaseURLEnvKey
 
 	kmsSecretsDatabasePrefixFlagName  = "kms-secrets-database-prefix" //nolint: gosec
 	kmsSecretsDatabasePrefixEnvKey    = "KMSSECRETS_DATABASE_PREFIX"  //nolint: gosec
 	kmsSecretsDatabasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving " +
-		"the underlying KMS secrets database. Alternatively, this can be set with the following environment variable: " +
-		kmsSecretsDatabasePrefixEnvKey
+		"the underlying KMS secrets database. " + commonEnvVarUsageText + kmsSecretsDatabasePrefixEnvKey
 
 	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
 	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
-		" Possible values [true] [false]. Defaults to false if not set." +
-		" Alternatively, this can be set with the following environment variable: " + tlsSystemCertPoolEnvKey
+		" Possible values [true] [false]. Defaults to false if not set. " + commonEnvVarUsageText + tlsSystemCertPoolEnvKey
 	tlsSystemCertPoolEnvKey = "VC_REST_TLS_SYSTEMCERTPOOL"
 
 	tlsCACertsFlagName  = "tls-cacerts"
-	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." +
-		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
-	tlsCACertsEnvKey = "VC_REST_TLS_CACERTS"
+	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." + commonEnvVarUsageText + tlsCACertsEnvKey
+	tlsCACertsEnvKey    = "VC_REST_TLS_CACERTS"
+
+	maxRetriesFlagName      = "max-retries"
+	maxRetriesEnvKey        = "MAX-RETRIES"
+	maxRetriesFlagShorthand = "a"
+	maxRetriesFlagUsage     = "If no VC is found when attempting to retrieve a VC from the EDV, this is the maximum " +
+		"number of times to retry retrieval. Defaults to 5 if not set. " + commonEnvVarUsageText + maxRetriesEnvKey
+	maxRetriesDefault = 5
+
+	initialBackoffMillisecFlagName      = "initial-backoff-millisec"
+	initialBackoffMillisecEnvKey        = "INITIAL_BACKOFF_MILLISEC"
+	initialBackoffMillisecFlagShorthand = "i"
+	initialBackoffMillisecFlagUsage     = "If no VC is found when attempting to retrieve a VC from the EDV, " +
+		"this is the time to wait (in milliseconds) before the first retry attempt. " +
+		commonEnvVarUsageText + initialBackoffMillisecEnvKey
+	initialBackoffMillisecDefault = 250
+
+	backoffFactorFlagName      = "backoff-factor"
+	backoffFactorEnvKey        = "BACKOFF-FACTOR"
+	backoffFactorFlagShorthand = "f"
+	backoffFactorFlagUsage     = "If no VC is found when attempting to retrieve a VC from the EDV, this is the " +
+		"factor to increase the time to wait for subsequent retries after the first. " +
+		commonEnvVarUsageText + backoffFactorEnvKey
+	backoffFactorDefault = 1.5
 
 	databaseTypeMemOption     = "mem"
 	databaseTypeCouchDBOption = "couchdb"
@@ -151,6 +170,8 @@ const (
 	masterKeyStoreName = "masterkey"
 	masterKeyDBKeyName = masterKeyStoreName
 )
+
+var errNegativeBackoffFactor = errors.New("the backoff factor cannot be negative")
 
 // mode in which to run the vc-rest service
 type mode string
@@ -173,6 +194,7 @@ type vcRestParameters struct {
 	universalResolverURL string
 	mode                 string
 	dbParameters         *dbParameters
+	retryParameters      *retry.Params
 	tlsSystemCertPool    bool
 	tlsCACerts           []string
 }
@@ -271,6 +293,11 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	retryParams, err := getRetryParameters(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -279,6 +306,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
 		dbParameters:         dbParams,
+		retryParameters:      retryParams,
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
 	}, nil
@@ -299,53 +327,6 @@ func getMode(cmd *cobra.Command) (string, error) {
 	}
 
 	return mode, nil
-}
-
-func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
-	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName,
-		databaseTypeEnvKey, false)
-	if err != nil {
-		return &dbParameters{}, err
-	}
-
-	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName,
-		databaseURLEnvKey, true)
-	if err != nil {
-		return &dbParameters{}, err
-	}
-
-	databasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, databasePrefixFlagName,
-		databasePrefixEnvKey, true)
-	if err != nil {
-		return &dbParameters{}, err
-	}
-
-	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
-		kmsSecretsDatabaseTypeEnvKey, false)
-	if err != nil {
-		return &dbParameters{}, err
-	}
-
-	keyDatabaseURL, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseURLFlagName,
-		kmsSecretsDatabaseURLEnvKey, true)
-	if err != nil {
-		return &dbParameters{}, err
-	}
-
-	keyDatabasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabasePrefixFlagName,
-		kmsSecretsDatabasePrefixEnvKey, true)
-	if err != nil {
-		return &dbParameters{}, err
-	}
-
-	return &dbParameters{
-		databaseType:             databaseType,
-		databaseURL:              databaseURL,
-		databasePrefix:           databasePrefix,
-		kmsSecretsDatabaseType:   keyDatabaseType,
-		kmsSecretsDatabaseURL:    keyDatabaseURL,
-		kmsSecretsDatabasePrefix: keyDatabasePrefix,
-	}, nil
 }
 
 func getTLS(cmd *cobra.Command) (bool, []string, error) {
@@ -372,6 +353,154 @@ func getTLS(cmd *cobra.Command) (bool, []string, error) {
 	return tlsSystemCertPool, tlsCACerts, nil
 }
 
+func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
+	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName,
+		databaseTypeEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName,
+		databaseURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	databasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, databasePrefixFlagName,
+		databasePrefixEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
+		kmsSecretsDatabaseTypeEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	keyDatabaseURL, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseURLFlagName,
+		kmsSecretsDatabaseURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	keyDatabasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabasePrefixFlagName,
+		kmsSecretsDatabasePrefixEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dbParameters{
+		databaseType:             databaseType,
+		databaseURL:              databaseURL,
+		databasePrefix:           databasePrefix,
+		kmsSecretsDatabaseType:   keyDatabaseType,
+		kmsSecretsDatabaseURL:    keyDatabaseURL,
+		kmsSecretsDatabasePrefix: keyDatabasePrefix,
+	}, nil
+}
+
+func getRetryParameters(cmd *cobra.Command) (*retry.Params, error) {
+	maxRetries, err := getMaxRetries(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	initialBackoff, err := getInitialBackoff(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	backoffFactor, err := getBackoffFactor(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	return &retry.Params{
+		MaxRetries:     uint(maxRetries),
+		InitialBackoff: initialBackoff,
+		BackoffFactor:  backoffFactor,
+	}, nil
+}
+
+func getMaxRetries(cmd *cobra.Command) (uint64, error) {
+	maxRetriesString, err := cmdutils.GetUserSetVarFromString(cmd, maxRetriesFlagName,
+		maxRetriesEnvKey, true)
+	if err != nil {
+		return 0, err
+	}
+
+	var maxRetries uint64
+
+	if maxRetriesString == "" {
+		maxRetries = maxRetriesDefault
+		log.Info("Max retries value not specified. The default value of " +
+			strconv.Itoa(maxRetriesDefault) + " will be used.")
+	} else {
+		maxRetries, err = strconv.ParseUint(maxRetriesString, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf(`the given max retries value "%s" is not a valid non-negative integer: %w`,
+				maxRetriesString, err)
+		}
+	}
+
+	return maxRetries, nil
+}
+
+func getInitialBackoff(cmd *cobra.Command) (time.Duration, error) {
+	initialBackoffMillisecString, err := cmdutils.GetUserSetVarFromString(cmd, initialBackoffMillisecFlagName,
+		initialBackoffMillisecEnvKey, true)
+	if err != nil {
+		return 0, err
+	}
+
+	var initialBackoffMillisec uint64
+
+	if initialBackoffMillisecString == "" {
+		initialBackoffMillisec = initialBackoffMillisecDefault
+		log.Info("Initial backoff value not specified. The default value of " +
+			strconv.Itoa(initialBackoffMillisecDefault) + " will be used.")
+	} else {
+		initialBackoffMillisec, err = strconv.ParseUint(initialBackoffMillisecString, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf(`the given initial backoff value "%s" is not a valid non-negative integer: %w`,
+				initialBackoffMillisecString, err)
+		}
+	}
+
+	initialBackoff := time.Duration(initialBackoffMillisec) * time.Millisecond
+
+	return initialBackoff, nil
+}
+
+func getBackoffFactor(cmd *cobra.Command) (float64, error) {
+	backoffFactorString, err := cmdutils.GetUserSetVarFromString(cmd, backoffFactorFlagName,
+		backoffFactorEnvKey, true)
+	if err != nil {
+		return 0, err
+	}
+
+	var backoffFactor float64
+
+	if backoffFactorString == "" {
+		backoffFactor = backoffFactorDefault
+		log.Info("Backoff factor value not specified. The default value of " +
+			fmt.Sprintf("%.1f", backoffFactorDefault) + " will be used.")
+	} else {
+		backoffFactor, err = strconv.ParseFloat(backoffFactorString, 64)
+		if err != nil {
+			return 0, fmt.Errorf(`the given backoff factor "%s" is not a valid floating point number: %w`,
+				backoffFactorString, err)
+		}
+
+		if backoffFactor < 0 {
+			return 0, errNegativeBackoffFactor
+		}
+	}
+
+	return backoffFactor, nil
+}
+
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
@@ -391,6 +520,10 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "",
 		tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
+	startCmd.Flags().StringP(maxRetriesFlagName, maxRetriesFlagShorthand, "", maxRetriesFlagUsage)
+	startCmd.Flags().StringP(initialBackoffMillisecFlagName, initialBackoffMillisecFlagShorthand, "",
+		initialBackoffMillisecFlagUsage)
+	startCmd.Flags().StringP(backoffFactorFlagName, backoffFactorFlagShorthand, "", backoffFactorFlagUsage)
 }
 
 // nolint: gocyclo,funlen
@@ -436,7 +569,8 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		VDRI:               vdri,
 		HostURL:            externalHostURL,
 		Domain:             parameters.blocDomain,
-		TLSConfig:          &tls.Config{RootCAs: rootCAs}})
+		TLSConfig:          &tls.Config{RootCAs: rootCAs},
+		RetryParameters:    parameters.retryParameters})
 	if err != nil {
 		return err
 	}

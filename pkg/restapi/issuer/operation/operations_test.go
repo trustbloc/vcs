@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/edge-core/pkg/utils/retry"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
@@ -832,7 +834,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
@@ -867,7 +870,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
@@ -902,7 +906,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument2)
@@ -942,7 +947,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
@@ -1027,7 +1033,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1060,7 +1067,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
@@ -1128,7 +1136,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			EDVClient:          client,
 			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
+			HostURL:            "localhost:8080",
+			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,

@@ -14,7 +14,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.4-0.20200514222548-35651beff4ab
 	github.com/sirupsen/logrus v1.4.2
 	github.com/stretchr/testify v1.5.1
-	github.com/trustbloc/edge-core v0.1.3
+	github.com/trustbloc/edge-core v0.1.4-0.20200514152520-6eccfe31d648
 	github.com/trustbloc/edv v0.1.3
 	github.com/trustbloc/trustbloc-did-method v0.1.3
 )
