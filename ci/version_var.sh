@@ -1,4 +1,3 @@
-
 #
 # Copyright SecureKey Technologies Inc. All Rights Reserved.
 #
@@ -8,7 +7,7 @@
 
 # Release Parameters
 BASE_VERSION=0.1.3
-IS_RELEASE=false
+IS_RELEASE=true
 
 if [ $IS_RELEASE == false ]
 then
