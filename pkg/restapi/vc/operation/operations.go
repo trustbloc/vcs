@@ -1569,7 +1569,7 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 	vc, err := o.parseAndVerifyVCStrictMode(vcByte)
 
 	if err != nil {
-		return fmt.Errorf("proof validation error : %w", err)
+		return fmt.Errorf("verifiable credential proof validation error : %w", err)
 	}
 
 	if len(vc.Proofs) == 0 {
@@ -1596,7 +1596,7 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 
 	// validate proof purpose
 	if err := validateProofPurpose(proof, o.vdri); err != nil {
-		return err
+		return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
 	}
 
 	return nil
@@ -1606,7 +1606,7 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 	vp, err := o.parseAndVerifyVP(vpByte)
 
 	if err != nil {
-		return fmt.Errorf("proof validation error : %w", err)
+		return fmt.Errorf("verifiable presentation proof validation error : %w", err)
 	}
 
 	// validate proof challenge and domain
@@ -1633,7 +1633,7 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 
 	// validate proof purpose
 	if err := validateProofPurpose(proof, o.vdri); err != nil {
-		return err
+		return fmt.Errorf("verifiable presentation proof purpose validation error : %w", err)
 	}
 
 	return nil
@@ -1690,7 +1690,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 			return nil, err
 		}
 		// verify if the credential in vp is valid
-		_, err = o.parseAndVerifyVCStrictMode(vcBytes)
+		err = o.validateCredentialProof(vcBytes, nil)
 		if err != nil {
 			return nil, err
 		}
