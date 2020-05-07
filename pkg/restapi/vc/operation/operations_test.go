@@ -2879,7 +2879,7 @@ func TestCredentialVerifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(verificationResp.Checks))
 			require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-			require.Contains(t, verificationResp.Checks[0].Error, "proof validation error")
+			require.Contains(t, verificationResp.Checks[0].Error, "verifiable credential proof validation error")
 		})
 
 		t.Run("credential verification - status check failure", func(t *testing.T) {
@@ -2987,8 +2987,6 @@ func TestCredentialVerifications(t *testing.T) {
 			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 			require.NoError(t, err)
 
-			didID := "did:test:xyz"
-
 			didDoc := createDIDDoc(didID, pubKey)
 			verificationMethod := didDoc.PublicKey[0].ID
 
@@ -3070,6 +3068,60 @@ func TestCredentialVerifications(t *testing.T) {
 
 			require.Equal(t, http.StatusBadRequest, rr.Code)
 			require.Contains(t, rr.Body.String(), "invalid domain in the proof")
+		})
+
+		t.Run("credential verification - invalid vc proof purpose", func(t *testing.T) {
+			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+			require.NoError(t, err)
+
+			didDoc := createDIDDoc(didID, pubKey)
+			didDoc.AssertionMethod = nil
+			verificationMethod := didDoc.PublicKey[0].ID
+
+			ops, err := New(&Config{
+				Crypto:             &cryptomock.Crypto{},
+				StoreProvider:      memstore.NewProvider(),
+				KMSSecretsProvider: mem.NewProvider(),
+				KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+				VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			})
+			require.NoError(t, err)
+
+			ops.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+			cslBytes, err := json.Marshal(&cslstatus.CSL{})
+			require.NoError(t, err)
+
+			ops.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+				Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
+
+			vc.Status = &verifiable.TypedID{
+				ID:   "http://example.com/status/100",
+				Type: "CredentialStatusList2017",
+			}
+
+			vcBytes, err := vc.MarshalJSON()
+			require.NoError(t, err)
+
+			// verify credential
+			handler := getHandler(t, ops, endpoint, verifierMode)
+
+			vReq := &CredentialsVerificationRequest{
+				Credential: getSignedVC(t, privKey, string(vcBytes), verificationMethod, domain, challenge),
+				Opts: &CredentialsVerificationOptions{
+					Checks:    []string{proofCheck, statusCheck},
+					Challenge: challenge,
+					Domain:    domain,
+				},
+			}
+
+			vReqBytes, err := json.Marshal(vReq)
+			require.NoError(t, err)
+
+			rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+			require.Contains(t, rr.Body.String(), "verifiable credential proof purpose validation error :"+
+				" unable to find matching assertionMethod key IDs for given verification method")
 		})
 	}
 }
@@ -3157,7 +3209,8 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "proof validation error : embedded proof is missing", verificationResp.Checks[0].Error)
+		require.Equal(t, "verifiable presentation proof validation error : embedded proof is missing",
+			verificationResp.Checks[0].Error)
 	})
 
 	t.Run("presentation verification - proof check failure", func(t *testing.T) {
@@ -3181,7 +3234,8 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "proof validation error : embedded proof is missing", verificationResp.Checks[0].Error)
+		require.Equal(t, "verifiable presentation proof validation error : embedded proof is missing",
+			verificationResp.Checks[0].Error)
 
 		// proof validation error (DID not found)
 		req = &VerifyPresentationRequest{
@@ -3327,6 +3381,98 @@ func TestVerifyPresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
+	})
+
+	t.Run("presentation verification - invalid vp proof purpose", func(t *testing.T) {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		didID := "did:test:xyz123"
+
+		didDoc := createDIDDoc(didID, pubKey)
+		didDoc.Authentication = nil
+		verificationMethod := didDoc.PublicKey[0].ID
+
+		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		require.NoError(t, err)
+
+		op, err := New(&Config{
+			Crypto:             &cryptomock.Crypto{},
+			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		// verify credential
+		handler := getHandler(t, op, endpoint, verifierMode)
+
+		vReq := &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck},
+				Challenge: challenge,
+				Domain:    domain,
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "verifiable presentation proof purpose validation error :"+
+			" unable to find matching authentication key IDs for given verification method")
+	})
+
+	t.Run("presentation verification - invalid vc proof purpose", func(t *testing.T) {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		didID := "did:test:abc123"
+
+		didDoc := createDIDDoc(didID, pubKey)
+		didDoc.AssertionMethod = nil
+		verificationMethod := didDoc.PublicKey[0].ID
+
+		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		require.NoError(t, err)
+
+		op, err := New(&Config{
+			Crypto:             &cryptomock.Crypto{},
+			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+		require.NoError(t, err)
+
+		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
+
+		// verify credential
+		handler := getHandler(t, op, endpoint, verifierMode)
+
+		vReq := &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck},
+				Challenge: challenge,
+				Domain:    domain,
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "verifiable credential proof purpose validation error : unable"+
+			" to find matching assertionMethod key IDs for given verification method")
 	})
 }
 
@@ -4225,6 +4371,7 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod, domai
 		VerificationMethod:      verificationMethod,
 		Domain:                  domain,
 		Challenge:               challenge,
+		Purpose:                 vccrypto.AssertionMethod,
 	})
 	require.NoError(t, err)
 
@@ -4259,6 +4406,7 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domai
 		VerificationMethod:      verificationMethod,
 		Domain:                  domain,
 		Challenge:               challenge,
+		Purpose:                 vccrypto.Authentication,
 	})
 	require.NoError(t, err)
 
