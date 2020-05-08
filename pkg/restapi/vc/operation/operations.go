@@ -792,7 +792,11 @@ func (o *Operation) importKey(keyID string, keyType kms.KeyType, privateKeyBytes
 	_, _, err := o.kms.ImportPrivateKey(privKey,
 		keyType, localkms.WithKeyID(split[1]))
 	if err != nil {
-		return fmt.Errorf("failed to import private key: %v", err)
+		if !strings.Contains(err.Error(), "already exists") {
+			return fmt.Errorf("failed to import private key: %v", err)
+		}
+
+		log.Warnf(err.Error())
 	}
 
 	return nil
