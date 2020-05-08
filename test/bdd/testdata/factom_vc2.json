@@ -10,7 +10,7 @@
 	],
 	"name": "Permanent Resident Card",
 	"description": "Permanent Resident Card",
-	"issuer": "did:example:28394728934792387",
+	"issuer": "did:factom:5d0dd58757119dd437c70d92b44fbf86627ee275f0f2146c3d99e441da342d9f",
 	"issuanceDate": "2019-12-03T12:19:52Z",
 	"expirationDate": "2029-12-03T12:19:52Z",
 	"credentialSubject": {
@@ -32,9 +32,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2019-12-11T03:50:55Z",
-		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"created": "2020-05-08T18:15:59Z",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MFvThlPbr9MNpeyYLuYfRFio0eWoK8YBQHaI_zt4y8ORd-NZZL2g_n_bCntmnN6EX3VZ2U1zUuEJVMs788WfDg",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..RAr2JoBnaivjCRHxbXXW476wQ9Vm3rUfoXKlRmUDnqLj6Y-r_oa2epetTVIjXGk22RnOriWNRE3-lQ-o_1cTDg"
+		"verificationMethod": "did:factom:5d0dd58757119dd437c70d92b44fbf86627ee275f0f2146c3d99e441da342d9f#key-0"
 	}
 }

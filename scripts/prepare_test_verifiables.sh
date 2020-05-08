@@ -11,7 +11,7 @@ echo "Running $0"
 ROOT=`pwd`
 OUTPUT_DIR=$ROOT/test/bdd/testdata/
 INPUT_DIR=$ROOT/test/bdd/testdata/
-CREDENTIALS=university_degree.json,permanent_resident_card.json
+CREDENTIALS=university_degree.json,permanent_resident_card.json,certified_mill_test_report.json,crude_product.json
 
 echo "creating VCs for bddtests testdata"
 cd $ROOT/.build

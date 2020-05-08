@@ -68,13 +68,11 @@ const (
 
 	domain          = "example.com"
 	assertionMethod = "assertionMethod"
-	authentication  = "authentication"
 )
 
 // Steps is steps for VC BDD tests
 type Steps struct {
 	bddContext *context.BDDContext
-	keyID      string
 }
 
 // NewSteps returns new agent from client SDK
@@ -95,19 +93,12 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) createDID(user string) error {
-	publicKey, keyID, err := e.generateKeypair()
+	doc, err := e.createSidetreeDID()
 	if err != nil {
 		return err
 	}
 
-	e.keyID = keyID
-
-	doc, err := e.createSidetreeDID(publicKey, keyID)
-	if err != nil {
-		return err
-	}
-
-	e.bddContext.Args[bddutil.GetDIDKey(user)] = doc.ID
+	e.bddContext.Data[bddutil.GetDIDDocKey(user)] = doc
 
 	_, err = bddutil.ResolveDID(e.bddContext.VDRI, doc.ID, 10)
 
@@ -154,10 +145,13 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 		return err
 	}
 
-	userDID := e.bddContext.Args[bddutil.GetDIDKey(user)]
+	did, err := e.getDIDforUser(user)
+	if err != nil {
+		return err
+	}
 
 	profileRequest.Name = uuid.New().String() + profileName
-	profileRequest.DID = userDID
+	profileRequest.DID = did.ID
 	profileRequest.SignatureType = "JsonWebSignature2020"
 
 	requestBytes, err := json.Marshal(profileRequest)
@@ -188,8 +182,8 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 		return err
 	}
 
-	if userDID != profileResponse.DID {
-		return fmt.Errorf("DID not saved in the profile - expected=%s actual=%s", userDID, profileResponse.DID)
+	if did.ID != profileResponse.DID {
+		return fmt.Errorf("DID not saved in the profile - expected=%s actual=%s", did.ID, profileResponse.DID)
 	}
 
 	e.bddContext.Args[bddutil.GetProfileNameKey(user)] = profileResponse.Name
@@ -199,7 +193,12 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 	return err
 }
 
-func (e *Steps) createSidetreeDID(base58PubKey, keyID string) (*docdid.Doc, error) {
+func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
+	base58PubKey, keyID, err := e.generateKeypair()
+	if err != nil {
+		return nil, err
+	}
+
 	c := didclient.New(didclient.WithTLSConfig(e.bddContext.TLSConfig))
 
 	_, ed25519PubKey, err := ed25519.GenerateKey(rand.Reader)
@@ -274,7 +273,7 @@ func (e *Steps) issueCredential(user, did, cred, domain, challenge, keyID string
 	req := &operation.IssueCredentialRequest{
 		Credential: e.bddContext.TestData[cred],
 		Opts: &operation.IssueCredentialOptions{
-			AssertionMethod: did + "#" + keyID,
+			AssertionMethod: keyID,
 			Challenge:       challenge,
 			Domain:          domain,
 		},
@@ -308,12 +307,25 @@ func (e *Steps) issueCredential(user, did, cred, domain, challenge, keyID string
 }
 
 func (e *Steps) issueAndVerifyCredential(user string) error {
-	did := e.bddContext.Args[bddutil.GetDIDKey(user)]
-	log.Infof("DID for signing %s", did)
+	var did *docdid.Doc
+
+	var err error
+
+	if did, err = e.getDIDforUser(user); err != nil {
+		return err
+	}
+
+	vms := did.VerificationMethods(docdid.AssertionMethod)[docdid.AssertionMethod]
+	if len(vms) == 0 {
+		return fmt.Errorf("no authentication method in DID created")
+	}
+
+	log.Infof("DID for signing %s", did.ID)
 
 	challenge := uuid.New().String()
 
-	signedVCByte, err := e.issueCredential(user, did, "university_certificate.json", domain, challenge, e.keyID)
+	signedVCByte, err := e.issueCredential(user, did.ID, "university_certificate.json", domain, challenge,
+		vms[0].PublicKey.ID)
 	if err != nil {
 		return err
 	}
@@ -322,14 +334,20 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 }
 
 func (e *Steps) composeIssueAndVerifyCredential(user string) error {
-	did := e.bddContext.Args[bddutil.GetDIDKey(user)]
-	log.Infof("DID for signing %s", did)
+	var did *docdid.Doc
 
-	if _, err := bddutil.ResolveDID(e.bddContext.VDRI, did, 10); err != nil {
+	var err error
+
+	if did, err = e.getDIDforUser(user); err != nil {
 		return err
 	}
 
-	req := fmt.Sprintf(composeCredReqFormat, did+"#"+e.keyID, authentication)
+	vms := did.VerificationMethods(docdid.AssertionMethod)[docdid.AssertionMethod]
+	if len(vms) == 0 {
+		return fmt.Errorf("no authentication method in DID created")
+	}
+
+	req := fmt.Sprintf(composeCredReqFormat, vms[0].PublicKey.ID, assertionMethod)
 
 	endpointURL := fmt.Sprintf(composeAndIssueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
@@ -350,22 +368,27 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 			endpointURL, resp.StatusCode, responseBytes)
 	}
 
-	return e.verifyCredential(responseBytes, "", "", authentication)
+	return e.verifyCredential(responseBytes, "", "", assertionMethod)
 }
 
 func (e *Steps) createCredential(user, cred string) ([]byte, error) {
-	if err := e.createDID(user); err != nil {
+	did, err := e.getDIDforUser(user)
+	if err != nil {
 		return nil, err
 	}
 
-	if err := e.createIssuerProfile(user, uuid.New().String()); err != nil {
-		return nil, err
+	vms := did.VerificationMethods(docdid.AssertionMethod)[docdid.AssertionMethod]
+	if len(vms) == 0 {
+		return nil, fmt.Errorf("no authentication method in DID created")
+	}
+
+	if er := e.createIssuerProfile(user, uuid.New().String()); er != nil {
+		return nil, er
 	}
 
 	challenge := uuid.New().String()
 
-	signedVCByte, err := e.issueCredential(user, e.bddContext.Args[bddutil.GetDIDKey(user)], cred,
-		domain, challenge, e.keyID)
+	signedVCByte, err := e.issueCredential(user, did.ID, cred, domain, challenge, vms[0].PublicKey.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +430,8 @@ func (e *Steps) prepareCredential(user, cred, vcred string) error {
 	return nil
 }
 
-func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolint: gocyclo
+//nolint: gocyclo,funlen
+func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 	var userEmpty, credEmpty, vcredEmpty, vpresEmpty = user == "", cred == "", vcred == "", vpres == ""
 
 	switch {
@@ -420,9 +444,26 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
 		}
 
+		vp, err := verifiable.NewPresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
+		if err != nil {
+			return err
+		}
+
 		e.bddContext.Args[user] = string(vpBytes)
 		e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = ""
 		e.bddContext.Args[bddutil.GetProofDomainKey(user)] = ""
+
+		//nolint: errcheck
+		if len(vp.Proofs) > 0 {
+			if c, ok := vp.Proofs[0]["challenge"]; ok {
+				e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = c.(string)
+			}
+
+			if d, ok := vp.Proofs[0]["domain"]; ok {
+				e.bddContext.Args[bddutil.GetProofDomainKey(user)] = d.(string)
+			}
+		}
+
 	case !vcredEmpty:
 		// create verifiable presentation using verifiable credential from example data.
 		vcBytes, ok := e.bddContext.TestData[vcred]
@@ -432,8 +473,13 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 
 		challenge := uuid.New().String()
 
+		doc, err := e.getDIDforUser(user)
+		if err != nil {
+			return err
+		}
+
 		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", domain, challenge,
-			verifiable.SignatureJWS, e.bddContext.VDRI)
+			verifiable.SignatureJWS, e.bddContext.VDRI, doc)
 		if err != nil {
 			return err
 		}
@@ -450,8 +496,13 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 
 		challenge := uuid.New().String()
 
+		doc, err := e.getDIDforUser(user)
+		if err != nil {
+			return err
+		}
+
 		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", domain, challenge,
-			verifiable.SignatureJWS, e.bddContext.VDRI)
+			verifiable.SignatureJWS, e.bddContext.VDRI, doc)
 		if err != nil {
 			return err
 		}
@@ -459,9 +510,19 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error { //nolin
 		e.bddContext.Args[user] = string(vpBytes)
 		e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = challenge
 		e.bddContext.Args[bddutil.GetProofDomainKey(user)] = domain
-
-		return nil
 	}
 
 	return nil
+}
+
+func (e *Steps) getDIDforUser(user string) (*docdid.Doc, error) {
+	if doc, ok := e.bddContext.Data[bddutil.GetDIDDocKey(user)]; ok {
+		return doc.(*docdid.Doc), nil
+	}
+
+	if err := e.createDID(user); err != nil {
+		return nil, err
+	}
+
+	return e.getDIDforUser(user)
 }

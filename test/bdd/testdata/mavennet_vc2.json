@@ -10,7 +10,7 @@
 	],
 	"name": "Permanent Resident Card",
 	"description": "Permanent Resident Card",
-	"issuer": "did:example:28394728934792387",
+	"issuer": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
 	"issuanceDate": "2019-12-03T12:19:52Z",
 	"expirationDate": "2029-12-03T12:19:52Z",
 	"credentialSubject": {
@@ -32,9 +32,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2019-12-11T03:50:55Z",
-		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+		"created": "2020-05-08T18:15:50Z",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..bZFt6vwt283qrlzZOn8lw2ZBkoHyL_hHNXSiLiffJbN8o0ik2htr5Vd5ulvIiaLX2mAEdljp9WP6z7ov3yq_BA",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..RAr2JoBnaivjCRHxbXXW476wQ9Vm3rUfoXKlRmUDnqLj6Y-r_oa2epetTVIjXGk22RnOriWNRE3-lQ-o_1cTDg"
+		"verificationMethod": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J#z6MkqfvdBsFw4QdGrZrnx7L1EKfY5zh9tT4gumUGsMMEZHY3"
 	}
 }

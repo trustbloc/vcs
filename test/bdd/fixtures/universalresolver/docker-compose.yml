@@ -45,6 +45,13 @@ services:
     networks:
       - couchdb_bdd_net
 
+  driver-did-factom:
+    image: sphereon/driver-did-factom:latest
+    ports:
+      - "8097:8080"
+    networks:
+      - couchdb_bdd_net
+
 networks:
   couchdb_bdd_net:
     external: true

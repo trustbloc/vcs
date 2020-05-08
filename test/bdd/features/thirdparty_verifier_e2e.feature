@@ -12,7 +12,7 @@ Feature: Verifier verifiable credentials and presentations in third party endpoi
 
   @verify_credentials
   Scenario Outline: Verify credentials using thirdparty verifier endpoints
-    Given "Alice" has her "<credential>" issued as verifiable credential using "<did>", "<private key>", "<keyID>" signatureType "<signatureType>" and keyType "<keyType>"
+    Given "Alice" has her "<credential>" issued as verifiable credential using "<did>", "<private key>", "<keyID>", signatureType "<signatureType>" and keyType "<keyType>"
     Then  "<verifier>" verifies the verifiable credential provided by "Alice"
     Examples:
     Examples:
@@ -30,7 +30,7 @@ Feature: Verifier verifiable credentials and presentations in third party endpoi
 #  TODO {"message":"Route GET:/verifier/presentations not found","error":"Not Found","statusCode":404}
   @verify_presentations
   Scenario Outline: Verify credentials using thirdparty verifier endpoints
-    Given "Alice" has her "<credential>" issued as verifiable presentation using "<did>", "<private key>", "<keyID>",signatureType "<signatureType>" and keyType "<keyType>"
+    Given "Alice" has her "<credential>" issued as verifiable presentation using "<did>", "<private key>", "<keyID>", signatureType "<signatureType>" and keyType "<keyType>"
     Then  "<verifier>" verifies the verifiable presentation provided by "Alice"
     Examples:
     Examples:
