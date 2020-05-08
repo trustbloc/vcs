@@ -1302,7 +1302,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	for _, val := range checks {
 		switch val {
 		case proofCheck:
-			err := o.validateCredentialProof(verificationReq.Credential, verificationReq.Opts)
+			err := o.validateCredentialProof(verificationReq.Credential, verificationReq.Opts, false)
 			if err != nil {
 				result = append(result, CredentialsVerificationCheckResult{
 					Check: val,
@@ -1565,7 +1565,8 @@ func updateHolder(presentation *verifiable.Presentation, profile *vcprofile.Hold
 	}
 }
 
-func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions) error {
+func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions,
+	vcInVPValidation bool) error {
 	vc, err := o.parseAndVerifyVCStrictMode(vcByte)
 
 	if err != nil {
@@ -1584,14 +1585,16 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 	// TODO figure out the process when vc has more than one proof
 	proof := vc.Proofs[0]
 
-	// validate challenge
-	if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
-		return err
-	}
+	if !vcInVPValidation {
+		// validate challenge
+		if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
+			return err
+		}
 
-	// validate domain
-	if err := validateProofData(proof, domain, opts.Domain); err != nil {
-		return err
+		// validate domain
+		if err := validateProofData(proof, domain, opts.Domain); err != nil {
+			return err
+		}
 	}
 
 	// validate proof purpose
@@ -1690,7 +1693,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 			return nil, err
 		}
 		// verify if the credential in vp is valid
-		err = o.validateCredentialProof(vcBytes, nil)
+		err = o.validateCredentialProof(vcBytes, nil, true)
 		if err != nil {
 			return nil, err
 		}
