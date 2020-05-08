@@ -8,6 +8,7 @@ package operation
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
@@ -30,6 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -140,6 +142,7 @@ type EDVClient interface {
 type keyManager interface {
 	kms.KeyManager
 	ExportPubKeyBytes(id string) ([]byte, error)
+	ImportPrivateKey(privKey interface{}, kt kms.KeyType, opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error)
 }
 
 type httpClient interface {
@@ -427,7 +430,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 	}
 
 	// get profile
-	profile, err := o.profileStore.GetProfile(vc.Issuer.Name)
+	profile, err := o.profileStore.GetProfile(vc.Issuer.CustomFields["name"].(string))
 	if err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to get profile: %s", err.Error()))
@@ -700,19 +703,19 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	o.retrieveCredential(rw, profile, docURLs)
 }
 
-// nolint: gocyclo
+// nolint: gocyclo,funlen
 func (o *Operation) createDIDUniRegistrar(keyType, signatureType, purpose string,
-	registrar UNIRegistrar) (string, string, string, error) {
+	registrar UNIRegistrar) (string, string, error) {
 	var opts []uniregistrar.CreateDIDOption
 
 	publicKeys, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to create did public key: %v", err)
+		return "", "", fmt.Errorf("failed to create did public key: %v", err)
 	}
 
 	_, recoveryPubKey, err := o.createKey(kms.ED25519Type)
 	if err != nil {
-		return "", "", "", err
+		return "", "", err
 	}
 
 	for _, v := range publicKeys {
@@ -732,40 +735,70 @@ func (o *Operation) createDIDUniRegistrar(keyType, signatureType, purpose string
 
 	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
 	if err != nil {
-		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
+		return "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 	}
 
 	// TODO https://github.com/trustbloc/edge-service/issues/415 remove check when vendors supporting addKeys feature
 	if strings.Contains(identifier, "did:trustbloc") {
 		for _, v := range keys {
 			if strings.Contains(v.ID, "#"+selectedKeyID) {
-				return identifier, v.ID, "", nil
+				return identifier, v.ID, nil
 			}
 		}
 
-		return "", "", "", fmt.Errorf("selected key not found %s", selectedKeyID)
+		return "", "", fmt.Errorf("selected key not found %s", selectedKeyID)
 	}
 
 	if strings.Contains(identifier, "did:v1") {
 		for _, v := range keys {
 			for _, p := range v.Purpose {
 				if purpose == p {
-					return identifier, v.ID, v.PrivateKeyBase58, nil
+					err = o.importKey(v.ID, kms.ED25519Type, base58.Decode(v.PrivateKeyBase58))
+					if err != nil {
+						return "", "", err
+					}
+
+					return identifier, v.ID, nil
 				}
 			}
 		}
 
-		return "", "", "", fmt.Errorf("did:v1 - not able to find key with purpose %s", purpose)
+		return "", "", fmt.Errorf("did:v1 - not able to find key with purpose %s", purpose)
 	}
 
 	// vendors not supporting addKeys feature.
 	// return first key public and private
 	// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
-	return identifier, keys[0].ID, keys[0].PrivateKeyBase58, nil
+	err = o.importKey(keys[0].ID, kms.ED25519Type, base58.Decode(keys[0].PrivateKeyBase58))
+	if err != nil {
+		return "", "", err
+	}
+
+	return identifier, keys[0].ID, nil
+}
+
+func (o *Operation) importKey(keyID string, keyType kms.KeyType, privateKeyBytes []byte) error {
+	split := strings.Split(keyID, "#")
+
+	var privKey interface{}
+
+	switch keyType {
+	case kms.ED25519Type:
+		privKey = ed25519.PrivateKey(privateKeyBytes)
+	default:
+		return fmt.Errorf("import key type not supported %s", keyType)
+	}
+
+	_, _, err := o.kms.ImportPrivateKey(privKey,
+		keyType, localkms.WithKeyID(split[1]))
+	if err != nil {
+		return fmt.Errorf("failed to import private key: %v", err)
+	}
+
+	return nil
 }
 
 func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
-	// TODO https://github.com/trustbloc/edge-service/issues/416 Create map between DID keyID and kmsID
 	keyID, _, err := o.kms.Create(keyType)
 	if err != nil {
 		return "", nil, err
@@ -817,8 +850,8 @@ func (o *Operation) createDID(keyType, signatureType string) (string, string, er
 func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
 	var didID, publicKeyID string
 
-	didID, publicKeyID, didPrivateKey, err := o.createProfile(pr.DIDKeyType, pr.SignatureType,
-		pr.DID, pr.DIDPrivateKey, crypto.AssertionMethod, pr.UNIRegistrar)
+	didID, publicKeyID, err := o.createProfile(pr.DIDKeyType, pr.SignatureType,
+		pr.DID, pr.DIDPrivateKey, pr.DIDKeyID, crypto.AssertionMethod, pr.UNIRegistrar)
 	if err != nil {
 		return nil, err
 	}
@@ -827,16 +860,15 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 
 	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID,
 		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID,
-		DIDPrivateKey: didPrivateKey, DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
-		DIDKeyType: pr.DIDKeyType,
+		DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
 	}, nil
 }
 
 func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.HolderProfile, error) {
 	var didID, publicKeyID string
 
-	didID, publicKeyID, didPrivateKey, err := o.createProfile(pr.DIDKeyType, pr.SignatureType, pr.DID,
-		pr.DIDPrivateKey, crypto.Authentication, pr.UNIRegistrar)
+	didID, publicKeyID, err := o.createProfile(pr.DIDKeyType, pr.SignatureType, pr.DID,
+		pr.DIDPrivateKey, pr.DIDKeyID, crypto.Authentication, pr.UNIRegistrar)
 	if err != nil {
 		return nil, err
 	}
@@ -850,14 +882,12 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 		SignatureType:           pr.SignatureType,
 		SignatureRepresentation: pr.SignatureRepresentation,
 		Creator:                 publicKeyID,
-		DIDPrivateKey:           didPrivateKey,
-		DIDKeyType:              pr.DIDKeyType,
 		OverwriteHolder:         pr.OverwriteHolder,
 	}, nil
 }
 
-func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey, purpose string,
-	registrar UNIRegistrar) (string, string, string, error) {
+func (o *Operation) createProfile(keyType, signatureType, did, privateKey, keyID, purpose string,
+	registrar UNIRegistrar) (string, string, error) {
 	var didID string
 
 	var publicKeyID string
@@ -865,10 +895,10 @@ func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey, pu
 	switch {
 	case registrar.DriverURL != "":
 		var err error
-		didID, publicKeyID, didPrivateKey, err = o.createDIDUniRegistrar(keyType, signatureType, purpose, registrar)
+		didID, publicKeyID, err = o.createDIDUniRegistrar(keyType, signatureType, purpose, registrar)
 
 		if err != nil {
-			return "", "", "", err
+			return "", "", err
 		}
 
 	case did == "":
@@ -876,24 +906,27 @@ func (o *Operation) createProfile(keyType, signatureType, did, didPrivateKey, pu
 		didID, publicKeyID, err = o.createDID(keyType, signatureType)
 
 		if err != nil {
-			return "", "", "", err
+			return "", "", err
 		}
 
 	case did != "":
 		didDoc, err := o.vdri.Resolve(did)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to resolve did: %v", err)
+			return "", "", fmt.Errorf("failed to resolve did: %v", err)
 		}
 
 		didID = didDoc.ID
 
-		publicKeyID, err = getPublicKeyID(didDoc, "", crypto.Ed25519Signature2018)
-		if err != nil {
-			return "", "", "", err
+		if privateKey != "" {
+			if err := o.importKey(keyID, kms.ED25519Type, base58.Decode(privateKey)); err != nil {
+				return "", "", err
+			}
 		}
+
+		publicKeyID = keyID
 	}
 
-	return didID, publicKeyID, didPrivateKey, nil
+	return didID, publicKeyID, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
@@ -1914,8 +1947,8 @@ func isDID(str string) bool {
 // credential issue will always be DID
 func updateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
 	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
-		// override credential issuer.
-		credential.Issuer = verifiable.Issuer{ID: profile.DID, Name: profile.Name}
+		credential.Issuer = verifiable.Issuer{ID: profile.DID,
+			CustomFields: verifiable.CustomFields{"name": profile.Name}}
 	}
 }
 

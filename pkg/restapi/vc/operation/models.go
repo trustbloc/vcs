@@ -44,6 +44,7 @@ type ProfileRequest struct {
 	DID                     string                             `json:"did"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	DIDKeyType              string                             `json:"didKeyType"`
+	DIDKeyID                string                             `json:"didKeyID"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
 	OverwriteIssuer         bool                               `json:"overwriteIssuer,omitempty"`
@@ -181,6 +182,7 @@ type HolderProfileRequest struct {
 	DID                     string                             `json:"did"`
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	DIDKeyType              string                             `json:"didKeyType"`
+	DIDKeyID                string                             `json:"didKeyID"`
 	UNIRegistrar            UNIRegistrar                       `json:"uniRegistrar,omitempty"`
 	OverwriteHolder         bool                               `json:"overwriteHolder,omitempty"`
 }
