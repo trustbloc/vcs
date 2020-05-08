@@ -549,6 +549,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
+	// TODO https://github.com/trustbloc/edge-service/issues/417 add profileID to the path param rather than the body
 	if err = validateRequest(data.Profile, vc.ID); err != nil {
 		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -734,7 +735,7 @@ func (o *Operation) createDIDUniRegistrar(keyType, signatureType, purpose string
 		return "", "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
 	}
 
-	// TODO remove check when vendors supporting addKeys feature
+	// TODO https://github.com/trustbloc/edge-service/issues/415 remove check when vendors supporting addKeys feature
 	if strings.Contains(identifier, "did:trustbloc") {
 		for _, v := range keys {
 			if strings.Contains(v.ID, "#"+selectedKeyID) {
@@ -759,12 +760,12 @@ func (o *Operation) createDIDUniRegistrar(keyType, signatureType, purpose string
 
 	// vendors not supporting addKeys feature.
 	// return first key public and private
-	// TODO remove when vendors supporting addKeys feature
+	// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
 	return identifier, keys[0].ID, keys[0].PrivateKeyBase58, nil
 }
 
 func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
-	// TODO Create map between DID keyID and kmsID https://github.com/hyperledger/aries-framework-go/issues/1744
+	// TODO https://github.com/trustbloc/edge-service/issues/416 Create map between DID keyID and kmsID
 	keyID, _, err := o.kms.Create(keyType)
 	if err != nil {
 		return "", nil, err
@@ -1582,7 +1583,7 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 		opts = &CredentialsVerificationOptions{}
 	}
 
-	// TODO figure out the process when vc has more than one proof
+	// TODO https://github.com/trustbloc/edge-service/issues/412 figure out the process when vc has more than one proof
 	proof := vc.Proofs[0]
 
 	if !vcInVPValidation {
@@ -1619,7 +1620,7 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 
 	var proof verifiable.Proof
 
-	// TODO figure out the process when vp has more than one proof
+	// TODO https://github.com/trustbloc/edge-service/issues/412 figure out the process when vc has more than one proof
 	if len(vp.Proofs) != 0 {
 		proof = vp.Proofs[0]
 	}
@@ -1878,7 +1879,7 @@ func getPublicKeyID(didDoc *ariesdid.Doc, keyID, signatureType string) (string, 
 		var publicKeyID string
 
 		for _, k := range didDoc.PublicKey {
-			// TODO remove when vendors supporting addKeys feature
+			// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
 			if keyID == "" && k.Type == signatureKeyTypeMap[signatureType] {
 				publicKeyID = k.ID
 				break
@@ -1890,8 +1891,8 @@ func getPublicKeyID(didDoc *ariesdid.Doc, keyID, signatureType string) (string, 
 			}
 		}
 
-		// TODO this is temporary check to support public key ID's which aren't in DID format
-		// Will be removed [Issue#140]
+		// TODO https://github.com/trustbloc/edge-service/issues/140 this is temporary check to support public
+		//  key ID's which aren't in DID format: Will be removed [Issue#140]
 		if !isDID(publicKeyID) {
 			return didDoc.ID + publicKeyID, nil
 		}

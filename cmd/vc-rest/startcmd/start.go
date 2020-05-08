@@ -621,8 +621,6 @@ func constructCORSHandler(handler http.Handler) http.Handler {
 func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
 	rw.WriteHeader(http.StatusOK)
 
-	// TODO update to send the version of the deployment
-
 	err := json.NewEncoder(rw).Encode(&healthCheckResp{
 		Status:      "success",
 		CurrentTime: time.Now(),

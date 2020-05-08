@@ -299,7 +299,6 @@ func (c *Crypto) getLinkedDataProofContext(didID, didKeyType, didPrivateKey, cre
 		}
 	}
 
-	// TODO Matching suite and type for signOpts.VerificationMethod [Issue #222]
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      method,
 		SignatureRepresentation: signRep,
@@ -344,6 +343,8 @@ func (c *Crypto) getSigner(didID, didKeyType, didPrivateKey, creator string, opt
 
 // ValidateProofPurpose validates the proof purpose
 func ValidateProofPurpose(proofPurpose, method string, vdri vdriapi.Registry) error {
+	// TODO https://github.com/trustbloc/edge-service/issues/368 remove check once did:sov returns both
+	//  assertionMethod and authentication
 	if strings.Contains(method, "did:sov") {
 		return nil
 	}
