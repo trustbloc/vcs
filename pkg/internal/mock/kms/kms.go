@@ -9,6 +9,7 @@ package kms
 import (
 	"github.com/google/tink/go/keyset"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 )
 
 // KeyManager mocks a local Key Management Service
@@ -55,4 +56,10 @@ func (k *KeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, interf
 // ExportPubKeyBytes export public key
 func (k *KeyManager) ExportPubKeyBytes(id string) ([]byte, error) {
 	return k.ExportPubKeyBytesValue, k.ExportPubKeyBytesErr
+}
+
+// ImportPrivateKey import private key
+func (k *KeyManager) ImportPrivateKey(privKey interface{}, kt kmsservice.KeyType,
+	opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
+	return "", nil, nil
 }

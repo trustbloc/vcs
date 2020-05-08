@@ -92,7 +92,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Holder Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, // nolint
+	s.Step(`^Holder Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, // nolint
 		e.createHolderProfile)
 	s.Step(`^Holder profile "([^"]*)" can be retrieved with DID "([^"]*)" and signatureType "([^"]*)"$`,
 		e.getProfile)
@@ -101,7 +101,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 // nolint: funlen
-func (e *Steps) createHolderProfile(profileName, did, privateKey, signatureRep, uniRegistrar,
+func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatureRep, uniRegistrar,
 	didMethod, signatureType, keyType string) error {
 	profileRequest := operation.HolderProfileRequest{}
 
@@ -120,6 +120,7 @@ func (e *Steps) createHolderProfile(profileName, did, privateKey, signatureRep, 
 	profileRequest.UNIRegistrar = u
 	profileRequest.SignatureType = signatureType
 	profileRequest.DIDKeyType = keyType
+	profileRequest.DIDKeyID = keyID
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {

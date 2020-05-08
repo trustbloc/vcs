@@ -7,16 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rand"
-	"crypto/x509"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
@@ -80,11 +74,6 @@ type kmsSigner struct {
 	crypto    ariescrypto.Crypto
 }
 
-type privateKeySigner struct {
-	keyType    string
-	privateKey []byte
-}
-
 func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
 	// creator will contain didID#keyID
 	idSplit := strings.Split(creator, "#")
@@ -107,26 +96,6 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 	}
 
 	return v, nil
-}
-
-func newPrivateKeySigner(keyType string, privateKey []byte) *privateKeySigner {
-	return &privateKeySigner{keyType: keyType, privateKey: privateKey}
-}
-
-func (s *privateKeySigner) Sign(data []byte) ([]byte, error) {
-	switch s.keyType {
-	case Ed25519KeyType:
-		return ed25519.Sign(s.privateKey, data), nil
-	case P256KeyType:
-		ecPrivateKey, err := x509.ParseECPrivateKey(s.privateKey)
-		if err != nil {
-			return nil, err
-		}
-
-		return signEcdsa(data, ecPrivateKey, crypto.SHA256)
-	}
-
-	return nil, fmt.Errorf("invalid key type : %s", s.keyType)
 }
 
 // New return new instance of vc crypto
@@ -217,8 +186,7 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		signatureType = signOpts.SignatureType
 	}
 
-	signingCtx, err := c.getLinkedDataProofContext(dataProfile.DID, dataProfile.DIDKeyType,
-		dataProfile.DIDPrivateKey, dataProfile.Creator, signatureType, AssertionMethod,
+	signingCtx, err := c.getLinkedDataProofContext(dataProfile.Creator, signatureType, AssertionMethod,
 		dataProfile.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
@@ -247,7 +215,7 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 		signatureType = signOpts.SignatureType
 	}
 
-	signingCtx, err := c.getLinkedDataProofContext(profile.DID, profile.DIDKeyType, profile.DIDPrivateKey,
+	signingCtx, err := c.getLinkedDataProofContext(
 		profile.Creator, signatureType, Authentication, profile.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
@@ -265,9 +233,9 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(didID, didKeyType, didPrivateKey, creator, signatureType, proofPurpose string, // nolint: lll
+func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string, // nolint: lll
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, method, err := c.getSigner(didID, didKeyType, didPrivateKey, creator, opts)
+	s, method, err := c.getSigner(creator, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -315,30 +283,15 @@ func (c *Crypto) getLinkedDataProofContext(didID, didKeyType, didPrivateKey, cre
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method
-func (c *Crypto) getSigner(didID, didKeyType, didPrivateKey, creator string, opts *signingOpts) (signer, string, error) { // nolint: lll
-	switch {
-	case opts.VerificationMethod != "":
-		verificationDID, err := getDIDFromKeyID(opts.VerificationMethod)
-		if err != nil {
-			return nil, "", err
-		}
-
-		// if the verification method DID is added to profile externally, then fetch the private
-		// key from profile
-		if verificationDID == didID && didPrivateKey != "" {
-			return newPrivateKeySigner(didKeyType, base58.Decode(didPrivateKey)),
-				opts.VerificationMethod, nil
-		}
-
-		s, err := newKMSSigner(c.keyManager, c.crypto, opts.VerificationMethod)
-
-		return s, opts.VerificationMethod, err
-	case didPrivateKey == "":
-		s, err := newKMSSigner(c.keyManager, c.crypto, creator)
-		return s, creator, err
-	default:
-		return newPrivateKeySigner(didKeyType, base58.Decode(didPrivateKey)), creator, nil
+func (c *Crypto) getSigner(creator string, opts *signingOpts) (signer, string, error) { // nolint: lll
+	verificationMethod := creator
+	if opts.VerificationMethod != "" {
+		verificationMethod = opts.VerificationMethod
 	}
+
+	s, err := newKMSSigner(c.keyManager, c.crypto, verificationMethod)
+
+	return s, verificationMethod, err
 }
 
 // ValidateProofPurpose validates the proof purpose
@@ -424,38 +377,4 @@ func getDIDFromKeyID(creator string) (string, error) {
 	}
 
 	return idSplit[0], nil
-}
-
-func signEcdsa(doc []byte, privateKey *ecdsa.PrivateKey, hash crypto.Hash) ([]byte, error) {
-	hasher := hash.New()
-
-	_, err := hasher.Write(doc)
-	if err != nil {
-		return nil, err
-	}
-
-	hashed := hasher.Sum(nil)
-
-	r, s, err := ecdsa.Sign(rand.Reader, privateKey, hashed)
-	if err != nil {
-		return nil, err
-	}
-
-	curveBits := privateKey.Curve.Params().BitSize
-
-	const bitsInByte = 8
-	keyBytes := curveBits / bitsInByte
-
-	if curveBits%bitsInByte > 0 {
-		keyBytes++
-	}
-
-	return append(copyPadded(r.Bytes(), keyBytes), copyPadded(s.Bytes(), keyBytes)...), nil
-}
-
-func copyPadded(source []byte, size int) []byte {
-	dest := make([]byte, size)
-	copy(dest[size-len(source):], source)
-
-	return dest
 }

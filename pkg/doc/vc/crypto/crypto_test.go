@@ -7,16 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
-	"crypto/ecdsa"
 	"crypto/ed25519"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -40,9 +36,6 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("test successful sign credential using opts", func(t *testing.T) {
-		_, priKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
 		prepareTestCreated := func(y, m, d int) *time.Time {
 			c := time.Now().AddDate(y, m, d)
 
@@ -89,8 +82,6 @@ func TestCrypto_SignCredential(t *testing.T) {
 					URI:           "https://test.com/credentials",
 					SignatureType: "Ed25519Signature2018",
 					Creator:       "did:trustbloc:abc#key1",
-					DIDPrivateKey: base58.Encode(priKey),
-					DIDKeyType:    Ed25519KeyType,
 				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
@@ -201,110 +192,6 @@ func TestCrypto_SignCredential(t *testing.T) {
 		}
 	})
 
-	t.Run("test success - ed25519 private key", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
-
-		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(privateKey)
-		p.DIDKeyType = Ed25519KeyType
-
-		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
-	})
-
-	t.Run("test success - P-256 private key", func(t *testing.T) {
-		privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		require.NoError(t, err)
-
-		encodedPrivateKey, err := x509.MarshalECPrivateKey(privateKey)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
-
-		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(encodedPrivateKey)
-		p.DIDKeyType = P256KeyType
-
-		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
-	})
-
-	t.Run("test P-256 private key parse failure", func(t *testing.T) {
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
-
-		p := getTestIssuerProfile()
-		p.DIDPrivateKey = "invalid-private-key"
-		p.DIDKeyType = P256KeyType
-
-		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse EC private key")
-		require.Nil(t, signedVC)
-	})
-
-	t.Run("test signing failure - invalid key type", func(t *testing.T) {
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
-
-		p := getTestIssuerProfile()
-		p.DIDPrivateKey = "privateKey"
-		p.DIDKeyType = "invalid-key-type"
-
-		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "invalid key type")
-		require.Nil(t, signedVC)
-	})
-
-	t.Run("test signature representation - JWS", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
-
-		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(privateKey)
-		p.DIDKeyType = Ed25519KeyType
-		p.SignatureRepresentation = verifiable.SignatureJWS
-
-		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
-
-		jwsProof := signedVC.Proofs[0]
-		_, ok := jwsProof["jws"]
-		require.True(t, ok)
-	})
-
-	t.Run("test signature representation - ProofValue", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
-
-		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(privateKey)
-		p.SignatureRepresentation = verifiable.SignatureProofValue
-		p.DIDKeyType = Ed25519KeyType
-
-		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
-		require.NoError(t, err)
-		require.Equal(t, 1, len(signedVC.Proofs))
-
-		_, ok := signedVC.Proofs[0]["proofValue"]
-		require.True(t, ok)
-	})
-
 	t.Run("test error from creator", func(t *testing.T) {
 		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
@@ -330,14 +217,10 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("sign vc - invalid proof purpose", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(privateKey)
-		p.DIDKeyType = Ed25519KeyType
 
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
@@ -348,14 +231,10 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("sign vc - capability invocation proof purpose", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(privateKey)
-		p.DIDKeyType = Ed25519KeyType
 
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
@@ -365,14 +244,10 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 
 	t.Run("sign vc - capability delegation proof purpose", func(t *testing.T) {
-		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		c := New(nil, nil, &vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
+		c := New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")})
 
 		p := getTestIssuerProfile()
-		p.DIDPrivateKey = base58.Encode(privateKey)
-		p.DIDKeyType = Ed25519KeyType
 
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},

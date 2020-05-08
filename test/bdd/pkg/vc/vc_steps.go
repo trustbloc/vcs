@@ -55,7 +55,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)"$`, e.getProfile)
 	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
@@ -67,9 +67,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Now we verify that "([^"]*)" signed with "([^"]*)" presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.signAndVerifyPresentation)
 	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndCredential)
-	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
+	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndPresentation)
 
 	// CHAPI
@@ -147,7 +147,7 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 	return verify(resp, checks, result, respMessage)
 }
 
-func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:gocyclo,funlen]
+func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nolint[:gocyclo,funlen]
 	uniRegistrar, didMethod, signatureType, keyType string) error {
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
@@ -176,6 +176,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, holder, //nolint[:go
 	profileRequest.OverwriteIssuer = true
 	profileRequest.SignatureType = signatureType
 	profileRequest.DIDKeyType = keyType
+	profileRequest.DIDKeyID = keyID
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
@@ -311,10 +312,12 @@ func (e *Steps) createCredential(credential, profileName string) error {
 	return e.checkVC(respBytes, profileName)
 }
 
-func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, signatureType, keyType string) error {
+func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, keyID, signatureType,
+	keyType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, keyType)
+	err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
+		signatureType, keyType)
 	if err != nil {
 		return err
 	}
@@ -329,10 +332,12 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, si
 	return nil
 }
 
-func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, signatureType, keyType string) error {
+func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, keyID, signatureType,
+	keyType string) error {
 	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, "JWS", "", "", signatureType, keyType)
+	err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
+		signatureType, keyType)
 	if err != nil {
 		return err
 	}
@@ -799,7 +804,7 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 }
 
 func (e *Steps) createBasicIssuerProfile(profileName, signatureType, keyType string) error {
-	return e.createProfile(profileName, "", "", "JWS", "", "did:trustbloc", signatureType, keyType)
+	return e.createProfile(profileName, "", "", "", "JWS", "", "did:trustbloc", signatureType, keyType)
 }
 
 func (e *Steps) createBasicHolderProfile(profileName, signatureType, keyType string) error {

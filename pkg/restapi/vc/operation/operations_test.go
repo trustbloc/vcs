@@ -105,7 +105,8 @@ const (
 		"uri": "https://example.com/credentials",
 		"signatureType": "Ed25519Signature2018",
         "did": "did:peer:22",
-        "didPrivateKey": "key"
+        "didPrivateKey": "key",
+        "didKeyID": "did1#key1"
 	}`
 
 	validVC = `{` +
@@ -779,36 +780,6 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
 		require.Equal(t, "did1#key1", profile.Creator)
-	})
-
-	t.Run("test public key not found", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1"}}, HostURL: "localhost:8080"})
-		require.NoError(t, err)
-
-		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
-
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
-			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-
-		errResp := &ErrorResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
-		require.NoError(t, err)
-
-		require.Equal(t, "public key not found in DID Document", errResp.Message)
 	})
 
 	t.Run("test failed to resolve did", func(t *testing.T) {
@@ -3682,7 +3653,6 @@ func TestGetHolderProfile(t *testing.T) {
 	t.Run("get profile - success", func(t *testing.T) {
 		vReq := &vcprofile.HolderProfile{
 			Name:          "test",
-			DIDKeyType:    vccrypto.Ed25519KeyType,
 			SignatureType: vccrypto.Ed25519Signature2018,
 		}
 
@@ -3699,7 +3669,6 @@ func TestGetHolderProfile(t *testing.T) {
 		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
 		require.NoError(t, err)
 		require.Equal(t, vReq.Name, profileRes.Name)
-		require.Equal(t, vReq.DIDKeyType, profileRes.DIDKeyType)
 	})
 
 	t.Run("get profile - no data found", func(t *testing.T) {
@@ -3720,7 +3689,6 @@ func TestSignPresentation(t *testing.T) {
 
 	vReq := &vcprofile.HolderProfile{
 		Name:          "test",
-		DIDKeyType:    vccrypto.Ed25519KeyType,
 		SignatureType: vccrypto.Ed25519Signature2018,
 		Creator:       issuerProfileDIDKey,
 	}

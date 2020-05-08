@@ -42,8 +42,6 @@ type DataProfile struct {
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
 	Creator                 string                             `json:"creator"`
 	Created                 *time.Time                         `json:"created"`
-	DIDPrivateKey           string                             `json:"didPrivateKey"`
-	DIDKeyType              string                             `json:"didKeyType"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
 	OverwriteIssuer         bool                               `json:"overwriteIssuer"`
 }
@@ -55,8 +53,6 @@ type HolderProfile struct {
 	SignatureType           string                             `json:"signatureType"`
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
 	Creator                 string                             `json:"creator"`
-	DIDKeyType              string                             `json:"didKeyType"`
-	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	OverwriteHolder         bool                               `json:"overwriteHolder,omitempty"`
 	Created                 *time.Time                         `json:"created"`
 }

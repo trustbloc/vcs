@@ -53,7 +53,6 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 			URI:                     "https://example.com/credentials",
 			Created:                 &created,
 			DID:                     "did",
-			DIDPrivateKey:           "privateKey",
 			SignatureType:           "SignatureType",
 			SignatureRepresentation: verifiable.SignatureProofValue,
 		}
