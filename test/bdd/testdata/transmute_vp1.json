@@ -13,7 +13,7 @@
 			"VerifiableCredential",
 			"UniversityDegreeCredential"
 		],
-		"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+		"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 		"issuanceDate": "2020-03-16T22:37:26.544Z",
 		"issuer": {
 			"id": "did:example:oakek12as93mas91220dapop092",
@@ -33,14 +33,14 @@
 			"created": "2019-12-11T03:50:55Z",
 			"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 			"proofPurpose": "assertionMethod",
-			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ISvTj1JZlA8zHTNGxA0sDncIP7vg9k7XLehhYIk4S79RJaZK9iO_NMabh-ZT7COpW6uFGDvCWVyW0fdX7oQXCA"
+			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..V1C0Q1t8dFGephU8BvEYczYezX5ig171khjSHVwloJ25KBrNIkmAqrP6tRD6B-FVoDDtqFDK3JOynYEsaoVoDA"
 		}
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:15:35Z",
+		"created": "2020-05-11T22:04:15Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..-vFW47PxmJHIMRMtdHpaVN6rfvkW_J4ngSRmshq2U6RkbRhMCRICMLVj3cEdfQg9xnJB-_EDiOfeCchGtQkuBQ"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..5Hy6qAfUOoA01vmPpMGhmiP8OH7RNzG_gkF1CAS4eGJYhf7rvUnq45yMHhdvWxUhx0bKbzJ4v1KeVKuaDF39CQ"
 	}
 }

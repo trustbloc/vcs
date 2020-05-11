@@ -3,7 +3,7 @@
 		"https://www.w3.org/2018/credentials/v1",
 		"https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"CertifiedMillTestReport"
@@ -205,8 +205,8 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:16:01Z",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..jYHWhlNNQiIMRCM3SbDinf3TllD4-V-bU2YFnceU-fks8xQDVQJDwgElZH55bpi-Lmw46vxjPZ9dIjO-YP1sDA",
+		"created": "2020-05-11T22:04:42Z",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..v6-4jkWw2deEeS4CjI6m6D7KKrfxZBIpPR8SAdGiNuz5hqcVRR2hQzvBEqSsvk__Akx2EOfVxU_kY5W7uoIvBg",
 		"proofPurpose": "assertionMethod",
 		"verificationMethod": "did:factom:5d0dd58757119dd437c70d92b44fbf86627ee275f0f2146c3d99e441da342d9f#key-0"
 	}

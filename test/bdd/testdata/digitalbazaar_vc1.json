@@ -3,7 +3,7 @@
 		"https://www.w3.org/2018/credentials/v1",
 		"https://w3id.org/citizenship/v1"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"PermanentResidentCard"
@@ -32,8 +32,8 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:15:45Z",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ehZzs9GWYnER5GFfIS-7-aajuBse96c8fiQFcmdGCWZ2LPMsDGjmFgskzlJrvz1NS2d23wg0KoXX8xHi2E9_AQ",
+		"created": "2020-05-11T22:04:21Z",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..5SFp4pG1xKhRjl_HbstFU3IC60bG4QHtAYJW9JE1ElYestw0-y2jLNkPYRWiW6WwSSK94S-ZSvbW04-MCdeiCQ",
 		"proofPurpose": "assertionMethod",
 		"verificationMethod": "did:key:z6Mki2dzq2PLm7crMwq8aTz4Nx3RXNUCaLLmytKdAxL8KyXx#z6Mki2dzq2PLm7crMwq8aTz4Nx3RXNUCaLLmytKdAxL8KyXx"
 	}

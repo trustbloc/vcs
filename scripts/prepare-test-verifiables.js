@@ -55,10 +55,12 @@ const opts = {
             },
             vp: {
                 path: "https://api.neo-flow.com/credentials/presentation",
-                options: {
-                    issuer: "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b",
-                    proofPurpose: "authentication",
-                    assertionMethod: "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b#z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b"
+                request: {
+                    options: {
+                        issuer: "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b",
+                        proofPurpose: "authentication",
+                        assertionMethod: "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b#z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b"
+                    }
                 }
             }
         },
@@ -74,9 +76,11 @@ const opts = {
             types: ["UniversityDegreeCredential", "PermanentResidentCard", "CrudeProductCredential"],
             vc: {
                 path: "https://svip-interop.ocs-support.com/api/credentials/issueCredential",
-                options: {
-                    issuer: "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
-                    assertionMethod: "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN"
+                request: {
+                    options: {
+                        issuer: 'did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN',
+                        assertionMethod: 'did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN',
+                    }
                 }
             }
         },

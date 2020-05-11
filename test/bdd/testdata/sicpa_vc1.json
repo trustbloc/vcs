@@ -9,7 +9,7 @@
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
 	},
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"UniversityDegreeCredential"
@@ -23,10 +23,10 @@
 		"id": "did:example:oakek12as93mas91220dapop092"
 	},
 	"proof": {
-		"created": "2020-05-08T18:16:03.118Z",
+		"created": "2020-05-11T22:04:43.723Z",
 		"proofPurpose": "assertionMethod",
 		"type": "Ed25519Signature2018",
 		"verificationMethod": "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
-		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..1o37PbJ2iUfxb8FCmq0s1KGuy7P9DB9vnmDcsX5poLISuJDuC4j6rNyZFVciGDfzuQF-K1b1ozT-tnoLbmIdCg"
+		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..P1FE_-Az7j9CF_-jM553Koh1Ovm8rI53g47tZrKC4tqjr-Mpt8C-yJEiPUfoUDGrPX7rWbfdl9-OOi4LZ6jkAg"
 	}
 }

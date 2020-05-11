@@ -65,7 +65,7 @@ bdd-test: clean generate-test-config vc-rest-docker did-rest-docker generate-tes
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean generate-test-config vc-rest-docker did-rest-docker generate-test-keys
+bdd-interop-test:clean prepare-test-verifiables generate-test-config vc-rest-docker did-rest-docker generate-test-keys
 	@TAGS=interop scripts/check_integration.sh
 
 unit-test:

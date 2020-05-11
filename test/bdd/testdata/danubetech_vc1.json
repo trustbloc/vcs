@@ -7,8 +7,8 @@
 		"VerifiableCredential",
 		"UniversityDegreeCredential"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
-	"issuanceDate": "2020-05-08T18:15:46Z",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
+	"issuanceDate": "2020-05-11T22:04:22Z",
 	"issuer": "did:v1:test:nym:z6MkfqxbQu6ikzpZRM3GwaFiUzy5vDgbmt99MGLA38kZUnEB",
 	"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -21,9 +21,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:15:46Z",
+		"created": "2020-05-11T22:04:22Z",
 		"proofPurpose": "assertionMethod",
 		"verificationMethod": "did:v1:test:nym:z6MkfqxbQu6ikzpZRM3GwaFiUzy5vDgbmt99MGLA38kZUnEB#z6MkgmQGoevpPSeqb74jYSomuoWhXyJ9t5XtMAPq6NVFGssL",
-		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..6F9wAwwkeRDLg2EgNRSiPVZF1zYjKXAnHO1c8l7g6ATBmA2k2bYlkPvL9LtvsFzvXK97NcocuPehGf9KWkp2Cw"
+		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..8yOb_c5bF_qSe6UQIDKZ-iktUt5ZYJ811f70HeZyHdCcM0GRF4SqG6bZZxIU4fFbfOC4ArDbJuHRsxKxAIlhBg"
 	}
 }

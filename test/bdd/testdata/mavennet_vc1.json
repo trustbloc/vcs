@@ -7,7 +7,7 @@
 		"VerifiableCredential",
 		"UniversityDegreeCredential"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"issuanceDate": "2020-03-16T22:37:26.544Z",
 	"issuer": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
 	"credentialSubject": {
@@ -21,8 +21,8 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:15:47Z",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..Gp0FRnbjip1auJIm9z-9WPWOQcYzbFELg-qSpPG65muLSmbSXAQkYrUzt65-8tc9RvJ4AZNTIRPTZkYvozVAAA",
+		"created": "2020-05-11T22:04:25Z",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ox4nPlKPNgjYhaI0wUJtmoLbut7bXbO9-4BRGCaXDk_4RKSsPqoqrHjBUmnq9RnXGCZx2j5quL6gDHdLuPUYBQ",
 		"proofPurpose": "assertionMethod",
 		"verificationMethod": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J#z6MkqfvdBsFw4QdGrZrnx7L1EKfY5zh9tT4gumUGsMMEZHY3"
 	}

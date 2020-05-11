@@ -9,7 +9,7 @@
 			"https://www.w3.org/2018/credentials/v1",
 			"https://w3id.org/citizenship/v1"
 		],
-		"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+		"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 		"type": [
 			"VerifiableCredential",
 			"PermanentResidentCard"
@@ -38,17 +38,17 @@
 		},
 		"proof": {
 			"type": "Ed25519Signature2018",
-			"created": "2020-05-08T18:15:50Z",
-			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..bZFt6vwt283qrlzZOn8lw2ZBkoHyL_hHNXSiLiffJbN8o0ik2htr5Vd5ulvIiaLX2mAEdljp9WP6z7ov3yq_BA",
+			"created": "2020-05-11T22:04:28Z",
+			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..1ClIc5Vyfz2zQ5SAT2pmX30dAlrltd3ezhxsls7Uu87VyW3PgiDif7Bv6MPt5lmDYtFKiPmAeuEUNY1clJv1Dw",
 			"proofPurpose": "assertionMethod",
 			"verificationMethod": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J#z6MkqfvdBsFw4QdGrZrnx7L1EKfY5zh9tT4gumUGsMMEZHY3"
 		}
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:15:51Z",
+		"created": "2020-05-11T22:04:30Z",
 		"challenge": "f03bde08-65d2-4d32-bd46-2f54032e7f61",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..RD6zhAuo6u0lrRJwDq2SBKoNzN0P43qFALdyJ-dTmkLScYh7rjCrfx3Q1aXuLZi0rgqUquhUZKW8ZDfR30UNBQ",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..sy3t3ruPPpNQ0DkWb1htg_D9zW1ihSfWYClqWZU9DzIKOM-_etaMiuMR2D4fFR_9oP9chNTOvJGng6chdjz3Bw",
 		"proofPurpose": "authentication",
 		"verificationMethod": "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b#z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b"
 	}

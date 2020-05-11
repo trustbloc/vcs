@@ -87,3 +87,27 @@ jobs:
         env:
           DOCKER_USER: $(DOCKER_USER)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+
+  - job: Interop
+    dependsOn:
+      - Checks
+      - UnitTest
+      - BDDTest
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+    pool:
+      vmImage: ubuntu-18.04
+    timeoutInMinutes: 30
+    steps:
+      - template: azp-dependencies.yml
+      - checkout: self
+      - bash: |
+          function logout {
+            docker logout
+          }
+          trap logout EXIT
+          echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
+          make bdd-interop-test
+        env:
+          DOCKER_USER: $(DOCKER_USER)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+        displayName: Run interop tests
