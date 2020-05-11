@@ -51,25 +51,28 @@ import (
 const (
 	credentialStoreName = "credential"
 
-	credentialStatus   = "/status"
 	profileIDPathParam = "profileID"
 
-	// endpoints
-	updateCredentialStatusEndpoint    = "/updateStatus"
-	createProfileEndpoint             = "/profile"
-	getProfileEndpoint                = createProfileEndpoint + "/{id}"
-	holderProfileEndpoint             = "/holder/profile"
-	getHolderProfileEndpoint          = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
-	signPresentationEndpoint          = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
-	storeCredentialEndpoint           = "/store"
-	retrieveCredentialEndpoint        = "/retrieve"
-	credentialStatusEndpoint          = credentialStatus + "/{id}"
-	credentialsBasePath               = "/" + "{" + profileIDPathParam + "}" + "/credentials"
-	issueCredentialPath               = credentialsBasePath + "/issueCredential"
-	composeAndIssueCredentialPath     = credentialsBasePath + "/composeAndIssueCredential"
-	kmsBasePath                       = "/kms"
-	generateKeypairPath               = kmsBasePath + "/generatekeypair"
-	credentialVerificationsEndpoint   = "/verifications"
+	// issuer endpoints
+	createProfileEndpoint          = "/profile"
+	getProfileEndpoint             = createProfileEndpoint + "/{id}"
+	storeCredentialEndpoint        = "/store"
+	retrieveCredentialEndpoint     = "/retrieve"
+	credentialStatus               = "/status"
+	updateCredentialStatusEndpoint = "/updateStatus"
+	credentialStatusEndpoint       = credentialStatus + "/{id}"
+	credentialsBasePath            = "/" + "{" + profileIDPathParam + "}" + "/credentials"
+	issueCredentialPath            = credentialsBasePath + "/issueCredential"
+	composeAndIssueCredentialPath  = credentialsBasePath + "/composeAndIssueCredential"
+	kmsBasePath                    = "/kms"
+	generateKeypairPath            = kmsBasePath + "/generatekeypair"
+
+	// holder endpoints
+	holderProfileEndpoint    = "/holder/profile"
+	getHolderProfileEndpoint = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
+	signPresentationEndpoint = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
+
+	// verifier endpoints
 	verifierBasePath                  = "/verifier"
 	credentialsVerificationEndpoint   = verifierBasePath + "/credentials"
 	presentationsVerificationEndpoint = verifierBasePath + "/presentations"
@@ -274,9 +277,6 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 
 func (o *Operation) verifierHandlers() []Handler {
 	return []Handler{
-		// TODO https://github.com/trustbloc/edge-service/issues/153 Remove /verifications API after
-		//  transition period
-		support.NewHTTPHandler(credentialVerificationsEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost,
 			o.verifyPresentationHandler),
