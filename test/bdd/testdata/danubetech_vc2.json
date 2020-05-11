@@ -3,15 +3,15 @@
 		"https://www.w3.org/2018/credentials/v1",
 		"https://w3id.org/citizenship/v1"
 	],
-	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
 	"type": [
 		"VerifiableCredential",
 		"PermanentResidentCard"
 	],
 	"name": "Permanent Resident Card",
 	"description": "Permanent Resident Card",
-	"issuer": "did:sov:danube:CDEabPCipwE51bg7KF9yXt",
-	"issuanceDate": "2019-12-03T12:19:52Z",
+	"issuer": "did:v1:test:nym:z6MkfqxbQu6ikzpZRM3GwaFiUzy5vDgbmt99MGLA38kZUnEB",
+	"issuanceDate": "2020-05-08T18:15:47Z",
 	"expirationDate": "2029-12-03T12:19:52Z",
 	"credentialSubject": {
 		"id": "did:example:b34ca6cd37bbf23",
@@ -32,9 +32,9 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-04-05T18:50:53Z",
+		"created": "2020-05-08T18:15:47Z",
 		"proofPurpose": "assertionMethod",
-		"verificationMethod": "did:sov:danube:CDEabPCipwE51bg7KF9yXt#key-1",
-		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..RKrl5OFgvgN8stcw3C8U7ITv2sTwVrmZ6L-UluX79aPSe2jk54LUX55i-ZF07tUGpZvvH8757TWNAHSbgnSMDQ"
+		"verificationMethod": "did:v1:test:nym:z6MkfqxbQu6ikzpZRM3GwaFiUzy5vDgbmt99MGLA38kZUnEB#z6MkgmQGoevpPSeqb74jYSomuoWhXyJ9t5XtMAPq6NVFGssL",
+		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..ubdO5-WczoOGBasY99It_DeQqCpd6RG1Cykvw-_PfNc1yqbOM9ZcOBDN4z2BsSNBI2ENf3PsBExmGlrQ24HxDw"
 	}
 }

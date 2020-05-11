@@ -15,10 +15,7 @@
 		],
 		"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
 		"issuanceDate": "2020-03-16T22:37:26.544Z",
-		"issuer": {
-			"id": "did:example:oakek12as93mas91220dapop092",
-			"name": "University"
-		},
+		"issuer": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
 		"credentialSubject": {
 			"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 			"degree": {
@@ -30,17 +27,18 @@
 		},
 		"proof": {
 			"type": "Ed25519Signature2018",
-			"created": "2019-12-11T03:50:55Z",
-			"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
+			"created": "2020-05-08T18:15:47Z",
+			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..Gp0FRnbjip1auJIm9z-9WPWOQcYzbFELg-qSpPG65muLSmbSXAQkYrUzt65-8tc9RvJ4AZNTIRPTZkYvozVAAA",
 			"proofPurpose": "assertionMethod",
-			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ISvTj1JZlA8zHTNGxA0sDncIP7vg9k7XLehhYIk4S79RJaZK9iO_NMabh-ZT7COpW6uFGDvCWVyW0fdX7oQXCA"
+			"verificationMethod": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J#z6MkqfvdBsFw4QdGrZrnx7L1EKfY5zh9tT4gumUGsMMEZHY3"
 		}
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:15:35Z",
-		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
-		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..-vFW47PxmJHIMRMtdHpaVN6rfvkW_J4ngSRmshq2U6RkbRhMCRICMLVj3cEdfQg9xnJB-_EDiOfeCchGtQkuBQ"
+		"created": "2020-05-08T18:15:49Z",
+		"challenge": "f03bde08-65d2-4d32-bd46-2f54032e7f61",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..BUrV2deyZ4wkEgNfnMDBWVPGZDEPIS4FBM7UiW9IMe8WsuklmIMKB2HUTE_5rIkOTssQw6571WudPJQWmdYtDA",
+		"proofPurpose": "authentication",
+		"verificationMethod": "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b#z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b"
 	}
 }

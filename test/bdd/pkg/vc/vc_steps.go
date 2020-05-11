@@ -319,12 +319,12 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, ke
 	err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
 		signatureType, keyType)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create profile: %w", err)
 	}
 
 	err = e.createCredential(credential, profileName)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
 	e.bddContext.Args[bddutil.GetCredentialKey(user)] = string(e.bddContext.CreatedCredential)

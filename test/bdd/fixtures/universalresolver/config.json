@@ -31,6 +31,12 @@
       "image": "veresone/uni-resolver-did-v1-driver",
       "imageProperties": "true",
       "tag": "latest"
+    },
+    {
+      "pattern": "^(did:factom:.+)$",
+      "image": "sphereon/driver-did-factom",
+      "tag": "latest",
+      "imageProperties": "true"
     }
   ]
 }

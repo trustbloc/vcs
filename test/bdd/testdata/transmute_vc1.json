@@ -7,9 +7,12 @@
 		"VerifiableCredential",
 		"UniversityDegreeCredential"
 	],
-	"id": "http://example.gov/credentials/3732",
+	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
 	"issuanceDate": "2020-03-16T22:37:26.544Z",
-	"issuer": "did:web:vc.transmute.world",
+	"issuer": {
+		"id": "did:example:oakek12as93mas91220dapop092",
+		"name": "University"
+	},
 	"credentialSubject": {
 		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
 		"degree": {
@@ -24,6 +27,6 @@
 		"created": "2019-12-11T03:50:55Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MlJy4Sn47kgse7SKc56OKkJUhu-Z3CPiv2_MdjOQXJk8Bpzxa-JuinjJNN3YkYb6tPE6poIhBTlgnc_c5qQsBA"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ISvTj1JZlA8zHTNGxA0sDncIP7vg9k7XLehhYIk4S79RJaZK9iO_NMabh-ZT7COpW6uFGDvCWVyW0fdX7oQXCA"
 	}
 }

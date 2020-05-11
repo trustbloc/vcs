@@ -71,7 +71,7 @@ func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdi
 
 // CreatePresentation creates verifiable presentation from verifiable credential.
 func CreatePresentation(vcBytes []byte, signatureType, domain, challenge string,
-	representation verifiable.SignatureRepresentation, vdri vdriapi.Registry) ([]byte, error) {
+	representation verifiable.SignatureRepresentation, vdri vdriapi.Registry, doc *docdid.Doc) ([]byte, error) {
 	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
@@ -86,12 +86,20 @@ func CreatePresentation(vcBytes []byte, signatureType, domain, challenge string,
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(GetSigner(privateKey)))
 	}
 
+	// authentication public key
+
+	authVMS := doc.VerificationMethods(docdid.Authentication)[docdid.Authentication]
+	if len(authVMS) == 0 {
+		return nil, fmt.Errorf("invalid did to create presentation, expected atleast one authentication public key")
+	}
+
 	ldpContext := &verifiable.LinkedDataProofContext{
 		SignatureType:           signatureType,
 		SignatureRepresentation: representation,
 		Suite:                   signatureSuite,
 		Challenge:               challenge,
 		Domain:                  domain,
+		VerificationMethod:      authVMS[0].PublicKey.ID,
 	}
 
 	return CreateCustomPresentation(vcBytes, vdri, ldpContext)
@@ -150,11 +158,6 @@ func CloseResponseBody(respBody io.Closer) {
 	}
 }
 
-// GetDIDKey key for storing did.
-func GetDIDKey(user string) string {
-	return user + "-did"
-}
-
 // GetProfileNameKey key for storing profile name.
 func GetProfileNameKey(user string) string {
 	return user + "-profileName"
@@ -188,6 +191,11 @@ func GetProofDomainKey(user string) string {
 // GetIssuerHolderCommKey key for storing data moving between issuer and holder.
 func GetIssuerHolderCommKey(issuer, holder string) string {
 	return issuer + holder + "-data"
+}
+
+// GetDIDDocKey key for storing did DOC.
+func GetDIDDocKey(user string) string {
+	return user + "-did-doc"
 }
 
 // CreateCustomPresentation creates verifiable presentation from custom linked data proof context
