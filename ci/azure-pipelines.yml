@@ -89,10 +89,6 @@ jobs:
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
 
   - job: Interop
-    dependsOn:
-      - Checks
-      - UnitTest
-      - BDDTest
     condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     pool:
       vmImage: ubuntu-18.04

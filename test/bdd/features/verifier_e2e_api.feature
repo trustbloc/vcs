@@ -5,7 +5,6 @@
 #
 
 @all
-@interop
 @verifier_rest
 Feature: Verifier VC REST API
 
