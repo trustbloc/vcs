@@ -19,33 +19,11 @@ import (
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
 var errTest = errors.New("testError")
-
-func TestPrepareMasterKeyReader(t *testing.T) {
-	t.Run("Unexpected error when trying to retrieve master key from store", func(t *testing.T) {
-		reader, err := PrepareMasterKeyReader(
-			&ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{
-					ErrGet: errTest}})
-		require.Equal(t, errTest, err)
-		require.Nil(t, reader)
-	})
-	t.Run("Error when putting newly generated master key into store", func(t *testing.T) {
-		reader, err := PrepareMasterKeyReader(
-			&ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{
-					ErrGet: storage.ErrDataNotFound,
-					ErrPut: errTest}})
-		require.Equal(t, errTest, err)
-		require.Nil(t, reader)
-	})
-}
 
 func TestPrepareJWECrypto(t *testing.T) {
 	t.Run("Fail to create JWE Encrypter", func(t *testing.T) {

@@ -13,19 +13,15 @@ import (
 	"errors"
 
 	"github.com/google/tink/go/keyset"
-	"github.com/google/tink/go/subtle/random"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage"
 )
 
 const (
-	masterKeyStoreName   = "masterkey"
-	masterKeyDBKeyName   = masterKeyStoreName
 	vcIDEDVIndexName     = "vcID"
 	keyIDStoreName       = "keyid"
 	hmacKeyIDDBKeyName   = "hmackeyid"
@@ -36,33 +32,6 @@ var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as
 
 type unmarshalFunc func([]byte, interface{}) error
 type newJWEEncryptFunc func(jose.EncAlg, []subtle.ECPublicKey) (*jose.JWEEncrypt, error)
-
-// PrepareMasterKeyReader prepares a master key reader for secret lock usage
-func PrepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*bytes.Reader, error) {
-	masterKeyStore, err := kmsSecretsStoreProvider.OpenStore(masterKeyStoreName)
-	if err != nil {
-		return nil, err
-	}
-
-	masterKey, err := masterKeyStore.Get(masterKeyDBKeyName)
-	if err != nil {
-		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			masterKeyRaw := random.GetRandomBytes(uint32(32))
-			masterKey = []byte(base64.URLEncoding.EncodeToString(masterKeyRaw))
-
-			putErr := masterKeyStore.Put(masterKeyDBKeyName, masterKey)
-			if putErr != nil {
-				return nil, putErr
-			}
-		} else {
-			return nil, err
-		}
-	}
-
-	masterKeyReader := bytes.NewReader(masterKey)
-
-	return masterKeyReader, nil
-}
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
 func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
