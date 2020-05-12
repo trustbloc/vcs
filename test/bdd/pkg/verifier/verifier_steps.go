@@ -16,7 +16,7 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )

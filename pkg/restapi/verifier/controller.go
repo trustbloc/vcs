@@ -4,22 +4,22 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vc
+package verifier
 
 import (
-	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 )
 
 // New returns new controller instance.
 func New(config *operation.Config) (*Controller, error) {
 	var allHandlers []operation.Handler
 
-	vcService, err := operation.New(config)
+	holderService, err := operation.New(config)
 	if err != nil {
 		return nil, err
 	}
 
-	handlers, err := vcService.GetRESTHandlers()
+	handlers, err := holderService.GetRESTHandlers()
 	if err != nil {
 		return nil, err
 	}
