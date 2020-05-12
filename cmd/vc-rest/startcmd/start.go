@@ -45,6 +45,8 @@ import (
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	restverifier "github.com/trustbloc/edge-service/pkg/restapi/verifier"
+	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 )
 
 const (
@@ -430,7 +432,6 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		Crypto:             crypto,
 		VDRI:               vdri,
 		HostURL:            externalHostURL,
-		Mode:               parameters.mode,
 		Domain:             parameters.blocDomain,
 		TLSConfig:          &tls.Config{RootCAs: rootCAs}})
 	if err != nil {
@@ -444,29 +445,25 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	switch parameters.mode {
-	case string(verifier), string(issuer):
-		handlers := vcService.GetOperations()
+	verifierService, err := restverifier.New(&verifierops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdri})
+	if err != nil {
+		return err
+	}
 
-		for _, handler := range handlers {
+	if parameters.mode == string(issuer) || parameters.mode == string(combined) {
+		for _, handler := range vcService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
-	case string(holder):
-		holderHandlers := holderService.GetOperations()
+	}
 
-		for _, handler := range holderHandlers {
+	if parameters.mode == string(verifier) || parameters.mode == string(combined) {
+		for _, handler := range verifierService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
-	case string(combined):
-		handlers := vcService.GetOperations()
+	}
 
-		for _, handler := range handlers {
-			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-		}
-
-		holderHandlers := holderService.GetOperations()
-
-		for _, handler := range holderHandlers {
+	if parameters.mode == string(holder) || parameters.mode == string(combined) {
+		for _, handler := range holderService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
 	}

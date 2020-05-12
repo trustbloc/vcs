@@ -29,6 +29,7 @@ import (
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
@@ -125,9 +126,9 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 
 	checks := strings.Split(checksList, ",")
 
-	req := &operation.VerifyPresentationRequest{
+	req := &verifierops.VerifyPresentationRequest{
 		Presentation: vpBytes,
-		Opts: &operation.VerifyPresentationOptions{
+		Opts: &verifierops.VerifyPresentationOptions{
 			Checks:    checks,
 			Domain:    domain,
 			Challenge: challenge,
@@ -493,9 +494,9 @@ func (e *Steps) retrieveCredential(profileName string) error {
 func (e *Steps) verifyCredential(checksList, result, respMessage string) error {
 	checks := strings.Split(checksList, ",")
 
-	req := &operation.CredentialsVerificationRequest{
+	req := &verifierops.CredentialsVerificationRequest{
 		Credential: e.bddContext.CreatedCredential,
-		Opts: &operation.CredentialsVerificationOptions{
+		Opts: &verifierops.CredentialsVerificationOptions{
 			Checks: checks,
 		},
 	}
@@ -527,7 +528,7 @@ func verify(resp *http.Response, checks []string, result, respMessage string) er
 			return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 		}
 
-		verifiedResp := operation.CredentialsVerificationSuccessResponse{}
+		verifiedResp := verifierops.CredentialsVerificationSuccessResponse{}
 
 		err = json.Unmarshal(respBytes, &verifiedResp)
 		if err != nil {
@@ -981,9 +982,9 @@ func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
 
 	checks := []string{"proof"}
 
-	req := &operation.VerifyPresentationRequest{
+	req := &verifierops.VerifyPresentationRequest{
 		Presentation: []byte(didAuthRespByte),
-		Opts: &operation.VerifyPresentationOptions{
+		Opts: &verifierops.VerifyPresentationOptions{
 			Checks:    checks,
 			Domain:    domain,
 			Challenge: e.bddContext.Args[bddutil.GetProofChallengeKey(issuer)],
@@ -1051,9 +1052,9 @@ func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) err
 
 	checks := []string{"proof"}
 
-	verifiyReq := &operation.VerifyPresentationRequest{
+	verifiyReq := &verifierops.VerifyPresentationRequest{
 		Presentation: signedVPByte,
-		Opts: &operation.VerifyPresentationOptions{
+		Opts: &verifierops.VerifyPresentationOptions{
 			Checks:    checks,
 			Domain:    verifierDomain,
 			Challenge: challenge,
