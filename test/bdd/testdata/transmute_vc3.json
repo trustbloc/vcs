@@ -3,7 +3,7 @@
 		"https://www.w3.org/2018/credentials/v1",
 		"https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"CertifiedMillTestReport"
@@ -208,6 +208,6 @@
 		"created": "2019-12-11T03:50:55Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..-uuJv5j2XWLcCx9jKdm4iqyRyfQe7uFbep1wAmRCNppabSqtY8JPIIyMwo5HiOnw_VNTMe5ml_3aptAr5JqfCA"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..6rKcS4-ELJHeizxEO8ZKN5JcXKqNYgq2L1vjVxS-YQng36BhFwSS34AWv0Ax4WSBWmPxUcbfmgEdqDJfGnk7Bg"
 	}
 }

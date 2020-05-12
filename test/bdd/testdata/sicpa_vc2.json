@@ -19,7 +19,7 @@
 	},
 	"name": "Permanent Resident Card",
 	"description": "Permanent Resident Card",
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"PermanentResidentCard"
@@ -31,10 +31,10 @@
 	"issuer": "did:example:28394728934792387",
 	"expirationDate": "2029-12-03T12:19:52Z",
 	"proof": {
-		"created": "2020-05-08T18:16:04.553Z",
+		"created": "2020-05-11T22:04:44.946Z",
 		"proofPurpose": "assertionMethod",
 		"type": "Ed25519Signature2018",
 		"verificationMethod": "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
-		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..Oe349y8SA-6WC_Ul11xZFet4o2Mr8rEDmazxWoVu6vq_aoH_yF3WNj6Pt8BgodZy7I5MEUJtlL5mtlZ1M-T9Ag"
+		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..WbW6ZIX_MUjvDHHnKS1WO_ApB09AfHFV1wAnOPapDAnNC-nn6htLr2aC528QKBAwDrmD4_2ZgSF4eoL8W7SnAw"
 	}
 }

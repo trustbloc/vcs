@@ -3,7 +3,7 @@
 		"https://www.w3.org/2018/credentials/v1",
 		"https://w3id.org/citizenship/v1"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"PermanentResidentCard"
@@ -35,6 +35,6 @@
 		"created": "2019-12-11T03:50:55Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..RAr2JoBnaivjCRHxbXXW476wQ9Vm3rUfoXKlRmUDnqLj6Y-r_oa2epetTVIjXGk22RnOriWNRE3-lQ-o_1cTDg"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..tmPPcDMCHlGPHHHMPQO6kuz5G3s6AG91zGrUTj5KjMmgvnxOYm0nX9r13w8tqAldpTKcotiyxUrtqHcYX6iWDw"
 	}
 }

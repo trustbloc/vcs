@@ -4,7 +4,7 @@
 		"https://schema.org/",
 		"https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
 	],
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"CrudeProductCredential"
@@ -98,8 +98,8 @@
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-08T18:16:02Z",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ziuWRWS-_er3PcKddIjcQGVLfsm9HiksiWxDO400ye5WJHpIcUQJfz5YaAPCvbkTK1FlDz8PgNG8sOnSm3Y7CA",
+		"created": "2020-05-11T22:04:42Z",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..Jd4PZl83uSb4h4olti6ZgaQeFZywCKQqyjmnz-iXrFmJCY91qgdnuBjHhbp2I7BTsV1xl2Q5C8gNtUKKsZleBg",
 		"proofPurpose": "assertionMethod",
 		"verificationMethod": "did:factom:5d0dd58757119dd437c70d92b44fbf86627ee275f0f2146c3d99e441da342d9f#key-0"
 	}

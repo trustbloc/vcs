@@ -314,15 +314,21 @@ func (e *Steps) createCredential(credential, profileName string) error {
 
 func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, keyID, signatureType,
 	keyType string) error {
-	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
+	// reuse existing profile with same did and key
+	profileName, ok := e.bddContext.Args[bddutil.GetProfileNameKey(fmt.Sprintf("%s_%s_%s", did, privateKey, keyID))]
+	if !ok {
+		profileName = fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
-		signatureType, keyType)
-	if err != nil {
-		return fmt.Errorf("failed to create profile: %w", err)
+		err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
+			signatureType, keyType)
+		if err != nil {
+			return fmt.Errorf("failed to create profile: %w", err)
+		}
+
+		e.bddContext.Args[bddutil.GetProfileNameKey(fmt.Sprintf("%s_%s_%s", did, privateKey, keyID))] = profileName
 	}
 
-	err = e.createCredential(credential, profileName)
+	err := e.createCredential(credential, profileName)
 	if err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
@@ -334,12 +340,18 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, ke
 
 func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, keyID, signatureType,
 	keyType string) error {
-	profileName := fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
+	// reuse existing profile with same did and key
+	profileName, ok := e.bddContext.Args[bddutil.GetProfileNameKey(fmt.Sprintf("%s_%s_%s", did, privateKey, keyID))]
+	if !ok {
+		profileName = fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-	err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
-		signatureType, keyType)
-	if err != nil {
-		return err
+		err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
+			signatureType, keyType)
+		if err != nil {
+			return fmt.Errorf("failed to create profile: %w", err)
+		}
+
+		e.bddContext.Args[bddutil.GetProfileNameKey(fmt.Sprintf("%s_%s_%s", did, privateKey, keyID))] = profileName
 	}
 
 	profileResponse, err := e.getProfileData(profileName)

@@ -85,7 +85,7 @@
 	},
 	"name": "Heavy Sour Dilbit",
 	"description": "Crude oil stream, produced from diluted bitumen.",
-	"id": "http://example.gov/credentials/910ea594-2951-49e7-aedd-e5adb0dae3f4",
+	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
 	"type": [
 		"VerifiableCredential",
 		"CrudeProductCredential"
@@ -97,10 +97,10 @@
 	],
 	"issuer": "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b",
 	"proof": {
-		"created": "2020-05-08T18:16:05.623Z",
+		"created": "2020-05-11T22:04:46.163Z",
 		"proofPurpose": "assertionMethod",
 		"type": "Ed25519Signature2018",
 		"verificationMethod": "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
-		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..XrdZ6X6W-IVFdgdy4hEimzV9TS6H-eLpPUi8V-FonvbdWqsGBdEnSEVJVtcCobWeG2xiEySa6QdYbNMDAjHYCg"
+		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..Ajhc0R-IusSuP5kyZ8TjQjERiLkOhCLpCIdNfVmQIMU-mQjpkhl4fyv2bSpYj1bafqMCFxvXbNpGlpnmIKDnAw"
 	}
 }
