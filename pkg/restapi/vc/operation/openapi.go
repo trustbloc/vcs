@@ -7,9 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"time"
-
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 // genericError model
@@ -17,7 +16,7 @@ import (
 // swagger:response genericError
 type genericError struct { // nolint: unused,deadcode
 	// in: body
-	ErrorResponse
+	model.ErrorResponse
 }
 
 // issuerProfileReq model
@@ -44,7 +43,7 @@ type retrieveProfileReq struct { // nolint: unused,deadcode
 // swagger:response issuerProfileRes
 type issuerProfileRes struct { // nolint: unused,deadcode
 	// in: body
-	dataProfile
+	model.DataProfile
 }
 
 // issueCredentialReq model
@@ -80,18 +79,6 @@ type composeCredentialReq struct { // nolint: unused,deadcode
 // swagger:response verifiableCredentialRes
 type verifiableCredentialRes struct { // nolint: unused,deadcode
 	// in: body
-}
-
-// DataProfile struct for profile
-type dataProfile struct { // nolint: unused
-	Name                    string     `json:"name,omitempty"`
-	DID                     string     `json:"did,omitempty"`
-	URI                     string     `json:"uri,omitempty"`
-	SignatureType           string     `json:"signatureType,omitempty"`
-	SignatureRepresentation int        `json:"signatureRepresentation,omitempty"`
-	Creator                 string     `json:"creator,omitempty"`
-	Created                 *time.Time `json:"created,omitempty"`
-	DIDPrivateKey           string     `json:"didPrivateKey,omitempty"`
 }
 
 // verifyCredentialReq model
@@ -206,52 +193,4 @@ type retrieveCredentialStatusReq struct { // nolint: unused,deadcode
 type retrieveCredentialStatusResp struct { // nolint: unused,deadcode
 	// in: body
 	cslstatus.CSL
-}
-
-// holderProfileRes model
-//
-// swagger:response holderProfileRes
-type holderProfileRes struct { // nolint: unused,deadcode
-	// in: body
-	dataProfile
-}
-
-// retrieveHolderProfileReq model
-//
-// swagger:parameters retrieveHolderProfileReq
-type retrieveHolderProfileReq struct { // nolint: unused,deadcode
-	// profile
-	//
-	// in: path
-	// required: true
-	ID string `json:"id"`
-}
-
-// holderProfileReq model
-//
-// swagger:parameters holderProfileReq
-type holderProfileReq struct { // nolint: unused,deadcode
-	// in: body
-	Params HolderProfileRequest
-}
-
-// signPresentationReq model
-//
-// swagger:parameters signPresentationReq
-type signPresentationReq struct { // nolint: unused,deadcode
-	// profile
-	//
-	// in: path
-	// required: true
-	ID string `json:"id"`
-
-	// in: body
-	Params SignPresentationRequest
-}
-
-// signPresentationRes model
-//
-// swagger:response signPresentationRes
-type signPresentationRes struct { // nolint: unused,deadcode
-	// in: body
 }

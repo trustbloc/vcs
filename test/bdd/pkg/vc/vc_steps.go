@@ -26,6 +26,8 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
+	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
@@ -160,7 +162,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nol
 		return err
 	}
 
-	var u operation.UNIRegistrar
+	var u model.UNIRegistrar
 
 	if uniRegistrar != "" {
 		if err := json.Unmarshal([]byte(uniRegistrar), &u); err != nil {
@@ -614,7 +616,7 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfil
 }
 
 func (e *Steps) createHolderProfile(profileName, signatureType string) error {
-	profileRequest := operation.HolderProfileRequest{
+	profileRequest := holderops.HolderProfileRequest{
 		Name:                    profileName,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		SignatureType:           signatureType,
@@ -659,9 +661,9 @@ func (e *Steps) createHolderProfile(profileName, signatureType string) error {
 }
 
 func (e *Steps) signPresentation(profileName string, vp []byte, domain, challenge string) ([]byte, error) {
-	req := &operation.SignPresentationRequest{
+	req := &holderops.SignPresentationRequest{
 		Presentation: vp,
-		Opts: &operation.SignPresentationOptions{
+		Opts: &holderops.SignPresentationOptions{
 			Challenge: challenge,
 			Domain:    domain,
 		},
@@ -820,7 +822,7 @@ func (e *Steps) createBasicIssuerProfile(profileName, signatureType, keyType str
 }
 
 func (e *Steps) createBasicHolderProfile(profileName, signatureType, keyType string) error {
-	profileRequest := &operation.HolderProfileRequest{}
+	profileRequest := &holderops.HolderProfileRequest{}
 
 	profileRequest.Name = profileName
 	profileRequest.SignatureType = signatureType
@@ -830,7 +832,7 @@ func (e *Steps) createBasicHolderProfile(profileName, signatureType, keyType str
 	return e.callHolderProfileService(profileRequest)
 }
 
-func (e *Steps) callHolderProfileService(profileRequest *operation.HolderProfileRequest) error {
+func (e *Steps) callHolderProfileService(profileRequest *holderops.HolderProfileRequest) error {
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
 		return err
@@ -902,9 +904,9 @@ func (e *Steps) sendDIDAuthResponse(holder, issuer string) error {
 		return err
 	}
 
-	req := &operation.SignPresentationRequest{
+	req := &holderops.SignPresentationRequest{
 		Presentation: presByte,
-		Opts: &operation.SignPresentationOptions{
+		Opts: &holderops.SignPresentationOptions{
 			Challenge: didAuthReq.Challenge,
 			Domain:    didAuthReq.Domain,
 		},
@@ -926,7 +928,7 @@ func (e *Steps) sendDIDAuthResponse(holder, issuer string) error {
 	return nil
 }
 
-func (e *Steps) callSignPresentation(profileName string, req *operation.SignPresentationRequest) ([]byte, error) {
+func (e *Steps) callSignPresentation(profileName string, req *holderops.SignPresentationRequest) ([]byte, error) {
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -1034,9 +1036,9 @@ func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) err
 	challenge := uuid.New().String()
 	verifierDomain := "verifier.example.com"
 
-	req := &operation.SignPresentationRequest{
+	req := &holderops.SignPresentationRequest{
 		Presentation: presByte,
-		Opts: &operation.SignPresentationOptions{
+		Opts: &holderops.SignPresentationOptions{
 			Challenge: challenge,
 			Domain:    verifierDomain,
 		},

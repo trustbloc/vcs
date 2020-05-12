@@ -7,7 +7,7 @@ package profile
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -18,8 +18,8 @@ import (
 
 func TestCredentialRecord_SaveProfile(t *testing.T) {
 	t.Run("test save profile success", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := New(store)
+		record, err := New(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
 		require.NotNil(t, record)
 
 		created := time.Now().UTC()
@@ -30,10 +30,9 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 			Created: &created,
 		}
 
-		err := record.SaveProfile(value)
+		err = record.SaveProfile(value)
 		require.NoError(t, err)
 
-		require.NotEmpty(t, store)
 		k := getDBKey(issuerMode, value.Name)
 		v, err := record.store.Get(k)
 		require.NoError(t, err)
@@ -43,8 +42,8 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 
 func TestCredentialRecord_GetProfile(t *testing.T) {
 	t.Run("test get profile success", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := New(store)
+		record, err := New(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
 		require.NotNil(t, record)
 
 		created := time.Now().UTC()
@@ -57,10 +56,8 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 			SignatureRepresentation: verifiable.SignatureProofValue,
 		}
 
-		err := record.SaveProfile(valueStored)
+		err = record.SaveProfile(valueStored)
 		require.NoError(t, err)
-
-		require.NotEmpty(t, store)
 
 		valueFound, err := record.GetProfile(valueStored.Name)
 		require.NoError(t, err)
@@ -68,8 +65,8 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 	})
 
 	t.Run("test get profile failure due to invalid id", func(t *testing.T) {
-		store := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		record := New(store)
+		record, err := New(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
 		require.NotNil(t, record)
 
 		profileByte, err := record.GetProfile("")
@@ -84,7 +81,10 @@ func TestSaveHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore := New(&mockstorage.MockStore{Store: s})
+		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{
+			Store: s,
+		}})
+		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
 		holderProfile := &HolderProfile{
@@ -94,7 +94,7 @@ func TestSaveHolder(t *testing.T) {
 			SignatureRepresentation: verifiable.SignatureProofValue,
 		}
 
-		err := profileStore.SaveHolderProfile(holderProfile)
+		err = profileStore.SaveHolderProfile(holderProfile)
 		require.NoError(t, err)
 
 		require.Equal(t, 1, len(s))
@@ -103,7 +103,9 @@ func TestSaveHolder(t *testing.T) {
 	t.Run("test save holder - fail", func(t *testing.T) {
 		s := make(map[string][]byte)
 
-		profileStore := New(&mockstorage.MockStore{Store: s, ErrPut: errors.New("put error")})
+		profileStore, err := New(&mockstorage.Provider{
+			Store: &mockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
+		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
 		holderProfile := &HolderProfile{
@@ -113,7 +115,7 @@ func TestSaveHolder(t *testing.T) {
 			SignatureRepresentation: verifiable.SignatureProofValue,
 		}
 
-		err := profileStore.SaveHolderProfile(holderProfile)
+		err = profileStore.SaveHolderProfile(holderProfile)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "put error")
 	})
@@ -124,7 +126,8 @@ func TestGetHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore := New(&mockstorage.MockStore{Store: s})
+		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
 		holderProfile := &HolderProfile{
@@ -146,7 +149,9 @@ func TestGetHolder(t *testing.T) {
 	})
 
 	t.Run("test get holder - no data", func(t *testing.T) {
-		profileStore := New(&mockstorage.MockStore{Store: make(map[string][]byte)})
+		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: make(map[string][]byte)}})
+		require.NoError(t, err)
+		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
 
 		resp, err := profileStore.GetHolderProfile("holder-1")
@@ -159,7 +164,8 @@ func TestGetHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore := New(&mockstorage.MockStore{Store: s})
+		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
 		s[getDBKey(holderMode, "holder-1")] = []byte("invalid-data")

@@ -18,7 +18,8 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
@@ -103,9 +104,9 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 // nolint: funlen
 func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatureRep, uniRegistrar,
 	didMethod, signatureType, keyType string) error {
-	profileRequest := operation.HolderProfileRequest{}
+	profileRequest := holderops.HolderProfileRequest{}
 
-	var u operation.UNIRegistrar
+	var u model.UNIRegistrar
 
 	if uniRegistrar != "" {
 		if err := json.Unmarshal([]byte(uniRegistrar), &u); err != nil {
@@ -205,7 +206,7 @@ func (e *Steps) signAndValidatePresentation(profileName string) error {
 }
 
 func (e *Steps) signPresentation(profileName string) ([]byte, error) {
-	req := &operation.SignPresentationRequest{
+	req := &holderops.SignPresentationRequest{
 		Presentation: []byte(validVPWithoutProof),
 	}
 
