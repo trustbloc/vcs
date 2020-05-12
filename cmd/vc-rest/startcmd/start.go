@@ -7,20 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/google/tink/go/subtle/random"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	ariesapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/legacykms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
@@ -40,11 +42,10 @@ import (
 	"github.com/trustbloc/edv/pkg/client/edv"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
-	"github.com/trustbloc/edge-service/internal/cryptosetup"
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/vc"
-	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
+	issuerops "github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
 	restverifier "github.com/trustbloc/edge-service/pkg/restapi/verifier"
 	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 )
@@ -146,7 +147,9 @@ const (
 	didMethodKey     = "key"
 	didMethodFactom  = "factom"
 
-	masterKeyURI = "local-lock://custom/master/key/"
+	masterKeyURI       = "local-lock://custom/master/key/"
+	masterKeyStoreName = "masterkey"
+	masterKeyDBKeyName = masterKeyStoreName
 )
 
 // mode in which to run the vc-rest service
@@ -402,13 +405,13 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	legacyKMS, localKMS, err := createKMS(edgeServiceProvs)
+	localKMS, err := createKMS(edgeServiceProvs)
 	if err != nil {
 		return err
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.universalResolverURL, legacyKMS, &tls.Config{RootCAs: rootCAs})
+	vdri, err := createVDRI(parameters.universalResolverURL, &tls.Config{RootCAs: rootCAs})
 	if err != nil {
 		return err
 	}
@@ -425,7 +428,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	router := mux.NewRouter()
 
-	vcService, err := vc.New(&operation.Config{StoreProvider: edgeServiceProvs.provider,
+	issuerService, err := restissuer.New(&issuerops.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
 		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
 		KeyManager:         localKMS,
@@ -451,7 +454,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	if parameters.mode == string(issuer) || parameters.mode == string(combined) {
-		for _, handler := range vcService.GetOperations() {
+		for _, handler := range issuerService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
 	}
@@ -489,7 +492,7 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLockService
 }
 
-func createVDRI(universalResolver string, kms legacykms.KMS, tlsConfig *tls.Config) (vdriapi.Registry, error) {
+func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdriapi.Registry, error) {
 	var opts []vdripkg.Option
 
 	var blocVDRIOpts []trustbloc.Option
@@ -512,7 +515,7 @@ func createVDRI(universalResolver string, kms legacykms.KMS, tlsConfig *tls.Conf
 	// add bloc vdri
 	opts = append(opts, vdripkg.WithVDRI(trustbloc.New(blocVDRIOpts...)))
 
-	vdriProvider, err := context.New(context.WithLegacyKMS(kms))
+	vdriProvider, err := context.New(context.WithLegacyKMS(nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
@@ -591,36 +594,17 @@ func checkForSameDBParams(dbParams *dbParameters) {
 	}
 }
 
-func createKMS(edgeServiceProvs *edgeServiceProviders) (ariesapi.CloseableKMS, *localkms.LocalKMS, error) {
-	legacyKMS, err := createLegacyKMS(edgeServiceProvs.kmsSecretsProvider)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func createKMS(edgeServiceProvs *edgeServiceProviders) (*localkms.LocalKMS, error) {
 	localKMS, err := createLocalKMS(edgeServiceProvs.kmsSecretsProvider)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return legacyKMS, localKMS, nil
-}
-
-func createLegacyKMS(s ariesstorage.Provider) (ariesapi.CloseableKMS, error) {
-	kmsProvider, err := context.New(context.WithStorageProvider(s))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kms provider: %w", err)
-	}
-
-	kms, err := legacykms.New(kmsProvider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kms: %w", err)
-	}
-
-	return kms, nil
+	return localKMS, nil
 }
 
 func createLocalKMS(kmsSecretsStoreProvider ariesstorage.Provider) (*localkms.LocalKMS, error) {
-	masterKeyReader, err := cryptosetup.PrepareMasterKeyReader(kmsSecretsStoreProvider)
+	masterKeyReader, err := prepareMasterKeyReader(kmsSecretsStoreProvider)
 	if err != nil {
 		return nil, err
 	}
@@ -636,6 +620,33 @@ func createLocalKMS(kmsSecretsStoreProvider ariesstorage.Provider) (*localkms.Lo
 	}
 
 	return localkms.New(masterKeyURI, kmsProv)
+}
+
+// prepareMasterKeyReader prepares a master key reader for secret lock usage
+func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*bytes.Reader, error) {
+	masterKeyStore, err := kmsSecretsStoreProvider.OpenStore(masterKeyStoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	masterKey, err := masterKeyStore.Get(masterKeyDBKeyName)
+	if err != nil {
+		if errors.Is(err, ariesstorage.ErrDataNotFound) {
+			masterKeyRaw := random.GetRandomBytes(uint32(32))
+			masterKey = []byte(base64.URLEncoding.EncodeToString(masterKeyRaw))
+
+			putErr := masterKeyStore.Put(masterKeyDBKeyName, masterKey)
+			if putErr != nil {
+				return nil, putErr
+			}
+		} else {
+			return nil, err
+		}
+	}
+
+	masterKeyReader := bytes.NewReader(masterKey)
+
+	return masterKeyReader, nil
 }
 
 func constructCORSHandler(handler http.Handler) http.Handler {

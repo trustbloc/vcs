@@ -7,13 +7,14 @@ package startcmd
 
 import (
 	"crypto/tls"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
@@ -171,8 +172,7 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 
 	err := startCmd.Execute()
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to create new kms: failed to OpenStore for 'keystore', "+
-		"cause: failed to create db: Put http://badURL/keystore: dial tcp: lookup badURL")
+	require.Contains(t, err.Error(), "failed to create db: Put http://badURL/masterkey")
 }
 
 func TestStartCmdValidArgs(t *testing.T) {
@@ -235,16 +235,15 @@ func TestCreateProviders(t *testing.T) {
 
 func TestCreateKMS(t *testing.T) {
 	t.Run("fail to open master key store", func(t *testing.T) {
-		closeableKMS, localKMS, err := createKMS(&edgeServiceProviders{
-			kmsSecretsProvider: &storage.MockStoreProvider{FailNamespace: "masterkey"},
+		localKMS, err := createKMS(&edgeServiceProviders{
+			kmsSecretsProvider: &ariesmockstorage.MockStoreProvider{FailNamespace: "masterkey"},
 		})
 
-		require.Nil(t, closeableKMS)
 		require.Nil(t, localKMS)
 		require.EqualError(t, err, "failed to open store for name space masterkey")
 	})
 	t.Run("fail to create master key service", func(t *testing.T) {
-		masterKeyStore := storage.MockStore{
+		masterKeyStore := ariesmockstorage.MockStore{
 			Store:     make(map[string][]byte),
 			ErrPut:    nil,
 			ErrGet:    nil,
@@ -255,18 +254,17 @@ func TestCreateKMS(t *testing.T) {
 		err := masterKeyStore.Put("masterkey", []byte(""))
 		require.NoError(t, err)
 
-		closeableKMS, localKMS, err := createKMS(&edgeServiceProviders{
-			kmsSecretsProvider: &storage.MockStoreProvider{Store: &masterKeyStore},
+		localKMS, err := createKMS(&edgeServiceProviders{
+			kmsSecretsProvider: &ariesmockstorage.MockStoreProvider{Store: &masterKeyStore},
 		})
 		require.EqualError(t, err, "masterKeyReader is empty")
-		require.Nil(t, closeableKMS)
 		require.Nil(t, localKMS)
 	})
 }
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		v, err := createVDRI("wrong", nil, &tls.Config{})
+		v, err := createVDRI("wrong", &tls.Config{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 		require.Nil(t, v)
@@ -280,23 +278,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createVDRI("localhost:8083", nil, &tls.Config{})
-		require.NoError(t, err)
-		require.NotNil(t, v)
-	})
-}
-
-func TestCreateLegacyKMS(t *testing.T) {
-	t.Run("test error from create new legacy kms", func(t *testing.T) {
-		v, err := createLegacyKMS(&storage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("error open store")})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create new kms")
-		require.Nil(t, v)
-	})
-
-	t.Run("test success", func(t *testing.T) {
-		v, err := createLegacyKMS(&storage.MockStoreProvider{})
+		v, err := createVDRI("localhost:8083", &tls.Config{})
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
@@ -360,6 +342,26 @@ func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	err := startCmd.Execute()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid syntax")
+}
+
+func TestPrepareMasterKeyReader(t *testing.T) {
+	t.Run("Unexpected error when trying to retrieve master key from store", func(t *testing.T) {
+		reader, err := prepareMasterKeyReader(
+			&ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					ErrGet: errors.New("testError")}})
+		require.Equal(t, errors.New("testError"), err)
+		require.Nil(t, reader)
+	})
+	t.Run("Error when putting newly generated master key into store", func(t *testing.T) {
+		reader, err := prepareMasterKeyReader(
+			&ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					ErrGet: storage.ErrDataNotFound,
+					ErrPut: errors.New("testError")}})
+		require.Equal(t, errors.New("testError"), err)
+		require.Nil(t, reader)
+	})
 }
 
 func setEnvVars(t *testing.T, databaseType string) {

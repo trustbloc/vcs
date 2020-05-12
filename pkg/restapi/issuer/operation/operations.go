@@ -34,11 +34,11 @@ import (
 	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
 	"github.com/trustbloc/edv/pkg/restapi/edv/models"
 
-	"github.com/trustbloc/edge-service/internal/cryptosetup"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	"github.com/trustbloc/edge-service/pkg/internal/cryptosetup"
 	commondid "github.com/trustbloc/edge-service/pkg/restapi/internal/common/did"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"

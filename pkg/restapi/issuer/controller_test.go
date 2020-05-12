@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vc
+package issuer
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
-	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
 )
 
 func TestController_New(t *testing.T) {
