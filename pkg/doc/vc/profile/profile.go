@@ -19,13 +19,27 @@ const (
 	keyPattern       = "%s_%s_%s"
 	profileKeyPrefix = "profile"
 
+	credentialStoreName = "credential"
+
 	issuerMode = "issuer"
 	holderMode = "holder"
 )
 
 // New returns new credential recorder instance
-func New(store storage.Store) *Profile {
-	return &Profile{store: store}
+func New(provider storage.Provider) (*Profile, error) {
+	err := provider.CreateStore(credentialStoreName)
+	if err != nil {
+		if err != storage.ErrDuplicateStore {
+			return nil, err
+		}
+	}
+
+	store, err := provider.OpenStore(credentialStoreName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Profile{store: store}, nil
 }
 
 // Profile takes care of features to be persisted for credentials

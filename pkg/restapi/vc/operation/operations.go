@@ -8,25 +8,27 @@ package operation
 
 import (
 	"bytes"
-	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	commondid "github.com/trustbloc/edge-service/pkg/restapi/internal/common/did"
+
+	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
@@ -37,11 +39,8 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
 	"github.com/trustbloc/edv/pkg/restapi/edv/models"
-	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
-	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
 	"github.com/trustbloc/edge-service/internal/cryptosetup"
-	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
@@ -49,8 +48,6 @@ import (
 )
 
 const (
-	credentialStoreName = "credential"
-
 	profileIDPathParam = "profileID"
 
 	// issuer endpoints
@@ -66,11 +63,6 @@ const (
 	composeAndIssueCredentialPath  = credentialsBasePath + "/composeAndIssueCredential"
 	kmsBasePath                    = "/kms"
 	generateKeypairPath            = kmsBasePath + "/generatekeypair"
-
-	// holder endpoints
-	holderProfileEndpoint    = "/holder/profile"
-	getHolderProfileEndpoint = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
-	signPresentationEndpoint = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
 
 	// verifier endpoints
 	verifierBasePath                  = "/verifier"
@@ -98,8 +90,6 @@ const (
 	holderMode   = "holder"
 	combinedMode = "combined"
 
-	recoveryKey1 = "recovery-key"
-
 	// proof data keys
 	challenge          = "challenge"
 	domain             = "domain"
@@ -108,12 +98,6 @@ const (
 
 	jsonWebSignature2020Context = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
 )
-
-// nolint: gochecknoglobals
-var signatureKeyTypeMap = map[string]string{
-	crypto.Ed25519Signature2018: crypto.Ed25519VerificationKey2018,
-	crypto.JSONWebSignature2020: crypto.JwsVerificationKey2020,
-}
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
 
@@ -152,21 +136,13 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-type didBlocClient interface {
-	CreateDID(domain string, opts ...didclient.CreateDIDOption) (*ariesdid.Doc, error)
-}
-
-type uniRegistrarClient interface {
-	CreateDID(driverURL string, opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error)
+type commonDID interface {
+	CreateDID(keyType, signatureType, did, privateKey, keyID, purpose string,
+		registrar model.UNIRegistrar) (string, string, error)
 }
 
 // New returns CreateCredential instance
 func New(config *Config) (*Operation, error) {
-	credentialStore, err := prepareCredentialStore(config)
-	if err != nil {
-		return nil, err
-	}
-
 	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI)
 
 	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
@@ -186,8 +162,13 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
+	p, err := vcprofile.New(config.StoreProvider)
+	if err != nil {
+		return nil, err
+	}
+
 	svc := &Operation{
-		profileStore:         vcprofile.New(credentialStore),
+		profileStore:         p,
 		edvClient:            config.EDVClient,
 		kms:                  config.KeyManager,
 		vdri:                 config.VDRI,
@@ -195,28 +176,17 @@ func New(config *Config) (*Operation, error) {
 		jweEncrypter:         jweEncrypter,
 		jweDecrypter:         jweDecrypter,
 		vcStatusManager:      vcStatusManager,
-		didBlocClient:        didclient.New(didclient.WithTLSConfig(config.TLSConfig)),
 		domain:               config.Domain,
 		httpClient:           &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 		HostURL:              config.HostURL,
-		uniRegistrarClient:   uniregistrar.New(uniregistrar.WithTLSConfig(config.TLSConfig)),
 		macKeyHandle:         kh,
 		macCrypto:            config.Crypto,
 		vcIDIndexNameEncoded: vcIDIndexNameMACEncoded,
+		commonDID: commondid.New(&commondid.Config{VDRI: config.VDRI, KeyManager: config.KeyManager,
+			Domain: config.Domain, TLSConfig: config.TLSConfig}),
 	}
 
 	return svc, nil
-}
-
-func prepareCredentialStore(config *Config) (storage.Store, error) {
-	err := config.StoreProvider.CreateStore(credentialStoreName)
-	if err != nil {
-		if err != storage.ErrDuplicateStore {
-			return nil, err
-		}
-	}
-
-	return config.StoreProvider.OpenStore(credentialStoreName)
 }
 
 // Config defines configuration for vcs operations
@@ -243,14 +213,13 @@ type Operation struct {
 	jweEncrypter         jose.Encrypter
 	jweDecrypter         jose.Decrypter
 	vcStatusManager      vcStatusManager
-	didBlocClient        didBlocClient
 	domain               string
 	httpClient           httpClient
 	HostURL              string
-	uniRegistrarClient   uniRegistrarClient
 	macKeyHandle         *keyset.Handle
 	macCrypto            ariescrypto.Crypto
 	vcIDIndexNameEncoded string
+	commonDID            commonDID
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -261,15 +230,13 @@ func (o *Operation) GetRESTHandlers(mode string) ([]Handler, error) {
 	case issuerMode:
 		return o.issuerHandlers(), nil
 	case holderMode:
-		return o.holderHandlers(), nil
+		// TODO remove after separate issue and verifier
+		return nil, nil
 	case combinedMode:
 		vh := o.verifierHandlers()
 		ih := o.issuerHandlers()
-		hh := o.holderHandlers()
 
-		handlers := append(vh, ih...)
-
-		return append(handlers, hh...), nil
+		return append(vh, ih...), nil
 	default:
 		return nil, fmt.Errorf("invalid operation mode: %s", mode)
 	}
@@ -304,15 +271,6 @@ func (o *Operation) issuerHandlers() []Handler {
 	}
 }
 
-func (o *Operation) holderHandlers() []Handler {
-	return []Handler{
-		// holder profile
-		support.NewHTTPHandler(holderProfileEndpoint, http.MethodPost, o.createHolderProfileHandler),
-		support.NewHTTPHandler(getHolderProfileEndpoint, http.MethodGet, o.getHolderProfileHandler),
-		support.NewHTTPHandler(signPresentationEndpoint, http.MethodPost, o.signPresentationHandler),
-	}
-}
-
 // RetrieveCredentialStatus swagger:route GET /status/{id} issuer retrieveCredentialStatusReq
 //
 // Retrieves the credential status.
@@ -323,14 +281,14 @@ func (o *Operation) holderHandlers() []Handler {
 func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.Request) {
 	csl, err := o.vcStatusManager.GetCSL(o.HostURL + req.RequestURI)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to get credential status list: %s", err.Error()))
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	o.writeResponse(rw, csl)
+	commhttp.WriteResponse(rw, csl)
 }
 
 func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse, error) {
@@ -415,7 +373,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 	err := json.NewDecoder(req.Body).Decode(&data)
 
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to decode request received: %s", err.Error()))
 		return
 	}
@@ -424,7 +382,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 	//  this to json.RawMessage
 	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
 		return
 	}
@@ -432,19 +390,19 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 	// get profile
 	profile, err := o.profileStore.GetProfile(vc.Issuer.CustomFields["name"].(string))
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to get profile: %s", err.Error()))
 		return
 	}
 
 	if profile.DisableVCStatus {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("vc status is disabled for profile %s", profile.Name))
 		return
 	}
 
 	if err := o.vcStatusManager.UpdateVCStatus(vc, profile, data.Status, data.StatusReason); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to update vc status: %s", err.Error()))
 		return
 	}
@@ -463,27 +421,27 @@ func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http
 	data := ProfileRequest{}
 
 	if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
 
 	if err := validateProfileRequest(&data); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
 	profile, err := o.createIssuerProfile(&data)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
 	err = o.profileStore.SaveProfile(profile)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
@@ -491,13 +449,13 @@ func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http
 	// create the vault associated with the profile
 	_, err = o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: profile.Name})
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, profile)
+	commhttp.WriteResponse(rw, profile)
 }
 
 // RetrieveIssuerProfile swagger:route GET /profile/{id} issuer retrieveProfileReq
@@ -513,17 +471,17 @@ func (o *Operation) getIssuerProfileHandler(rw http.ResponseWriter, req *http.Re
 	profileResponseJSON, err := o.profileStore.GetProfile(profileID)
 	if err != nil {
 		if errors.Is(err, errProfileNotFound) {
-			o.writeErrorResponse(rw, http.StatusNotFound, "Failed to find the profile")
+			commhttp.WriteErrorResponse(rw, http.StatusNotFound, "Failed to find the profile")
 
 			return
 		}
 
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	o.writeResponse(rw, profileResponseJSON)
+	commhttp.WriteResponse(rw, profileResponseJSON)
 }
 
 // StoreVerifiableCredential swagger:route POST /store issuer storeCredentialReq
@@ -538,7 +496,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
@@ -547,14 +505,14 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 	//  this to json.RawMessage
 	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
 		return
 	}
 
 	// TODO https://github.com/trustbloc/edge-service/issues/417 add profileID to the path param rather than the body
 	if err = validateRequest(data.Profile, vc.ID); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
@@ -567,14 +525,14 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw http.ResponseWriter) {
 	doc, err := o.buildStructuredDoc(data)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
 	encryptedDocument, err := o.buildEncryptedDoc(doc, vc.ID)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
@@ -590,7 +548,7 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 	}
 
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
@@ -688,14 +646,14 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	profile := req.URL.Query().Get("profile")
 
 	if err := validateRequest(profile, id); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
 	docURLs, err := o.queryVault(profile, id)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
@@ -703,154 +661,10 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	o.retrieveCredential(rw, profile, docURLs)
 }
 
-// nolint: gocyclo,funlen
-func (o *Operation) createDIDUniRegistrar(keyType, signatureType, purpose string,
-	registrar UNIRegistrar) (string, string, error) {
-	var opts []uniregistrar.CreateDIDOption
-
-	publicKeys, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create did public key: %v", err)
-	}
-
-	_, recoveryPubKey, err := o.createKey(kms.ED25519Type)
-	if err != nil {
-		return "", "", err
-	}
-
-	for _, v := range publicKeys {
-		opts = append(opts, uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: v.ID, Type: v.Type,
-			Value:    base64.StdEncoding.EncodeToString(v.Value),
-			KeyType:  v.KeyType,
-			Encoding: v.Encoding, Usage: v.Usage}))
-	}
-
-	opts = append(opts,
-		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: recoveryKey1, Type: didclient.JWSVerificationKey2020,
-			Value:    base64.StdEncoding.EncodeToString(recoveryPubKey),
-			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
-		uniregistrar.WithOptions(registrar.Options))
-
-	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
-	}
-
-	// TODO https://github.com/trustbloc/edge-service/issues/415 remove check when vendors supporting addKeys feature
-	if strings.Contains(identifier, "did:trustbloc") {
-		for _, v := range keys {
-			if strings.Contains(v.ID, "#"+selectedKeyID) {
-				return identifier, v.ID, nil
-			}
-		}
-
-		return "", "", fmt.Errorf("selected key not found %s", selectedKeyID)
-	}
-
-	if strings.Contains(identifier, "did:v1") {
-		for _, v := range keys {
-			for _, p := range v.Purpose {
-				if purpose == p {
-					err = o.importKey(v.ID, kms.ED25519Type, base58.Decode(v.PrivateKeyBase58))
-					if err != nil {
-						return "", "", err
-					}
-
-					return identifier, v.ID, nil
-				}
-			}
-		}
-
-		return "", "", fmt.Errorf("did:v1 - not able to find key with purpose %s", purpose)
-	}
-
-	// vendors not supporting addKeys feature.
-	// return first key public and private
-	// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
-	err = o.importKey(keys[0].ID, kms.ED25519Type, base58.Decode(keys[0].PrivateKeyBase58))
-	if err != nil {
-		return "", "", err
-	}
-
-	return identifier, keys[0].ID, nil
-}
-
-func (o *Operation) importKey(keyID string, keyType kms.KeyType, privateKeyBytes []byte) error {
-	split := strings.Split(keyID, "#")
-
-	var privKey interface{}
-
-	switch keyType {
-	case kms.ED25519Type:
-		privKey = ed25519.PrivateKey(privateKeyBytes)
-	default:
-		return fmt.Errorf("import key type not supported %s", keyType)
-	}
-
-	_, _, err := o.kms.ImportPrivateKey(privKey,
-		keyType, localkms.WithKeyID(split[1]))
-	if err != nil {
-		return fmt.Errorf("failed to import private key: %v", err)
-	}
-
-	return nil
-}
-
-func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
-	keyID, _, err := o.kms.Create(keyType)
-	if err != nil {
-		return "", nil, err
-	}
-
-	pubKeyBytes, err := o.kms.ExportPubKeyBytes(keyID)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return keyID, pubKeyBytes, nil
-}
-
-func (o *Operation) createDID(keyType, signatureType string) (string, string, error) {
-	var opts []didclient.CreateDIDOption
-
-	publicKeys, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create did public key: %v", err)
-	}
-
-	_, recoveryPubKey, err := o.createKey(kms.ED25519Type)
-	if err != nil {
-		return "", "", err
-	}
-
-	for _, v := range publicKeys {
-		opts = append(opts, didclient.WithPublicKey(v))
-	}
-
-	opts = append(opts,
-		didclient.WithPublicKey(&didclient.PublicKey{ID: recoveryKey1,
-			Type: didclient.JWSVerificationKey2020, Value: recoveryPubKey,
-			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}))
-
-	didDoc, err := o.didBlocClient.CreateDID(o.domain, opts...)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create did doc: %v", err)
-	}
-
-	publicKeyID, err := getPublicKeyID(didDoc, selectedKeyID, "")
-	if err != nil {
-		return "", "", err
-	}
-
-	return didDoc.ID, publicKeyID, nil
-}
-
 func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
 	var didID, publicKeyID string
 
-	didID, publicKeyID, err := o.createProfile(pr.DIDKeyType, pr.SignatureType,
+	didID, publicKeyID, err := o.commonDID.CreateDID(pr.DIDKeyType, pr.SignatureType,
 		pr.DID, pr.DIDPrivateKey, pr.DIDKeyID, crypto.AssertionMethod, pr.UNIRegistrar)
 	if err != nil {
 		return nil, err
@@ -862,71 +676,6 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID,
 		DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
 	}, nil
-}
-
-func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.HolderProfile, error) {
-	var didID, publicKeyID string
-
-	didID, publicKeyID, err := o.createProfile(pr.DIDKeyType, pr.SignatureType, pr.DID,
-		pr.DIDPrivateKey, pr.DIDKeyID, crypto.Authentication, pr.UNIRegistrar)
-	if err != nil {
-		return nil, err
-	}
-
-	created := time.Now().UTC()
-
-	return &vcprofile.HolderProfile{
-		Name:                    pr.Name,
-		Created:                 &created,
-		DID:                     didID,
-		SignatureType:           pr.SignatureType,
-		SignatureRepresentation: pr.SignatureRepresentation,
-		Creator:                 publicKeyID,
-		OverwriteHolder:         pr.OverwriteHolder,
-	}, nil
-}
-
-func (o *Operation) createProfile(keyType, signatureType, did, privateKey, keyID, purpose string,
-	registrar UNIRegistrar) (string, string, error) {
-	var didID string
-
-	var publicKeyID string
-
-	switch {
-	case registrar.DriverURL != "":
-		var err error
-		didID, publicKeyID, err = o.createDIDUniRegistrar(keyType, signatureType, purpose, registrar)
-
-		if err != nil {
-			return "", "", err
-		}
-
-	case did == "":
-		var err error
-		didID, publicKeyID, err = o.createDID(keyType, signatureType)
-
-		if err != nil {
-			return "", "", err
-		}
-
-	case did != "":
-		didDoc, err := o.vdri.Resolve(did)
-		if err != nil {
-			return "", "", fmt.Errorf("failed to resolve did: %v", err)
-		}
-
-		didID = didDoc.ID
-
-		if privateKey != "" {
-			if err := o.importKey(keyID, kms.ED25519Type, base58.Decode(privateKey)); err != nil {
-				return "", "", err
-			}
-		}
-
-		publicKeyID = keyID
-	}
-
-	return didID, publicKeyID, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
@@ -950,14 +699,6 @@ func validateProfileRequest(pr *ProfileRequest) error {
 	return nil
 }
 
-func validateHolderProfileRequest(pr *HolderProfileRequest) error {
-	if pr.Name == "" {
-		return fmt.Errorf("missing profile name")
-	}
-
-	return nil
-}
-
 func validateRequest(profileName, vcID string) error {
 	if profileName == "" {
 		return fmt.Errorf("missing profile name")
@@ -968,26 +709,6 @@ func validateRequest(profileName, vcID string) error {
 	}
 
 	return nil
-}
-
-// writeResponse writes interface value to response
-func (o *Operation) writeResponse(rw io.Writer, v interface{}) {
-	err := json.NewEncoder(rw).Encode(v)
-	if err != nil {
-		log.Errorf("Unable to send error response, %s", err)
-	}
-}
-
-func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
-	rw.WriteHeader(status)
-
-	err := json.NewEncoder(rw).Encode(ErrorResponse{
-		Message: msg,
-	})
-
-	if err != nil {
-		log.Errorf("Unable to send error message, %s", err)
-	}
 }
 
 // IssueCredential swagger:route POST /{id}/credentials/issueCredential issuer issueCredentialReq
@@ -1004,7 +725,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	profile, err := o.profileStore.GetProfile(profileID)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile - id=%s: err=%s",
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile - id=%s: err=%s",
 			profileID, err.Error()))
 
 		return
@@ -1015,14 +736,14 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	err = json.NewDecoder(req.Body).Decode(&cred)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
 
 	// validate options
 	if err = validateIssueCredOptions(cred.Opts); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
@@ -1030,7 +751,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	// validate the VC (ignore the proof)
 	credential, _, err := verifiable.NewCredential(cred.Credential, verifiable.WithDisabledProofCheck())
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
 
 		return
 	}
@@ -1039,7 +760,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		// set credential status
 		credential.Status, err = o.vcStatusManager.CreateStatusID()
 		if err != nil {
-			o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
 
 			return
@@ -1057,14 +778,14 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	// sign the credential
 	signedVC, err := o.crypto.SignCredential(profile, credential, getIssuerSigningOpts(cred.Opts)...)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, signedVC)
+	commhttp.WriteResponse(rw, signedVC)
 }
 
 // nolint funlen
@@ -1080,7 +801,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	profile, err := o.profileStore.GetProfile(id)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile: %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile: %s", err.Error()))
 
 		return
 	}
@@ -1090,7 +811,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	err = json.NewDecoder(req.Body).Decode(&composeCredReq)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
@@ -1098,7 +819,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	// create the verifiable credential
 	credential, err := buildCredential(&composeCredReq)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to build credential:"+
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to build credential:"+
 			" %s", err.Error()))
 
 		return
@@ -1108,7 +829,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		// set credential status
 		credential.Status, err = o.vcStatusManager.CreateStatusID()
 		if err != nil {
-			o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
 
 			return
@@ -1126,7 +847,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	// prepare signing options from request options
 	opts, err := getComposeSigningOpts(&composeCredReq)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to prepare signing options:"+
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to prepare signing options:"+
 			" %s", err.Error()))
 
 		return
@@ -1135,7 +856,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	// sign the credential
 	signedVC, err := o.crypto.SignCredential(profile, credential, opts...)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
 
 		return
@@ -1143,7 +864,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	// response
 	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, signedVC)
+	commhttp.WriteResponse(rw, signedVC)
 }
 
 func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Credential, error) {
@@ -1284,17 +1005,31 @@ func getIssuerSigningOpts(opts *IssueCredentialOptions) []crypto.SigningOpts {
 func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {
 	keyID, signKey, err := o.createKey(kms.ED25519Type)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError,
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError,
 			fmt.Sprintf("failed to create key pair: %s", err.Error()))
 
 		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	o.writeResponse(rw, &GenerateKeyPairResponse{
+	commhttp.WriteResponse(rw, &GenerateKeyPairResponse{
 		PublicKey: base58.Encode(signKey),
 		KeyID:     keyID,
 	})
+}
+
+func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
+	keyID, _, err := o.kms.Create(keyType)
+	if err != nil {
+		return "", nil, err
+	}
+
+	pubKeyBytes, err := o.kms.ExportPubKeyBytes(keyID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return keyID, pubKeyBytes, nil
 }
 
 // nolint dupl
@@ -1312,14 +1047,14 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 
 	err := json.NewDecoder(req.Body).Decode(&verificationReq)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
 
 	vc, err := verifiable.NewUnverifiedCredential(verificationReq.Credential)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
@@ -1371,12 +1106,12 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 
 	if len(result) == 0 {
 		rw.WriteHeader(http.StatusOK)
-		o.writeResponse(rw, &CredentialsVerificationSuccessResponse{
+		commhttp.WriteResponse(rw, &CredentialsVerificationSuccessResponse{
 			Checks: checks,
 		})
 	} else {
 		rw.WriteHeader(http.StatusBadRequest)
-		o.writeResponse(rw, &CredentialsVerificationFailResponse{
+		commhttp.WriteResponse(rw, &CredentialsVerificationFailResponse{
 			Checks: result,
 		})
 	}
@@ -1396,7 +1131,7 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 
 	err := json.NewDecoder(req.Body).Decode(&verificationReq)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
@@ -1430,172 +1165,14 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 
 	if len(result) == 0 {
 		rw.WriteHeader(http.StatusOK)
-		o.writeResponse(rw, &VerifyPresentationSuccessResponse{
+		commhttp.WriteResponse(rw, &VerifyPresentationSuccessResponse{
 			Checks: checks,
 		})
 	} else {
 		rw.WriteHeader(http.StatusBadRequest)
-		o.writeResponse(rw, &VerifyPresentationFailureResponse{
+		commhttp.WriteResponse(rw, &VerifyPresentationFailureResponse{
 			Checks: result,
 		})
-	}
-}
-
-// CreateHolderProfile swagger:route POST /holder/profile holder holderProfileReq
-//
-// Creates holder profile.
-//
-// Responses:
-//    default: genericError
-//        201: holderProfileRes
-func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
-	request := &HolderProfileRequest{}
-
-	if err := json.NewDecoder(req.Body).Decode(request); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
-
-		return
-	}
-
-	if err := validateHolderProfileRequest(request); err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	profile, err := o.profileStore.GetHolderProfile(request.Name)
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	if profile != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", profile.Name))
-
-		return
-	}
-
-	profile, err = o.createHolderProfile(request)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	err = o.profileStore.SaveHolderProfile(profile)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, profile)
-}
-
-// RetrieveHolderProfile swagger:route GET /holder/profile/{id} holder retrieveHolderProfileReq
-//
-// Retrieves holder profile.
-//
-// Responses:
-//    default: genericError
-//        200: holderProfileRes
-func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
-	profileID := mux.Vars(req)[profileIDPathParam]
-
-	fmt.Println(profileID)
-
-	profile, err := o.profileStore.GetHolderProfile(profileID)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	o.writeResponse(rw, profile)
-}
-
-// SignPresentation swagger:route POST /{id}/prove/presentations holder signPresentationReq
-//
-// Signs a presentation.
-//
-// Responses:
-//    default: genericError
-//        201: signPresentationRes
-func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Request) {
-	// get the holder profile
-	profileID := mux.Vars(req)[profileIDPathParam]
-
-	profile, err := o.profileStore.GetHolderProfile(profileID)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid holder profile - id=%s: err=%s",
-			profileID, err.Error()))
-
-		return
-	}
-
-	// get the request
-	presReq := SignPresentationRequest{}
-
-	err = json.NewDecoder(req.Body).Decode(&presReq)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
-
-		return
-	}
-
-	presentation, err := verifiable.NewPresentation(presReq.Presentation,
-		verifiable.WithDisabledPresentationProofCheck())
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
-	// update holder
-	updateHolder(presentation, profile)
-
-	// sign presentation
-	signedVP, err := o.crypto.SignPresentation(profile, presentation, getPresentationSigningOpts(presReq.Opts)...)
-	if err != nil {
-		o.writeErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign presentation:"+
-			" %s", err.Error()))
-
-		return
-	}
-
-	rw.WriteHeader(http.StatusCreated)
-	o.writeResponse(rw, signedVP)
-}
-
-func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningOpts {
-	var signingOpts []crypto.SigningOpts
-
-	if opts != nil {
-		// verification method takes priority
-		verificationMethod := opts.VerificationMethod
-
-		if verificationMethod == "" {
-			verificationMethod = opts.AssertionMethod
-		}
-
-		signingOpts = []crypto.SigningOpts{
-			crypto.WithVerificationMethod(verificationMethod),
-			crypto.WithPurpose(opts.ProofPurpose),
-			crypto.WithCreated(opts.Created),
-			crypto.WithChallenge(opts.Challenge),
-			crypto.WithDomain(opts.Domain),
-		}
-	}
-
-	return signingOpts
-}
-
-// updateHolder overrides presentation holder form profile.
-func updateHolder(presentation *verifiable.Presentation, profile *vcprofile.HolderProfile) {
-	if profile.OverwriteHolder || presentation.Holder == "" {
-		presentation.Holder = profile.DID
 	}
 }
 
@@ -1755,7 +1332,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 
 	switch len(docURLs) {
 	case 0:
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf(`no VC under profile "%s" was found with the given id`, profileName))
 	case 1:
 		docID := getDocIDFromURL(docURLs[0])
@@ -1764,7 +1341,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 
 		retrievedVC, err = o.retrieveVC(profileName, docID, "retrieving VC")
 		if err != nil {
-			o.writeErrorResponse(rw, http.StatusInternalServerError, err.Error())
+			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 			return
 		}
@@ -1780,7 +1357,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 
 		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(profileName, docURLs)
 		if err != nil {
-			o.writeErrorResponse(rw, statusCode, err.Error())
+			commhttp.WriteErrorResponse(rw, statusCode, err.Error())
 
 			return
 		}
@@ -1850,96 +1427,6 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 	}
 
 	return retrievedVC, nil
-}
-
-func (o *Operation) createPublicKeys(keyType, signatureType string) ([]*didclient.PublicKey, string, error) {
-	var publicKeys []*didclient.PublicKey
-
-	// Add Ed25519VerificationKey2018 Ed25519KeyType
-	key1ID, pubKeyBytes, err := o.createKey(kms.ED25519Type)
-	if err != nil {
-		return nil, "", err
-	}
-
-	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key1ID, Type: didclient.Ed25519VerificationKey2018,
-		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk,
-		KeyType: didclient.Ed25519KeyType,
-		Usage:   []string{didclient.KeyUsageGeneral, didclient.KeyUsageAssertion, didclient.KeyUsageAuth}})
-
-	// Add JWSVerificationKey2020 Ed25519KeyType
-	key2ID, pubKeyBytes, err := o.createKey(kms.ED25519Type)
-	if err != nil {
-		return nil, "", err
-	}
-
-	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key2ID, Type: didclient.JWSVerificationKey2020,
-		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk,
-		KeyType: didclient.Ed25519KeyType,
-		Usage:   []string{didclient.KeyUsageGeneral, didclient.KeyUsageAssertion, didclient.KeyUsageAuth}})
-
-	// Add JWSVerificationKey2020  ECKeyType
-	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEEP1363)
-	if err != nil {
-		return nil, "", err
-	}
-
-	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key3ID, Type: didclient.JWSVerificationKey2020,
-		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.P256KeyType,
-		Usage: []string{didclient.KeyUsageGeneral, didclient.KeyUsageAssertion, didclient.KeyUsageAuth}})
-
-	if keyType == crypto.Ed25519KeyType &&
-		didclient.Ed25519VerificationKey2018 == signatureKeyTypeMap[signatureType] {
-		return publicKeys, key1ID, nil
-	}
-
-	if keyType == crypto.Ed25519KeyType &&
-		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[signatureType] {
-		return publicKeys, key2ID, nil
-	}
-
-	if keyType == crypto.P256KeyType &&
-		didclient.JWSVerificationKey2020 == signatureKeyTypeMap[signatureType] {
-		return publicKeys, key3ID, nil
-	}
-
-	return nil, "",
-		fmt.Errorf("no key found to match key type:%s and signature type:%s", keyType, signatureType)
-}
-
-func getPublicKeyID(didDoc *ariesdid.Doc, keyID, signatureType string) (string, error) {
-	switch {
-	case len(didDoc.PublicKey) > 0:
-		var publicKeyID string
-
-		for _, k := range didDoc.PublicKey {
-			// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
-			if keyID == "" && k.Type == signatureKeyTypeMap[signatureType] {
-				publicKeyID = k.ID
-				break
-			}
-
-			if keyID != "" && strings.Contains(k.ID, "#"+keyID) {
-				publicKeyID = k.ID
-				break
-			}
-		}
-
-		// TODO https://github.com/trustbloc/edge-service/issues/140 this is temporary check to support public
-		//  key ID's which aren't in DID format: Will be removed [Issue#140]
-		if !isDID(publicKeyID) {
-			return didDoc.ID + publicKeyID, nil
-		}
-
-		return publicKeyID, nil
-	case len(didDoc.Authentication) > 0:
-		return didDoc.Authentication[0].PublicKey.ID, nil
-	default:
-		return "", errors.New("public key not found in DID Document")
-	}
-}
-
-func isDID(str string) bool {
-	return strings.HasPrefix(str, "did:")
 }
 
 // updateIssuer overrides credential issuer form profile if

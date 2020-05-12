@@ -37,19 +37,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edv/pkg/restapi/edv/models"
-	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
-	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
-	"github.com/trustbloc/edge-service/pkg/internal/mock/didbloc"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 const (
@@ -338,35 +335,6 @@ var errVaultNotFound = errors.New("vault not found")
 // errDocumentNotFound throws an error when document associated with ID is not found
 var errDocumentNotFound = errors.New("edv does not have a document associated with ID")
 
-type mockProvider struct {
-	numTimesCreateStoreCalledSuccessfully   int
-	numTimesCreateStoreIsCallableWithoutErr int
-	createStoreErr                          error
-	store                                   storage.Store
-}
-
-func (m *mockProvider) CreateStore(_ string) error {
-	if m.numTimesCreateStoreIsCallableWithoutErr == m.numTimesCreateStoreCalledSuccessfully {
-		return m.createStoreErr
-	}
-
-	m.numTimesCreateStoreCalledSuccessfully++
-
-	return nil
-}
-
-func (m *mockProvider) OpenStore(name string) (storage.Store, error) {
-	return m.store, nil
-}
-
-func (m *mockProvider) CloseStore(name string) error {
-	panic("implement me")
-}
-
-func (m *mockProvider) Close() error {
-	panic("implement me")
-}
-
 func TestNew(t *testing.T) {
 	t.Run("test error from opening credential store", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
@@ -391,38 +359,6 @@ func TestNew(t *testing.T) {
 			EDVClient: client, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to instantiate new csl status")
-		require.Nil(t, op)
-	})
-	t.Run("fail to prepare JWE crypto", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-		testCreateStoreErr := errors.New("test create store error")
-
-		op, err := New(&Config{
-			StoreProvider: &mockProvider{numTimesCreateStoreIsCallableWithoutErr: 2,
-				createStoreErr: testCreateStoreErr},
-			KMSSecretsProvider: mem.NewProvider(),
-			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{},
-			VDRI:               &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
-		require.Equal(t, testCreateStoreErr, err)
-		require.Nil(t, op)
-	})
-	t.Run("fail to prepare MAC crypto", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-		testCreateStoreErr := errors.New("test create store error")
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{
-			StoreProvider: &mockProvider{store: &mockstore.MockStore{Store: make(map[string][]byte)},
-				numTimesCreateStoreIsCallableWithoutErr: 3,
-				createStoreErr:                          testCreateStoreErr},
-			KMSSecretsProvider: mem.NewProvider(),
-			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-			VDRI:               &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
-		require.Equal(t, testCreateStoreErr, err)
 		require.Nil(t, op)
 	})
 }
@@ -579,6 +515,17 @@ func TestCreateProfileHandler(t *testing.T) {
 	testCreateProfileHandler(t, combinedMode)
 }
 
+type mockCommonDID struct {
+	createDIDValue string
+	createDIDKeyID string
+	createDIDErr   error
+}
+
+func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID, purpose string,
+	registrar model.UNIRegistrar) (string, string, error) {
+	return m.createDIDValue, m.createDIDKeyID, m.createDIDErr
+}
+
 func testCreateProfileHandler(t *testing.T, mode string) {
 	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
@@ -593,7 +540,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		HostURL:            "localhost:8080", Domain: "testnet"})
 	require.NoError(t, err)
 
-	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
+	op.commonDID = &mockCommonDID{}
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint, mode)
 
@@ -617,134 +564,6 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 		require.NotEmpty(t, profile.Name)
 		require.Contains(t, profile.URI, "https://example.com/credentials")
-	})
-
-	t.Run("create profile success - P256 key", func(t *testing.T) {
-		profileReq := ProfileRequest{
-			Name:          "issuer",
-			URI:           "https://example.com/credentials",
-			SignatureType: vccrypto.JSONWebSignature2020,
-			DIDKeyType:    "P256",
-		}
-
-		reqBytes, err := json.Marshal(profileReq)
-		require.NoError(t, err)
-
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(reqBytes))
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-
-		profile := vcprofile.DataProfile{}
-		err = json.Unmarshal(rr.Body.Bytes(), &profile)
-		require.NoError(t, err)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-		require.NotEmpty(t, profile.Name)
-		require.Contains(t, profile.URI, "https://example.com/credentials")
-	})
-
-	t.Run("create profile - invalid key type", func(t *testing.T) {
-		profileReq := ProfileRequest{
-			Name:          "issuer",
-			URI:           "https://example.com/credentials",
-			SignatureType: vccrypto.JSONWebSignature2020,
-			DIDKeyType:    "invalid",
-		}
-
-		reqBytes, err := json.Marshal(profileReq)
-		require.NoError(t, err)
-
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer(reqBytes))
-		require.NoError(t, err)
-
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			"no key found to match key type:invalid and signature type:JsonWebSignature2020")
-	})
-
-	t.Run("create profile success with uni Registrar config", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
-				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key-1"}}}}},
-			HostURL: "localhost:8080"})
-
-		require.NoError(t, err)
-
-		op.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did1", CreateDIDKeys: []didmethodoperation.Key{{
-			ID: "did1#key-1"}, {ID: "did1#key2"}}}
-
-		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
-
-		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
-			URI: "https://example.com/credentials", SignatureType: "Ed25519Signature2018", DIDKeyType: vccrypto.Ed25519KeyType,
-			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
-		require.NoError(t, err)
-
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
-			bytes.NewBuffer(reqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		profile := vcprofile.DataProfile{}
-
-		err = json.Unmarshal(rr.Body.Bytes(), &profile)
-		require.NoError(t, err)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-		require.NotEmpty(t, profile.Name)
-		require.Contains(t, profile.URI, "https://example.com/credentials")
-		require.Equal(t, "did1#key-1", profile.Creator)
-	})
-
-	t.Run("create profile error with uni Registrar config", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
-				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
-			HostURL: "localhost:8080"})
-
-		require.NoError(t, err)
-
-		op.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDErr: fmt.Errorf("create did error")}
-
-		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
-
-		reqBytes, err := json.Marshal(ProfileRequest{Name: "profile",
-			URI: "https://example.com/credentials", SignatureType: "Ed25519Signature2018", DIDKeyType: vccrypto.Ed25519KeyType,
-			UNIRegistrar: UNIRegistrar{DriverURL: "driverURL"}})
-		require.NoError(t, err)
-
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
-			bytes.NewBuffer(reqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to create did doc from uni-registrar")
 	})
 
 	t.Run("create profile success without creating did", func(t *testing.T) {
@@ -820,7 +639,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -834,7 +653,7 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -847,60 +666,6 @@ func testCreateProfileHandler(t *testing.T, mode string) {
 		createProfileHandler.Handle().ServeHTTP(rw, req)
 		require.Contains(t, logContents.String(),
 			"Unable to send error message, response writer failed")
-	})
-	t.Run("create profile error while saving the profile", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-			VDRI:               &vdrimock.MockVDRIRegistry{},
-			HostURL:            "localhost:8080"})
-		require.NoError(t, err)
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
-		op.profileStore = vcprofile.New(&mockStore{
-			get: func(s string) (bytes []byte, e error) {
-				return nil, storage.ErrValueNotFound
-			},
-			put: func(s string, bytes []byte) error {
-				return errors.New("db error while saving profile")
-			}})
-
-		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "db error while saving profile")
-	})
-
-	t.Run("create profile error while creating did", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
-			VDRI:    &vdrimock.MockVDRIRegistry{},
-			HostURL: "localhost:8080"})
-		require.NoError(t, err)
-		op.didBlocClient = &didbloc.Client{CreateDIDErr: fmt.Errorf("create did error")}
-		createProfileHandler = getHandler(t, op, createProfileEndpoint, mode)
-		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
-		createProfileHandler.Handle().ServeHTTP(rr, req)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "create did error")
 	})
 }
 
@@ -920,7 +685,7 @@ func TestGetProfileHandler(t *testing.T) {
 
 	require.NoError(t, err)
 
-	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
+	op.commonDID = &mockCommonDID{}
 
 	getProfileHandler := getHandler(t, op, getProfileEndpoint, "issuer")
 
@@ -1072,7 +837,7 @@ func TestStoreVCHandler(t *testing.T) {
 		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -1099,7 +864,7 @@ func TestStoreVCHandler(t *testing.T) {
 		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -1126,7 +891,7 @@ func TestStoreVCHandler(t *testing.T) {
 		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -1155,7 +920,7 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeCredentialHandler(rr, req)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 		require.Equal(t, "i always fail", errResp.Message)
@@ -1186,7 +951,7 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeCredentialHandler(rr, req)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 		require.Equal(t, testError.Error(), errResp.Message)
@@ -1215,7 +980,7 @@ func TestStoreVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		op.storeCredentialHandler(rr, req)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 		require.Equal(t, "ciphertext cannot be empty", errResp.Message)
@@ -1326,7 +1091,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		op.retrieveCredentialHandler(rr, r)
 
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -1365,7 +1130,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		op.retrieveCredentialHandler(rr, r)
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -1513,7 +1278,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		op.retrieveCredentialHandler(rr, r)
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -1549,7 +1314,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		op.retrieveCredentialHandler(rr, r)
-		errResp := &ErrorResponse{}
+		errResp := &model.ErrorResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &errResp)
 		require.NoError(t, err)
 
@@ -2254,8 +2019,6 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
 
-		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
-
 		op, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -2266,8 +2029,6 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Crypto: &cryptomock.Crypto{},
 		})
 		require.NoError(t, err)
-
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
@@ -2729,7 +2490,6 @@ func TestCredentialVerifications(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		ops.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
 
@@ -2967,8 +2727,6 @@ func TestCredentialVerifications(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
-
 		// verify credential
 		handler := getHandler(t, op, endpoint, verifierMode)
 
@@ -3055,7 +2813,6 @@ func TestCredentialVerifications(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		ops.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
 
@@ -3129,8 +2886,6 @@ func TestVerifyPresentation(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
-
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 
 		// verify credential
 		handler := getHandler(t, op, endpoint, verifierMode)
@@ -3280,8 +3035,6 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
-
 		// verify credential
 		handler := getHandler(t, op, endpoint, verifierMode)
 
@@ -3372,8 +3125,6 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
-
 		// verify credential
 		handler := getHandler(t, op, endpoint, verifierMode)
 
@@ -3417,8 +3168,6 @@ func TestVerifyPresentation(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
-
-		op.didBlocClient = &didbloc.Client{CreateDIDValue: didDoc}
 
 		// verify credential
 		handler := getHandler(t, op, endpoint, verifierMode)
@@ -3520,522 +3269,6 @@ func TestValidateProofPurpose(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid challenge in the proof")
 }
 
-func TestCreateHolderProfile(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-	require.NoError(t, err)
-
-	op, err := New(&Config{
-		Crypto:             &cryptomock.Crypto{},
-		StoreProvider:      memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-		VDRI:               &vdrimock.MockVDRIRegistry{},
-	})
-	require.NoError(t, err)
-
-	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
-
-	endpoint := holderProfileEndpoint
-	handler := getHandler(t, op, endpoint, holderMode)
-
-	t.Run("create profile - success", func(t *testing.T) {
-		vReq := &HolderProfileRequest{
-			Name:          "test",
-			DIDKeyType:    vccrypto.Ed25519KeyType,
-			SignatureType: vccrypto.Ed25519Signature2018,
-		}
-
-		vReqBytes, err := json.Marshal(vReq)
-		require.NoError(t, err)
-
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		profileRes := &HolderProfileRequest{}
-		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
-		require.NoError(t, err)
-		require.Equal(t, "test", profileRes.Name)
-	})
-
-	t.Run("create profile - invalid request", func(t *testing.T) {
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, []byte("invalid-json"))
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "Invalid request")
-	})
-
-	t.Run("create profile - missing profile name", func(t *testing.T) {
-		vReq := &HolderProfileRequest{}
-
-		vReqBytes, err := json.Marshal(vReq)
-		require.NoError(t, err)
-
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "missing profile name")
-	})
-
-	t.Run("create profile - profile already exists", func(t *testing.T) {
-		vReq := &HolderProfileRequest{
-			Name:          "test1",
-			DIDKeyType:    vccrypto.Ed25519KeyType,
-			SignatureType: vccrypto.Ed25519Signature2018,
-		}
-
-		vReqBytes, err := json.Marshal(vReq)
-		require.NoError(t, err)
-
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "profile test1 already exists")
-	})
-
-	t.Run("create profile - failed to created DID", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		ops, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-			VDRI:               &vdrimock.MockVDRIRegistry{},
-		})
-		require.NoError(t, err)
-
-		vReq := &HolderProfileRequest{
-			Name: "profile",
-		}
-
-		vReqBytes, err := json.Marshal(vReq)
-		require.NoError(t, err)
-
-		handler := getHandler(t, ops, endpoint, holderMode)
-
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to create did public key")
-	})
-}
-
-func TestGetHolderProfile(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-	require.NoError(t, err)
-
-	op, err := New(&Config{
-		Crypto:             &cryptomock.Crypto{},
-		StoreProvider:      memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-		VDRI:               &vdrimock.MockVDRIRegistry{},
-	})
-	require.NoError(t, err)
-
-	op.didBlocClient = &didbloc.Client{CreateDIDValue: createDefaultDID()}
-
-	endpoint := getHolderProfileEndpoint
-	handler := getHandler(t, op, endpoint, holderMode)
-
-	urlVars := make(map[string]string)
-
-	t.Run("get profile - success", func(t *testing.T) {
-		vReq := &vcprofile.HolderProfile{
-			Name:          "test",
-			SignatureType: vccrypto.Ed25519Signature2018,
-		}
-
-		err := op.profileStore.SaveHolderProfile(vReq)
-		require.NoError(t, err)
-
-		urlVars[profileIDPathParam] = vReq.Name
-
-		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
-
-		require.Equal(t, http.StatusOK, rr.Code)
-
-		profileRes := &HolderProfileRequest{}
-		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
-		require.NoError(t, err)
-		require.Equal(t, vReq.Name, profileRes.Name)
-	})
-
-	t.Run("get profile - no data found", func(t *testing.T) {
-		urlVars[profileIDPathParam] = "invalid-name"
-
-		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
-
-		fmt.Println(rr.Body.String())
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "store does not have a value associated with this key")
-	})
-}
-
-func TestSignPresentation(t *testing.T) {
-	endpoint := "/test/prove/presentations"
-	keyID := "key-333"
-	issuerProfileDIDKey := "did:test:abc#" + keyID
-
-	vReq := &vcprofile.HolderProfile{
-		Name:          "test",
-		SignatureType: vccrypto.Ed25519Signature2018,
-		Creator:       issuerProfileDIDKey,
-	}
-
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-	require.NoError(t, err)
-
-	op, err := New(&Config{
-		StoreProvider:      memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
-		Crypto:             &cryptomock.Crypto{},
-	})
-	require.NoError(t, err)
-
-	err = op.profileStore.SaveHolderProfile(vReq)
-	require.NoError(t, err)
-
-	urlVars := make(map[string]string)
-	urlVars[profileIDPathParam] = vReq.Name
-
-	handler := getHandler(t, op, signPresentationEndpoint, holderMode)
-
-	t.Run("sign presentation - success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
-			VDRI: &vdrimock.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
-				},
-			},
-			Crypto: &cryptomock.Crypto{},
-		})
-		require.NoError(t, err)
-
-		vReq.SignatureRepresentation = verifiable.SignatureJWS
-		vReq.OverwriteHolder = true
-		vReq.DID = "did:trustbloc:xyz"
-
-		err = ops.profileStore.SaveHolderProfile(vReq)
-		require.NoError(t, err)
-
-		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, holderMode)
-
-		require.NoError(t, err)
-
-		req := &SignPresentationRequest{
-			Presentation: []byte(vpWithoutProof),
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		signedVPResp := make(map[string]interface{})
-		err = json.Unmarshal(rr.Body.Bytes(), &signedVPResp)
-		require.NoError(t, err)
-		require.NotEmpty(t, signedVPResp["proof"])
-		require.Equal(t, vReq.DID, signedVPResp["holder"])
-
-		proof, ok := signedVPResp["proof"].(map[string]interface{})
-		require.True(t, ok)
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
-		require.NotEmpty(t, proof["jws"])
-		require.Equal(t, "did:test:abc#"+keyID, proof["verificationMethod"])
-		require.Equal(t, vccrypto.Authentication, proof["proofPurpose"])
-
-		// pass proof purpose option
-		req = &SignPresentationRequest{
-			Presentation: []byte(vpWithoutProof),
-			Opts: &SignPresentationOptions{
-				ProofPurpose: vccrypto.AssertionMethod,
-			},
-		}
-
-		reqBytes, err = json.Marshal(req)
-		require.NoError(t, err)
-
-		rr = serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		signedVPResp = make(map[string]interface{})
-		err = json.Unmarshal(rr.Body.Bytes(), &signedVPResp)
-		require.NoError(t, err)
-		require.NotEmpty(t, signedVPResp["proof"])
-
-		proof, ok = signedVPResp["proof"].(map[string]interface{})
-		require.True(t, ok)
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
-		require.NotEmpty(t, proof["jws"])
-		require.Equal(t, "did:test:abc#"+keyID, proof["verificationMethod"])
-		require.Equal(t, vccrypto.AssertionMethod, proof["proofPurpose"])
-	})
-
-	t.Run("sign presentation - success with opts", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
-			VDRI: &vdrimock.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
-				},
-			},
-			Crypto: &cryptomock.Crypto{},
-		})
-		require.NoError(t, err)
-
-		vReq.SignatureRepresentation = verifiable.SignatureJWS
-
-		err = ops.profileStore.SaveHolderProfile(vReq)
-		require.NoError(t, err)
-
-		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, holderMode)
-
-		proofPurposeVal := "authentication"
-
-		req := &SignPresentationRequest{
-			Presentation: []byte(vpWithoutProof),
-			Opts: &SignPresentationOptions{
-				Challenge:       challenge,
-				Domain:          domain,
-				ProofPurpose:    proofPurposeVal,
-				AssertionMethod: "did:example:xyz#" + keyID,
-			},
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		signedVCResp := make(map[string]interface{})
-		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
-		require.NoError(t, err)
-		require.NotEmpty(t, signedVCResp["proof"])
-
-		proof, ok := signedVCResp["proof"].(map[string]interface{})
-		require.True(t, ok)
-		require.Equal(t, "Ed25519Signature2018", proof["type"])
-		require.NotEmpty(t, proof["jws"])
-		require.Equal(t, "did:example:xyz#"+keyID, proof["verificationMethod"])
-		require.Equal(t, proofPurposeVal, proof["proofPurpose"])
-		require.Equal(t, domain, proof[domain])
-		require.Equal(t, challenge, proof[challenge])
-	})
-
-	t.Run("sign presentation - invalid profile", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-		})
-		require.NoError(t, err)
-
-		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, holderMode)
-
-		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "invalid holder profile")
-	})
-
-	t.Run("sign presentation - invalid request", func(t *testing.T) {
-		rr := serveHTTPMux(t, handler, endpoint, []byte("invalid json"), urlVars)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), invalidRequestErrMsg)
-	})
-
-	t.Run("sign presentation - invalid presentation", func(t *testing.T) {
-		req := &SignPresentationRequest{
-			Presentation: []byte(invalidVC),
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "verifiable presentation is not valid")
-	})
-
-	t.Run("sign presentation - signing error", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
-		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
-			VDRI:               &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
-		})
-		require.NoError(t, err)
-
-		vReq.Creator = "not a did"
-
-		err = op.profileStore.SaveHolderProfile(vReq)
-		require.NoError(t, err)
-
-		signPresentationHandler := getHandler(t, op, signPresentationEndpoint, holderMode)
-
-		req := &SignPresentationRequest{
-			Presentation: []byte(validVP),
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTPMux(t, signPresentationHandler, endpoint, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusInternalServerError, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to sign presentation")
-	})
-}
-
-func TestGetPublicKeyID(t *testing.T) {
-	t.Run("Test decode public key", func(t *testing.T) {
-		tests := []struct {
-			name     string
-			didStr   string
-			expected string
-			err      string
-		}{
-			{
-				name: "Test when first public is not 'Ed25519VerificationKey2018' and id is not in DID format",
-				didStr: `{
-    "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ",
-    "@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
-    "publicKey": [{
-        "id": "#5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA",
-        "usage": "signing",
-        "publicKeyJwk": {
-            "x": "DSE4CfCVKNgxNMDV6dK_DbcwshievbxwHJwOsGoSpaw",
-            "kty": "EC",
-            "crv": "secp256k1",
-            "y": "xzrnm-VHA22nfGrNGGaLL9aPHRN26qyJNli3jByQSfQ",
-            "kid": "5hgq2bNVTqyns_Nvcc_ybVHnFMx33_dAsfrfpZMTqTA"
-        },
-        "type": "EcdsaSecp256k1VerificationKey2019",
-        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
-    }, {
-        "publicKeyHex": "020d213809f09528d83134c0d5e9d2bf0db730b2189ebdbc701c9c0eb06a12a5ac",
-        "type": "EcdsaSecp256k1VerificationKey2019",
-        "id": "#primary",
-        "usage": "signing",
-        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
-    }, {
-        "publicKeyHex": "02d5a045f28c14b3d5971b0df9aabd8ee44a3e3af52a1a14a206327991c6e54a80",
-        "type": "EcdsaSecp256k1VerificationKey2019",
-        "id": "#recovery",
-        "usage": "recovery",
-        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
-    }, {
-        "type": "Ed25519VerificationKey2018",
-        "publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
-        "id": "#signing-key",
-        "usage": "signing",
-        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
-    }]
-}`,
-				expected: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
-			},
-			{
-				name: "Test when first public is not 'Ed25519VerificationKey2018' and id is in DID format",
-				didStr: `{
-    "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ",
-    "@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
-    "publicKey": [{
-        "publicKeyHex": "02d5a045f28c14b3d5971b0df9aabd8ee44a3e3af52a1a14a206327991c6e54a80",
-        "type": "EcdsaSecp256k1VerificationKey2019",
-        "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#recovery",
-        "usage": "recovery",
-        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
-    }, {
-        "type": "Ed25519VerificationKey2018",
-        "publicKeyBase58": "GUXiqNHCdirb6NKpH6wYG4px3YfMjiCh6dQhU3zxQVQ7",
-        "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
-        "usage": "signing",
-        "controller": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ"
-    }]
-}`,
-				expected: "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ#signing-key",
-			},
-			{
-				name: "Test with no public keys or authentication",
-				didStr: `{
-    "id": "did:sample:EiAiSE10ugVUHXsOp4pm86oN6LnjuCdrkt3s12rcVFkilQ",
-    "@context": ["https://www.w3.org/ns/did/v1", "https://docs.example.com/contexts/sample/sample-v0.1.jsonld"],
-    "publicKey": []
-}`,
-				err: "public key not found in DID Document",
-			},
-		}
-
-		t.Parallel()
-
-		for _, test := range tests {
-			tc := test
-			t.Run(tc.name, func(t *testing.T) {
-				doc, err := did.ParseDocument([]byte(tc.didStr))
-				require.NoError(t, err)
-				require.NotNil(t, doc)
-
-				id, err := getPublicKeyID(doc, "", vccrypto.Ed25519Signature2018)
-				if tc.err != "" {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), tc.err)
-					return
-				}
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, id)
-			})
-		}
-	})
-}
-
 func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
 	httpReq, err := http.NewRequest(
 		method,
@@ -4104,19 +3337,6 @@ func getTestProfile() *vcprofile.DataProfile {
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
 	}
-}
-
-func createDefaultDID() *did.Doc {
-	const (
-		didID = "did:local:abc"
-	)
-
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-
-	return createDIDDoc(didID, pubKey)
 }
 
 func createDIDDoc(didID string, pubKey []byte) *did.Doc {
@@ -4231,32 +3451,6 @@ func (b mockResponseWriter) Write([]byte) (int, error) {
 }
 
 func (b mockResponseWriter) WriteHeader(statusCode int) {
-}
-
-type mockStore struct {
-	put func(string, []byte) error
-	get func(string) ([]byte, error)
-}
-
-// Put stores the key and the record
-func (m *mockStore) Put(k string, v []byte) error {
-	return m.put(k, v)
-}
-
-// Get fetches the record based on key
-func (m *mockStore) Get(k string) ([]byte, error) {
-	return m.get(k)
-}
-
-// CreateIndex creates an index in the store based on the provided CreateIndexRequest.
-func (m *mockStore) CreateIndex(createIndexRequest storage.CreateIndexRequest) error {
-	return nil
-}
-
-// Query queries the store for data based on the provided query string, the format of
-// which will be dependent on what the underlying store requires.
-func (m *mockStore) Query(query string) (storage.ResultsIterator, error) {
-	return nil, nil
 }
 
 type TestClient struct {
@@ -4414,15 +3608,4 @@ func (m *mockCredentialStatusManager) UpdateVCStatus(v *verifiable.Credential,
 
 func (m *mockCredentialStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
 	return nil, nil
-}
-
-type mockUNIRegistrarClient struct {
-	CreateDIDValue string
-	CreateDIDKeys  []didmethodoperation.Key
-	CreateDIDErr   error
-}
-
-func (m *mockUNIRegistrarClient) CreateDID(driverURL string,
-	opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error) {
-	return m.CreateDIDValue, m.CreateDIDKeys, m.CreateDIDErr
 }

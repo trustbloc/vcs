@@ -41,6 +41,8 @@ import (
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/internal/cryptosetup"
+	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
+	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc"
 	"github.com/trustbloc/edge-service/pkg/restapi/vc/operation"
 )
@@ -386,6 +388,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 }
 
+// nolint: gocyclo,funlen
 func startEdgeService(parameters *vcRestParameters, srv server) error {
 	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
 	if err != nil {
@@ -418,6 +421,8 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
+	router := mux.NewRouter()
+
 	vcService, err := vc.New(&operation.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
 		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
@@ -432,11 +437,38 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	handlers := vcService.GetOperations()
-	router := mux.NewRouter()
+	holderService, err := restholder.New(&holderops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs},
+		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
+		VDRI: vdri, Domain: parameters.blocDomain})
+	if err != nil {
+		return err
+	}
 
-	for _, handler := range handlers {
-		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	switch parameters.mode {
+	case string(verifier), string(issuer):
+		handlers := vcService.GetOperations()
+
+		for _, handler := range handlers {
+			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+		}
+	case string(holder):
+		holderHandlers := holderService.GetOperations()
+
+		for _, handler := range holderHandlers {
+			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+		}
+	case string(combined):
+		handlers := vcService.GetOperations()
+
+		for _, handler := range handlers {
+			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+		}
+
+		holderHandlers := holderService.GetOperations()
+
+		for _, handler := range holderHandlers {
+			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+		}
 	}
 
 	// health check
