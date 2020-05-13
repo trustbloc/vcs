@@ -10,7 +10,7 @@
 	],
 	"name": "Permanent Resident Card",
 	"description": "Permanent Resident Card",
-	"issuer": "did:example:28394728934792387",
+	"issuer": "did:web:vc.transmute.world",
 	"issuanceDate": "2019-12-03T12:19:52Z",
 	"expirationDate": "2029-12-03T12:19:52Z",
 	"credentialSubject": {
@@ -35,6 +35,6 @@
 		"created": "2019-12-11T03:50:55Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..tmPPcDMCHlGPHHHMPQO6kuz5G3s6AG91zGrUTj5KjMmgvnxOYm0nX9r13w8tqAldpTKcotiyxUrtqHcYX6iWDw"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..SeUoIpwN_1Zrwc9zcl5NuvI88eJh6mWcxUMROHLrRg9Ubrz1YBhprPjcIZVE9JikK2DOO75pwC06fEwmu4GUAw"
 	}
 }

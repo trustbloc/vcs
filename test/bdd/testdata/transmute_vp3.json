@@ -14,7 +14,7 @@
 			"VerifiableCredential",
 			"CertifiedMillTestReport"
 		],
-		"issuer": "did:example:oakek12as93mas91220dapop092",
+		"issuer": "did:web:vc.transmute.world",
 		"issuanceDate": "2020-03-16T22:37:26.544Z",
 		"name": "Steel Inc. CMTR",
 		"description": "A mill test report (MTR) and often also called a certified mill test report, certified material test report, mill test certificate (MTC), inspection certificate, certificate of test, or a host of other names, is a quality assurance document used in the metals industry that certifies a material's chemical and physical properties and states a product made of metal (steel, aluminum, brass or other alloys) complies with an international standards organization (such as ANSI, ASME, etc.) specific standards.",
@@ -214,14 +214,14 @@
 			"created": "2019-12-11T03:50:55Z",
 			"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 			"proofPurpose": "assertionMethod",
-			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..6rKcS4-ELJHeizxEO8ZKN5JcXKqNYgq2L1vjVxS-YQng36BhFwSS34AWv0Ax4WSBWmPxUcbfmgEdqDJfGnk7Bg"
+			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..Z8yqUP9fjIDo6iic83vsF-m2ab2z5W0xSeLjYoKJ3PbaWw9vrNbuU_FTgJeGUd6Vjn8gkpsaW2ETuPHvSqTWDA"
 		}
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-11T22:04:18Z",
+		"created": "2020-05-13T20:28:24Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..UudwQNTXxdwav4UZEpZUaG4Fd0cOI96S4l93dIWApwTsqU5z4Euae1UV47a3OzlNyPNiFKHgG3HwsLKYGQlfBA"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..CWOVpmiWY6xSCoPDyj4VXXHyjyQypKazmaPIAi946Ly0RL8ynL72jMW0oeXPEugItXxjGh0jaRXDOj7gmuRBCg"
 	}
 }
