@@ -56,6 +56,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
+		vc.Issuer.ID = didDoc.ID
 
 		ops := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
@@ -79,7 +80,7 @@ func TestVerifyCredential(t *testing.T) {
 		handler := getHandler(t, ops, endpoint)
 
 		vReq := &CredentialsVerificationRequest{
-			Credential: getSignedVC(t, privKey, string(vcBytes), verificationMethod, domain, challenge),
+			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
 			Opts: &CredentialsVerificationOptions{
 				Checks:    []string{proofCheck, statusCheck},
 				Challenge: challenge,
@@ -297,7 +298,7 @@ func TestVerifyCredential(t *testing.T) {
 		handler := getHandler(t, op, endpoint)
 
 		vReq := &CredentialsVerificationRequest{
-			Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, domain,
+			Credential: getSignedVC(t, privKey, prCardVC, didID, verificationMethod, domain,
 				"invalid-challenge"),
 			Opts: &CredentialsVerificationOptions{
 				Checks:    []string{proofCheck, statusCheck},
@@ -315,7 +316,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
 
 		vReq = &CredentialsVerificationRequest{
-			Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, "invalid-domain", challenge),
+			Credential: getSignedVC(t, privKey, prCardVC, didID, verificationMethod, "invalid-domain", challenge),
 			Opts: &CredentialsVerificationOptions{
 				Checks:    []string{proofCheck},
 				Domain:    domain,
@@ -333,7 +334,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		// fail when proof has challenge and no challenge in the options
 		vReq = &CredentialsVerificationRequest{
-			Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Credential: getSignedVC(t, privKey, prCardVC, didID, verificationMethod, domain, challenge),
 		}
 
 		vReqBytes, err = json.Marshal(vReq)
@@ -346,7 +347,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		// fail when proof has domain and no domain in the options
 		vReq = &CredentialsVerificationRequest{
-			Credential: getSignedVC(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Credential: getSignedVC(t, privKey, prCardVC, didID, verificationMethod, domain, challenge),
 			Opts: &CredentialsVerificationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
@@ -369,6 +370,7 @@ func TestVerifyCredential(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		didDoc.AssertionMethod = nil
 		verificationMethod := didDoc.PublicKey[0].ID
+		vc.Issuer.ID = didDoc.ID
 
 		ops := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
@@ -392,7 +394,7 @@ func TestVerifyCredential(t *testing.T) {
 		handler := getHandler(t, ops, endpoint)
 
 		vReq := &CredentialsVerificationRequest{
-			Credential: getSignedVC(t, privKey, string(vcBytes), verificationMethod, domain, challenge),
+			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
 			Opts: &CredentialsVerificationOptions{
 				Checks:    []string{proofCheck, statusCheck},
 				Challenge: challenge,
@@ -408,6 +410,42 @@ func TestVerifyCredential(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "verifiable credential proof purpose validation error :"+
 			" unable to find matching assertionMethod key IDs for given verification method")
+	})
+
+	t.Run("credential verification - issuer is not the controller of verification method", func(t *testing.T) {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc(didID, pubKey)
+		verificationMethod := didDoc.PublicKey[0].ID
+		vc.Issuer.ID = didDoc.ID
+
+		ops := New(&Config{
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+
+		vcBytes, err := vc.MarshalJSON()
+		require.NoError(t, err)
+
+		// verify credential
+		handler := getHandler(t, ops, endpoint)
+
+		vReq := &CredentialsVerificationRequest{
+			Credential: getSignedVC(t, privKey, string(vcBytes), "did:invalid:issuer", verificationMethod, domain, challenge),
+			Opts: &CredentialsVerificationOptions{
+				Checks:    []string{proofCheck, statusCheck},
+				Challenge: challenge,
+				Domain:    domain,
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "controller of verification method doesn't match the issuer")
 	})
 }
 
@@ -436,7 +474,8 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
@@ -576,7 +615,8 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, uuid.New().String()),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, domain, uuid.New().String()),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Domain:    domain,
@@ -593,7 +633,8 @@ func TestVerifyPresentation(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
 
 		vReq = &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, "invalid-domain", challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, "invalid-domain", challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Domain:    domain,
@@ -611,7 +652,8 @@ func TestVerifyPresentation(t *testing.T) {
 
 		// fail when proof has challenge and no challenge in the options
 		vReq = &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, domain, challenge),
 		}
 
 		vReqBytes, err = json.Marshal(vReq)
@@ -624,7 +666,8 @@ func TestVerifyPresentation(t *testing.T) {
 
 		// fail when proof has domain and no domain in the options
 		vReq = &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
@@ -658,7 +701,8 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
@@ -694,7 +738,8 @@ func TestVerifyPresentation(t *testing.T) {
 		handler := getHandler(t, op, endpoint)
 
 		vReq := &VerifyPresentationRequest{
-			Presentation: getSignedVP(t, privKey, prCardVC, verificationMethod, domain, challenge),
+			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
+				didID, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
 				Checks:    []string{proofCheck},
 				Challenge: challenge,
@@ -710,6 +755,41 @@ func TestVerifyPresentation(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "verifiable credential proof purpose validation error : unable"+
 			" to find matching assertionMethod key IDs for given verification method")
+	})
+
+	t.Run("presentation verification - holder is not the controller of verification method", func(t *testing.T) {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		didID := "did:test:abc123"
+
+		didDoc := createDIDDoc(didID, pubKey)
+		verificationMethod := didDoc.PublicKey[0].ID
+
+		op := New(&Config{
+			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		})
+
+		// verify credential
+		handler := getHandler(t, op, endpoint)
+
+		vReq := &VerifyPresentationRequest{
+			Presentation: getSignedVP(t, privKey, prCardVC, "did:invalid:holder", verificationMethod,
+				didID, verificationMethod, domain, challenge),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck},
+				Challenge: challenge,
+				Domain:    domain,
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "controller of verification method doesn't match the holder")
 	})
 }
 
@@ -746,8 +826,6 @@ func TestValidateProofPurpose(t *testing.T) {
 	didDoc := createDIDDoc(didID, pubKey)
 	kid := didDoc.PublicKey[0].ID
 
-	vdriReg := &vdrimock.MockVDRIRegistry{ResolveValue: didDoc}
-
 	proof := make(map[string]interface{})
 	key := "challenge"
 	value := uuid.New().String()
@@ -756,38 +834,87 @@ func TestValidateProofPurpose(t *testing.T) {
 	proof[verificationMethod] = kid
 
 	// success
-	err = validateProofPurpose(proof, vdriReg)
+	err = validateProofPurpose(proof, kid, didDoc)
 	require.NoError(t, err)
 
 	// fail - no value
 	delete(proof, proofPurpose)
-	err = validateProofPurpose(proof, vdriReg)
+	err = validateProofPurpose(proof, kid, didDoc)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "proof doesn't have purpose")
 
-	proof[proofPurpose] = assertionMethod
-	delete(proof, verificationMethod)
-	err = validateProofPurpose(proof, vdriReg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "proof doesn't have verification method")
-
 	// fail - not a string
 	proof[proofPurpose] = 234
-	err = validateProofPurpose(proof, vdriReg)
+	err = validateProofPurpose(proof, kid, didDoc)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "proof purpose is not a string")
-
-	proof[proofPurpose] = assertionMethod
-	proof[verificationMethod] = 234
-	err = validateProofPurpose(proof, vdriReg)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "proof verification method is not a string")
 
 	// fail - invalid
 	proof[key] = "invalid-data"
 	err = validateProofData(proof, key, value)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid challenge in the proof")
+}
+
+func TestGetVerificationMethodFromProof(t *testing.T) {
+	proof := make(map[string]interface{})
+	key := verificationMethod
+	value := uuid.New().String()
+
+	proof[key] = value
+
+	// success
+	verificationMethod, err := getVerificationMethodFromProof(proof)
+	require.NoError(t, err)
+	require.Equal(t, value, verificationMethod)
+
+	// fail - not a string
+	proof[key] = 234
+	verificationMethod, err = getVerificationMethodFromProof(proof)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof verification method is not a string")
+	require.Empty(t, verificationMethod)
+
+	// fail - no data
+	delete(proof, key)
+	verificationMethod, err = getVerificationMethodFromProof(proof)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "proof doesn't have verification method")
+	require.Empty(t, verificationMethod)
+}
+
+func TestGetDIDDocFromProof(t *testing.T) {
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	didID := "did:test:abc789"
+
+	didDoc := createDIDDoc(didID, pubKey)
+	verificationMethod := didDoc.PublicKey[0].ID
+
+	vdri := &vdrimock.MockVDRIRegistry{ResolveValue: didDoc}
+
+	// success
+	doc, err := getDIDDocFromProof(verificationMethod, vdri)
+	require.NoError(t, err)
+	require.NotNil(t, doc)
+
+	// fail - verification method not in correct format
+	verificationMethod = "invalid-format"
+
+	doc, err = getDIDDocFromProof(verificationMethod, vdri)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "verificationMethod value invalid-format should be in did#keyID format")
+	require.Nil(t, doc)
+
+	// fail - resolve error
+	vdri = &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")}
+	verificationMethod = didDoc.PublicKey[0].ID
+
+	doc, err = getDIDDocFromProof(verificationMethod, vdri)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "resolve error")
+	require.Nil(t, doc)
 }
 
 type mockHTTPClient struct {
@@ -799,9 +926,11 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.doValue, m.doErr
 }
 
-func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod, domain, challenge string) []byte {
+func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod, domain, challenge string) []byte {
 	vc, err := verifiable.NewUnverifiedCredential([]byte(vcJSON))
 	require.NoError(t, err)
+
+	vc.Issuer.ID = didID
 
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
 	require.NoError(t, err)
@@ -829,8 +958,8 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, verificationMethod, domai
 	return signedVC
 }
 
-func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domain, challenge string) []byte { // nolint
-	signedVC := getSignedVC(t, privKey, vcJSON, verificationMethod, "", "")
+func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerificationMethod, issuerDID, vcVerificationMethod, domain, challenge string) []byte { // nolint
+	signedVC := getSignedVC(t, privKey, vcJSON, issuerDID, vcVerificationMethod, "", "")
 
 	vc, err := verifiable.NewUnverifiedCredential(signedVC)
 	require.NoError(t, err)
@@ -841,6 +970,8 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domai
 	vp, err := vc.Presentation()
 	require.NoError(t, err)
 
+	vp.Holder = holderDID
+
 	signerSuite := ed25519signature2018.New(
 		suite.WithSigner(getEd25519TestSigner(privKey)),
 		suite.WithCompactProof())
@@ -849,7 +980,7 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, verificationMethod, domai
 		Suite:                   signerSuite,
 		SignatureRepresentation: verifiable.SignatureJWS,
 		Created:                 &created,
-		VerificationMethod:      verificationMethod,
+		VerificationMethod:      vpVerificationMethod,
 		Domain:                  domain,
 		Challenge:               challenge,
 		Purpose:                 vccrypto.Authentication,

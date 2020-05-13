@@ -15,12 +15,14 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 )
@@ -232,8 +234,7 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 	}
 }
 
-func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions,
-	vcInVPValidation bool) error {
+func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions, vcInVPValidation bool) error { // nolint: lll,gocyclo
 	vc, err := o.parseAndVerifyVCStrictMode(vcByte)
 
 	if err != nil {
@@ -254,25 +255,42 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 
 	if !vcInVPValidation {
 		// validate challenge
-		if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
-			return err
+		if validateErr := validateProofData(proof, challenge, opts.Challenge); validateErr != nil {
+			return validateErr
 		}
 
 		// validate domain
-		if err := validateProofData(proof, domain, opts.Domain); err != nil {
-			return err
+		if validateErr := validateProofData(proof, domain, opts.Domain); validateErr != nil {
+			return validateErr
 		}
 	}
 
+	// get the verification method
+	verificationMethod, err := getVerificationMethodFromProof(proof)
+	if err != nil {
+		return err
+	}
+
+	// get the did doc from verification method
+	didDoc, err := getDIDDocFromProof(verificationMethod, o.vdri)
+	if err != nil {
+		return err
+	}
+
+	// validate if issuer matches the controller of verification method
+	if vc.Issuer.ID != didDoc.ID {
+		return fmt.Errorf("controller of verification method doesn't match the issuer")
+	}
+
 	// validate proof purpose
-	if err := validateProofPurpose(proof, o.vdri); err != nil {
+	if err := validateProofPurpose(proof, verificationMethod, didDoc); err != nil {
 		return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
 	}
 
 	return nil
 }
 
-func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresentationOptions) error {
+func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresentationOptions) error { // nolint: gocyclo
 	vp, err := o.parseAndVerifyVP(vpByte)
 
 	if err != nil {
@@ -292,17 +310,34 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 	}
 
 	// validate challenge
-	if err := validateProofData(proof, challenge, opts.Challenge); err != nil {
-		return err
+	if validateErr := validateProofData(proof, challenge, opts.Challenge); validateErr != nil {
+		return validateErr
 	}
 
 	// validate domain
-	if err := validateProofData(proof, domain, opts.Domain); err != nil {
+	if validateErr := validateProofData(proof, domain, opts.Domain); validateErr != nil {
+		return validateErr
+	}
+
+	// get the verification method
+	verificationMethod, err := getVerificationMethodFromProof(proof)
+	if err != nil {
 		return err
 	}
 
+	// get the did doc from verification method
+	didDoc, err := getDIDDocFromProof(verificationMethod, o.vdri)
+	if err != nil {
+		return err
+	}
+
+	// validate if holder matches the controller of verification method
+	if vp.Holder != "" && vp.Holder != didDoc.ID {
+		return fmt.Errorf("controller of verification method doesn't match the holder")
+	}
+
 	// validate proof purpose
-	if err := validateProofPurpose(proof, o.vdri); err != nil {
+	if err := validateProofPurpose(proof, verificationMethod, didDoc); err != nil {
 		return fmt.Errorf("verifiable presentation proof purpose validation error : %w", err)
 	}
 
@@ -370,45 +405,6 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 	return vc, nil
 }
 
-func validateProofData(proof verifiable.Proof, key, expectedValue string) error {
-	actualVal := ""
-
-	val, ok := proof[key]
-	if ok {
-		actualVal, _ = val.(string) // nolint
-	}
-
-	if expectedValue != actualVal {
-		return fmt.Errorf("invalid %s in the proof : expected=%s actual=%s", key, expectedValue, actualVal)
-	}
-
-	return nil
-}
-
-func validateProofPurpose(proof verifiable.Proof, vdri vdriapi.Registry) error {
-	purposeVal, ok := proof[proofPurpose]
-	if !ok {
-		return errors.New("proof doesn't have purpose")
-	}
-
-	purpose, ok := purposeVal.(string)
-	if !ok {
-		return errors.New("proof purpose is not a string")
-	}
-
-	verificationMethodVal, ok := proof[verificationMethod]
-	if !ok {
-		return errors.New("proof doesn't have verification method")
-	}
-
-	verificationMethod, ok := verificationMethodVal.(string)
-	if !ok {
-		return errors.New("proof verification method is not a string")
-	}
-
-	return crypto.ValidateProofPurpose(purpose, verificationMethod, vdri)
-}
-
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
 	vp, err := verifiable.NewPresentation(
 		vpBytes,
@@ -438,6 +434,21 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 	return vp, nil
 }
 
+func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
+	vc, _, err := verifiable.NewCredential(
+		vcBytes,
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+		),
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return vc, nil
+}
+
 func (o *Operation) sendHTTPRequest(req *http.Request, status int) ([]byte, error) {
 	resp, err := o.httpClient.Do(req)
 	if err != nil {
@@ -463,17 +474,59 @@ func (o *Operation) sendHTTPRequest(req *http.Request, status int) ([]byte, erro
 	return body, nil
 }
 
-func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, _, err := verifiable.NewCredential(
-		vcBytes,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
-		),
-	)
+func validateProofData(proof verifiable.Proof, key, expectedValue string) error {
+	actualVal := ""
 
+	val, ok := proof[key]
+	if ok {
+		actualVal, _ = val.(string) // nolint
+	}
+
+	if expectedValue != actualVal {
+		return fmt.Errorf("invalid %s in the proof : expected=%s actual=%s", key, expectedValue, actualVal)
+	}
+
+	return nil
+}
+
+func validateProofPurpose(proof verifiable.Proof, verificationMethod string, didDoc *did.Doc) error {
+	purposeVal, ok := proof[proofPurpose]
+	if !ok {
+		return errors.New("proof doesn't have purpose")
+	}
+
+	purpose, ok := purposeVal.(string)
+	if !ok {
+		return errors.New("proof purpose is not a string")
+	}
+
+	return crypto.ValidateProofPurpose(purpose, verificationMethod, didDoc)
+}
+
+func getVerificationMethodFromProof(proof verifiable.Proof) (string, error) {
+	verificationMethodVal, ok := proof[verificationMethod]
+	if !ok {
+		return "", errors.New("proof doesn't have verification method")
+	}
+
+	verificationMethod, ok := verificationMethodVal.(string)
+	if !ok {
+		return "", errors.New("proof verification method is not a string")
+	}
+
+	return verificationMethod, nil
+}
+
+func getDIDDocFromProof(verificationMethod string, vdri vdriapi.Registry) (*did.Doc, error) {
+	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
 	if err != nil {
 		return nil, err
 	}
 
-	return vc, nil
+	didDoc, err := vdri.Resolve(didID)
+	if err != nil {
+		return nil, err
+	}
+
+	return didDoc, nil
 }

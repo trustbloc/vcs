@@ -22,10 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-)
-
-const (
-	creatorParts = 2
+	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
 )
 
 const (
@@ -76,12 +73,12 @@ type kmsSigner struct {
 
 func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
 	// creator will contain didID#keyID
-	idSplit := strings.Split(creator, "#")
-	if len(idSplit) != creatorParts {
-		return nil, fmt.Errorf("wrong id %s to resolve", idSplit)
+	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)
+	if err != nil {
+		return nil, err
 	}
 
-	keyHandler, err := keyManager.Get(idSplit[1])
+	keyHandler, err := keyManager.Get(keyID)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +230,7 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string, // nolint: lll
+func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string, // nolint: lll,gocyclo
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
 	s, method, err := c.getSigner(creator, opts)
 	if err != nil {
@@ -244,7 +241,17 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 		proofPurpose = opts.Purpose
 	}
 
-	err = ValidateProofPurpose(proofPurpose, method, c.vdri)
+	didID, err := diddoc.GetDIDFromVerificationMethod(method)
+	if err != nil {
+		return nil, err
+	}
+
+	didDoc, err := c.vdri.Resolve(didID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ValidateProofPurpose(proofPurpose, method, didDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -295,21 +302,11 @@ func (c *Crypto) getSigner(creator string, opts *signingOpts) (signer, string, e
 }
 
 // ValidateProofPurpose validates the proof purpose
-func ValidateProofPurpose(proofPurpose, method string, vdri vdriapi.Registry) error {
+func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
 	// TODO https://github.com/trustbloc/edge-service/issues/368 remove check once did:sov returns both
 	//  assertionMethod and authentication
 	if strings.Contains(method, "did:sov") {
 		return nil
-	}
-
-	didID, err := getDIDFromKeyID(method)
-	if err != nil {
-		return err
-	}
-
-	didDoc, err := vdri.Resolve(didID)
-	if err != nil {
-		return err
 	}
 
 	vmMatched := false
@@ -367,14 +364,4 @@ func getSignatureRepresentation(signRep string) (verifiable.SignatureRepresentat
 	}
 
 	return signatureRepresentation, nil
-}
-
-func getDIDFromKeyID(creator string) (string, error) {
-	// creator will contain didID#keyID
-	idSplit := strings.Split(creator, "#")
-	if len(idSplit) != creatorParts {
-		return "", fmt.Errorf("wrong id %s to resolve", idSplit)
-	}
-
-	return idSplit[0], nil
 }

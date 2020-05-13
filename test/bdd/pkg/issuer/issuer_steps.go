@@ -153,6 +153,7 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 	profileRequest.Name = uuid.New().String() + profileName
 	profileRequest.DID = did.ID
 	profileRequest.SignatureType = "JsonWebSignature2020"
+	profileRequest.OverwriteIssuer = true
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {

@@ -11,7 +11,7 @@
 	],
 	"name": "Heavy Sour Dilbit",
 	"description": "Crude oil stream, produced from diluted bitumen.",
-	"issuer": "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b",
+	"issuer": "did:web:vc.transmute.world",
 	"issuanceDate": "2020-05-01T00:45:04.789Z",
 	"credentialSubject": {
 		"producer": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J",
@@ -101,6 +101,6 @@
 		"created": "2019-12-11T03:50:55Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..ZolikiMUGVacLd5dm1FmsRu18s46RXILAGOG-hU2vTcvyAhe_FBXOBk3ymzyxtJ_JEfd8rw9HmONmXWvrOoAAQ"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..EmXWDeQOeUixjbxi0WCGiuIHshlnsmEU4GYdjQKWV4xZnNQ0dxFIggO92BuHm-zzVWHz8ymKFCcWi4r0ELRQCQ"
 	}
 }

@@ -89,7 +89,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 			{
 				name:        "signing with verification method option with profile DID",
 				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc")},
-				err:         "wrong id [did:trustbloc:abc] to resolve",
+				err:         "verificationMethod value did:trustbloc:abc should be in did#keyID format",
 			},
 			{
 				name: "signing with verification method, purpose options & representation(proofValue)",
@@ -201,7 +201,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		signedVC, err := c.SignCredential(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "wrong id [wrongValue] to resolve")
+		require.Contains(t, err.Error(), "verificationMethod value wrongValue should be in did#keyID format")
 		require.Nil(t, signedVC)
 	})
 

@@ -1,40 +1,40 @@
 {
-	"issuanceDate": "2019-12-03T12:19:52Z",
-	"credentialSubject": {
-		"image": "data:image/png;base64,iVBORw0KGgo...kJggg==",
-		"lprNumber": "999-999-999",
-		"gender": "Male",
-		"residentSince": "2015-01-01",
-		"givenName": "JOHN",
-		"familyName": "SMITH",
-		"birthCountry": "Bahamas",
-		"id": "did:example:b34ca6cd37bbf23",
-		"commuterClassification": "C1",
-		"type": [
+	"issuanceDate":"2019-12-03T12:19:52Z",
+	"credentialSubject":{
+		"image":"data:image/png;base64,iVBORw0KGgo...kJggg==",
+		"lprNumber":"999-999-999",
+		"gender":"Male",
+		"residentSince":"2015-01-01",
+		"givenName":"JOHN",
+		"familyName":"SMITH",
+		"birthCountry":"Bahamas",
+		"id":"did:example:b34ca6cd37bbf23",
+		"commuterClassification":"C1",
+		"type":[
 			"PermanentResident",
 			"Person"
 		],
-		"birthDate": "1958-07-17",
-		"lprCategory": "C09"
+		"birthDate":"1958-07-17",
+		"lprCategory":"C09"
 	},
-	"name": "Permanent Resident Card",
-	"description": "Permanent Resident Card",
-	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
-	"type": [
+	"name":"Permanent Resident Card",
+	"description":"Permanent Resident Card",
+	"id":"http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c#13250913-eb53-4418-9077-fb429f6b033f",
+	"type":[
 		"VerifiableCredential",
 		"PermanentResidentCard"
 	],
-	"@context": [
+	"@context":[
 		"https://www.w3.org/2018/credentials/v1",
 		"https://w3id.org/citizenship/v1"
 	],
-	"issuer": "did:example:28394728934792387",
-	"expirationDate": "2029-12-03T12:19:52Z",
-	"proof": {
-		"created": "2020-05-11T22:04:44.946Z",
-		"proofPurpose": "assertionMethod",
-		"type": "Ed25519Signature2018",
-		"verificationMethod": "did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
-		"jws": "eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..WbW6ZIX_MUjvDHHnKS1WO_ApB09AfHFV1wAnOPapDAnNC-nn6htLr2aC528QKBAwDrmD4_2ZgSF4eoL8W7SnAw"
+	"issuer":"did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
+	"expirationDate":"2029-12-03T12:19:52Z",
+	"proof":{
+		"created":"2020-05-13T20:58:47.687Z",
+		"proofPurpose":"assertionMethod",
+		"type":"Ed25519Signature2018",
+		"verificationMethod":"did:key:z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN#z6MkrqCMy45WhL3UEa1gGTHUtr17AvU4czfP5fH9KNDoYaYN",
+		"jws":"eyJhbGciOiAiRWREU0EiLCAiYjY0IjogZmFsc2UsICJjcml0IjogWyJiNjQiXX0..ZmIGBjpui632KMVRQyk_obaOllC0BrBsqmL_pIzugsTuyBJ5k6w1YoJjK80mfPMHGM2cxAPVmWRIscDelSpfBw"
 	}
 }
