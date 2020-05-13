@@ -58,13 +58,13 @@ type httpClient interface {
 }
 
 // New returns CreateCredential instance
-func New(config *Config) (*Operation, error) {
+func New(config *Config) *Operation {
 	svc := &Operation{
 		vdri:       config.VDRI,
 		httpClient: &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
 
-	return svc, nil
+	return svc
 }
 
 // Config defines configuration for verifier operations
@@ -80,12 +80,12 @@ type Operation struct {
 }
 
 // GetRESTHandlers get all controller API handler available for this service
-func (o *Operation) GetRESTHandlers() ([]Handler, error) {
+func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost,
 			o.verifyPresentationHandler),
-	}, nil
+	}
 }
 
 // nolint dupl

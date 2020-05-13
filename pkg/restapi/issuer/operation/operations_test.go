@@ -1264,8 +1264,7 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 
 	require.NoError(t, err)
 
-	handlers, err := op.GetRESTHandlers()
-	require.NoError(t, err)
+	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 }
 
@@ -2312,8 +2311,7 @@ func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
-	handlers, err := op.GetRESTHandlers()
-	require.NoError(t, err)
+	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {

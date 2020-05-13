@@ -24,6 +24,8 @@ type KeyManager struct {
 	RotateKeyErr           error
 	ExportPubKeyBytesValue []byte
 	ExportPubKeyBytesErr   error
+	ImportPrivateKeyValue  string
+	ImportPrivateKeyError  error
 }
 
 // Create a new mock ey/keyset/key handle for the type kt
@@ -61,5 +63,5 @@ func (k *KeyManager) ExportPubKeyBytes(id string) ([]byte, error) {
 // ImportPrivateKey import private key
 func (k *KeyManager) ImportPrivateKey(privKey interface{}, kt kmsservice.KeyType,
 	opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error) {
-	return "", nil, nil
+	return k.ImportPrivateKeyValue, nil, k.ImportPrivateKeyError
 }

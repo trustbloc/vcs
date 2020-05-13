@@ -191,7 +191,7 @@ type Operation struct {
 }
 
 // GetRESTHandlers get all controller API handler available for this service
-func (o *Operation) GetRESTHandlers() ([]Handler, error) {
+func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
 		// issuer profile
 		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createIssuerProfileHandler),
@@ -209,7 +209,7 @@ func (o *Operation) GetRESTHandlers() ([]Handler, error) {
 		support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
 		support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
 		support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
-	}, nil
+	}
 }
 
 // RetrieveCredentialStatus swagger:route GET /status/{id} issuer retrieveCredentialStatusReq
