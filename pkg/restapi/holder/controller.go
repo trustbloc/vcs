@@ -19,10 +19,7 @@ func New(config *operation.Config) (*Controller, error) {
 		return nil, err
 	}
 
-	handlers, err := holderService.GetRESTHandlers()
-	if err != nil {
-		return nil, err
-	}
+	handlers := holderService.GetRESTHandlers()
 
 	allHandlers = append(allHandlers, handlers...)
 

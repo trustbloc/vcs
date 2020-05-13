@@ -41,10 +41,9 @@ func TestVerifyCredential(t *testing.T) {
 
 	vc.Context = append(vc.Context, cslstatus.Context)
 
-	op, err := New(&Config{
+	op := New(&Config{
 		VDRI: &vdrimock.MockVDRIRegistry{},
 	})
-	require.NoError(t, err)
 
 	endpoint := credentialsVerificationEndpoint
 	didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
@@ -58,10 +57,9 @@ func TestVerifyCredential(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		ops, err := New(&Config{
+		ops := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
@@ -291,10 +289,9 @@ func TestVerifyCredential(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op, err := New(&Config{
+		op := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -373,10 +370,9 @@ func TestVerifyCredential(t *testing.T) {
 		didDoc.AssertionMethod = nil
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		ops, err := New(&Config{
+		ops := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
@@ -416,10 +412,9 @@ func TestVerifyCredential(t *testing.T) {
 }
 
 func TestVerifyPresentation(t *testing.T) {
-	op, err := New(&Config{
+	op := New(&Config{
 		VDRI: &vdrimock.MockVDRIRegistry{},
 	})
-	require.NoError(t, err)
 
 	endpoint := presentationsVerificationEndpoint
 	verificationsHandler := getHandler(t, op, endpoint)
@@ -433,10 +428,9 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op, err := New(&Config{
+		op := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -574,10 +568,9 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op, err := New(&Config{
+		op := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -657,10 +650,9 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc.Authentication = nil
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op, err := New(&Config{
+		op := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -694,10 +686,9 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc.AssertionMethod = nil
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op, err := New(&Config{
+		op := New(&Config{
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
-		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -896,8 +887,7 @@ func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
-	handlers, err := op.GetRESTHandlers()
-	require.NoError(t, err)
+	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {

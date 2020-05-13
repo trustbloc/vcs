@@ -11,22 +11,16 @@ import (
 )
 
 // New returns new controller instance.
-func New(config *operation.Config) (*Controller, error) {
+func New(config *operation.Config) *Controller {
 	var allHandlers []operation.Handler
 
-	holderService, err := operation.New(config)
-	if err != nil {
-		return nil, err
-	}
+	holderService := operation.New(config)
 
-	handlers, err := holderService.GetRESTHandlers()
-	if err != nil {
-		return nil, err
-	}
+	handlers := holderService.GetRESTHandlers()
 
 	allHandlers = append(allHandlers, handlers...)
 
-	return &Controller{handlers: allHandlers}, nil
+	return &Controller{handlers: allHandlers}
 }
 
 // Controller contains handlers for controller

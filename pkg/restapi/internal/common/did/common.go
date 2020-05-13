@@ -10,7 +10,6 @@ import (
 	"crypto/ed25519"
 	"crypto/tls"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -225,12 +224,7 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 		return "", "", fmt.Errorf("failed to create did doc: %v", err)
 	}
 
-	publicKeyID, err := getPublicKeyID(didDoc, selectedKeyID, "")
-	if err != nil {
-		return "", "", err
-	}
-
-	return didDoc.ID, publicKeyID, nil
+	return didDoc.ID, didDoc.ID + "#" + selectedKeyID, nil
 }
 
 func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*didclient.PublicKey, string, error) {
@@ -320,40 +314,4 @@ func (o *CommonDID) importKey(keyID string, keyType kms.KeyType, privateKeyBytes
 	}
 
 	return nil
-}
-
-func getPublicKeyID(didDoc *ariesdid.Doc, keyID, signatureType string) (string, error) {
-	switch {
-	case len(didDoc.PublicKey) > 0:
-		var publicKeyID string
-
-		for _, k := range didDoc.PublicKey {
-			// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
-			if keyID == "" && k.Type == signatureKeyTypeMap[signatureType] {
-				publicKeyID = k.ID
-				break
-			}
-
-			if keyID != "" && strings.Contains(k.ID, "#"+keyID) {
-				publicKeyID = k.ID
-				break
-			}
-		}
-
-		// TODO https://github.com/trustbloc/edge-service/issues/140 this is temporary check to support public
-		//  key ID's which aren't in DID format: Will be removed [Issue#140]
-		if !isDID(publicKeyID) {
-			return didDoc.ID + publicKeyID, nil
-		}
-
-		return publicKeyID, nil
-	case len(didDoc.Authentication) > 0:
-		return didDoc.Authentication[0].PublicKey.ID, nil
-	default:
-		return "", errors.New("public key not found in DID Document")
-	}
-}
-
-func isDID(str string) bool {
-	return strings.HasPrefix(str, "did:")
 }

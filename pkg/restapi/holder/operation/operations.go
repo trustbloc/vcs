@@ -96,13 +96,13 @@ type Operation struct {
 }
 
 // GetRESTHandlers get all controller API handler available for this service
-func (o *Operation) GetRESTHandlers() ([]Handler, error) {
+func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
 		// holder profile
 		support.NewHTTPHandler(holderProfileEndpoint, http.MethodPost, o.createHolderProfileHandler),
 		support.NewHTTPHandler(getHolderProfileEndpoint, http.MethodGet, o.getHolderProfileHandler),
 		support.NewHTTPHandler(signPresentationEndpoint, http.MethodPost, o.signPresentationHandler),
-	}, nil
+	}
 }
 
 // CreateHolderProfile swagger:route POST /holder/profile holder holderProfileReq
