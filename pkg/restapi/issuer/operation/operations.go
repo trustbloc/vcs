@@ -8,7 +8,6 @@ package operation
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -24,6 +23,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -41,6 +41,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/internal/cryptosetup"
 	commondid "github.com/trustbloc/edge-service/pkg/restapi/internal/common/did"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/edge-service/pkg/restapi/internal/common/vcutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -70,8 +71,6 @@ const (
 	authentication       = "authentication"
 	capabilityDelegation = "capabilityDelegation"
 	capabilityInvocation = "capabilityInvocation"
-
-	jsonWebSignature2020Context = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
@@ -394,7 +393,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 // ToDo: data.Credential and vc seem to contain the same data... do they both need to be passed in?
 // https://github.com/trustbloc/edge-service/issues/265
 func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw http.ResponseWriter) {
-	doc, err := o.buildStructuredDoc(data)
+	doc, err := vcutil.BuildStructuredDocForStorage([]byte(data.Credential))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -423,25 +422,6 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 
 		return
 	}
-}
-
-func (o *Operation) buildStructuredDoc(data *StoreVCRequest) (*models.StructuredDocument, error) {
-	edvDocID, err := generateEDVCompatibleID()
-	if err != nil {
-		return nil, err
-	}
-
-	doc := models.StructuredDocument{}
-	doc.ID = edvDocID
-	doc.Content = make(map[string]interface{})
-
-	credentialBytes := []byte(data.Credential)
-
-	var credentialJSONRawMessage json.RawMessage = credentialBytes
-
-	doc.Content["message"] = credentialJSONRawMessage
-
-	return &doc, nil
 }
 
 func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
@@ -490,19 +470,6 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 	}
 
 	return encryptedDocument, nil
-}
-
-func generateEDVCompatibleID() (string, error) {
-	randomBytes := make([]byte, 16)
-
-	_, err := rand.Read(randomBytes)
-	if err != nil {
-		return "", err
-	}
-
-	base58EncodedUUID := base58.Encode(randomBytes)
-
-	return base58EncodedUUID, nil
 }
 
 // StoreVerifiableCredential swagger:route POST /retrieve issuer retrieveCredentialReq
@@ -641,10 +608,10 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// update context
-	updateContext(credential, profile)
+	vcutil.UpdateSignatureTypeContext(credential, profile)
 
 	// update credential issuer
-	updateIssuer(credential, profile)
+	vcutil.UpdateIssuer(credential, profile)
 
 	// sign the credential
 	signedVC, err := o.crypto.SignCredential(profile, credential, getIssuerSigningOpts(cred.Opts)...)
@@ -710,10 +677,10 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	}
 
 	// update context
-	updateContext(credential, profile)
+	vcutil.UpdateSignatureTypeContext(credential, profile)
 
 	// update credential issuer
-	updateIssuer(credential, profile)
+	vcutil.UpdateIssuer(credential, profile)
 
 	// prepare signing options from request options
 	opts, err := getComposeSigningOpts(&composeCredReq)
@@ -738,14 +705,26 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	commhttp.WriteResponse(rw, signedVC)
 }
 
+// nolint: funlen
 func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Credential, error) {
 	// create the verifiable credential
 	credential := &verifiable.Credential{}
 
+	var err error
+
 	// set credential data
-	credential.Context = []string{"https://www.w3.org/2018/credentials/v1"}
-	credential.Issued = composeCredReq.IssuanceDate
-	credential.Expired = composeCredReq.ExpirationDate
+	credential.Context, err = vcutil.GetContextsFromJSONRaw(composeCredReq.CredentialFormatOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	if composeCredReq.IssuanceDate != nil {
+		credential.Issued = util.NewTime(*composeCredReq.IssuanceDate)
+	}
+
+	if composeCredReq.ExpirationDate != nil {
+		credential.Expired = util.NewTime(*composeCredReq.ExpirationDate)
+	}
 
 	// set default type, if request doesn't contain the type
 	credential.Types = []string{"VerifiableCredential"}
@@ -757,7 +736,7 @@ func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Cred
 	credentialSubject := make(map[string]interface{})
 
 	if composeCredReq.Claims != nil {
-		err := json.Unmarshal(composeCredReq.Claims, &credentialSubject)
+		err = json.Unmarshal(composeCredReq.Claims, &credentialSubject)
 		if err != nil {
 			return nil, err
 		}
@@ -772,7 +751,7 @@ func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Cred
 	}
 
 	// set terms of use
-	termsOfUse, err := decodeTypedID(composeCredReq.TermsOfUse)
+	termsOfUse, err := vcutil.DecodeTypedIDFromJSONRaw(composeCredReq.TermsOfUse)
 	if err != nil {
 		return nil, err
 	}
@@ -792,28 +771,6 @@ func buildCredential(composeCredReq *ComposeCredentialRequest) (*verifiable.Cred
 	}
 
 	return credential, nil
-}
-
-func decodeTypedID(typedIDBytes json.RawMessage) ([]verifiable.TypedID, error) {
-	if len(typedIDBytes) == 0 {
-		return nil, nil
-	}
-
-	var singleTypedID verifiable.TypedID
-
-	err := json.Unmarshal(typedIDBytes, &singleTypedID)
-	if err == nil {
-		return []verifiable.TypedID{singleTypedID}, nil
-	}
-
-	var composedTypedID []verifiable.TypedID
-
-	err = json.Unmarshal(typedIDBytes, &composedTypedID)
-	if err == nil {
-		return composedTypedID, nil
-	}
-
-	return nil, err
 }
 
 func getComposeSigningOpts(composeCredReq *ComposeCredentialRequest) ([]crypto.SigningOpts, error) {
@@ -940,7 +897,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf(`no VC under profile "%s" was found with the given id`, profileName))
 	case 1:
-		docID := getDocIDFromURL(docURLs[0])
+		docID := vcutil.GetDocIDFromURL(docURLs[0])
 
 		var err error
 
@@ -981,7 +938,7 @@ func (o *Operation) verifyMultipleMatchingVCsAreIdentical(profileName string, do
 	var retrievedVCs [][]byte
 
 	for _, docURL := range docURLs {
-		docID := getDocIDFromURL(docURL)
+		docID := vcutil.GetDocIDFromURL(docURL)
 
 		retrievedVC, err := o.retrieveVC(profileName, docID, "determining if the multiple VCs "+
 			"matching the given ID are the same")
@@ -1034,22 +991,6 @@ func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byt
 	return retrievedVC, nil
 }
 
-// updateIssuer overrides credential issuer form profile if
-// 'profile.OverwriteIssuer=true' or credential issuer is missing
-// credential issue will always be DID
-func updateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
-	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
-		credential.Issuer = verifiable.Issuer{ID: profile.DID,
-			CustomFields: verifiable.CustomFields{"name": profile.Name}}
-	}
-}
-
-func updateContext(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
-	if profile.SignatureType == crypto.JSONWebSignature2020 {
-		credential.Context = append(credential.Context, jsonWebSignature2020Context)
-	}
-}
-
 func validateIssueCredOptions(options *IssueCredentialOptions) error {
 	if options != nil {
 		switch {
@@ -1068,12 +1009,4 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 	}
 
 	return nil
-}
-
-// Given an EDV document URL, returns just the document ID
-func getDocIDFromURL(docURL string) string {
-	splitBySlashes := strings.Split(docURL, `/`)
-	docIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
-
-	return docIDToRetrieve
 }

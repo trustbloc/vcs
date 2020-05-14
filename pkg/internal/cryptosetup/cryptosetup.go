@@ -31,7 +31,7 @@ const (
 var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as a key set handle pointer")
 
 type unmarshalFunc func([]byte, interface{}) error
-type newJWEEncryptFunc func(jose.EncAlg, []subtle.ECPublicKey) (*jose.JWEEncrypt, error)
+type newJWEEncryptFunc func(jose.EncAlg, []subtle.PublicKey) (*jose.JWEEncrypt, error)
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
 func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
@@ -66,14 +66,14 @@ func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, unmarshal 
 		return nil, err
 	}
 
-	ecPubKey := new(subtle.ECPublicKey)
+	ecPubKey := new(subtle.PublicKey)
 
 	err = unmarshal(buf.Bytes(), ecPubKey)
 	if err != nil {
 		return nil, err
 	}
 
-	jweEncrypter, err := newJWEEncrypt(encAlg, []subtle.ECPublicKey{*ecPubKey})
+	jweEncrypter, err := newJWEEncrypt(encAlg, []subtle.PublicKey{*ecPubKey})
 	if err != nil {
 		return nil, err
 	}

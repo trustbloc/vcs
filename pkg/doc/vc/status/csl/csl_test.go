@@ -31,7 +31,8 @@ const (
 	universityDegreeCred = `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1"
+    "https://www.w3.org/2018/credentials/examples/v1",
+ 	"https://trustbloc.github.io/context/vc/examples-v1.jsonld"
   ],
   "type": [
     "VerifiableCredential",
