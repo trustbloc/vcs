@@ -1363,7 +1363,8 @@ func TestIssueCredential(t *testing.T) {
 		proof, ok := signedVCResp["proof"].(map[string]interface{})
 		require.True(t, ok)
 		require.Equal(t, cslstatus.Context, signedVCResp["@context"].([]interface{})[1])
-		require.Equal(t, jsonWebSignature2020Context, signedVCResp["@context"].([]interface{})[2])
+		require.Equal(t, "https://trustbloc.github.io/context/vc/credentials-v1.jsonld",
+			signedVCResp["@context"].([]interface{})[2])
 		require.Equal(t, vccrypto.JSONWebSignature2020, proof["type"])
 		require.NotEmpty(t, proof["jws"])
 		require.Equal(t, "did:local:abc#"+keyID, proof["verificationMethod"])
@@ -1780,7 +1781,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	expiryDate := issueDate.AddDate(0, 3, 0).UTC()
 	termsOfUseID := "http://example.com/policies/credential/4"
 	termsOfUseType := "IssuerPolicy"
-	degreeType := "UniversityDegree"
+	degreeType := "UniversityDegreeCredential"
 	types := []string{degreeType}
 	evidenceID := "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192d4231"
 	evidenceVerifier := "https://example.edu/issuers/14"
@@ -1866,6 +1867,14 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Claims:         claimJSON,
 			TermsOfUse:     termsOfUseJSON,
 			Evidence:       evidenceJSON,
+			CredentialFormatOptions: json.RawMessage([]byte(`
+				{
+				"@context": [
+					"https://www.w3.org/2018/credentials/v1", 
+					"https://www.w3.org/2018/credentials/examples/v1"
+					]
+				}
+			`)),
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -1883,8 +1892,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, issuer, vcResp.Issuer.ID)
 		require.Equal(t, 1, len(vcResp.Types))
 		require.Equal(t, degreeType, vcResp.Types[0])
-		require.Equal(t, &issueDate, vcResp.Issued)
-		require.Equal(t, &expiryDate, vcResp.Expired)
+		require.Equal(t, issueDate, vcResp.Issued.Time)
+		require.Equal(t, expiryDate, vcResp.Expired.Time)
 		require.NotNil(t, vcResp.Evidence)
 		require.NotNil(t, issuer, vcResp.Issuer)
 

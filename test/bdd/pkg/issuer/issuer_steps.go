@@ -42,7 +42,7 @@ const (
 	   "issuer":"did:example:uoweu180928901",
 	   "subject":"did:example:oleh394sqwnlk223823ln",
 	   "types":[
-		  "UniversityDegree"
+		  "UniversityDegreeCredential"
 	   ],
 	   "issuanceDate":"2020-03-25T19:38:54.45546Z",
 	   "expirationDate":"2020-06-25T19:38:54.45546Z",
@@ -59,6 +59,10 @@ const (
 		  "id":"http://example.com/policies/credential/4",
 		  "type":"IssuerPolicy"
 	   },
+		"credentialFormatOptions": {
+		"@context": ["https://www.w3.org/2018/credentials/v1", 
+				"https://www.w3.org/2018/credentials/examples/v1"]
+		},
 	   "proofFormat":"jws",
 	   "proofFormatOptions":{
 		  "kid":` + `"%s"` + `,

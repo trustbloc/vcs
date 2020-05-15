@@ -55,7 +55,7 @@ func Test_createJWEEncrypter(t *testing.T) {
 		require.NoError(t, err)
 
 		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, json.Unmarshal,
-			func(alg jose.EncAlg, keys []subtle.ECPublicKey) (*jose.JWEEncrypt, error) {
+			func(alg jose.EncAlg, keys []subtle.PublicKey) (*jose.JWEEncrypt, error) {
 				return nil, errTest
 			})
 		require.Equal(t, errTest, err)
