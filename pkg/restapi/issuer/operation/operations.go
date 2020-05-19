@@ -31,6 +31,7 @@ import (
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
+	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
 	"github.com/trustbloc/edv/pkg/restapi/edv/models"
 
@@ -74,6 +75,7 @@ const (
 )
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
+var errNoDocsMatchQuery = errors.New("no documents match the given query")
 
 var errMultipleInconsistentVCsFoundForOneID = errors.New("multiple VCs with " +
 	"differing contents were found matching the given ID. This indicates inconsistency in " +
@@ -153,6 +155,7 @@ func New(config *Config) (*Operation, error) {
 		vcIDIndexNameEncoded: vcIDIndexNameMACEncoded,
 		commonDID: commondid.New(&commondid.Config{VDRI: config.VDRI, KeyManager: config.KeyManager,
 			Domain: config.Domain, TLSConfig: config.TLSConfig}),
+		retryParameters: config.RetryParameters,
 	}
 
 	return svc, nil
@@ -169,6 +172,7 @@ type Config struct {
 	Domain             string
 	TLSConfig          *tls.Config
 	Crypto             ariescrypto.Crypto
+	RetryParameters    *retry.Params
 }
 
 // Operation defines handlers for Edge service
@@ -187,6 +191,7 @@ type Operation struct {
 	macCrypto            ariescrypto.Crypto
 	vcIDIndexNameEncoded string
 	commonDID            commonDID
+	retryParameters      *retry.Params
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -490,10 +495,14 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	}
 
 	docURLs, err := o.queryVault(profile, id)
-	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
-		return
+	if err != nil {
+		// The case where no docs match the given query is handled in o.retrieveCredential.
+		// Any other error is unexpected and is handled here.
+		if err != errNoDocsMatchQuery {
+			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
 
 	o.retrieveCredential(rw, profile, docURLs)
@@ -883,10 +892,27 @@ func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
 
 	vcIDIndexValueEncoded := base64.URLEncoding.EncodeToString(vcIDMAC)
 
-	return o.edvClient.QueryVault(vaultID, &models.Query{
-		Name:  o.vcIDIndexNameEncoded,
-		Value: vcIDIndexValueEncoded,
-	})
+	var docURLs []string
+
+	err = retry.Retry(func() error {
+		var errQueryVault error
+
+		docURLs, errQueryVault = o.edvClient.QueryVault(vaultID, &models.Query{
+			Name:  o.vcIDIndexNameEncoded,
+			Value: vcIDIndexValueEncoded,
+		})
+		if errQueryVault != nil {
+			return errQueryVault
+		}
+
+		if len(docURLs) == 0 {
+			return errNoDocsMatchQuery
+		}
+
+		return nil
+	}, o.retryParameters)
+
+	return docURLs, err
 }
 
 func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName string, docURLs []string) {

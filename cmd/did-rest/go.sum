@@ -216,6 +216,8 @@ github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4/go.mod 
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/trustbloc/edge-core v0.1.3 h1:AE9XMBIVR5p67PE7ywkY4X6ILXT0gAXeIBGfOwMCcVc=
 github.com/trustbloc/edge-core v0.1.3/go.mod h1:mmgEfSIoNjshnVdxEtPwh2CLs0EaBaaejgI2KNsOEOE=
+github.com/trustbloc/edge-core v0.1.4-0.20200514152520-6eccfe31d648 h1:epVeBxb3Kk9iCXH12TiQdz4coVH0mvz8BhQyB4oF0Mo=
+github.com/trustbloc/edge-core v0.1.4-0.20200514152520-6eccfe31d648/go.mod h1:mmgEfSIoNjshnVdxEtPwh2CLs0EaBaaejgI2KNsOEOE=
 github.com/trustbloc/edv v0.1.3/go.mod h1:1syPFSj9e18S2lzClJs0YbpiEe4W6RAkFvL4/6/wta4=
 github.com/trustbloc/sidetree-core-go v0.1.3/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
 github.com/trustbloc/trustbloc-did-method v0.1.3/go.mod h1:z1DDpu/P+VNt5h1dvppXKTiyJO+wOxlmi2NP78i3HNA=
