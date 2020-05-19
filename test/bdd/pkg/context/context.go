@@ -22,6 +22,10 @@ import (
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 )
 
+const (
+	didResolverURL = "http://localhost:8072/1.0/identifiers"
+)
+
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
 	Args              map[string]string
@@ -40,7 +44,7 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 		return nil, err
 	}
 
-	vdri, err := createVDRI("http://localhost:8080/1.0/identifiers")
+	vdri, err := createVDRI(didResolverURL)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +74,8 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 	return &instance, nil
 }
 
-func createVDRI(universalResolver string) (vdriapi.Registry, error) {
-	universalResolverVDRI, err := httpbinding.New(universalResolver,
+func createVDRI(didResolverURL string) (vdriapi.Registry, error) {
+	didResolverVDRI, err := httpbinding.New(didResolverURL,
 		httpbinding.WithAccept(func(method string) bool {
 			return method == "v1" || method == "elem" || method == "sov" ||
 				method == "web" || method == "key" || method == "factom"
@@ -85,6 +89,6 @@ func createVDRI(universalResolver string) (vdriapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(trustbloc.New(trustbloc.WithResolverURL(universalResolver))),
-		vdripkg.WithVDRI(universalResolverVDRI)), nil
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(trustbloc.New(trustbloc.WithResolverURL(didResolverURL))),
+		vdripkg.WithVDRI(didResolverVDRI)), nil
 }
