@@ -122,7 +122,7 @@ func (e *Steps) verifyPresentation(endpoint string, vp []byte, opts *operation.V
 }
 
 func (e *Steps) verify(endpoint string, reqBytes []byte) error {
-	resp, err := http.Post(endpoint, "application/json", //nolint: bodyclose, gosec
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpoint, "application/json", "rw_token", //nolint: bodyclose
 		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
