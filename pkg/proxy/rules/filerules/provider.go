@@ -53,13 +53,17 @@ func New(configFile string) (*Provider, error) {
 	return &Provider{patternRules: patternRules}, nil
 }
 
-// Transform transforms calculates destination URI based on input and proxy rules
+// Transform calculates destination URL based on input and proxy rules
 func (p *Provider) Transform(source string) (string, error) {
 	// For each match of the regex in the content
 	for _, rule := range p.patternRules {
 		var result []byte
 		// for each match of the regex in the content
 		for _, submatchIndexes := range rule.Pattern.FindAllStringSubmatchIndex(source, -1) {
+			if rule.URL == "" {
+				return "", nil
+			}
+
 			// apply the captured submatches to the template and append the output to the result
 			result = rule.Pattern.ExpandString(result, rule.URL, source, submatchIndexes)
 		}

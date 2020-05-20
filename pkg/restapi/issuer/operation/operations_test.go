@@ -1597,7 +1597,7 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - issuer ID validation", func(t *testing.T) {
-		vc, err := verifiable.NewUnverifiedCredential([]byte(validVC))
+		vc, err := verifiable.ParseUnverifiedCredential([]byte(validVC))
 		require.NoError(t, err)
 
 		vc.Issuer.ID = "invalid did"
@@ -1894,7 +1894,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
-		vcResp, err := verifiable.NewUnverifiedCredential(rr.Body.Bytes())
+		vcResp, err := verifiable.ParseUnverifiedCredential(rr.Body.Bytes())
 		require.NoError(t, err)
 
 		// top level values
@@ -1937,7 +1937,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
-		vcResp, err = verifiable.NewUnverifiedCredential(rr.Body.Bytes())
+		vcResp, err = verifiable.ParseUnverifiedCredential(rr.Body.Bytes())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(vcResp.Types))
 		require.Equal(t, "VerifiableCredential", vcResp.Types[0])
@@ -2441,7 +2441,7 @@ func prepareEncryptedDocument(t *testing.T, op *Operation, structuredDoc string)
 	jwe, err := op.jweEncrypter.Encrypt([]byte(structuredDoc), nil)
 	require.NoError(t, err)
 
-	serializedJWE, err := jwe.Serialize(json.Marshal)
+	serializedJWE, err := jwe.FullSerialize(json.Marshal)
 	require.NoError(t, err)
 
 	encryptedDocToReturn := models.EncryptedDocument{

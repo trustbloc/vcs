@@ -9,6 +9,9 @@
       "url": "https://uniresolver.io/1.0/identifiers/$1"
     },
     {
+      "pattern": "^(did:key:.+)$"
+    },
+    {
       "pattern": "^(did:.+)$",
       "url": "http://uni-resolver-web:8080/1.0/identifiers/$1"
     }

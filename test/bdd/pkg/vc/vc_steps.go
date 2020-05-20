@@ -97,7 +97,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 
 //nolint: funlen
 func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
-	vc, _, err := verifiable.NewCredential(e.bddContext.CreatedCredential,
+	vc, err := verifiable.ParseCredential(e.bddContext.CreatedCredential,
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
 	if err != nil {
 		return err
@@ -277,7 +277,7 @@ func (e *Steps) createCredential(credential, profileName string) error {
 		return fmt.Errorf("unable to find credential '%s' request template", credential)
 	}
 
-	cred, err := verifiable.NewUnverifiedCredential(template)
+	cred, err := verifiable.ParseUnverifiedCredential(template)
 	if err != nil {
 		return err
 	}
@@ -1072,7 +1072,7 @@ func (e *Steps) createBasicVerifierProfile(profileID string) error {
 func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) error {
 	cred := e.bddContext.Args[bddutil.GetCredentialKey(holder)]
 
-	vc, err := verifiable.NewUnverifiedCredential([]byte(cred))
+	vc, err := verifiable.ParseUnverifiedCredential([]byte(cred))
 	if err != nil {
 		return err
 	}

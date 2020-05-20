@@ -248,7 +248,7 @@ func TestGetProfile(t *testing.T) {
 }
 
 func TestVerifyCredential(t *testing.T) {
-	vc, err := verifiable.NewUnverifiedCredential([]byte(prCardVC))
+	vc, err := verifiable.ParseUnverifiedCredential([]byte(prCardVC))
 	require.NoError(t, err)
 
 	vc.Context = append(vc.Context, cslstatus.Context)
@@ -1243,7 +1243,7 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod, domain, challenge string) []byte {
-	vc, err := verifiable.NewUnverifiedCredential([]byte(vcJSON))
+	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcJSON))
 	require.NoError(t, err)
 
 	vc.Issuer.ID = didID
@@ -1277,7 +1277,7 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod
 func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerificationMethod, issuerDID, vcVerificationMethod, domain, challenge string) []byte { // nolint
 	signedVC := getSignedVC(t, privKey, vcJSON, issuerDID, vcVerificationMethod, "", "")
 
-	vc, err := verifiable.NewUnverifiedCredential(signedVC)
+	vc, err := verifiable.ParseUnverifiedCredential(signedVC)
 	require.NoError(t, err)
 
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")

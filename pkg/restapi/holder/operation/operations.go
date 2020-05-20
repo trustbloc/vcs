@@ -209,7 +209,7 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	presentation, err := verifiable.NewPresentation(presReq.Presentation,
+	presentation, err := verifiable.ParsePresentation(presReq.Presentation,
 		verifiable.WithDisabledPresentationProofCheck())
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())

@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
@@ -23,7 +25,7 @@ import (
 )
 
 const (
-	proxyURL = "/1.0/identifiers/{did}"
+	resolveURL = "/1.0/identifiers/{did}"
 
 	// outbound headers
 	contentTypeHeader = "Content-type"
@@ -31,6 +33,12 @@ const (
 	// inbound headers
 	authorizationHeader = "Authorization"
 	acceptHeader        = "Accept"
+
+	// content type
+	didLDJson = "application/did+ld+json"
+
+	// DID methods supported by local implementations
+	didMethodKey = "key"
 
 	defaultTimeout = 240 * time.Second
 )
@@ -46,6 +54,7 @@ type Handler interface {
 func New(config *Config) *Operation {
 	svc := &Operation{
 		ruleProvider: config.RuleProvider,
+		keyVDRI:      config.KeyVDRI,
 		httpClient: &http.Client{
 			Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
@@ -55,13 +64,15 @@ func New(config *Config) *Operation {
 
 // Config defines configuration for vcs operations
 type Config struct {
-	TLSConfig    *tls.Config
 	RuleProvider rules.Provider
+	KeyVDRI      key.VDRI
+	TLSConfig    *tls.Config
 }
 
 // Operation defines handlers for DID REST service
 type Operation struct {
 	ruleProvider rules.Provider
+	keyVDRI      key.VDRI
 	httpClient   httpClient
 }
 
@@ -72,32 +83,68 @@ type httpClient interface {
 // GetRESTHandlers get all controller API handler available for this service
 func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
-		support.NewHTTPHandler(proxyURL, http.MethodGet, o.proxy),
+		support.NewHTTPHandler(resolveURL, http.MethodGet, o.resolve),
 	}
 }
 
-// Proxy will proxy requests based on provided configuration
-func (o *Operation) proxy(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) resolve(rw http.ResponseWriter, req *http.Request) {
 	did := mux.Vars(req)["did"]
 
-	log.Debugf("proxy received request for DID: %s", did)
+	log.Debugf("resolve received request for DID: %s", did)
 
 	destinationURL, err := o.ruleProvider.Transform(did)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
+		writeErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to transform DID to destination URL: %s", err.Error()))
 		return
 	}
 
-	log.Debugf("proxy resolved DID '%s' to destination URL '%s'", did, destinationURL)
+	if destinationURL == "" {
+		o.resolveWithVDRI(rw, did)
+		return
+	}
 
+	o.resolveWithProxy(rw, req, destinationURL)
+}
+
+func (o *Operation) resolveWithVDRI(rw http.ResponseWriter, didURI string) {
+	did, err := diddoc.Parse(didURI)
+	if err != nil {
+		writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid DID: %s", err.Error()))
+		return
+	}
+
+	var doc *diddoc.Doc
+
+	switch did.Method {
+	case didMethodKey:
+		doc, err = o.keyVDRI.Read(did.String())
+		if err != nil {
+			writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID: %s", err.Error()))
+			return
+		}
+	default:
+		writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("unsupported DID method: %s", did.Method))
+		return
+	}
+
+	bytes, err := doc.JSONBytes()
+	if err != nil {
+		writeErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("failed to convert DIDDoc to json bytes: %s", err.Error()))
+		return
+	}
+
+	writeResponse(rw, http.StatusOK, didLDJson, bytes)
+}
+
+func (o *Operation) resolveWithProxy(rw http.ResponseWriter, req *http.Request, destinationURL string) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
 	newReq, err := http.NewRequest(http.MethodGet, destinationURL, nil)
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to create new request: %s", err.Error()))
+		writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to create new request: %s", err.Error()))
 		return
 	}
 
@@ -105,9 +152,7 @@ func (o *Operation) proxy(rw http.ResponseWriter, req *http.Request) {
 
 	resp, err := o.httpClient.Do(newReq.WithContext(ctx))
 	if err != nil {
-		o.writeErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to proxy: %s", err.Error()))
-
+		writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to proxy: %s", err.Error()))
 		return
 	}
 
@@ -125,13 +170,7 @@ func (o *Operation) proxy(rw http.ResponseWriter, req *http.Request) {
 
 	log.Debugf("proxy returning destination status '%d' and body: %s", resp.StatusCode, string(body))
 
-	rw.Header().Add(contentTypeHeader, resp.Header.Get(contentTypeHeader))
-	rw.WriteHeader(resp.StatusCode)
-
-	_, err = rw.Write(body)
-	if err != nil {
-		log.Errorf("Unable to write response, %s", err)
-	}
+	writeResponse(rw, resp.StatusCode, resp.Header.Get(contentTypeHeader), body)
 }
 
 func addRequestHeaders(req, newReq *http.Request) {
@@ -145,12 +184,22 @@ func addRequestHeaders(req, newReq *http.Request) {
 	}
 }
 
-func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
+func writeResponse(rw http.ResponseWriter, status int, contentType string, body []byte) {
+	rw.Header().Add(contentTypeHeader, contentType)
+	rw.WriteHeader(status)
+
+	_, err := rw.Write(body)
+	if err != nil {
+		log.Errorf("Unable to write response, %s", err)
+	}
+}
+
+func writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
 	log.Warnf("proxy returning status code: %d, error: %s", status, msg)
 
 	rw.WriteHeader(status)
 
-	err := json.NewEncoder(rw).Encode(ErrorResponse{
+	err := json.NewEncoder(rw).Encode(errorResponse{
 		Message: msg,
 	})
 
@@ -159,7 +208,7 @@ func (o *Operation) writeErrorResponse(rw http.ResponseWriter, status int, msg s
 	}
 }
 
-// ErrorResponse to send error message in the response
-type ErrorResponse struct {
+// errorResponse to send error message in the response
+type errorResponse struct {
 	Message string `json:"errMessage,omitempty"`
 }

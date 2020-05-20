@@ -194,7 +194,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		statusValue := []string{"Revoked", "Revoked1"}
 
-		cred, _, err := verifiable.NewCredential([]byte(universityDegreeCred))
+		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred))
 		require.NoError(t, err)
 
 		for _, v := range statusValue {
@@ -239,7 +239,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			Status: status}, getTestProfile(),
 			"Revoked", "Disciplinary action")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create new credential")
+		require.Contains(t, err.Error(), "failed to parse credential")
 	})
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
@@ -251,7 +251,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		status, err := s.CreateStatusID()
 		require.NoError(t, err)
 
-		cred, _, err := verifiable.NewCredential([]byte(universityDegreeCred))
+		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred))
 		require.NoError(t, err)
 		cred.ID = "http://example.edu/credentials/1872"
 		cred.Status = status

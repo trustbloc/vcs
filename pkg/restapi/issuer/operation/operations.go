@@ -441,7 +441,7 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 		return models.EncryptedDocument{}, err
 	}
 
-	encryptedStructuredDoc, err := jwe.Serialize(json.Marshal)
+	encryptedStructuredDoc, err := jwe.FullSerialize(json.Marshal)
 	if err != nil {
 		return models.EncryptedDocument{}, err
 	}
@@ -596,7 +596,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// validate the VC (ignore the proof)
-	credential, _, err := verifiable.NewCredential(cred.Credential, verifiable.WithDisabledProofCheck())
+	credential, err := verifiable.ParseCredential(cred.Credential, verifiable.WithDisabledProofCheck())
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
 
@@ -870,7 +870,7 @@ func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, _, err := verifiable.NewCredential(
+	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),

@@ -13,14 +13,99 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	didLDJson = "application/did+ld+json"
-)
+func TestResolve_vdri(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		op := New(&Config{
+			RuleProvider: &mockRuleProvider{},
+			KeyVDRI:      *key.New(),
+		})
 
-func TestProxy(t *testing.T) {
+		proxyHandler := getHandler(t, op, resolveURL)
+
+		req, err := http.NewRequest(http.MethodGet, "", nil)
+		require.NoError(t, err)
+
+		req = mux.SetURLVars(req, map[string]string{
+			"did": "did:key:z6MkpTHR8VNsBxYAAWHut2Geadd9jSwuBV8xRoAnwWsdvktH",
+		})
+
+		req.Header.Add(authorizationHeader, "token")
+		req.Header.Add(acceptHeader, didLDJson)
+
+		rr := httptest.NewRecorder()
+
+		proxyHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("error - invalid DID", func(t *testing.T) {
+		op := New(&Config{
+			RuleProvider: &mockRuleProvider{},
+		})
+
+		proxyHandler := getHandler(t, op, resolveURL)
+
+		req, err := http.NewRequest(http.MethodGet, "", nil)
+		require.NoError(t, err)
+
+		req = mux.SetURLVars(req, map[string]string{
+			"did": "invalid",
+		})
+
+		rr := httptest.NewRecorder()
+
+		proxyHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("error - unsupported DID method", func(t *testing.T) {
+		op := New(&Config{
+			RuleProvider: &mockRuleProvider{},
+		})
+
+		proxyHandler := getHandler(t, op, resolveURL)
+
+		req, err := http.NewRequest(http.MethodGet, "", nil)
+		require.NoError(t, err)
+
+		req = mux.SetURLVars(req, map[string]string{
+			"did": "did:unsupported:id",
+		})
+
+		rr := httptest.NewRecorder()
+
+		proxyHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+
+	t.Run("error - failed to resolve DID", func(t *testing.T) {
+		op := New(&Config{
+			RuleProvider: &mockRuleProvider{},
+			KeyVDRI:      *key.New(),
+		})
+
+		proxyHandler := getHandler(t, op, resolveURL)
+
+		req, err := http.NewRequest(http.MethodGet, "", nil)
+		require.NoError(t, err)
+
+		req = mux.SetURLVars(req, map[string]string{
+			"did": "did:key:abc",
+		})
+
+		rr := httptest.NewRecorder()
+
+		proxyHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+}
+
+func TestResolve_proxy(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		dest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "{}")
@@ -31,7 +116,7 @@ func TestProxy(t *testing.T) {
 			RuleProvider: &mockRuleProvider{URL: dest.URL + "/identifiers/did:method:abc"},
 		})
 
-		proxyHandler := getHandler(t, op, proxyURL)
+		proxyHandler := getHandler(t, op, resolveURL)
 
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/identifiers/did:method:abc", nil)
 		require.NoError(t, err)
@@ -50,7 +135,7 @@ func TestProxy(t *testing.T) {
 			RuleProvider: &mockRuleProvider{Err: errors.New("rule provider error")},
 		})
 
-		proxyHandler := getHandler(t, op, proxyURL)
+		proxyHandler := getHandler(t, op, resolveURL)
 
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/identifiers/did:method:abc", nil)
 		require.NoError(t, err)
@@ -71,7 +156,7 @@ func TestProxy(t *testing.T) {
 			RuleProvider: &mockRuleProvider{URL: dest.URL + "/identifiers/did:method:abc"},
 		})
 
-		proxyHandler := getHandler(t, op, proxyURL)
+		proxyHandler := getHandler(t, op, resolveURL)
 
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/identifiers/did:method:abc", nil)
 		require.NoError(t, err)
@@ -87,7 +172,7 @@ func TestProxy(t *testing.T) {
 			RuleProvider: &mockRuleProvider{URL: "https://213abfg8989.com/identifiers/did:method:abc"},
 		})
 
-		proxyHandler := getHandler(t, op, proxyURL)
+		proxyHandler := getHandler(t, op, resolveURL)
 
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/identifiers/did:method:abc", nil)
 		require.NoError(t, err)
@@ -103,7 +188,7 @@ func TestProxy(t *testing.T) {
 			RuleProvider: &mockRuleProvider{URL: "not a good one"},
 		})
 
-		proxyHandler := getHandler(t, op, proxyURL)
+		proxyHandler := getHandler(t, op, resolveURL)
 
 		req, err := http.NewRequest(http.MethodGet, "http://example.com/identifiers/did:method:abc", nil)
 		require.NoError(t, err)

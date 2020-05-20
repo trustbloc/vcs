@@ -190,9 +190,9 @@ func (c *CredentialStatusManager) createStatusCredential(v *verifiable.Credentia
 		return nil, fmt.Errorf("create credential marshalling failed: %s", err.Error())
 	}
 
-	validatedStatusCred, _, err := verifiable.NewCredential(cred)
+	validatedStatusCred, err := verifiable.ParseCredential(cred)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new credential: %s", err.Error())
+		return nil, fmt.Errorf("failed to parse credential: %s", err.Error())
 	}
 
 	return validatedStatusCred, nil
