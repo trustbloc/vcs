@@ -73,8 +73,10 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("create profile - success", func(t *testing.T) {
 		vReq := &verifier.ProfileData{
-			ID:   uuid.New().String(),
-			Name: "test",
+			ID:                 uuid.New().String(),
+			Name:               "test",
+			CredentialChecks:   []string{proofCheck, statusCheck},
+			PresentationChecks: []string{proofCheck},
 		}
 
 		vReqBytes, err := json.Marshal(vReq)
@@ -121,6 +123,38 @@ func TestCreateProfile(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "missing profile name")
+	})
+
+	t.Run("create profile - invalid credential checks", func(t *testing.T) {
+		vReq := &verifier.ProfileData{
+			ID:               "test1",
+			Name:             "test 1",
+			CredentialChecks: []string{proofCheck, statusCheck, "invalidCheck"},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid credential check option - invalidCheck")
+	})
+
+	t.Run("create profile - invalid presentation checks", func(t *testing.T) {
+		vReq := &verifier.ProfileData{
+			ID:                 "test1",
+			Name:               "test 1",
+			PresentationChecks: []string{proofCheck, "invalidCheck"},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid presentation check option - invalidCheck")
 	})
 
 	t.Run("create profile - profile already exists", func(t *testing.T) {
@@ -226,10 +260,23 @@ func TestVerifyCredential(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	endpoint := credentialsVerificationEndpoint
+	vReq := &verifier.ProfileData{
+		ID:                 "test",
+		Name:               "test verifier",
+		CredentialChecks:   []string{proofCheck, statusCheck},
+		PresentationChecks: []string{proofCheck},
+	}
+
+	err = op.profileStore.SaveProfile(vReq)
+	require.NoError(t, err)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = vReq.ID
+
+	endpoint := "/test/verifier/credentials"
 	didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
 
-	verificationsHandler := getHandler(t, op, endpoint)
+	verificationsHandler := getHandler(t, op, credentialsVerificationEndpoint)
 
 	t.Run("credential verification - success", func(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -243,6 +290,9 @@ func TestVerifyCredential(t *testing.T) {
 			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
+
+		err = ops.profileStore.SaveProfile(vReq)
 		require.NoError(t, err)
 
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
@@ -260,7 +310,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, ops, endpoint)
+		handler := getHandler(t, ops, credentialsVerificationEndpoint)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
@@ -274,7 +324,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -282,6 +332,21 @@ func TestVerifyCredential(t *testing.T) {
 		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(verificationResp.Checks))
+	})
+
+	t.Run("credential verification - invalid profile", func(t *testing.T) {
+		ops, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{},
+			StoreProvider: memstore.NewProvider(),
+		})
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, ops, credentialsVerificationEndpoint)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid verifier profile")
 	})
 
 	t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
@@ -292,7 +357,7 @@ func TestVerifyCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -313,7 +378,7 @@ func TestVerifyCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request: build new credential")
@@ -331,7 +396,7 @@ func TestVerifyCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -353,7 +418,7 @@ func TestVerifyCredential(t *testing.T) {
 		reqBytes, err = json.Marshal(req)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr = serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -384,7 +449,7 @@ func TestVerifyCredential(t *testing.T) {
 			reqBytes, err := json.Marshal(req)
 			require.NoError(t, err)
 
-			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 			require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -421,7 +486,7 @@ func TestVerifyCredential(t *testing.T) {
 			reqBytes, err := json.Marshal(req)
 			require.NoError(t, err)
 
-			rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 			require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -447,7 +512,7 @@ func TestVerifyCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		verificationResp := &CredentialsVerificationFailResponse{}
@@ -459,8 +524,7 @@ func TestVerifyCredential(t *testing.T) {
 	})
 
 	t.Run("credential verification - invalid json input", func(t *testing.T) {
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint,
-			[]byte("invalid input"))
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, []byte("invalid input"), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
@@ -479,8 +543,11 @@ func TestVerifyCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		// verify credential
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, credentialsVerificationEndpoint)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, prCardVC, didID, verificationMethod, domain,
@@ -495,7 +562,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
@@ -512,7 +579,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err = json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr = serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
@@ -525,7 +592,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err = json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr = serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
@@ -542,7 +609,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err = json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr = serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
@@ -563,6 +630,9 @@ func TestVerifyCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = ops.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
 
@@ -578,7 +648,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, ops, endpoint)
+		handler := getHandler(t, ops, credentialsVerificationEndpoint)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
@@ -592,7 +662,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "verifiable credential proof purpose validation error :"+
@@ -613,11 +683,14 @@ func TestVerifyCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = ops.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		vcBytes, err := vc.MarshalJSON()
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, ops, endpoint)
+		handler := getHandler(t, ops, credentialsVerificationEndpoint)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, string(vcBytes), "did:invalid:issuer", verificationMethod, domain, challenge),
@@ -631,7 +704,7 @@ func TestVerifyCredential(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "controller of verification method doesn't match the issuer")
@@ -645,8 +718,21 @@ func TestVerifyPresentation(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	endpoint := presentationsVerificationEndpoint
-	verificationsHandler := getHandler(t, op, endpoint)
+	vReq := &verifier.ProfileData{
+		ID:                 "test",
+		Name:               "test verifier",
+		CredentialChecks:   []string{proofCheck, statusCheck},
+		PresentationChecks: []string{proofCheck},
+	}
+
+	err = op.profileStore.SaveProfile(vReq)
+	require.NoError(t, err)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = vReq.ID
+
+	endpoint := "/test/verifier/presentations"
+	verificationsHandler := getHandler(t, op, presentationsVerificationEndpoint)
 
 	t.Run("presentation verification - success", func(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -663,8 +749,11 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		// verify credential
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -679,7 +768,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
@@ -690,6 +779,21 @@ func TestVerifyPresentation(t *testing.T) {
 		require.Equal(t, proofCheck, verificationResp.Checks[0])
 	})
 
+	t.Run("presentation verification - invalid profile", func(t *testing.T) {
+		ops, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{},
+			StoreProvider: memstore.NewProvider(),
+		})
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, ops, presentationsVerificationEndpoint)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "invalid verifier profile")
+	})
+
 	t.Run("presentation verification - request doesn't contain checks", func(t *testing.T) {
 		req := &VerifyPresentationRequest{
 			Presentation: []byte(vpWithoutProof),
@@ -698,7 +802,7 @@ func TestVerifyPresentation(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -724,7 +828,7 @@ func TestVerifyPresentation(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -747,7 +851,7 @@ func TestVerifyPresentation(t *testing.T) {
 		reqBytes, err = json.Marshal(req)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr = serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 
@@ -772,7 +876,7 @@ func TestVerifyPresentation(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint, reqBytes)
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		verificationResp := &VerifyPresentationFailureResponse{}
@@ -784,8 +888,7 @@ func TestVerifyPresentation(t *testing.T) {
 	})
 
 	t.Run("presentation verification - invalid json input", func(t *testing.T) {
-		rr := serveHTTP(t, verificationsHandler.Handle(), http.MethodPost, endpoint,
-			[]byte("invalid input"))
+		rr := serveHTTPMux(t, verificationsHandler, endpoint, []byte("invalid input"), urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "Invalid request")
@@ -806,8 +909,11 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		// verify credential
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -822,7 +928,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
@@ -840,7 +946,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err = json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr = serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
@@ -854,7 +960,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err = json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr = serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid challenge in the proof")
@@ -872,7 +978,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err = json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr = serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid domain in the proof")
@@ -894,8 +1000,11 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		// verify credential
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -910,7 +1019,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "verifiable presentation proof purpose validation error :"+
@@ -933,8 +1042,11 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		// verify credential
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -949,7 +1061,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "verifiable credential proof purpose validation error : unable"+
@@ -971,8 +1083,11 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		err = op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
 		// verify credential
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, "did:invalid:holder", verificationMethod,
@@ -987,7 +1102,7 @@ func TestVerifyPresentation(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "controller of verification method doesn't match the holder")

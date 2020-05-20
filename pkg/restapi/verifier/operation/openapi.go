@@ -42,6 +42,12 @@ type getProfileReq struct { // nolint: unused,deadcode
 //
 // swagger:parameters verifyCredentialReq
 type verifyCredentialReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+
 	// in: body
 	Params CredentialsVerificationRequest
 }
@@ -62,10 +68,16 @@ type verifyCredentialFailureResp struct { // nolint: unused,deadcode
 	Checks []*CredentialsVerificationCheckResult `json:"checks,omitempty"`
 }
 
-// verifyCredentialReq model
+// verifyPresentationReq model
 //
 // swagger:parameters verifyPresentationReq
 type verifyPresentationReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+
 	// in: body
 	Params VerifyPresentationRequest
 }

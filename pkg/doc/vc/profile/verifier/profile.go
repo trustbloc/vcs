@@ -27,8 +27,10 @@ type Profile struct {
 
 // ProfileData struct for profile
 type ProfileData struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID                 string   `json:"id,omitempty"`
+	Name               string   `json:"name"`
+	CredentialChecks   []string `json:"credentialChecks,omitempty"`
+	PresentationChecks []string `json:"presentationChecks,omitempty"`
 }
 
 // New returns new credential recorder instance
