@@ -582,7 +582,11 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	verifierService := restverifier.New(&verifierops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdri})
+	verifierService, err := restverifier.New(&verifierops.Config{StoreProvider: edgeServiceProvs.provider,
+		TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdri})
+	if err != nil {
+		return err
+	}
 
 	if parameters.mode == string(issuer) || parameters.mode == string(combined) {
 		for _, handler := range issuerService.GetOperations() {

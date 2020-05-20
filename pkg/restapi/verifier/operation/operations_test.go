@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -20,14 +21,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 )
 
@@ -35,15 +40,190 @@ const (
 	assertionMethod = "assertionMethod"
 )
 
+func Test_New(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		controller, err := New(&Config{
+			StoreProvider: memstore.NewProvider(),
+			VDRI:          &vdrimock.MockVDRIRegistry{},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+	})
+
+	t.Run("test failure", func(t *testing.T) {
+		controller, err := New(&Config{
+			StoreProvider: &mockstorage.Provider{ErrCreateStore: errors.New("error creating the store")},
+			VDRI:          &vdrimock.MockVDRIRegistry{},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "error creating the store")
+		require.Nil(t, controller)
+	})
+}
+
+func TestCreateProfile(t *testing.T) {
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	endpoint := profileEndpoint
+	handler := getHandler(t, op, endpoint)
+
+	t.Run("create profile - success", func(t *testing.T) {
+		vReq := &verifier.ProfileData{
+			ID:   uuid.New().String(),
+			Name: "test",
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		profileRes := &verifier.ProfileData{}
+		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
+		require.NoError(t, err)
+		require.Equal(t, vReq, profileRes)
+	})
+
+	t.Run("create profile - invalid request", func(t *testing.T) {
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, []byte("invalid-json"))
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "Invalid request")
+	})
+
+	t.Run("create profile - missing profile id", func(t *testing.T) {
+		vReq := &verifier.ProfileData{}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "missing profile id")
+	})
+
+	t.Run("create profile - missing profile name", func(t *testing.T) {
+		vReq := &verifier.ProfileData{
+			ID: "test1",
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "missing profile name")
+	})
+
+	t.Run("create profile - profile already exists", func(t *testing.T) {
+		vReq := &verifier.ProfileData{
+			ID:   "test1",
+			Name: "test 1",
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "profile test1 already exists")
+	})
+
+	t.Run("create profile - profile fetch db error", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrPut: errors.New("save error")},
+			},
+			VDRI: &vdrimock.MockVDRIRegistry{},
+		})
+		require.NoError(t, err)
+
+		endpoint := profileEndpoint
+		handler := getHandler(t, op, endpoint)
+
+		vReq := &verifier.ProfileData{
+			ID:   "test1",
+			Name: "test 1",
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "save error")
+	})
+}
+
+func TestGetProfile(t *testing.T) {
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	endpoint := getProfileEndpoint
+	handler := getHandler(t, op, endpoint)
+
+	urlVars := make(map[string]string)
+
+	t.Run("get profile - success", func(t *testing.T) {
+		vReq := &verifier.ProfileData{
+			ID: "test",
+		}
+
+		err := op.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
+		urlVars[profileIDPathParam] = vReq.ID
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		profileRes := &verifier.ProfileData{}
+		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
+		require.NoError(t, err)
+		require.Equal(t, vReq.ID, profileRes.ID)
+	})
+
+	t.Run("get profile - no data found", func(t *testing.T) {
+		urlVars[profileIDPathParam] = "invalid-name"
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		fmt.Println(rr.Body.String())
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "store does not have a value associated with this key")
+	})
+}
+
 func TestVerifyCredential(t *testing.T) {
 	vc, err := verifiable.NewUnverifiedCredential([]byte(prCardVC))
 	require.NoError(t, err)
 
 	vc.Context = append(vc.Context, cslstatus.Context)
 
-	op := New(&Config{
-		VDRI: &vdrimock.MockVDRIRegistry{},
+	op, err := New(&Config{
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+		StoreProvider: memstore.NewProvider(),
 	})
+	require.NoError(t, err)
 
 	endpoint := credentialsVerificationEndpoint
 	didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
@@ -58,9 +238,11 @@ func TestVerifyCredential(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 		vc.Issuer.ID = didDoc.ID
 
-		ops := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		ops, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
@@ -290,9 +472,11 @@ func TestVerifyCredential(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		op, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -372,9 +556,11 @@ func TestVerifyCredential(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 		vc.Issuer.ID = didDoc.ID
 
-		ops := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		ops, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		cslBytes, err := json.Marshal(&cslstatus.CSL{})
 		require.NoError(t, err)
@@ -420,9 +606,11 @@ func TestVerifyCredential(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 		vc.Issuer.ID = didDoc.ID
 
-		ops := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		ops, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		vcBytes, err := vc.MarshalJSON()
 		require.NoError(t, err)
@@ -450,9 +638,11 @@ func TestVerifyCredential(t *testing.T) {
 }
 
 func TestVerifyPresentation(t *testing.T) {
-	op := New(&Config{
-		VDRI: &vdrimock.MockVDRIRegistry{},
+	op, err := New(&Config{
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+		StoreProvider: memstore.NewProvider(),
 	})
+	require.NoError(t, err)
 
 	endpoint := presentationsVerificationEndpoint
 	verificationsHandler := getHandler(t, op, endpoint)
@@ -466,9 +656,11 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		op, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -607,9 +799,11 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		op, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -693,9 +887,11 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc.Authentication = nil
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		op, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -730,9 +926,11 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc.AssertionMethod = nil
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		op, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -766,9 +964,11 @@ func TestVerifyPresentation(t *testing.T) {
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.PublicKey[0].ID
 
-		op := New(&Config{
-			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+		op, err := New(&Config{
+			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			StoreProvider: memstore.NewProvider(),
 		})
+		require.NoError(t, err)
 
 		// verify credential
 		handler := getHandler(t, op, endpoint)
@@ -1043,6 +1243,20 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 	rr := httptest.NewRecorder()
 
 	handler.ServeHTTP(rr, httpReq)
+
+	return rr
+}
+
+func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byte,
+	urlVars map[string]string) *httptest.ResponseRecorder {
+	r, err := http.NewRequest(handler.Method(), endpoint, bytes.NewBuffer(reqBytes))
+	require.NoError(t, err)
+
+	rr := httptest.NewRecorder()
+
+	req1 := mux.SetURLVars(r, urlVars)
+
+	handler.Handle().ServeHTTP(rr, req1)
 
 	return rr
 }

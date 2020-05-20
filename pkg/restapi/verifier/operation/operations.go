@@ -15,12 +15,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
@@ -28,8 +31,12 @@ import (
 )
 
 const (
+	profileIDPathParam = "id"
+
 	// verifier endpoints
 	verifierBasePath                  = "/verifier"
+	profileEndpoint                   = verifierBasePath + "/profile"
+	getProfileEndpoint                = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
 	credentialsVerificationEndpoint   = verifierBasePath + "/credentials"
 	presentationsVerificationEndpoint = verifierBasePath + "/presentations"
 
@@ -60,34 +67,113 @@ type httpClient interface {
 }
 
 // New returns CreateCredential instance
-func New(config *Config) *Operation {
-	svc := &Operation{
-		vdri:       config.VDRI,
-		httpClient: &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+func New(config *Config) (*Operation, error) {
+	p, err := verifier.New(config.StoreProvider)
+	if err != nil {
+		return nil, err
 	}
 
-	return svc
+	svc := &Operation{
+		profileStore: p,
+		vdri:         config.VDRI,
+		httpClient:   &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+	}
+
+	return svc, nil
 }
 
 // Config defines configuration for verifier operations
 type Config struct {
-	VDRI      vdriapi.Registry
-	TLSConfig *tls.Config
+	StoreProvider storage.Provider
+	VDRI          vdriapi.Registry
+	TLSConfig     *tls.Config
 }
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	vdri       vdriapi.Registry
-	httpClient httpClient
+	profileStore *verifier.Profile
+	vdri         vdriapi.Registry
+	httpClient   httpClient
 }
 
 // GetRESTHandlers get all controller API handler available for this service
 func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
+		// profile
+		support.NewHTTPHandler(profileEndpoint, http.MethodPost, o.createProfileHandler),
+		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+
+		// verification
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost,
 			o.verifyPresentationHandler),
 	}
+}
+
+// CreateProfile swagger:route POST /verifier/profile verifier profileData
+//
+// Creates verifier profile.
+//
+// Responses:
+//    default: genericError
+//        201: profileData
+func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	request := &verifier.ProfileData{}
+
+	if err := json.NewDecoder(req.Body).Decode(request); err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	if err := validateProfileRequest(request); err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	profile, err := o.profileStore.GetProfile(request.ID)
+	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if profile != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", profile.ID))
+
+		return
+	}
+
+	err = o.profileStore.SaveProfile(request)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusCreated)
+	commhttp.WriteResponse(rw, request)
+}
+
+// RetrieveProfile swagger:route GET /verifier/profile/{id} verifier getProfileReq
+//
+// Retrieves verifier profile.
+//
+// Responses:
+//    default: genericError
+//        200: profileData
+func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	profile, err := o.profileStore.GetProfile(profileID)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	commhttp.WriteResponse(rw, profile)
 }
 
 // nolint dupl
@@ -529,4 +615,15 @@ func getDIDDocFromProof(verificationMethod string, vdri vdriapi.Registry) (*did.
 	}
 
 	return didDoc, nil
+}
+
+func validateProfileRequest(pr *verifier.ProfileData) error {
+	switch {
+	case pr.ID == "":
+		return fmt.Errorf("missing profile id")
+	case pr.Name == "":
+		return fmt.Errorf("missing profile name")
+	}
+
+	return nil
 }
