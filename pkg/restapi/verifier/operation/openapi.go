@@ -6,6 +6,38 @@ SPDX-License-Identifier: Apache-2.0
 
 package operation
 
+import (
+	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
+)
+
+// genericError model
+//
+// swagger:response genericError
+type genericError struct { // nolint: unused,deadcode
+	// in: body
+	model.ErrorResponse
+}
+
+// profileData model
+//
+// swagger:response profileData
+type profileData struct { // nolint: unused,deadcode
+	// in: body
+	verifier.ProfileData
+}
+
+// getProfileReq model
+//
+// swagger:parameters getProfileReq
+type getProfileReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
 // verifyCredentialReq model
 //
 // swagger:parameters verifyCredentialReq
