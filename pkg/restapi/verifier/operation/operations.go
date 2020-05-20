@@ -53,6 +53,8 @@ const (
 	domain             = "domain"
 	proofPurpose       = "proofPurpose"
 	verificationMethod = "verificationMethod"
+
+	cslRequestTokenName = "csl"
 )
 
 // Handler http handler for each controller API endpoint
@@ -74,9 +76,10 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
-		profileStore: p,
-		vdri:         config.VDRI,
-		httpClient:   &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		profileStore:  p,
+		vdri:          config.VDRI,
+		httpClient:    &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		requestTokens: config.RequestTokens,
 	}
 
 	return svc, nil
@@ -87,13 +90,15 @@ type Config struct {
 	StoreProvider storage.Provider
 	VDRI          vdriapi.Registry
 	TLSConfig     *tls.Config
+	RequestTokens map[string]string
 }
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore *verifier.Profile
-	vdri         vdriapi.Registry
-	httpClient   httpClient
+	profileStore  *verifier.Profile
+	vdri          vdriapi.Registry
+	httpClient    httpClient
+	requestTokens map[string]string
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -439,7 +444,7 @@ func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse
 		return nil, err
 	}
 
-	resp, err := o.sendHTTPRequest(req, http.StatusOK)
+	resp, err := o.sendHTTPRequest(req, http.StatusOK, o.requestTokens[cslRequestTokenName])
 	if err != nil {
 		return nil, err
 	}
@@ -535,7 +540,11 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	return vc, nil
 }
 
-func (o *Operation) sendHTTPRequest(req *http.Request, status int) ([]byte, error) {
+func (o *Operation) sendHTTPRequest(req *http.Request, status int, token string) ([]byte, error) {
+	if token != "" {
+		req.Header.Add("Authorization", "Bearer "+token)
+	}
+
 	resp, err := o.httpClient.Do(req)
 	if err != nil {
 		return nil, err

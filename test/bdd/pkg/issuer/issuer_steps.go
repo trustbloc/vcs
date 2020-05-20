@@ -110,7 +110,8 @@ func (e *Steps) createDID(user string) error {
 }
 
 func (e *Steps) generateKeypair() (string, string, error) {
-	resp, err := http.Get(issuerURL + "/kms/generatekeypair") //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodGet, issuerURL+"/kms/generatekeypair", //nolint: bodyclose
+		"", "rw_token", nil)
 	if err != nil {
 		return "", "", err
 	}
@@ -164,7 +165,8 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 		return err
 	}
 
-	resp, err := http.Post(issuerURL+"/profile", "", bytes.NewBuffer(requestBytes)) //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, issuerURL+"/profile", "", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -291,7 +293,8 @@ func (e *Steps) issueCredential(user, did, cred, domain, challenge, keyID string
 
 	endpointURL := fmt.Sprintf(issueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
-	resp, err := http.Post(endpointURL, "application/json", bytes.NewBuffer(reqBytes)) //nolint
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +359,8 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 
 	endpointURL := fmt.Sprintf(composeAndIssueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
-	resp, err := http.Post(endpointURL, "application/json", bytes.NewBufferString(req)) //nolint
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", "rw_token", //nolint: bodyclose
+		bytes.NewBufferString(req))
 	if err != nil {
 		return err
 	}

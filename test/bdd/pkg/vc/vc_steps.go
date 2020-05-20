@@ -140,8 +140,8 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 		return err
 	}
 
-	resp, err := http.Post(verifierURL+"/presentations", "", //nolint: bodyclose
-		bytes.NewBuffer(reqBytes))
+	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/presentations", "", "rw_token",
+		bytes.NewBuffer(reqBytes)) //nolint: bodyclose
 
 	if err != nil {
 		return err
@@ -186,10 +186,8 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nol
 		return err
 	}
 
-	// False positive on linter bodyclose
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(issuerURL+"profile", "", //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPDo(http.MethodPost, issuerURL+"profile", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -227,7 +225,8 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nol
 func (e *Steps) getProfileData(profileName string) (*profile.DataProfile, error) {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Get(fmt.Sprintf(issuerURL+"profile/%s", profileName)) //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodGet, fmt.Sprintf(issuerURL+"profile/%s", profileName), //nolint: bodyclose
+		"", "rw_token", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -292,9 +291,8 @@ func (e *Steps) createCredential(credential, profileName string) error {
 
 	endpointURL := fmt.Sprintf(issueCredentialURLFormat, profileName)
 
-	// False positive on linter bodyclose
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(endpointURL, "", bytes.NewBuffer(requestBytes)) //nolint
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -417,9 +415,7 @@ func (e *Steps) storeCredential(profileName string, vcBytes []byte) error {
 		return err
 	}
 
-	// False positive on linter bodyclose
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(issuerURL+"store", "", //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, issuerURL+"store", "", "rw_token", //nolint: bodyclose
 		bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
@@ -462,8 +458,8 @@ func (e *Steps) retrieveCredential(profileName string) error {
 
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Get(issuerURL + "retrieve?id=" + escapedCredentialID + //nolint: bodyclose
-		"&profile=" + escapedProfileName)
+	resp, err := bddutil.HTTPDo(http.MethodGet, issuerURL+"retrieve?id="+escapedCredentialID+ //nolint: bodyclose
+		"&profile="+escapedProfileName, "", "rw_token", nil)
 	if err != nil {
 		return fmt.Errorf("failed to make http request : %w", err)
 	}
@@ -506,10 +502,8 @@ func (e *Steps) verifyCredential(checksList, result, respMessage string) error {
 		return err
 	}
 
-	// False positive on linter bodyclose
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(verifierURL+"/credentials", "", //nolint: bodyclose
-		bytes.NewBuffer(reqBytes))
+	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/credentials", "",
+		"rw_token", bytes.NewBuffer(reqBytes)) //nolint: bodyclose
 	if err != nil {
 		return err
 	}
@@ -565,10 +559,8 @@ func (e *Steps) updateCredentialStatus(status, statusReason string) error {
 		return err
 	}
 
-	// False positive on linter bodyclose
-	// https://github.com/golangci/golangci-lint/issues/637
-	resp, err := http.Post(issuerURL+"updateStatus", "", //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPDo(http.MethodPost, issuerURL+"updateStatus", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
 	}
@@ -629,7 +621,8 @@ func (e *Steps) createHolderProfile(profileName, signatureType string) error {
 		return err
 	}
 
-	resp, err := http.Post(holderURL+"/holder/profile", "", bytes.NewBuffer(requestBytes)) //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(requestBytes))
 
 	if err != nil {
 		return err
@@ -677,7 +670,8 @@ func (e *Steps) signPresentation(profileName string, vp []byte, domain, challeng
 
 	endpointURL := fmt.Sprintf(signPresentationURLFormat, profileName)
 
-	resp, err := http.Post(endpointURL, "application/json", bytes.NewBuffer(reqBytes)) //nolint
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -839,7 +833,8 @@ func (e *Steps) callHolderProfileService(profileRequest *holderops.HolderProfile
 		return err
 	}
 
-	resp, err := http.Post(holderURL+"/holder/profile", "", bytes.NewBuffer(requestBytes)) //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(requestBytes))
 
 	if err != nil {
 		return err
@@ -937,7 +932,8 @@ func (e *Steps) callSignPresentation(profileName string, req *holderops.SignPres
 
 	endpointURL := fmt.Sprintf(signPresentationURLFormat, profileName)
 
-	resp, err := http.Post(endpointURL, "application/json", bytes.NewBuffer(reqBytes)) //nolint
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -996,8 +992,8 @@ func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
 		return err
 	}
 
-	resp, err := http.Post(verifierURL+"/presentations", "", //nolint: bodyclose
-		bytes.NewBuffer(reqBytes))
+	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/presentations", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {
 		return err
@@ -1066,8 +1062,8 @@ func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) err
 		return err
 	}
 
-	resp, err := http.Post(verifierURL+"/presentations", "", //nolint: bodyclose
-		bytes.NewBuffer(reqBytes))
+	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/presentations", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {
 		return err
