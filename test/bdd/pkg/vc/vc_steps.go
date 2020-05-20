@@ -25,6 +25,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
@@ -37,11 +38,13 @@ import (
 const (
 	expectedProfileResponseURI = "https://example.com/credentials"
 	issuerURL                  = "http://localhost:8070/"
-	verifierURL                = "http://localhost:8069/verifier"
+	verifierURL                = "http://localhost:8069"
 	holderURL                  = "http://localhost:8067"
 
-	issueCredentialURLFormat  = issuerURL + "%s" + "/credentials/issueCredential"
-	signPresentationURLFormat = holderURL + "/%s" + "/prove/presentations"
+	issueCredentialURLFormat    = issuerURL + "%s" + "/credentials/issueCredential"
+	signPresentationURLFormat   = holderURL + "/%s" + "/prove/presentations"
+	verifyCredentialURLFormat   = verifierURL + "/%s" + "/verifier/credentials"
+	verifyPresentationURLFormat = verifierURL + "/%s" + "/verifier/presentations"
 
 	domain = "example.com"
 )
@@ -87,10 +90,12 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" sends response to DIDAuth request from "([^"]*)"$`, e.sendDIDAuthResponse)
 	s.Step(`^"([^"]*)" stores the "([^"]*)" in wallet$`, e.storeCredentialHolder)
 
+	s.Step(`^"([^"]*)" has a verifier profile$`, e.createBasicVerifierProfile)
 	s.Step(`^"([^"]*)" verifies the DIDAuth response from "([^"]*)"$`, e.validateDIDAuthResponse)
 	s.Step(`^"([^"]*)" verifies the "([^"]*)" presented by "([^"]*)"$`, e.generateAndVerifyPresentation)
 }
 
+//nolint: funlen
 func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
 	vc, _, err := verifiable.NewCredential(e.bddContext.CreatedCredential,
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
@@ -140,7 +145,16 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/presentations", "", "rw_token",
+	verifierProfileID := uuid.New().String()
+
+	err = e.createBasicVerifierProfile(verifierProfileID)
+	if err != nil {
+		return err
+	}
+
+	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, verifierProfileID)
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", "rw_token",
 		bytes.NewBuffer(reqBytes)) //nolint: bodyclose
 
 	if err != nil {
@@ -502,7 +516,16 @@ func (e *Steps) verifyCredential(checksList, result, respMessage string) error {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/credentials", "",
+	verifierProfileID := uuid.New().String()
+
+	err = e.createBasicVerifierProfile(verifierProfileID)
+	if err != nil {
+		return err
+	}
+
+	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifierProfileID)
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
 		"rw_token", bytes.NewBuffer(reqBytes)) //nolint: bodyclose
 	if err != nil {
 		return err
@@ -992,7 +1015,9 @@ func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/presentations", "", //nolint: bodyclose
+	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, issuer)
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {
@@ -1012,7 +1037,39 @@ func (e *Steps) storeCredentialHolder(holder, flow string) error {
 	return nil
 }
 
-func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) error {
+func (e *Steps) createBasicVerifierProfile(profileID string) error {
+	profileRequest := &verifier.ProfileData{}
+
+	profileRequest.ID = profileID
+	profileRequest.Name = profileID
+
+	requestBytes, err := json.Marshal(profileRequest)
+	if err != nil {
+		return err
+	}
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/verifier/profile", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(requestBytes))
+
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+	}
+
+	return nil
+}
+
+func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) error {
 	cred := e.bddContext.Args[bddutil.GetCredentialKey(holder)]
 
 	vc, err := verifiable.NewUnverifiedCredential([]byte(cred))
@@ -1048,7 +1105,7 @@ func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) err
 
 	checks := []string{"proof"}
 
-	verifiyReq := &verifierops.VerifyPresentationRequest{
+	verifyReq := &verifierops.VerifyPresentationRequest{
 		Presentation: signedVPByte,
 		Opts: &verifierops.VerifyPresentationOptions{
 			Checks:    checks,
@@ -1057,12 +1114,14 @@ func (e *Steps) generateAndVerifyPresentation(verifier, flow, holder string) err
 		},
 	}
 
-	reqBytes, err := json.Marshal(verifiyReq)
+	reqBytes, err := json.Marshal(verifyReq)
 	if err != nil {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/presentations", "", //nolint: bodyclose
+	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, verifierID)
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {

@@ -37,8 +37,8 @@ const (
 	verifierBasePath                  = "/verifier"
 	profileEndpoint                   = verifierBasePath + "/profile"
 	getProfileEndpoint                = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
-	credentialsVerificationEndpoint   = verifierBasePath + "/credentials"
-	presentationsVerificationEndpoint = verifierBasePath + "/presentations"
+	credentialsVerificationEndpoint   = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/credentials"
+	presentationsVerificationEndpoint = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/presentations"
 
 	invalidRequestErrMsg = "Invalid request"
 
@@ -110,8 +110,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 
 		// verification
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
-		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost,
-			o.verifyPresentationHandler),
+		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost, o.verifyPresentationHandler),
 	}
 }
 
@@ -182,7 +181,7 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 }
 
 // nolint dupl
-// VerifyCredential swagger:route POST /verifier/credentials verifier verifyCredentialReq
+// VerifyCredential swagger:route POST /{id}/verifier/credentials verifier verifyCredentialReq
 //
 // Verifies a credential.
 //
@@ -191,10 +190,21 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 //        200: verifyCredentialSuccessResp
 //        400: verifyCredentialFailureResp
 func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the profile
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	profile, err := o.profileStore.GetProfile(profileID)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid verifier profile - id=%s: err=%s",
+			profileID, err.Error()))
+
+		return
+	}
+
 	// get the request
 	verificationReq := CredentialsVerificationRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&verificationReq)
+	err = json.NewDecoder(req.Body).Decode(&verificationReq)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
@@ -208,12 +218,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	checks := []string{proofCheck}
-
-	// if req contains checks, then override the default checks
-	if verificationReq.Opts != nil && len(verificationReq.Opts.Checks) != 0 {
-		checks = verificationReq.Opts.Checks
-	}
+	checks := getCredentialChecks(profile, verificationReq.Opts)
 
 	var result []CredentialsVerificationCheckResult
 
@@ -266,7 +271,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	}
 }
 
-// VerifyPresentation swagger:route POST /verifier/presentations verifier verifyPresentationReq
+// VerifyPresentation swagger:route POST /{id}/verifier/presentations verifier verifyPresentationReq
 //
 // Verifies a presentation.
 //
@@ -275,22 +280,28 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 //        200: verifyPresentationSuccessResp
 //        400: verifyPresentationFailureResp
 func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the profile
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	profile, err := o.profileStore.GetProfile(profileID)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid verifier profile - id=%s: err=%s",
+			profileID, err.Error()))
+
+		return
+	}
+
 	// get the request
 	verificationReq := VerifyPresentationRequest{}
 
-	err := json.NewDecoder(req.Body).Decode(&verificationReq)
+	err = json.NewDecoder(req.Body).Decode(&verificationReq)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
 		return
 	}
 
-	checks := []string{proofCheck}
-
-	// if req contains checks, then override the default checks
-	if verificationReq.Opts != nil && len(verificationReq.Opts.Checks) != 0 {
-		checks = verificationReq.Opts.Checks
-	}
+	checks := getPresentationChecks(profile, verificationReq.Opts)
 
 	var result []VerifyPresentationCheckResult
 
@@ -569,6 +580,28 @@ func (o *Operation) sendHTTPRequest(req *http.Request, status int, token string)
 	return body, nil
 }
 
+func getCredentialChecks(profile *verifier.ProfileData, opts *CredentialsVerificationOptions) []string {
+	switch {
+	case opts != nil && len(opts.Checks) != 0:
+		return opts.Checks
+	case len(profile.CredentialChecks) != 0:
+		return profile.CredentialChecks
+	}
+
+	return []string{proofCheck}
+}
+
+func getPresentationChecks(profile *verifier.ProfileData, opts *VerifyPresentationOptions) []string {
+	switch {
+	case opts != nil && len(opts.Checks) != 0:
+		return opts.Checks
+	case len(profile.PresentationChecks) != 0:
+		return profile.PresentationChecks
+	}
+
+	return []string{proofCheck}
+}
+
 func validateProofData(proof verifiable.Proof, key, expectedValue string) error {
 	actualVal := ""
 
@@ -626,12 +659,28 @@ func getDIDDocFromProof(verificationMethod string, vdri vdriapi.Registry) (*did.
 	return didDoc, nil
 }
 
-func validateProfileRequest(pr *verifier.ProfileData) error {
+func validateProfileRequest(pr *verifier.ProfileData) error { // nolint: gocyclo
 	switch {
 	case pr.ID == "":
-		return fmt.Errorf("missing profile id")
+		return errors.New("missing profile id")
 	case pr.Name == "":
-		return fmt.Errorf("missing profile name")
+		return errors.New("missing profile name")
+	case len(pr.CredentialChecks) != 0:
+		for _, val := range pr.CredentialChecks {
+			switch val {
+			case proofCheck, statusCheck:
+			default:
+				return fmt.Errorf("invalid credential check option - %s", val)
+			}
+		}
+	case len(pr.PresentationChecks) != 0:
+		for _, val := range pr.PresentationChecks {
+			switch val {
+			case proofCheck:
+			default:
+				return fmt.Errorf("invalid presentation check option - %s", val)
+			}
+		}
 	}
 
 	return nil
