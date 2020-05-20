@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"reflect"
 	"strings"
 	"time"
@@ -67,6 +68,24 @@ func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdi
 	}
 
 	return didDoc, nil
+}
+
+// HTTPDo send http request
+func HTTPDo(method, url, contentType, token string, body io.Reader) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	if contentType != "" {
+		req.Header.Add("Content-Type", contentType)
+	}
+
+	if token != "" {
+		req.Header.Add("Authorization", "Bearer "+token)
+	}
+
+	return http.DefaultClient.Do(req)
 }
 
 // CreatePresentation creates verifiable presentation from verifiable credential.

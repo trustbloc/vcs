@@ -222,6 +222,7 @@ func TestVerifyCredential(t *testing.T) {
 	op, err := New(&Config{
 		VDRI:          &vdrimock.MockVDRIRegistry{},
 		StoreProvider: memstore.NewProvider(),
+		RequestTokens: map[string]string{cslRequestTokenName: "tk1"},
 	})
 	require.NoError(t, err)
 

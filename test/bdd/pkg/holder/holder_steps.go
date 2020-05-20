@@ -128,7 +128,8 @@ func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatu
 		return err
 	}
 
-	resp, err := http.Post(holderURL+"/holder/profile", "", bytes.NewBuffer(requestBytes)) //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(requestBytes))
 
 	if err != nil {
 		return err
@@ -174,7 +175,8 @@ func (e *Steps) getProfile(profileName, did, signatureType string) error {
 }
 
 func (e *Steps) getProfileData(profileName string) (*profile.HolderProfile, error) {
-	resp, err := http.Get(fmt.Sprintf(holderURL+"/holder/profile/%s", profileName)) //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodGet, //nolint: bodyclose
+		fmt.Sprintf(holderURL+"/holder/profile/%s", profileName), "", "rw_token", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +219,8 @@ func (e *Steps) signPresentation(profileName string) ([]byte, error) {
 
 	endpointURL := fmt.Sprintf(signPresentationURLFormat, profileName)
 
-	resp, err := http.Post(endpointURL, "application/json", bytes.NewBuffer(reqBytes)) //nolint
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, err
 	}

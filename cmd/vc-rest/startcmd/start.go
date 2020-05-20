@@ -8,6 +8,7 @@ package startcmd
 
 import (
 	"bytes"
+	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
@@ -156,6 +157,16 @@ const (
 		commonEnvVarUsageText + backoffFactorEnvKey
 	backoffFactorDefault = 1.5
 
+	tokenFlagName  = "api-token"
+	tokenEnvKey    = "VC_REST_API_TOKEN" //nolint: gosec
+	tokenFlagUsage = "Check for bearer token in the authorization header (optional). " +
+		commonEnvVarUsageText + tokenEnvKey
+
+	requestTokensFlagName  = "request-tokens"
+	requestTokensEnvKey    = "VC_REST_REQUEST_TOKENS" //nolint: gosec
+	requestTokensFlagUsage = "Tokens used for http request " +
+		commonEnvVarUsageText + requestTokensEnvKey
+
 	databaseTypeMemOption     = "mem"
 	databaseTypeCouchDBOption = "couchdb"
 
@@ -197,6 +208,8 @@ type vcRestParameters struct {
 	retryParameters      *retry.Params
 	tlsSystemCertPool    bool
 	tlsCACerts           []string
+	token                string
+	requestTokens        map[string]string
 }
 
 type dbParameters struct {
@@ -250,6 +263,7 @@ func createStartCmd(srv server) *cobra.Command {
 	}
 }
 
+// nolint: gocyclo,funlen
 func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 	hostURL, err := cmdutils.GetUserSetVarFromString(cmd, hostURLFlagName, hostURLEnvKey, false)
 	if err != nil {
@@ -298,6 +312,17 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	token, err := cmdutils.GetUserSetVarFromString(cmd, tokenFlagName,
+		tokenEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	requestTokens, err := getRequestTokens(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -309,7 +334,31 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		retryParameters:      retryParams,
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
+		token:                token,
+		requestTokens:        requestTokens,
 	}, nil
+}
+
+func getRequestTokens(cmd *cobra.Command) (map[string]string, error) {
+	requestTokens, err := cmdutils.GetUserSetVarFromArrayString(cmd, requestTokensFlagName,
+		requestTokensEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	tokens := make(map[string]string)
+
+	for _, token := range requestTokens {
+		split := strings.Split(token, "=")
+		switch len(split) {
+		case 2:
+			tokens[split[0]] = split[1]
+		default:
+			log.Warnf("invalid token '%s'", token)
+		}
+	}
+
+	return tokens, nil
 }
 
 func getMode(cmd *cobra.Command) (string, error) {
@@ -524,6 +573,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(initialBackoffMillisecFlagName, initialBackoffMillisecFlagShorthand, "",
 		initialBackoffMillisecFlagUsage)
 	startCmd.Flags().StringP(backoffFactorFlagName, backoffFactorFlagShorthand, "", backoffFactorFlagUsage)
+	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
+	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 }
 
 // nolint: gocyclo,funlen
@@ -561,6 +612,10 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	router := mux.NewRouter()
 
+	if parameters.token != "" {
+		router.Use(authorizationMiddleware(parameters.token))
+	}
+
 	issuerService, err := restissuer.New(&issuerops.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
 		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
@@ -583,7 +638,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	verifierService, err := restverifier.New(&verifierops.Config{StoreProvider: edgeServiceProvs.provider,
-		TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdri})
+		TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdri, RequestTokens: parameters.requestTokens})
 	if err != nil {
 		return err
 	}
@@ -803,4 +858,34 @@ func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Errorf("healthcheck response failure, %s", err)
 	}
+}
+
+func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, token string) bool {
+	if r.RequestURI == healthCheckEndpoint {
+		return true
+	}
+
+	actHdr := r.Header.Get("Authorization")
+	expHdr := "Bearer " + token
+
+	if subtle.ConstantTimeCompare([]byte(actHdr), []byte(expHdr)) != 1 {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("Unauthorised.\n")) // nolint:gosec,errcheck
+
+		return false
+	}
+
+	return true
+}
+
+func authorizationMiddleware(token string) mux.MiddlewareFunc {
+	middleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if validateAuthorizationBearerToken(w, r, token) {
+				next.ServeHTTP(w, r)
+			}
+		})
+	}
+
+	return middleware
 }

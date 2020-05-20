@@ -172,7 +172,7 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 
 	err := startCmd.Execute()
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to create db: Put http://badURL/masterkey")
+	require.Contains(t, err.Error(), "failed to create db")
 }
 
 func TestStartCmdWithNegativeMaxRetries(t *testing.T) {
@@ -231,7 +231,9 @@ func TestStartCmdValidArgs(t *testing.T) {
 
 	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption}
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+		"--" + requestTokensFlagName, "token2=tk2=1"}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -412,6 +414,22 @@ func TestPrepareMasterKeyReader(t *testing.T) {
 					ErrPut: errors.New("testError")}})
 		require.Equal(t, errors.New("testError"), err)
 		require.Nil(t, reader)
+	})
+}
+
+func TestValidateAuthorizationBearerToken(t *testing.T) {
+	t.Run("test invalid token", func(t *testing.T) {
+		header := make(map[string][]string)
+		header["Authorization"] = []string{"Bearer tk1"}
+		require.False(t, validateAuthorizationBearerToken(&httptest.ResponseRecorder{},
+			&http.Request{Header: header}, "tk2"))
+	})
+
+	t.Run("test valid token", func(t *testing.T) {
+		header := make(map[string][]string)
+		header["Authorization"] = []string{"Bearer tk1"}
+		require.True(t, validateAuthorizationBearerToken(&httptest.ResponseRecorder{},
+			&http.Request{Header: header}, "tk1"))
 	})
 }
 
