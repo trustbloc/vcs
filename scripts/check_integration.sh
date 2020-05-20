@@ -9,6 +9,7 @@ set -e
 declare -a tests=(
    "holder_rest"
    "issuer_rest"
+   "verifier_rest"
    "vc_rest"
    "w3c_workflow"
 )
