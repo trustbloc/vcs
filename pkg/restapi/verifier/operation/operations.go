@@ -211,7 +211,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	vc, err := verifiable.NewUnverifiedCredential(verificationReq.Credential)
+	vc, err := verifiable.ParseUnverifiedCredential(verificationReq.Credential)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
@@ -492,7 +492,7 @@ func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse
 }
 
 func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, _, err := verifiable.NewCredential(
+	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
@@ -508,7 +508,7 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 }
 
 func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
-	vp, err := verifiable.NewPresentation(
+	vp, err := verifiable.ParsePresentation(
 		vpBytes,
 		verifiable.WithPresPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
@@ -537,7 +537,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 }
 
 func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, _, err := verifiable.NewCredential(
+	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),

@@ -72,6 +72,11 @@ func TestProvider_Transform(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, uri)
 	})
+	t.Run("success - did key pattern, no url", func(t *testing.T) {
+		uri, err := provider.Transform("did:key:abc")
+		require.NoError(t, err)
+		require.Empty(t, uri)
+	})
 	t.Run("error - no did pattern", func(t *testing.T) {
 		uri, err := provider.Transform("doc:abc:123")
 		require.Error(t, err)
@@ -86,6 +91,9 @@ const validConfig = `
     {
       "pattern": "^(did:trustbloc:testnet.trustbloc.local:.+)$",
       "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
+    },
+    {
+      "pattern": "^(did:key:.+)$"
     },
     {
       "pattern": "^(did:.+)$",

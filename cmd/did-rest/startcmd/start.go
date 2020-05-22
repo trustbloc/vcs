@@ -14,10 +14,10 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
 	"github.com/rs/cors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
@@ -171,6 +171,7 @@ func startDidService(parameters *didRestParameters, srv server) error {
 
 	didService := did.New(&operation.Config{
 		RuleProvider: ruleProvider,
+		KeyVDRI:      *key.New(),
 		TLSConfig:    &tls.Config{RootCAs: rootCAs}})
 
 	handlers := didService.GetOperations()

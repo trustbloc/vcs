@@ -5,6 +5,9 @@
       "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
     },
     {
+      "pattern": "^(did:key:.+)$"
+    },
+    {
       "pattern": "^(did:.+)$",
       "url": "http://uniresolver.example.com:8070/1.0/identifiers/$1"
     }

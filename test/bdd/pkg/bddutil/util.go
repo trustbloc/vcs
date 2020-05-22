@@ -221,7 +221,7 @@ func GetDIDDocKey(user string) string {
 func CreateCustomPresentation(vcBytes []byte, vdri vdriapi.Registry,
 	ldpContext *verifiable.LinkedDataProofContext) ([]byte, error) {
 	// parse vc
-	vc, _, err := verifiable.NewCredential(vcBytes,
+	vc, err := verifiable.ParseCredential(vcBytes,
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err
