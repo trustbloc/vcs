@@ -2,7 +2,7 @@
   "domain": "consortium",
   "did": "did:trustbloc:testnet.trustbloc.local:zQ1234567890987654321",
   "policy": {
-    "cache": {"max_age": 123456789}
+    "cache": {"max_age": 600}
   },
   "members": [
     {
