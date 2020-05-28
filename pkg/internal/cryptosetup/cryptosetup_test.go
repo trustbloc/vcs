@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
@@ -31,7 +31,7 @@ func TestPrepareJWECrypto(t *testing.T) {
 		keyHandleToBeCreated, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 		require.NoError(t, err)
 
-		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&kms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
+		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&mockkms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
 			mockstore.NewMockStoreProvider(), jose.A256GCM, kmsservice.ECDHES256AES256GCMType)
 		require.EqualError(t, err, "keyset.Handle: keyset.Handle: keyset contains a non-private key")
 		require.Nil(t, jweEncrypter)
@@ -69,7 +69,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
-		mockKMS := kms.KeyManager{}
+		mockKMS := mockkms.KeyManager{}
 
 		testMACValue := []byte("testValue")
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
@@ -86,7 +86,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
-		mockKMS := kms.KeyManager{GetKeyErr: errTest}
+		mockKMS := mockkms.KeyManager{GetKeyErr: errTest}
 
 		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
 			kmsservice.HMACSHA256Tag256Type)
@@ -123,7 +123,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	t.Run("Failure while creating new HMAC key set", func(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
 
-		mockKMS := kms.KeyManager{CreateKeyErr: errTest}
+		mockKMS := mockkms.KeyManager{CreateKeyErr: errTest}
 
 		testMACValue := []byte("keyHandle")
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
@@ -150,7 +150,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrPut = errTest
 
-		mockKMS := kms.KeyManager{}
+		mockKMS := mockkms.KeyManager{}
 
 		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
 			kmsservice.HMACSHA256Tag256Type)
@@ -161,7 +161,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	t.Run("Failure while computing MAC", func(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
 
-		mockKMS := kms.KeyManager{}
+		mockKMS := mockkms.KeyManager{}
 
 		mockCrypto := crypto.Crypto{ComputeMACErr: errTest}
 
@@ -186,4 +186,17 @@ func (m mockKeyManager) Get(keyID string) (interface{}, error) {
 
 func (m mockKeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, interface{}, error) {
 	panic("implement me")
+}
+
+func (m mockKeyManager) ExportPubKeyBytes(keyID string) ([]byte, error) {
+	return nil, nil
+}
+
+func (m mockKeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.KeyType) (interface{}, error) {
+	return nil, nil
+}
+
+func (m mockKeyManager) ImportPrivateKey(
+	privKey interface{}, kt kmsservice.KeyType, opts ...kmsservice.PrivateKeyOpts) (string, interface{}, error) {
+	return "", nil, nil
 }

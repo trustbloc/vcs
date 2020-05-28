@@ -27,7 +27,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	log "github.com/sirupsen/logrus"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -104,8 +103,6 @@ type EDVClient interface {
 
 type keyManager interface {
 	kms.KeyManager
-	ExportPubKeyBytes(id string) ([]byte, error)
-	ImportPrivateKey(privKey interface{}, kt kms.KeyType, opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error)
 }
 
 type commonDID interface {

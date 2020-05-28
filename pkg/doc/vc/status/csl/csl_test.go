@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -24,7 +25,6 @@ import (
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
 )
 
 const (
@@ -68,7 +68,7 @@ func TestCredentialStatusList_New(t *testing.T) {
 func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -101,7 +101,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			return nil, fmt.Errorf("get error")
 		},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -118,7 +118,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return fmt.Errorf("put error")
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -138,7 +138,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -158,7 +158,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}, "localhost:8080/status", 1,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 
 		status, err := s.CreateStatusID()
@@ -173,7 +173,7 @@ func TestCredentialStatusList_GetCSL(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrimock.MockVDRIRegistry{}))
 		require.NoError(t, err)
 		csl, err := s.GetCSL("1")
 		require.Error(t, err)
@@ -185,7 +185,7 @@ func TestCredentialStatusList_GetCSL(t *testing.T) {
 func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
@@ -215,7 +215,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
@@ -228,7 +228,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 	t.Run("test error from creating new status credential", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
@@ -244,7 +244,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
 		s, err := New(mockstore.NewMockStoreProvider(), "localhost:8080/status", 2,
-			vccrypto.New(&kms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
 				&vdrimock.MockVDRIRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
