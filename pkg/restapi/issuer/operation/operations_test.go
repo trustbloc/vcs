@@ -29,7 +29,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	log "github.com/sirupsen/logrus"
@@ -42,7 +43,6 @@ import (
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
-	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -219,7 +219,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
 		Crypto: &cryptomock.Crypto{},
 		VDRI:   &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
@@ -290,7 +290,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			Crypto:             &cryptomock.Crypto{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
@@ -320,7 +320,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			Crypto:             &cryptomock.Crypto{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{updateVCStatusErr: fmt.Errorf("error update vc status")}
@@ -364,7 +364,7 @@ func testCreateProfileHandler(t *testing.T) {
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
 		EDVClient:          client,
-		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 		VDRI:               &vdrimock.MockVDRIRegistry{},
 		Crypto:             &cryptomock.Crypto{},
 		HostURL:            "localhost:8080", Domain: "testnet"})
@@ -405,7 +405,7 @@ func testCreateProfileHandler(t *testing.T) {
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			EDVClient:          client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
 				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
 			HostURL: "localhost:8080"})
@@ -440,7 +440,7 @@ func testCreateProfileHandler(t *testing.T) {
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+			EDVClient:          client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:    &vdrimock.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
 			HostURL: "localhost:8080"})
 
@@ -509,7 +509,7 @@ func TestGetProfileHandler(t *testing.T) {
 		KMSSecretsProvider: mem.NewProvider(),
 		Crypto:             &cryptomock.Crypto{},
 		EDVClient:          client,
-		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 		VDRI:               &vdrimock.MockVDRIRegistry{},
 		HostURL:            "localhost:8080"})
 
@@ -635,7 +635,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -656,7 +656,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -683,7 +683,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -710,7 +710,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -738,7 +738,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 
@@ -766,7 +766,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 
@@ -797,7 +797,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 
@@ -832,7 +832,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -868,7 +868,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -904,7 +904,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -945,7 +945,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -981,7 +981,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1005,7 +1005,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1031,7 +1031,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          client,
 			Crypto:             &cryptomock.Crypto{},
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -1065,7 +1065,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -1096,7 +1096,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1134,7 +1134,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -1171,7 +1171,7 @@ func TestVCStatus(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			EDVClient:          client,
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1199,7 +1199,7 @@ func TestVCStatus(t *testing.T) {
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          client,
 			Crypto:             &cryptomock.Crypto{},
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1267,7 +1267,7 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 		Crypto:             &cryptomock.Crypto{},
 		EDVClient: edv.NewMockEDVClient("test",
 			nil, nil, []string{"testID"}),
-		KeyManager: &kms.KeyManager{CreateKeyValue: kh},
+		KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
 		VDRI:       &vdrimock.MockVDRIRegistry{},
 		HostURL:    "localhost:8080"})
 
@@ -1293,7 +1293,7 @@ func TestIssueCredential(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider:      memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+		KeyManager:         &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 		Crypto:             &cryptomock.Crypto{},
 		VDRI: &vdrimock.MockVDRIRegistry{
 			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
@@ -1313,7 +1313,7 @@ func TestIssueCredential(t *testing.T) {
 	t.Run("issue credential - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
 
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
@@ -1324,7 +1324,7 @@ func TestIssueCredential(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: keyHandle},
+			KeyManager:         &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: keyHandle},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
@@ -1434,7 +1434,7 @@ func TestIssueCredential(t *testing.T) {
 
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
 
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
@@ -1445,7 +1445,7 @@ func TestIssueCredential(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
@@ -1497,7 +1497,7 @@ func TestIssueCredential(t *testing.T) {
 
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
 
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
@@ -1508,7 +1508,7 @@ func TestIssueCredential(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDoc(didID, base58.Decode(signingKey)), nil
@@ -1549,7 +1549,7 @@ func TestIssueCredential(t *testing.T) {
 			StoreProvider:      memstore.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
 		})
 		require.NoError(t, err)
 
@@ -1643,7 +1643,7 @@ func TestIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
 					return nil, errors.New("did not found")
@@ -1668,7 +1668,7 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - add credential status error", func(t *testing.T) {
-		closeableKMS := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+		closeableKMS := &mocklegacykms.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
 
@@ -1678,7 +1678,7 @@ func TestIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
@@ -1704,7 +1704,7 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - invalid assertion", func(t *testing.T) {
-		closeableKMS := &kmsmock.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
+		closeableKMS := &mocklegacykms.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
 
@@ -1714,7 +1714,7 @@ func TestIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
@@ -1739,7 +1739,7 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - signing error", func(t *testing.T) {
-		closeableKMS := &kmsmock.CloseableKMS{}
+		closeableKMS := &mocklegacykms.CloseableKMS{}
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
 
@@ -1749,7 +1749,7 @@ func TestIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
@@ -1817,7 +1817,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider:      memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 		VDRI:               &vdrimock.MockVDRIRegistry{},
 		Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
 	})
@@ -1839,7 +1839,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	t.Run("compose and issue credential - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
 
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
@@ -1847,7 +1847,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		op, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
 				return createDIDDocWithKeyID(didID, key1ID, base58.Decode(signingKey)), nil
 			}},
@@ -1985,7 +1985,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 		})
 		require.NoError(t, err)
 
@@ -2009,7 +2009,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 		})
 		require.NoError(t, err)
 
@@ -2100,7 +2100,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
 					return createDIDDocWithKeyID(didID, key1ID, pubKey), nil
@@ -2244,7 +2244,7 @@ func TestGenerateKeypair(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager: &kms.KeyManager{CreateKeyID: "key-1", CreateKeyValue: kh,
+			KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1", CreateKeyValue: kh,
 				ExportPubKeyBytesValue: pubKey},
 		})
 		require.NoError(t, err)
@@ -2270,10 +2270,10 @@ func TestGenerateKeypair(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{},
 			KMSSecretsProvider: mem.NewProvider(),
 			StoreProvider:      memstore.NewProvider(),
-			KeyManager:         &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
 		})
 		require.NoError(t, err)
-		op.kms = &kms.KeyManager{CreateKeyErr: errors.New("kms - create keyset error")}
+		op.kms = &mockkms.KeyManager{CreateKeyErr: errors.New("kms - create keyset error")}
 
 		generateKeypairHandler := getHandler(t, op, generateKeypairPath)
 

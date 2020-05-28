@@ -26,14 +26,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	kmsmock "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/mock/kms"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -50,7 +50,7 @@ func TestCreateHolderProfile(t *testing.T) {
 	op, err := New(&Config{
 		Crypto:        &cryptomock.Crypto{},
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &kms.KeyManager{CreateKeyValue: kh},
+		KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
 		VDRI:          &vdrimock.MockVDRIRegistry{},
 	})
 	require.NoError(t, err)
@@ -126,7 +126,7 @@ func TestCreateHolderProfile(t *testing.T) {
 		ops, err := New(&Config{
 			Crypto:        &cryptomock.Crypto{},
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:          &vdrimock.MockVDRIRegistry{},
 		})
 		require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestGetHolderProfile(t *testing.T) {
 	op, err := New(&Config{
 		Crypto:        &cryptomock.Crypto{},
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &kms.KeyManager{CreateKeyValue: kh},
+		KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
 		VDRI:          &vdrimock.MockVDRIRegistry{},
 	})
 	require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestSignPresentation(t *testing.T) {
 
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+		KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 		Crypto:        &cryptomock.Crypto{},
 	})
 	require.NoError(t, err)
@@ -229,7 +229,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
 
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestSignPresentation(t *testing.T) {
 
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
@@ -315,7 +315,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - success with opts", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
-		closeableKMS := &kmsmock.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
+		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
 
 		_, signingKey, err := closeableKMS.CreateKeySet()
 		require.NoError(t, err)
@@ -325,7 +325,7 @@ func TestSignPresentation(t *testing.T) {
 
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &kms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
@@ -383,7 +383,7 @@ func TestSignPresentation(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			Crypto:        &cryptomock.Crypto{},
-			KeyManager:    &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
 		})
 		require.NoError(t, err)
 
@@ -423,7 +423,7 @@ func TestSignPresentation(t *testing.T) {
 		op, err := New(&Config{
 			Crypto:        &cryptomock.Crypto{},
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &kms.KeyManager{CreateKeyValue: kh},
+			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
 			VDRI:          &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
 		})
 		require.NoError(t, err)

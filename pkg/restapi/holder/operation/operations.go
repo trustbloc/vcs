@@ -14,13 +14,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -83,9 +81,6 @@ type Config struct {
 
 type keyManager interface {
 	kms.KeyManager
-	ExportPubKeyBytes(id string) ([]byte, error)
-	ImportPrivateKey(privKey interface{}, kt kms.KeyType,
-		opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error)
 }
 
 // Operation defines handlers for Edge service

@@ -14,11 +14,9 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/google/tink/go/keyset"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
@@ -64,9 +62,6 @@ type didBlocClient interface {
 
 type keyManager interface {
 	kms.KeyManager
-	ExportPubKeyBytes(id string) ([]byte, error)
-	ImportPrivateKey(privKey interface{}, kt kms.KeyType,
-		opts ...localkms.PrivateKeyOpts) (string, *keyset.Handle, error)
 }
 
 // New return new instance of common DID
@@ -308,7 +303,7 @@ func (o *CommonDID) importKey(keyID string, keyType kms.KeyType, privateKeyBytes
 	}
 
 	_, _, err := o.keyManager.ImportPrivateKey(privKey,
-		keyType, localkms.WithKeyID(split[1]))
+		keyType, kms.WithKeyID(split[1]))
 	if err != nil {
 		return fmt.Errorf("failed to import private key: %v", err)
 	}
