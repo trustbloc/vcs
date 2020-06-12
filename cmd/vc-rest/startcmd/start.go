@@ -33,8 +33,8 @@ import (
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	"github.com/rs/cors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
@@ -181,6 +181,8 @@ const (
 	masterKeyStoreName = "masterkey"
 	masterKeyDBKeyName = masterKeyStoreName
 )
+
+var logger = log.New("vc-rest")
 
 var errNegativeBackoffFactor = errors.New("the backoff factor cannot be negative")
 
@@ -354,7 +356,7 @@ func getRequestTokens(cmd *cobra.Command) (map[string]string, error) {
 		case 2:
 			tokens[split[0]] = split[1]
 		default:
-			log.Warnf("invalid token '%s'", token)
+			logger.Warnf("invalid token '%s'", token)
 		}
 	}
 
@@ -483,7 +485,7 @@ func getMaxRetries(cmd *cobra.Command) (uint64, error) {
 
 	if maxRetriesString == "" {
 		maxRetries = maxRetriesDefault
-		log.Info("Max retries value not specified. The default value of " +
+		logger.Infof("Max retries value not specified. The default value of " +
 			strconv.Itoa(maxRetriesDefault) + " will be used.")
 	} else {
 		maxRetries, err = strconv.ParseUint(maxRetriesString, 10, 64)
@@ -507,7 +509,7 @@ func getInitialBackoff(cmd *cobra.Command) (time.Duration, error) {
 
 	if initialBackoffMillisecString == "" {
 		initialBackoffMillisec = initialBackoffMillisecDefault
-		log.Info("Initial backoff value not specified. The default value of " +
+		logger.Infof("Initial backoff value not specified. The default value of " +
 			strconv.Itoa(initialBackoffMillisecDefault) + " will be used.")
 	} else {
 		initialBackoffMillisec, err = strconv.ParseUint(initialBackoffMillisecString, 10, 64)
@@ -533,7 +535,7 @@ func getBackoffFactor(cmd *cobra.Command) (float64, error) {
 
 	if backoffFactorString == "" {
 		backoffFactor = backoffFactorDefault
-		log.Info("Backoff factor value not specified. The default value of " +
+		logger.Infof("Backoff factor value not specified. The default value of " +
 			fmt.Sprintf("%.1f", backoffFactorDefault) + " will be used.")
 	} else {
 		backoffFactor, err = strconv.ParseFloat(backoffFactorString, 64)
@@ -664,7 +666,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	// health check
 	router.HandleFunc(healthCheckEndpoint, healthCheckHandler).Methods(http.MethodGet)
 
-	log.Infof("Starting vc rest server on host %s", parameters.hostURL)
+	logger.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
 }
@@ -778,7 +780,7 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 func checkForSameDBParams(dbParams *dbParameters) {
 	if strings.EqualFold(dbParams.databaseType, dbParams.kmsSecretsDatabaseType) &&
 		strings.EqualFold(dbParams.databaseURL, dbParams.kmsSecretsDatabaseURL) {
-		log.Warnln("Database and KMS secrets database both set to the same provider. It's recommended to use a " +
+		logger.Warnf("Database and KMS secrets database both set to the same provider. It's recommended to use a " +
 			"separate provider for storage of KMS secrets to ensure that the provider hosting the EDVs " +
 			"cannot read the stored encrypted documents.")
 	}
@@ -856,7 +858,7 @@ func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
 		CurrentTime: time.Now(),
 	})
 	if err != nil {
-		log.Errorf("healthcheck response failure, %s", err)
+		logger.Errorf("healthcheck response failure, %s", err)
 	}
 }
 

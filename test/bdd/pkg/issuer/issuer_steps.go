@@ -21,7 +21,7 @@ import (
 	"github.com/google/uuid"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -73,6 +73,8 @@ const (
 	domain          = "example.com"
 	assertionMethod = "assertionMethod"
 )
+
+var logger = log.New("bdd-test")
 
 // Steps is steps for VC BDD tests
 type Steps struct {
@@ -328,7 +330,7 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 		return fmt.Errorf("no authentication method in DID created")
 	}
 
-	log.Infof("DID for signing %s", did.ID)
+	logger.Infof("DID for signing %s", did.ID)
 
 	challenge := uuid.New().String()
 

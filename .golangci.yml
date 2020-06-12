@@ -81,6 +81,7 @@ issues:
   exclude:
     # Allow package logger variables (for now)
     - \`logger\` is a global variable
+    - \`testLoggerProvider\` is a global variable
     -  Line contains TODO/BUG/FIXME
     # Add comments for package
     -  at least one file in a package should have a package comment

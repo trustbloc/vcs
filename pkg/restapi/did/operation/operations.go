@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/proxy/rules"
@@ -42,6 +42,8 @@ const (
 
 	defaultTimeout = 240 * time.Second
 )
+
+var logger = log.New("edge-service-did-restapi")
 
 // Handler http handler for each controller API endpoint
 type Handler interface {
@@ -90,7 +92,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 func (o *Operation) resolve(rw http.ResponseWriter, req *http.Request) {
 	did := mux.Vars(req)["did"]
 
-	log.Debugf("resolve received request for DID: %s", did)
+	logger.Debugf("resolve received request for DID: %s", did)
 
 	destinationURL, err := o.ruleProvider.Transform(did)
 	if err != nil {
@@ -159,16 +161,16 @@ func (o *Operation) resolveWithProxy(rw http.ResponseWriter, req *http.Request, 
 	defer func() {
 		err = resp.Body.Close()
 		if err != nil {
-			log.Warn("failed to close response body")
+			logger.Warnf("failed to close response body")
 		}
 	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
+		logger.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
 	}
 
-	log.Debugf("proxy returning destination status '%d' and body: %s", resp.StatusCode, string(body))
+	logger.Debugf("proxy returning destination status '%d' and body: %s", resp.StatusCode, string(body))
 
 	writeResponse(rw, resp.StatusCode, resp.Header.Get(contentTypeHeader), body)
 }
@@ -190,12 +192,12 @@ func writeResponse(rw http.ResponseWriter, status int, contentType string, body 
 
 	_, err := rw.Write(body)
 	if err != nil {
-		log.Errorf("Unable to write response, %s", err)
+		logger.Errorf("Unable to write response, %s", err)
 	}
 }
 
 func writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
-	log.Warnf("proxy returning status code: %d, error: %s", status, msg)
+	logger.Warnf("proxy returning status code: %d, error: %s", status, msg)
 
 	rw.WriteHeader(status)
 
@@ -204,7 +206,7 @@ func writeErrorResponse(rw http.ResponseWriter, status int, msg string) {
 	})
 
 	if err != nil {
-		log.Errorf("Unable to send error message, %s", err)
+		logger.Errorf("Unable to send error message, %s", err)
 	}
 }
 

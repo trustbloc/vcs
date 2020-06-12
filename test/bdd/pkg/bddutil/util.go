@@ -25,8 +25,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 )
+
+var logger = log.New("bddutil")
 
 // ProofDataOpts for storing proof options.
 type ProofDataOpts struct {
@@ -173,7 +175,7 @@ func AreEqualJSON(b1, b2 []byte) (bool, error) {
 func CloseResponseBody(respBody io.Closer) {
 	err := respBody.Close()
 	if err != nil {
-		log.Errorf("Failed to close response body: %s", err.Error())
+		logger.Errorf("Failed to close response body: %s", err.Error())
 	}
 }
 
