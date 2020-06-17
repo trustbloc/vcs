@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -56,6 +56,8 @@ const (
 
 	cslRequestTokenName = "csl"
 )
+
+var logger = log.New("edge-service-verifier-restapi")
 
 // Handler http handler for each controller API endpoint
 type Handler interface {
@@ -564,13 +566,13 @@ func (o *Operation) sendHTTPRequest(req *http.Request, status int, token string)
 	defer func() {
 		err = resp.Body.Close()
 		if err != nil {
-			log.Warn("failed to close response body")
+			logger.Warnf("failed to close response body")
 		}
 	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
+		logger.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
 	}
 
 	if resp.StatusCode != status {

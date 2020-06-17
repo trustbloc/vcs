@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -33,8 +34,9 @@ import (
 	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edv/pkg/restapi/edv/models"
@@ -171,11 +173,33 @@ const (
 	}`
 )
 
+var testLoggerProvider = TestLoggerProvider{}
+
+type TestLoggerProvider struct {
+	logContents bytes.Buffer
+}
+
+func (t *TestLoggerProvider) GetLogger(string) log.Logger {
+	logrusLogger := logrus.New()
+	logrusLogger.SetOutput(&t.logContents)
+	logrusLogger.SetLevel(logrus.DebugLevel)
+
+	return logrusLogger
+}
+
 // errVaultNotFound throws an error when vault is not found
 var errVaultNotFound = errors.New("vault not found")
 
 // errDocumentNotFound throws an error when document associated with ID is not found
 var errDocumentNotFound = errors.New("edv does not have a document associated with ID")
+
+func TestMain(m *testing.M) {
+	log.Initialize(&testLoggerProvider)
+
+	log.SetLevel(logModuleName, log.DEBUG)
+
+	os.Exit(m.Run())
+}
 
 func TestNew(t *testing.T) {
 	t.Run("test error from opening credential store", func(t *testing.T) {
@@ -374,10 +398,6 @@ func testCreateProfileHandler(t *testing.T) {
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint)
 
-	var logContents bytes.Buffer
-
-	log.SetOutput(&logContents)
-
 	t.Run("create profile success", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
 			bytes.NewBuffer([]byte(testIssuerProfile)))
@@ -494,7 +514,7 @@ func testCreateProfileHandler(t *testing.T) {
 		require.NoError(t, err)
 		rw := mockResponseWriter{}
 		createProfileHandler.Handle().ServeHTTP(rw, req)
-		require.Contains(t, logContents.String(),
+		require.Contains(t, testLoggerProvider.logContents.String(),
 			"Unable to send error message, response writer failed")
 	})
 }
@@ -518,10 +538,6 @@ func TestGetProfileHandler(t *testing.T) {
 	op.commonDID = &mockCommonDID{}
 
 	getProfileHandler := getHandler(t, op, getProfileEndpoint)
-
-	var logContents bytes.Buffer
-
-	log.SetOutput(&logContents)
 
 	notFoundID := "test"
 	req, err := http.NewRequest(http.MethodGet,
@@ -1058,9 +1074,6 @@ func TestRetrieveVCHandler(t *testing.T) {
 		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		var logContents bytes.Buffer
-		log.SetOutput(&logContents)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
@@ -1086,7 +1099,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		rw := mockResponseWriter{}
 		retrieveVCHandler.Handle().ServeHTTP(rw, req)
-		require.Contains(t, logContents.String(),
+		require.Contains(t, testLoggerProvider.logContents.String(),
 			"Failed to write response for document retrieval success: response writer failed")
 	})
 	t.Run("fail to compute MAC when querying vault", func(t *testing.T) {

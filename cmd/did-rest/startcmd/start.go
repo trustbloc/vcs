@@ -16,8 +16,8 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
 	"github.com/rs/cors"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
@@ -54,6 +54,8 @@ const (
 	// api
 	healthCheckEndpoint = "/healthcheck"
 )
+
+var logger = log.New("did-rest")
 
 type didRestParameters struct {
 	hostURL           string
@@ -184,7 +186,7 @@ func startDidService(parameters *didRestParameters, srv server) error {
 	// health check
 	router.HandleFunc(healthCheckEndpoint, healthCheckHandler).Methods(http.MethodGet)
 
-	log.Infof("Starting did rest server on host %s", parameters.hostURL)
+	logger.Infof("Starting did rest server on host %s", parameters.hostURL)
 
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
 }
@@ -206,6 +208,6 @@ func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
 		CurrentTime: time.Now(),
 	})
 	if err != nil {
-		log.Errorf("healthcheck response failure, %s", err)
+		logger.Errorf("healthcheck response failure, %s", err)
 	}
 }

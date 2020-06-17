@@ -13,8 +13,10 @@ import (
 	"io/ioutil"
 	"regexp"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 )
+
+var logger = log.New("edge-service-proxy-provider")
 
 // Config describes file configuration
 type Config struct {
@@ -99,7 +101,7 @@ func getPatternRules(data []byte) ([]PatternRule, error) {
 	}
 
 	if len(patternRules) == 0 {
-		log.Warn("no proxy rules have been configured")
+		logger.Warnf("no proxy rules have been configured")
 	}
 
 	return patternRules, nil

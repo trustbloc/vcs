@@ -14,10 +14,12 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 )
+
+var logger = log.New("uniregistrar-client")
 
 // Client for uni-registrar
 type Client struct {
@@ -92,13 +94,13 @@ func (c *Client) sendHTTPRequest(req *http.Request, status int) ([]byte, error) 
 	defer func() {
 		err = resp.Body.Close()
 		if err != nil {
-			log.Warn("failed to close response body")
+			logger.Warnf("failed to close response body")
 		}
 	}()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		log.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
+		logger.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
 	}
 
 	if resp.StatusCode != status {

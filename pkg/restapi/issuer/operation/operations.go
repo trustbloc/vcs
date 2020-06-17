@@ -28,7 +28,7 @@ import (
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
-	log "github.com/sirupsen/logrus"
+	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
@@ -46,6 +46,7 @@ import (
 )
 
 const (
+	logModuleName      = "edge-service-issuer-restapi"
 	profileIDPathParam = "profileID"
 
 	// issuer endpoints
@@ -72,6 +73,8 @@ const (
 	capabilityDelegation = "capabilityDelegation"
 	capabilityInvocation = "capabilityInvocation"
 )
+
+var logger = log.New("edge-service-issuer-restapi")
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
 var errNoDocsMatchQuery = errors.New("no documents match the given query")
@@ -950,7 +953,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 
 	_, err := rw.Write(retrievedVC)
 	if err != nil {
-		log.Errorf("Failed to write response for document retrieval success: %s",
+		logger.Errorf("Failed to write response for document retrieval success: %s",
 			err.Error())
 
 		return
