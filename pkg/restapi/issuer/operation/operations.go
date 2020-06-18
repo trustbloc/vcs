@@ -31,8 +31,8 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
-	"github.com/trustbloc/edv/pkg/restapi/edv/edverrors"
-	"github.com/trustbloc/edv/pkg/restapi/edv/models"
+	"github.com/trustbloc/edv/pkg/restapi/messages"
+	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -414,7 +414,7 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 
 	_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
 
-	if err != nil && strings.Contains(err.Error(), edverrors.ErrVaultNotFound.Error()) {
+	if err != nil && strings.Contains(err.Error(), messages.ErrVaultNotFound.Error()) {
 		// create the new vault for this profile, if it doesn't exist
 		_, err = o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: data.Profile})
 		if err == nil {

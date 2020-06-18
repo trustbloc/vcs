@@ -41,7 +41,7 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
-	"github.com/trustbloc/edv/pkg/client/edv"
+	"github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
@@ -620,7 +620,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	issuerService, err := restissuer.New(&issuerops.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
-		EDVClient:          edv.New(parameters.edvURL, edv.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
+		EDVClient:          client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
 		KeyManager:         localKMS,
 		Crypto:             crypto,
 		VDRI:               vdri,
