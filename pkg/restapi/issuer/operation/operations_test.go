@@ -39,7 +39,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
-	"github.com/trustbloc/edv/pkg/restapi/edv/models"
+	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"

@@ -15,7 +15,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/edv/pkg/restapi/edv/models"
+	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"

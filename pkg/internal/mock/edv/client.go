@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 package edv
 
 import (
-	"github.com/trustbloc/edv/pkg/restapi/edv/models"
+	"github.com/trustbloc/edv/pkg/restapi/models"
 )
 
 // Client is the mock edv client
