@@ -95,7 +95,7 @@ const (
 
 	databaseURLFlagName      = "database-url"
 	databaseURLEnvKey        = "DATABASE_URL"
-	databaseURLFlagShorthand = "l"
+	databaseURLFlagShorthand = "v"
 	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
 		" For CouchDB, include the username:password@ text if required. " + commonEnvVarUsageText + databaseURLEnvKey
 
@@ -180,6 +180,19 @@ const (
 	masterKeyURI       = "local-lock://custom/master/key/"
 	masterKeyStoreName = "masterkey"
 	masterKeyDBKeyName = masterKeyStoreName
+
+	logLevelFlagName        = "log-level"
+	logLevelEnvKey          = "LOG_LEVEL"
+	logLevelFlagShorthand   = "l"
+	logLevelPrefixFlagUsage = "Logging level to set. Supported options: critical, error, warning, info, debug." +
+		`Defaults to info if not set. Setting to debug may adversely impact performance. Alternatively, this can be ` +
+		"set with the following environment variable: " + logLevelEnvKey
+
+	logLevelCritical = "critical"
+	logLevelError    = "error"
+	logLevelWarn     = "warning"
+	logLevelInfo     = "info"
+	logLevelDebug    = "debug"
 )
 
 var logger = log.New("vc-rest")
@@ -212,6 +225,7 @@ type vcRestParameters struct {
 	tlsCACerts           []string
 	token                string
 	requestTokens        map[string]string
+	logLevel             string
 }
 
 type dbParameters struct {
@@ -325,6 +339,11 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, logLevelFlagName, logLevelEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -338,6 +357,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		tlsCACerts:           tlsCACerts,
 		token:                token,
 		requestTokens:        requestTokens,
+		logLevel:             loggingLevel,
 	}, nil
 }
 
@@ -577,10 +597,15 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(backoffFactorFlagName, backoffFactorFlagShorthand, "", backoffFactorFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
+	startCmd.Flags().StringP(logLevelFlagName, logLevelFlagShorthand, "", logLevelPrefixFlagUsage)
 }
 
 // nolint: gocyclo,funlen
 func startEdgeService(parameters *vcRestParameters, srv server) error {
+	if parameters.logLevel != "" {
+		setLogLevel(parameters.logLevel)
+	}
+
 	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
 	if err != nil {
 		return err
@@ -669,6 +694,20 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	logger.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
+}
+
+func setLogLevel(userLogLevel string) {
+	logLevel, err := log.ParseLevel(userLogLevel)
+	if err != nil {
+		logger.Warnf(`%s is not a valid logging level.`+
+			`It must be one of the following: critical,error,warning,info,debug. Defaulting to info.`, userLogLevel)
+
+		logLevel = log.INFO
+	} else if logLevel == log.DEBUG {
+		logger.Infof(`Log level set to "debug". Performance may be adversely impacted.`)
+	}
+
+	log.SetLevel("", logLevel)
 }
 
 type kmsProvider struct {

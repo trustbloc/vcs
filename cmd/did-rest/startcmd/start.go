@@ -47,6 +47,19 @@ const (
 	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." +
 		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
 	tlsCACertsEnvKey = "DID_REST_TLS_CACERTS"
+
+	logLevelFlagName        = "log-level"
+	logLevelEnvKey          = "LOG_LEVEL"
+	logLevelFlagShorthand   = "l"
+	logLevelPrefixFlagUsage = "Logging level to set. Supported options: critical, error, warning, info, debug." +
+		`Defaults to info if not set. Setting to debug may adversely impact performance. Alternatively, this can be ` +
+		"set with the following environment variable: " + logLevelEnvKey
+
+	logLevelCritical = "critical"
+	logLevelError    = "error"
+	logLevelWarn     = "warning"
+	logLevelInfo     = "info"
+	logLevelDebug    = "debug"
 )
 
 const (
@@ -62,6 +75,7 @@ type didRestParameters struct {
 	configFile        string
 	tlsSystemCertPool bool
 	tlsCACerts        []string
+	logLevel          string
 }
 
 type healthCheckResp struct {
@@ -122,11 +136,17 @@ func getDIDRestParameters(cmd *cobra.Command) (*didRestParameters, error) {
 		return nil, err
 	}
 
+	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, logLevelFlagName, logLevelEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &didRestParameters{
 		hostURL:           hostURL,
 		configFile:        configFile,
 		tlsSystemCertPool: tlsSystemCertPool,
 		tlsCACerts:        tlsCACerts,
+		logLevel:          loggingLevel,
 	}, nil
 }
 
@@ -158,9 +178,14 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(configFlagName, configFlagShorthand, "", configFlagUsage)
+	startCmd.Flags().StringP(logLevelFlagName, logLevelFlagShorthand, "", logLevelPrefixFlagUsage)
 }
 
 func startDidService(parameters *didRestParameters, srv server) error {
+	if parameters.logLevel != "" {
+		setLogLevel(parameters.logLevel)
+	}
+
 	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
 	if err != nil {
 		return err
@@ -189,6 +214,20 @@ func startDidService(parameters *didRestParameters, srv server) error {
 	logger.Infof("Starting did rest server on host %s", parameters.hostURL)
 
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
+}
+
+func setLogLevel(userLogLevel string) {
+	logLevel, err := log.ParseLevel(userLogLevel)
+	if err != nil {
+		logger.Warnf(`%s is not a valid logging level.`+
+			`It must be one of the following: critical,error,warning,info,debug. Defaulting to info.`, userLogLevel)
+
+		logLevel = log.INFO
+	} else if logLevel == log.DEBUG {
+		logger.Infof(`Log level set to "debug". Performance may be adversely impacted.`)
+	}
+
+	log.SetLevel("", logLevel)
 }
 
 func constructCORSHandler(handler http.Handler) http.Handler {
