@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/edge-core/pkg/log"
 )
 
 type mockServer struct{}
@@ -239,6 +240,107 @@ func TestStartCmdValidArgs(t *testing.T) {
 	err := startCmd.Execute()
 
 	require.Nil(t, err)
+}
+
+func TestStartCmdLogLevels(t *testing.T) {
+	t.Run(`Log level not specified - default to "info"`, func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1"}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.INFO, log.GetLevel(""))
+	})
+	t.Run("Log level: critical", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1", "--" + logLevelFlagName, logLevelCritical}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.CRITICAL, log.GetLevel(""))
+	})
+	t.Run("Log level: error", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1", "--" + logLevelFlagName, logLevelError}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.ERROR, log.GetLevel(""))
+	})
+	t.Run("Log level: warn", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1", "--" + logLevelFlagName, logLevelWarn}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.WARNING, log.GetLevel(""))
+	})
+	t.Run("Log level: info", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1", "--" + logLevelFlagName, logLevelInfo}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.INFO, log.GetLevel(""))
+	})
+	t.Run("Log level: debug", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1", "--" + logLevelFlagName, logLevelDebug}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.DEBUG, log.GetLevel(""))
+	})
+	t.Run("Invalid log level - default to info", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+			"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+			"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
+			"--" + requestTokensFlagName, "token2=tk2=1", "--" + logLevelFlagName, "mango"}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Nil(t, err)
+		require.Equal(t, log.INFO, log.GetLevel(""))
+	})
 }
 
 func TestHealthCheck(t *testing.T) {
