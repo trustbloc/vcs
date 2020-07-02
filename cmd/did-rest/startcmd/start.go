@@ -24,6 +24,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/proxy/rules/filerules"
 	"github.com/trustbloc/edge-service/pkg/restapi/did"
 	"github.com/trustbloc/edge-service/pkg/restapi/did/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/logspec"
 )
 
 const (
@@ -205,6 +206,10 @@ func startDidService(parameters *didRestParameters, srv server) error {
 	router := mux.NewRouter()
 
 	for _, handler := range handlers {
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	}
+
+	for _, handler := range logspec.New().GetOperations() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 

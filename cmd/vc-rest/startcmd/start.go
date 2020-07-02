@@ -48,6 +48,7 @@ import (
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
 	issuerops "github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
+	restlogspec "github.com/trustbloc/edge-service/pkg/restapi/logspec"
 	restverifier "github.com/trustbloc/edge-service/pkg/restapi/verifier"
 	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 )
@@ -688,6 +689,10 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		}
 	}
 
+	for _, handler := range restlogspec.New().GetOperations() {
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	}
+
 	// health check
 	router.HandleFunc(healthCheckEndpoint, healthCheckHandler).Methods(http.MethodGet)
 
@@ -883,7 +888,7 @@ func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 func constructCORSHandler(handler http.Handler) http.Handler {
 	return cors.New(
 		cors.Options{
-			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodHead},
+			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
 			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
 		},
 	).Handler(handler)

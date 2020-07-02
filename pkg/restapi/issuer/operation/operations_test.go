@@ -19,8 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trustbloc/edge-core/pkg/utils/retry"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
@@ -39,6 +37,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
+	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -250,7 +249,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 
 	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
 
-	updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint)
+	updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
 	t.Run("update credential status success", func(t *testing.T) {
 		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
@@ -318,7 +317,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
-		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint)
+		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
 		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -348,7 +347,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 			Crypto:             &cryptomock.Crypto{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{updateVCStatusErr: fmt.Errorf("error update vc status")}
-		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint)
+		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
 		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -396,7 +395,7 @@ func testCreateProfileHandler(t *testing.T) {
 
 	op.commonDID = &mockCommonDID{}
 
-	createProfileHandler := getHandler(t, op, createProfileEndpoint)
+	createProfileHandler := getHandler(t, op, createProfileEndpoint, http.MethodPost)
 
 	t.Run("create profile success", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
@@ -432,7 +431,7 @@ func testCreateProfileHandler(t *testing.T) {
 
 		require.NoError(t, err)
 
-		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+		createProfileHandler = getHandler(t, op, createProfileEndpoint, http.MethodPost)
 
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
 			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
@@ -466,7 +465,7 @@ func testCreateProfileHandler(t *testing.T) {
 
 		require.NoError(t, err)
 
-		createProfileHandler = getHandler(t, op, createProfileEndpoint)
+		createProfileHandler = getHandler(t, op, createProfileEndpoint, http.MethodPost)
 
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
 			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
@@ -537,7 +536,7 @@ func TestGetProfileHandler(t *testing.T) {
 
 	op.commonDID = &mockCommonDID{}
 
-	getProfileHandler := getHandler(t, op, getProfileEndpoint)
+	getProfileHandler := getHandler(t, op, getProfileEndpoint, http.MethodGet)
 
 	notFoundID := "test"
 	req, err := http.NewRequest(http.MethodGet,
@@ -590,7 +589,7 @@ func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.DataProfile {
 
 	rr := httptest.NewRecorder()
 
-	createProfileEndpoint := getHandler(t, op, createProfileEndpoint)
+	createProfileEndpoint := getHandler(t, op, createProfileEndpoint, http.MethodPost)
 	createProfileEndpoint.Handle().ServeHTTP(rr, req)
 
 	profile := &vcprofile.DataProfile{}
@@ -1086,7 +1085,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
-		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint)
+		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint, http.MethodGet)
 
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1191,7 +1190,7 @@ func TestVCStatus(t *testing.T) {
 
 		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
 
-		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint)
+		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint, http.MethodGet)
 
 		req, err := http.NewRequest(http.MethodGet, credentialStatus+"/1", nil)
 		require.NoError(t, err)
@@ -1220,7 +1219,7 @@ func TestVCStatus(t *testing.T) {
 		op.vcStatusManager = &mockVCStatusManager{
 			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{}}}
 
-		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint)
+		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint, http.MethodGet)
 
 		req, err := http.NewRequest(http.MethodGet, credentialStatus+"/1", nil)
 		require.NoError(t, err)
@@ -1321,7 +1320,7 @@ func TestIssueCredential(t *testing.T) {
 	urlVars := make(map[string]string)
 	urlVars[profileIDPathParam] = profile.Name
 
-	handler := getHandler(t, op, issueCredentialPath)
+	handler := getHandler(t, op, issueCredentialPath, http.MethodPost)
 
 	t.Run("issue credential - success", func(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
@@ -1353,7 +1352,7 @@ func TestIssueCredential(t *testing.T) {
 		err = ops.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, ops, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
 
 		const createdTime = "2011-04-16T18:11:09-04:00"
 		ct, err := time.Parse(time.RFC3339, createdTime)
@@ -1474,7 +1473,7 @@ func TestIssueCredential(t *testing.T) {
 		err = ops.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, ops, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1536,7 +1535,7 @@ func TestIssueCredential(t *testing.T) {
 		err = ops.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, ops, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1566,7 +1565,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, ops, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
 
 		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, nil, urlVars)
 
@@ -1664,7 +1663,7 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		issueHandler := getHandler(t, op1, issueCredentialPath)
+		issueHandler := getHandler(t, op1, issueCredentialPath, http.MethodPost)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1701,7 +1700,7 @@ func TestIssueCredential(t *testing.T) {
 
 		op.vcStatusManager = &mockCredentialStatusManager{CreateErr: errors.New("csl error")}
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, http.MethodPost)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1735,7 +1734,7 @@ func TestIssueCredential(t *testing.T) {
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, http.MethodPost)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1770,7 +1769,7 @@ func TestIssueCredential(t *testing.T) {
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		issueCredentialHandler := getHandler(t, op, issueCredentialPath)
+		issueCredentialHandler := getHandler(t, op, issueCredentialPath, http.MethodPost)
 
 		req := &IssueCredentialRequest{
 			Credential: []byte(validVC),
@@ -1836,7 +1835,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	handler := getHandler(t, op, composeAndIssueCredentialPath)
+	handler := getHandler(t, op, composeAndIssueCredentialPath, http.MethodPost)
 
 	endpoint := "/test/credentials/composeAndIssueCredential"
 	issuerProfileDIDKey := "did:test:abc#" + key1ID
@@ -1871,7 +1870,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		restHandler := getHandler(t, op, composeAndIssueCredentialPath)
+		restHandler := getHandler(t, op, composeAndIssueCredentialPath, http.MethodPost)
 
 		claimJSON, err := json.Marshal(claim)
 		require.NoError(t, err)
@@ -2002,7 +2001,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		restHandler := getHandler(t, ops, composeAndIssueCredentialPath)
+		restHandler := getHandler(t, ops, composeAndIssueCredentialPath, http.MethodPost)
 
 		rr := serveHTTPMux(t, restHandler, endpoint, nil, urlVars)
 
@@ -2036,7 +2035,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		reqBytes, err := json.Marshal(req)
 		require.NoError(t, err)
 
-		restHandler := getHandler(t, ops, composeAndIssueCredentialPath)
+		restHandler := getHandler(t, ops, composeAndIssueCredentialPath, http.MethodPost)
 
 		// invoke the endpoint
 		rr := serveHTTPMux(t, restHandler, endpoint, reqBytes, urlVars)
@@ -2124,7 +2123,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		err = op1.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
-		handler1 := getHandler(t, op1, composeAndIssueCredentialPath)
+		handler1 := getHandler(t, op1, composeAndIssueCredentialPath, http.MethodPost)
 
 		// invoke the endpoint
 		rr := serveHTTPMux(t, handler1, endpoint, reqBytes, urlVars)
@@ -2262,7 +2261,7 @@ func TestGenerateKeypair(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		generateKeypairHandler := getHandler(t, op, generateKeypairPath)
+		generateKeypairHandler := getHandler(t, op, generateKeypairPath, http.MethodGet)
 
 		rr := serveHTTP(t, generateKeypairHandler.Handle(), http.MethodGet, generateKeypairPath, nil)
 
@@ -2288,7 +2287,7 @@ func TestGenerateKeypair(t *testing.T) {
 		require.NoError(t, err)
 		op.kms = &mockkms.KeyManager{CreateKeyErr: errors.New("kms - create keyset error")}
 
-		generateKeypairHandler := getHandler(t, op, generateKeypairPath)
+		generateKeypairHandler := getHandler(t, op, generateKeypairPath, http.MethodGet)
 
 		rr := serveHTTP(t, generateKeypairHandler.Handle(), http.MethodGet, generateKeypairPath, nil)
 
@@ -2333,20 +2332,20 @@ func getProfileRequest() *ProfileRequest {
 		SignatureType: "Ed25519Signature2018"}
 }
 
-func getHandler(t *testing.T, op *Operation, lookup string) Handler {
-	return getHandlerWithError(t, op, lookup)
+func getHandler(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	return getHandlerWithError(t, op, pathToLookup, methodToLookup)
 }
 
-func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
-	return handlerLookup(t, op, lookup)
+func getHandlerWithError(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	return handlerLookup(t, op, pathToLookup, methodToLookup)
 }
 
-func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
+func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
-		if h.Path() == lookup {
+		if h.Path() == pathToLookup && h.Method() == methodToLookup {
 			return h
 		}
 	}
