@@ -69,7 +69,7 @@ func TestCreateProfile(t *testing.T) {
 	require.NoError(t, err)
 
 	endpoint := profileEndpoint
-	handler := getHandler(t, op, endpoint)
+	handler := getHandler(t, op, endpoint, http.MethodPost)
 
 	t.Run("create profile - success", func(t *testing.T) {
 		vReq := &verifier.ProfileData{
@@ -187,7 +187,7 @@ func TestCreateProfile(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := profileEndpoint
-		handler := getHandler(t, op, endpoint)
+		handler := getHandler(t, op, endpoint, http.MethodPost)
 
 		vReq := &verifier.ProfileData{
 			ID:   "test1",
@@ -212,7 +212,7 @@ func TestGetProfile(t *testing.T) {
 	require.NoError(t, err)
 
 	endpoint := getProfileEndpoint
-	handler := getHandler(t, op, endpoint)
+	handler := getHandler(t, op, endpoint, http.MethodGet)
 
 	urlVars := make(map[string]string)
 
@@ -276,7 +276,7 @@ func TestVerifyCredential(t *testing.T) {
 	endpoint := "/test/verifier/credentials"
 	didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
 
-	verificationsHandler := getHandler(t, op, credentialsVerificationEndpoint)
+	verificationsHandler := getHandler(t, op, credentialsVerificationEndpoint, http.MethodPost)
 
 	t.Run("credential verification - success", func(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -310,7 +310,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, ops, credentialsVerificationEndpoint)
+		handler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
@@ -341,7 +341,7 @@ func TestVerifyCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		signPresentationHandler := getHandler(t, ops, credentialsVerificationEndpoint)
+		signPresentationHandler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
 
 		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
 
@@ -547,7 +547,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, op, credentialsVerificationEndpoint)
+		handler := getHandler(t, op, credentialsVerificationEndpoint, http.MethodPost)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, prCardVC, didID, verificationMethod, domain,
@@ -648,7 +648,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, ops, credentialsVerificationEndpoint)
+		handler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
@@ -690,7 +690,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, ops, credentialsVerificationEndpoint)
+		handler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
 
 		vReq := &CredentialsVerificationRequest{
 			Credential: getSignedVC(t, privKey, string(vcBytes), "did:invalid:issuer", verificationMethod, domain, challenge),
@@ -732,7 +732,7 @@ func TestVerifyPresentation(t *testing.T) {
 	urlVars[profileIDPathParam] = vReq.ID
 
 	endpoint := "/test/verifier/presentations"
-	verificationsHandler := getHandler(t, op, presentationsVerificationEndpoint)
+	verificationsHandler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 	t.Run("presentation verification - success", func(t *testing.T) {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -753,7 +753,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, op, presentationsVerificationEndpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -786,7 +786,7 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		signPresentationHandler := getHandler(t, ops, presentationsVerificationEndpoint)
+		signPresentationHandler := getHandler(t, ops, presentationsVerificationEndpoint, http.MethodPost)
 
 		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
 
@@ -913,7 +913,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, op, presentationsVerificationEndpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -1004,7 +1004,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, op, presentationsVerificationEndpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -1046,7 +1046,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, op, presentationsVerificationEndpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
@@ -1087,7 +1087,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		// verify credential
-		handler := getHandler(t, op, presentationsVerificationEndpoint)
+		handler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 		vReq := &VerifyPresentationRequest{
 			Presentation: getSignedVP(t, privKey, prCardVC, "did:invalid:holder", verificationMethod,
@@ -1325,20 +1325,20 @@ func getEd25519TestSigner(privKey []byte) *ed25519TestSigner {
 	return &ed25519TestSigner{privateKey: privKey}
 }
 
-func getHandler(t *testing.T, op *Operation, lookup string) Handler {
-	return getHandlerWithError(t, op, lookup)
+func getHandler(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	return getHandlerWithError(t, op, pathToLookup, methodToLookup)
 }
 
-func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
-	return handlerLookup(t, op, lookup)
+func getHandlerWithError(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	return handlerLookup(t, op, pathToLookup, methodToLookup)
 }
 
-func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
+func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
-		if h.Path() == lookup {
+		if h.Path() == pathToLookup && h.Method() == methodToLookup {
 			return h
 		}
 	}
