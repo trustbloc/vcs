@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
+
+	"github.com/trustbloc/edge-service/cmd/common"
 )
 
 type mockServer struct{}
@@ -113,92 +115,13 @@ func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
 	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-		"./test/config.json"}
+		"./test/config.json", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR)}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
 
 	require.Nil(t, err)
-}
-
-func TestStartCmdLogLevels(t *testing.T) {
-	t.Run(`Log level not specified - default to "info"`, func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json"}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.INFO, log.GetLevel(""))
-	})
-	t.Run("Log level: critical", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json", "--" + logLevelFlagName, logLevelCritical}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.CRITICAL, log.GetLevel(""))
-	})
-	t.Run("Log level: error", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json", "--" + logLevelFlagName, logLevelError}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.ERROR, log.GetLevel(""))
-	})
-	t.Run("Log level: warn", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json", "--" + logLevelFlagName, logLevelWarn}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.WARNING, log.GetLevel(""))
-	})
-	t.Run("Log level: info", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json", "--" + logLevelFlagName, logLevelInfo}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.INFO, log.GetLevel(""))
-	})
-	t.Run("Log level: debug", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json", "--" + logLevelFlagName, logLevelDebug}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.DEBUG, log.GetLevel(""))
-	})
-	t.Run("Invalid log level - default to info", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + configFlagName,
-			"./test/config.json", "--" + logLevelFlagName, "mango"}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Nil(t, err)
-		require.Equal(t, log.INFO, log.GetLevel(""))
-	})
+	require.Equal(t, log.ERROR, log.GetLevel(""))
 }
 
 func TestHealthCheck(t *testing.T) {

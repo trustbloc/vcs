@@ -45,6 +45,7 @@ import (
 	"github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
+	"github.com/trustbloc/edge-service/cmd/common"
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
@@ -181,19 +182,6 @@ const (
 	masterKeyURI       = "local-lock://custom/master/key/"
 	masterKeyStoreName = "masterkey"
 	masterKeyDBKeyName = masterKeyStoreName
-
-	logLevelFlagName        = "log-level"
-	logLevelEnvKey          = "LOG_LEVEL"
-	logLevelFlagShorthand   = "l"
-	logLevelPrefixFlagUsage = "Logging level to set. Supported options: critical, error, warning, info, debug." +
-		`Defaults to info if not set. Setting to debug may adversely impact performance. Alternatively, this can be ` +
-		"set with the following environment variable: " + logLevelEnvKey
-
-	logLevelCritical = "critical"
-	logLevelError    = "error"
-	logLevelWarn     = "warning"
-	logLevelInfo     = "info"
-	logLevelDebug    = "debug"
 )
 
 var logger = log.New("vc-rest")
@@ -340,7 +328,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, logLevelFlagName, logLevelEnvKey, true)
+	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, common.LogLevelFlagName, common.LogLevelEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
@@ -598,13 +586,13 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(backoffFactorFlagName, backoffFactorFlagShorthand, "", backoffFactorFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
-	startCmd.Flags().StringP(logLevelFlagName, logLevelFlagShorthand, "", logLevelPrefixFlagUsage)
+	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 }
 
 // nolint: gocyclo,funlen
 func startEdgeService(parameters *vcRestParameters, srv server) error {
 	if parameters.logLevel != "" {
-		setLogLevel(parameters.logLevel)
+		common.SetDefaultLogLevel(logger, parameters.logLevel)
 	}
 
 	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
@@ -699,20 +687,6 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	logger.Infof("Starting vc rest server on host %s", parameters.hostURL)
 
 	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
-}
-
-func setLogLevel(userLogLevel string) {
-	logLevel, err := log.ParseLevel(userLogLevel)
-	if err != nil {
-		logger.Warnf(`%s is not a valid logging level.`+
-			`It must be one of the following: critical,error,warning,info,debug. Defaulting to info.`, userLogLevel)
-
-		logLevel = log.INFO
-	} else if logLevel == log.DEBUG {
-		logger.Infof(`Log level set to "debug". Performance may be adversely impacted.`)
-	}
-
-	log.SetLevel("", logLevel)
 }
 
 type kmsProvider struct {
