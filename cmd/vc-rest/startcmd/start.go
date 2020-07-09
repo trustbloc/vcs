@@ -35,6 +35,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
+	restlogspec "github.com/trustbloc/edge-core/pkg/restapi/logspec"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
@@ -48,7 +49,6 @@ import (
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
 	issuerops "github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
-	restlogspec "github.com/trustbloc/edge-service/pkg/restapi/logspec"
 	restverifier "github.com/trustbloc/edge-service/pkg/restapi/verifier"
 	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 )
