@@ -202,8 +202,6 @@ github.com/spf13/jwalterweatherman v1.0.0/go.mod h1:cQK4TGJAtQXfYWX+Ddv3mKDzgVb6
 github.com/spf13/pflag v1.0.3 h1:zPAT6CGy6wXeQ7NtTnaTerfKOsV6V6F8agHXFiazDkg=
 github.com/spf13/pflag v1.0.3/go.mod h1:DYY7MBk1bdzusC3SYhjObp+wFpr4gzcvqqNjLnInEg4=
 github.com/spf13/viper v1.4.0/go.mod h1:PTJ7Z/lr49W6bUbkmS1V3by4uWynFiR9p7+dSq/yZzE=
-github.com/square/go-jose v2.4.1+incompatible h1:KFYc54wTtgnd3x4B/Y7Zr1s/QaEx2BNzRsB3Hae5LHo=
-github.com/square/go-jose v2.4.1+incompatible/go.mod h1:7MxpAF/1WTVUu8Am+T5kNy+t0902CaLWM4Z745MkOa8=
 github.com/square/go-jose/v3 v3.0.0-20191119004800-96c717272387 h1:PjfQbTWDEoNh4v+4NNirclXoCIxjjLXsqSAP1iYxuOM=
 github.com/square/go-jose/v3 v3.0.0-20191119004800-96c717272387/go.mod h1:iYbsnddeHsxZC0AxvsQsVV1gPR8VPiSYT5FsUTeaEuY=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
@@ -222,8 +220,8 @@ github.com/trustbloc/edge-core v0.1.4-0.20200603140750-8d89a0084be7/go.mod h1:WH
 github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada h1:x3fKt4Brg5x3rHub1AfgVt4rrWdMnebvPEQpA4vP12M=
 github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
 github.com/trustbloc/edv v0.1.4-0.20200612202422-540ab6ea9def/go.mod h1:3eOkVgjlLq50N5eqdOhjsOKbModJKlwXxdFg18BNePE=
-github.com/trustbloc/sidetree-core-go v0.1.3/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
-github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200525135153-c9d911ac1bb7/go.mod h1:Wb2NunZDMp38rC2O56sGmyH1KPO2XgdOT30LM9/B6VA=
+github.com/trustbloc/sidetree-core-go v0.1.4-0.20200702215916-b02022f5ec37/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
+github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200709150904-54a502143328/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
 github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb h1:zGWFAtiMcyryUHoUjUJX0/lt1H2+i2Ka2n+D3DImSNo=
@@ -325,8 +323,6 @@ gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 h1:qIbj1fsPNlZgppZ+VLlY7N33
 gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/fsnotify.v1 v1.4.7/go.mod h1:Tz8NjZHkW78fSQdbUxIjBTcgA1z1m8ZHf0WmKUhAMys=
 gopkg.in/resty.v1 v1.12.0/go.mod h1:mDo4pnntr5jdWRML875a/NmxYqAlA73dVijT2AXvQQo=
-gopkg.in/square/go-jose.v2 v2.4.1 h1:H0TmLt7/KmzlrDOpa1F+zr0Tk90PbJYBfsVUmRLrf9Y=
-gopkg.in/square/go-jose.v2 v2.4.1/go.mod h1:M9dMgbHiYLoDGQrXy7OpJDJWiKiU//h+vD76mk0e1AI=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7/go.mod h1:dt/ZhP58zS4L8KSrWDmTeBkI65Dw0HsyUHuEVlX15mw=
 gopkg.in/yaml.v2 v2.0.0-20170812160011-eb3733d160e7/go.mod h1:JAlM8MvJe8wmxCU4Bli9HhUf9+ttbYbLASfIpnQbh74=
 gopkg.in/yaml.v2 v2.2.1/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
