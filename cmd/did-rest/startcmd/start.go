@@ -18,13 +18,13 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/edge-core/pkg/restapi/logspec"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
 	"github.com/trustbloc/edge-service/pkg/proxy/rules/filerules"
 	"github.com/trustbloc/edge-service/pkg/restapi/did"
 	"github.com/trustbloc/edge-service/pkg/restapi/did/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/logspec"
 )
 
 const (
