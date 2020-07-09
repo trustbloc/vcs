@@ -210,7 +210,12 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 
 	c := didclient.New(didclient.WithTLSConfig(e.bddContext.TLSConfig))
 
-	_, ed25519PubKey, err := ed25519.GenerateKey(rand.Reader)
+	_, ed25519RecoveryPubKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	_, ed25519UpdatePubKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, err
 	}
@@ -218,12 +223,15 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 	return c.CreateDID("testnet.trustbloc.local",
 		didclient.WithPublicKey(&didclient.PublicKey{ID: keyID, Type: didclient.JWSVerificationKey2020,
 			Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
-			Usage: []string{didclient.KeyUsageOps, didclient.KeyUsageGeneral, didclient.KeyUsageAssertion,
-				didclient.KeyUsageAuth},
+			Purpose: []string{didclient.KeyPurposeGeneral, didclient.KeyPurposeAssertion,
+				didclient.KeyPurposeAuth},
 			Encoding: didclient.PublicKeyEncodingJwk}),
 		didclient.WithPublicKey(&didclient.PublicKey{ID: "recovery",
-			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519PubKey,
-			KeyType: didclient.Ed25519KeyType, Recovery: true}))
+			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519RecoveryPubKey,
+			KeyType: didclient.Ed25519KeyType, Recovery: true}),
+		didclient.WithPublicKey(&didclient.PublicKey{ID: "update",
+			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519UpdatePubKey,
+			KeyType: didclient.Ed25519KeyType, Update: true}))
 }
 
 func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge, purpose string) error { // nolint: gocyclo
