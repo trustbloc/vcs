@@ -74,7 +74,7 @@ type VCStatus struct {
 func New(provider storage.Provider, url string, listSize int, c crypto) (*CredentialStatusManager, error) {
 	err := provider.CreateStore(credentialStatusStore)
 	if err != nil {
-		if err != storage.ErrDuplicateStore {
+		if !errors.Is(err, storage.ErrDuplicateStore) {
 			return nil, err
 		}
 	}

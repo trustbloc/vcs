@@ -26,6 +26,7 @@ github.com/btcsuite/goleveldb v0.0.0-20160330041536-7834afc9e8cd/go.mod h1:F+uVa
 github.com/btcsuite/snappy-go v0.0.0-20151229074030-0bdef8d06723/go.mod h1:8woku9dyThutzjeg+3xrA5iCpBRH8XEEg3lh6TiUghc=
 github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792/go.mod h1:ghJtEyQwv5/p4Mg4C0fgbePVuGr935/5ddU9Z3TmDRY=
 github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46fmI40EZs=
+github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
 github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
 github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/cespare/xxhash/v2 v2.1.1 h1:6MnRN8NT7+YBpUIWxHtefFZOKTAPgGjpQSxqLNn0+qY=
@@ -215,11 +216,9 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4 h1:Sq/68UWgBzKT+pLTUTkSf0jS2IUwwXLFlZmeh+nAzQM=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4/go.mod h1:9PdLyPiZIiW3UopXyRnPYyjUXSpiQNHRLu8fOsR3o8M=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
-github.com/trustbloc/edge-core v0.1.4-0.20200603140750-8d89a0084be7 h1:RMMMKvUKjg9WXWLA63Ltuf3RgkWhedpK/1geY48E34I=
-github.com/trustbloc/edge-core v0.1.4-0.20200603140750-8d89a0084be7/go.mod h1:WHyxnukpb4wUXDLdgJ/vQY0JIZ9HfONzK/ERzpGVOgk=
-github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada h1:x3fKt4Brg5x3rHub1AfgVt4rrWdMnebvPEQpA4vP12M=
-github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
-github.com/trustbloc/edv v0.1.4-0.20200612202422-540ab6ea9def/go.mod h1:3eOkVgjlLq50N5eqdOhjsOKbModJKlwXxdFg18BNePE=
+github.com/trustbloc/edge-core v0.1.4-0.20200814194611-5f3b95f18b63 h1:gwdHQvxLWX2wrTSj/NlhQ9ZgHUmLmx5Iok/8qaYOhQQ=
+github.com/trustbloc/edge-core v0.1.4-0.20200814194611-5f3b95f18b63/go.mod h1:mTU1E/HcKcjmHaPCjBOvHERuryGhh5zgVkRSi4slAHg=
+github.com/trustbloc/edv v0.1.4-0.20200815210630-993f07543815/go.mod h1:TI2UGPN00OOoo/kdTMLstV+lUodsp0U3tCqhcdUQp2s=
 github.com/trustbloc/sidetree-core-go v0.1.4-0.20200702215916-b02022f5ec37/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
 github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200709150904-54a502143328/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=
 github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200811134027-539ff50d182f/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=

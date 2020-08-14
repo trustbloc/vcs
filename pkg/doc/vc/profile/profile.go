@@ -7,6 +7,7 @@ package profile
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -29,7 +30,7 @@ const (
 func New(provider storage.Provider) (*Profile, error) {
 	err := provider.CreateStore(credentialStoreName)
 	if err != nil {
-		if err != storage.ErrDuplicateStore {
+		if !errors.Is(err, storage.ErrDuplicateStore) {
 			return nil, err
 		}
 	}
