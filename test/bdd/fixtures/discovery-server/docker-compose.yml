@@ -20,7 +20,7 @@ services:
     ports:
       - "443:443"
     volumes:
-      - ./config:/web/.well-known/did-trustbloc
+      - ../wellknown/jws/did-trustbloc:/web/.well-known/did-trustbloc
       - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
