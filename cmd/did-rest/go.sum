@@ -222,6 +222,7 @@ github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada/go.mod h1:SZ
 github.com/trustbloc/edv v0.1.4-0.20200612202422-540ab6ea9def/go.mod h1:3eOkVgjlLq50N5eqdOhjsOKbModJKlwXxdFg18BNePE=
 github.com/trustbloc/sidetree-core-go v0.1.4-0.20200702215916-b02022f5ec37/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
 github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200709150904-54a502143328/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=
+github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200811134027-539ff50d182f/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=
 github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb h1:zGWFAtiMcyryUHoUjUJX0/lt1H2+i2Ka2n+D3DImSNo=

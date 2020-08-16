@@ -31,6 +31,5 @@ coverage.txt
 build/
 
 test/bdd/fixtures/keys/tls
-test/bdd/fixtures/discovery-server/config
-test/bdd/fixtures/stakeholder-server/config
+test/bdd/fixtures/wellknown/jws
 test/bdd/fixtures/openapi-demo/specs/

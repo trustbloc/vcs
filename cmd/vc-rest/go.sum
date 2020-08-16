@@ -235,6 +235,8 @@ github.com/trustbloc/sidetree-core-go v0.1.4-0.20200702215916-b02022f5ec37 h1:eX
 github.com/trustbloc/sidetree-core-go v0.1.4-0.20200702215916-b02022f5ec37/go.mod h1:xCuMVdRtXiCghr58Dcd1RW9t0lCDXPPjkSiACzKGaZc=
 github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200709150904-54a502143328 h1:F1aoiy4rWThRe2OCzSNbDGHKJR5tQV6cBcnhgy+aXbo=
 github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200709150904-54a502143328/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=
+github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200811134027-539ff50d182f h1:OHa+fs5jd5PnObLWzTqr2g7Gke3JC52vMrkO3ELY8h4=
+github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200811134027-539ff50d182f/go.mod h1:u8KKRNZj3Izs1zBFKhjqSn6TlX8qlrb7P1q+c/Aa8D0=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f h1:J9EGpcZtP0E/raorCMxlFGSTBrsSlaDGf3jU/qvAE2c=
 github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f/go.mod h1:N2zxlSyiKSe5eX1tZViRH5QA0qijqEDrYZiPEAiq3wU=

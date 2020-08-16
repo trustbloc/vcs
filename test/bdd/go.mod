@@ -17,7 +17,7 @@ require (
 	github.com/mr-tron/base58 v1.1.3
 	github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada
 	github.com/trustbloc/edge-service v0.0.0
-	github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200709150904-54a502143328
+	github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200811134027-539ff50d182f
 )
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
