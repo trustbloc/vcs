@@ -451,6 +451,10 @@ func (s *mockStore) Query(query string) (storage.ResultsIterator, error) {
 	return nil, nil
 }
 
+func (s *mockStore) Delete(k string) error {
+	panic("implement me")
+}
+
 // nolint: unparam
 func createDIDDoc(didID string) *did.Doc {
 	const (

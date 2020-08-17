@@ -15,7 +15,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/hyperledger/aries-framework-go v0.1.4-0.20200528153636-1d4c39e41ae7
 	github.com/mr-tron/base58 v1.1.3
-	github.com/trustbloc/edge-core v0.1.4-0.20200708225443-dcc42296cada
+	github.com/trustbloc/edge-core v0.1.4-0.20200814194611-5f3b95f18b63
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/trustbloc-did-method v0.1.4-0.20200811134027-539ff50d182f
 )

@@ -7,14 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package vcutil
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -97,7 +96,7 @@ func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedI
 
 // BuildStructuredDocForStorage builds structured data for storage from given VC
 func BuildStructuredDocForStorage(vcData []byte) (*models.StructuredDocument, error) {
-	edvDocID, err := generateEDVCompatibleID()
+	edvDocID, err := edvutils.GenerateEDVCompatibleID()
 	if err != nil {
 		return nil, err
 	}
@@ -138,18 +137,4 @@ func GetDocIDFromURL(docURL string) string {
 	docIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
 
 	return docIDToRetrieve
-}
-
-// generateEDVCompatibleID generates EDV compatible IDs
-func generateEDVCompatibleID() (string, error) {
-	randomBytes := make([]byte, 16)
-
-	_, err := rand.Read(randomBytes)
-	if err != nil {
-		return "", err
-	}
-
-	base58EncodedUUID := base58.Encode(randomBytes)
-
-	return base58EncodedUUID, nil
 }
