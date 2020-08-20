@@ -7,6 +7,7 @@
 set -e
 
 declare -a tests=(
+   "governance_rest"
    "holder_rest"
    "issuer_rest"
    "verifier_rest"

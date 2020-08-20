@@ -22,8 +22,9 @@ const (
 
 	credentialStoreName = "credential"
 
-	issuerMode = "issuer"
-	holderMode = "holder"
+	issuerMode     = "issuer"
+	holderMode     = "holder"
+	governanceMode = "governance"
 )
 
 // New returns new credential recorder instance
@@ -72,6 +73,16 @@ type HolderProfile struct {
 	Created                 *time.Time                         `json:"created"`
 }
 
+// GovernanceProfile struct for governance profile
+type GovernanceProfile struct {
+	Name                    string                             `json:"name"`
+	DID                     string                             `json:"did"`
+	SignatureType           string                             `json:"signatureType"`
+	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
+	Creator                 string                             `json:"creator"`
+	Created                 *time.Time                         `json:"created"`
+}
+
 // SaveProfile saves issuer profile to underlying store
 func (c *Profile) SaveProfile(data *DataProfile) error {
 	bytes, err := json.Marshal(data)
@@ -117,6 +128,33 @@ func (c *Profile) GetHolderProfile(name string) (*HolderProfile, error) {
 	}
 
 	response := &HolderProfile{}
+
+	err = json.Unmarshal(bytes, response)
+	if err != nil {
+		return nil, err
+	}
+
+	return response, nil
+}
+
+// SaveGovernanceProfile saves governance profile to the underlying store.
+func (c *Profile) SaveGovernanceProfile(data *GovernanceProfile) error {
+	bytes, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("save governance profile : %s", err.Error())
+	}
+
+	return c.store.Put(getDBKey(governanceMode, data.Name), bytes)
+}
+
+// GetGovernanceProfile retrieves the governance profile based on name.
+func (c *Profile) GetGovernanceProfile(name string) (*GovernanceProfile, error) {
+	bytes, err := c.store.Get(getDBKey(governanceMode, name))
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GovernanceProfile{}
 
 	err = json.Unmarshal(bytes, response)
 	if err != nil {
