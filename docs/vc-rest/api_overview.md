@@ -45,7 +45,7 @@ Mandatory fields:
 }
 ```
 
-### 3. Issue Verifiable Credential - POST /{issuer}/credentials/issueCredential
+### 3. Issue Verifiable Credential - POST /{profile}/credentials/issueCredential
 Path:
 - profile : name of the profile as created in section 1. 
 
@@ -116,7 +116,7 @@ Refer W3C [Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/in
 }
 ```
 
-### 4. Compose and Issue Verifiable Credential - POST /{[profile}/credentials/issueCredential
+### 4. Compose and Issue Verifiable Credential - POST /{profile}/credentials/composeAndIssueCredential
 Path:
 - profile : name of the profile as created in section 1. 
 
