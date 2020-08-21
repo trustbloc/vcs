@@ -55,7 +55,9 @@ func (e *Steps) issueGovernanceVC(profileName, signatureType string) error {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, governanceURL+"/"+profileName+"/issueCredential", "", //nolint: bodyclose
+	url := governanceURL + "/governance/" + profileName + "/issueCredential"
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, url, "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err
