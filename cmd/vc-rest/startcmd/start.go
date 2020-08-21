@@ -46,6 +46,8 @@ import (
 	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/cmd/common"
+	restgovernance "github.com/trustbloc/edge-service/pkg/restapi/governance"
+	governanceops "github.com/trustbloc/edge-service/pkg/restapi/governance/operation"
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
@@ -169,6 +171,10 @@ const (
 	requestTokensFlagUsage = "Tokens used for http request " +
 		commonEnvVarUsageText + requestTokensEnvKey
 
+	governanceClaimsFlagName  = "governance-claims-file"
+	governanceClaimsEnvKey    = "VC_REST_GOVERNANCE_CLAIMS_FILE"
+	governanceClaimsFlagUsage = "Path to governance claims" + commonEnvVarUsageText + governanceClaimsEnvKey
+
 	databaseTypeMemOption     = "mem"
 	databaseTypeCouchDBOption = "couchdb"
 
@@ -192,10 +198,11 @@ var errNegativeBackoffFactor = errors.New("the backoff factor cannot be negative
 type mode string
 
 const (
-	verifier mode = "verifier"
-	issuer   mode = "issuer"
-	holder   mode = "holder"
-	combined mode = "combined"
+	verifier   mode = "verifier"
+	issuer     mode = "issuer"
+	holder     mode = "holder"
+	governance mode = "governance"
+	combined   mode = "combined"
 
 	// api
 	healthCheckEndpoint = "/healthcheck"
@@ -215,6 +222,7 @@ type vcRestParameters struct {
 	token                string
 	requestTokens        map[string]string
 	logLevel             string
+	governanceClaimsFile string
 }
 
 type dbParameters struct {
@@ -333,6 +341,12 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	governanceClaimsFile, err := cmdutils.GetUserSetVarFromString(cmd, governanceClaimsFlagName, governanceClaimsEnvKey,
+		true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -347,6 +361,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		token:                token,
 		requestTokens:        requestTokens,
 		logLevel:             loggingLevel,
+		governanceClaimsFile: governanceClaimsFile,
 	}, nil
 }
 
@@ -587,6 +602,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
+	startCmd.Flags().StringP(governanceClaimsFlagName, "", "", governanceClaimsFlagUsage)
 }
 
 // nolint: gocyclo,funlen
@@ -659,6 +675,13 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
+	governanceService, err := restgovernance.New(&governanceops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs},
+		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
+		VDRI: vdri, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile})
+	if err != nil {
+		return err
+	}
+
 	if parameters.mode == string(issuer) || parameters.mode == string(combined) {
 		for _, handler := range issuerService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
@@ -673,6 +696,12 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	if parameters.mode == string(holder) || parameters.mode == string(combined) {
 		for _, handler := range holderService.GetOperations() {
+			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+		}
+	}
+
+	if parameters.mode == string(governance) || parameters.mode == string(combined) {
+		for _, handler := range governanceService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
 	}
@@ -734,7 +763,8 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdriapi.Regist
 }
 
 func supportedMode(mode string) bool {
-	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) && mode != string(holder) {
+	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) && mode != string(holder) &&
+		mode != string(governance) {
 		return false
 	}
 

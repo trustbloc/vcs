@@ -59,9 +59,9 @@ type signPresentationReq struct { // nolint: unused,deadcode
 	Params SignPresentationRequest
 }
 
-// signPresentationRes model
+// verifiableCredentialRes model
 //
-// swagger:response signPresentationRes
-type signPresentationRes struct { // nolint: unused,deadcode
+// swagger:response verifiableCredentialRes
+type verifiableCredentialRes struct { // nolint: unused,deadcode
 	// in: body
 }
