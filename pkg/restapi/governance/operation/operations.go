@@ -40,7 +40,7 @@ const (
 
 	// governance endpoints
 	governanceProfileEndpoint = "/governance/profile"
-	issueCredentialHandler    = "/" + "{" + profileIDPathParam + "}" + "/issueCredential"
+	issueCredentialHandler    = "/governance/" + "{" + profileIDPathParam + "}" + "/issueCredential"
 	credentialStatus          = "governance/status"
 
 	invalidRequestErrMsg = "Invalid request"
