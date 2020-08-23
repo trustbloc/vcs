@@ -436,7 +436,7 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 		return models.EncryptedDocument{}, err
 	}
 
-	jwe, err := o.jweEncrypter.Encrypt(marshalledStructuredDoc, nil)
+	jwe, err := o.jweEncrypter.Encrypt(marshalledStructuredDoc)
 	if err != nil {
 		return models.EncryptedDocument{}, err
 	}

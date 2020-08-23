@@ -463,7 +463,7 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
 		}
 
-		vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
+		vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
 		if err != nil {
 			return err
 		}

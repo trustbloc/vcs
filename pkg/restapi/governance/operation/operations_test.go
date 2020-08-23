@@ -19,17 +19,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
@@ -41,13 +41,15 @@ import (
 )
 
 func TestCreateGovernanceProfile(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		Crypto:        &cryptomock.Crypto{},
+		Crypto:        customCrypto,
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager:    customKMS,
 		VDRI:          &vdrimock.MockVDRIRegistry{},
 	})
 	require.NoError(t, err)
@@ -118,11 +120,11 @@ func TestCreateGovernanceProfile(t *testing.T) {
 
 	t.Run("create profile - failed to get profile", func(t *testing.T) {
 		op, err := New(&Config{
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
 				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
 				ErrGet: fmt.Errorf("failed to get")}},
-			KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager: customKMS,
 			VDRI:       &vdrimock.MockVDRIRegistry{},
 		})
 		require.NoError(t, err)
@@ -148,10 +150,10 @@ func TestCreateGovernanceProfile(t *testing.T) {
 
 	t.Run("create profile - failed to store governance profile", func(t *testing.T) {
 		op, err := New(&Config{
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: make(map[string][]byte),
 				ErrPut: fmt.Errorf("failed to put")}},
-			KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager: customKMS,
 			VDRI:       &vdrimock.MockVDRIRegistry{},
 		})
 		require.NoError(t, err)
@@ -176,13 +178,10 @@ func TestCreateGovernanceProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - failed to created DID", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
-			Crypto:        &cryptomock.Crypto{},
+			Crypto:        customCrypto,
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI:          &vdrimock.MockVDRIRegistry{},
 		})
 		require.NoError(t, err)
@@ -204,6 +203,11 @@ func TestCreateGovernanceProfile(t *testing.T) {
 }
 
 func TestIssueCredential(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	file, err := ioutil.TempFile("", "*.json")
 	require.NoError(t, err)
 
@@ -225,25 +229,25 @@ func TestIssueCredential(t *testing.T) {
 	urlVars[profileIDPathParam] = vReq.Name
 
 	t.Run("issue credential - success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		kid, _, err := customKMS.ImportPrivateKey(privKey, kms.ED25519Type, kms.WithKeyID(keyID))
+		require.NoError(t, err)
+		require.Equal(t, keyID, kid)
+
+		signingKey, err := customKMS.ExportPubKeyBytes(keyID)
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
 				},
 			},
-			Crypto:     &cryptomock.Crypto{},
+			Crypto:     customCrypto,
 			ClaimsFile: file.Name(),
 		})
 		require.NoError(t, err)
@@ -284,16 +288,13 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - failed to get governance", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
 				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
 				ErrGet: fmt.Errorf("failed to get")}},
-			KeyManager: &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager: customKMS,
 			VDRI:       &vdrimock.MockVDRIRegistry{},
-			Crypto:     &cryptomock.Crypto{},
+			Crypto:     customCrypto,
 			ClaimsFile: file.Name(),
 		})
 		require.NoError(t, err)
@@ -316,14 +317,11 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - failed to create status id", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI:          &vdrimock.MockVDRIRegistry{},
-			Crypto:        &cryptomock.Crypto{},
+			Crypto:        customCrypto,
 			ClaimsFile:    file.Name(),
 		})
 		require.NoError(t, err)
@@ -351,14 +349,11 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - failed to sign credential", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI:          &vdrimock.MockVDRIRegistry{},
-			Crypto:        &cryptomock.Crypto{},
+			Crypto:        customCrypto,
 			ClaimsFile:    file.Name(),
 		})
 		require.NoError(t, err)
@@ -504,4 +499,15 @@ func (m *mockVCStatusManager) UpdateVCStatus(v *verifiable.Credential, profile *
 
 func (m *mockVCStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
 	return m.getCSLValue, m.getCSLErr
+}
+
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	require.NoError(t, err)
+
+	return k
 }

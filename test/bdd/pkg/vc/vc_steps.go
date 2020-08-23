@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/mr-tron/base58"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
@@ -379,10 +379,7 @@ func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, 
 		return err
 	}
 
-	signingKey, err := base58.Decode(privateKey)
-	if err != nil {
-		return err
-	}
+	signingKey := base58.Decode(privateKey)
 
 	created := time.Now()
 	signatureSuite := ed25519signature2018.New(suite.WithSigner(bddutil.GetSigner(signingKey)))

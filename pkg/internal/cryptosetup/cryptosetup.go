@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/tink/go/keyset"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/trustbloc/edge-core/pkg/storage"
@@ -31,7 +31,8 @@ const (
 var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as a key set handle pointer")
 
 type unmarshalFunc func([]byte, interface{}) error
-type newJWEEncryptFunc func(jose.EncAlg, []subtle.PublicKey) (*jose.JWEEncrypt, error)
+type newJWEEncryptFunc func(jose.EncAlg, string, string,
+	*keyset.Handle, []*composite.PublicKey) (*jose.JWEEncrypt, error)
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
 func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
@@ -41,17 +42,20 @@ func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
 		return nil, nil, err
 	}
 
-	jweEncrypter, err := createJWEEncrypter(keyHandle, encAlg, json.Unmarshal, jose.NewJWEEncrypt)
+	// passing encryption type is hard coded to `composite.DIDCommEncType` since the encrypter only supports
+	// Anoncrypt (ECDHES key types)
+	jweEncrypter, err := createJWEEncrypter(keyHandle, encAlg, composite.DIDCommEncType,
+		json.Unmarshal, jose.NewJWEEncrypt)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	jweDecrypter := jose.NewJWEDecrypt(keyHandle)
+	jweDecrypter := jose.NewJWEDecrypt(nil, keyHandle)
 
 	return jweEncrypter, jweDecrypter, nil
 }
 
-func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, unmarshal unmarshalFunc,
+func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, encType string, unmarshal unmarshalFunc,
 	newJWEEncrypt newJWEEncryptFunc) (*jose.JWEEncrypt, error) {
 	pubKH, err := keyHandle.Public()
 	if err != nil {
@@ -59,21 +63,22 @@ func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, unmarshal 
 	}
 
 	buf := new(bytes.Buffer)
-	pubKeyWriter := ecdhes.NewWriter(buf)
+	pubKeyWriter := keyio.NewWriter(buf)
 
 	err = pubKH.WriteWithNoSecrets(pubKeyWriter)
 	if err != nil {
 		return nil, err
 	}
 
-	ecPubKey := new(subtle.PublicKey)
+	ecPubKey := new(composite.PublicKey)
 
 	err = unmarshal(buf.Bytes(), ecPubKey)
 	if err != nil {
 		return nil, err
 	}
 
-	jweEncrypter, err := newJWEEncrypt(encAlg, []subtle.PublicKey{*ecPubKey})
+	// since this is anoncrypt, sender key is not set here
+	jweEncrypter, err := newJWEEncrypt(encAlg, encType, "", nil, []*composite.PublicKey{ecPubKey})
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +128,7 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 
 			err = keyIDStore.Put(keyIDDBKeyName, []byte(keyID))
 			if err != nil {
+				// TODO rollback key creation in KMS that was added during keyManager.Create() call above
 				return nil, err
 			}
 		} else {
