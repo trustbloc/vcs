@@ -41,7 +41,7 @@ const (
 	// governance endpoints
 	governanceProfileEndpoint = "/governance/profile"
 	issueCredentialHandler    = "/governance/" + "{" + profileIDPathParam + "}" + "/issueCredential"
-	credentialStatus          = "governance/status"
+	credentialStatus          = "/governance/status"
 
 	invalidRequestErrMsg = "Invalid request"
 
@@ -302,7 +302,7 @@ func buildCredential(did string, claims []byte) (*verifiable.Credential, error) 
 	credential.Context = append(credential.Context, governanceCtx)
 
 	// set default type, if request doesn't contain the type
-	credential.Types = []string{"VerifiableCredential"}
+	credential.Types = []string{"VerifiableCredential", "GovernanceCredential"}
 
 	// set subject
 	if len(claims) != 0 {
