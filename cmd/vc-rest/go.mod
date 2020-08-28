@@ -5,9 +5,9 @@
 module github.com/trustbloc/edge-service/cmd/vc-rest
 
 require (
-	github.com/google/tink/go v0.0.0-20200403150819-3a14bf4b3380
+	github.com/google/tink/go v1.4.0-rc2.0.20200525085439-8bdaed4f41ed
 	github.com/gorilla/mux v1.7.4
-	github.com/hyperledger/aries-framework-go v0.1.4-0.20200528153636-1d4c39e41ae7
+	github.com/hyperledger/aries-framework-go v0.1.4-0.20200805202321-494aa260b604
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.5.1

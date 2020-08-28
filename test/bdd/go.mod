@@ -13,7 +13,7 @@ require (
 	github.com/cucumber/godog v0.8.1
 	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/google/uuid v1.1.1
-	github.com/hyperledger/aries-framework-go v0.1.4-0.20200528153636-1d4c39e41ae7
+	github.com/hyperledger/aries-framework-go v0.1.4-0.20200805202321-494aa260b604
 	github.com/mr-tron/base58 v1.1.3
 	github.com/trustbloc/edge-core v0.1.4-0.20200814194611-5f3b95f18b63
 	github.com/trustbloc/edge-service v0.0.0
