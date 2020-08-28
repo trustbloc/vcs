@@ -812,7 +812,8 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "verifiable presentation proof validation error : embedded proof is missing",
+		require.Equal(t, "verifiable presentation proof validation error : verifiable credential doesn't "+
+			"contains proof",
 			verificationResp.Checks[0].Error)
 	})
 
@@ -837,7 +838,8 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "verifiable presentation proof validation error : embedded proof is missing",
+		require.Equal(t, "verifiable presentation proof validation error : verifiable credential doesn't "+
+			"contains proof",
 			verificationResp.Checks[0].Error)
 
 		// proof validation error (DID not found)

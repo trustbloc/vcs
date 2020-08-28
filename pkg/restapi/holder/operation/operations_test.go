@@ -18,17 +18,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
-	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 
@@ -44,13 +44,15 @@ const (
 )
 
 func TestCreateHolderProfile(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		Crypto:        &cryptomock.Crypto{},
+		Crypto:        customCrypto,
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager:    customKMS,
 		VDRI:          &vdrimock.MockVDRIRegistry{},
 	})
 	require.NoError(t, err)
@@ -120,13 +122,10 @@ func TestCreateHolderProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - failed to created DID", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
-			Crypto:        &cryptomock.Crypto{},
+			Crypto:        customCrypto,
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI:          &vdrimock.MockVDRIRegistry{},
 		})
 		require.NoError(t, err)
@@ -148,13 +147,15 @@ func TestCreateHolderProfile(t *testing.T) {
 }
 
 func TestGetHolderProfile(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		Crypto:        &cryptomock.Crypto{},
+		Crypto:        customCrypto,
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager:    customKMS,
 		VDRI:          &vdrimock.MockVDRIRegistry{},
 	})
 	require.NoError(t, err)
@@ -208,13 +209,15 @@ func TestSignPresentation(t *testing.T) {
 		Creator:       "did:test:abc#" + keyID,
 	}
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
-		KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
-		Crypto:        &cryptomock.Crypto{},
+		KeyManager:    customKMS,
+		Crypto:        customCrypto,
 	})
 	require.NoError(t, err)
 
@@ -227,25 +230,25 @@ func TestSignPresentation(t *testing.T) {
 	handler := getHandler(t, op, signPresentationEndpoint)
 
 	t.Run("sign presentation - success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		kid, _, err := customKMS.ImportPrivateKey(privKey, kms.ED25519Type, kms.WithKeyID(keyID))
+		require.NoError(t, err)
+		require.Equal(t, kid, keyID)
+
+		signingKey, err := customKMS.ExportPubKeyBytes(kid)
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
 				},
 			},
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
@@ -313,25 +316,26 @@ func TestSignPresentation(t *testing.T) {
 	})
 
 	t.Run("sign presentation - success with opts", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
+		customKMS2 := createKMS(t)
+		_, privKey, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		kid, _, err := customKMS2.ImportPrivateKey(privKey, kms.ED25519Type, kms.WithKeyID(keyID))
+		require.NoError(t, err)
+		require.Equal(t, kid, keyID)
+
+		signingKey, err := customKMS2.ExportPubKeyBytes(kid)
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
+			KeyManager:    customKMS2,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
 				},
 			},
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
@@ -377,13 +381,10 @@ func TestSignPresentation(t *testing.T) {
 	})
 
 	t.Run("sign presentation - invalid profile", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			Crypto:        &cryptomock.Crypto{},
-			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+			Crypto:        customCrypto,
+			KeyManager:    customKMS,
 		})
 		require.NoError(t, err)
 
@@ -417,13 +418,10 @@ func TestSignPresentation(t *testing.T) {
 	})
 
 	t.Run("sign presentation - signing error", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{
-			Crypto:        &cryptomock.Crypto{},
+			Crypto:        customCrypto,
 			StoreProvider: memstore.NewProvider(),
-			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:    customKMS,
 			VDRI:          &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
 		})
 		require.NoError(t, err)
@@ -596,3 +594,14 @@ const (
 	  "issuanceDate": "2010-01-01T19:23:24Z"
 	}`
 )
+
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	require.NoError(t, err)
+
+	return k
+}

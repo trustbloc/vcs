@@ -16,6 +16,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -32,7 +34,9 @@ import (
 
 const (
 	issuerURL = "http://localhost:8070"
+	holderURL = "http://localhost:8067"
 
+	signPresentationURLFormat          = holderURL + "/%s" + "/prove/presentations"
 	issueCredentialURLFormat           = issuerURL + "/%s" + "/credentials/issueCredential"
 	composeAndIssueCredentialURLFormat = issuerURL + "/%s" + "/credentials/composeAndIssueCredential"
 )
@@ -422,6 +426,107 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 	return signedVCByte, nil
 }
 
+func (e *Steps) createPresentation(user, cred, domain, challenge string) ([]byte, error) {
+	if er := e.createHolderProfile(user, uuid.New().String()); er != nil {
+		return nil, er
+	}
+
+	vc, err := verifiable.ParseCredential([]byte(cred), verifiable.WithDisabledProofCheck())
+	if err != nil {
+		return nil, err
+	}
+
+	// create verifiable presentation from vc
+	vp, err := vc.Presentation()
+	if err != nil {
+		return nil, err
+	}
+
+	vpBytes, err := vp.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	req := &holderops.SignPresentationRequest{
+		Presentation: vpBytes,
+		Opts: &holderops.SignPresentationOptions{
+			Challenge: challenge,
+			Domain:    domain,
+		},
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	endpointURL := fmt.Sprintf(signPresentationURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(reqBytes))
+	if err != nil {
+		return nil, err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	responseBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response : %s", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("got unexpected response from %s status '%d' body %s",
+			endpointURL, resp.StatusCode, responseBytes)
+	}
+
+	return responseBytes, nil
+}
+
+func (e *Steps) createHolderProfile(user, profileName string) error {
+	profileRequest := holderops.HolderProfileRequest{
+		Name:                    profileName,
+		SignatureRepresentation: verifiable.SignatureJWS,
+		SignatureType:           "Ed25519Signature2018",
+		DIDKeyType:              "Ed25519",
+	}
+
+	requestBytes, err := json.Marshal(profileRequest)
+	if err != nil {
+		return err
+	}
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", "rw_token", //nolint: bodyclose
+		bytes.NewBuffer(requestBytes))
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+	}
+
+	profileResponse := profile.DataProfile{}
+
+	err = json.Unmarshal(respBytes, &profileResponse)
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[bddutil.GetProfileNameKey(user)] = profileResponse.Name
+
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
+
+	return err
+}
+
 func (e *Steps) prepareCredential(user, cred, vcred string) error {
 	var credEmpty, vcredEmpty = cred == "", vcred == ""
 
@@ -463,7 +568,7 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
 		}
 
-		vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
+		vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
 		if err != nil {
 			return err
 		}
@@ -492,13 +597,7 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 
 		challenge := uuid.New().String()
 
-		doc, err := e.getDIDforUser(user)
-		if err != nil {
-			return err
-		}
-
-		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", domain, challenge,
-			verifiable.SignatureJWS, e.bddContext.VDRI, doc)
+		vpBytes, err := e.createPresentation(user, string(vcBytes), domain, challenge)
 		if err != nil {
 			return err
 		}
@@ -515,13 +614,7 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 
 		challenge := uuid.New().String()
 
-		doc, err := e.getDIDforUser(user)
-		if err != nil {
-			return err
-		}
-
-		vpBytes, err := bddutil.CreatePresentation(vcBytes, "JsonWebSignature2020", domain, challenge,
-			verifiable.SignatureJWS, e.bddContext.VDRI, doc)
+		vpBytes, err := e.createPresentation(user, string(vcBytes), domain, challenge)
 		if err != nil {
 			return err
 		}

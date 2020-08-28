@@ -84,7 +84,7 @@ func createVDRI(didResolverURL string) (vdriapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
 	}
 
-	vdriProvider, err := context.New(context.WithLegacyKMS(nil))
+	vdriProvider, err := context.New(context.WithKMS(nil))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
