@@ -16,21 +16,24 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
-	"github.com/google/tink/go/keyset"
 	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mocklegacykms "github.com/hyperledger/aries-framework-go/pkg/mock/kms/legacykms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -238,12 +241,14 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	s["profile_issuer_Example University"] = []byte(testIssuerProfile)
 	s["profile_issuer_vc without status"] = []byte(testIssuerProfileWithDisableVCStatus)
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-		Crypto: &cryptomock.Crypto{},
+		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: customKMS,
+		Crypto: customCrypto,
 		VDRI:   &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
@@ -306,15 +311,12 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test error from get profile", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{
 			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
-			Crypto:             &cryptomock.Crypto{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
+			KeyManager:         customKMS, Crypto: customCrypto,
+			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
@@ -337,14 +339,11 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		s := make(map[string][]byte)
 		s["profile_issuer_Example University"] = []byte(testIssuerProfile)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
-			Crypto:             &cryptomock.Crypto{}, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
+			KeyManager:         customKMS, Crypto: customCrypto,
+			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{updateVCStatusErr: fmt.Errorf("error update vc status")}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
@@ -380,16 +379,18 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 }
 
 func testCreateProfileHandler(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
 		EDVClient:          client,
-		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager:         customKMS,
 		VDRI:               &vdrimock.MockVDRIRegistry{},
-		Crypto:             &cryptomock.Crypto{},
+		Crypto:             customCrypto,
 		HostURL:            "localhost:8080", Domain: "testnet"})
 	require.NoError(t, err)
 
@@ -418,13 +419,10 @@ func testCreateProfileHandler(t *testing.T) {
 	t.Run("create profile success without creating did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
+			Crypto:             customCrypto,
+			EDVClient:          client, KeyManager: customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveValue: &did.Doc{ID: "did1",
 				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
 			HostURL: "localhost:8080"})
@@ -433,8 +431,13 @@ func testCreateProfileHandler(t *testing.T) {
 
 		createProfileHandler = getHandler(t, op, createProfileEndpoint, http.MethodPost)
 
+		_, priv, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		issuerProfileWithDID := strings.Replace(testIssuerProfileWithDID, "\"key\",",
+			"\""+base58.Encode(priv.Seed())+"\",", 1)
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
-			bytes.NewBuffer([]byte(testIssuerProfileWithDID)))
+			bytes.NewBuffer([]byte(issuerProfileWithDID)))
 		require.NoError(t, err)
 		rr := httptest.NewRecorder()
 
@@ -453,13 +456,10 @@ func testCreateProfileHandler(t *testing.T) {
 	t.Run("test failed to resolve did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			EDVClient:          client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
+			Crypto:             customCrypto,
+			EDVClient:          client, KeyManager: customKMS,
 			VDRI:    &vdrimock.MockVDRIRegistry{ResolveErr: fmt.Errorf("resolve error")},
 			HostURL: "localhost:8080"})
 
@@ -521,14 +521,16 @@ func testCreateProfileHandler(t *testing.T) {
 func TestGetProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
-		Crypto:             &cryptomock.Crypto{},
+		Crypto:             customCrypto,
 		EDVClient:          client,
-		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager:         customKMS,
 		VDRI:               &vdrimock.MockVDRIRegistry{},
 		HostURL:            "localhost:8080"})
 
@@ -635,22 +637,28 @@ type failingJWEEncrypt struct {
 	errEncrypt         error
 }
 
-func (f *failingJWEEncrypt) Encrypt(_, _ []byte) (*jose.JSONWebEncryption, error) {
+func (f *failingJWEEncrypt) EncryptWithAuthData(_, _ []byte) (*jose.JSONWebEncryption, error) {
+	panic("implement me")
+}
+
+func (f *failingJWEEncrypt) Encrypt(_ []byte) (*jose.JSONWebEncryption, error) {
 	return f.encryptReturnValue, f.errEncrypt
 }
 
 func TestStoreVCHandler(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	t.Run("store vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -664,14 +672,11 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while creating the document - vault not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -691,14 +696,11 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -718,14 +720,11 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -746,14 +745,11 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while computing MAC", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 
@@ -774,14 +770,11 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while encrypting structured doc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 
@@ -805,14 +798,11 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while serializing JWE", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 
@@ -834,20 +824,22 @@ func TestStoreVCHandler(t *testing.T) {
 }
 
 func TestRetrieveVCHandler(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	t.Run("retrieve vc success", func(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
 		// operation object in order to create a decryptable EncryptedDocument to be returned from the mock EDV client.
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -876,14 +868,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -912,14 +901,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -953,14 +939,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, nil)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -989,14 +972,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1013,14 +993,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1039,14 +1016,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when no document is found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          client,
-			Crypto:             &cryptomock.Crypto{},
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			Crypto:             customCrypto,
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -1070,14 +1044,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc fail when writing document retrieval success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -1102,13 +1073,10 @@ func TestRetrieveVCHandler(t *testing.T) {
 			"Failed to write response for document retrieval success: response writer failed")
 	})
 	t.Run("fail to compute MAC when querying vault", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			Crypto:             customCrypto,
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1139,14 +1107,11 @@ func TestRetrieveVCHandler(t *testing.T) {
 			&models.EncryptedDocument{JWE: []byte("{ not valid JWE }")},
 			nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
@@ -1173,17 +1138,19 @@ func TestRetrieveVCHandler(t *testing.T) {
 }
 
 func TestVCStatus(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	t.Run("test error from get CSL", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			EDVClient:          client,
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1204,14 +1171,11 @@ func TestVCStatus(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
 			EDVClient:          client,
-			Crypto:             &cryptomock.Crypto{},
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			Crypto:             customCrypto,
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
@@ -1271,15 +1235,17 @@ func TestOperation_validateProfileRequest(t *testing.T) {
 }
 
 func TestOperation_GetRESTHandlers(t *testing.T) {
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
 	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
-		Crypto:             &cryptomock.Crypto{},
+		Crypto:             customCrypto,
 		EDVClient: edv.NewMockEDVClient("test",
 			nil, nil, []string{"testID"}),
-		KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager: customKMS,
 		VDRI:       &vdrimock.MockVDRIRegistry{},
 		HostURL:    "localhost:8080"})
 
@@ -1290,23 +1256,24 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 }
 
 func TestIssueCredential(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	keyID, pubKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
 	endpoint := "/test/credentials/issueCredential"
-	keyID := "key-1"
 	issuerProfileDIDKey := "did:test:abc#" + keyID
 	profile := getTestProfile()
 	profile.Creator = issuerProfileDIDKey
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-	require.NoError(t, err)
-
-	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-	require.NoError(t, err)
-
 	op, err := New(&Config{
 		StoreProvider:      memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: kh},
-		Crypto:             &cryptomock.Crypto{},
+		KeyManager:         customKMS,
+		Crypto:             customCrypto,
 		VDRI: &vdrimock.MockVDRIRegistry{
 			ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
 				return createDIDDocWithKeyID(didID, keyID, pubKey), nil
@@ -1323,26 +1290,16 @@ func TestIssueCredential(t *testing.T) {
 	handler := getHandler(t, op, issueCredentialPath, http.MethodPost)
 
 	t.Run("issue credential - success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyID: keyID, CreateKeyValue: keyHandle},
+			KeyManager:         customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, pubKey), nil
 				},
 			},
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
@@ -1444,26 +1401,16 @@ func TestIssueCredential(t *testing.T) {
 	t.Run("issue credential with opts - success", func(t *testing.T) {
 		customVerificationMethod := "did:test:zzz#" + keyID
 
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, base58.Decode(signingKey)), nil
+					return createDIDDocWithKeyID(didID, keyID, pubKey), nil
 				},
 			},
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
@@ -1507,26 +1454,16 @@ func TestIssueCredential(t *testing.T) {
 	t.Run("issue credential with opts - invalid proof purpose", func(t *testing.T) {
 		customPurpose := "customPurpose"
 
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDoc(didID, base58.Decode(signingKey)), nil
+					return createDIDDoc(didID, pubKey), nil
 				},
 			},
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
@@ -1554,14 +1491,11 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - invalid profile", func(t *testing.T) {
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		ops, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
 
@@ -1648,14 +1582,11 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op1, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: keyHandle},
+			KeyManager:         customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
 					return nil, errors.New("did not found")
@@ -1680,17 +1611,13 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - add credential status error", func(t *testing.T) {
-		closeableKMS := &mocklegacykms.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", pubKey)
 
 		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
@@ -1716,17 +1643,13 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - invalid assertion", func(t *testing.T) {
-		closeableKMS := &mocklegacykms.CloseableKMS{SignMessageErr: fmt.Errorf("error sign msg")}
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", pubKey)
 
 		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
@@ -1751,17 +1674,13 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - signing error", func(t *testing.T) {
-		closeableKMS := &mocklegacykms.CloseableKMS{}
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
-		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", base58.Decode(signingKey))
+		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", pubKey)
 
 		op, err := New(&Config{
 			Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI:               &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
 		})
 		require.NoError(t, err)
@@ -1787,6 +1706,14 @@ func TestIssueCredential(t *testing.T) {
 }
 
 func TestComposeAndIssueCredential(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	key1ID, pubKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
 	type TermsOfUse struct {
 		ID   string `json:"id,omitempty"`
 		Type string `json:"type,omitempty"`
@@ -1806,7 +1733,6 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	types := []string{degreeType}
 	evidenceID := "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192d4231"
 	evidenceVerifier := "https://example.edu/issuers/14"
-	key1ID := "key-22"
 
 	termsOfUseJSON, err := json.Marshal(&TermsOfUse{
 		ID:   termsOfUseID,
@@ -1823,13 +1749,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	evidence["verifier"] = evidenceVerifier
 	evidence[customField] = customFieldVal
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-	require.NoError(t, err)
-
 	op, err := New(&Config{
 		StoreProvider:      memstore.NewProvider(),
 		KMSSecretsProvider: mem.NewProvider(),
-		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+		KeyManager:         customKMS,
 		VDRI:               &vdrimock.MockVDRIRegistry{},
 		Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
 	})
@@ -1849,21 +1772,14 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	urlVars[profileIDPathParam] = profile.Name
 
 	t.Run("compose and issue credential - success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-		closeableKMS := &mocklegacykms.CloseableKMS{CreateSigningKeyValue: string(pubKey)}
-
-		_, signingKey, err := closeableKMS.CreateKeySet()
-		require.NoError(t, err)
-
 		op, err := New(&Config{
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
-				return createDIDDocWithKeyID(didID, key1ID, base58.Decode(signingKey)), nil
+				return createDIDDocWithKeyID(didID, key1ID, pubKey), nil
 			}},
-			Crypto: &cryptomock.Crypto{},
+			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
@@ -1919,11 +1835,11 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NotNil(t, issuer, vcResp.Issuer)
 
 		// credential subject
-		credSubject, ok := vcResp.Subject.(map[string]interface{})
+		credSubject, ok := vcResp.Subject.([]verifiable.Subject)
 		require.True(t, ok)
-		require.Equal(t, subject, credSubject["id"])
-		require.Equal(t, name, credSubject["name"])
-		require.Equal(t, customFieldVal, credSubject[customField])
+		require.Equal(t, subject, credSubject[0].ID)
+		require.Equal(t, name, credSubject[0].CustomFields["name"])
+		require.Equal(t, customFieldVal, credSubject[0].CustomFields[customField])
 
 		// terms of use
 		require.Equal(t, 1, len(vcResp.TermsOfUse))
@@ -1954,9 +1870,9 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, 1, len(vcResp.Types))
 		require.Equal(t, "VerifiableCredential", vcResp.Types[0])
 
-		credSubject, ok = vcResp.Subject.(map[string]interface{})
+		credSubject, ok = vcResp.Subject.([]verifiable.Subject)
 		require.True(t, ok)
-		require.Equal(t, subject, credSubject["id"])
+		require.Equal(t, subject, credSubject[0].ID)
 
 		// test - with proof format, purpose & created
 		const createdTime = "2011-04-16T18:11:09-04:00"
@@ -1994,10 +1910,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
 
@@ -2018,10 +1934,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - add credential status error", func(t *testing.T) {
 		ops, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
 
@@ -2097,9 +2013,6 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		req := &ComposeCredentialRequest{
 			ProofFormat:        "invalid-proof-format-value",
 			ProofFormatOptions: []byte(fmt.Sprintf(`{"kid":"did:local:abc#%s"}`, key1ID)),
@@ -2109,10 +2022,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		op1, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 			VDRI: &vdrimock.MockVDRIRegistry{
 				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (*did.Doc, error) {
 					return createDIDDocWithKeyID(didID, key1ID, pubKey), nil
@@ -2245,19 +2158,17 @@ func TestGetComposeSigningOpts(t *testing.T) {
 }
 
 func TestGenerateKeypair(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
 	t.Run("generate key pair - success", func(t *testing.T) {
-		pubKey, _, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
-
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			StoreProvider:      memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
-			KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1", CreateKeyValue: kh,
-				ExportPubKeyBytesValue: pubKey},
+			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
 
@@ -2275,16 +2186,14 @@ func TestGenerateKeypair(t *testing.T) {
 	})
 
 	t.Run("generate key pair - failure", func(t *testing.T) {
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
-		require.NoError(t, err)
-
 		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{},
+			Crypto:             customCrypto,
 			KMSSecretsProvider: mem.NewProvider(),
 			StoreProvider:      memstore.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
+
 		op.kms = &mockkms.KeyManager{CreateKeyErr: errors.New("kms - create keyset error")}
 
 		generateKeypairHandler := getHandler(t, op, generateKeypairPath, http.MethodGet)
@@ -2450,7 +2359,7 @@ func setMockEDVClientReadDocumentReturnValue(t *testing.T, client *edv.Client, o
 }
 
 func prepareEncryptedDocument(t *testing.T, op *Operation, structuredDoc string) models.EncryptedDocument {
-	jwe, err := op.jweEncrypter.Encrypt([]byte(structuredDoc), nil)
+	jwe, err := op.jweEncrypter.Encrypt([]byte(structuredDoc))
 	require.NoError(t, err)
 
 	serializedJWE, err := jwe.FullSerialize(json.Marshal)
@@ -2547,4 +2456,15 @@ func (m *mockCredentialStatusManager) UpdateVCStatus(v *verifiable.Credential,
 
 func (m *mockCredentialStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
 	return nil, nil
+}
+
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	require.NoError(t, err)
+
+	return k
 }

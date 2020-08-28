@@ -13,12 +13,15 @@ import (
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes/subtle"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
@@ -44,9 +47,10 @@ func Test_createJWEEncrypter(t *testing.T) {
 		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, func(_ []byte, _ interface{}) error {
-			return errTest
-		}, nil)
+		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, composite.DIDCommEncType,
+			func(_ []byte, _ interface{}) error {
+				return errTest
+			}, nil)
 		require.Equal(t, errTest, err)
 		require.Nil(t, jweEncrypter)
 	})
@@ -54,8 +58,9 @@ func Test_createJWEEncrypter(t *testing.T) {
 		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, json.Unmarshal,
-			func(alg jose.EncAlg, keys []subtle.PublicKey) (*jose.JWEEncrypt, error) {
+		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, composite.DIDCommEncType, json.Unmarshal,
+			func(alg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
+				keys []*composite.PublicKey) (*jose.JWEEncrypt, error) {
 				return nil, errTest
 			})
 		require.Equal(t, errTest, err)
@@ -102,7 +107,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 
 		mockKMS := mockKeyManager{}
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(mockKMS, mockStoreProvider, nil,
 			kmsservice.HMACSHA256Tag256Type)
 		require.Equal(t, errKeySetHandleAssertionFailure, err)
 		require.Nil(t, keySetHandle)
@@ -138,11 +143,11 @@ func TestPrepareMACCrypto(t *testing.T) {
 		mockStoreProvider := mockstore.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrPut = errTest
 
-		mockKMS := mockKeyManager{}
+		km := createKMS(t)
 
-		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(&mockKMS, mockStoreProvider, nil,
+		keySetHandle, encodedVCIDIndexNameMAC, err := PrepareMACCrypto(km, mockStoreProvider, nil,
 			kmsservice.HMACSHA256Tag256Type)
-		require.Equal(t, errKeySetHandleAssertionFailure, err)
+		require.EqualError(t, err, errTest.Error())
 		require.Nil(t, keySetHandle)
 		require.Empty(t, encodedVCIDIndexNameMAC)
 	})
@@ -177,7 +182,7 @@ type mockKeyManager struct {
 }
 
 func (m mockKeyManager) Create(kt kmsservice.KeyType) (string, interface{}, error) {
-	return "", nil, nil
+	return "testKeyID", []byte("bad key type"), nil
 }
 
 func (m mockKeyManager) Get(keyID string) (interface{}, error) {
@@ -192,6 +197,10 @@ func (m mockKeyManager) ExportPubKeyBytes(keyID string) ([]byte, error) {
 	return nil, nil
 }
 
+func (m mockKeyManager) CreateAndExportPubKeyBytes(keyType kmsservice.KeyType) (string, []byte, error) {
+	return "", nil, nil
+}
+
 func (m mockKeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.KeyType) (interface{}, error) {
 	return nil, nil
 }
@@ -199,4 +208,15 @@ func (m mockKeyManager) PubKeyBytesToHandle(pubKey []byte, keyType kmsservice.Ke
 func (m mockKeyManager) ImportPrivateKey(
 	privKey interface{}, kt kmsservice.KeyType, opts ...kmsservice.PrivateKeyOpts) (string, interface{}, error) {
 	return "", nil, nil
+}
+
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+
+	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	require.NoError(t, err)
+
+	return k
 }

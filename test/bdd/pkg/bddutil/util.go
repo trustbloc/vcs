@@ -8,7 +8,6 @@ package bddutil
 
 import (
 	"crypto/ed25519"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,10 +18,6 @@ import (
 	"time"
 
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -88,42 +83,6 @@ func HTTPDo(method, url, contentType, token string, body io.Reader) (*http.Respo
 	}
 
 	return http.DefaultClient.Do(req)
-}
-
-// CreatePresentation creates verifiable presentation from verifiable credential.
-func CreatePresentation(vcBytes []byte, signatureType, domain, challenge string,
-	representation verifiable.SignatureRepresentation, vdri vdriapi.Registry, doc *docdid.Doc) ([]byte, error) {
-	_, privateKey, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, err
-	}
-
-	var signatureSuite ariessigner.SignatureSuite
-
-	switch signatureType {
-	case "Ed25519Signature2018":
-		signatureSuite = ed25519signature2018.New(suite.WithSigner(GetSigner(privateKey)))
-	case "JsonWebSignature2020":
-		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(GetSigner(privateKey)))
-	}
-
-	// authentication public key
-
-	authVMS := doc.VerificationMethods(docdid.Authentication)[docdid.Authentication]
-	if len(authVMS) == 0 {
-		return nil, fmt.Errorf("invalid did to create presentation, expected atleast one authentication public key")
-	}
-
-	ldpContext := &verifiable.LinkedDataProofContext{
-		SignatureType:           signatureType,
-		SignatureRepresentation: representation,
-		Suite:                   signatureSuite,
-		Challenge:               challenge,
-		Domain:                  domain,
-		VerificationMethod:      authVMS[0].PublicKey.ID,
-	}
-
-	return CreateCustomPresentation(vcBytes, vdri, ldpContext)
 }
 
 // GetSigner returns private key based signer for bdd tests
