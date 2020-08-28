@@ -272,12 +272,24 @@ func TestCreateProviders(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
 	})
+	t.Run("test error from create new mysql", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeMYSQLDBOption}}, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
+	})
 	t.Run("test error from create new kms secrets couchdb", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{
 			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
 				kmsSecretsDatabaseType: databaseTypeCouchDBOption}}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
+	})
+	t.Run("test error from create new kms secrets mysql", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{
+			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
+				kmsSecretsDatabaseType: databaseTypeMYSQLDBOption}}, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
 	})
 	t.Run("test invalid database type", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: "data1"}}, nil)

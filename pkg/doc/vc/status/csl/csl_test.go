@@ -431,6 +431,11 @@ func (s *mockStore) Put(k string, v []byte) error {
 	return nil
 }
 
+// GetALL get all
+func (s *mockStore) GetAll() (map[string][]byte, error) {
+	return nil, nil
+}
+
 // Get fetches the record based on key
 func (s *mockStore) Get(k string) ([]byte, error) {
 	if s.getFunc != nil {

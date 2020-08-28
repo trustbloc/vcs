@@ -1,0 +1,24 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  mysql:
+    container_name: mysql
+    image: mysql:${MYSQL_IMAGE_TAG}
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+    volumes:
+      - ./mysql-config:/docker-entrypoint-initdb.d
+    networks:
+      - couchdb_bdd_net
+
+networks:
+  couchdb_bdd_net:
+    external: true
