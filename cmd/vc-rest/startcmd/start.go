@@ -1,6 +1,5 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
-
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -31,6 +30,7 @@ import (
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	ariesmysqlstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mysql"
 	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
 	"github.com/rs/cors"
@@ -40,6 +40,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage"
 	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	"github.com/trustbloc/edge-core/pkg/storage/mysql"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
@@ -96,7 +97,7 @@ const (
 	databaseTypeEnvKey        = "DATABASE_TYPE"
 	databaseTypeFlagShorthand = "t"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb. " + commonEnvVarUsageText + databaseTypeEnvKey
+		"Supported options: mem, couchdb, mysql. " + commonEnvVarUsageText + databaseTypeEnvKey
 
 	databaseURLFlagName      = "database-url"
 	databaseURLEnvKey        = "DATABASE_URL"
@@ -114,7 +115,7 @@ const (
 	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
 	kmsSecretsDatabaseTypeFlagShorthand = "k"
 	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
-		"Supported options: mem, couchdb. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
+		"Supported options: mem, couchdb, mysql. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
 
 	kmsSecretsDatabaseURLFlagName      = "kms-secrets-database-url" //nolint: gosec
 	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
@@ -178,6 +179,7 @@ const (
 
 	databaseTypeMemOption     = "mem"
 	databaseTypeCouchDBOption = "couchdb"
+	databaseTypeMYSQLDBOption = "mysql"
 
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
@@ -783,12 +785,13 @@ type edgeServiceProviders struct {
 	kmsSecretsProvider ariesstorage.Provider
 }
 
+//nolint: gocyclo
 func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, error) {
 	var edgeServiceProvs edgeServiceProviders
 
 	checkForSameDBParams(parameters.dbParameters)
 
-	switch {
+	switch { //nolint: dupl
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
 		edgeServiceProvs.provider = memstore.NewProvider()
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
@@ -800,12 +803,21 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 		if err != nil {
 			return &edgeServiceProviders{}, err
 		}
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMYSQLDBOption):
+		var err error
+
+		edgeServiceProvs.provider, err =
+			mysql.NewProvider(parameters.dbParameters.databaseURL,
+				mysql.WithDBPrefix(parameters.dbParameters.databasePrefix))
+		if err != nil {
+			return &edgeServiceProviders{}, err
+		}
 	default:
 		return &edgeServiceProviders{}, fmt.Errorf("database type not set to a valid type." +
 			" run start --help to see the available options")
 	}
 
-	switch {
+	switch { //nolint: dupl
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
 		edgeServiceProvs.kmsSecretsProvider = ariesmemstorage.NewProvider()
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
@@ -817,7 +829,15 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 		if err != nil {
 			return &edgeServiceProviders{}, err
 		}
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMYSQLDBOption):
+		var err error
 
+		edgeServiceProvs.kmsSecretsProvider, err =
+			ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+				ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+		if err != nil {
+			return &edgeServiceProviders{}, err
+		}
 	default:
 		return &edgeServiceProviders{}, fmt.Errorf("key database type not set to a valid type." +
 			" run start --help to see the available options")
