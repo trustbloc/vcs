@@ -6,8 +6,8 @@
 
 
 # Release Parameters
-BASE_VERSION=0.1.4
-IS_RELEASE=true
+BASE_VERSION=0.1.5
+IS_RELEASE=false
 
 # Project Parameters
 SOURCE_REPO=edge-service
