@@ -6,25 +6,6 @@
 [![codecov](https://codecov.io/gh/trustbloc/edge-service/branch/master/graph/badge.svg)](https://codecov.io/gh/trustbloc/edge-service)
 [![Go Report Card](https://goreportcard.com/badge/github.com/trustbloc/edge-service)](https://goreportcard.com/report/github.com/trustbloc/edge-service)
 
-## Prerequisites (for running tests and demos)
-- Go 1.13
-- Docker
-- Docker-Compose
-- Make
-
-## Targets
-```
-# run checks and unit tests
-make all
-# run linter checks
-make checks
-# run unit tests
-make unit-test
-```
-
-## Build
-To build from source see [here](docs/build.md).
-
 # edge-service
 
 Edge Service is a reference implementation that demonstrates the following story:
@@ -37,6 +18,9 @@ operations:
 - Store verifiable credential in [EDV](https://github.com/trustbloc/edv)
 - Retrieve verifiable credential from [EDV](https://github.com/trustbloc/edv)
 - Verify verifiable credential 
+
+## Build
+To build from source see [here](docs/build.md).
 
 # Documentation
 - [VC REST APIs](docs/vc-rest/api_overview.md)

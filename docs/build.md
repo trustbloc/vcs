@@ -12,11 +12,22 @@
 
 ## Targets
 
-    # run checks and unit tests
-    make all
+```
+# run checks and unit tests
+make all
+
+# run linter checks
+make checks
+
+# run unit tests
+make unit-test
+
+# run checks and unit tests
+make all
     
-    # run BDD tests
-    make bdd-test
+# run BDD tests
+make bdd-test
+```
 
 ## BDD Test Prerequisites
 
