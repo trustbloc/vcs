@@ -10,7 +10,6 @@ services:
 
   static-file-server:
     container_name: stakeholder.one
-    hostname: stakeholder.one
     image: halverneus/static-file-server:latest
     environment:
       - PORT=8088
