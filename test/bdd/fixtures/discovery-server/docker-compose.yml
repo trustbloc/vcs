@@ -10,7 +10,6 @@ services:
 
   static-file-server:
     container_name: testnet.trustbloc.local
-    hostname: testnet.trustbloc.local
     image: halverneus/static-file-server:v1.7.2
     environment:
       - PORT=443

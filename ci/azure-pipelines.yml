@@ -53,6 +53,9 @@ jobs:
           }
           trap logout EXIT
           echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
+          echo '127.0.0.1 testnet.trustbloc.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 stakeholder.one' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 sidetree-mock' | sudo tee -a /etc/hosts
           make bdd-test
         env:
           DOCKER_USER: $(DOCKER_USER)
