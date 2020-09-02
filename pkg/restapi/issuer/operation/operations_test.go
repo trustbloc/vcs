@@ -35,9 +35,9 @@ import (
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/edge-core/pkg/log/mocklogger"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
@@ -175,19 +175,7 @@ const (
 	}`
 )
 
-var testLoggerProvider = TestLoggerProvider{}
-
-type TestLoggerProvider struct {
-	logContents bytes.Buffer
-}
-
-func (t *TestLoggerProvider) GetLogger(string) log.Logger {
-	logrusLogger := logrus.New()
-	logrusLogger.SetOutput(&t.logContents)
-	logrusLogger.SetLevel(logrus.DebugLevel)
-
-	return logrusLogger
-}
+var mockLoggerProvider = mocklogger.Provider{MockLogger: &mocklogger.MockLogger{}} //nolint: gochecknoglobals
 
 // errVaultNotFound throws an error when vault is not found
 var errVaultNotFound = errors.New("vault not found")
@@ -196,7 +184,7 @@ var errVaultNotFound = errors.New("vault not found")
 var errDocumentNotFound = errors.New("edv does not have a document associated with ID")
 
 func TestMain(m *testing.M) {
-	log.Initialize(&testLoggerProvider)
+	log.Initialize(&mockLoggerProvider)
 
 	log.SetLevel(logModuleName, log.DEBUG)
 
@@ -513,7 +501,7 @@ func testCreateProfileHandler(t *testing.T) {
 		require.NoError(t, err)
 		rw := mockResponseWriter{}
 		createProfileHandler.Handle().ServeHTTP(rw, req)
-		require.Contains(t, testLoggerProvider.logContents.String(),
+		require.Contains(t, mockLoggerProvider.MockLogger.AllLogContents,
 			"Unable to send error message, response writer failed")
 	})
 }
@@ -1069,7 +1057,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		rw := mockResponseWriter{}
 		retrieveVCHandler.Handle().ServeHTTP(rw, req)
-		require.Contains(t, testLoggerProvider.logContents.String(),
+		require.Contains(t, mockLoggerProvider.MockLogger.AllLogContents,
 			"Failed to write response for document retrieval success: response writer failed")
 	})
 	t.Run("fail to compute MAC when querying vault", func(t *testing.T) {

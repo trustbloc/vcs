@@ -243,6 +243,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
 github.com/trustbloc/edge-core v0.1.4 h1:qOtQxHY+a6PSxz+o9Cdi8kRzUyA5c4CPd9NsNPzRgXM=
 github.com/trustbloc/edge-core v0.1.4/go.mod h1:mTU1E/HcKcjmHaPCjBOvHERuryGhh5zgVkRSi4slAHg=
+github.com/trustbloc/edge-core v0.1.5-0.20200902222811-9a73214c780d h1:7G6mOPHOoxd4XYFZ3+gCZQIgdAxzkj2lAWucu4V+/5o=
+github.com/trustbloc/edge-core v0.1.5-0.20200902222811-9a73214c780d/go.mod h1:mTU1E/HcKcjmHaPCjBOvHERuryGhh5zgVkRSi4slAHg=
 github.com/trustbloc/edv v0.1.4/go.mod h1:x0zhpvQXret0b+vTa4Wt/FrfUHRAA0U6/Xv0Gc6W8B4=
 github.com/trustbloc/sidetree-core-go v0.1.4/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
 github.com/trustbloc/trustbloc-did-method v0.1.4/go.mod h1:eMNjmmCxthJEGJ6M4HHKKjUJqu/P1C8OVZ0a1NlbV6E=
