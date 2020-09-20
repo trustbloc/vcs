@@ -17,8 +17,8 @@ OPENAPI_SPEC_PATH=build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.23.0
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.10
-GO_VER ?= 1.13.1
+ALPINE_VER ?= 3.12
+GO_VER ?= 1.15
 
 .PHONY: all
 all: checks unit-test bdd-test

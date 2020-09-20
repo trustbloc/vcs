@@ -21,4 +21,4 @@ replace github.com/trustbloc/edge-service => ../..
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
 
-go 1.13
+go 1.15

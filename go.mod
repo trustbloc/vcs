@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/edge-service
 
-go 1.13
+go 1.15
 
 require (
 	github.com/btcsuite/btcutil v1.0.1
