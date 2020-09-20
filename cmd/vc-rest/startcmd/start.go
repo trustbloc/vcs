@@ -121,9 +121,7 @@ const (
 	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
 	kmsSecretsDatabaseURLFlagShorthand = "s"
 	kmsSecretsDatabaseURLFlagUsage     = "The URL of the database. Not needed if using memstore. For CouchDB, " +
-		"include the username:password@ text if required. It's recommended to not use the same database as the one " +
-		"set in the " + databaseURLFlagName + " flag (or the " + databaseURLEnvKey + " env var) since having access " +
-		"to the KMS secrets may allow the host of the provider to decrypt EDV encrypted documents. " +
+		"include the username:password@ text if required. " +
 		commonEnvVarUsageText + databaseURLEnvKey
 
 	kmsSecretsDatabasePrefixFlagName  = "kms-secrets-database-prefix" //nolint: gosec
@@ -624,7 +622,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	localKMS, err := createKMS(edgeServiceProvs)
+	localKMS, err := createKMS(edgeServiceProvs.kmsSecretsProvider)
 	if err != nil {
 		return err
 	}
@@ -789,8 +787,6 @@ type edgeServiceProviders struct {
 func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, error) {
 	var edgeServiceProvs edgeServiceProviders
 
-	checkForSameDBParams(parameters.dbParameters)
-
 	switch { //nolint: dupl
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
 		edgeServiceProvs.provider = memstore.NewProvider()
@@ -846,17 +842,8 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 	return &edgeServiceProvs, nil
 }
 
-func checkForSameDBParams(dbParams *dbParameters) {
-	if strings.EqualFold(dbParams.databaseType, dbParams.kmsSecretsDatabaseType) &&
-		strings.EqualFold(dbParams.databaseURL, dbParams.kmsSecretsDatabaseURL) {
-		logger.Warnf("Database and KMS secrets database both set to the same provider. It's recommended to use a " +
-			"separate provider for storage of KMS secrets to ensure that the provider hosting the EDVs " +
-			"cannot read the stored encrypted documents.")
-	}
-}
-
-func createKMS(edgeServiceProvs *edgeServiceProviders) (*localkms.LocalKMS, error) {
-	localKMS, err := createLocalKMS(edgeServiceProvs.kmsSecretsProvider)
+func createKMS(kmsSecretsProvider ariesstorage.Provider) (*localkms.LocalKMS, error) {
+	localKMS, err := createLocalKMS(kmsSecretsProvider)
 	if err != nil {
 		return nil, err
 	}

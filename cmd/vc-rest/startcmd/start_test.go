@@ -307,9 +307,7 @@ func TestCreateProviders(t *testing.T) {
 
 func TestCreateKMS(t *testing.T) {
 	t.Run("fail to open master key store", func(t *testing.T) {
-		localKMS, err := createKMS(&edgeServiceProviders{
-			kmsSecretsProvider: &ariesmockstorage.MockStoreProvider{FailNamespace: "masterkey"},
-		})
+		localKMS, err := createKMS(&ariesmockstorage.MockStoreProvider{FailNamespace: "masterkey"})
 
 		require.Nil(t, localKMS)
 		require.EqualError(t, err, "failed to open store for name space masterkey")
@@ -326,9 +324,7 @@ func TestCreateKMS(t *testing.T) {
 		err := masterKeyStore.Put("masterkey", []byte(""))
 		require.NoError(t, err)
 
-		localKMS, err := createKMS(&edgeServiceProviders{
-			kmsSecretsProvider: &ariesmockstorage.MockStoreProvider{Store: &masterKeyStore},
-		})
+		localKMS, err := createKMS(&ariesmockstorage.MockStoreProvider{Store: &masterKeyStore})
 		require.EqualError(t, err, "masterKeyReader is empty")
 		require.Nil(t, localKMS)
 	})
