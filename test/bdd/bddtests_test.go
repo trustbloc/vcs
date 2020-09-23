@@ -7,11 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package bdd
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
@@ -56,15 +54,13 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
-// nolint: gocognit,gocyclo
 func runBDDTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		var composition []*dockerutil.Composition
 		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/mysql", "./fixtures/vc-rest",
 			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
-			"./fixtures/did-method-rest", "./fixtures/universal-registrar"}
-
-		var discoveryServers = []string{"./fixtures/discovery-server", "./fixtures/stakeholder-server"}
+			"./fixtures/did-method-rest", "./fixtures/universal-registrar", "./fixtures/discovery-server",
+			"./fixtures/stakeholder-server"}
 
 		s.BeforeSuite(func() {
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
@@ -88,24 +84,6 @@ func runBDDTests(tags, format string) int {
 						panic(fmt.Sprintf("Invalid value found in 'TEST_SLEEP': %s", e))
 					}
 				}
-				fmt.Printf("*** testSleep=%d", testSleep)
-				println()
-				time.Sleep(time.Second * time.Duration(testSleep))
-
-				// create config files
-				_, err := execCMD("./generate_config.sh")
-				if err != nil {
-					panic(err.Error())
-				}
-
-				for _, v := range discoveryServers {
-					newComposition, err := dockerutil.NewComposition(composeProjectName, "docker-compose.yml", v)
-					if err != nil {
-						panic(fmt.Sprintf("Error composing system in BDD context: %s", err))
-					}
-					composition = append(composition, newComposition)
-				}
-
 				fmt.Printf("*** testSleep=%d", testSleep)
 				println()
 				time.Sleep(time.Second * time.Duration(testSleep))
@@ -164,27 +142,4 @@ func FeatureContext(s *godog.Suite) {
 	holder.NewSteps(bddContext).RegisterSteps(s)
 
 	governance.NewSteps(bddContext).RegisterSteps(s)
-}
-
-func execCMD(command string, args ...string) (string, error) {
-	cmd := exec.Command(command, args...) // nolint: gosec
-
-	var out bytes.Buffer
-
-	var er bytes.Buffer
-
-	cmd.Stdout = &out
-	cmd.Stderr = &er
-
-	err := cmd.Start()
-	if err != nil {
-		return "", fmt.Errorf(er.String())
-	}
-
-	err = cmd.Wait()
-	if err != nil {
-		return "", fmt.Errorf(er.String())
-	}
-
-	return out.String(), nil
 }
