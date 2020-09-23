@@ -34,9 +34,9 @@ lint:
 license:
 	@scripts/check_license.sh
 
-.PHONY: did-method-cli
-did-method-cli:
-	@scripts/build-did-method-cli.sh
+.PHONY: generate-test-config
+generate-test-config:
+	@scripts/generate_test_config.sh
 
 .PHONY: vc-rest
 vc-rest:
@@ -65,11 +65,11 @@ did-rest-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker did-rest-docker generate-test-keys did-method-cli
+bdd-test: clean vc-rest-docker did-rest-docker generate-test-keys generate-test-config
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean vc-rest-docker did-rest-docker generate-test-keys did-method-cli
+bdd-interop-test:clean vc-rest-docker did-rest-docker generate-test-keys generate-test-config
 	@scripts/check_integration_interop.sh
 
 unit-test:
@@ -110,7 +110,7 @@ generate-openapi-demo-specs: clean generate-openapi-spec vc-rest-docker did-rest
     	scripts/generate-openapi-demo-specs.sh
 
 .PHONY: run-openapi-demo
-run-openapi-demo: generate-test-keys  generate-openapi-demo-specs
+run-openapi-demo: generate-test-keys generate-test-config  generate-openapi-demo-specs
 	@echo "Starting demo vc rest containers ..."
 	@FIXTURES_PATH=test/bdd/fixtures  \
         scripts/run-openapi-demo.sh
@@ -124,3 +124,5 @@ clean-build:
 	@rm -Rf ./test/bdd/fixtures/keys/tls
 	@rm -Rf ./test/bdd/docker-compose.log
 	@rm -Rf ./test/bdd/fixtures/wellknown/jws
+	@rm -Rf ./test/bdd/fixtures/discovery-server/config
+	@rm -Rf ./test/bdd/fixtures/stakeholder-server/config

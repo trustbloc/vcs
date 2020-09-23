@@ -18,6 +18,7 @@ services:
       - DID_METHOD_DATABASE_TYPE=couchdb
       - DID_METHOD_DATABASE_URL=couchdb.example.com:5984
       - DID_METHOD_DATABASE_PREFIX=driver
+      - ENABLE_SIGNATURES=false
     ports:
       - 8060:8060
     entrypoint: ""
