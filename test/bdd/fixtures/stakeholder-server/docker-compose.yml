@@ -19,8 +19,7 @@ services:
     ports:
       - "8088:8088"
     volumes:
-      - ../wellknown/jws/did-trustbloc:/web/.well-known/did-trustbloc
-      - ../wellknown/jws/stakeholder.one/did-configuration.json:/web/.well-known/did-configuration.json
+      - ./config:/web/.well-known/did-trustbloc
       - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
