@@ -650,9 +650,14 @@ func TestStoreVCHandler(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getIssuerProfile())
+
+		fmt.Println(testStoreCredentialRequest)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
+
 		rr := httptest.NewRecorder()
 		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code)
@@ -668,6 +673,9 @@ func TestStoreVCHandler(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getIssuerProfile())
+
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
@@ -833,6 +841,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
+		saveTestProfile(t, op, getTestProfile())
+
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -866,6 +876,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
+		saveTestProfile(t, op, getTestProfile())
+
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -898,6 +910,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument2)
 
@@ -936,6 +950,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
@@ -1014,6 +1030,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
+		saveTestProfile(t, op, getTestProfile())
+
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
 		require.NoError(t, err)
@@ -1042,6 +1060,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
+		saveTestProfile(t, op, getTestProfile())
+
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
 		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint, http.MethodGet)
@@ -1068,6 +1088,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		op.macCrypto = failingCrypto{}
 
@@ -1104,6 +1126,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -2260,6 +2284,20 @@ func getTestProfile() *vcprofile.DataProfile {
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
 	}
+}
+
+func getIssuerProfile() *vcprofile.DataProfile {
+	return &vcprofile.DataProfile{
+		Name:          "issuer",
+		DID:           "did:test:abc",
+		URI:           "https://example.com/credentials",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:test:abc#key1",
+	}
+}
+func saveTestProfile(t *testing.T, op *Operation, profile *vcprofile.DataProfile) {
+	err := op.profileStore.SaveProfile(profile)
+	require.NoError(t, err)
 }
 
 func createDIDDoc(didID string, pubKey []byte) *did.Doc {
