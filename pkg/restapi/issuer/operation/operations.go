@@ -479,7 +479,7 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 
 // StoreVerifiableCredential swagger:route POST /retrieve issuer retrieveCredentialReq
 //
-// Retrieves a stored credential.
+// Retrieves a stored credential
 //
 // Responses:
 //    default: genericError
