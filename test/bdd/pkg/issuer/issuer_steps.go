@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 
@@ -108,11 +109,16 @@ func (e *Steps) createDID(user string) error {
 		return err
 	}
 
+	split := strings.Split(doc.ID, ":")
+
+	doc, err = bddutil.ResolveDID(e.bddContext.VDRI, split[0]+":"+split[1]+":testnet.trustbloc.local:"+split[3], 10)
+	if err != nil {
+		return err
+	}
+
 	e.bddContext.Data[bddutil.GetDIDDocKey(user)] = doc
 
-	_, err = bddutil.ResolveDID(e.bddContext.VDRI, doc.ID, 10)
-
-	return err
+	return nil
 }
 
 func (e *Steps) generateKeypair() (string, string, error) {

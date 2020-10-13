@@ -7,7 +7,7 @@
       "tag": "latest"
     },
     {
-      "pattern": "^(did:trustbloc:testnet.trustbloc.local:.+)$",
+      "pattern": "^(did:trustbloc:.+)$",
       "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
     },
     {

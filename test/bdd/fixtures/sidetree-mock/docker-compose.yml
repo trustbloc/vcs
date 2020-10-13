@@ -15,7 +15,8 @@ services:
       - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
       - SIDETREE_MOCK_HOST=0.0.0.0
       - SIDETREE_MOCK_PORT=48326
-      - SIDETREE_MOCK_DID_NAMESPACE=did:trustbloc:testnet.trustbloc.local
+      - SIDETREE_MOCK_DID_NAMESPACE=did:trustbloc:2M5ym
+      - SIDETREE_MOCK_DID_ALIASES=did:trustbloc:testnet.trustbloc.local
     ports:
       - 48326:48326
     volumes:

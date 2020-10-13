@@ -344,7 +344,7 @@ func createTestKMS(t *testing.T) *localkms.LocalKMS {
 func TestCreateVDRI(t *testing.T) {
 	testKMS := createTestKMS(t)
 	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
-		v, err := createVDRI("wrong", &tls.Config{}, testKMS)
+		v, err := createVDRI("wrong", &tls.Config{}, testKMS, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
 		require.Nil(t, v)
@@ -359,7 +359,7 @@ func TestCreateVDRI(t *testing.T) {
 
 	t.Run("test success", func(t *testing.T) {
 		testKMS := createTestKMS(t)
-		v, err := createVDRI("localhost:8083", &tls.Config{}, testKMS)
+		v, err := createVDRI("localhost:8083", &tls.Config{}, testKMS, "")
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
