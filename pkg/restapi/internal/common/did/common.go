@@ -116,7 +116,22 @@ func (o *CommonDID) CreateDID(keyType, signatureType, did, privateKey, keyID, pu
 		publicKeyID = keyID
 	}
 
+	didID, publicKeyID = o.replaceCanonicalDIDWithDomainDID(didID, publicKeyID)
+
 	return didID, publicKeyID, nil
+}
+
+func (o *CommonDID) replaceCanonicalDIDWithDomainDID(didID, publicKeyID string) (string, string) {
+	if strings.HasPrefix(didID, "did:trustbloc") {
+		split := strings.Split(didID, ":")
+		if len(split) == 4 {
+			domainDIDID := fmt.Sprintf("%s:%s:%s:%s", split[0], split[1], o.domain, split[3])
+
+			return domainDIDID, strings.ReplaceAll(publicKeyID, didID, domainDIDID)
+		}
+	}
+
+	return didID, publicKeyID
 }
 
 // nolint: gocyclo,funlen

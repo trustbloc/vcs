@@ -89,6 +89,6 @@ func createVDRI(didResolverURL string) (vdriapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(trustbloc.New(trustbloc.WithResolverURL(didResolverURL))),
-		vdripkg.WithVDRI(didResolverVDRI)), nil
+	return vdripkg.New(vdriProvider, vdripkg.WithVDRI(trustbloc.New(trustbloc.WithResolverURL(didResolverURL),
+		trustbloc.WithDomain("testnet.trustbloc.local"))), vdripkg.WithVDRI(didResolverVDRI)), nil
 }

@@ -628,7 +628,8 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.universalResolverURL, &tls.Config{RootCAs: rootCAs}, localKMS)
+	vdri, err := createVDRI(parameters.universalResolverURL,
+		&tls.Config{RootCAs: rootCAs}, localKMS, parameters.blocDomain)
 	if err != nil {
 		return err
 	}
@@ -732,10 +733,13 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLockService
 }
 
-func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManager) (vdriapi.Registry, error) {
+func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManager,
+	blocDomain string) (vdriapi.Registry, error) {
 	var opts []vdripkg.Option
 
 	var blocVDRIOpts []trustbloc.Option
+
+	blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithDomain(blocDomain))
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
