@@ -2,6 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+
+codecov:
+  max_report_age: off
+
 coverage:
   status:
     project:
