@@ -58,6 +58,7 @@ type DataProfile struct {
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
 	Creator                 string                             `json:"creator"`
 	Created                 *time.Time                         `json:"created"`
+	EDVVaultID              string                             `json:"edvVaultID"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
 	OverwriteIssuer         bool                               `json:"overwriteIssuer"`
 }

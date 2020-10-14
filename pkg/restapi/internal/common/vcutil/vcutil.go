@@ -138,3 +138,10 @@ func GetDocIDFromURL(docURL string) string {
 
 	return docIDToRetrieve
 }
+
+// GetVaultIDFromURL Given an EDV vault location URL, returns just the vaultID
+func GetVaultIDFromURL(vaultLocationURL string) string {
+	vaultLocationURLSplitUp := strings.Split(vaultLocationURL, "/")
+
+	return vaultLocationURLSplitUp[len(vaultLocationURLSplitUp)-1]
+}

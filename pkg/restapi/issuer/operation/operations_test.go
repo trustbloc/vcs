@@ -193,7 +193,7 @@ func TestMain(m *testing.M) {
 
 func TestNew(t *testing.T) {
 	t.Run("test error from opening credential store", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{ErrOpenStoreHandle: fmt.Errorf("error open store")},
 			EDVClient: client, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
@@ -201,7 +201,7 @@ func TestNew(t *testing.T) {
 		require.Nil(t, op)
 	})
 	t.Run("fail to create credential store", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{
 			ErrCreateStore: fmt.Errorf("create error")}, EDVClient: client, VDRI: &vdrimock.MockVDRIRegistry{},
 			HostURL: "localhost:8080"})
@@ -210,7 +210,7 @@ func TestNew(t *testing.T) {
 		require.Nil(t, op)
 	})
 	t.Run("test error from csl", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{FailNameSpace: "credentialstatus"},
 			EDVClient: client, VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
@@ -224,7 +224,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 }
 
 func testUpdateCredentialStatusHandler(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 	s := make(map[string][]byte)
 	s["profile_issuer_Example University"] = []byte(testIssuerProfile)
 	s["profile_issuer_vc without status"] = []byte(testIssuerProfileWithDisableVCStatus)
@@ -302,7 +302,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{
 			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
 			KMSSecretsProvider: mem.NewProvider(),
-			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
+			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil),
 			KeyManager:         customKMS, Crypto: customCrypto,
 			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
@@ -329,7 +329,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 
 		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
 			KMSSecretsProvider: mem.NewProvider(),
-			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}),
+			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil),
 			KeyManager:         customKMS, Crypto: customCrypto,
 			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
@@ -367,7 +367,7 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 }
 
 func testCreateProfileHandler(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 	customKMS := createKMS(t)
 
 	customCrypto, err := tinkcrypto.New()
@@ -405,7 +405,7 @@ func testCreateProfileHandler(t *testing.T) {
 	})
 
 	t.Run("create profile success without creating did", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -442,7 +442,7 @@ func testCreateProfileHandler(t *testing.T) {
 	})
 
 	t.Run("test failed to resolve did", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -496,6 +496,31 @@ func testCreateProfileHandler(t *testing.T) {
 
 		require.Equal(t, invalidRequestErrMsg+": EOF", errResp.Message)
 	})
+	t.Run("create profile error - unable to create vault in EDV", func(t *testing.T) {
+		errTest := errors.New("error in create EDV vault")
+		client := edv.NewMockEDVClient("test", nil,
+			nil, []string{"testID"}, errTest)
+
+		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
+			KMSSecretsProvider: mem.NewProvider(),
+			EDVClient:          client,
+			KeyManager:         customKMS,
+			VDRI:               &vdrimock.MockVDRIRegistry{},
+			Crypto:             customCrypto,
+			HostURL:            "localhost:8080", Domain: "testnet"})
+		require.NoError(t, err)
+
+		op.commonDID = &mockCommonDID{}
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint, http.MethodPost)
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
 	t.Run("create profile error unable to write a response while reading the request", func(t *testing.T) {
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte("")))
 		require.NoError(t, err)
@@ -507,7 +532,7 @@ func testCreateProfileHandler(t *testing.T) {
 }
 
 func TestGetProfileHandler(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 	customKMS := createKMS(t)
 
@@ -640,7 +665,7 @@ func TestStoreVCHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("store vc success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -650,9 +675,13 @@ func TestStoreVCHandler(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getIssuerProfile())
+
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
+
 		rr := httptest.NewRecorder()
 		op.storeCredentialHandler(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code)
@@ -668,6 +697,9 @@ func TestStoreVCHandler(t *testing.T) {
 			VDRI:               &vdrimock.MockVDRIRegistry{},
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getIssuerProfile())
+
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
 			bytes.NewBuffer([]byte(testStoreCredentialRequest)))
 		require.NoError(t, err)
@@ -706,7 +738,7 @@ func TestStoreVCHandler(t *testing.T) {
 		require.Equal(t, errResp.Message, "missing profile name")
 	})
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -731,7 +763,7 @@ func TestStoreVCHandler(t *testing.T) {
 			"embedded proof is not JSON: unexpected end of JSON input", errResp.Message)
 	})
 	t.Run("store vc err while computing MAC", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -756,7 +788,7 @@ func TestStoreVCHandler(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
 	t.Run("store vc err while encrypting structured doc", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -784,7 +816,7 @@ func TestStoreVCHandler(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
 	t.Run("store vc err while serializing JWE", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -821,7 +853,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
 		// operation object in order to create a decryptable EncryptedDocument to be returned from the mock EDV client.
 		// It's set to nil here but later in this test it gets set to a valid object.
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -832,6 +864,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
@@ -854,7 +888,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
 		// operation object in order to create a decryptable EncryptedDocument to be returned from the mock EDV client.
 		// It's set to nil here but later in this test it gets set to a valid object.
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -865,6 +899,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
@@ -887,7 +923,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
 		// operation object in order to create a decryptable EncryptedDocument to be returned from the mock EDV client.
 		// It's set to nil here but later in this test it gets set to a valid object.
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -898,6 +934,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument2)
 
@@ -925,7 +963,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
 		// operation object in order to create a decryptable EncryptedDocument to be returned from the mock EDV client.
 		// It's set to nil here but later in this test it gets set to a valid object.
-		client := edv.NewMockEDVClient("test", nil, nil, nil)
+		client := edv.NewMockEDVClient("test", nil, nil, nil, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -936,6 +974,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
@@ -958,7 +998,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 	})
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -979,7 +1019,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "missing profile name")
 	})
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -1014,6 +1054,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
 
+		saveTestProfile(t, op, getTestProfile())
+
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
 		require.NoError(t, err)
@@ -1030,7 +1072,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		require.Contains(t, rr.Body.String(), errDocumentNotFound.Error())
 	})
 	t.Run("retrieve vc fail when writing document retrieval success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -1041,6 +1083,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
 
@@ -1069,6 +1113,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
 
+		saveTestProfile(t, op, getTestProfile())
+
 		op.macCrypto = failingCrypto{}
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1093,7 +1139,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("fail to deserialize JWE", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test",
 			&models.EncryptedDocument{JWE: []byte("{ not valid JWE }")},
-			nil, []string{"testID"})
+			nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -1104,6 +1150,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{}})
 		require.NoError(t, err)
+
+		saveTestProfile(t, op, getTestProfile())
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1132,7 +1180,7 @@ func TestVCStatus(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("test error from get CSL", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -1157,7 +1205,7 @@ func TestVCStatus(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
 			KMSSecretsProvider: mem.NewProvider(),
@@ -1232,7 +1280,7 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 		KMSSecretsProvider: mem.NewProvider(),
 		Crypto:             customCrypto,
 		EDVClient: edv.NewMockEDVClient("test",
-			nil, nil, []string{"testID"}),
+			nil, nil, []string{"testID"}, nil),
 		KeyManager: customKMS,
 		VDRI:       &vdrimock.MockVDRIRegistry{},
 		HostURL:    "localhost:8080"})
@@ -2260,6 +2308,20 @@ func getTestProfile() *vcprofile.DataProfile {
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
 	}
+}
+
+func getIssuerProfile() *vcprofile.DataProfile {
+	return &vcprofile.DataProfile{
+		Name:          "issuer",
+		DID:           "did:test:abc",
+		URI:           "https://example.com/credentials",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:test:abc#key1",
+	}
+}
+func saveTestProfile(t *testing.T, op *Operation, profile *vcprofile.DataProfile) {
+	err := op.profileStore.SaveProfile(profile)
+	require.NoError(t, err)
 }
 
 func createDIDDoc(didID string, pubKey []byte) *did.Doc {
