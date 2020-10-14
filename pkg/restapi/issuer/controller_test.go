@@ -26,7 +26,7 @@ import (
 
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
@@ -40,7 +40,7 @@ func TestController_New(t *testing.T) {
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
 			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: ""})
@@ -51,7 +51,7 @@ func TestController_New(t *testing.T) {
 }
 
 func TestController_GetOperations(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"})
+	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
 	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)

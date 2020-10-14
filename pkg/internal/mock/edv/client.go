@@ -16,19 +16,22 @@ type Client struct {
 	ReadDocumentSubsequentReturnValue *models.EncryptedDocument
 	readDocumentCalledAtLeastOnce     bool
 	QueryVaultReturnValue             []string
+	CreateVaultError                  error
 }
 
 // NewMockEDVClient is the mock version of edv client
 func NewMockEDVClient(edvServerURL string, readDocumentFirstReturnValue,
-	readDocumentSubsequentReturnValue *models.EncryptedDocument, queryVaultReturnValue []string) *Client {
+	readDocumentSubsequentReturnValue *models.EncryptedDocument, queryVaultReturnValue []string,
+	createVaultError error) *Client {
 	return &Client{edvServerURL: edvServerURL, ReadDocumentSubsequentReturnValue: readDocumentSubsequentReturnValue,
 		ReadDocumentFirstReturnValue: readDocumentFirstReturnValue,
-		QueryVaultReturnValue:        queryVaultReturnValue}
+		QueryVaultReturnValue:        queryVaultReturnValue,
+		CreateVaultError:             createVaultError}
 }
 
 // CreateDataVault creates a new data vault.
 func (c *Client) CreateDataVault(config *models.DataVaultConfiguration) (string, error) {
-	return "", nil
+	return "", c.CreateVaultError
 }
 
 // CreateDocument stores the specified document.

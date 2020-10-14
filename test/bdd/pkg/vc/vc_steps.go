@@ -66,7 +66,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)"$`, e.getProfile)
 	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
 	s.Step(`^That credential is stored under "([^"]*)" profile$`, e.storeCreatedCredential)
-	s.Step(`^Given "([^"]*)" is stored under "([^"]*)" profile$`, e.storeCredentialFromFile)
+	s.Step(`^Given "([^"]*)" is stored under "([^"]*)" profile$`, e.createProfileAndStoreCredentialFromFile)
 	s.Step(`^We can retrieve credential under "([^"]*)" profile$`, e.retrieveCredential)
 	s.Step(`^Now we verify that credential for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`,
 		e.verifyCredential)
@@ -411,7 +411,13 @@ func (e *Steps) storeCreatedCredential(profileName string) error {
 	return e.storeCredential(profileName, e.bddContext.CreatedCredential)
 }
 
-func (e *Steps) storeCredentialFromFile(vcFile, profileName string) error {
+func (e *Steps) createProfileAndStoreCredentialFromFile(vcFile, profileName string) error {
+	err := e.createProfile(profileName, "", "", "", "", "", "",
+		"Ed25519Signature2018", "Ed25519")
+	if err != nil {
+		return err
+	}
+
 	return e.storeCredential(profileName, e.bddContext.TestData[vcFile])
 }
 

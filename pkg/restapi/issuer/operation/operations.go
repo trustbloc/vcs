@@ -31,7 +31,6 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
-	"github.com/trustbloc/edv/pkg/restapi/messages"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -321,14 +320,6 @@ func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http
 		return
 	}
 
-	// create the vault associated with the profile
-	_, err = o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: profile.Name})
-	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
-
-		return
-	}
-
 	rw.WriteHeader(http.StatusCreated)
 	commhttp.WriteResponse(rw, profile)
 }
@@ -384,7 +375,6 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
 		return
 	}
-
 	// TODO https://github.com/trustbloc/edge-service/issues/417 add profileID to the path param rather than the body
 	if err = validateRequest(data.Profile, vc.ID); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
@@ -412,16 +402,14 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 		return
 	}
 
-	_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
+	profile, err := o.profileStore.GetProfile(data.Profile)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
-	if err != nil && strings.Contains(err.Error(), messages.ErrVaultNotFound.Error()) {
-		// create the new vault for this profile, if it doesn't exist
-		_, err = o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: data.Profile})
-		if err == nil {
-			_, err = o.edvClient.CreateDocument(data.Profile, &encryptedDocument)
-		}
+		return
 	}
 
+	_, err = o.edvClient.CreateDocument(profile.EDVVaultID, &encryptedDocument)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
@@ -486,16 +474,22 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 //        200: emptyRes
 func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.Request) {
 	id := req.URL.Query().Get("id")
-	profile := req.URL.Query().Get("profile")
+	profileName := req.URL.Query().Get("profile")
 
-	if err := validateRequest(profile, id); err != nil {
+	if err := validateRequest(profileName, id); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	docURLs, err := o.queryVault(profile, id)
+	profile, err := o.profileStore.GetProfile(profileName)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
+		return
+	}
+
+	docURLs, err := o.queryVault(profile.EDVVaultID, id)
 	if err != nil {
 		// The case where no docs match the given query is handled in o.retrieveCredential.
 		// Any other error is unexpected and is handled here.
@@ -505,7 +499,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		}
 	}
 
-	o.retrieveCredential(rw, profile, docURLs)
+	o.retrieveCredential(rw, profileName, profile.EDVVaultID, docURLs)
 }
 
 func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
@@ -519,10 +513,27 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 
 	created := time.Now().UTC()
 
+	edvVaultID, err := o.createIssuerProfileVault(pr.Name)
+	if err != nil {
+		return nil, fmt.Errorf("fail to create issuer profile vault: %w", err)
+	}
+
 	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID,
-		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID,
-		DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
+		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, EDVVaultID: edvVaultID,
+		Creator: publicKeyID, DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
 	}, nil
+}
+
+// createIssuerProfileVault creates the vault associated with the profile
+func (o *Operation) createIssuerProfileVault(profileName string) (string, error) {
+	vaultLocationURL, err := o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: profileName})
+	if err != nil {
+		return "", fmt.Errorf("fail to create vault in EDV: %w", err)
+	}
+
+	edvVaultID := vcutil.GetVaultIDFromURL(vaultLocationURL)
+
+	return edvVaultID, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
@@ -915,7 +926,7 @@ func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
 	return docURLs, err
 }
 
-func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName string, docURLs []string) {
+func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvVaultID string, docURLs []string) {
 	var retrievedVC []byte
 
 	switch len(docURLs) {
@@ -927,7 +938,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 
 		var err error
 
-		retrievedVC, err = o.retrieveVC(profileName, docID, "retrieving VC")
+		retrievedVC, err = o.retrieveVC(edvVaultID, docID, "retrieving VC")
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
@@ -943,7 +954,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 
 		var statusCode int
 
-		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(profileName, docURLs)
+		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(edvVaultID, docURLs)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, statusCode, err.Error())
 
@@ -960,13 +971,13 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName strin
 	}
 }
 
-func (o *Operation) verifyMultipleMatchingVCsAreIdentical(profileName string, docURLs []string) ([]byte, int, error) {
+func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, docURLs []string) ([]byte, int, error) {
 	var retrievedVCs [][]byte
 
 	for _, docURL := range docURLs {
 		docID := vcutil.GetDocIDFromURL(docURL)
 
-		retrievedVC, err := o.retrieveVC(profileName, docID, "determining if the multiple VCs "+
+		retrievedVC, err := o.retrieveVC(edvVaultID, docID, "determining if the multiple VCs "+
 			"matching the given ID are the same")
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
@@ -984,8 +995,8 @@ func (o *Operation) verifyMultipleMatchingVCsAreIdentical(profileName string, do
 	return retrievedVCs[0], http.StatusOK, nil
 }
 
-func (o *Operation) retrieveVC(profileName, docID, contextErrText string) ([]byte, error) {
-	document, err := o.edvClient.ReadDocument(profileName, docID)
+func (o *Operation) retrieveVC(edvVaultID, docID, contextErrText string) ([]byte, error) {
+	document, err := o.edvClient.ReadDocument(edvVaultID, docID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read document while %s: %s", contextErrText, err)
 	}
