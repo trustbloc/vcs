@@ -7,6 +7,14 @@
 @all
 @verifier_rest
 Feature: Verifier VC REST API
+  @verifierProfileRecreation
+  Scenario Outline: Delete and recreate verifier profile
+    Given Client sends request to create a verifier profile with ID "<profileID>"
+    And   Client deletes the verifier profile with ID "<profileID>"
+    Then  Client can recreate the verifier profile with ID "<profileID>"
+    Examples:
+      | profileID    |
+      | test_profile |
 
   @verifyCred_api
   Scenario Outline: Verify Credential

@@ -37,10 +37,12 @@ const (
 	verifierBasePath                  = "/verifier"
 	profileEndpoint                   = verifierBasePath + "/profile"
 	getProfileEndpoint                = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
+	deleteProfileEndpoint             = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
 	credentialsVerificationEndpoint   = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/credentials"
 	presentationsVerificationEndpoint = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/presentations"
 
-	invalidRequestErrMsg = "Invalid request"
+	invalidRequestErrMsg          = "Invalid request"
+	verifierProfileNotFoundErrMsg = "Verifier profile with id %s does not exist: %s"
 
 	successMsg = "success"
 
@@ -109,6 +111,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		// profile
 		support.NewHTTPHandler(profileEndpoint, http.MethodPost, o.createProfileHandler),
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getProfileHandler),
+		support.NewHTTPHandler(deleteProfileEndpoint, http.MethodDelete, o.deleteProfileHandler),
 
 		// verification
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
@@ -139,7 +142,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 	}
 
 	profile, err := o.profileStore.GetProfile(request.ID)
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+	if err != nil && (!errors.Is(err, storage.ErrValueNotFound) && !strings.Contains(err.Error(), "Not Found: deleted")) {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -180,6 +183,34 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 	}
 
 	commhttp.WriteResponse(rw, profile)
+}
+
+// DeleteVerifierProfile swagger:route DELETE /verifier/profile/{id} verifier deleteProfileReq
+//
+// Deletes verifier profile.
+//
+// Responses:
+// 		default: genericError
+//			200: emptyRes
+func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	profileID := mux.Vars(req)["id"]
+
+	err := o.profileStore.DeleteProfile(profileID)
+	if err != nil {
+		if strings.Contains(err.Error(), storage.ErrValueNotFound.Error()) ||
+			strings.Contains(err.Error(), "Not Found: deleted") {
+			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
+				fmt.Sprintf(verifierProfileNotFoundErrMsg, profileID, err.Error()))
+
+			return
+		}
+
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusOK)
 }
 
 // nolint dupl

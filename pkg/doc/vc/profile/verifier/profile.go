@@ -76,6 +76,11 @@ func (c *Profile) GetProfile(id string) (*ProfileData, error) {
 	return response, nil
 }
 
+// DeleteProfile deletes the verifier profile from underlying store
+func (c *Profile) DeleteProfile(name string) error {
+	return c.store.Delete(getDBKey(name))
+}
+
 func getDBKey(id string) string {
 	return fmt.Sprintf(keyPattern, profileKeyPrefix, id)
 }

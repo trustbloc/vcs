@@ -16,6 +16,8 @@ import (
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
+const testProfileID = "testProfile"
+
 func TestNew(t *testing.T) {
 	t.Run("test new - success", func(t *testing.T) {
 		record, err := New(mockstorage.NewMockStoreProvider())
@@ -114,5 +116,20 @@ func TestGetProfile(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid character")
 		require.Nil(t, resp)
+	})
+}
+
+func TestDeleteProfile(t *testing.T) {
+	t.Run("test delete profile - success", func(t *testing.T) {
+		mockStore, err := New(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
+		require.NotNil(t, mockStore)
+
+		value := &ProfileData{ID: testProfileID}
+		err = mockStore.SaveProfile(value)
+		require.NoError(t, err)
+
+		err = mockStore.DeleteProfile(testProfileID)
+		require.NoError(t, err)
 	})
 }
