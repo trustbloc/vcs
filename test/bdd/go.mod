@@ -14,9 +14,10 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/google/uuid v1.1.1
 	github.com/hyperledger/aries-framework-go v0.1.4
-	github.com/trustbloc/edge-core v0.1.5-0.20200902222811-9a73214c780d
+	github.com/trustbloc/edge-core v0.1.5-0.20201023140820-2a85df5bc1aa
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201013133524-7c8154bccbd3
+	gotest.tools/v3 v3.0.3 // indirect
 )
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e
