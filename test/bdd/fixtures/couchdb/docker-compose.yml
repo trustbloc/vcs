@@ -12,6 +12,11 @@ services:
     image: ${COUCHDB_IMAGE}:${COUCHDB_IMAGE_TAG}
     ports:
       - ${COUCHDB_PORT}:${COUCHDB_PORT}
+    environment:
+      - COUCHDB_USER=${COUCHDB_USERNAME}
+      - COUCHDB_PASSWORD=${COUCHDB_PASSWORD}
+    volumes:
+      - ./couchdb-config/config.ini:/opt/couchdb/etc/local.d/config.ini
     networks:
       - bdd_net
 

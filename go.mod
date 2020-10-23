@@ -13,8 +13,8 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/hyperledger/aries-framework-go v0.1.4
 	github.com/stretchr/testify v1.6.1
-	github.com/trustbloc/edge-core v0.1.5-0.20200902222811-9a73214c780d
-	github.com/trustbloc/edv v0.1.4
+	github.com/trustbloc/edge-core v0.1.5-0.20201023140820-2a85df5bc1aa
+	github.com/trustbloc/edv v0.1.5-0.20201023144933-4be5b141e575
 	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201013133524-7c8154bccbd3
 )
 
