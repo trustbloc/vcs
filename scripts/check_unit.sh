@@ -10,11 +10,11 @@ echo "Running $0"
 
 go generate ./...
 pwd=`pwd`
-echo "" > "$pwd"/coverage.txt
+touch "$pwd"/coverage.out
 
 amend_coverage_file () {
 if [ -f profile.out ]; then
-     cat profile.out >> "$pwd"/coverage.txt
+     cat profile.out >> "$pwd"/coverage.out
      rm profile.out
 fi
 }
