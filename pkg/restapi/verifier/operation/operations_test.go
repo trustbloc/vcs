@@ -28,6 +28,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
+
+	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
@@ -38,6 +40,7 @@ import (
 
 const (
 	assertionMethod = "assertionMethod"
+	testProfileID   = "testProfileID"
 )
 
 func Test_New(t *testing.T) {
@@ -176,6 +179,36 @@ func TestCreateProfile(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "profile test1 already exists")
 	})
 
+	t.Run("create profile - get profile error", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+				Store:  make(map[string][]byte),
+				ErrGet: errors.New("get error")},
+			},
+			VDRI: &vdrimock.MockVDRIRegistry{},
+		})
+		require.NoError(t, err)
+
+		endpoint := profileEndpoint
+		handler := getHandler(t, op, endpoint, http.MethodPost)
+
+		vReq := &verifier.ProfileData{
+			ID:   "test1",
+			Name: "test 1",
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		// mockStore Get() only returns ErrGet if the key is found in mockStore, so we create profile twice to get ErrGet
+		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "get error")
+	})
+
 	t.Run("create profile - profile fetch db error", func(t *testing.T) {
 		op, err := New(&Config{
 			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
@@ -241,9 +274,69 @@ func TestGetProfile(t *testing.T) {
 
 		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
 
-		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "store does not have a value associated with this key")
+	})
+}
+
+func TestDeleteProfileHandler(t *testing.T) {
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	endpoint := deleteProfileEndpoint
+	handler := getHandler(t, op, endpoint, http.MethodDelete)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = testProfileID
+
+	t.Run("delete profile - success", func(t *testing.T) {
+		saveTestProfile(t, op)
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("delete profile - profile does not exist", func(t *testing.T) {
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusNotFound, rr.Code)
+		require.Contains(t, rr.Body.String(),
+			fmt.Sprintf("Verifier profile with id %s does not exist: %s",
+				testProfileID, storage.ErrValueNotFound))
+	})
+
+	t.Run("delete profile - delete same profile twice", func(t *testing.T) {
+		saveTestProfile(t, op)
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		rr = serveHTTPMux(t, handler, endpoint, nil, urlVars)
+		require.Equal(t, http.StatusNotFound, rr.Code)
+		require.Contains(t, rr.Body.String(),
+			fmt.Sprintf("Verifier profile with id %s does not exist: %s",
+				testProfileID, storage.ErrValueNotFound))
+	})
+
+	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: errors.New("delete error")},
+			},
+			VDRI: &vdrimock.MockVDRIRegistry{},
+		})
+		require.NoError(t, err)
+		handler := getHandler(t, op, endpoint, http.MethodDelete)
+
+		saveTestProfile(t, op)
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "delete error")
 	})
 }
 
@@ -1377,6 +1470,15 @@ func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byt
 	handler.Handle().ServeHTTP(rr, req1)
 
 	return rr
+}
+
+func saveTestProfile(t *testing.T, op *Operation) {
+	vReq := &verifier.ProfileData{
+		ID: testProfileID,
+	}
+
+	err := op.profileStore.SaveProfile(vReq)
+	require.NoError(t, err)
 }
 
 func createDIDDoc(didID string, pubKey []byte) *did.Doc {
