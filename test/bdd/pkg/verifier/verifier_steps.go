@@ -42,6 +42,9 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
+	s.Step(`^Client sends request to create a verifier profile with ID "([^"]*)"$`, e.createBasicVerifierProfile)
+	s.Step(`^Client deletes the verifier profile with ID "([^"]*)"$`, e.deleteVerifierProfile)
+	s.Step(`^Client can recreate the verifier profile with ID "([^"]*)"$`, e.createBasicVerifierProfile)
 	s.Step(`^"([^"]*)" has a profile$`, e.createBasicVerifierProfile)
 	s.Step(`^"([^"]*)" verifies the verifiable credential provided by "([^"]*)"$`, e.credentialsVerification)
 	s.Step(`^"([^"]*)" verifies the verifiable presentation provided by "([^"]*)"$`, e.createAndVerifyPresentation)
@@ -211,6 +214,27 @@ func (e *Steps) createBasicVerifierProfile(profileID string) error {
 
 	if resp.StatusCode != http.StatusCreated {
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+	}
+
+	return nil
+}
+
+func (e *Steps) deleteVerifierProfile(profileID string) error {
+	resp, err := bddutil.HTTPDo(http.MethodDelete, fmt.Sprintf(verifierHostURL+"/verifier/profile/%s", //nolint: bodyclose
+		profileID), "", "rw_token", nil)
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
