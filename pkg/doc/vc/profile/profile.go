@@ -138,6 +138,11 @@ func (c *Profile) GetHolderProfile(name string) (*HolderProfile, error) {
 	return response, nil
 }
 
+// DeleteHolderProfile deletes the holder profile from the underlying store.
+func (c *Profile) DeleteHolderProfile(name string) error {
+	return c.store.Delete(getDBKey(holderMode, name))
+}
+
 // SaveGovernanceProfile saves governance profile to the underlying store.
 func (c *Profile) SaveGovernanceProfile(data *GovernanceProfile) error {
 	bytes, err := json.Marshal(data)

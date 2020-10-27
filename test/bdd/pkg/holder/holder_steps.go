@@ -93,6 +93,9 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
+	s.Step(`^Client sends request to create a holder profile with ID "([^"]*)"$`, e.createBasicHolderProfile)
+	s.Step(`^Client deletes the holder profile with ID "([^"]*)"$`, e.deleteHolderProfile)
+	s.Step(`^Client can recreate the holder profile with ID "([^"]*)"$`, e.createBasicHolderProfile)
 	s.Step(`^Holder Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, // nolint
 		e.createHolderProfile)
 	s.Step(`^Holder profile "([^"]*)" can be retrieved with DID "([^"]*)" and signatureType "([^"]*)"$`,
@@ -160,6 +163,60 @@ func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatu
 	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (e *Steps) createBasicHolderProfile(profileName string) error {
+	profileRequest := holderops.HolderProfileRequest{}
+
+	profileRequest.Name = profileName
+	profileRequest.DIDKeyType = "Ed25519"
+	profileRequest.SignatureType = "Ed25519Signature2018"
+
+	requestBytes, err := json.Marshal(profileRequest)
+	if err != nil {
+		return err
+	}
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(requestBytes))
+
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
+	}
+
+	return nil
+}
+
+func (e *Steps) deleteHolderProfile(profileName string) error {
+	resp, err := bddutil.HTTPDo(http.MethodDelete, fmt.Sprintf(holderURL+"/holder/profile/%s", //nolint: bodyclose
+		profileName), "", "rw_token", nil)
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil

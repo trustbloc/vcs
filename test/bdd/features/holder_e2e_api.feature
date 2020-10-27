@@ -7,9 +7,18 @@
 @all
 @holder_rest
 Feature: Holder VC REST API
+  @holderProfileRecreation
+  Scenario Outline: Delete and recreate Holder profile
+    Given Client sends request to create a holder profile with ID "<profileID>"
+    And   Client deletes the holder profile with ID "<profileID>"
+    Then  Client can recreate the holder profile with ID "<profileID>"
+    Examples:
+      | profileID    |
+      | test_profile |
 
   # TODO example 'holderwithdidv1' to be uncommented after fixing Issue[#429]
   # TODO example 'holderwithdidsov' to be uncommented after fixing Issue[#454]
+  @holder_api
   Scenario Outline: Holder APIs
     Given Holder Profile "<profile>" is created with DID "<did>", privateKey "<privateKey>", keyID "<keyID>", signatureHolder "<signatureHolder>", uniRegistrar '<uniRegistrar>', didMethod "<didMethod>", signatureType "<signatureType>" and keyType "<keyType>"
     And   Holder profile "<profile>" can be retrieved with DID "<didMethod>" and signatureType "<signatureType>"

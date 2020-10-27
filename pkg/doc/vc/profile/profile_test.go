@@ -121,6 +121,26 @@ func TestSaveHolder(t *testing.T) {
 	})
 }
 
+func TestDeleteHolderProfile(t *testing.T) {
+	t.Run("test delete holder profile - success", func(t *testing.T) {
+		mockStore, err := New(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
+		require.NotNil(t, mockStore)
+
+		holderProfile := &HolderProfile{
+			Name:                    "holder-1",
+			DID:                     "did",
+			SignatureType:           "SignatureType",
+			SignatureRepresentation: verifiable.SignatureProofValue,
+		}
+		err = mockStore.SaveHolderProfile(holderProfile)
+		require.NoError(t, err)
+
+		err = mockStore.DeleteHolderProfile("holder-1")
+		require.NoError(t, err)
+	})
+}
+
 func TestSaveGovernance(t *testing.T) {
 	t.Run("test save governance - success", func(t *testing.T) {
 		s := make(map[string][]byte)

@@ -45,6 +45,17 @@ type holderProfileReq struct { // nolint: unused,deadcode
 	Params HolderProfileRequest
 }
 
+// deleteHolderProfileReq model
+//
+// swagger:parameters deleteHolderProfileReq
+type deleteHolderProfileReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
 // signPresentationReq model
 //
 // swagger:parameters signPresentationReq
@@ -64,4 +75,10 @@ type signPresentationReq struct { // nolint: unused,deadcode
 // swagger:response verifiableCredentialRes
 type verifiableCredentialRes struct { // nolint: unused,deadcode
 	// in: body
+}
+
+// emptyRes model
+//
+// swagger:response emptyRes
+type emptyRes struct { // nolint: unused,deadcode
 }
