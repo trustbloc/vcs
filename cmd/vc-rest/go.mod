@@ -11,7 +11,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v0.0.6
 	github.com/stretchr/testify v1.6.1
-	github.com/trustbloc/edge-core v0.1.5-0.20201023140820-2a85df5bc1aa
+	github.com/trustbloc/edge-core v0.1.5-0.20201026212420-22cb30832cd8
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.5-0.20201023144933-4be5b141e575
 	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201013133524-7c8154bccbd3
