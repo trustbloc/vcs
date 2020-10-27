@@ -33,11 +33,13 @@ const (
 	profileIDPathParam = "profileID"
 
 	// holder endpoints
-	holderProfileEndpoint    = "/holder/profile"
-	getHolderProfileEndpoint = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
-	signPresentationEndpoint = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
+	holderProfileEndpoint       = "/holder/profile"
+	getHolderProfileEndpoint    = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
+	deleteHolderProfileEndpoint = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
+	signPresentationEndpoint    = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
 
-	invalidRequestErrMsg = "Invalid request"
+	invalidRequestErrMsg        = "Invalid request"
+	holderProfileNotFoundErrMsg = "Holder profile with id %s does not exist: %s"
 )
 
 // Handler http handler for each controller API endpoint
@@ -96,6 +98,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		// holder profile
 		support.NewHTTPHandler(holderProfileEndpoint, http.MethodPost, o.createHolderProfileHandler),
 		support.NewHTTPHandler(getHolderProfileEndpoint, http.MethodGet, o.getHolderProfileHandler),
+		support.NewHTTPHandler(deleteHolderProfileEndpoint, http.MethodDelete, o.deleteHolderProfileHandler),
 		support.NewHTTPHandler(signPresentationEndpoint, http.MethodPost, o.signPresentationHandler),
 	}
 }
@@ -173,6 +176,31 @@ func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Re
 	}
 
 	commhttp.WriteResponse(rw, profile)
+}
+
+// DeleteHolderProfile swagger:route DELETE /holder/profile/{id} holder deleteHolderProfileReq
+//
+// Deletes holder profile.
+//
+// Responses:
+// 		default: genericError
+//			200: emptyRes
+func (o *Operation) deleteHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	profileID := mux.Vars(req)[profileIDPathParam]
+
+	err := o.profileStore.DeleteHolderProfile(profileID)
+	if err != nil {
+		if errors.Is(err, storage.ErrValueNotFound) {
+			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
+				fmt.Sprintf(holderProfileNotFoundErrMsg, profileID, err.Error()))
+
+			return
+		}
+
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
 }
 
 // SignPresentation swagger:route POST /{id}/prove/presentations holder signPresentationReq

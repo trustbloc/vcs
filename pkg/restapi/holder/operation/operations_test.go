@@ -30,7 +30,9 @@ import (
 	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
+	corestorage "github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
+	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -38,9 +40,10 @@ import (
 )
 
 const (
-	validContext = `"@context":["https://www.w3.org/2018/credentials/v1"]`
-	domain       = "domain"
-	challenge    = "challenge"
+	testProfileID = "testProfileID"
+	validContext  = `"@context":["https://www.w3.org/2018/credentials/v1"]`
+	domain        = "domain"
+	challenge     = "challenge"
 )
 
 func TestCreateHolderProfile(t *testing.T) {
@@ -60,7 +63,7 @@ func TestCreateHolderProfile(t *testing.T) {
 	op.commonDID = &mockCommonDID{}
 
 	endpoint := holderProfileEndpoint
-	handler := getHandler(t, op, endpoint)
+	handler := getHandler(t, op, endpoint, http.MethodPost)
 
 	t.Run("create profile - success", func(t *testing.T) {
 		vReq := &HolderProfileRequest{
@@ -137,7 +140,7 @@ func TestCreateHolderProfile(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		handler := getHandler(t, ops, endpoint)
+		handler := getHandler(t, ops, endpoint, http.MethodPost)
 
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
 
@@ -163,7 +166,7 @@ func TestGetHolderProfile(t *testing.T) {
 	op.commonDID = &mockCommonDID{}
 
 	endpoint := getHolderProfileEndpoint
-	handler := getHandler(t, op, endpoint)
+	handler := getHandler(t, op, endpoint, http.MethodGet)
 
 	urlVars := make(map[string]string)
 
@@ -199,6 +202,67 @@ func TestGetHolderProfile(t *testing.T) {
 	})
 }
 
+func TestDeleteHolderProfileHandler(t *testing.T) {
+	op, err := New(&Config{
+		StoreProvider: memstore.NewProvider(),
+		VDRI:          &vdrimock.MockVDRIRegistry{},
+	})
+	require.NoError(t, err)
+
+	endpoint := deleteHolderProfileEndpoint
+	handler := getHandler(t, op, endpoint, http.MethodDelete)
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = testProfileID
+
+	t.Run("delete profile - success", func(t *testing.T) {
+		saveTestProfile(t, op)
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("delete profile - profile does not exist", func(t *testing.T) {
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusNotFound, rr.Code)
+		require.Contains(t, rr.Body.String(),
+			fmt.Sprintf("Holder profile with id %s does not exist: %s",
+				testProfileID, corestorage.ErrValueNotFound))
+	})
+
+	t.Run("delete profile - delete same profile twice", func(t *testing.T) {
+		saveTestProfile(t, op)
+
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		rr = serveHTTPMux(t, handler, endpoint, nil, urlVars)
+		require.Equal(t, http.StatusNotFound, rr.Code)
+		require.Contains(t, rr.Body.String(),
+			fmt.Sprintf("Holder profile with id %s does not exist: %s",
+				testProfileID, corestorage.ErrValueNotFound))
+	})
+
+	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: errors.New("delete error")},
+			},
+			VDRI: &vdrimock.MockVDRIRegistry{},
+		})
+		require.NoError(t, err)
+		handler := getHandler(t, op, endpoint, http.MethodDelete)
+
+		saveTestProfile(t, op)
+		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "delete error")
+	})
+}
+
 func TestSignPresentation(t *testing.T) {
 	endpoint := "/test/prove/presentations"
 	keyID := "key-333"
@@ -227,7 +291,7 @@ func TestSignPresentation(t *testing.T) {
 	urlVars := make(map[string]string)
 	urlVars[profileIDPathParam] = vReq.Name
 
-	handler := getHandler(t, op, signPresentationEndpoint)
+	handler := getHandler(t, op, signPresentationEndpoint, http.MethodPost)
 
 	t.Run("sign presentation - success", func(t *testing.T) {
 		_, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -259,7 +323,7 @@ func TestSignPresentation(t *testing.T) {
 		err = ops.profileStore.SaveHolderProfile(vReq)
 		require.NoError(t, err)
 
-		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint)
+		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, http.MethodPost)
 
 		require.NoError(t, err)
 
@@ -344,7 +408,7 @@ func TestSignPresentation(t *testing.T) {
 		err = ops.profileStore.SaveHolderProfile(vReq)
 		require.NoError(t, err)
 
-		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint)
+		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, http.MethodPost)
 
 		proofPurposeVal := "authentication"
 
@@ -388,7 +452,7 @@ func TestSignPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint)
+		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, http.MethodPost)
 
 		rr := serveHTTPMux(t, signPresentationHandler, endpoint, nil, urlVars)
 
@@ -431,7 +495,7 @@ func TestSignPresentation(t *testing.T) {
 		err = op.profileStore.SaveHolderProfile(vReq)
 		require.NoError(t, err)
 
-		signPresentationHandler := getHandler(t, op, signPresentationEndpoint)
+		signPresentationHandler := getHandler(t, op, signPresentationEndpoint, http.MethodPost)
 
 		req := &SignPresentationRequest{
 			Presentation: []byte(vpWithoutProof),
@@ -458,20 +522,20 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 	return m.createDIDValue, m.createDIDKeyID, m.createDIDErr
 }
 
-func getHandler(t *testing.T, op *Operation, lookup string) Handler {
-	return getHandlerWithError(t, op, lookup)
+func getHandler(t *testing.T, op *Operation, lookupPath, methodToLookup string) Handler {
+	return getHandlerWithError(t, op, lookupPath, methodToLookup)
 }
 
-func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
-	return handlerLookup(t, op, lookup)
+func getHandlerWithError(t *testing.T, op *Operation, lookupPath, methodToLookup string) Handler {
+	return handlerLookup(t, op, lookupPath, methodToLookup)
 }
 
-func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
+func handlerLookup(t *testing.T, op *Operation, lookupPath, methodToLookup string) Handler {
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
 	for _, h := range handlers {
-		if h.Path() == lookup {
+		if h.Path() == lookupPath && h.Method() == methodToLookup {
 			return h
 		}
 	}
@@ -508,6 +572,15 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 	handler.ServeHTTP(rr, httpReq)
 
 	return rr
+}
+
+func saveTestProfile(t *testing.T, op *Operation) {
+	vReq := &vcprofile.HolderProfile{
+		Name: testProfileID,
+	}
+
+	err := op.profileStore.SaveHolderProfile(vReq)
+	require.NoError(t, err)
 }
 
 func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
