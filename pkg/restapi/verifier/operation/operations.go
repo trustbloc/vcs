@@ -143,7 +143,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 
 	profile, err := o.profileStore.GetProfile(request.ID)
 
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) && !strings.Contains(err.Error(), "Not Found: deleted") {
+	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -199,8 +199,7 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 	err := o.profileStore.DeleteProfile(profileID)
 
 	if err != nil {
-		if strings.Contains(err.Error(), storage.ErrValueNotFound.Error()) ||
-			strings.Contains(err.Error(), "Not Found: deleted") {
+		if errors.Is(err, storage.ErrValueNotFound) {
 			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
 				fmt.Sprintf(verifierProfileNotFoundErrMsg, profileID, err.Error()))
 
@@ -211,8 +210,6 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 
 		return
 	}
-
-	rw.WriteHeader(http.StatusOK)
 }
 
 // nolint dupl
