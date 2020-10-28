@@ -76,6 +76,28 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 	})
 }
 
+func TestCredentialRecord_DeleteProfile(t *testing.T) {
+	t.Run("test delete profile - success", func(t *testing.T) {
+		mockStore, err := New(mockstorage.NewMockStoreProvider())
+		require.NoError(t, err)
+		require.NotNil(t, mockStore)
+
+		created := time.Now().UTC()
+
+		value := &DataProfile{
+			Name:    "issuer",
+			URI:     "https://example.com/credentials/1872",
+			Created: &created,
+		}
+
+		err = mockStore.SaveProfile(value)
+		require.NoError(t, err)
+
+		err = mockStore.DeleteProfile("issuer")
+		require.NoError(t, err)
+	})
+}
+
 func TestSaveHolder(t *testing.T) {
 	t.Run("test save holder - success", func(t *testing.T) {
 		s := make(map[string][]byte)

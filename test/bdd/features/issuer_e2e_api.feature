@@ -7,6 +7,11 @@
 @all
 @issuer_rest
 Feature: Issuer VC REST API
+  @issuerProfileRecreation
+  Scenario: Delete and recreate issuer profile
+    Given "Charlie" sends request to create an issuer profile with the name "test_profile"
+    And   "Charlie" deletes the issuer profile with the name "test_profile"
+    Then  "Charlie" can recreate the issuer profile with the name "test_profile"
 
   @issueCred_api
   Scenario: Issue Credential API

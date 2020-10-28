@@ -20,6 +20,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/tink/go/keyset"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -51,6 +52,7 @@ const (
 	// issuer endpoints
 	createProfileEndpoint          = "/profile"
 	getProfileEndpoint             = createProfileEndpoint + "/{id}"
+	deleteProfileEndpoint          = createProfileEndpoint + "/{id}"
 	storeCredentialEndpoint        = "/store"
 	retrieveCredentialEndpoint     = "/retrieve"
 	credentialStatus               = "/status"
@@ -64,7 +66,8 @@ const (
 
 	cslSize = 50
 
-	invalidRequestErrMsg = "Invalid request"
+	invalidRequestErrMsg        = "Invalid request"
+	issuerProfileNotFoundErrMsg = "Issuer profile with id %s does not exist: %s"
 
 	// supported proof purpose
 	assertionMethod      = "assertionMethod"
@@ -199,6 +202,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		// issuer profile
 		support.NewHTTPHandler(createProfileEndpoint, http.MethodPost, o.createIssuerProfileHandler),
 		support.NewHTTPHandler(getProfileEndpoint, http.MethodGet, o.getIssuerProfileHandler),
+		support.NewHTTPHandler(deleteProfileEndpoint, http.MethodDelete, o.deleteIssuerProfileHandler),
 
 		// verifiable credential store
 		support.NewHTTPHandler(storeCredentialEndpoint, http.MethodPost, o.storeCredentialHandler),
@@ -306,7 +310,20 @@ func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http
 		return
 	}
 
-	profile, err := o.createIssuerProfile(&data)
+	profile, err := o.profileStore.GetProfile(data.Name)
+	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
+
+	if profile != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", profile.Name))
+
+		return
+	}
+
+	profile, err = o.createIssuerProfile(&data)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -348,6 +365,34 @@ func (o *Operation) getIssuerProfileHandler(rw http.ResponseWriter, req *http.Re
 	}
 
 	commhttp.WriteResponse(rw, profileResponseJSON)
+}
+
+// DeleteIssuerProfile swagger:route DELETE /profile/{id} issuer deleteIssuerProfileReq
+//
+// Deletes issuer profile.
+//
+// Responses:
+// 		default: genericError
+//			200: emptyRes
+func (o *Operation) deleteIssuerProfileHandler(rw http.ResponseWriter, req *http.Request) {
+	profileID := mux.Vars(req)["id"]
+
+	// TODO: https://github.com/trustbloc/edge-service/issues/508 delete the edv vault
+
+	err := o.profileStore.DeleteProfile(profileID)
+
+	if err != nil {
+		if errors.Is(err, storage.ErrValueNotFound) {
+			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
+				fmt.Sprintf(issuerProfileNotFoundErrMsg, profileID, err.Error()))
+
+			return
+		}
+
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+
+		return
+	}
 }
 
 // StoreVerifiableCredential swagger:route POST /store issuer storeCredentialReq
@@ -513,7 +558,7 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 
 	created := time.Now().UTC()
 
-	edvVaultID, err := o.createIssuerProfileVault(pr.Name)
+	edvVaultID, err := o.createIssuerProfileVault()
 	if err != nil {
 		return nil, fmt.Errorf("fail to create issuer profile vault: %w", err)
 	}
@@ -525,8 +570,8 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 }
 
 // createIssuerProfileVault creates the vault associated with the profile
-func (o *Operation) createIssuerProfileVault(profileName string) (string, error) {
-	vaultLocationURL, err := o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: profileName})
+func (o *Operation) createIssuerProfileVault() (string, error) {
+	vaultLocationURL, err := o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: uuid.New().String()})
 	if err != nil {
 		return "", fmt.Errorf("fail to create vault in EDV: %w", err)
 	}

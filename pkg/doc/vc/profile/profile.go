@@ -111,6 +111,11 @@ func (c *Profile) GetProfile(name string) (*DataProfile, error) {
 	return response, nil
 }
 
+// DeleteProfile deletes the profile from the underlying store.
+func (c *Profile) DeleteProfile(name string) error {
+	return c.store.Delete(getDBKey(issuerMode, name))
+}
+
 // SaveHolderProfile saves holder profile to the underlying store.
 func (c *Profile) SaveHolderProfile(data *HolderProfile) error {
 	bytes, err := json.Marshal(data)
