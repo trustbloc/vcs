@@ -38,6 +38,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/log/mocklogger"
+	corestorage "github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
@@ -64,6 +65,8 @@ const (
 	testUUID = "4aae6b86-8e42-4d14-8cf5-21772ccb24aa"
 
 	testURLQueryID = "http://test.com/" + testUUID
+
+	testIssuerProfileID = "issuer"
 
 	testStoreCredentialRequest = `{
 		"profile": "issuer",
@@ -404,6 +407,47 @@ func testCreateProfileHandler(t *testing.T) {
 		require.Contains(t, profile.URI, "https://example.com/credentials")
 	})
 
+	t.Run("create profile - profile already exists", func(t *testing.T) {
+		vReqBytes, err := json.Marshal(getTestProfile())
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		rr = serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "profile test already exists")
+	})
+
+	t.Run("create profile - other error in GetProfile", func(t *testing.T) {
+		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
+			Store:  make(map[string][]byte),
+			ErrGet: errors.New("get error")}},
+			KMSSecretsProvider: mem.NewProvider(),
+			EDVClient:          client,
+			KeyManager:         customKMS,
+			VDRI:               &vdrimock.MockVDRIRegistry{},
+			Crypto:             customCrypto,
+			HostURL:            "localhost:8080", Domain: "testnet"})
+		require.NoError(t, err)
+
+		op.commonDID = &mockCommonDID{}
+
+		createProfileHandler = getHandler(t, op, createProfileEndpoint, http.MethodPost)
+
+		vReqBytes, err := json.Marshal(getTestProfile())
+		require.NoError(t, err)
+
+		// mockStore Get() only returns ErrGet if the key is found in mockStore, so we create profile twice to get ErrGet
+		rr := serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		rr = serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "get error")
+	})
+
 	t.Run("create profile success without creating did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
@@ -595,6 +639,85 @@ func TestGetProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		getProfileHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
+}
+
+func TestDeleteProfileHandler(t *testing.T) {
+	edvClient := edv.NewMockEDVClient("test", nil, nil, nil, nil)
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	op, err := New(&Config{
+		StoreProvider:      memstore.NewProvider(),
+		KMSSecretsProvider: mem.NewProvider(),
+		EDVClient:          edvClient,
+		KeyManager:         customKMS,
+		VDRI:               &vdrimock.MockVDRIRegistry{},
+		Crypto:             customCrypto,
+		HostURL:            "localhost:8080", Domain: "testnet"})
+	require.NoError(t, err)
+
+	op.commonDID = &mockCommonDID{}
+
+	handler := getHandler(t, op, deleteProfileEndpoint, http.MethodDelete)
+
+	urlVars := make(map[string]string)
+	urlVars["id"] = testIssuerProfileID
+
+	t.Run("delete profile - success", func(t *testing.T) {
+		saveTestProfile(t, op, getIssuerProfile())
+
+		rr := serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
+		require.Equal(t, http.StatusOK, rr.Code)
+	})
+
+	t.Run("delete profile - profile does not exist", func(t *testing.T) {
+		rr := serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusNotFound, rr.Code)
+		require.Contains(t, rr.Body.String(),
+			fmt.Sprintf("Issuer profile with id %s does not exist: %s",
+				testIssuerProfileID, corestorage.ErrValueNotFound))
+	})
+
+	t.Run("delete profile - delete same profile twice", func(t *testing.T) {
+		saveTestProfile(t, op, getIssuerProfile())
+
+		rr := serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		rr = serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
+		require.Equal(t, http.StatusNotFound, rr.Code)
+		require.Contains(t, rr.Body.String(),
+			fmt.Sprintf("Issuer profile with id %s does not exist: %s",
+				testIssuerProfileID, corestorage.ErrValueNotFound))
+	})
+
+	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
+		op, err := New(&Config{
+			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
+				Store:     make(map[string][]byte),
+				ErrDelete: errors.New("delete error"),
+			}},
+			KMSSecretsProvider: mem.NewProvider(),
+			EDVClient:          edvClient,
+			KeyManager:         customKMS,
+			VDRI:               &vdrimock.MockVDRIRegistry{},
+			Crypto:             customCrypto,
+			HostURL:            "localhost:8080", Domain: "testnet"})
+		require.NoError(t, err)
+
+		op.commonDID = &mockCommonDID{}
+
+		handler := getHandler(t, op, deleteProfileEndpoint, http.MethodDelete)
+
+		saveTestProfile(t, op, getIssuerProfile())
+		rr := serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "delete error")
 	})
 }
 
@@ -2272,7 +2395,7 @@ func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byt
 
 func getProfileRequest() *ProfileRequest {
 	return &ProfileRequest{
-		Name:          "issuer",
+		Name:          testIssuerProfileID,
 		URI:           "http://example.com/credentials",
 		SignatureType: "Ed25519Signature2018"}
 }
@@ -2312,7 +2435,7 @@ func getTestProfile() *vcprofile.DataProfile {
 
 func getIssuerProfile() *vcprofile.DataProfile {
 	return &vcprofile.DataProfile{
-		Name:          "issuer",
+		Name:          testIssuerProfileID,
 		DID:           "did:test:abc",
 		URI:           "https://example.com/credentials",
 		SignatureType: "Ed25519Signature2018",

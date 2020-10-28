@@ -66,5 +66,5 @@ func TestController_GetOperations(t *testing.T) {
 
 	ops := controller.GetOperations()
 
-	require.Equal(t, 9, len(ops))
+	require.Equal(t, 10, len(ops))
 }

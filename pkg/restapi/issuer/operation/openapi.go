@@ -38,6 +38,17 @@ type retrieveProfileReq struct { // nolint: unused,deadcode
 	ID string `json:"id"`
 }
 
+// deleteIssuerProfileReq model
+//
+// swagger:parameters deleteIssuerProfileReq
+type deleteIssuerProfileReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+}
+
 // issuerProfileRes model
 //
 // swagger:response issuerProfileRes

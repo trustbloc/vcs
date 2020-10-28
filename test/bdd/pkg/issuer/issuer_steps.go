@@ -93,6 +93,9 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
+	s.Step(`^"([^"]*)" sends request to create an issuer profile with the name "([^"]*)"$`, e.createIssuerProfile)
+	s.Step(`^"([^"]*)" deletes the issuer profile with the name "([^"]*)"$`, e.deleteIssuerProfile)
+	s.Step(`^"([^"]*)" can recreate the issuer profile with the name "([^"]*)"$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as "([^"]*)"$`, e.prepareCredential)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as "([^"]*)" and presentable as "([^"]*)"$`, e.getPresentation)
 	s.Step(`^"([^"]*)" has a DID with the public key generated from Issuer Service - Generate Keypair API$`, e.createDID)
@@ -210,6 +213,29 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 	_, err = bddutil.ResolveDID(e.bddContext.VDRI, profileResponse.DID, 10)
 
 	return err
+}
+
+func (e *Steps) deleteIssuerProfile(user, profileName string) error {
+	name := e.bddContext.Args[bddutil.GetProfileNameKey(user)]
+
+	resp, err := bddutil.HTTPDo(http.MethodDelete, fmt.Sprintf(issuerURL+"/profile/%s", //nolint: bodyclose
+		name), "", "rw_token", nil)
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	}
+
+	return nil
 }
 
 func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
