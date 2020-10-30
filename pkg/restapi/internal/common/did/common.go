@@ -15,7 +15,7 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
@@ -41,14 +41,14 @@ type CommonDID struct {
 	uniRegistrarClient uniRegistrarClient
 	trustBlocDIDClient didBlocClient
 	keyManager         keyManager
-	vdri               vdriapi.Registry
+	vdr                vdrapi.Registry
 	domain             string
 }
 
 // Config defines configuration for vcs operations
 type Config struct {
 	KeyManager keyManager
-	VDRI       vdriapi.Registry
+	VDRI       vdrapi.Registry
 	Domain     string
 	TLSConfig  *tls.Config
 }
@@ -71,7 +71,7 @@ func New(config *Config) *CommonDID {
 		trustBlocDIDClient: didclient.New(didclient.WithTLSConfig(config.TLSConfig)),
 		keyManager:         config.KeyManager,
 		domain:             config.Domain,
-		vdri:               config.VDRI,
+		vdr:                config.VDRI,
 	}
 }
 
@@ -100,7 +100,7 @@ func (o *CommonDID) CreateDID(keyType, signatureType, did, privateKey, keyID, pu
 		}
 
 	case did != "":
-		didDoc, err := o.vdri.Resolve(did)
+		didDoc, err := o.vdr.Resolve(did)
 		if err != nil {
 			return "", "", fmt.Errorf("failed to resolve did: %v", err)
 		}

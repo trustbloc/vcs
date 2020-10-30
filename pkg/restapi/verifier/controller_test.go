@@ -10,7 +10,7 @@ import (
 	"errors"
 	"testing"
 
-	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
@@ -22,7 +22,7 @@ func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&operation.Config{
 			StoreProvider: memstore.NewProvider(),
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
@@ -31,7 +31,7 @@ func TestController_New(t *testing.T) {
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&operation.Config{
 			StoreProvider: &mockstorage.Provider{ErrCreateStore: errors.New("error creating the store")},
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the store")
@@ -41,7 +41,7 @@ func TestController_New(t *testing.T) {
 
 func TestController_GetOperations(t *testing.T) {
 	controller, err := New(&operation.Config{
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 		StoreProvider: memstore.NewProvider(),
 	})
 	require.NoError(t, err)

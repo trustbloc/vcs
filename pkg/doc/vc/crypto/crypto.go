@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -96,8 +96,8 @@ func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
 }
 
 // New return new instance of vc crypto
-func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdri vdriapi.Registry) *Crypto {
-	return &Crypto{keyManager: keyManager, crypto: c, vdri: vdri}
+func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdr vdrapi.Registry) *Crypto {
+	return &Crypto{keyManager: keyManager, crypto: c, vdr: vdr}
 }
 
 // signingOpts holds options for the signing credential
@@ -167,7 +167,7 @@ func WithDomain(domain string) SigningOpts {
 type Crypto struct {
 	keyManager kms.KeyManager
 	crypto     ariescrypto.Crypto
-	vdri       vdriapi.Registry
+	vdr        vdrapi.Registry
 }
 
 // SignCredential sign vc
@@ -246,7 +246,7 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 		return nil, err
 	}
 
-	didDoc, err := c.vdri.Resolve(didID)
+	didDoc, err := c.vdr.Resolve(didID)
 	if err != nil {
 		return nil, err
 	}

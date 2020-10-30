@@ -26,9 +26,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
-
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
@@ -47,7 +46,7 @@ func Test_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
@@ -56,7 +55,7 @@ func Test_New(t *testing.T) {
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&Config{
 			StoreProvider: &mockstorage.Provider{ErrCreateStore: errors.New("error creating the store")},
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the store")
@@ -67,7 +66,7 @@ func Test_New(t *testing.T) {
 func TestCreateProfile(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -185,7 +184,7 @@ func TestCreateProfile(t *testing.T) {
 				Store:  make(map[string][]byte),
 				ErrGet: errors.New("get error")},
 			},
-			VDRI: &vdrimock.MockVDRIRegistry{},
+			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 
@@ -215,7 +214,7 @@ func TestCreateProfile(t *testing.T) {
 				Store:  make(map[string][]byte),
 				ErrPut: errors.New("save error")},
 			},
-			VDRI: &vdrimock.MockVDRIRegistry{},
+			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 
@@ -240,7 +239,7 @@ func TestCreateProfile(t *testing.T) {
 func TestGetProfile(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -282,7 +281,7 @@ func TestGetProfile(t *testing.T) {
 func TestDeleteProfileHandler(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -327,7 +326,7 @@ func TestDeleteProfileHandler(t *testing.T) {
 				Store:     make(map[string][]byte),
 				ErrDelete: errors.New("delete error")},
 			},
-			VDRI: &vdrimock.MockVDRIRegistry{},
+			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 		handler := getHandler(t, op, endpoint, http.MethodDelete)
@@ -347,7 +346,7 @@ func TestVerifyCredential(t *testing.T) {
 	vc.Context = append(vc.Context, cslstatus.Context)
 
 	op, err := New(&Config{
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 		StoreProvider: memstore.NewProvider(),
 		RequestTokens: map[string]string{cslRequestTokenName: "tk1"},
 	})
@@ -380,7 +379,7 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -429,7 +428,7 @@ func TestVerifyCredential(t *testing.T) {
 
 	t.Run("credential verification - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -631,7 +630,7 @@ func TestVerifyCredential(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -718,7 +717,7 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -771,7 +770,7 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -806,7 +805,7 @@ func TestVerifyCredential(t *testing.T) {
 
 func TestVerifyPresentation(t *testing.T) {
 	op, err := New(&Config{
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 		StoreProvider: memstore.NewProvider(),
 	})
 	require.NoError(t, err)
@@ -837,7 +836,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -874,7 +873,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 	t.Run("presentation verification - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -999,7 +998,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -1090,7 +1089,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -1132,7 +1131,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -1173,7 +1172,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.PublicKey[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveValue: didDoc},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
 		require.NoError(t, err)
@@ -1303,26 +1302,26 @@ func TestGetDIDDocFromProof(t *testing.T) {
 	didDoc := createDIDDoc(didID, pubKey)
 	verificationMethod := didDoc.PublicKey[0].ID
 
-	vdri := &vdrimock.MockVDRIRegistry{ResolveValue: didDoc}
+	vdr := &vdrmock.MockVDRegistry{ResolveValue: didDoc}
 
 	// success
-	doc, err := getDIDDocFromProof(verificationMethod, vdri)
+	doc, err := getDIDDocFromProof(verificationMethod, vdr)
 	require.NoError(t, err)
 	require.NotNil(t, doc)
 
 	// fail - verification method not in correct format
 	verificationMethod = "invalid-format"
 
-	doc, err = getDIDDocFromProof(verificationMethod, vdri)
+	doc, err = getDIDDocFromProof(verificationMethod, vdr)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "verificationMethod value invalid-format should be in did#keyID format")
 	require.Nil(t, doc)
 
 	// fail - resolve error
-	vdri = &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")}
+	vdr = &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")}
 	verificationMethod = didDoc.PublicKey[0].ID
 
-	doc, err = getDIDDocFromProof(verificationMethod, vdri)
+	doc, err = getDIDDocFromProof(verificationMethod, vdr)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "resolve error")
 	require.Nil(t, doc)

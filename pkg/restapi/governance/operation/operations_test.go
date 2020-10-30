@@ -23,12 +23,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
@@ -50,7 +50,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 		Crypto:        customCrypto,
 		StoreProvider: memstore.NewProvider(),
 		KeyManager:    customKMS,
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -125,7 +125,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
 				ErrGet: fmt.Errorf("failed to get")}},
 			KeyManager: customKMS,
-			VDRI:       &vdrimock.MockVDRIRegistry{},
+			VDRI:       &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 
@@ -154,7 +154,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: make(map[string][]byte),
 				ErrPut: fmt.Errorf("failed to put")}},
 			KeyManager: customKMS,
-			VDRI:       &vdrimock.MockVDRIRegistry{},
+			VDRI:       &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 
@@ -182,7 +182,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 			Crypto:        customCrypto,
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 
@@ -242,8 +242,8 @@ func TestIssueCredential(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI: &vdrimock.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
 				},
 			},
@@ -293,7 +293,7 @@ func TestIssueCredential(t *testing.T) {
 				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
 				ErrGet: fmt.Errorf("failed to get")}},
 			KeyManager: customKMS,
-			VDRI:       &vdrimock.MockVDRIRegistry{},
+			VDRI:       &vdrmock.MockVDRegistry{},
 			Crypto:     customCrypto,
 			ClaimsFile: file.Name(),
 		})
@@ -320,7 +320,7 @@ func TestIssueCredential(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 			Crypto:        customCrypto,
 			ClaimsFile:    file.Name(),
 		})
@@ -352,7 +352,7 @@ func TestIssueCredential(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 			Crypto:        customCrypto,
 			ClaimsFile:    file.Name(),
 		})

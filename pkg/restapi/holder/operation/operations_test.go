@@ -22,12 +22,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 	corestorage "github.com/trustbloc/edge-core/pkg/storage"
@@ -56,7 +56,7 @@ func TestCreateHolderProfile(t *testing.T) {
 		Crypto:        customCrypto,
 		StoreProvider: memstore.NewProvider(),
 		KeyManager:    customKMS,
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -129,7 +129,7 @@ func TestCreateHolderProfile(t *testing.T) {
 			Crypto:        customCrypto,
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI:          &vdrimock.MockVDRIRegistry{},
+			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 
@@ -159,7 +159,7 @@ func TestGetHolderProfile(t *testing.T) {
 		Crypto:        customCrypto,
 		StoreProvider: memstore.NewProvider(),
 		KeyManager:    customKMS,
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -205,7 +205,7 @@ func TestGetHolderProfile(t *testing.T) {
 func TestDeleteHolderProfileHandler(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider: memstore.NewProvider(),
-		VDRI:          &vdrimock.MockVDRIRegistry{},
+		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
 
@@ -250,7 +250,7 @@ func TestDeleteHolderProfileHandler(t *testing.T) {
 				Store:     make(map[string][]byte),
 				ErrDelete: errors.New("delete error")},
 			},
-			VDRI: &vdrimock.MockVDRIRegistry{},
+			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
 		handler := getHandler(t, op, endpoint, http.MethodDelete)
@@ -307,8 +307,8 @@ func TestSignPresentation(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI: &vdrimock.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
 				},
 			},
@@ -394,8 +394,8 @@ func TestSignPresentation(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS2,
-			VDRI: &vdrimock.MockVDRIRegistry{
-				ResolveFunc: func(didID string, opts ...vdri.ResolveOpts) (doc *did.Doc, e error) {
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
 					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
 				},
 			},
@@ -486,7 +486,7 @@ func TestSignPresentation(t *testing.T) {
 			Crypto:        customCrypto,
 			StoreProvider: memstore.NewProvider(),
 			KeyManager:    customKMS,
-			VDRI:          &vdrimock.MockVDRIRegistry{ResolveErr: errors.New("resolve error")},
+			VDRI:          &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")},
 		})
 		require.NoError(t, err)
 

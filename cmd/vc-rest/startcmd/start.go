@@ -20,19 +20,19 @@ import (
 
 	"github.com/google/tink/go/subtle/random"
 	"github.com/gorilla/mux"
+	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
-	ariescouchdbstorage "github.com/hyperledger/aries-framework-go/pkg/storage/couchdb"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
-	ariesmysqlstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mysql"
-	vdripkg "github.com/hyperledger/aries-framework-go/pkg/vdri"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/httpbinding"
+	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -628,7 +628,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	// Create VDRI
-	vdri, err := createVDRI(parameters.universalResolverURL,
+	vdr, err := createVDRI(parameters.universalResolverURL,
 		&tls.Config{RootCAs: rootCAs}, localKMS, parameters.blocDomain)
 	if err != nil {
 		return err
@@ -655,7 +655,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		EDVClient:          client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
 		KeyManager:         localKMS,
 		Crypto:             crypto,
-		VDRI:               vdri,
+		VDRI:               vdr,
 		HostURL:            externalHostURL,
 		Domain:             parameters.blocDomain,
 		TLSConfig:          &tls.Config{RootCAs: rootCAs},
@@ -666,20 +666,20 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	holderService, err := restholder.New(&holderops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs},
 		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
-		VDRI: vdri, Domain: parameters.blocDomain})
+		VDRI: vdr, Domain: parameters.blocDomain})
 	if err != nil {
 		return err
 	}
 
 	verifierService, err := restverifier.New(&verifierops.Config{StoreProvider: edgeServiceProvs.provider,
-		TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdri, RequestTokens: parameters.requestTokens})
+		TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdr, RequestTokens: parameters.requestTokens})
 	if err != nil {
 		return err
 	}
 
 	governanceService, err := restgovernance.New(&governanceops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs},
 		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
-		VDRI: vdri, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile})
+		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile})
 	if err != nil {
 		return err
 	}
@@ -734,8 +734,8 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 }
 
 func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManager,
-	blocDomain string) (vdriapi.Registry, error) {
-	var opts []vdripkg.Option
+	blocDomain string) (vdrapi.Registry, error) {
+	var opts []vdrpkg.Option
 
 	var blocVDRIOpts []trustbloc.Option
 
@@ -745,26 +745,26 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManag
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
 			httpbinding.WithAccept(acceptsDID), httpbinding.WithTLSConfig(tlsConfig))
 		if err != nil {
-			return nil, fmt.Errorf("failed to create new universal resolver vdri: %w", err)
+			return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
 		}
 
-		// add universal resolver vdri
-		opts = append(opts, vdripkg.WithVDRI(universalResolverVDRI))
+		// add universal resolver vdr
+		opts = append(opts, vdrpkg.WithVDR(universalResolverVDRI))
 
-		// add universal resolver to bloc vdri
+		// add universal resolver to bloc vdr
 		blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithResolverURL(universalResolver),
 			trustbloc.WithTLSConfig(tlsConfig))
 	}
 
-	// add bloc vdri
-	opts = append(opts, vdripkg.WithVDRI(trustbloc.New(blocVDRIOpts...)))
+	// add bloc vdr
+	opts = append(opts, vdrpkg.WithVDR(trustbloc.New(blocVDRIOpts...)))
 
 	vdriProvider, err := context.New(context.WithKMS(km))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new vdri provider: %w", err)
+		return nil, fmt.Errorf("failed to create new vdr provider: %w", err)
 	}
 
-	return vdripkg.New(vdriProvider, opts...), nil
+	return vdrpkg.New(vdriProvider, opts...), nil
 }
 
 func supportedMode(mode string) bool {

@@ -26,7 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -145,7 +145,7 @@ func New(config *Config) (*Operation, error) {
 		profileStore:         p,
 		edvClient:            config.EDVClient,
 		kms:                  config.KeyManager,
-		vdri:                 config.VDRI,
+		vdr:                  config.VDRI,
 		crypto:               c,
 		jweEncrypter:         jweEncrypter,
 		jweDecrypter:         jweDecrypter,
@@ -169,7 +169,7 @@ type Config struct {
 	KMSSecretsProvider ariesstorage.Provider
 	EDVClient          EDVClient
 	KeyManager         keyManager
-	VDRI               vdriapi.Registry
+	VDRI               vdrapi.Registry
 	HostURL            string
 	Domain             string
 	TLSConfig          *tls.Config
@@ -182,7 +182,7 @@ type Operation struct {
 	profileStore         *vcprofile.Profile
 	edvClient            EDVClient
 	kms                  keyManager
-	vdri                 vdriapi.Registry
+	vdr                  vdrapi.Registry
 	crypto               *crypto.Crypto
 	jweEncrypter         jose.Encrypter
 	jweDecrypter         jose.Decrypter
@@ -929,7 +929,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
 

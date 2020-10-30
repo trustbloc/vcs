@@ -34,7 +34,8 @@ const (
 	validVPWithoutProof = `{
 		"@context": [
 			"https://www.w3.org/2018/credentials/v1",
-			"https://www.w3.org/2018/credentials/examples/v1"
+            "https://www.w3.org/2018/credentials/examples/v1",
+            "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 		],
 		"type": "VerifiablePresentation",
 		"verifiableCredential": {

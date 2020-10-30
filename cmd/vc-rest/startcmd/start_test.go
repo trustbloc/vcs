@@ -178,7 +178,7 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 
 	err := startCmd.Execute()
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to create db")
+	require.Contains(t, err.Error(), "failed to ping couchDB")
 }
 
 func TestStartCmdWithNegativeMaxRetries(t *testing.T) {
@@ -343,18 +343,18 @@ func createTestKMS(t *testing.T) *localkms.LocalKMS {
 
 func TestCreateVDRI(t *testing.T) {
 	testKMS := createTestKMS(t)
-	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
+	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
 		v, err := createVDRI("wrong", &tls.Config{}, testKMS, "")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
+		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 		require.Nil(t, v)
 	})
 
-	t.Run("test error from create new universal resolver vdri", func(t *testing.T) {
+	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong",
 			dbParameters: &dbParameters{databaseType: "mem", kmsSecretsDatabaseType: "mem"}}, nil)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create new universal resolver vdri")
+		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 	})
 
 	t.Run("test success", func(t *testing.T) {

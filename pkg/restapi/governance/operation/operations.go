@@ -19,7 +19,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
@@ -34,7 +34,8 @@ import (
 )
 
 const (
-	governanceCtx = "https://trustbloc.github.io/context/governance/context.jsonld"
+	governanceCtx           = "https://trustbloc.github.io/context/governance/context.jsonld"
+	jsonWebSignature2020Ctx = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 
 	profileIDPathParam = "profileID"
 
@@ -107,7 +108,7 @@ func New(config *Config) (*Operation, error) {
 type Config struct {
 	StoreProvider storage.Provider
 	KeyManager    keyManager
-	VDRI          vdriapi.Registry
+	VDRI          vdrapi.Registry
 	Domain        string
 	TLSConfig     *tls.Config
 	Crypto        ariescrypto.Crypto
@@ -223,7 +224,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	claims := strings.ReplaceAll(string(o.claims), "$DID", credReq.DID)
 
 	// create the verifiable credential
-	credential, err := buildCredential(profile.DID, []byte(claims))
+	credential, err := buildCredential(profile.SignatureType, profile.DID, []byte(claims))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to build credential:"+
 			" %s", err.Error()))
@@ -287,7 +288,7 @@ func validateGovernanceProfileRequest(pr *GovernanceProfileRequest) error {
 }
 
 // nolint: funlen
-func buildCredential(did string, claims []byte) (*verifiable.Credential, error) {
+func buildCredential(signatureType, did string, claims []byte) (*verifiable.Credential, error) {
 	// create the verifiable credential
 	credential := &verifiable.Credential{}
 
@@ -300,6 +301,10 @@ func buildCredential(did string, claims []byte) (*verifiable.Credential, error) 
 	}
 
 	credential.Context = append(credential.Context, governanceCtx)
+
+	if signatureType == crypto.JSONWebSignature2020 {
+		credential.Context = append(credential.Context, jsonWebSignature2020Ctx)
+	}
 
 	// set default type, if request doesn't contain the type
 	credential.Types = []string{"VerifiableCredential", "GovernanceCredential"}

@@ -14,11 +14,11 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/stretchr/testify/require"
 )
 
-func TestResolve_vdri(t *testing.T) {
+func TestResolve_vdr(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		op := New(&Config{
 			RuleProvider: &mockRuleProvider{},
