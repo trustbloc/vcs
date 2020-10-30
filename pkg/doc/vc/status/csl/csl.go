@@ -13,11 +13,10 @@ import (
 	"strconv"
 	"strings"
 
-	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
+	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 )
 

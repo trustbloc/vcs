@@ -105,7 +105,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.signAndValidatePresentation)
 }
 
-// nolint: funlen
+//nolint:funlen
 func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatureRep, uniRegistrar,
 	didMethod, signatureType, keyType string) error {
 	profileRequest := holderops.HolderProfileRequest{}

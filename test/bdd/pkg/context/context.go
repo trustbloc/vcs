@@ -66,7 +66,7 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 	instance := BDDContext{
 		Args:      make(map[string]string),
 		VDRI:      vdr,
-		TLSConfig: &tls.Config{RootCAs: rootCAs},
+		TLSConfig: &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
 		TestData:  testData,
 		Data:      make(map[string]interface{}),
 	}

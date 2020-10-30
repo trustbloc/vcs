@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/trustbloc/edge-core/pkg/log"
-
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 )
 

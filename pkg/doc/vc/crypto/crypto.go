@@ -171,7 +171,7 @@ type Crypto struct {
 }
 
 // SignCredential sign vc
-func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) { // nolint:lll,dupl
+func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) { //nolint:lll,dupl
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
@@ -230,7 +230,7 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string, // nolint: lll,gocyclo
+func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string, //nolint: gocyclo
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
 	s, method, err := c.getSigner(creator, opts)
 	if err != nil {
@@ -290,7 +290,7 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method
-func (c *Crypto) getSigner(creator string, opts *signingOpts) (signer, string, error) { // nolint: lll
+func (c *Crypto) getSigner(creator string, opts *signingOpts) (signer, string, error) {
 	verificationMethod := creator
 	if opts.VerificationMethod != "" {
 		verificationMethod = opts.VerificationMethod

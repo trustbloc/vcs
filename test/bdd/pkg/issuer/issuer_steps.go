@@ -17,8 +17,6 @@ import (
 	"net/http"
 	"strings"
 
-	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -28,6 +26,7 @@ import (
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"

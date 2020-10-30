@@ -60,6 +60,7 @@ linters-settings:
       - opinionated
     disabled-checks:
       - unnamedResult
+      - whyNoLint
   funlen:
     lines: 60
     statements: 40
@@ -69,6 +70,12 @@ linters:
   disable:
     - maligned
     - prealloc
+    - testpackage
+    - nlreturn
+    - noctx
+    - goerr113
+    - gofumpt
+    - godot
 
 issues:
   exclude-use-default: false

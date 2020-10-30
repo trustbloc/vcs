@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	"github.com/trustbloc/edge-core/pkg/storage"
 )
 

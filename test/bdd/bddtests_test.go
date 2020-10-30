@@ -28,7 +28,7 @@ import (
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all
-	tags := "all"
+	tags := "issuer_rest"
 
 	if os.Getenv("TAGS") != "" {
 		tags = os.Getenv("TAGS")
@@ -54,6 +54,7 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
+//nolint:gocognit
 func runBDDTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		var composition []*dockerutil.Composition

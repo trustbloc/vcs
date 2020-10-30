@@ -10,9 +10,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"

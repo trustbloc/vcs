@@ -138,7 +138,7 @@ func TestClient_CreateDID(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		v := New(WithTLSConfig(&tls.Config{}))
+		v := New(WithTLSConfig(&tls.Config{MinVersion: tls.VersionTLS12}))
 
 		opts := make(map[string]string)
 

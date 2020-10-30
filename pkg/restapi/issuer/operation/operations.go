@@ -691,7 +691,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	commhttp.WriteResponse(rw, signedVC)
 }
 
-// nolint funlen
+//nolint:funlen
 // composeAndIssueCredential swagger:route POST /{id}/credentials/composeAndIssueCredential issuer composeCredentialReq
 //
 // Composes and Issues a credential.
@@ -1084,7 +1084,7 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 			}
 		case options.AssertionMethod != "":
 			idSplit := strings.Split(options.AssertionMethod, "#")
-			if len(idSplit) != 2 {
+			if len(idSplit) != 2 { //nolint:gomnd
 				return fmt.Errorf("invalid assertion method : %s", idSplit)
 			}
 		}

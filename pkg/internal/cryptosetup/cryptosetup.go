@@ -112,7 +112,7 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 	var kh *keyset.Handle
 
 	keyIDBytes, err := keyIDStore.Get(keyIDDBKeyName)
-	if err != nil {
+	if err != nil { //nolint:nestif
 		if errors.Is(err, storage.ErrValueNotFound) {
 			keyID, keyHandleUntyped, createErr := keyManager.Create(keyType)
 			if createErr != nil {
