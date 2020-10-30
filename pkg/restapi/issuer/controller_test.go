@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	vdrimock "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
@@ -34,7 +34,7 @@ func TestController_New(t *testing.T) {
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: ""})
+			VDRI: &vdrmock.MockVDRegistry{}, HostURL: ""})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
@@ -43,7 +43,7 @@ func TestController_New(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
-			VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: ""})
+			VDRI: &vdrmock.MockVDRegistry{}, HostURL: ""})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -59,7 +59,7 @@ func TestController_GetOperations(t *testing.T) {
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
 		Crypto:             &cryptomock.Crypto{},
 		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-		VDRI: &vdrimock.MockVDRIRegistry{}, HostURL: ""})
+		VDRI: &vdrmock.MockVDRegistry{}, HostURL: ""})
 
 	require.NoError(t, err)
 	require.NotNil(t, controller)

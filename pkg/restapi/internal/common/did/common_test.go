@@ -13,7 +13,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
@@ -26,7 +26,7 @@ import (
 func TestCommonDID_ResolveDID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{},
-			VDRI: &vdri.MockVDRIRegistry{ResolveValue: &ariesdid.Doc{ID: "did:test:123"}}})
+			VDRI: &vdr.MockVDRegistry{ResolveValue: &ariesdid.Doc{ID: "did:test:123"}}})
 
 		did, keyID, err := c.CreateDID("", "", "did:test:123", base58.Encode([]byte("key")),
 			"did:test:123#key1", crypto.Authentication, model.UNIRegistrar{})
@@ -38,7 +38,7 @@ func TestCommonDID_ResolveDID(t *testing.T) {
 
 	t.Run("test error - resolve DID", func(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{},
-			VDRI: &vdri.MockVDRIRegistry{ResolveErr: fmt.Errorf("failed to resolve did")}})
+			VDRI: &vdr.MockVDRegistry{ResolveErr: fmt.Errorf("failed to resolve did")}})
 
 		did, keyID, err := c.CreateDID("", "", "did:test:123", base58.Encode([]byte("key")),
 			"did:test:123#key1", crypto.Authentication, model.UNIRegistrar{})
@@ -51,7 +51,7 @@ func TestCommonDID_ResolveDID(t *testing.T) {
 
 	t.Run("test error - import private key", func(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{ImportPrivateKeyErr: fmt.Errorf("failed to import key")},
-			VDRI: &vdri.MockVDRIRegistry{ResolveValue: &ariesdid.Doc{ID: "did:test:123"}}})
+			VDRI: &vdr.MockVDRegistry{ResolveValue: &ariesdid.Doc{ID: "did:test:123"}}})
 
 		did, keyID, err := c.CreateDID("", "", "did:test:123", base58.Encode([]byte("key")),
 			"did:test:123#key1", crypto.Authentication, model.UNIRegistrar{})

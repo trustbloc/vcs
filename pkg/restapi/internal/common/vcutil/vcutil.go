@@ -22,7 +22,7 @@ import (
 
 const (
 	defVCContext                = "https://www.w3.org/2018/credentials/v1"
-	jsonWebSignature2020Context = "https://trustbloc.github.io/context/vc/credentials-v1.jsonld"
+	jsonWebSignature2020Context = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 )
 
 // GetContextsFromJSONRaw reads contexts from raw JSON

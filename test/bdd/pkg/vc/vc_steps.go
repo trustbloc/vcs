@@ -917,8 +917,9 @@ func (e *Steps) sendDIDAuthResponse(holder, issuer string) error {
 	}
 
 	pres := verifiable.Presentation{
-		Context: []string{"https://www.w3.org/2018/credentials/v1"},
-		Type:    []string{"VerifiablePresentation"},
+		Context: []string{"https://www.w3.org/2018/credentials/v1",
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"},
+		Type: []string{"VerifiablePresentation"},
 	}
 
 	presByte, err := pres.MarshalJSON()
@@ -1085,6 +1086,8 @@ func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) e
 		return err
 	}
 
+	pres.Context = append(pres.Context, "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json")
+
 	presByte, err := pres.MarshalJSON()
 	if err != nil {
 		return err
@@ -1094,10 +1097,8 @@ func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) e
 	verifierDomain := "verifier.example.com"
 
 	req := &holderops.SignPresentationRequest{
-		Presentation: presByte,
-		Opts: &holderops.SignPresentationOptions{
-			Challenge: challenge,
-			Domain:    verifierDomain,
+		Presentation: presByte, Opts: &holderops.SignPresentationOptions{
+			Challenge: challenge, Domain: verifierDomain,
 		},
 	}
 

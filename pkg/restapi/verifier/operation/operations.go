@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
@@ -81,7 +81,7 @@ func New(config *Config) (*Operation, error) {
 
 	svc := &Operation{
 		profileStore:  p,
-		vdri:          config.VDRI,
+		vdr:           config.VDRI,
 		httpClient:    &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 		requestTokens: config.RequestTokens,
 	}
@@ -92,7 +92,7 @@ func New(config *Config) (*Operation, error) {
 // Config defines configuration for verifier operations
 type Config struct {
 	StoreProvider storage.Provider
-	VDRI          vdriapi.Registry
+	VDRI          vdrapi.Registry
 	TLSConfig     *tls.Config
 	RequestTokens map[string]string
 }
@@ -100,7 +100,7 @@ type Config struct {
 // Operation defines handlers for Edge service
 type Operation struct {
 	profileStore  *verifier.Profile
-	vdri          vdriapi.Registry
+	vdr           vdrapi.Registry
 	httpClient    httpClient
 	requestTokens map[string]string
 }
@@ -406,7 +406,7 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 	}
 
 	// get the did doc from verification method
-	didDoc, err := getDIDDocFromProof(verificationMethod, o.vdri)
+	didDoc, err := getDIDDocFromProof(verificationMethod, o.vdr)
 	if err != nil {
 		return err
 	}
@@ -460,7 +460,7 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 	}
 
 	// get the did doc from verification method
-	didDoc, err := getDIDDocFromProof(verificationMethod, o.vdri)
+	didDoc, err := getDIDDocFromProof(verificationMethod, o.vdr)
 	if err != nil {
 		return err
 	}
@@ -527,7 +527,7 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 		verifiable.WithStrictValidation(),
 	)
@@ -543,7 +543,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 	vp, err := verifiable.ParsePresentation(
 		vpBytes,
 		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
 
@@ -572,7 +572,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdri).PublicKeyFetcher(),
+			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
 
@@ -677,13 +677,13 @@ func getVerificationMethodFromProof(proof verifiable.Proof) (string, error) {
 	return verificationMethod, nil
 }
 
-func getDIDDocFromProof(verificationMethod string, vdri vdriapi.Registry) (*did.Doc, error) {
+func getDIDDocFromProof(verificationMethod string, vdr vdrapi.Registry) (*did.Doc, error) {
 	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
 	if err != nil {
 		return nil, err
 	}
 
-	didDoc, err := vdri.Resolve(didID)
+	didDoc, err := vdr.Resolve(didID)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ import (
 
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
 )
 
@@ -32,12 +32,12 @@ type ProofDataOpts struct {
 }
 
 // ResolveDID waits for the DID to become available for resolution.
-func ResolveDID(vdriRegistry vdriapi.Registry, did string, maxRetry int) (*docdid.Doc, error) {
+func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.Doc, error) {
 	var didDoc *docdid.Doc
 
 	for i := 1; i <= maxRetry; i++ {
 		var err error
-		didDoc, err = vdriRegistry.Resolve(did)
+		didDoc, err = vdrRegistry.Resolve(did)
 
 		if err != nil {
 			if !strings.Contains(err.Error(), "DID does not exist") {
@@ -179,11 +179,11 @@ func GetDIDDocKey(user string) string {
 }
 
 // CreateCustomPresentation creates verifiable presentation from custom linked data proof context
-func CreateCustomPresentation(vcBytes []byte, vdri vdriapi.Registry,
+func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 	ldpContext *verifiable.LinkedDataProofContext) ([]byte, error) {
 	// parse vc
 	vc, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdri).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err
 	}

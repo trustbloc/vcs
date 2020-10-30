@@ -17,7 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdriapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
@@ -75,7 +75,7 @@ func New(config *Config) (*Operation, error) {
 type Config struct {
 	StoreProvider storage.Provider
 	KeyManager    keyManager
-	VDRI          vdriapi.Registry
+	VDRI          vdrapi.Registry
 	Domain        string
 	TLSConfig     *tls.Config
 	Crypto        ariescrypto.Crypto

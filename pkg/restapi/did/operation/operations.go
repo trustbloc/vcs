@@ -17,7 +17,7 @@ import (
 
 	"github.com/gorilla/mux"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/vdri/key"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
@@ -67,14 +67,14 @@ func New(config *Config) *Operation {
 // Config defines configuration for vcs operations
 type Config struct {
 	RuleProvider rules.Provider
-	KeyVDRI      key.VDRI
+	KeyVDRI      key.VDR
 	TLSConfig    *tls.Config
 }
 
 // Operation defines handlers for DID REST service
 type Operation struct {
 	ruleProvider rules.Provider
-	keyVDRI      key.VDRI
+	keyVDRI      key.VDR
 	httpClient   httpClient
 }
 
