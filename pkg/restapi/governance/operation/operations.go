@@ -74,7 +74,7 @@ func New(config *Config) (*Operation, error) {
 	if config.ClaimsFile != "" {
 		var err error
 
-		data, err = ioutil.ReadFile(config.ClaimsFile) //nolint: gosec
+		data, err = ioutil.ReadFile(config.ClaimsFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read config file '%s' : %w", config.ClaimsFile, err)
 		}
@@ -287,7 +287,6 @@ func validateGovernanceProfileRequest(pr *GovernanceProfileRequest) error {
 	return nil
 }
 
-// nolint: funlen
 func buildCredential(signatureType, did string, claims []byte) (*verifiable.Credential, error) {
 	// create the verifiable credential
 	credential := &verifiable.Credential{}

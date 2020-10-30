@@ -212,7 +212,7 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 	}
 }
 
-// nolint dupl
+//nolint:dupl,funlen,gocyclo
 // VerifyCredential swagger:route POST /{id}/verifier/credentials verifier verifyCredentialReq
 //
 // Verifies a credential.
@@ -266,6 +266,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 			}
 		case statusCheck:
 			failureMessage := ""
+
 			if vc.Status != nil && vc.Status.ID != "" {
 				ver, err := o.checkVCStatus(vc.Status.ID, vc.ID)
 

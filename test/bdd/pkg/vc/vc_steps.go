@@ -155,7 +155,7 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, verifierProfileID)
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", "rw_token",
-		bytes.NewBuffer(reqBytes)) //nolint: bodyclose
+		bytes.NewBuffer(reqBytes)) //nolint:bodyclose
 
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 	return verify(resp, checks, result, respMessage)
 }
 
-func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nolint[:gocyclo,funlen]
+func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nolint:gocyclo,funlen
 	uniRegistrar, didMethod, signatureType, keyType string) error {
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
@@ -529,7 +529,7 @@ func (e *Steps) verifyCredential(checksList, result, respMessage string) error {
 	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifierProfileID)
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
-		"rw_token", bytes.NewBuffer(reqBytes)) //nolint: bodyclose
+		"rw_token", bytes.NewBuffer(reqBytes)) //nolint:bodyclose
 	if err != nil {
 		return err
 	}
@@ -543,7 +543,7 @@ func verify(resp *http.Response, checks []string, result, respMessage string) er
 		return err
 	}
 
-	if result == "successful" {
+	if result == "successful" { //nolint:nestif
 		if resp.StatusCode != http.StatusOK {
 			return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 		}
@@ -1021,7 +1021,7 @@ func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
 
 	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, issuer)
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint:bodyclose
 		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {
@@ -1125,7 +1125,7 @@ func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) e
 
 	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, verifierID)
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint: bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint:bodyclose
 		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {

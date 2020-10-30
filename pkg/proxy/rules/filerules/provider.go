@@ -42,7 +42,7 @@ type Provider struct {
 
 // New returns new proxy rules provider from file
 func New(configFile string) (*Provider, error) {
-	data, err := ioutil.ReadFile(configFile) //nolint: gosec
+	data, err := ioutil.ReadFile(configFile) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file '%s' : %w", configFile, err)
 	}

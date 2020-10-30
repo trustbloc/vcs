@@ -378,7 +378,7 @@ func getRequestTokens(cmd *cobra.Command) (map[string]string, error) {
 	for _, token := range requestTokens {
 		split := strings.Split(token, "=")
 		switch len(split) {
-		case 2:
+		case 2: //nolint:gomnd
 			tokens[split[0]] = split[1]
 		default:
 			logger.Warnf("invalid token '%s'", token)
@@ -606,7 +606,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(governanceClaimsFlagName, "", "", governanceClaimsFlagUsage)
 }
 
-// nolint: gocyclo,funlen
+// nolint: gocyclo,funlen,gocognit
 func startEdgeService(parameters *vcRestParameters, srv server) error {
 	if parameters.logLevel != "" {
 		common.SetDefaultLogLevel(logger, parameters.logLevel)
@@ -629,7 +629,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	// Create VDRI
 	vdr, err := createVDRI(parameters.universalResolverURL,
-		&tls.Config{RootCAs: rootCAs}, localKMS, parameters.blocDomain)
+		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, localKMS, parameters.blocDomain)
 	if err != nil {
 		return err
 	}
@@ -652,19 +652,21 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	issuerService, err := restissuer.New(&issuerops.Config{StoreProvider: edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
-		EDVClient:          client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{RootCAs: rootCAs})),
-		KeyManager:         localKMS,
-		Crypto:             crypto,
-		VDRI:               vdr,
-		HostURL:            externalHostURL,
-		Domain:             parameters.blocDomain,
-		TLSConfig:          &tls.Config{RootCAs: rootCAs},
-		RetryParameters:    parameters.retryParameters})
+		EDVClient: client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{RootCAs: rootCAs,
+			MinVersion: tls.VersionTLS12})),
+		KeyManager:      localKMS,
+		Crypto:          crypto,
+		VDRI:            vdr,
+		HostURL:         externalHostURL,
+		Domain:          parameters.blocDomain,
+		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
+		RetryParameters: parameters.retryParameters})
 	if err != nil {
 		return err
 	}
 
-	holderService, err := restholder.New(&holderops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs},
+	holderService, err := restholder.New(&holderops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs,
+		MinVersion: tls.VersionTLS12},
 		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
 		VDRI: vdr, Domain: parameters.blocDomain})
 	if err != nil {
@@ -672,13 +674,14 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	verifierService, err := restverifier.New(&verifierops.Config{StoreProvider: edgeServiceProvs.provider,
-		TLSConfig: &tls.Config{RootCAs: rootCAs}, VDRI: vdr, RequestTokens: parameters.requestTokens})
+		TLSConfig: &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, VDRI: vdr,
+		RequestTokens: parameters.requestTokens})
 	if err != nil {
 		return err
 	}
 
-	governanceService, err := restgovernance.New(&governanceops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs},
-		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
+	governanceService, err := restgovernance.New(&governanceops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs,
+		MinVersion: tls.VersionTLS12}, StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
 		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile})
 	if err != nil {
 		return err
@@ -884,7 +887,7 @@ func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 	masterKey, err := masterKeyStore.Get(masterKeyDBKeyName)
 	if err != nil {
 		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			masterKeyRaw := random.GetRandomBytes(uint32(32))
+			masterKeyRaw := random.GetRandomBytes(uint32(32)) //nolint:gomnd
 			masterKey = []byte(base64.URLEncoding.EncodeToString(masterKeyRaw))
 
 			putErr := masterKeyStore.Put(masterKeyDBKeyName, masterKey)

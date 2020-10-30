@@ -124,7 +124,7 @@ func (o *CommonDID) CreateDID(keyType, signatureType, did, privateKey, keyID, pu
 func (o *CommonDID) replaceCanonicalDIDWithDomainDID(didID, publicKeyID string) (string, string) {
 	if strings.HasPrefix(didID, "did:trustbloc") {
 		split := strings.Split(didID, ":")
-		if len(split) == 4 {
+		if len(split) == 4 { //nolint:gomnd
 			domainDIDID := fmt.Sprintf("%s:%s:%s:%s", split[0], split[1], o.domain, split[3])
 
 			return domainDIDID, strings.ReplaceAll(publicKeyID, didID, domainDIDID)
@@ -328,7 +328,7 @@ func (o *CommonDID) importKey(keyID string, keyType kms.KeyType, privateKeyBytes
 
 	var privKey interface{}
 
-	switch keyType {
+	switch keyType { //nolint:exhaustive
 	case kms.ED25519Type:
 		privKey = ed25519.PrivateKey(privateKeyBytes)
 	default:

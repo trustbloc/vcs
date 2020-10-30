@@ -20,7 +20,7 @@ type ErrorResponse struct {
 }
 
 // DataProfile struct for profile
-type DataProfile struct { // nolint: unused
+type DataProfile struct {
 	Name                    string     `json:"name,omitempty"`
 	DID                     string     `json:"did,omitempty"`
 	URI                     string     `json:"uri,omitempty"`
