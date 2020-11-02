@@ -116,7 +116,6 @@ github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj
 github.com/armon/go-radix v1.0.0/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
 github.com/asaskevich/govalidator v0.0.0-20180720115003-f9ffefc3facf/go.mod h1:lB+ZfQJz7igIIfQNfa7Ml4HSf2uFQQRzpGGRXenZAgY=
 github.com/aws/aws-sdk-go v1.25.37/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
-github.com/aws/aws-sdk-go v1.25.39/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
 github.com/aws/aws-sdk-go v1.30.27/go.mod h1:5zCpMtNQVjRREroY7sYe8lOMRSxkhG6MZveU8YkpAk0=
 github.com/aws/aws-sdk-go v1.35.7/go.mod h1:tlPOdRjfxPBpNIwqDj61rmsnA85v9jc0Ps9+muhnW+k=
 github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f/go.mod h1:AuiFmCCPBSrqvVMvuqFuk0qogytodnVFVSN5CeJB8Gc=
@@ -373,8 +372,6 @@ github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3/go.mod h1:ZgVRPoUq/hf
 github.com/google/pprof v0.0.0-20200430221834-fc25d7d30c6d/go.mod h1:ZgVRPoUq/hfqzAqh7sHMqb3I9Rq5C59dIz2SbBwJ4eM=
 github.com/google/pprof v0.0.0-20200708004538-1a94d8640e99/go.mod h1:ZgVRPoUq/hfqzAqh7sHMqb3I9Rq5C59dIz2SbBwJ4eM=
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
-github.com/google/tink/go v1.4.0-rc2.0.20200807212851-52ae9c6679b2 h1:8Xm0rj8hf5lNSxE1BdKebg44pQoWomTLuxyG3MPGgO0=
-github.com/google/tink/go v1.4.0-rc2.0.20200807212851-52ae9c6679b2/go.mod h1:OdW+ACSIXwGiPOWJiRTdoKzStsnqo8ZOsTzchWLy2DY=
 github.com/google/tink/go v1.5.0 h1:iC+PQlQsR8oVxJnrSDS8u9GFXsPy8f56LFmEaGZDhD4=
 github.com/google/tink/go v1.5.0/go.mod h1:wSm19SFGYgyFRF3jqrfcMatRxFRjQ7n0Ly7Vx4ndQXQ=
 github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
@@ -529,7 +526,6 @@ github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d/go.mod h1:+NfK9FKe
 github.com/hpcloud/tail v1.0.0 h1:nfCOvKYfkgYP8hkirhJocXT2+zOD8yUNjXaWfTlyFKI=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huaweicloud/golangsdk v0.0.0-20200304081349-45ec0797f2a4/go.mod h1:WQBcHRNX9shz3928lWEvstQJtAtYI7ks6XlgtRT9Tcw=
-github.com/hyperledger/aries-framework-go v0.1.5-0.20201019182031-a751c3ac7ed8/go.mod h1:Ti+du/ZwtBYjV8TkuohDGLJHxQnJa8x4iGqG2xdJCTc=
 github.com/hyperledger/aries-framework-go v0.1.5-0.20201029183113-1e234a0af6c6 h1:u4PNvBD58ZJSQYKUKiVI6jweaW9pn5lHj3Nvel3GCyA=
 github.com/hyperledger/aries-framework-go v0.1.5-0.20201029183113-1e234a0af6c6/go.mod h1:UF34fHG3WLB1QSxeIqDrWDhK98GLqA09NauwultnG7w=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
@@ -832,8 +828,6 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/syndtr/gocapability v0.0.0-20170704070218-db04d3cc01c8/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
-github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
-github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/tencentcloud/tencentcloud-sdk-go v3.0.171+incompatible/go.mod h1:0PfYow01SHPMhKY31xa+EFz2RStxIqj6JFAJS+IkCi4=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4 h1:Sq/68UWgBzKT+pLTUTkSf0jS2IUwwXLFlZmeh+nAzQM=
 github.com/teserakt-io/golang-ed25519 v0.0.0-20200315192543-8255be791ce4/go.mod h1:9PdLyPiZIiW3UopXyRnPYyjUXSpiQNHRLu8fOsR3o8M=
@@ -853,10 +847,10 @@ github.com/trustbloc/edv v0.1.5-0.20201102225131-0476f0b1cc02 h1:OklnSwfKg/GFhy/
 github.com/trustbloc/edv v0.1.5-0.20201102225131-0476f0b1cc02/go.mod h1:3DDXPdisoax9NkjZ+aTNAtv0EHXLG45nK9urYl6IXAk=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1MKGO71j3jIV7e2aKX72/DTrzLjq9R8kc6xk=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
-github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b h1:2iCsl09MuOAnpphBNHI/wgHeSK38Jt0A8n1yWYrVF2I=
-github.com/trustbloc/sidetree-core-go v0.1.5-0.20201006193409-11b061380f5b/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
-github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201023131022-e96acca105d1 h1:uFHGkOlnWxtRRq7dupYvjo+hR6U9mNIQHOE3Rxlkq2A=
-github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201023131022-e96acca105d1/go.mod h1:k4GzBoDrftehgE8lssSVYTHF+jnG9ENr1nLFC2tlhOk=
+github.com/trustbloc/sidetree-core-go v0.1.5-0.20201029224912-2c4c336bf323 h1:xOKv6VaQh97VEuyzUTv7rkiAhN0fF7BxE33WLT/D29o=
+github.com/trustbloc/sidetree-core-go v0.1.5-0.20201029224912-2c4c336bf323/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
+github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201103214450-5c75ee984ed0 h1:s0bIzLjFCjuQ9S4g/uRXiEzEaaH22h5Pb+KVnx66sHs=
+github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201103214450-5c75ee984ed0/go.mod h1:U2EVWE1V1g8vhB0IqiSL3t7LQ1qz+f+2lfFd0XLNhsY=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
@@ -924,8 +918,6 @@ golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad h1:5E5raQxcv+6CZ11RrBYQe5
 golang.org/x/crypto v0.0.0-20190927123631-a832865fa7ad/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20191002192127-34f69633bfdc/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
-golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba h1:9bFeDpN3gTqNanMVqNcoR/pJQuP5uroC3t1D7eXozTE=
-golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d h1:2+ZP7EfsZV7Vvmx3TIqSlSzATMkTAKqM14YGFPoSKjI=
 golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=

@@ -137,8 +137,8 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:v1:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purpose: []string{crypto.AssertionMethod}},
-				{ID: "did:v1:123#key2", Purpose: []string{crypto.Authentication}}}}
+			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
+				{ID: "did:v1:123#key2", Purposes: []string{crypto.Authentication}}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.JSONWebSignature2020, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{DriverURL: "url"})
@@ -152,8 +152,8 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:v1:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purpose: []string{crypto.AssertionMethod}},
-				{ID: "did:v1:123#key2", Purpose: []string{crypto.AssertionMethod}}}}
+			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
+				{ID: "did:v1:123#key2", Purposes: []string{crypto.AssertionMethod}}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.JSONWebSignature2020, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{DriverURL: "url"})
@@ -168,8 +168,8 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:test:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:test:123#key-1", Purpose: []string{crypto.AssertionMethod}},
-				{ID: "did:test:123#key2", Purpose: []string{crypto.Authentication}}}}
+			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:test:123#key-1", Purposes: []string{crypto.AssertionMethod}},
+				{ID: "did:test:123#key2", Purposes: []string{crypto.Authentication}}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.Ed25519Signature2018, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{DriverURL: "url"})
