@@ -25,11 +25,6 @@ import (
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
-const (
-	recoveryKey = "recovery-key"
-	updateKey   = "update-key"
-)
-
 // nolint: gochecknoglobals
 var signatureKeyTypeMap = map[string]string{
 	crypto.Ed25519Signature2018: crypto.Ed25519VerificationKey2018,
@@ -164,15 +159,11 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 
 	opts = append(opts,
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: recoveryKey, Type: didclient.JWSVerificationKey2020,
-			KeyType:  didclient.Ed25519KeyType,
-			Value:    base64.StdEncoding.EncodeToString(recoveryPubKey),
-			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
+			KeyType: didclient.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(recoveryPubKey),
+			Recovery: true}),
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: updateKey, Type: didclient.JWSVerificationKey2020,
-			KeyType:  didclient.Ed25519KeyType,
-			Value:    base64.StdEncoding.EncodeToString(updatePubKey),
-			Encoding: didclient.PublicKeyEncodingJwk, Update: true}),
+			KeyType: didclient.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(updatePubKey),
+			Update: true}),
 		uniregistrar.WithOptions(registrar.Options))
 
 	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
@@ -242,16 +233,8 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 	}
 
 	opts = append(opts,
-		didclient.WithPublicKey(&didclient.PublicKey{ID: recoveryKey,
-			Type:     didclient.JWSVerificationKey2020,
-			KeyType:  didclient.Ed25519KeyType,
-			Value:    recoveryPubKey,
-			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
-		didclient.WithPublicKey(&didclient.PublicKey{ID: updateKey,
-			Type:     didclient.JWSVerificationKey2020,
-			KeyType:  didclient.Ed25519KeyType,
-			Value:    updatePubKey,
-			Encoding: didclient.PublicKeyEncodingJwk, Update: true}))
+		didclient.WithRecoveryPublicKey(ed25519.PublicKey(recoveryPubKey)),
+		didclient.WithUpdatePublicKey(ed25519.PublicKey(updatePubKey)))
 
 	didDoc, err := o.trustBlocDIDClient.CreateDID(o.domain, opts...)
 	if err != nil {
