@@ -261,12 +261,8 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 			Purposes: []string{didclient.KeyPurposeVerificationMethod, didclient.KeyPurposeAssertionMethod,
 				didclient.KeyPurposeAuthentication},
 			Encoding: didclient.PublicKeyEncodingJwk}),
-		didclient.WithPublicKey(&didclient.PublicKey{ID: "recovery",
-			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519RecoveryPubKey,
-			KeyType: didclient.Ed25519KeyType, Recovery: true}),
-		didclient.WithPublicKey(&didclient.PublicKey{ID: "update",
-			Encoding: didclient.PublicKeyEncodingJwk, Value: ed25519UpdatePubKey,
-			KeyType: didclient.Ed25519KeyType, Update: true}))
+		didclient.WithRecoveryPublicKey(ed25519.PublicKey(ed25519RecoveryPubKey)),
+		didclient.WithUpdatePublicKey(ed25519.PublicKey(ed25519UpdatePubKey)))
 }
 
 func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge, purpose string) error { // nolint: gocyclo
