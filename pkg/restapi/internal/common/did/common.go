@@ -159,16 +159,18 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 			ID: v.ID, Type: v.Type,
 			Value:    base64.StdEncoding.EncodeToString(v.Value),
 			KeyType:  v.KeyType,
-			Encoding: v.Encoding, Purpose: v.Purpose}))
+			Encoding: v.Encoding, Purposes: v.Purposes}))
 	}
 
 	opts = append(opts,
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
 			ID: recoveryKey, Type: didclient.JWSVerificationKey2020,
+			KeyType:  didclient.Ed25519KeyType,
 			Value:    base64.StdEncoding.EncodeToString(recoveryPubKey),
 			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
 		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
 			ID: updateKey, Type: didclient.JWSVerificationKey2020,
+			KeyType:  didclient.Ed25519KeyType,
 			Value:    base64.StdEncoding.EncodeToString(updatePubKey),
 			Encoding: didclient.PublicKeyEncodingJwk, Update: true}),
 		uniregistrar.WithOptions(registrar.Options))
@@ -191,7 +193,7 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 
 	if strings.Contains(identifier, "did:v1") {
 		for _, v := range keys {
-			for _, p := range v.Purpose {
+			for _, p := range v.Purposes {
 				if purpose == p {
 					err = o.importKey(v.ID, kms.ED25519Type, base58.Decode(v.PrivateKeyBase58))
 					if err != nil {
@@ -241,10 +243,14 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 
 	opts = append(opts,
 		didclient.WithPublicKey(&didclient.PublicKey{ID: recoveryKey,
-			Type: didclient.JWSVerificationKey2020, Value: recoveryPubKey,
+			Type:     didclient.JWSVerificationKey2020,
+			KeyType:  didclient.Ed25519KeyType,
+			Value:    recoveryPubKey,
 			Encoding: didclient.PublicKeyEncodingJwk, Recovery: true}),
 		didclient.WithPublicKey(&didclient.PublicKey{ID: updateKey,
-			Type: didclient.JWSVerificationKey2020, Value: updatePubKey,
+			Type:     didclient.JWSVerificationKey2020,
+			KeyType:  didclient.Ed25519KeyType,
+			Value:    updatePubKey,
 			Encoding: didclient.PublicKeyEncodingJwk, Update: true}))
 
 	didDoc, err := o.trustBlocDIDClient.CreateDID(o.domain, opts...)
@@ -267,7 +273,10 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*didclien
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key1ID, Type: didclient.Ed25519VerificationKey2018,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk,
 		KeyType: didclient.Ed25519KeyType,
-		Purpose: []string{didclient.KeyPurposeGeneral, didclient.KeyPurposeAssertion, didclient.KeyPurposeAuth}})
+		Purposes: []string{
+			didclient.KeyPurposeVerificationMethod,
+			didclient.KeyPurposeAssertionMethod,
+			didclient.KeyPurposeAuthentication}})
 
 	// Add JWSVerificationKey2020 Ed25519KeyType
 	key2ID, pubKeyBytes, err := o.createKey(kms.ED25519Type)
@@ -278,7 +287,10 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*didclien
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key2ID, Type: didclient.JWSVerificationKey2020,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk,
 		KeyType: didclient.Ed25519KeyType,
-		Purpose: []string{didclient.KeyPurposeGeneral, didclient.KeyPurposeAssertion, didclient.KeyPurposeAuth}})
+		Purposes: []string{
+			didclient.KeyPurposeVerificationMethod,
+			didclient.KeyPurposeAssertionMethod,
+			didclient.KeyPurposeAuthentication}})
 
 	// Add JWSVerificationKey2020  ECKeyType
 	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEEP1363)
@@ -288,7 +300,10 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*didclien
 
 	publicKeys = append(publicKeys, &didclient.PublicKey{ID: key3ID, Type: didclient.JWSVerificationKey2020,
 		Value: pubKeyBytes, Encoding: didclient.PublicKeyEncodingJwk, KeyType: didclient.P256KeyType,
-		Purpose: []string{didclient.KeyPurposeGeneral, didclient.KeyPurposeAssertion, didclient.KeyPurposeAuth}})
+		Purposes: []string{
+			didclient.KeyPurposeVerificationMethod,
+			didclient.KeyPurposeAssertionMethod,
+			didclient.KeyPurposeAuthentication}})
 
 	if keyType == crypto.Ed25519KeyType &&
 		didclient.Ed25519VerificationKey2018 == signatureKeyTypeMap[signatureType] {
