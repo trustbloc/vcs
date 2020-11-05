@@ -8,7 +8,8 @@
 @vc_rest
 Feature: Using VC REST API
 
-  # TODO example 'myprofilewithdidv1' to be uncommented after fixing Issue[#429]
+  # TODO example 'myprofilewithdidv1' to be uncommented after below ticket resolved:
+  #  https://github.com/decentralized-identity/uni-registrar-driver-did-v1/issues/2
   # TODO example 'myprofilewithdidsov' to be uncommented after fixing Issue[#454]
   @e2e
   Scenario Outline: Store, retrieve, verify credential and presentation using different kind of profiles
