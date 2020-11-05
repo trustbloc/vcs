@@ -7,10 +7,9 @@
 	"verifiableCredential": {
 		"@context": [
 			"https://www.w3.org/2018/credentials/v1",
-			"https://schema.org/",
 			"https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
 		],
-		"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
+		"id": "http://example.gov/credentials/531786fa-0ba0-407b-bf02-4060d4742a5d",
 		"type": [
 			"VerifiableCredential",
 			"CrudeProductCredential"
@@ -104,17 +103,17 @@
 		},
 		"proof": {
 			"type": "Ed25519Signature2018",
-			"created": "2020-05-11T22:04:35Z",
-			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..5LtidBuIzv7kH5s5cJXRR1cftuA76q8dpPgD33kIfPKJgPIgk6NezoWSXo-HNo-_Bwn_zl9cCK-DfrLcnddNDg",
+			"created": "2020-11-05T02:56:29Z",
+			"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..9Zc33IvFMiZnjWSTmwPsSXkgUD-Oq8PsU_RY7UvtGyrNKZoweohZSQOg-Q57P_231xi8XQGtCtjAs9eAc3gdCQ",
 			"proofPurpose": "assertionMethod",
 			"verificationMethod": "did:v1:test:nym:z6MkfG5HTrBXzsAP8AbayNpG3ZaoyM4PCqNPrdWQRSpHDV6J#z6MkqfvdBsFw4QdGrZrnx7L1EKfY5zh9tT4gumUGsMMEZHY3"
 		}
 	},
 	"proof": {
 		"type": "Ed25519Signature2018",
-		"created": "2020-05-11T22:04:36Z",
+		"created": "2020-11-05T02:56:30Z",
 		"challenge": "f03bde08-65d2-4d32-bd46-2f54032e7f61",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..a52hqSVF7a2VFd835AhA6I80B74SoKjHugXToP7lJnzDPt5XV-lr32Eupbv96q6Zsuz5kYj3E2cvlWYkzk3dCQ",
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..8CXuDDA-TjKNL6IH3fW3F4aTEVNvcgxEzRQTkeXn0mB0QZAYmvStKnTDEpSxkq4PHQpF348EUOcAxvX8phRKCg",
 		"proofPurpose": "authentication",
 		"verificationMethod": "did:key:z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b#z6MkiTsvjrrPNDZ1rrg9QDEYCFWCmEswT6U2cEkScb7edQ9b"
 	}

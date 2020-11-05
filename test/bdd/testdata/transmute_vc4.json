@@ -1,10 +1,9 @@
 {
 	"@context": [
 		"https://www.w3.org/2018/credentials/v1",
-		"https://schema.org/",
 		"https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
 	],
-	"id": "http://example.gov/credentials/ff98f978-588f-4eb0-b17b-60c18e1dac2c",
+	"id": "http://example.gov/credentials/a7b6ea5b-28f8-421b-ab64-6f79a0be30f6",
 	"type": [
 		"VerifiableCredential",
 		"CrudeProductCredential"
@@ -101,6 +100,6 @@
 		"created": "2019-12-11T03:50:55Z",
 		"verificationMethod": "did:web:vc.transmute.world#z6MksHh7qHWvybLg5QTPPdG2DgEjjduBDArV9EF9mRiRzMBN",
 		"proofPurpose": "assertionMethod",
-		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..EmXWDeQOeUixjbxi0WCGiuIHshlnsmEU4GYdjQKWV4xZnNQ0dxFIggO92BuHm-zzVWHz8ymKFCcWi4r0ELRQCQ"
+		"jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..kqA4agQfEu2G-tguNjxwDXxmWP9JRMo7nCAi5M6Ol8zJvc8w3M047knAZiR7B_ET0WgV0zEd9OuxbHn-7nbTAw"
 	}
 }

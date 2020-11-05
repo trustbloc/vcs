@@ -1,7 +1,6 @@
 {
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://schema.org/",
     "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld"
   ],
   "id": "http://neo-flow.com/credentials/3a185b8f-078a-4646-8343-76a45c2856a5",
