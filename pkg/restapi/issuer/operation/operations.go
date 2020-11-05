@@ -558,7 +558,7 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 
 	created := time.Now().UTC()
 
-	edvVaultID, err := o.createIssuerProfileVault()
+	edvVaultID, err := o.createIssuerProfileVault(didID)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create issuer profile vault: %w", err)
 	}
@@ -570,8 +570,12 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 }
 
 // createIssuerProfileVault creates the vault associated with the profile
-func (o *Operation) createIssuerProfileVault() (string, error) {
-	vaultLocationURL, err := o.edvClient.CreateDataVault(&models.DataVaultConfiguration{ReferenceID: uuid.New().String()})
+func (o *Operation) createIssuerProfileVault(did string) (string, error) {
+	dataVaultConfig := &models.DataVaultConfiguration{Sequence: 0, Controller: did, ReferenceID: uuid.New().String(),
+		KEK:  models.IDTypePair{ID: uuid.New().URN(), Type: "X25519KeyAgreementKey2019"},
+		HMAC: models.IDTypePair{ID: uuid.New().URN(), Type: "Sha256HmacKey2019"}}
+
+	vaultLocationURL, err := o.edvClient.CreateDataVault(dataVaultConfig)
 	if err != nil {
 		return "", fmt.Errorf("fail to create vault in EDV: %w", err)
 	}
