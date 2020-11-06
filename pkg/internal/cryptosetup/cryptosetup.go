@@ -109,43 +109,37 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 		return nil, err
 	}
 
-	var kh *keyset.Handle
-
 	keyIDBytes, err := keyIDStore.Get(keyIDDBKeyName)
-	if err != nil { //nolint:nestif
-		if errors.Is(err, storage.ErrValueNotFound) {
-			keyID, keyHandleUntyped, createErr := keyManager.Create(keyType)
-			if createErr != nil {
-				return nil, createErr
-			}
-
-			var ok bool
-
-			kh, ok = keyHandleUntyped.(*keyset.Handle)
-			if !ok {
-				return nil, errKeySetHandleAssertionFailure
-			}
-
-			err = keyIDStore.Put(keyIDDBKeyName, []byte(keyID))
-			if err != nil {
-				// TODO rollback key creation in KMS that was added during keyManager.Create() call above
-				return nil, err
-			}
-		} else {
-			return nil, err
-		}
-	} else {
-		keyHandleUntyped, getErr := keyManager.Get(string(keyIDBytes))
-		if getErr != nil {
-			return nil, getErr
+	if errors.Is(err, storage.ErrValueNotFound) {
+		keyID, keyHandleUntyped, createErr := keyManager.Create(keyType)
+		if createErr != nil {
+			return nil, createErr
 		}
 
-		var ok bool
-
-		kh, ok = keyHandleUntyped.(*keyset.Handle)
+		kh, ok := keyHandleUntyped.(*keyset.Handle)
 		if !ok {
 			return nil, errKeySetHandleAssertionFailure
 		}
+
+		err = keyIDStore.Put(keyIDDBKeyName, []byte(keyID))
+		if err != nil {
+			// TODO rollback key creation in KMS that was added during keyManager.Create() call above
+			return nil, err
+		}
+
+		return kh, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	keyHandleUntyped, getErr := keyManager.Get(string(keyIDBytes))
+	if getErr != nil {
+		return nil, getErr
+	}
+
+	kh, ok := keyHandleUntyped.(*keyset.Handle)
+	if !ok {
+		return nil, errKeySetHandleAssertionFailure
 	}
 
 	return kh, nil

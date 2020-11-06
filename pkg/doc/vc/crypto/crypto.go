@@ -171,7 +171,8 @@ type Crypto struct {
 }
 
 // SignCredential sign vc
-func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) { //nolint:lll,dupl
+func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential,
+	opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
@@ -198,7 +199,6 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 }
 
 // SignPresentation signs a presentation
-// nolint: dupl
 func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiable.Presentation,
 	opts ...SigningOpts) (*verifiable.Presentation, error) {
 	signOpts := &signingOpts{}
@@ -230,7 +230,7 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string, //nolint: gocyclo
+func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
 	s, method, err := c.getSigner(creator, opts)
 	if err != nil {
@@ -241,12 +241,7 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 		proofPurpose = opts.Purpose
 	}
 
-	didID, err := diddoc.GetDIDFromVerificationMethod(method)
-	if err != nil {
-		return nil, err
-	}
-
-	didDoc, err := c.vdr.Resolve(didID)
+	didDoc, err := c.getAndResolveDID(method)
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +281,20 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 	}
 
 	return signingCtx, nil
+}
+
+func (c *Crypto) getAndResolveDID(verificationMethod string) (*did.Doc, error) {
+	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
+	if err != nil {
+		return nil, err
+	}
+
+	didDoc, err := c.vdr.Resolve(didID)
+	if err != nil {
+		return nil, err
+	}
+
+	return didDoc, nil
 }
 
 // getSigner returns signer and verification method based on profile and signing opts

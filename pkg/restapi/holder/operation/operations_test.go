@@ -559,7 +559,8 @@ func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byt
 	return rr
 }
 
-func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder { // nolint: unparam,lll
+//nolint:unparam
+func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
 	httpReq, err := http.NewRequest(
 		method,
 		path,
