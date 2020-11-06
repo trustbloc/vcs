@@ -189,6 +189,9 @@ const (
 	masterKeyURI       = "local-lock://custom/master/key/"
 	masterKeyStoreName = "masterkey"
 	masterKeyDBKeyName = masterKeyStoreName
+
+	splitRequestTokenLength = 2
+	masterKeyNumBytes       = 32
 )
 
 var logger = log.New("vc-rest")
@@ -378,7 +381,7 @@ func getRequestTokens(cmd *cobra.Command) (map[string]string, error) {
 	for _, token := range requestTokens {
 		split := strings.Split(token, "=")
 		switch len(split) {
-		case 2: //nolint:gomnd
+		case splitRequestTokenLength:
 			tokens[split[0]] = split[1]
 		default:
 			logger.Warnf("invalid token '%s'", token)
@@ -887,7 +890,7 @@ func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 	masterKey, err := masterKeyStore.Get(masterKeyDBKeyName)
 	if err != nil {
 		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			masterKeyRaw := random.GetRandomBytes(uint32(32)) //nolint:gomnd
+			masterKeyRaw := random.GetRandomBytes(uint32(masterKeyNumBytes))
 			masterKey = []byte(base64.URLEncoding.EncodeToString(masterKeyRaw))
 
 			putErr := masterKeyStore.Put(masterKeyDBKeyName, masterKey)

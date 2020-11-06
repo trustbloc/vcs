@@ -25,6 +25,8 @@ import (
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
+const splitDidIDLength = 4
+
 // nolint: gochecknoglobals
 var signatureKeyTypeMap = map[string]string{
 	crypto.Ed25519Signature2018: crypto.Ed25519VerificationKey2018,
@@ -119,7 +121,7 @@ func (o *CommonDID) CreateDID(keyType, signatureType, did, privateKey, keyID, pu
 func (o *CommonDID) replaceCanonicalDIDWithDomainDID(didID, publicKeyID string) (string, string) {
 	if strings.HasPrefix(didID, "did:trustbloc") {
 		split := strings.Split(didID, ":")
-		if len(split) == 4 { //nolint:gomnd
+		if len(split) == splitDidIDLength {
 			domainDIDID := fmt.Sprintf("%s:%s:%s:%s", split[0], split[1], o.domain, split[3])
 
 			return domainDIDID, strings.ReplaceAll(publicKeyID, didID, domainDIDID)
@@ -129,11 +131,9 @@ func (o *CommonDID) replaceCanonicalDIDWithDomainDID(didID, publicKeyID string) 
 	return didID, publicKeyID
 }
 
-// nolint: gocyclo,funlen
+//nolint:gocyclo
 func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string,
 	registrar model.UNIRegistrar) (string, string, error) {
-	var opts []uniregistrar.CreateDIDOption
-
 	publicKeys, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create did public key: %v", err)
@@ -149,22 +149,7 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 		return "", "", err
 	}
 
-	for _, v := range publicKeys {
-		opts = append(opts, uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			ID: v.ID, Type: v.Type,
-			Value:    base64.StdEncoding.EncodeToString(v.Value),
-			KeyType:  v.KeyType,
-			Encoding: v.Encoding, Purposes: v.Purposes}))
-	}
-
-	opts = append(opts,
-		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			KeyType: didclient.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(recoveryPubKey),
-			Recovery: true}),
-		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
-			KeyType: didclient.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(updatePubKey),
-			Update: true}),
-		uniregistrar.WithOptions(registrar.Options))
+	opts := o.createCreateDIDOptions(publicKeys, recoveryPubKey, updatePubKey, registrar)
 
 	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
 	if err != nil {
@@ -208,6 +193,30 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 	}
 
 	return identifier, keys[0].ID, nil
+}
+
+func (o *CommonDID) createCreateDIDOptions(publicKeys []*didclient.PublicKey, recoveryPubKey []byte,
+	updatePubKey []byte, registrar model.UNIRegistrar) []uniregistrar.CreateDIDOption {
+	var opts []uniregistrar.CreateDIDOption
+
+	for _, v := range publicKeys {
+		opts = append(opts, uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+			ID: v.ID, Type: v.Type,
+			Value:    base64.StdEncoding.EncodeToString(v.Value),
+			KeyType:  v.KeyType,
+			Encoding: v.Encoding, Purposes: v.Purposes}))
+	}
+
+	opts = append(opts,
+		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+			KeyType: didclient.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(recoveryPubKey),
+			Recovery: true}),
+		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+			KeyType: didclient.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(updatePubKey),
+			Update: true}),
+		uniregistrar.WithOptions(registrar.Options))
+
+	return opts
 }
 
 func (o *CommonDID) createDID(keyType, signatureType string) (string, string, error) {

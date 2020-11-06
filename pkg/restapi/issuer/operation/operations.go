@@ -74,6 +74,8 @@ const (
 	authentication       = "authentication"
 	capabilityDelegation = "capabilityDelegation"
 	capabilityInvocation = "capabilityInvocation"
+
+	splitAssertionMethodLength = 2
 )
 
 var logger = log.New("edge-service-issuer-restapi")
@@ -1088,7 +1090,7 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 			}
 		case options.AssertionMethod != "":
 			idSplit := strings.Split(options.AssertionMethod, "#")
-			if len(idSplit) != 2 { //nolint:gomnd
+			if len(idSplit) != splitAssertionMethodLength {
 				return fmt.Errorf("invalid assertion method : %s", idSplit)
 			}
 		}
