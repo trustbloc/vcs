@@ -54,7 +54,7 @@ func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.
 		// v1 will return DID with placeholder keys ID (DID#DID) when not register
 		// will not return 404
 		if strings.Contains(didDoc.ID, "did:v1") {
-			split := strings.Split(didDoc.AssertionMethod[0].PublicKey.ID, "#")
+			split := strings.Split(didDoc.AssertionMethod[0].VerificationMethod.ID, "#")
 			if strings.Contains(didDoc.ID, split[1]) {
 				fmt.Printf("v1 did %s not register yet will retry %d of %d\n", did, i, maxRetry)
 				time.Sleep(3 * time.Second) //nolint:gomnd

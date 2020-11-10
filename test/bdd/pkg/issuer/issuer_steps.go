@@ -24,6 +24,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/edge-core/pkg/log"
 	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
+	"github.com/trustbloc/trustbloc-did-method/pkg/did/doc"
+	"github.com/trustbloc/trustbloc-did-method/pkg/did/option/create"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
@@ -106,19 +108,19 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) createDID(user string) error {
-	doc, err := e.createSidetreeDID()
+	didDoc, err := e.createSidetreeDID()
 	if err != nil {
 		return err
 	}
 
-	split := strings.Split(doc.ID, ":")
+	split := strings.Split(didDoc.ID, ":")
 
-	doc, err = bddutil.ResolveDID(e.bddContext.VDRI, split[0]+":"+split[1]+":testnet.trustbloc.local:"+split[3], 10)
+	didDoc, err = bddutil.ResolveDID(e.bddContext.VDRI, split[0]+":"+split[1]+":testnet.trustbloc.local:"+split[3], 10)
 	if err != nil {
 		return err
 	}
 
-	e.bddContext.Data[bddutil.GetDIDDocKey(user)] = doc
+	e.bddContext.Data[bddutil.GetDIDDocKey(user)] = didDoc
 
 	return nil
 }
@@ -256,13 +258,13 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 	}
 
 	return c.CreateDID("testnet.trustbloc.local",
-		didclient.WithPublicKey(&didclient.PublicKey{ID: keyID, Type: didclient.JWSVerificationKey2020,
-			Value: base58.Decode(base58PubKey), KeyType: didclient.Ed25519KeyType,
-			Purposes: []string{didclient.KeyPurposeVerificationMethod, didclient.KeyPurposeAssertionMethod,
-				didclient.KeyPurposeAuthentication},
-			Encoding: didclient.PublicKeyEncodingJwk}),
-		didclient.WithRecoveryPublicKey(ed25519.PublicKey(ed25519RecoveryPubKey)),
-		didclient.WithUpdatePublicKey(ed25519.PublicKey(ed25519UpdatePubKey)))
+		create.WithPublicKey(&doc.PublicKey{ID: keyID, Type: doc.JWSVerificationKey2020,
+			Value: base58.Decode(base58PubKey), KeyType: doc.Ed25519KeyType,
+			Purposes: []string{doc.KeyPurposeVerificationMethod, doc.KeyPurposeAssertionMethod,
+				doc.KeyPurposeAuthentication},
+			Encoding: doc.PublicKeyEncodingJwk}),
+		create.WithRecoveryPublicKey(ed25519.PublicKey(ed25519RecoveryPubKey)),
+		create.WithUpdatePublicKey(ed25519.PublicKey(ed25519UpdatePubKey)))
 }
 
 func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge, purpose string) error { // nolint: gocyclo
@@ -374,7 +376,7 @@ func (e *Steps) issueAndVerifyCredential(user string) error {
 	challenge := uuid.New().String()
 
 	signedVCByte, err := e.issueCredential(user, did.ID, "university_certificate.json", domain, challenge,
-		vms[0].PublicKey.ID)
+		vms[0].VerificationMethod.ID)
 	if err != nil {
 		return err
 	}
@@ -396,7 +398,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 		return fmt.Errorf("no authentication method in DID created")
 	}
 
-	req := fmt.Sprintf(composeCredReqFormat, vms[0].PublicKey.ID, assertionMethod)
+	req := fmt.Sprintf(composeCredReqFormat, vms[0].VerificationMethod.ID, assertionMethod)
 
 	endpointURL := fmt.Sprintf(composeAndIssueCredentialURLFormat, e.bddContext.Args[bddutil.GetProfileNameKey(user)])
 
@@ -438,7 +440,7 @@ func (e *Steps) createCredential(user, cred string) ([]byte, error) {
 
 	challenge := uuid.New().String()
 
-	signedVCByte, err := e.issueCredential(user, did.ID, cred, domain, challenge, vms[0].PublicKey.ID)
+	signedVCByte, err := e.issueCredential(user, did.ID, cred, domain, challenge, vms[0].VerificationMethod.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -655,8 +657,8 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 }
 
 func (e *Steps) getDIDforUser(user string) (*docdid.Doc, error) {
-	if doc, ok := e.bddContext.Data[bddutil.GetDIDDocKey(user)]; ok {
-		return doc.(*docdid.Doc), nil
+	if didDoc, ok := e.bddContext.Data[bddutil.GetDIDDocKey(user)]; ok {
+		return didDoc.(*docdid.Doc), nil
 	}
 
 	if err := e.createDID(user); err != nil {
