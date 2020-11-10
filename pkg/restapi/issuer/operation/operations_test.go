@@ -22,9 +22,8 @@ import (
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/gorilla/mux"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -458,7 +457,7 @@ func testCreateProfileHandler(t *testing.T) {
 			Crypto:             customCrypto,
 			EDVClient:          client, KeyManager: customKMS,
 			VDRI: &vdrmock.MockVDRegistry{ResolveValue: &did.Doc{ID: "did1",
-				Authentication: []did.VerificationMethod{{PublicKey: did.PublicKey{ID: "did1#key1"}}}}},
+				Authentication: []did.Verification{{VerificationMethod: did.VerificationMethod{ID: "did1#key1"}}}}},
 			HostURL: "localhost:8080"})
 
 		require.NoError(t, err)
@@ -770,13 +769,13 @@ func (m failingCrypto) VerifyMAC(_, data []byte, kh interface{}) error {
 	panic("implement me")
 }
 
-func (m failingCrypto) WrapKey(cek, apu, apv []byte, kh interface{},
-	opts ...ariescrypto.WrapKeyOpts) (*composite.RecipientWrappedKey, error) {
+func (m failingCrypto) WrapKey(cek []byte, apu []byte, apv []byte,
+	recPubKey *cryptoapi.PublicKey, opts ...cryptoapi.WrapKeyOpts) (*cryptoapi.RecipientWrappedKey, error) {
 	panic("implement me")
 }
 
-func (m failingCrypto) UnwrapKey(recWK *composite.RecipientWrappedKey, kh interface{},
-	opts ...ariescrypto.WrapKeyOpts) ([]byte, error) {
+func (m failingCrypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interface{},
+	opts ...cryptoapi.WrapKeyOpts) ([]byte, error) {
 	panic("implement me")
 }
 
@@ -2475,7 +2474,7 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 		Priority:        0,
 	}
 
-	signingKey := did.PublicKey{
+	signingKey := did.VerificationMethod{
 		ID:         creator,
 		Type:       keyType,
 		Controller: didID,
@@ -2487,13 +2486,13 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 	return &did.Doc{
 		Context:              []string{didContext},
 		ID:                   didID,
-		PublicKey:            []did.PublicKey{signingKey},
+		VerificationMethod:   []did.VerificationMethod{signingKey},
 		Service:              []did.Service{service},
 		Created:              &createdTime,
-		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
-		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
-		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
-		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
+		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey}},
+		Authentication:       []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
 }
 
@@ -2513,7 +2512,7 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 		Priority:        0,
 	}
 
-	signingKey := did.PublicKey{
+	signingKey := did.VerificationMethod{
 		ID:         creator,
 		Type:       keyType,
 		Controller: didID,
@@ -2525,13 +2524,13 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 	return &did.Doc{
 		Context:              []string{didContext},
 		ID:                   didID,
-		PublicKey:            []did.PublicKey{signingKey},
+		VerificationMethod:   []did.VerificationMethod{signingKey},
 		Service:              []did.Service{service},
 		Created:              &createdTime,
-		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
-		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
-		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
-		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
+		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey}},
+		Authentication:       []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
 }
 func setMockEDVClientReadDocumentReturnValue(t *testing.T, client *edv.Client, op *Operation,

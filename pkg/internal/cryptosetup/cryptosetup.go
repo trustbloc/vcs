@@ -13,8 +13,7 @@ import (
 	"errors"
 
 	"github.com/google/tink/go/keyset"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -31,11 +30,11 @@ const (
 var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as a key set handle pointer")
 
 type unmarshalFunc func([]byte, interface{}) error
-type newJWEEncryptFunc func(jose.EncAlg, string, string,
-	*keyset.Handle, []*composite.PublicKey) (*jose.JWEEncrypt, error)
+type newJWEEncryptFunc func(encAlg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
+	recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error)
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
-func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
+func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider, c cryptoapi.Crypto,
 	encAlg jose.EncAlg, keyType kms.KeyType) (*jose.JWEEncrypt, *jose.JWEDecrypt, error) {
 	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, ecdhesKeyIDDBKeyName, keyType)
 	if err != nil {
@@ -44,19 +43,19 @@ func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
 
 	// passing encryption type is hard coded to `composite.DIDCommEncType` since the encrypter only supports
 	// Anoncrypt (ECDHES key types)
-	jweEncrypter, err := createJWEEncrypter(keyHandle, encAlg, composite.DIDCommEncType,
-		json.Unmarshal, jose.NewJWEEncrypt)
+	jweEncrypter, err := createJWEEncrypter(keyHandle, encAlg, jose.DIDCommEncType,
+		json.Unmarshal, jose.NewJWEEncrypt, c)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	jweDecrypter := jose.NewJWEDecrypt(nil, keyHandle)
+	jweDecrypter := jose.NewJWEDecrypt(nil, c, keyManager)
 
 	return jweEncrypter, jweDecrypter, nil
 }
 
 func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, encType string, unmarshal unmarshalFunc,
-	newJWEEncrypt newJWEEncryptFunc) (*jose.JWEEncrypt, error) {
+	newJWEEncrypt newJWEEncryptFunc, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error) {
 	pubKH, err := keyHandle.Public()
 	if err != nil {
 		return nil, err
@@ -70,7 +69,7 @@ func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, encType st
 		return nil, err
 	}
 
-	ecPubKey := new(composite.PublicKey)
+	ecPubKey := new(cryptoapi.PublicKey)
 
 	err = unmarshal(buf.Bytes(), ecPubKey)
 	if err != nil {
@@ -78,7 +77,8 @@ func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, encType st
 	}
 
 	// since this is anoncrypt, sender key is not set here
-	jweEncrypter, err := newJWEEncrypt(encAlg, encType, "", nil, []*composite.PublicKey{ecPubKey})
+	jweEncrypter, err := newJWEEncrypt(encAlg, encType, "", nil, []*cryptoapi.PublicKey{ecPubKey},
+		crypto)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func createJWEEncrypter(keyHandle *keyset.Handle, encAlg jose.EncAlg, encType st
 
 // PrepareMACCrypto prepares necessary MAC crypto data for edge-service operations
 func PrepareMACCrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
-	crypto ariescrypto.Crypto, keyType kms.KeyType) (*keyset.Handle, string, error) {
+	crypto cryptoapi.Crypto, keyType kms.KeyType) (*keyset.Handle, string, error) {
 	keyHandle, err := prepareKeyHandle(storeProvider, keyManager, hmacKeyIDDBKeyName, keyType)
 	if err != nil {
 		return nil, "", err

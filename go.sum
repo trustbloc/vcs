@@ -499,6 +499,8 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/huaweicloud/golangsdk v0.0.0-20200304081349-45ec0797f2a4/go.mod h1:WQBcHRNX9shz3928lWEvstQJtAtYI7ks6XlgtRT9Tcw=
 github.com/hyperledger/aries-framework-go v0.1.5-0.20201029183113-1e234a0af6c6 h1:u4PNvBD58ZJSQYKUKiVI6jweaW9pn5lHj3Nvel3GCyA=
 github.com/hyperledger/aries-framework-go v0.1.5-0.20201029183113-1e234a0af6c6/go.mod h1:UF34fHG3WLB1QSxeIqDrWDhK98GLqA09NauwultnG7w=
+github.com/hyperledger/aries-framework-go v0.1.5-0.20201110161050-249e1c428734 h1:zF9gANh/lO87S96RPWTONZxYKToAgBNWDspFRkSxDeI=
+github.com/hyperledger/aries-framework-go v0.1.5-0.20201110161050-249e1c428734/go.mod h1:QzlBsH2J303U3r8lJ1jq69ackseH+v5/B9hpCFouBqg=
 github.com/ianlancetaylor/demangle v0.0.0-20181102032728-5e5cf60278f6/go.mod h1:aSSvb/t6k1mPoxDqO4vJh6VOCGPwU4O0C2/Eqndh1Sc=
 github.com/imdario/mergo v0.3.6/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
 github.com/inconshreveable/mousetrap v1.0.0 h1:Z8tu5sraLXCXIcARxBp/8cbvlwVa7Z1NHg9XEKhtSvM=
@@ -800,6 +802,8 @@ github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e h1:IuSryDFXv17anJ2su
 github.com/trustbloc/bls v0.0.0-20201023141329-a1e218beb89e/go.mod h1:xHJKf2TLXUA39Dhv8k5QmQOxLsbrb1KeTS/3ERfLeqc=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef h1:nZF/RNtWszq+WD8+p7blxWsWJjiTgdGQ1rv2IEffLj8=
 github.com/trustbloc/bls12-381 v0.0.0-20201008080608-ba2e87ef05ef/go.mod h1:XXfR6YFCRSrkEXbNlIyDsgXVNJWVUV30m/ebkVy9n6s=
+github.com/trustbloc/bls12-381 v0.0.0-20201104214312-31de2a204df8 h1:VtbBrpzy6rg4EHKOgGDOhBlFg8WWb0dFTYGz140gtj4=
+github.com/trustbloc/bls12-381 v0.0.0-20201104214312-31de2a204df8/go.mod h1:gcwDl9YLyNc3H3wmPXamu+8evD8TYUa6BjTsWnvdn7A=
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
 github.com/trustbloc/edge-core v0.1.5-0.20201023140820-2a85df5bc1aa h1:cFt1d6rpBU9TOXNhK50wpSXnvk/G8MdpeqU75mMQIIA=
 github.com/trustbloc/edge-core v0.1.5-0.20201023140820-2a85df5bc1aa/go.mod h1:n0ndC1OQqYGKvrBZh99m5/9dCiwN+2kXECe9UXA4Dek=
@@ -813,6 +817,8 @@ github.com/trustbloc/sidetree-core-go v0.1.5-0.20201029224912-2c4c336bf323 h1:xO
 github.com/trustbloc/sidetree-core-go v0.1.5-0.20201029224912-2c4c336bf323/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
 github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201104140931-a5c42ef6b769 h1:e1bVWggxXkmgL51johZARU2h47vwpMjmVG8z6INRIEY=
 github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201104140931-a5c42ef6b769/go.mod h1:U2EVWE1V1g8vhB0IqiSL3t7LQ1qz+f+2lfFd0XLNhsY=
+github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201110175950-f47afa606cda h1:gTMAHOce3xWET/Nl/dUxwIGRrrhZwusze6xfNadTjPk=
+github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201110175950-f47afa606cda/go.mod h1:YeE1/XsPmANICeteF3B4hiS2dEg+B28hNzwDLcIGWQc=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=

@@ -7,7 +7,7 @@ package didbloc
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
+	"github.com/trustbloc/trustbloc-did-method/pkg/did/option/create"
 )
 
 // Client is the mock did bloc client
@@ -17,6 +17,6 @@ type Client struct {
 }
 
 // CreateDID create did
-func (c *Client) CreateDID(domain string, opts ...didclient.CreateDIDOption) (*did.Doc, error) {
+func (c *Client) CreateDID(domain string, opts ...create.Option) (*did.Doc, error) {
 	return c.CreateDIDValue, c.CreateDIDErr
 }

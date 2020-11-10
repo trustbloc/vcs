@@ -15,7 +15,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
-	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
+	"github.com/trustbloc/trustbloc-did-method/pkg/did/option/create"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
@@ -240,6 +240,6 @@ type mockTrustBlocDIDClient struct {
 	CreateDIDErr   error
 }
 
-func (m *mockTrustBlocDIDClient) CreateDID(domain string, opts ...didclient.CreateDIDOption) (*ariesdid.Doc, error) {
+func (m *mockTrustBlocDIDClient) CreateDID(domain string, opts ...create.Option) (*ariesdid.Doc, error) {
 	return m.CreateDIDValue, m.CreateDIDErr
 }

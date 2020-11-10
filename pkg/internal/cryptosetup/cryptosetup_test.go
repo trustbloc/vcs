@@ -13,8 +13,8 @@ import (
 
 	"github.com/google/tink/go/keyset"
 	"github.com/google/tink/go/mac"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -34,8 +34,11 @@ func TestPrepareJWECrypto(t *testing.T) {
 		keyHandleToBeCreated, err := keyset.NewHandle(mac.HMACSHA256Tag256KeyTemplate())
 		require.NoError(t, err)
 
+		testMACValue := []byte("testValue")
+		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
+
 		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&mockkms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
-			mockstore.NewMockStoreProvider(), jose.A256GCM, kmsservice.ECDHES256AES256GCMType)
+			mockstore.NewMockStoreProvider(), &mockCrypto, jose.A256GCM, kmsservice.ECDH256KWAES256GCMType)
 		require.EqualError(t, err, "keyset.Handle: keyset.Handle: keyset contains a non-private key")
 		require.Nil(t, jweEncrypter)
 		require.Nil(t, jweDecrypter)
@@ -44,25 +47,31 @@ func TestPrepareJWECrypto(t *testing.T) {
 
 func Test_createJWEEncrypter(t *testing.T) {
 	t.Run("Fail to unmarshal", func(t *testing.T) {
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		keyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, composite.DIDCommEncType,
+		testMACValue := []byte("testValue")
+		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
+
+		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, jose.DIDCommEncType,
 			func(_ []byte, _ interface{}) error {
 				return errTest
-			}, nil)
+			}, nil, &mockCrypto)
 		require.Equal(t, errTest, err)
 		require.Nil(t, jweEncrypter)
 	})
 	t.Run("Fail to create new JWE Encrypter", func(t *testing.T) {
-		keyHandle, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		keyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
-		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, composite.DIDCommEncType, json.Unmarshal,
+		testMACValue := []byte("testValue")
+		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
+
+		jweEncrypter, err := createJWEEncrypter(keyHandle, jose.A256GCM, jose.DIDCommEncType, json.Unmarshal,
 			func(alg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
-				keys []*composite.PublicKey) (*jose.JWEEncrypt, error) {
+				keys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error) {
 				return nil, errTest
-			})
+			}, &mockCrypto)
 		require.Equal(t, errTest, err)
 		require.Nil(t, jweEncrypter)
 	})
