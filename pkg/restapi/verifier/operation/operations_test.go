@@ -375,7 +375,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
@@ -627,7 +627,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
@@ -713,7 +713,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		didDoc := createDIDDoc(didID, pubKey)
 		didDoc.AssertionMethod = nil
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
@@ -766,7 +766,7 @@ func TestVerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
@@ -833,7 +833,7 @@ func TestVerifyPresentation(t *testing.T) {
 		didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
 
 		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
@@ -995,7 +995,7 @@ func TestVerifyPresentation(t *testing.T) {
 		didID := "did:test:xyz"
 
 		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
@@ -1086,7 +1086,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		didDoc := createDIDDoc(didID, pubKey)
 		didDoc.Authentication = nil
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
@@ -1128,7 +1128,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		didDoc := createDIDDoc(didID, pubKey)
 		didDoc.AssertionMethod = nil
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
@@ -1169,7 +1169,7 @@ func TestVerifyPresentation(t *testing.T) {
 		didID := "did:test:abc123"
 
 		didDoc := createDIDDoc(didID, pubKey)
-		verificationMethod := didDoc.PublicKey[0].ID
+		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
@@ -1234,7 +1234,7 @@ func TestValidateProofPurpose(t *testing.T) {
 	didID := "did:test:xyz123"
 
 	didDoc := createDIDDoc(didID, pubKey)
-	kid := didDoc.PublicKey[0].ID
+	kid := didDoc.VerificationMethod[0].ID
 
 	proof := make(map[string]interface{})
 	key := "challenge"
@@ -1300,7 +1300,7 @@ func TestGetDIDDocFromProof(t *testing.T) {
 	didID := "did:test:abc789"
 
 	didDoc := createDIDDoc(didID, pubKey)
-	verificationMethod := didDoc.PublicKey[0].ID
+	verificationMethod := didDoc.VerificationMethod[0].ID
 
 	vdr := &vdrmock.MockVDRegistry{ResolveValue: didDoc}
 
@@ -1319,7 +1319,7 @@ func TestGetDIDDocFromProof(t *testing.T) {
 
 	// fail - resolve error
 	vdr = &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")}
-	verificationMethod = didDoc.PublicKey[0].ID
+	verificationMethod = didDoc.VerificationMethod[0].ID
 
 	doc, err = getDIDDocFromProof(verificationMethod, vdr)
 	require.Error(t, err)
@@ -1496,7 +1496,7 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 		Priority:        0,
 	}
 
-	signingKey := did.PublicKey{
+	signingKey := did.VerificationMethod{
 		ID:         creator,
 		Type:       keyType,
 		Controller: didID,
@@ -1508,13 +1508,13 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 	return &did.Doc{
 		Context:              []string{didContext},
 		ID:                   didID,
-		PublicKey:            []did.PublicKey{signingKey},
+		VerificationMethod:   []did.VerificationMethod{signingKey},
 		Service:              []did.Service{service},
 		Created:              &createdTime,
-		AssertionMethod:      []did.VerificationMethod{{PublicKey: signingKey}},
-		Authentication:       []did.VerificationMethod{{PublicKey: signingKey}},
-		CapabilityInvocation: []did.VerificationMethod{{PublicKey: signingKey}},
-		CapabilityDelegation: []did.VerificationMethod{{PublicKey: signingKey}},
+		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey}},
+		Authentication:       []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdhes"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -28,7 +28,7 @@ func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+		kh, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 		require.NoError(t, err)
 
 		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
@@ -53,7 +53,7 @@ func TestController_New(t *testing.T) {
 func TestController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-	kh, err := keyset.NewHandle(ecdhes.ECDHES256KWAES256GCMKeyTemplate())
+	kh, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
 	require.NoError(t, err)
 
 	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
