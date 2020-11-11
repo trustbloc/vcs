@@ -268,7 +268,6 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*doc.Publ
 		Value: pubKeyBytes, Encoding: doc.PublicKeyEncodingJwk,
 		KeyType: doc.Ed25519KeyType,
 		Purposes: []string{
-			doc.KeyPurposeVerificationMethod,
 			doc.KeyPurposeAssertionMethod,
 			doc.KeyPurposeAuthentication}})
 
@@ -282,7 +281,6 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*doc.Publ
 		Value: pubKeyBytes, Encoding: doc.PublicKeyEncodingJwk,
 		KeyType: doc.Ed25519KeyType,
 		Purposes: []string{
-			doc.KeyPurposeVerificationMethod,
 			doc.KeyPurposeAssertionMethod,
 			doc.KeyPurposeAuthentication}})
 
@@ -295,7 +293,6 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) ([]*doc.Publ
 	publicKeys = append(publicKeys, &doc.PublicKey{ID: key3ID, Type: doc.JWSVerificationKey2020,
 		Value: pubKeyBytes, Encoding: doc.PublicKeyEncodingJwk, KeyType: doc.P256KeyType,
 		Purposes: []string{
-			doc.KeyPurposeVerificationMethod,
 			doc.KeyPurposeAssertionMethod,
 			doc.KeyPurposeAuthentication}})
 
