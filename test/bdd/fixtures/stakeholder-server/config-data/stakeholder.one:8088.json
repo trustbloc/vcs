@@ -2,7 +2,7 @@
   "domain": "stakeholder.one",
   "did": "did:trustbloc:testnet.trustbloc.local:zQ1234567890987654321",
   "policy": {
-    "cache": {"max_age": 300}
+    "cache": {"maxAge": 300}
   },
   "endpoints": ["https://sidetree-mock:48326/sidetree/0.0.1"],
   "previous": ""
