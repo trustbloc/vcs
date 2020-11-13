@@ -16,7 +16,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.5-0.20201110161050-249e1c428734
 	github.com/trustbloc/edge-core v0.1.5-0.20201026212420-22cb30832cd8
 	github.com/trustbloc/edge-service v0.0.0
-	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201111193349-e4142ee60300
+	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201113081448-0e789546b4d7
 	golang.org/x/net v0.0.0-20201009032441-dbdefad45b89 // indirect
 	gotest.tools/v3 v3.0.3 // indirect
 )
