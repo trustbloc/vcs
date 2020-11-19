@@ -6,6 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 package edv
 
 import (
+	"encoding/json"
+
+	"github.com/trustbloc/edge-core/pkg/zcapld"
+	"github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 )
 
@@ -30,17 +34,24 @@ func NewMockEDVClient(edvServerURL string, readDocumentFirstReturnValue,
 }
 
 // CreateDataVault creates a new data vault.
-func (c *Client) CreateDataVault(config *models.DataVaultConfiguration) (string, error) {
-	return "", c.CreateVaultError
+func (c *Client) CreateDataVault(config *models.DataVaultConfiguration,
+	opts ...client.ReqOption) (string, []byte, error) {
+	bytes, err := json.Marshal(&zcapld.Capability{})
+	if err != nil {
+		return "", nil, err
+	}
+
+	return "", bytes, c.CreateVaultError
 }
 
 // CreateDocument stores the specified document.
-func (c *Client) CreateDocument(vaultID string, document *models.EncryptedDocument) (string, error) {
+func (c *Client) CreateDocument(vaultID string, document *models.EncryptedDocument,
+	opts ...client.ReqOption) (string, error) {
 	return "", nil
 }
 
 // ReadDocument mocks a ReadDocument call. It never returns an error.
-func (c *Client) ReadDocument(vaultID, docID string) (*models.EncryptedDocument, error) {
+func (c *Client) ReadDocument(vaultID, docID string, opts ...client.ReqOption) (*models.EncryptedDocument, error) {
 	if !c.readDocumentCalledAtLeastOnce {
 		c.readDocumentCalledAtLeastOnce = true
 
@@ -51,6 +62,6 @@ func (c *Client) ReadDocument(vaultID, docID string) (*models.EncryptedDocument,
 }
 
 // QueryVault mocks a vault query call. It never returns an error.
-func (c *Client) QueryVault(vaultID string, query *models.Query) ([]string, error) {
+func (c *Client) QueryVault(vaultID string, query *models.Query, opts ...client.ReqOption) ([]string, error) {
 	return c.QueryVaultReturnValue, nil
 }

@@ -60,6 +60,8 @@ type DataProfile struct {
 	EDVVaultID              string                             `json:"edvVaultID"`
 	DisableVCStatus         bool                               `json:"disableVCStatus"`
 	OverwriteIssuer         bool                               `json:"overwriteIssuer"`
+	EDVCapability           json.RawMessage                    `json:"edvCapability,omitempty"`
+	EDVController           string                             `json:"edvController"`
 }
 
 // HolderProfile struct for holder profile

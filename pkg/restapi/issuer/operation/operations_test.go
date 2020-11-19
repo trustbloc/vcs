@@ -43,6 +43,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
+	edvclient "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -370,6 +371,29 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 	return m.createDIDValue, m.createDIDKeyID, m.createDIDErr
 }
 
+type mockAuthService struct {
+	createDIDKeyFunc func() (string, error)
+	signHeaderFunc   func(req *http.Request, capability []byte,
+		verificationMethod string) (*http.Header, error)
+}
+
+func (m *mockAuthService) CreateDIDKey() (string, error) {
+	if m.createDIDKeyFunc != nil {
+		return m.createDIDKeyFunc()
+	}
+
+	return "", nil
+}
+
+func (m *mockAuthService) SignHeader(req *http.Request, capability []byte,
+	verificationMethod string) (*http.Header, error) {
+	if m.signHeaderFunc != nil {
+		return m.signHeaderFunc(req, capability, verificationMethod)
+	}
+
+	return nil, nil
+}
+
 func testCreateProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 	customKMS := createKMS(t)
@@ -387,10 +411,44 @@ func testCreateProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op.commonDID = &mockCommonDID{}
+	op.authService = &mockAuthService{}
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint, http.MethodPost)
 
+	t.Run("failed to create did key", func(t *testing.T) {
+		op.authService = &mockAuthService{createDIDKeyFunc: func() (string, error) {
+			return "", fmt.Errorf("failed to create did key")
+		}}
+
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIssuerProfile)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to create did key")
+	})
+
+	t.Run("failed to create vault", func(t *testing.T) {
+		op.authService = &mockAuthService{}
+		op.edvClient = edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, fmt.Errorf("failed to create vault"))
+		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
+			bytes.NewBuffer([]byte(testIssuerProfile)))
+		require.NoError(t, err)
+		rr := httptest.NewRecorder()
+
+		createProfileHandler.Handle().ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "fail to create vault in EDV")
+	})
+
 	t.Run("create profile success", func(t *testing.T) {
+		op.authService = &mockAuthService{}
+		op.edvClient = edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
+
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
 			bytes.NewBuffer([]byte(testIssuerProfile)))
 		require.NoError(t, err)
@@ -409,6 +467,7 @@ func testCreateProfileHandler(t *testing.T) {
 	})
 
 	t.Run("create profile - profile already exists", func(t *testing.T) {
+		op.authService = &mockAuthService{}
 		vReqBytes, err := json.Marshal(getTestProfile())
 		require.NoError(t, err)
 
@@ -2582,21 +2641,24 @@ func NewMockEDVClient(edvServerURL string) *TestClient {
 }
 
 // CreateDataVault sends the EDV server a request to create a new data vault.
-func (c *TestClient) CreateDataVault(config *models.DataVaultConfiguration) (string, error) {
-	return "", nil
+func (c *TestClient) CreateDataVault(config *models.DataVaultConfiguration,
+	opts ...edvclient.ReqOption) (string, []byte, error) {
+	return "", nil, nil
 }
 
 // CreateDocument sends the EDV server a request to store the specified document.
-func (c *TestClient) CreateDocument(vaultID string, document *models.EncryptedDocument) (string, error) {
+func (c *TestClient) CreateDocument(vaultID string, document *models.EncryptedDocument,
+	opts ...edvclient.ReqOption) (string, error) {
 	return "", errVaultNotFound
 }
 
 // RetrieveDocument sends the Mock EDV server a request to retrieve the specified document.
-func (c *TestClient) ReadDocument(vaultID, docID string) (*models.EncryptedDocument, error) {
+func (c *TestClient) ReadDocument(vaultID, docID string,
+	opts ...edvclient.ReqOption) (*models.EncryptedDocument, error) {
 	return nil, errDocumentNotFound
 }
 
-func (c *TestClient) QueryVault(vaultID string, query *models.Query) ([]string, error) {
+func (c *TestClient) QueryVault(vaultID string, query *models.Query, opts ...edvclient.ReqOption) ([]string, error) {
 	return []string{"dummyID"}, nil
 }
 
