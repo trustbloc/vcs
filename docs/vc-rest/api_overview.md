@@ -32,7 +32,7 @@ Mandatory fields:
 }
 ```
 
-### 2.  Get issuer profile  - GET /profile/<issuerName>
+### 2.  Get issuer profile  - GET /profile/{issuerName}
 
 #### Response
 ```
@@ -45,7 +45,14 @@ Mandatory fields:
 }
 ```
 
-### 3. Issue Verifiable Credential - POST /{profile}/credentials/issueCredential
+### 3. Delete issuer profile  - DELETE /profile/{issuerName}
+
+#### Response
+```
+Status 200 OK
+```
+
+### 4. Issue Verifiable Credential - POST /{profile}/credentials/issueCredential
 Path:
 - profile : name of the profile as created in section 1. 
 
@@ -116,7 +123,7 @@ Refer W3C [Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/in
 }
 ```
 
-### 4. Compose and Issue Verifiable Credential - POST /{profile}/credentials/composeAndIssueCredential
+### 5. Compose and Issue Verifiable Credential - POST /{profile}/credentials/composeAndIssueCredential
 Path:
 - profile : name of the profile as created in section 1. 
 
@@ -189,7 +196,7 @@ Refer W3C [Compose and Issue Credential API](https://w3c-ccg.github.io/vc-issuer
 }
 ```
 
-### 5. Store verifiable credential - POST /store
+### 6. Store verifiable credential - POST /store
 
 You must create the credential before storing the credential in [EDV](https://github.com/trustbloc/edv)
 
@@ -222,7 +229,7 @@ You must create the credential before storing the credential in [EDV](https://gi
 Status 200 OK
 ```
 
-### 6. Retrieve verifiable credential - GET  /retrieve?id=https://example.com/credentials/c276e12ec21ebfeb1f712ebc6f1&profile=issuer
+### 7. Retrieve verifiable credential - GET  /retrieve?id=https://example.com/credentials/c276e12ec21ebfeb1f712ebc6f1&profile=issuer
 - VC ID as created in section 3 
 - Profile name as created in section 1
 
@@ -247,7 +254,7 @@ Status 200 OK
 }
 ```
 
-### 7. Generate Keypai  - GET /kms/generatekeypair
+### 8. Generate Keypai  - GET /kms/generatekeypair
 
 Generates a keypair, stores it in the KMS and returns the public key.
 
@@ -258,7 +265,7 @@ Generates a keypair, stores it in the KMS and returns the public key.
 }
 ```
 
-### 8. Update Credential Status  - GET /updateStatus
+### 9. Update Credential Status  - GET /updateStatus
 
 Updates the credential status.
 
@@ -276,7 +283,7 @@ Updates the credential status.
 Status 200 OK
 ```
 
-### 9. Retrieve Credential Status  - GET /status/{id}
+### 10. Retrieve Credential Status  - GET /status/{id}
 
  Retrieves the credential status.
 
@@ -293,7 +300,8 @@ Status 200 OK
 
 ## Holder mode
 ### 1. Create Holder profile  - POST /holder/profile
-
+Mandatory fields: 
+ - name : holder profile name
 #### Request 
 ```
 {
@@ -318,7 +326,7 @@ Status 200 OK
 }
 ```
 
-### 2.  Get Holder profile  - GET /holder/profile/<holderName>
+### 2. Get Holder profile  - GET /holder/profile/{holderName}
 
 #### Response
 ```
@@ -334,8 +342,175 @@ Status 200 OK
 }
 ```
 
+### 3. Delete Holder profile  - DELETE /holder/profile/{holderName}
+
+#### Response
+```
+Status 200 OK
+```
+
+### 4. Sign Presentation  - POST /{profile}/prove/presentations
+Path:
+- profile: name of the profile as created in section 1. 
+
+Mandatory fields:
+- [Presentation](https://www.w3.org/TR/vc-data-model/#presentations-0)
+
+Refer W3C [Prove Presentation API](https://w3c-ccg.github.io/vc-http-api/#/Holder/provePresentation) for more info.
+
+#### Request
+```
+{
+    "presentation": {
+        "@context": [
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1"
+        ],
+        "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+        "type": "VerifiablePresentation",
+        "verifiableCredential": [{
+            "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                "https://www.w3.org/2018/credentials/examples/v1",
+                "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+            ],
+            "id": "http://example.edu/credentials/1872",
+            "type": "VerifiableCredential",
+            "credentialSubject": {
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+            },
+            "issuer": {
+                "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+                "name": "Example University"
+            },
+            "issuanceDate": "2010-01-01T19:23:24Z",
+            "credentialStatus": {
+                "id": "https://example.gov/status/24",
+                "type": "CredentialStatusList2017"
+            }
+        }],
+        "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+        "refreshService": {
+            "id": "https://example.edu/refresh/3732",
+            "type": "ManualRefreshService2018"
+        }
+    },
+    "options": {
+        "authentication": "did:trustbloc:2M5ym:EiBGUoTI02fSsIGkPbwNLfoOjW9JmQkT0XYTdCEwq_r57w#key1"
+    }
+}
+```
+
+#### Response
+```
+{
+    "@context": [
+        "https://www.w3.org/2018/credentials/v1",
+        "https://www.w3.org/2018/credentials/examples/v1"
+    ],
+    "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+    "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+    "proof": {
+        "created": "2020-11-19T02:03:12.285365946Z",
+        "proofPurpose": "authentication",
+        "proofValue": "gfdc5gpUNNgYCfaCDlf8-8BeJzDK2mGdbkmozjQ4N5JfghVG7ZDFQKUYhudBoy7x--RVLzywXBZe05_hBptXDA",
+        "type": "Ed25519Signature2018",
+        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiBGUoTI02fSsIGkPbwNLfoOjW9JmQkT0XYTdCEwq_r57w#key1"
+    },
+    "refreshService": {
+        "id": "https://example.edu/refresh/3732",
+        "type": "ManualRefreshService2018"
+    },
+    "type": "VerifiablePresentation",
+    "verifiableCredential": [
+        {
+            "@context": [
+                "https://www.w3.org/2018/credentials/v1",
+                "https://www.w3.org/2018/credentials/examples/v1",
+                "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+            ],
+            "credentialStatus": {
+                "id": "https://example.gov/status/24",
+                "type": "CredentialStatusList2017"
+            },
+            "credentialSubject": {
+                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+            },
+            "id": "http://example.edu/credentials/1872",
+            "issuanceDate": "2010-01-01T19:23:24Z",
+            "issuer": {
+                "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+                "name": "Example University"
+            },
+            "type": "VerifiableCredential"
+        }
+    ]
+}
+```
+
 ## Verifier mode
-### 1. Verify Credential - POST /verifier/credentials
+### 1. Create Verifier profile  - POST /verifier/profile
+Mandatory fields:
+- id: verifier profile ID
+- name: verifier profile name
+
+#### Request
+```
+{
+    "id": "<verifierID>",
+    "name": "<verifierName>",
+    "credentialChecks": [
+        "proof", 
+        "status"
+    ],
+    "presentationChecks": [
+        "proof"
+    ]
+}
+```
+
+#### Response
+```
+{
+    "id": "<verifierID>",
+    "name": "<verifierName>",
+    "credentialChecks": [
+        "proof",
+        "status"
+    ],
+    "presentationChecks": [
+        "proof"
+    ]
+}
+```
+
+### 2. Get Verifier profile  - GET /verifier/profile/{id}
+
+#### Response
+```
+{
+    "id": "<verifierID>",
+    "name": "<verifierName>",
+    "credentialChecks": [
+        "proof",
+        "status"
+    ],
+    "presentationChecks": [
+        "proof"
+    ]
+}
+```
+
+### 3. Delete Verifier profile  - DELETE /verifier/profile/{id}
+
+#### Response
+```
+Status 200 OK
+```
+
+### 4. Verify Credential  - POST {id}/verifier/credentials
+Path:
+- id : ID of the verifier profile as created in section 1. 
 
 Verifies a credential
 
@@ -400,7 +575,9 @@ Refer W3C [Verify Credential API](https://w3c-ccg.github.io/vc-verifier-http-api
 }
 ```
 
-### 2. Verify Presentation - POST /verifier/presentations
+### 5. Verify Presentation - POST {id}/verifier/presentations
+Path:
+- id : ID of the verifier profile as created in section 1. 
 
 Verifies a presentation
 
