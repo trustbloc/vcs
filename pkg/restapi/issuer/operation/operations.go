@@ -32,8 +32,10 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
+	"github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
+	zcapsvc "github.com/trustbloc/edge-service/pkg/auth/zcapld"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
@@ -102,10 +104,15 @@ type vcStatusManager interface {
 
 // EDVClient interface to interact with edv client
 type EDVClient interface {
-	CreateDataVault(config *models.DataVaultConfiguration) (string, error)
-	CreateDocument(vaultID string, document *models.EncryptedDocument) (string, error)
-	ReadDocument(vaultID, docID string) (*models.EncryptedDocument, error)
-	QueryVault(vaultID string, query *models.Query) ([]string, error)
+	CreateDataVault(config *models.DataVaultConfiguration, opts ...client.ReqOption) (string, []byte, error)
+	CreateDocument(vaultID string, document *models.EncryptedDocument, opts ...client.ReqOption) (string, error)
+	ReadDocument(vaultID, docID string, opts ...client.ReqOption) (*models.EncryptedDocument, error)
+	QueryVault(vaultID string, query *models.Query, opts ...client.ReqOption) ([]string, error)
+}
+
+type authService interface {
+	CreateDIDKey() (string, error)
+	SignHeader(req *http.Request, capabilityBytes []byte, verificationMethod string) (*http.Header, error)
 }
 
 type keyManager interface {
@@ -144,6 +151,7 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
+		authService:          zcapsvc.New(config.KeyManager, config.Crypto),
 		profileStore:         p,
 		edvClient:            config.EDVClient,
 		kms:                  config.KeyManager,
@@ -196,6 +204,7 @@ type Operation struct {
 	vcIDIndexNameEncoded string
 	commonDID            commonDID
 	retryParameters      *retry.Params
+	authService          authService
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -456,7 +465,14 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 		return
 	}
 
-	_, err = o.edvClient.CreateDocument(profile.EDVVaultID, &encryptedDocument)
+	_, err = o.edvClient.CreateDocument(profile.EDVVaultID, &encryptedDocument, client.WithRequestHeader(
+		func(req *http.Request) (*http.Header, error) {
+			if len(profile.EDVCapability) != 0 {
+				return o.authService.SignHeader(req, profile.EDVCapability, profile.EDVController)
+			}
+
+			return nil, nil
+		}))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
@@ -536,7 +552,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		return
 	}
 
-	docURLs, err := o.queryVault(profile.EDVVaultID, id)
+	docURLs, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController, id)
 	if err != nil {
 		// The case where no docs match the given query is handled in o.retrieveCredential.
 		// Any other error is unexpected and is handled here.
@@ -546,7 +562,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		}
 	}
 
-	o.retrieveCredential(rw, profileName, profile.EDVVaultID, docURLs)
+	o.retrieveCredential(rw, profileName, profile.EDVVaultID, docURLs, profile.EDVCapability, profile.EDVController)
 }
 
 func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
@@ -560,31 +576,37 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 
 	created := time.Now().UTC()
 
-	edvVaultID, err := o.createIssuerProfileVault(didID)
+	edvVaultID, capability, didKey, err := o.createIssuerProfileVault()
 	if err != nil {
 		return nil, fmt.Errorf("fail to create issuer profile vault: %w", err)
 	}
 
-	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID,
+	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID, EDVCapability: capability,
 		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, EDVVaultID: edvVaultID,
 		Creator: publicKeyID, DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
-	}, nil
+		EDVController: didKey}, nil
 }
 
 // createIssuerProfileVault creates the vault associated with the profile
-func (o *Operation) createIssuerProfileVault(did string) (string, error) {
-	dataVaultConfig := &models.DataVaultConfiguration{Sequence: 0, Controller: did, ReferenceID: uuid.New().String(),
+func (o *Operation) createIssuerProfileVault() (string, []byte, string, error) {
+	// call auth service to create key
+	didKey, err := o.authService.CreateDIDKey()
+	if err != nil {
+		return "", nil, "", err
+	}
+
+	dataVaultConfig := &models.DataVaultConfiguration{Sequence: 0, Controller: didKey, ReferenceID: uuid.New().String(),
 		KEK:  models.IDTypePair{ID: uuid.New().URN(), Type: "X25519KeyAgreementKey2019"},
 		HMAC: models.IDTypePair{ID: uuid.New().URN(), Type: "Sha256HmacKey2019"}}
 
-	vaultLocationURL, err := o.edvClient.CreateDataVault(dataVaultConfig)
+	vaultLocationURL, resp, err := o.edvClient.CreateDataVault(dataVaultConfig)
 	if err != nil {
-		return "", fmt.Errorf("fail to create vault in EDV: %w", err)
+		return "", nil, "", fmt.Errorf("fail to create vault in EDV: %w", err)
 	}
 
 	edvVaultID := vcutil.GetVaultIDFromURL(vaultLocationURL)
 
-	return edvVaultID, nil
+	return edvVaultID, resp, didKey, nil
 }
 
 func validateProfileRequest(pr *ProfileRequest) error {
@@ -946,7 +968,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	return vc, nil
 }
 
-func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
+func (o *Operation) queryVault(vaultID string, capability []byte, vm, vcID string) ([]string, error) {
 	vcIDMAC, err := o.macCrypto.ComputeMAC([]byte(vcID), o.macKeyHandle)
 	if err != nil {
 		return nil, err
@@ -962,7 +984,13 @@ func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
 		docURLs, errQueryVault = o.edvClient.QueryVault(vaultID, &models.Query{
 			Name:  o.vcIDIndexNameEncoded,
 			Value: vcIDIndexValueEncoded,
-		})
+		}, client.WithRequestHeader(func(req *http.Request) (*http.Header, error) {
+			if len(capability) != 0 {
+				return o.authService.SignHeader(req, capability, vm)
+			}
+
+			return nil, nil
+		}))
 		if errQueryVault != nil {
 			return errQueryVault
 		}
@@ -977,7 +1005,8 @@ func (o *Operation) queryVault(vaultID, vcID string) ([]string, error) {
 	return docURLs, err
 }
 
-func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvVaultID string, docURLs []string) {
+func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvVaultID string, docURLs []string,
+	capability []byte, vm string) {
 	var retrievedVC []byte
 
 	switch len(docURLs) {
@@ -989,7 +1018,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvV
 
 		var err error
 
-		retrievedVC, err = o.retrieveVC(edvVaultID, docID, "retrieving VC")
+		retrievedVC, err = o.retrieveVC(edvVaultID, docID, "retrieving VC", capability, vm)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
@@ -1005,7 +1034,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvV
 
 		var statusCode int
 
-		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(edvVaultID, docURLs)
+		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(edvVaultID, docURLs, capability, vm)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, statusCode, err.Error())
 
@@ -1022,14 +1051,15 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvV
 	}
 }
 
-func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, docURLs []string) ([]byte, int, error) {
+func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, docURLs []string,
+	capability []byte, vm string) ([]byte, int, error) {
 	var retrievedVCs [][]byte
 
 	for _, docURL := range docURLs {
 		docID := vcutil.GetDocIDFromURL(docURL)
 
 		retrievedVC, err := o.retrieveVC(edvVaultID, docID, "determining if the multiple VCs "+
-			"matching the given ID are the same")
+			"matching the given ID are the same", capability, vm)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
@@ -1046,8 +1076,16 @@ func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, doc
 	return retrievedVCs[0], http.StatusOK, nil
 }
 
-func (o *Operation) retrieveVC(edvVaultID, docID, contextErrText string) ([]byte, error) {
-	document, err := o.edvClient.ReadDocument(edvVaultID, docID)
+func (o *Operation) retrieveVC(edvVaultID, docID, contextErrText string, capability []byte,
+	vm string) ([]byte, error) {
+	document, err := o.edvClient.ReadDocument(edvVaultID, docID, client.WithRequestHeader(
+		func(req *http.Request) (*http.Header, error) {
+			if len(capability) != 0 {
+				return o.authService.SignHeader(req, capability, vm)
+			}
+
+			return nil, nil
+		}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read document while %s: %s", contextErrText, err)
 	}

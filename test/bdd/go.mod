@@ -14,7 +14,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/google/uuid v1.1.2
 	github.com/hyperledger/aries-framework-go v0.1.5-0.20201110161050-249e1c428734
-	github.com/trustbloc/edge-core v0.1.5-0.20201026212420-22cb30832cd8
+	github.com/trustbloc/edge-core v0.1.5-0.20201118072041-f28d721640b1
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201113081448-0e789546b4d7
 	golang.org/x/net v0.0.0-20201009032441-dbdefad45b89 // indirect
