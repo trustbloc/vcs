@@ -134,7 +134,9 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 		return "", nil, err
 	}
 
-	keyHandleUntyped, getErr := keyManager.Get(string(keyIDBytes))
+	keyID := string(keyIDBytes)
+
+	keyHandleUntyped, getErr := keyManager.Get(keyID)
 	if getErr != nil {
 		return "", nil, getErr
 	}
@@ -144,7 +146,7 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 		return "", nil, errKeySetHandleAssertionFailure
 	}
 
-	return "", kh, nil
+	return keyID, kh, nil
 }
 
 func prepareKeyIDStore(storeProvider storage.Provider) (storage.Store, error) {
