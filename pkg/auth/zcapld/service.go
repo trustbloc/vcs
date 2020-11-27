@@ -57,8 +57,13 @@ func (s *Service) SignHeader(req *http.Request, capabilityBytes []byte,
 		return nil, err
 	}
 
+	action := "write"
+	if req.Method == http.MethodGet {
+		action = "read"
+	}
+
 	req.Header.Set(zcapld.CapabilityInvocationHTTPHeader,
-		fmt.Sprintf(`zcap capability="%s",action="%s"`, compressedZcap, "read"))
+		fmt.Sprintf(`zcap capability="%s",action="%s"`, compressedZcap, action))
 
 	hs := httpsignatures.NewHTTPSignatures(&zcapld.AriesDIDKeySecrets{})
 	hs.SetSignatureHashAlgorithm(&zcapld.AriesDIDKeySignatureHashAlgorithm{
