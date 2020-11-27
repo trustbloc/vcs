@@ -38,7 +38,9 @@ func TestService_SignHeader(t *testing.T) {
 	t.Run("test error from sign header", func(t *testing.T) {
 		svc := New(&mockkms.KeyManager{}, &mockcrypto.Crypto{})
 
-		hdr, err := svc.SignHeader(&http.Request{Header: make(map[string][]string)}, []byte("{}"), "")
+		hdr, err := svc.SignHeader(&http.Request{
+			Header: make(map[string][]string), Method: http.MethodGet,
+		}, []byte("{}"), "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating signature")
 		require.Nil(t, hdr)
