@@ -2658,7 +2658,7 @@ func (c *TestClient) ReadDocument(vaultID, docID string,
 	return nil, errDocumentNotFound
 }
 
-func (c *TestClient) QueryVault(vaultID string, query *models.Query, opts ...edvclient.ReqOption) ([]string, error) {
+func (c *TestClient) QueryVault(vaultID, name, value string, opts ...edvclient.ReqOption) ([]string, error) {
 	return []string{"dummyID"}, nil
 }
 

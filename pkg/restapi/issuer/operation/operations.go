@@ -107,7 +107,7 @@ type EDVClient interface {
 	CreateDataVault(config *models.DataVaultConfiguration, opts ...client.ReqOption) (string, []byte, error)
 	CreateDocument(vaultID string, document *models.EncryptedDocument, opts ...client.ReqOption) (string, error)
 	ReadDocument(vaultID, docID string, opts ...client.ReqOption) (*models.EncryptedDocument, error)
-	QueryVault(vaultID string, query *models.Query, opts ...client.ReqOption) ([]string, error)
+	QueryVault(vaultID, name, value string, opts ...client.ReqOption) ([]string, error)
 }
 
 type authService interface {
@@ -552,6 +552,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		return
 	}
 
+	// TODO (#545): Use TrustBloc EDV server optimization to get full document directly from Query call.
 	docURLs, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController, id)
 	if err != nil {
 		// The case where no docs match the given query is handled in o.retrieveCredential.
@@ -981,16 +982,14 @@ func (o *Operation) queryVault(vaultID string, capability []byte, vm, vcID strin
 	err = retry.Retry(func() error {
 		var errQueryVault error
 
-		docURLs, errQueryVault = o.edvClient.QueryVault(vaultID, &models.Query{
-			Name:  o.vcIDIndexNameEncoded,
-			Value: vcIDIndexValueEncoded,
-		}, client.WithRequestHeader(func(req *http.Request) (*http.Header, error) {
-			if len(capability) != 0 {
-				return o.authService.SignHeader(req, capability, vm)
-			}
+		docURLs, errQueryVault = o.edvClient.QueryVault(vaultID, o.vcIDIndexNameEncoded, vcIDIndexValueEncoded,
+			client.WithRequestHeader(func(req *http.Request) (*http.Header, error) {
+				if len(capability) != 0 {
+					return o.authService.SignHeader(req, capability, vm)
+				}
 
-			return nil, nil
-		}))
+				return nil, nil
+			}))
 		if errQueryVault != nil {
 			return errQueryVault
 		}

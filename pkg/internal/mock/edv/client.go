@@ -62,6 +62,6 @@ func (c *Client) ReadDocument(vaultID, docID string, opts ...client.ReqOption) (
 }
 
 // QueryVault mocks a vault query call. It never returns an error.
-func (c *Client) QueryVault(vaultID string, query *models.Query, opts ...client.ReqOption) ([]string, error) {
+func (c *Client) QueryVault(vaultID, name, value string, opts ...client.ReqOption) ([]string, error) {
 	return c.QueryVaultReturnValue, nil
 }
