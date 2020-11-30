@@ -858,8 +858,8 @@ github.com/trustbloc/bls12-381 v0.0.0-20201104214312-31de2a204df8/go.mod h1:gcwD
 github.com/trustbloc/edge-core v0.1.4-0.20200709143857-e104bb29f6c6/go.mod h1:SZg7nAIc9FONS+G7MwEyGkCWCJR3R02bePwTpWxqH5w=
 github.com/trustbloc/edge-core v0.1.5-0.20201126210935-53388acb41fc h1:sGjZhZKuOB/x4ZUXkrID05RwVYvHDg5fe5BQhhubE0g=
 github.com/trustbloc/edge-core v0.1.5-0.20201126210935-53388acb41fc/go.mod h1:iOoeeW5Jd6/hhEwaK0+lhBstV7yBWzJxckNU21V0+Vg=
-github.com/trustbloc/edv v0.1.5-0.20201126214711-ef96fd4b68b5 h1:scxRmuL00l/6E5VRMNkvmGZtLVO84eqKED563PvrxZc=
-github.com/trustbloc/edv v0.1.5-0.20201126214711-ef96fd4b68b5/go.mod h1:BTLxagWOLIDTqSqZUjdX2kYSBFsiPomf49qkBCVEOvE=
+github.com/trustbloc/edv v0.1.5-0.20201129165709-60c7f39d8096 h1:ESB0p3PtPd6zystFIItjAaUSmbuR6vwuY5Vtm7bYdFg=
+github.com/trustbloc/edv v0.1.5-0.20201129165709-60c7f39d8096/go.mod h1:BTLxagWOLIDTqSqZUjdX2kYSBFsiPomf49qkBCVEOvE=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e h1:i+hGa8C1MKGO71j3jIV7e2aKX72/DTrzLjq9R8kc6xk=
 github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/trustbloc/sidetree-core-go v0.1.5-0.20201111115036-54dcc46d4ee1 h1:HF6ZnQLt9SfXZXP74tN0yagXuOQE1LjXbG3LfKOphKI=
