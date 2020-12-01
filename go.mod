@@ -16,7 +16,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/trustbloc/edge-core v0.1.5-0.20201126210935-53388acb41fc
 	github.com/trustbloc/edv v0.1.5-0.20201129165709-60c7f39d8096
-	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201113081448-0e789546b4d7
+	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201130191332-f581a3360ac2
 )
 
 replace github.com/piprate/json-gold => github.com/trustbloc/json-gold v0.3.1-0.20200414173446-30d742ee949e

@@ -16,7 +16,7 @@ require (
 	github.com/trustbloc/edge-core v0.1.5-0.20201126210935-53388acb41fc
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.5-0.20201129165709-60c7f39d8096
-	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201113081448-0e789546b4d7
+	github.com/trustbloc/trustbloc-did-method v0.1.5-0.20201130191332-f581a3360ac2
 )
 
 replace github.com/trustbloc/edge-service => ../..
