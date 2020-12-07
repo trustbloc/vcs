@@ -436,6 +436,21 @@ func (s *mockStore) GetAll() (map[string][]byte, error) {
 	return nil, nil
 }
 
+// PutAll put all
+func (s *mockStore) PutAll(keys []string, values [][]byte) error {
+	return nil
+}
+
+// PutBulk put bulk
+func (s *mockStore) PutBulk(keys []string, values [][]byte) error {
+	return nil
+}
+
+// GetBulk get bulk
+func (s *mockStore) GetBulk(k ...string) ([][]byte, error) {
+	return nil, nil
+}
+
 // Get fetches the record based on key
 func (s *mockStore) Get(k string) ([]byte, error) {
 	if s.getFunc != nil {
