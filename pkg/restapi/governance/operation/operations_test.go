@@ -36,7 +36,6 @@ import (
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -316,38 +315,6 @@ func TestIssueCredential(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "invalid governance profile")
 	})
 
-	t.Run("issue credential - failed to create status id", func(t *testing.T) {
-		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
-			KeyManager:    customKMS,
-			VDRI:          &vdrmock.MockVDRegistry{},
-			Crypto:        customCrypto,
-			ClaimsFile:    file.Name(),
-		})
-		require.NoError(t, err)
-
-		ops.vcStatusManager = &mockVCStatusManager{createStatusIDErr: fmt.Errorf("failed to create status id")}
-
-		err = ops.profileStore.SaveGovernanceProfile(vReq)
-		require.NoError(t, err)
-
-		issueCredentialHandler := getHandler(t, ops, issueCredentialHandler)
-
-		require.NoError(t, err)
-
-		req := &IssueCredentialRequest{
-			DID: "did:example:123",
-		}
-
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		rr := serveHTTPMux(t, issueCredentialHandler, reqBytes, urlVars)
-
-		require.Equal(t, http.StatusInternalServerError, rr.Code)
-		require.Contains(t, rr.Body.String(), "failed to add credential status")
-	})
-
 	t.Run("issue credential - failed to sign credential", func(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: memstore.NewProvider(),
@@ -479,27 +446,6 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
-}
-
-type mockVCStatusManager struct {
-	createStatusIDValue *verifiable.TypedID
-	createStatusIDErr   error
-	updateVCStatusErr   error
-	getCSLValue         *cslstatus.CSL
-	getCSLErr           error
-}
-
-func (m *mockVCStatusManager) CreateStatusID() (*verifiable.TypedID, error) {
-	return m.createStatusIDValue, m.createStatusIDErr
-}
-
-func (m *mockVCStatusManager) UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile,
-	status, statusReason string) error {
-	return m.updateVCStatusErr
-}
-
-func (m *mockVCStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
-	return m.getCSLValue, m.getCSLErr
 }
 
 func createKMS(t *testing.T) *localkms.LocalKMS {

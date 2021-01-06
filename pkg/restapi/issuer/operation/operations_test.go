@@ -245,12 +245,12 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		VDRI:   &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
 
-	op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
+	op.vcStatusManager = &mockVCStatusManager{}
 
 	updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
 	t.Run("update credential status success", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
+		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVC)}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -263,7 +263,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test disable vc status", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credential: validVCWithoutStatus, Status: "revoked"}
+		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVCWithoutStatus)}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -289,7 +289,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test error from parse credential", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credential: invalidVC, Status: "revoked"}
+		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(invalidVC)}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -311,10 +311,10 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 			KeyManager:         customKMS, Crypto: customCrypto,
 			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
-		op.vcStatusManager = &mockVCStatusManager{getCSLValue: &cslstatus.CSL{}}
+		op.vcStatusManager = &mockVCStatusManager{}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
-		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
+		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVC)}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -338,10 +338,10 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 			KeyManager:         customKMS, Crypto: customCrypto,
 			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
 		require.NoError(t, err)
-		op.vcStatusManager = &mockVCStatusManager{updateVCStatusErr: fmt.Errorf("error update vc status")}
+		op.vcStatusManager = &mockVCStatusManager{revokeVCErr: fmt.Errorf("error update vc status")}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
-		ucsReq := UpdateCredentialStatusRequest{Credential: validVC, Status: "revoked"}
+		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVC)}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -1384,7 +1384,7 @@ func TestVCStatus(t *testing.T) {
 			HostURL:            "localhost:8080"})
 		require.NoError(t, err)
 
-		op.vcStatusManager = &mockVCStatusManager{getCSLErr: fmt.Errorf("error get csl")}
+		op.vcStatusManager = &mockVCStatusManager{GetRevocationListVCErr: fmt.Errorf("error get csl")}
 
 		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint, http.MethodGet)
 
@@ -1410,7 +1410,7 @@ func TestVCStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		op.vcStatusManager = &mockVCStatusManager{
-			getCSLValue: &cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{}}}
+			getRevocationListVCValue: []byte(`{"k1":"v1"}`)}
 
 		vcStatusHandler := getHandler(t, op, credentialStatusEndpoint, http.MethodGet)
 
@@ -1421,9 +1421,7 @@ func TestVCStatus(t *testing.T) {
 		vcStatusHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		var csl cslstatus.CSL
-		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &csl))
-		require.Equal(t, "https://example.gov/status/24", csl.ID)
+		require.Equal(t, `{"k1":"v1"}`, rr.Body.String())
 	})
 }
 
@@ -1531,6 +1529,8 @@ func TestIssueCredential(t *testing.T) {
 			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
+
+		ops.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
 
 		profile.SignatureRepresentation = verifiable.SignatureJWS
 		profile.SignatureType = vccrypto.JSONWebSignature2020
@@ -1914,6 +1914,8 @@ func TestIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
+
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
 
@@ -1987,6 +1989,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
+
 	handler := getHandler(t, op, composeAndIssueCredentialPath, http.MethodPost)
 
 	endpoint := "/test/credentials/composeAndIssueCredential"
@@ -2011,6 +2015,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
+
+		op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
 
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
@@ -2663,31 +2669,30 @@ func (c *TestClient) QueryVault(vaultID, name, value string, opts ...edvclient.R
 }
 
 type mockVCStatusManager struct {
-	createStatusIDValue *verifiable.TypedID
-	createStatusIDErr   error
-	updateVCStatusErr   error
-	getCSLValue         *cslstatus.CSL
-	getCSLErr           error
+	createStatusIDValue      *verifiable.TypedID
+	createStatusIDErr        error
+	revokeVCErr              error
+	getRevocationListVCValue []byte
+	GetRevocationListVCErr   error
 }
 
-func (m *mockVCStatusManager) CreateStatusID() (*verifiable.TypedID, error) {
+func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
 	return m.createStatusIDValue, m.createStatusIDErr
 }
 
-func (m *mockVCStatusManager) UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile,
-	status, statusReason string) error {
-	return m.updateVCStatusErr
+func (m *mockVCStatusManager) RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error {
+	return m.revokeVCErr
 }
 
-func (m *mockVCStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
-	return m.getCSLValue, m.getCSLErr
+func (m *mockVCStatusManager) GetRevocationListVC(id string) ([]byte, error) {
+	return m.getRevocationListVCValue, m.GetRevocationListVCErr
 }
 
 type mockCredentialStatusManager struct {
 	CreateErr error
 }
 
-func (m *mockCredentialStatusManager) CreateStatusID() (*verifiable.TypedID, error) {
+func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
 	}
@@ -2695,12 +2700,11 @@ func (m *mockCredentialStatusManager) CreateStatusID() (*verifiable.TypedID, err
 	return nil, nil
 }
 
-func (m *mockCredentialStatusManager) UpdateVCStatus(v *verifiable.Credential,
-	profile *vcprofile.DataProfile, status, statusReason string) error {
+func (m *mockCredentialStatusManager) RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error {
 	return nil
 }
 
-func (m *mockCredentialStatusManager) GetCSL(id string) (*cslstatus.CSL, error) {
+func (m *mockCredentialStatusManager) GetRevocationListVC(id string) ([]byte, error) {
 	return nil, nil
 }
 

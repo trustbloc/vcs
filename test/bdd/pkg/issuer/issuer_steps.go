@@ -153,7 +153,7 @@ func (e *Steps) generateKeypair() (string, string, error) {
 	return generateKeyPairResponse.PublicKey, generateKeyPairResponse.KeyID, nil
 }
 
-func (e *Steps) createIssuerProfile(user, profileName string) error {
+func (e *Steps) createIssuerProfile(user, profileName string) error { //nolint: funlen
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
 		return fmt.Errorf("unable to find profile request template")
@@ -175,6 +175,8 @@ func (e *Steps) createIssuerProfile(user, profileName string) error {
 	profileRequest.DID = did.ID
 	profileRequest.SignatureType = "JsonWebSignature2020"
 	profileRequest.OverwriteIssuer = true
+	profileRequest.DIDKeyID = did.VerificationMethod[0].ID
+	profileRequest.DIDKeyType = did.VerificationMethod[0].Type
 
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {

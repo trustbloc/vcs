@@ -72,7 +72,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.verifyCredential)
 	s.Step(`^Now we verify that "([^"]*)" signed with "([^"]*)" presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.signAndVerifyPresentation)
-	s.Step(`^Update created credential status "([^"]*)" and status reason "([^"]*)"$`, e.updateCredentialStatus)
+	s.Step(`^Revoke created credential status$`, e.updateCredentialStatus)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndCredential)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
@@ -573,12 +573,10 @@ func verify(resp *http.Response, checks []string, result, respMessage string) er
 	return nil
 }
 
-func (e *Steps) updateCredentialStatus(status, statusReason string) error {
+func (e *Steps) updateCredentialStatus() error {
 	storeRequest := operation.UpdateCredentialStatusRequest{}
 
-	storeRequest.Status = status
-	storeRequest.StatusReason = statusReason
-	storeRequest.Credential = string(e.bddContext.CreatedCredential)
+	storeRequest.Credential = e.bddContext.CreatedCredential
 
 	requestBytes, err := json.Marshal(storeRequest)
 	if err != nil {
@@ -723,7 +721,7 @@ func (e *Steps) checkVC(vcBytes []byte, profileName string) error {
 		return err
 	}
 
-	err = checkCredentialStatusType(vcMap, csl.CredentialStatusType)
+	err = checkCredentialStatusType(vcMap, csl.RevocationList2020Status)
 	if err != nil {
 		return err
 	}
@@ -772,7 +770,7 @@ func checkCredentialStatusType(vcMap map[string]interface{}, expected string) er
 	}
 
 	if credentialStatusType != expected {
-		return bddutil.ExpectedStringError(csl.CredentialStatusType, credentialStatusType)
+		return bddutil.ExpectedStringError(csl.RevocationList2020Status, credentialStatusType)
 	}
 
 	return nil
