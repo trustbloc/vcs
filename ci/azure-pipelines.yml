@@ -48,18 +48,10 @@ jobs:
       - template: azp-dependencies.yml
       - checkout: self
       - bash: |
-          function logout {
-            docker logout
-          }
-          trap logout EXIT
-          echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
           echo '127.0.0.1 testnet.trustbloc.local' | sudo tee -a /etc/hosts
           echo '127.0.0.1 stakeholder.one' | sudo tee -a /etc/hosts
           echo '127.0.0.1 sidetree-mock' | sudo tee -a /etc/hosts
           make bdd-test
-        env:
-          DOCKER_USER: $(DOCKER_USER)
-          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
         displayName: Run BDD tests
 
   - job: Publish
@@ -80,13 +72,13 @@ jobs:
           }
           trap logout EXIT
           source ci/version_var.sh
-          echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
-          make vc-rest-docker
-          docker tag docker.pkg.github.com/trustbloc/edge-service/vc-rest:latest ${VC_REST_PKG}:${VC_REST_TAG}
-          docker push ${VC_REST_PKG}:${VC_REST_TAG}
-          make did-rest-docker
-          docker tag docker.pkg.github.com/trustbloc/edge-service/did-rest:latest ${DID_REST_PKG}:${DID_REST_TAG}
-          docker push ${DID_REST_PKG}:${DID_REST_TAG}
+          echo $DOCKER_PASSWORD | docker login ghcr.io --username $DOCKER_USER --password-stdin
+          make vc-server-docker
+          docker tag ghcr.io/trustbloc/vc-server:latest ${VC_SERVER_PKG}:${VC_SERVER_TAG}
+          docker push ${VC_SERVER_PKG}:${VC_SERVER_TAG}
+          make did-resolver-docker
+          docker tag ghcr.io/trustbloc/did-resolver:latest ${DID_RESOLVER_PKG}:${DID_RESOLVER_TAG}
+          docker push ${DID_RESOLVER_PKG}:${DID_RESOLVER_TAG}
         env:
           DOCKER_USER: $(DOCKER_USER)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
@@ -100,13 +92,5 @@ jobs:
       - template: azp-dependencies.yml
       - checkout: self
       - bash: |
-          function logout {
-            docker logout
-          }
-          trap logout EXIT
-          echo $DOCKER_PASSWORD | docker login docker.pkg.github.com --username $DOCKER_USER --password-stdin
           make bdd-interop-test
-        env:
-          DOCKER_USER: $(DOCKER_USER)
-          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
         displayName: Run interop tests
