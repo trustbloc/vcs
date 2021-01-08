@@ -62,9 +62,7 @@ type commonDID interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID() (*verifiable.TypedID, error)
-	UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile, status, statusReason string) error
-	GetCSL(id string) (*cslstatus.CSL, error)
+	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
 }
 
 // New returns governance operation instance
@@ -233,13 +231,14 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// set credential status
-	credential.Status, err = o.vcStatusManager.CreateStatusID()
-	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
-			" %s", err.Error()))
-
-		return
-	}
+	// TODO add status ID
+	// credential.Status, err = o.vcStatusManager.CreateStatusID(profile)
+	// if err != nil {
+	//	commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+	//		" %s", err.Error()))
+	//
+	//	return
+	//}
 
 	credential.Context = append(credential.Context, cslstatus.Context)
 

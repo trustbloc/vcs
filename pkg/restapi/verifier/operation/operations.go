@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -24,9 +24,10 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
-	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 )
 
@@ -243,7 +244,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	vc, err := verifiable.ParseUnverifiedCredential(verificationReq.Credential)
+	vc, err := o.parseAndVerifyVC(verificationReq.Credential)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
 
@@ -267,14 +268,12 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		case statusCheck:
 			failureMessage := ""
 
-			if vc.Status != nil && vc.Status.ID != "" {
-				ver, err := o.checkVCStatus(vc.Status.ID, vc.ID)
+			ver, err := o.checkVCStatus(vc.Status)
 
-				if err != nil {
-					failureMessage = fmt.Sprintf("failed to fetch the status : %s", err.Error())
-				} else if !ver.Verified {
-					failureMessage = ver.Message
-				}
+			if err != nil {
+				failureMessage = fmt.Sprintf("failed to fetch the status : %s", err.Error())
+			} else if !ver.Verified {
+				failureMessage = ver.Message
 			}
 
 			if failureMessage != "" {
@@ -479,11 +478,41 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 	return nil
 }
 
-func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse, error) {
-	vcResp := &VerifyCredentialResponse{
-		Verified: false}
+func (o *Operation) validateVCStatus(vcStatus *verifiable.TypedID) error {
+	if vcStatus == nil {
+		return fmt.Errorf("vc status not exist")
+	}
 
-	req, err := http.NewRequest(http.MethodGet, vclID, nil)
+	if vcStatus.Type != csl.RevocationList2020Status {
+		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
+	}
+
+	if vcStatus.CustomFields[csl.RevocationListIndex] == nil {
+		return fmt.Errorf("revocationListIndex field not exist in vc status")
+	}
+
+	if vcStatus.CustomFields[csl.RevocationListCredential] == nil {
+		return fmt.Errorf("revocationListCredential field not exist in vc status")
+	}
+
+	return nil
+}
+
+func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID) (*VerifyCredentialResponse, error) {
+	vcResp := &VerifyCredentialResponse{
+		Verified: false, Message: "Revoked"}
+
+	// validate vc status
+	if err := o.validateVCStatus(vcStatus); err != nil {
+		return nil, err
+	}
+
+	revocationListIndex, err := strconv.Atoi(vcStatus.CustomFields[csl.RevocationListIndex].(string))
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, vcStatus.CustomFields[csl.RevocationListCredential].(string), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -493,33 +522,30 @@ func (o *Operation) checkVCStatus(vclID, vcID string) (*VerifyCredentialResponse
 		return nil, err
 	}
 
-	var csl cslstatus.CSL
-	if err := json.Unmarshal(resp, &csl); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal resp to csl: %w", err)
+	revocationListVC, err := o.parseAndVerifyVC(resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse and verify status vc: %s", err.Error())
 	}
 
-	for _, vcStatus := range csl.VC {
-		if !strings.Contains(vcStatus, vcID) {
-			continue
-		}
-
-		statusVc, err := o.parseAndVerifyVC([]byte(vcStatus))
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse and verify status vc: %s", err.Error())
-		}
-
-		subjectBytes, err := json.Marshal(statusVc.Subject)
-		if err != nil {
-			return nil, fmt.Errorf(fmt.Sprintf("failed to marshal status vc subject: %s", err.Error()))
-		}
-
-		vcResp.Message = string(subjectBytes)
-
-		return vcResp, nil
+	credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
+	if !ok {
+		return nil, fmt.Errorf("")
 	}
 
-	vcResp.Verified = true
-	vcResp.Message = successMsg
+	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode bits: %s", err.Error())
+	}
+
+	bitSet, err := bitString.Get(revocationListIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	if !bitSet {
+		vcResp.Verified = true
+		vcResp.Message = successMsg
+	}
 
 	return vcResp, nil
 }

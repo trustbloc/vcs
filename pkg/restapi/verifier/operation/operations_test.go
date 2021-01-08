@@ -35,6 +35,7 @@ import (
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
 )
 
 const (
@@ -371,35 +372,37 @@ func TestVerifyCredential(t *testing.T) {
 	verificationsHandler := getHandler(t, op, credentialsVerificationEndpoint, http.MethodPost)
 
 	t.Run("credential verification - success", func(t *testing.T) {
-		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-		require.NoError(t, err)
+		pubKey, privKey, errGenerateKey := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, errGenerateKey)
 
 		didDoc := createDIDDoc(didID, pubKey)
 		verificationMethod := didDoc.VerificationMethod[0].ID
 		vc.Issuer.ID = didDoc.ID
 
-		ops, err := New(&Config{
+		ops, errNew := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 			StoreProvider: memstore.NewProvider(),
 		})
-		require.NoError(t, err)
+		require.NoError(t, errNew)
 
 		err = ops.profileStore.SaveProfile(vReq)
 		require.NoError(t, err)
 
-		cslBytes, err := json.Marshal(&cslstatus.CSL{})
-		require.NoError(t, err)
+		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
+		require.NoError(t, errNew)
 
 		ops.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-			Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
+			Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits)))}}
 
 		vc.Status = &verifiable.TypedID{
-			ID:   "http://example.com/status/100",
-			Type: "CredentialStatusList2017",
+			ID:   "http://example.com/status/100#1",
+			Type: cslstatus.RevocationList2020Status,
+			CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
+				cslstatus.RevocationListCredential: "http://example.com/status/100"},
 		}
 
-		vcBytes, err := vc.MarshalJSON()
-		require.NoError(t, err)
+		vcBytes, errMarshal := vc.MarshalJSON()
+		require.NoError(t, errMarshal)
 
 		// verify credential
 		handler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
@@ -413,11 +416,10 @@ func TestVerifyCredential(t *testing.T) {
 			},
 		}
 
-		vReqBytes, err := json.Marshal(vReq)
-		require.NoError(t, err)
+		vReqBytes, errMarshal := json.Marshal(vReq)
+		require.NoError(t, errMarshal)
 
 		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
-
 		require.Equal(t, http.StatusOK, rr.Code)
 
 		verificationResp := &CredentialsVerificationSuccessResponse{}
@@ -427,11 +429,11 @@ func TestVerifyCredential(t *testing.T) {
 	})
 
 	t.Run("credential verification - invalid profile", func(t *testing.T) {
-		ops, err := New(&Config{
+		ops, errNew := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{},
 			StoreProvider: memstore.NewProvider(),
 		})
-		require.NoError(t, err)
+		require.NoError(t, errNew)
 
 		signPresentationHandler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
 
@@ -444,10 +446,13 @@ func TestVerifyCredential(t *testing.T) {
 	t.Run("credential verification - request doesn't contain checks", func(t *testing.T) {
 		req := &CredentialsVerificationRequest{
 			Credential: []byte(prCardVC),
+			Opts: &CredentialsVerificationOptions{
+				Checks: []string{proofCheck},
+			},
 		}
 
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
+		reqBytes, errMarshal := json.Marshal(req)
+		require.NoError(t, errMarshal)
 
 		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
@@ -467,8 +472,8 @@ func TestVerifyCredential(t *testing.T) {
 			Credential: []byte(invalidVC),
 		}
 
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
+		reqBytes, errMarshal := json.Marshal(req)
+		require.NoError(t, errMarshal)
 
 		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
@@ -485,8 +490,8 @@ func TestVerifyCredential(t *testing.T) {
 			},
 		}
 
-		reqBytes, err := json.Marshal(req)
-		require.NoError(t, err)
+		reqBytes, errMarshal := json.Marshal(req)
+		require.NoError(t, errMarshal)
 
 		rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
@@ -513,23 +518,14 @@ func TestVerifyCredential(t *testing.T) {
 		rr = serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-
-		verificationResp = &CredentialsVerificationFailResponse{}
-		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
-		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Contains(t, verificationResp.Checks[0].Error, "verifiable credential proof validation error")
+		require.Contains(t, rr.Body.String(), "DID not found")
 	})
 
 	t.Run("credential verification - status check failure", func(t *testing.T) {
-		t.Run("status check failure - error fetching status", func(t *testing.T) {
-			vc.Status = &verifiable.TypedID{
-				ID: "http://example.com/status/100",
-			}
-
-			vcBytes, err := vc.MarshalJSON()
-			require.NoError(t, err)
+		t.Run("status check failure - vc status not exist", func(t *testing.T) {
+			vc.Status = nil
+			vcBytes, errMarshal := vc.MarshalJSON()
+			require.NoError(t, errMarshal)
 
 			req := &CredentialsVerificationRequest{
 				Credential: vcBytes,
@@ -538,8 +534,140 @@ func TestVerifyCredential(t *testing.T) {
 				},
 			}
 
-			reqBytes, err := json.Marshal(req)
+			reqBytes, errMarshal := json.Marshal(req)
+			require.NoError(t, errMarshal)
+
+			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+			require.Contains(t, verificationResp.Checks[0].Error, "vc status not exist")
+		})
+
+		t.Run("status check failure - wrong vc status type", func(t *testing.T) {
+			vc.Status = &verifiable.TypedID{
+				ID:   "http://example.com/status/100#1",
+				Type: "NotMatch",
+				CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
+					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+			}
+
+			vcBytes, errMarshal := vc.MarshalJSON()
+			require.NoError(t, errMarshal)
+
+			req := &CredentialsVerificationRequest{
+				Credential: vcBytes,
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{statusCheck},
+				},
+			}
+
+			reqBytes, errMarshal := json.Marshal(req)
+			require.NoError(t, errMarshal)
+
+			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+			require.Contains(t, verificationResp.Checks[0].Error, "vc status NotMatch not supported")
+		})
+
+		t.Run("status check failure - revocationListIndex not exist", func(t *testing.T) {
+			vc.Status = &verifiable.TypedID{
+				ID:   "http://example.com/status/100#1",
+				Type: cslstatus.RevocationList2020Status,
+				CustomFields: map[string]interface{}{
+					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+			}
+
+			vcBytes, errMarshal := vc.MarshalJSON()
+			require.NoError(t, errMarshal)
+
+			req := &CredentialsVerificationRequest{
+				Credential: vcBytes,
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{statusCheck},
+				},
+			}
+
+			reqBytes, errMarshal := json.Marshal(req)
+			require.NoError(t, errMarshal)
+
+			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+			require.Contains(t, verificationResp.Checks[0].Error, "revocationListIndex field not exist in vc status")
+		})
+
+		t.Run("status check failure - revocationListCredential not exist", func(t *testing.T) {
+			vc.Status = &verifiable.TypedID{
+				ID:   "http://example.com/status/100#1",
+				Type: cslstatus.RevocationList2020Status,
+				CustomFields: map[string]interface{}{
+					cslstatus.RevocationListIndex: "1"},
+			}
+
+			vcBytes, errMarshal := vc.MarshalJSON()
+			require.NoError(t, errMarshal)
+
+			req := &CredentialsVerificationRequest{
+				Credential: vcBytes,
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{statusCheck},
+				},
+			}
+
+			reqBytes, errMarshal := json.Marshal(req)
+			require.NoError(t, errMarshal)
+
+			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
+
+			require.Equal(t, http.StatusBadRequest, rr.Code)
+
+			verificationResp := &CredentialsVerificationFailResponse{}
+			err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(verificationResp.Checks))
+			require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
+			require.Contains(t, verificationResp.Checks[0].Error, "revocationListCredential field not exist in vc status")
+		})
+
+		t.Run("status check failure - error fetching status", func(t *testing.T) {
+			vc.Status = &verifiable.TypedID{
+				ID:   "http://example.com/status/100#1",
+				Type: cslstatus.RevocationList2020Status,
+				CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
+					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+			}
+
+			vcBytes, errMarshal := vc.MarshalJSON()
+			require.NoError(t, errMarshal)
+
+			req := &CredentialsVerificationRequest{
+				Credential: vcBytes,
+				Opts: &CredentialsVerificationOptions{
+					Checks: []string{statusCheck},
+				},
+			}
+
+			reqBytes, errMarshal := json.Marshal(req)
+			require.NoError(t, errMarshal)
 
 			rr := serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
@@ -554,15 +682,23 @@ func TestVerifyCredential(t *testing.T) {
 		})
 
 		t.Run("status check failure - revoked", func(t *testing.T) {
-			cslBytes, err := json.Marshal(&cslstatus.CSL{ID: "https://example.gov/status/24", VC: []string{
-				strings.ReplaceAll(validVCStatus, "#ID", "https://issuer.oidp.uscis.gov/credentials/83627465"),
-				strings.ReplaceAll(validVCStatus, "#ID", "http://example.edu/credentials/1872")}})
 			require.NoError(t, err)
+
+			bitString := utils.NewBitString(2)
+			err := bitString.Set(1, true)
+			require.NoError(t, err)
+
+			encodeBits, err := bitString.EncodeBits()
+			require.NoError(t, err)
+
 			op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-				Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
+				Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits)))}}
 
 			vc.Status = &verifiable.TypedID{
-				ID: "http://example.com/status/100",
+				ID:   "http://example.com/status/100#1",
+				Type: cslstatus.RevocationList2020Status,
+				CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
+					cslstatus.RevocationListCredential: "http://example.com/status/100"},
 			}
 
 			vcBytes, err := vc.MarshalJSON()
@@ -725,15 +861,14 @@ func TestVerifyCredential(t *testing.T) {
 		err = ops.profileStore.SaveProfile(vReq)
 		require.NoError(t, err)
 
-		cslBytes, err := json.Marshal(&cslstatus.CSL{})
-		require.NoError(t, err)
-
 		ops.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-			Body: ioutil.NopCloser(strings.NewReader(string(cslBytes)))}}
+			Body: ioutil.NopCloser(strings.NewReader(""))}}
 
 		vc.Status = &verifiable.TypedID{
-			ID:   "http://example.com/status/100",
-			Type: "CredentialStatusList2017",
+			ID:   "http://example.com/status/100#94567",
+			Type: cslstatus.RevocationList2020Status,
+			CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "94567",
+				cslstatus.RevocationListCredential: "http://example.com/status/100"},
 		}
 
 		vcBytes, err := vc.MarshalJSON()
@@ -904,9 +1039,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "verifiable presentation proof validation error : verifiable credential doesn't "+
-			"contains proof",
-			verificationResp.Checks[0].Error)
+		require.Contains(t, verificationResp.Checks[0].Error, " verifiable credential proof validation error")
 	})
 
 	t.Run("presentation verification - proof check failure", func(t *testing.T) {
@@ -930,9 +1063,7 @@ func TestVerifyPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
-		require.Equal(t, "verifiable presentation proof validation error : verifiable credential doesn't "+
-			"contains proof",
-			verificationResp.Checks[0].Error)
+		require.Contains(t, verificationResp.Checks[0].Error, "verifiable credential proof validation error")
 
 		// proof validation error (DID not found)
 		req = &VerifyPresentationRequest{
@@ -1560,14 +1691,17 @@ const (
 
 	validVCWithProof = `{	
 	   "@context":[	
-		  "https://www.w3.org/2018/credentials/v1"	
+		  "https://www.w3.org/2018/credentials/v1",
+          "https://w3id.org/vc-revocation-list-2020/v1"
 	   ],	
 	   "credentialSchema":[	
 	   ],	
-	   "credentialStatus":{	
-		  "id":"https://example.gov/status/24",	
-		  "type":"CredentialStatusList2017"	
-	   },	
+	   "credentialStatus": {
+          "id": "https://dmv.example.gov/credentials/status/3#94567",
+          "type": "RevocationList2020Status",
+          "revocationListIndex": "94567",
+          "revocationListCredential": "https://example.com/credentials/status/3"
+       },	
 	   "credentialSubject":{	
 		  "id":"did:example:ebfeb1f712ebc6f1c276e12ec21"	
 	   },	
@@ -1588,28 +1722,27 @@ const (
 	   "type":"VerifiableCredential"	
 	}`
 
-	validVCStatus = `{	
-	  "@context": [	
-		"https://www.w3.org/2018/credentials/v1"	
-	  ],	
-	  "credentialSchema": [],	
-	  "credentialSubject": {	
-		"currentStatus": "Revoked",	
-		"statusReason": "Disciplinary action"	
-	  },	
-	  "id": "#ID",	
-	  "issuanceDate": "2020-02-18T17:55:31.1381994Z",	
-	  "issuer": {	
-		"id": "did:example:76e12ec712ebc6f1c221ebfeb12",	
-		"name": "Example University"	
-	  },	
-	  "type": "VerifiableCredential"	
+	revocationListVC = `{
+  "@context": [
+    "https://www.w3.org/2018/credentials/v1",
+    "https://w3id.org/vc-revocation-list-2020/v1"
+  ],
+  "id": "https://example.com/credentials/status/3",
+  "type": ["VerifiableCredential", "RevocationList2020Credential"],
+  "issuer": "did:example:12345",
+  "issuanceDate": "2020-04-05T14:27:40Z",
+  "credentialSubject": {
+    "id": "https://example.com/status/3#list",
+    "type": "RevocationList2020",
+    "encodedList": "%s"
+  		}
 	}`
 
 	vpWithoutProof = `{	
 		"@context": [	
 			"https://www.w3.org/2018/credentials/v1",	
-			"https://www.w3.org/2018/credentials/examples/v1"	
+			"https://www.w3.org/2018/credentials/examples/v1",
+            "https://w3id.org/vc-revocation-list-2020/v1"
 		],	
 		"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",	
 		"type": "VerifiablePresentation",	
@@ -1628,10 +1761,12 @@ const (
 				"name": "Example University"	
 			},	
 			"issuanceDate": "2010-01-01T19:23:24Z",	
-			"credentialStatus": {	
-				"id": "https://example.gov/status/24",	
-				"type": "CredentialStatusList2017"	
-			}	
+			"credentialStatus": {
+          	  "id": "https://dmv.example.gov/credentials/status/3#94567",
+          	  "type": "RevocationList2020Status",
+              "revocationListIndex": "94567",
+              "revocationListCredential": "https://example.com/credentials/status/3"
+            }	
 		}],	
 		"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",	
 		"refreshService": {	

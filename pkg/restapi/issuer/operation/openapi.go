@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -155,5 +154,4 @@ type retrieveCredentialStatusReq struct { // nolint: unused,deadcode
 // swagger:response retrieveCredentialStatusResp
 type retrieveCredentialStatusResp struct { // nolint: unused,deadcode
 	// in: body
-	cslstatus.CSL
 }

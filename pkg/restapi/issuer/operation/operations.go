@@ -66,7 +66,7 @@ const (
 	kmsBasePath                    = "/kms"
 	generateKeypairPath            = kmsBasePath + "/generatekeypair"
 
-	cslSize = 50
+	cslSize = 1000
 
 	invalidRequestErrMsg        = "Invalid request"
 	issuerProfileNotFoundErrMsg = "Issuer profile with id %s does not exist: %s"
@@ -97,9 +97,9 @@ type Handler interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID() (*verifiable.TypedID, error)
-	UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile, status, statusReason string) error
-	GetCSL(id string) (*cslstatus.CSL, error)
+	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
+	RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error
+	GetRevocationListVC(id string) ([]byte, error)
 }
 
 // EDVClient interface to interact with edv client
@@ -238,7 +238,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 //    default: genericError
 //        200: retrieveCredentialStatusResp
 func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.Request) {
-	csl, err := o.vcStatusManager.GetCSL(o.HostURL + req.RequestURI)
+	revocationListVCBytes, err := o.vcStatusManager.GetRevocationListVC(o.HostURL + req.RequestURI)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to get credential status list: %s", err.Error()))
@@ -247,7 +247,10 @@ func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.R
 	}
 
 	rw.WriteHeader(http.StatusOK)
-	commhttp.WriteResponse(rw, csl)
+
+	if _, err = rw.Write(revocationListVCBytes); err != nil {
+		logger.Errorf("Unable to send response, %s", err)
+	}
 }
 
 // UpdateCredentialStatus swagger:route POST /updateStatus issuer updateCredentialStatusReq
@@ -267,9 +270,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	// TODO https://github.com/trustbloc/edge-service/issues/208 credential is bundled into string type - update
-	//  this to json.RawMessage
-	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
+	vc, err := o.parseAndVerifyVC(data.Credential)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
@@ -290,7 +291,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	if err := o.vcStatusManager.UpdateVCStatus(vc, profile, data.Status, data.StatusReason); err != nil {
+	if err := o.vcStatusManager.RevokeVC(vc, profile); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to update vc status: %s", err.Error()))
 		return
@@ -690,7 +691,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID()
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
@@ -759,7 +760,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID()
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))

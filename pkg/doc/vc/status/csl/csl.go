@@ -11,29 +11,43 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
+	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
 )
 
 const (
-	// Context for CredentialStatusList2017
-	Context = "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+	vcContext = "https://www.w3.org/2018/credentials/v1"
+	// Context for Revocation List 2020
+	Context = "https://w3id.org/vc-revocation-list-2020/v1"
 	// CredentialStatusType credential status type
-	CredentialStatusType  = "CredentialStatusList2017"
 	credentialStatusStore = "credentialstatus"
 	latestListID          = "latestListID"
 	defaultRepresentation = "jws"
+
+	vcType                   = "VerifiableCredential"
+	revocationList2020VCType = "RevocationList2020Credential"
+	revocationList2020Type   = "RevocationList2020"
+	// RevocationList2020Status for RevocationList2020 Status
+	RevocationList2020Status = "RevocationList2020Status"
+	// RevocationListIndex for RevocationList2020 index
+	RevocationListIndex = "revocationListIndex"
+	// RevocationListCredential for RevocationList2020 credential
+	RevocationListCredential = "revocationListCredential"
 
 	// proof json keys
 	jsonKeyProofValue         = "proofValue"
 	jsonKeyProofPurpose       = "proofPurpose"
 	jsonKeyVerificationMethod = "verificationMethod"
-	jsonKeySignaturefType     = "type"
+	jsonKeySignatureOfType    = "type"
+
+	bitStringSize = 16000
 )
 
 type crypto interface {
@@ -41,7 +55,7 @@ type crypto interface {
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
-// CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-csl2017/
+// CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-status-rl-2020/
 type CredentialStatusManager struct {
 	store    storage.Store
 	url      string
@@ -49,24 +63,19 @@ type CredentialStatusManager struct {
 	crypto   crypto
 }
 
-// CSL struct
-type CSL struct {
-	ID          string   `json:"id"`
-	Description string   `json:"description"`
-	VC          []string `json:"verifiableCredential"`
-}
-
 // cslWrapper contain csl and metadata
 type cslWrapper struct {
-	CSL  *CSL   `json:"csl"`
-	Size int    `json:"size"`
-	ID   string `json:"id"`
+	VCByte              json.RawMessage        `json:"vc"`
+	Size                int                    `json:"size"`
+	RevocationListIndex int                    `json:"revocationListIndex"`
+	ListID              string                 `json:"listID"`
+	VC                  *verifiable.Credential `json:"-"`
 }
 
-// VCStatus vc status
-type VCStatus struct {
-	CurrentStatus string `json:"currentStatus"`
-	StatusReason  string `json:"statusReason"`
+type credentialSubject struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	EncodedList string `json:"encodedList"`
 }
 
 // New returns new Credential Status List
@@ -87,20 +96,23 @@ func New(provider storage.Provider, url string, listSize int, c crypto) (*Creden
 }
 
 // CreateStatusID create status id
-func (c *CredentialStatusManager) CreateStatusID() (*verifiable.TypedID, error) {
-	cslWrapper, err := c.getLatestCSL()
+func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
+	cslWrapper, err := c.getLatestCSL(profile)
 	if err != nil {
 		return nil, err
 	}
 
+	revocationListIndex := strconv.FormatInt(int64(cslWrapper.RevocationListIndex), 10)
+
 	cslWrapper.Size++
+	cslWrapper.RevocationListIndex++
 
 	if err := c.storeCSL(cslWrapper); err != nil {
 		return nil, err
 	}
 
 	if cslWrapper.Size == c.listSize {
-		id, err := strconv.Atoi(cslWrapper.ID)
+		id, err := strconv.Atoi(cslWrapper.ListID)
 		if err != nil {
 			return nil, err
 		}
@@ -112,57 +124,104 @@ func (c *CredentialStatusManager) CreateStatusID() (*verifiable.TypedID, error) 
 		}
 	}
 
-	return &verifiable.TypedID{ID: cslWrapper.CSL.ID, Type: CredentialStatusType}, nil
+	return &verifiable.TypedID{ID: cslWrapper.VC.ID + "#" + revocationListIndex,
+		Type: RevocationList2020Status, CustomFields: verifiable.CustomFields{RevocationListIndex: revocationListIndex,
+			RevocationListCredential: cslWrapper.VC.ID}}, nil
 }
 
-// UpdateVCStatus update vc status
-func (c *CredentialStatusManager) UpdateVCStatus(v *verifiable.Credential, profile *vcprofile.DataProfile,
-	status, statusReason string) error {
-	cslWrapper, err := c.getCSLWrapper(v.Status.ID)
+// RevokeVC revoke vc
+//nolint: gocyclo
+func (c *CredentialStatusManager) RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error {
+	// validate vc status
+	if err := c.validateVCStatus(v.Status); err != nil {
+		return err
+	}
+
+	revocationListCredential, ok := v.Status.CustomFields[RevocationListCredential].(string)
+	if !ok {
+		return fmt.Errorf("failed to cast status revocationListCredential")
+	}
+
+	cslWrapper, err := c.getCSLWrapper(revocationListCredential)
 	if err != nil {
 		return err
 	}
 
-	signOpts, err := prepareSigningOpts(profile, v.Proofs)
+	signOpts, err := prepareSigningOpts(profile, cslWrapper.VC.Proofs)
 	if err != nil {
 		return err
 	}
 
-	statusCredential, err := c.createStatusCredential(v, status, statusReason)
+	cs, ok := cslWrapper.VC.Subject.([]verifiable.Subject)
+	if !ok {
+		return fmt.Errorf("failed to cast vc subject")
+	}
+
+	bitString, err := utils.DecodeBits(cs[0].CustomFields["encodedList"].(string))
 	if err != nil {
 		return err
 	}
 
-	signedStatusCredential, err := c.crypto.SignCredential(profile, statusCredential, signOpts...)
+	revocationListIndex, err := strconv.Atoi(v.Status.CustomFields[RevocationListIndex].(string))
 	if err != nil {
 		return err
 	}
 
-	for i, vc := range cslWrapper.CSL.VC {
-		if strings.Contains(vc, v.ID) {
-			cslWrapper.CSL.VC = append(cslWrapper.CSL.VC[:i], cslWrapper.CSL.VC[i+1:]...)
-			break
-		}
+	if errSet := bitString.Set(revocationListIndex, true); errSet != nil {
+		return errSet
 	}
 
-	signedStatusCredentialBytes, err := signedStatusCredential.MarshalJSON()
+	cs[0].CustomFields["encodedList"], err = bitString.EncodeBits()
 	if err != nil {
 		return err
 	}
 
-	cslWrapper.CSL.VC = append(cslWrapper.CSL.VC, string(signedStatusCredentialBytes))
+	// remove all proofs because we are updating VC
+	cslWrapper.VC.Proofs = nil
+
+	signedCredential, err := c.crypto.SignCredential(profile, cslWrapper.VC, signOpts...)
+	if err != nil {
+		return err
+	}
+
+	signedCredentialBytes, err := signedCredential.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	cslWrapper.VCByte = signedCredentialBytes
 
 	return c.storeCSL(cslWrapper)
 }
 
-// GetCSL get csl
-func (c *CredentialStatusManager) GetCSL(id string) (*CSL, error) {
-	cslWrapper, err := c.getCSLWrapper(id)
-	if err != nil {
-		return nil, err
+func (c *CredentialStatusManager) validateVCStatus(vcStatus *verifiable.TypedID) error {
+	if vcStatus == nil {
+		return fmt.Errorf("vc status not exist")
 	}
 
-	return cslWrapper.CSL, nil
+	if vcStatus.Type != RevocationList2020Status {
+		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
+	}
+
+	if vcStatus.CustomFields[RevocationListIndex] == nil {
+		return fmt.Errorf("revocationListIndex field not exist in vc status")
+	}
+
+	if vcStatus.CustomFields[RevocationListCredential] == nil {
+		return fmt.Errorf("revocationListCredential field not exist in vc status")
+	}
+
+	return nil
+}
+
+// GetRevocationListVC get revocation list vc
+func (c *CredentialStatusManager) GetRevocationListVC(id string) ([]byte, error) {
+	cslWrapper, err := c.getCSLWrapper(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get revocationListVC from store: %w", err)
+	}
+
+	return cslWrapper.VCByte, nil
 }
 
 func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) {
@@ -172,52 +231,61 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 	}
 
 	var w cslWrapper
-	if err := json.Unmarshal(cslWrapperBytes, &w); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal csl bytes: %w", err)
+	if errUnmarshal := json.Unmarshal(cslWrapperBytes, &w); errUnmarshal != nil {
+		return nil, fmt.Errorf("failed to unmarshal csl bytes: %w", errUnmarshal)
+	}
+
+	w.VC, err = verifiable.ParseUnverifiedCredential(w.VCByte)
+	if err != nil {
+		return nil, err
 	}
 
 	return &w, nil
 }
 
-func (c *CredentialStatusManager) createStatusCredential(v *verifiable.Credential, status,
-	statusReason string) (*verifiable.Credential, error) {
-	v.Subject = VCStatus{CurrentStatus: status, StatusReason: statusReason}
-	v.Proofs = []verifiable.Proof{}
-
-	cred, err := v.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("create credential marshalling failed: %s", err.Error())
-	}
-
-	validatedStatusCred, err := verifiable.ParseCredential(cred)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse credential: %s", err.Error())
-	}
-
-	return validatedStatusCred, nil
-}
-
-func (c *CredentialStatusManager) getLatestCSL() (*cslWrapper, error) {
+func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (*cslWrapper, error) {
 	// get latest id
 	id, err := c.store.Get(latestListID)
-	if err != nil {
+	if err != nil { //nolint: nestif
 		if errors.Is(err, storage.ErrValueNotFound) {
 			if errPut := c.store.Put(latestListID, []byte("1")); errPut != nil {
 				return nil, fmt.Errorf("failed to store latest list ID in store: %w", errPut)
 			}
 
-			return &cslWrapper{&CSL{ID: c.url + "/1"}, 0, "1"}, nil
+			// create verifiable credential that encapsulates the revocation list
+			vc, errCreateVC := c.createVC(c.url+"/1", profile)
+			if errCreateVC != nil {
+				return nil, errCreateVC
+			}
+
+			vcBytes, errMarshal := vc.MarshalJSON()
+			if errMarshal != nil {
+				return nil, errMarshal
+			}
+
+			return &cslWrapper{vcBytes, 0, 0, "1", vc}, nil
 		}
 
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	statusID := c.url + "/" + string(id)
-	w, err := c.getCSLWrapper(statusID)
+	vcID := c.url + "/" + string(id)
 
-	if err != nil {
+	w, err := c.getCSLWrapper(vcID)
+	if err != nil { //nolint: nestif
 		if errors.Is(err, storage.ErrValueNotFound) {
-			return &cslWrapper{&CSL{ID: statusID}, 0, string(id)}, nil
+			// create verifiable credential that encapsulates the revocation list
+			vc, errCreateVC := c.createVC(vcID, profile)
+			if errCreateVC != nil {
+				return nil, errCreateVC
+			}
+
+			vcBytes, errMarshal := vc.MarshalJSON()
+			if errMarshal != nil {
+				return nil, errMarshal
+			}
+
+			return &cslWrapper{vcBytes, 0, 0, string(id), vc}, nil
 		}
 
 		return nil, fmt.Errorf("failed to get csl from store: %w", err)
@@ -226,13 +294,49 @@ func (c *CredentialStatusManager) getLatestCSL() (*cslWrapper, error) {
 	return w, nil
 }
 
+func (c *CredentialStatusManager) createVC(vcID string,
+	profile *vcprofile.DataProfile) (*verifiable.Credential, error) {
+	credential := &verifiable.Credential{}
+	credential.Context = []string{vcContext, Context}
+	credential.ID = vcID
+	credential.Types = []string{vcType, revocationList2020VCType}
+	credential.Issuer = verifiable.Issuer{ID: profile.DID}
+	credential.Issued = util.NewTime(time.Now().UTC())
+
+	size := c.listSize
+
+	if size < bitStringSize {
+		size = bitStringSize
+	}
+
+	encodeBits, err := utils.NewBitString(size).EncodeBits()
+	if err != nil {
+		return nil, err
+	}
+
+	credential.Subject = &credentialSubject{ID: credential.ID + "#list", Type: revocationList2020Type,
+		EncodedList: encodeBits}
+
+	signOpts, err := prepareSigningOpts(profile, credential.Proofs)
+	if err != nil {
+		return nil, err
+	}
+
+	signedCredential, err := c.crypto.SignCredential(profile, credential, signOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return signedCredential, nil
+}
+
 func (c *CredentialStatusManager) storeCSL(cslWrapper *cslWrapper) error {
 	cslWrapperBytes, err := json.Marshal(cslWrapper)
 	if err != nil {
 		return fmt.Errorf("failed to marshal csl struct: %w", err)
 	}
 
-	if err := c.store.Put(cslWrapper.CSL.ID, cslWrapperBytes); err != nil {
+	if err := c.store.Put(cslWrapper.VC.ID, cslWrapperBytes); err != nil {
 		return fmt.Errorf("failed to store csl in store: %w", err)
 	}
 
@@ -274,7 +378,7 @@ func prepareSigningOpts(profile *vcprofile.DataProfile, proofs []verifiable.Proo
 		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
 	}
 
-	signType, err := getStringValue(jsonKeySignaturefType, proof)
+	signType, err := getStringValue(jsonKeySignatureOfType, proof)
 	if err != nil {
 		return nil, err
 	}
