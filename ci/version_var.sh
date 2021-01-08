@@ -11,10 +11,10 @@ IS_RELEASE=false
 
 # Project Parameters
 SOURCE_REPO=edge-service
-BASE_VC_PKG_NAME=vc-rest
-BASE_DID_PKG_NAME=did-rest
-RELEASE_REPO=docker.pkg.github.com/trustbloc/${SOURCE_REPO}
-SNAPSHOT_REPO=docker.pkg.github.com/trustbloc-cicd/snapshot
+BASE_VC_PKG_NAME=vc-server
+BASE_DID_PKG_NAME=did-resolver
+RELEASE_REPO=ghcr.io/trustbloc
+SNAPSHOT_REPO=ghcr.io/trustbloc-cicd
 
 if [ ${IS_RELEASE} = false ]
 then
@@ -26,7 +26,7 @@ else
   PROJECT_PKG_REPO=${RELEASE_REPO}
 fi
 
-export VC_REST_TAG=$PROJECT_VERSION
-export DID_REST_TAG=$PROJECT_VERSION
-export VC_REST_PKG=${PROJECT_PKG_REPO}/${BASE_VC_PKG_NAME}
-export DID_REST_PKG=${PROJECT_PKG_REPO}/${BASE_DID_PKG_NAME}
+export VC_SERVER_TAG=$PROJECT_VERSION
+export DID_RESOLVER_TAG=$PROJECT_VERSION
+export VC_SERVER_PKG=${PROJECT_PKG_REPO}/${BASE_VC_PKG_NAME}
+export DID_RESOLVER_PKG=${PROJECT_PKG_REPO}/${BASE_DID_PKG_NAME}

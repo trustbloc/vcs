@@ -24,6 +24,8 @@ RUN make vc-rest
 
 
 FROM alpine:${ALPINE_VER} as base
+LABEL org.opencontainers.image.source https://github.com/trustbloc/edge-service
+
 COPY --from=edge-service /go/src/github.com/trustbloc/edge-service/.build/bin/vc-rest /usr/local/bin
 
 # set up nsswitch.conf for Go's "netgo" implementation
