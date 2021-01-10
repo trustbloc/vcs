@@ -24,10 +24,12 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 
 		created := time.Now().UTC()
 
-		value := &DataProfile{
-			Name:    "issuer",
-			URI:     "https://example.com/credentials/1872",
-			Created: &created,
+		value := &IssuerProfile{
+			DataProfile: &DataProfile{
+				Name:    "issuer",
+				Created: &created,
+			},
+			URI: "https://example.com/credentials/1872",
 		}
 
 		err = record.SaveProfile(value)
@@ -47,13 +49,15 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 		require.NotNil(t, record)
 
 		created := time.Now().UTC()
-		valueStored := &DataProfile{
-			Name:                    "issuer",
-			URI:                     "https://example.com/credentials",
-			Created:                 &created,
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+		valueStored := &IssuerProfile{
+			DataProfile: &DataProfile{
+				Name:                    "issuer",
+				Created:                 &created,
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
+			URI: "https://example.com/credentials",
 		}
 
 		err = record.SaveProfile(valueStored)
@@ -84,10 +88,12 @@ func TestCredentialRecord_DeleteProfile(t *testing.T) {
 
 		created := time.Now().UTC()
 
-		value := &DataProfile{
-			Name:    "issuer",
-			URI:     "https://example.com/credentials/1872",
-			Created: &created,
+		value := &IssuerProfile{
+			DataProfile: &DataProfile{
+				Name:    "issuer",
+				Created: &created,
+			},
+			URI: "https://example.com/credentials/1872",
 		}
 
 		err = mockStore.SaveProfile(value)
@@ -110,10 +116,12 @@ func TestSaveHolder(t *testing.T) {
 		require.NotNil(t, profileStore)
 
 		holderProfile := &HolderProfile{
-			Name:                    "holder-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "holder-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 
 		err = profileStore.SaveHolderProfile(holderProfile)
@@ -131,10 +139,12 @@ func TestSaveHolder(t *testing.T) {
 		require.NotNil(t, profileStore)
 
 		holderProfile := &HolderProfile{
-			Name:                    "holder-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "holder-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 
 		err = profileStore.SaveHolderProfile(holderProfile)
@@ -150,10 +160,12 @@ func TestDeleteHolderProfile(t *testing.T) {
 		require.NotNil(t, mockStore)
 
 		holderProfile := &HolderProfile{
-			Name:                    "holder-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "holder-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 		err = mockStore.SaveHolderProfile(holderProfile)
 		require.NoError(t, err)
@@ -175,10 +187,12 @@ func TestSaveGovernance(t *testing.T) {
 		require.NotNil(t, profileStore)
 
 		governanceProfile := &GovernanceProfile{
-			Name:                    "governance-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "governance-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 
 		err = profileStore.SaveGovernanceProfile(governanceProfile)
@@ -196,10 +210,12 @@ func TestSaveGovernance(t *testing.T) {
 		require.NotNil(t, profileStore)
 
 		governanceProfile := &GovernanceProfile{
-			Name:                    "governance-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "governance-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 
 		err = profileStore.SaveGovernanceProfile(governanceProfile)
@@ -218,10 +234,12 @@ func TestGetHolder(t *testing.T) {
 		require.NotNil(t, profileStore)
 
 		holderProfile := &HolderProfile{
-			Name:                    "holder-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "holder-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 
 		profileJSON, err := json.Marshal(holderProfile)
@@ -274,10 +292,12 @@ func TestGovernanceHolder(t *testing.T) {
 		require.NotNil(t, profileStore)
 
 		governanceProfile := &GovernanceProfile{
-			Name:                    "governance-1",
-			DID:                     "did",
-			SignatureType:           "SignatureType",
-			SignatureRepresentation: verifiable.SignatureProofValue,
+			DataProfile: &DataProfile{
+				Name:                    "governance-1",
+				DID:                     "did",
+				SignatureType:           "SignatureType",
+				SignatureRepresentation: verifiable.SignatureProofValue,
+			},
 		}
 
 		profileJSON, err := json.Marshal(governanceProfile)

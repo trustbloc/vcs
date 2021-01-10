@@ -297,13 +297,15 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 	created := time.Now().UTC()
 
 	return &vcprofile.HolderProfile{
-		Name:                    pr.Name,
-		Created:                 &created,
-		DID:                     didID,
-		SignatureType:           pr.SignatureType,
-		SignatureRepresentation: pr.SignatureRepresentation,
-		Creator:                 publicKeyID,
-		OverwriteHolder:         pr.OverwriteHolder,
+		DataProfile: &vcprofile.DataProfile{
+			Name:                    pr.Name,
+			Created:                 &created,
+			DID:                     didID,
+			SignatureType:           pr.SignatureType,
+			SignatureRepresentation: pr.SignatureRepresentation,
+			Creator:                 publicKeyID,
+		},
+		OverwriteHolder: pr.OverwriteHolder,
 	}, nil
 }
 

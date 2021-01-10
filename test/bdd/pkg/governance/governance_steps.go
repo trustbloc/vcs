@@ -18,6 +18,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	governanceops "github.com/trustbloc/edge-service/pkg/restapi/governance/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
@@ -82,6 +83,11 @@ func (e *Steps) verifyCredential(signedVCByte []byte, signatureType, purpose str
 	signedVCResp := make(map[string]interface{})
 
 	err := json.Unmarshal(signedVCByte, &signedVCResp)
+	if err != nil {
+		return err
+	}
+
+	err = checkCredentialStatusType(signedVCResp, csl.RevocationList2020Status)
 	if err != nil {
 		return err
 	}
@@ -228,4 +234,36 @@ func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfil
 	}
 
 	return nil
+}
+
+func checkCredentialStatusType(vcMap map[string]interface{}, expected string) error {
+	credentialStatusType, err := getCredentialStatusType(vcMap)
+	if err != nil {
+		return err
+	}
+
+	if credentialStatusType != expected {
+		return bddutil.ExpectedStringError(csl.RevocationList2020Status, credentialStatusType)
+	}
+
+	return nil
+}
+
+func getCredentialStatusType(vcMap map[string]interface{}) (string, error) {
+	credentialStatus, found := vcMap["credentialStatus"]
+	if !found {
+		return "nil", fmt.Errorf("unable to find credentialStatus in VC map")
+	}
+
+	credentialStatusMap, ok := credentialStatus.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("unable to assert credentialStatus field type as map[string]interface{}")
+	}
+
+	credentialStatusType, found := credentialStatusMap["type"]
+	if !found {
+		return "", fmt.Errorf("unable to find credentialStatus type in VC map")
+	}
+
+	return credentialStatusType.(string), nil
 }

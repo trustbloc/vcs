@@ -30,7 +30,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		)
 
 		signedVC, err := c.SignCredential(
-			getTestIssuerProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
@@ -50,7 +50,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 			responseDomain    string
 			responseChallenge string
 			responseTime      *time.Time
-			profile           *vcprofile.DataProfile
+			profile           *vcprofile.IssuerProfile
 			err               string
 		}{
 			{
@@ -76,12 +76,14 @@ func TestCrypto_SignCredential(t *testing.T) {
 			{
 				name:        "signing with verification method option with profile DID",
 				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc#key1")},
-				profile: &vcprofile.DataProfile{
-					Name:          "test",
-					DID:           "did:trustbloc:abc",
-					URI:           "https://test.com/credentials",
-					SignatureType: "Ed25519Signature2018",
-					Creator:       "did:trustbloc:abc#key1",
+				profile: &vcprofile.IssuerProfile{
+					DataProfile: &vcprofile.DataProfile{
+						Name:          "test",
+						DID:           "did:trustbloc:abc",
+						SignatureType: "Ed25519Signature2018",
+						Creator:       "did:trustbloc:abc#key1",
+					},
+					URI: "https://test.com/credentials",
 				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
@@ -154,7 +156,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 				}
 
 				signedVC, err := c.SignCredential(
-					profile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+					profile.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 					tc.signingOpts...)
 
 				if tc.err != "" {
@@ -199,7 +201,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		p := getTestIssuerProfile()
 		p.Creator = "wrongValue"
 		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verificationMethod value wrongValue should be in did#keyID format")
 		require.Nil(t, signedVC)
@@ -210,7 +212,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 		)
 		signedVC, err := c.SignCredential(
-			getTestIssuerProfile(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 		require.Nil(t, signedVC)
@@ -223,7 +225,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		p := getTestIssuerProfile()
 
 		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose("invalid"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof purpose invalid not supported")
@@ -237,7 +239,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		p := getTestIssuerProfile()
 
 		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
@@ -250,7 +252,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 		p := getTestIssuerProfile()
 
 		signedVC, err := c.SignCredential(
-			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
@@ -298,22 +300,26 @@ func TestSignPresentation(t *testing.T) {
 	})
 }
 
-func getTestIssuerProfile() *vcprofile.DataProfile {
-	return &vcprofile.DataProfile{
-		Name:          "test",
-		DID:           "did:trustbloc:abc",
-		URI:           "https://test.com/credentials",
-		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:trustbloc:abc#key1",
+func getTestIssuerProfile() *vcprofile.IssuerProfile {
+	return &vcprofile.IssuerProfile{
+		DataProfile: &vcprofile.DataProfile{
+			Name:          "test",
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+		},
+		URI: "https://test.com/credentials",
 	}
 }
 
 func getTestHolderProfile() *vcprofile.HolderProfile {
 	return &vcprofile.HolderProfile{
-		Name:          "test",
-		DID:           "did:trustbloc:abc",
-		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:trustbloc:abc#key1",
+		DataProfile: &vcprofile.DataProfile{
+			Name:          "test",
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+		},
 	}
 }
 

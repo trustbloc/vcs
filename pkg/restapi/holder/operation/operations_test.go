@@ -172,8 +172,10 @@ func TestGetHolderProfile(t *testing.T) {
 
 	t.Run("get profile - success", func(t *testing.T) {
 		vReq := &vcprofile.HolderProfile{
-			Name:          "test",
-			SignatureType: vccrypto.Ed25519Signature2018,
+			DataProfile: &vcprofile.DataProfile{
+				Name:          "test",
+				SignatureType: vccrypto.Ed25519Signature2018,
+			},
 		}
 
 		err := op.profileStore.SaveHolderProfile(vReq)
@@ -268,9 +270,11 @@ func TestSignPresentation(t *testing.T) {
 	keyID := "key-333"
 
 	vReq := &vcprofile.HolderProfile{
-		Name:          "test",
-		SignatureType: vccrypto.Ed25519Signature2018,
-		Creator:       "did:test:abc#" + keyID,
+		DataProfile: &vcprofile.DataProfile{
+			Name:          "test",
+			SignatureType: vccrypto.Ed25519Signature2018,
+			Creator:       "did:test:abc#" + keyID,
+		},
 	}
 
 	customKMS := createKMS(t)
@@ -577,7 +581,9 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 
 func saveTestProfile(t *testing.T, op *Operation) {
 	vReq := &vcprofile.HolderProfile{
-		Name: testProfileID,
+		DataProfile: &vcprofile.DataProfile{
+			Name: testProfileID,
+		},
 	}
 
 	err := op.profileStore.SaveHolderProfile(vReq)
