@@ -79,9 +79,11 @@ Refer W3C [Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/in
          "name":"Example University"
       },
       "issuanceDate":"2010-01-01T19:23:24Z",
-      "credentialStatus":{
-         "id":"https://example.gov/status/24",
-         "type":"CredentialStatusList2017"
+      "credentialStatus": {
+          "id": "https://example.gov/status/24#94567",
+          "type": "RevocationList2020Status",
+          "revocationListIndex": "94567",
+          "revocationListCredential": "https://example.gov/status/24"
       }
    },
    "options":{
@@ -99,9 +101,11 @@ Refer W3C [Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/in
    "credentialSchema":[
 
    ],
-   "credentialStatus":{
-      "id":"http://issuer.vc.rest.example.com:8070/status/1",
-      "type":"CredentialStatusList2017"
+   "credentialStatus": {
+      "id": "http://issuer.vc.rest.example.com:8070/status/1#94567",
+      "type": "RevocationList2020Status",
+      "revocationListIndex": "94567",
+      "revocationListCredential": "http://issuer.vc.rest.example.com:8070/status/1"
    },
    "credentialSubject":{
       "id":"did:example:ebfeb1f712ebc6f1c276e12ec21"
@@ -164,9 +168,11 @@ Refer W3C [Compose and Issue Credential API](https://w3c-ccg.github.io/vc-issuer
       "https://www.w3.org/2018/credentials/v1"
    ],
    "credentialSchema":null,
-   "credentialStatus":{
-      "id":"http://issuer.vc.rest.example.com:8070/status/1",
-      "type":"CredentialStatusList2017"
+   "credentialStatus": {
+      "id": "http://issuer.vc.rest.example.com:8070/status/1#94567",
+      "type": "RevocationList2020Status",
+      "revocationListIndex": "94567",
+      "revocationListCredential": "http://issuer.vc.rest.example.com:8070/status/1"
    },
    "credentialSubject":{
       "customField":"customFieldVal",
@@ -272,9 +278,7 @@ Updates the credential status.
 #### Request
 ```
 {
-   "credential":"{\"@context\":[\"https://www.w3.org/2018/credentials/v1\",\"https://www.w3.org/2018/credentials/examples/v1\"],\"credentialSchema\":[],\"credentialStatus\":{\"id\":\"http://issuer.vc.rest.example.com:8070/status/1\",\"type\":\"CredentialStatusList2017\"},\"credentialSubject\":{\"degree\":{\"degree\":\"MIT\",\"type\":\"BachelorDegree\"},\"id\":\"did:example:ebfeb1f712ebc6f1c276e12ec21\",\"name\":\"Jayden Doe\",\"spouse\":\"did:example:c276e12ec21ebfeb1f712ebc6f1\"},\"id\":\"https://example.com/credentials/8ac7112f-6ed6-48d0-a335-c4145a755e39\",\"issuanceDate\":\"2020-03-16T22:37:26.544Z\",\"issuer\":{\"id\":\"did:trustbloc:testnet.trustbloc.local:EiDLepPJg9uAvjSZvyd_TBHHW7sWdo5nWGqUoFEZ7LaOEw==\",\"name\":\"myprofile_ud\"},\"proof\":{\"created\":\"2020-04-09T15:56:58Z\",\"proofPurpose\":\"assertionMethod\",\"proofValue\":\"XUQqFt7f2c6-nyN_LwNLwJlpPoro-pg5Qp1LFrkhjVcCXQw3Z6uNiOl4jmJRk4aApIb1ou5yFXIXKakfk15lBw\",\"type\":\"Ed25519Signature2018\",\"verificationMethod\":\"did:trustbloc:testnet.trustbloc.local:EiDLepPJg9uAvjSZvyd_TBHHW7sWdo5nWGqUoFEZ7LaOEw==#key-1\"},\"type\":[\"VerifiableCredential\",\"UniversityDegreeCredential\"]}\n",
-   "status":"Revoked",
-   "statusReason":"Disciplinary action"
+  "credentials":[{"@context":["https://www.w3.org/2018/credentials/v1","https://www.w3.org/2018/credentials/examples/v1","https://w3id.org/vc-revocation-list-2020/v1"],"credentialStatus":{"id":"http://issuer.vc.rest.example.com:8070/status/1#0","revocationListCredential":"http://issuer.vc.rest.example.com:8070/status/1","revocationListIndex":"0","type":"RevocationList2020Status"},"credentialSubject":{"degree":{"degree":"MIT","type":"BachelorDegree"},"id":"did:example:ebfeb1f712ebc6f1c276e12ec21","name":"Jayden Doe","spouse":"did:example:c276e12ec21ebfeb1f712ebc6f1"},"id":"https://example.com/credentials/a3e3f15e-d1f9-4f7c-9a87-f4e32639a21a","issuanceDate":"2020-03-16T22:37:26.544Z","issuer":{"id":"did:trustbloc:testnet.trustbloc.local:EiBxGt6Zo5Wskiuoo9xfV5ak0UM1rfVvnJsVRwe7v6c7VQ","name":"myprofile_ud_unireg_ed25519_pv"},"proof":{"created":"2021-01-12T11:18:18.458561Z","proofPurpose":"assertionMethod","proofValue":"0FCsNfwENYqkVUzswG1c5YzeVOfcSaES40rnUNgNepoj7tj_yOzuwhcgg8jwAM5vaanvUEdE9TR7ZpINk8k4Cw","type":"Ed25519Signature2018","verificationMethod":"did:trustbloc:testnet.trustbloc.local:EiBxGt6Zo5Wskiuoo9xfV5ak0UM1rfVvnJsVRwe7v6c7VQ#EuUM8b277NDHNsocGZxUBZ0jdPvyZFxyMp3SEVLXIxk"},"type":["VerifiableCredential","UniversityDegreeCredential"]}]
 }
 ```
 
@@ -385,8 +389,10 @@ Refer W3C [Prove Presentation API](https://w3c-ccg.github.io/vc-http-api/#/Holde
             },
             "issuanceDate": "2010-01-01T19:23:24Z",
             "credentialStatus": {
-                "id": "https://example.gov/status/24",
-                "type": "CredentialStatusList2017"
+                "id": "https://example.gov/status/24#94567",
+                "type": "RevocationList2020Status",
+                "revocationListIndex": "94567",
+                "revocationListCredential": "https://example.gov/status/24"
             }
         }],
         "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
@@ -430,8 +436,10 @@ Refer W3C [Prove Presentation API](https://w3c-ccg.github.io/vc-http-api/#/Holde
                 "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
             ],
             "credentialStatus": {
-                "id": "https://example.gov/status/24",
-                "type": "CredentialStatusList2017"
+                "id": "https://example.gov/status/24#94567",
+                "type": "RevocationList2020Status",
+                 "revocationListIndex": "94567",
+                "revocationListCredential": "https://example.gov/status/24"
             },
             "credentialSubject": {
                 "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
@@ -527,9 +535,11 @@ Refer W3C [Verify Credential API](https://w3c-ccg.github.io/vc-verifier-http-api
       "credentialSchema":[
 
       ],
-      "credentialStatus":{
-         "id":"http://issuer.vc.rest.example.com:8070/status/1",
-         "type":"CredentialStatusList2017"
+      "credentialStatus": {
+          "id": "http://issuer.vc.rest.example.com:8070/status/1#94567",
+          "type": "RevocationList2020Status",
+          "revocationListIndex": "94567",
+          "revocationListCredential": "http://issuer.vc.rest.example.com:8070/status/1"
       },
       "credentialSubject":{
          "degree":{
@@ -603,9 +613,11 @@ Refer W3C [Verify Presentation API](https://w3c-ccg.github.io/vc-verifier-http-a
             "credentialSchema":[
 
             ],
-            "credentialStatus":{
-               "id":"http://issuer.vc.rest.example.com:8070/status/1",
-               "type":"CredentialStatusList2017"
+            "credentialStatus": {
+                "id": "http://issuer.vc.rest.example.com:8070/status/1#94567",
+                "type": "RevocationList2020Status",
+                "revocationListIndex": "94567",
+                "revocationListCredential": "http://issuer.vc.rest.example.com:8070/status/1"
             },
             "credentialSubject":{
                "degree":{

@@ -9,10 +9,10 @@ package verifier
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -47,7 +47,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Client can recreate the verifier profile with ID "([^"]*)"$`, e.createBasicVerifierProfile)
 	s.Step(`^"([^"]*)" has a profile$`, e.createBasicVerifierProfile)
 	s.Step(`^"([^"]*)" verifies the verifiable credential provided by "([^"]*)"$`, e.credentialsVerification)
-	s.Step(`^"([^"]*)" verifies the verifiable presentation provided by "([^"]*)"$`, e.createAndVerifyPresentation)
+	s.Step(`^"([^"]*)" verifies the verifiable presentation provided by "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, e.createAndVerifyPresentation) //nolint: lll
 	s.Step(`^"([^"]*)" endpoint verifies the verifiable credential provided by "([^"]*)"$`,
 		e.verifyCredentialUsingEndpoint)
 	s.Step(`^"([^"]*)" endpoint verifies the verifiable presentation provided by "([^"]*)"$`,
@@ -65,7 +65,7 @@ func (e *Steps) credentialsVerification(verifierProfile, user string) error {
 	return e.verifyCredential(fmt.Sprintf(verifyCredentialURLFormat, verifierProfile), []byte(vc), opts)
 }
 
-func (e *Steps) createAndVerifyPresentation(verifierProfile, user string) error {
+func (e *Steps) createAndVerifyPresentation(verifierProfile, user, result, respMessage string) error {
 	vp := e.bddContext.Args[user]
 	opts := &operation.VerifyPresentationOptions{
 		Checks:    []string{"proof"},
@@ -73,7 +73,12 @@ func (e *Steps) createAndVerifyPresentation(verifierProfile, user string) error 
 		Domain:    e.bddContext.Args[bddutil.GetProofDomainKey(user)],
 	}
 
-	return e.verifyPresentation(fmt.Sprintf(verifyPresentationURLFormat, verifierProfile), []byte(vp), opts)
+	if strings.Contains(verifierProfile, "revoke") {
+		opts.Checks = append(opts.Checks, "status")
+	}
+
+	return e.verifyPresentation(fmt.Sprintf(verifyPresentationURLFormat, verifierProfile), []byte(vp), opts,
+		result, respMessage)
 }
 
 func (e *Steps) verifyCredentialUsingEndpoint(endpoint, user string) error {
@@ -122,7 +127,7 @@ func (e *Steps) verifyPresentationUsingEndpoint(endpoint, user string) error {
 		endpoint = fmt.Sprintf(verifyPresentationURLFormat, profileID)
 	}
 
-	return e.verifyPresentation(endpoint, []byte(vp), opts)
+	return e.verifyPresentation(endpoint, []byte(vp), opts, "successful", strings.Join(opts.Checks, ","))
 }
 
 func (e *Steps) verifyCredential(endpoint string, vc []byte, opts *operation.CredentialsVerificationOptions) error {
@@ -136,10 +141,11 @@ func (e *Steps) verifyCredential(endpoint string, vc []byte, opts *operation.Cre
 		return err
 	}
 
-	return e.verify(endpoint, reqBytes)
+	return e.verify(endpoint, reqBytes, opts.Checks, "successful", "proof")
 }
 
-func (e *Steps) verifyPresentation(endpoint string, vp []byte, opts *operation.VerifyPresentationOptions) error {
+func (e *Steps) verifyPresentation(endpoint string, vp []byte, opts *operation.VerifyPresentationOptions,
+	result, respMessage string) error {
 	req := &operation.VerifyPresentationRequest{
 		Presentation: vp,
 		Opts:         opts,
@@ -150,38 +156,48 @@ func (e *Steps) verifyPresentation(endpoint string, vp []byte, opts *operation.V
 		return err
 	}
 
-	return e.verify(endpoint, reqBytes)
+	return e.verify(endpoint, reqBytes, opts.Checks, result, respMessage)
 }
 
-func (e *Steps) verify(endpoint string, reqBytes []byte) error {
+func (e *Steps) verify(endpoint string, reqBytes []byte, checks []string, result, respMessage string) error {
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpoint, "application/json", "rw_token", //nolint: bodyclose
 		bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
 	}
 
-	defer bddutil.CloseResponseBody(resp.Body)
-
 	respBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
-	}
+	if result == "successful" { //nolint:nestif
+		if resp.StatusCode != http.StatusOK {
+			return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		}
 
-	verificationResp := struct {
-		Checks []string `json:"checks,omitempty"`
-	}{}
+		verifiedResp := struct {
+			Checks []string `json:"checks,omitempty"`
+		}{}
 
-	err = json.Unmarshal(respBytes, &verificationResp)
-	if err != nil {
-		return err
-	}
+		err = json.Unmarshal(respBytes, &verifiedResp)
+		if err != nil {
+			return err
+		}
 
-	if len(verificationResp.Checks) != 1 {
-		return errors.New("response checks doesn't match the checks in the request")
+		respChecks := strings.Split(respMessage, ",")
+
+		if len(respChecks) != len(verifiedResp.Checks) {
+			return fmt.Errorf("resp checks %d doesn't equal to requested checks %d", len(verifiedResp.Checks), len(checks))
+		}
+	} else {
+		if resp.StatusCode != http.StatusBadRequest {
+			return bddutil.ExpectedStatusCodeError(http.StatusBadRequest, resp.StatusCode, respBytes)
+		}
+
+		if !strings.Contains(string(respBytes), respMessage) {
+			return fmt.Errorf("resp verified msg %s not contains %s", string(respBytes), respMessage)
+		}
 	}
 
 	return nil
