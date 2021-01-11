@@ -48,45 +48,40 @@ type Profile struct {
 	store storage.Store
 }
 
-// DataProfile struct for profile
+// DataProfile base profile
 type DataProfile struct {
 	Name                    string                             `json:"name"`
 	DID                     string                             `json:"did"`
-	URI                     string                             `json:"uri"`
 	SignatureType           string                             `json:"signatureType"`
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
 	Creator                 string                             `json:"creator"`
 	Created                 *time.Time                         `json:"created"`
-	EDVVaultID              string                             `json:"edvVaultID"`
-	DisableVCStatus         bool                               `json:"disableVCStatus"`
-	OverwriteIssuer         bool                               `json:"overwriteIssuer"`
-	EDVCapability           json.RawMessage                    `json:"edvCapability,omitempty"`
-	EDVController           string                             `json:"edvController"`
+}
+
+// IssuerProfile struct for issuer profile
+type IssuerProfile struct {
+	URI             string          `json:"uri"`
+	EDVVaultID      string          `json:"edvVaultID"`
+	DisableVCStatus bool            `json:"disableVCStatus"`
+	OverwriteIssuer bool            `json:"overwriteIssuer"`
+	EDVCapability   json.RawMessage `json:"edvCapability,omitempty"`
+	EDVController   string          `json:"edvController"`
+	*DataProfile
 }
 
 // HolderProfile struct for holder profile
 type HolderProfile struct {
-	Name                    string                             `json:"name"`
-	DID                     string                             `json:"did"`
-	SignatureType           string                             `json:"signatureType"`
-	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
-	Creator                 string                             `json:"creator"`
-	OverwriteHolder         bool                               `json:"overwriteHolder,omitempty"`
-	Created                 *time.Time                         `json:"created"`
+	OverwriteHolder bool `json:"overwriteHolder,omitempty"`
+	*DataProfile
 }
 
 // GovernanceProfile struct for governance profile
 type GovernanceProfile struct {
-	Name                    string                             `json:"name"`
-	DID                     string                             `json:"did"`
-	SignatureType           string                             `json:"signatureType"`
-	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
-	Creator                 string                             `json:"creator"`
-	Created                 *time.Time                         `json:"created"`
+	*DataProfile
 }
 
 // SaveProfile saves issuer profile to underlying store
-func (c *Profile) SaveProfile(data *DataProfile) error {
+func (c *Profile) SaveProfile(data *IssuerProfile) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return fmt.Errorf("save profile marshalling error: %s", err.Error())
@@ -96,13 +91,13 @@ func (c *Profile) SaveProfile(data *DataProfile) error {
 }
 
 // GetProfile returns profile information for given profile name from underlying store
-func (c *Profile) GetProfile(name string) (*DataProfile, error) {
+func (c *Profile) GetProfile(name string) (*IssuerProfile, error) {
 	bytes, err := c.store.Get(getDBKey(issuerMode, name))
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DataProfile{}
+	response := &IssuerProfile{}
 
 	err = json.Unmarshal(bytes, response)
 	if err != nil {

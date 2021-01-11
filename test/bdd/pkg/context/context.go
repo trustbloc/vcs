@@ -30,7 +30,7 @@ const (
 type BDDContext struct {
 	Args              map[string]string
 	CreatedCredential []byte
-	CreatedProfile    *profile.DataProfile
+	CreatedProfile    *profile.IssuerProfile
 	VDRI              vdrapi.Registry
 	TLSConfig         *tls.Config
 	TestData          map[string][]byte

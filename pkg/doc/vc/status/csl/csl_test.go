@@ -346,7 +346,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 func TestPrepareSigningOpts(t *testing.T) {
 	t.Run("prepare signing opts", func(t *testing.T) {
-		profile := vcprofile.DataProfile{
+		profile := &vcprofile.DataProfile{
 			Creator: "did:creator#key-1",
 		}
 
@@ -444,7 +444,7 @@ func TestPrepareSigningOpts(t *testing.T) {
 				err := json.Unmarshal([]byte(tc.proof), &proof)
 				require.NoError(t, err)
 
-				opts, err := prepareSigningOpts(&profile, []verifiable.Proof{proof})
+				opts, err := prepareSigningOpts(profile, []verifiable.Proof{proof})
 
 				if tc.err != "" {
 					require.Error(t, err)
@@ -467,7 +467,6 @@ func getTestProfile() *vcprofile.DataProfile {
 	return &vcprofile.DataProfile{
 		Name:          "test",
 		DID:           "did:test:abc",
-		URI:           "https://test.com/credentials",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
 	}

@@ -200,7 +200,7 @@ func (e *Steps) createIssuerProfile(user, profileName string) error { //nolint: 
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.DataProfile{}
+	profileResponse := profile.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -543,7 +543,7 @@ func (e *Steps) createHolderProfile(user, profileName string) error {
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.DataProfile{}
+	profileResponse := profile.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {

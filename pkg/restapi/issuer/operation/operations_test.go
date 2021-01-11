@@ -455,7 +455,7 @@ func testCreateProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
-		profile := vcprofile.DataProfile{}
+		profile := vcprofile.IssuerProfile{}
 
 		err = json.Unmarshal(rr.Body.Bytes(), &profile)
 
@@ -534,7 +534,7 @@ func testCreateProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
-		profile := vcprofile.DataProfile{}
+		profile := vcprofile.IssuerProfile{}
 
 		err = json.Unmarshal(rr.Body.Bytes(), &profile)
 		require.NoError(t, err)
@@ -685,7 +685,7 @@ func TestGetProfileHandler(t *testing.T) {
 		getProfileHandler.Handle().ServeHTTP(rr, req)
 
 		require.Equal(t, http.StatusOK, rr.Code)
-		profileResponse := &vcprofile.DataProfile{}
+		profileResponse := &vcprofile.IssuerProfile{}
 		err = json.Unmarshal(rr.Body.Bytes(), profileResponse)
 		require.NoError(t, err)
 		require.Equal(t, profileResponse.Name, profile.Name)
@@ -781,7 +781,7 @@ func TestDeleteProfileHandler(t *testing.T) {
 	})
 }
 
-func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.DataProfile {
+func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.IssuerProfile {
 	req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
 	require.NoError(t, err)
 
@@ -790,7 +790,7 @@ func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.DataProfile {
 	createProfileEndpoint := getHandler(t, op, createProfileEndpoint, http.MethodPost)
 	createProfileEndpoint.Handle().ServeHTTP(rr, req)
 
-	profile := &vcprofile.DataProfile{}
+	profile := &vcprofile.IssuerProfile{}
 
 	err = json.Unmarshal(rr.Body.Bytes(), &profile)
 	require.NoError(t, err)
@@ -2499,26 +2499,30 @@ func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup str
 	return nil
 }
 
-func getTestProfile() *vcprofile.DataProfile {
-	return &vcprofile.DataProfile{
-		Name:          "test",
-		DID:           "did:test:abc",
-		URI:           "https://test.com/credentials",
-		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:test:abc#key1",
+func getTestProfile() *vcprofile.IssuerProfile {
+	return &vcprofile.IssuerProfile{
+		DataProfile: &vcprofile.DataProfile{
+			Name:          "test",
+			DID:           "did:test:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:test:abc#key1",
+		},
+		URI: "https://test.com/credentials",
 	}
 }
 
-func getIssuerProfile() *vcprofile.DataProfile {
-	return &vcprofile.DataProfile{
-		Name:          testIssuerProfileID,
-		DID:           "did:test:abc",
-		URI:           "https://example.com/credentials",
-		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:test:abc#key1",
+func getIssuerProfile() *vcprofile.IssuerProfile {
+	return &vcprofile.IssuerProfile{
+		DataProfile: &vcprofile.DataProfile{
+			Name:          testIssuerProfileID,
+			DID:           "did:test:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:test:abc#key1",
+		},
+		URI: "https://example.com/credentials",
 	}
 }
-func saveTestProfile(t *testing.T, op *Operation, profile *vcprofile.DataProfile) {
+func saveTestProfile(t *testing.T, op *Operation, profile *vcprofile.IssuerProfile) {
 	err := op.profileStore.SaveProfile(profile)
 	require.NoError(t, err)
 }

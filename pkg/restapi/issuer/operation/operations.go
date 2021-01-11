@@ -291,7 +291,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	if err := o.vcStatusManager.RevokeVC(vc, profile); err != nil {
+	if err := o.vcStatusManager.RevokeVC(vc, profile.DataProfile); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to update vc status: %s", err.Error()))
 		return
@@ -567,7 +567,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	o.retrieveCredential(rw, profileName, profile.EDVVaultID, docURLs, profile.EDVCapability, profile.EDVController)
 }
 
-func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProfile, error) {
+func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.IssuerProfile, error) {
 	var didID, publicKeyID string
 
 	didID, publicKeyID, err := o.commonDID.CreateDID(pr.DIDKeyType, pr.SignatureType,
@@ -583,10 +583,10 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.DataProf
 		return nil, fmt.Errorf("fail to create issuer profile vault: %w", err)
 	}
 
-	return &vcprofile.DataProfile{Name: pr.Name, URI: pr.URI, Created: &created, DID: didID, EDVCapability: capability,
-		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, EDVVaultID: edvVaultID,
-		Creator: publicKeyID, DisableVCStatus: pr.DisableVCStatus, OverwriteIssuer: pr.OverwriteIssuer,
-		EDVController: didKey}, nil
+	return &vcprofile.IssuerProfile{DataProfile: &vcprofile.DataProfile{Name: pr.Name, Created: &created, DID: didID,
+		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID},
+		URI: pr.URI, EDVCapability: capability, EDVVaultID: edvVaultID, DisableVCStatus: pr.DisableVCStatus,
+		OverwriteIssuer: pr.OverwriteIssuer, EDVController: didKey}, nil
 }
 
 // createIssuerProfileVault creates the vault associated with the profile
@@ -691,7 +691,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(profile)
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
@@ -709,7 +709,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	vcutil.UpdateIssuer(credential, profile)
 
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(profile, credential, getIssuerSigningOpts(cred.Opts)...)
+	signedVC, err := o.crypto.SignCredential(profile.DataProfile, credential, getIssuerSigningOpts(cred.Opts)...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -760,7 +760,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(profile)
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
@@ -787,7 +787,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	}
 
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(profile, credential, opts...)
+	signedVC, err := o.crypto.SignCredential(profile.DataProfile, credential, opts...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))

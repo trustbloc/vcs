@@ -184,7 +184,12 @@ func TestBuildStructuredDocForStorage(t *testing.T) {
 }
 
 func TestUpdateIssuer(t *testing.T) {
-	profile := &vcprofile.DataProfile{DID: "did:example", Name: "sample-profile"}
+	profile := &vcprofile.IssuerProfile{
+		DataProfile: &vcprofile.DataProfile{
+			DID:  "did:example",
+			Name: "sample-profile",
+		},
+	}
 
 	// no issuer in credential
 	vc := &verifiable.Credential{}
@@ -213,7 +218,12 @@ func TestUpdateIssuer(t *testing.T) {
 }
 
 func TestUpdateSignatureTypeContext(t *testing.T) {
-	profile := &vcprofile.DataProfile{DID: "did:example", Name: "sample-profile"}
+	profile := &vcprofile.IssuerProfile{
+		DataProfile: &vcprofile.DataProfile{
+			DID:  "did:example",
+			Name: "sample-profile",
+		},
+	}
 	vc := &verifiable.Credential{Context: []string{defVCContext}}
 
 	UpdateSignatureTypeContext(vc, profile)

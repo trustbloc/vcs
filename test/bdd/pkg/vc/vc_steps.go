@@ -217,7 +217,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nol
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.DataProfile{}
+	profileResponse := profile.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -236,7 +236,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nol
 	return nil
 }
 
-func (e *Steps) getProfileData(profileName string) (*profile.DataProfile, error) {
+func (e *Steps) getProfileData(profileName string) (*profile.IssuerProfile, error) {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := bddutil.HTTPDo(http.MethodGet, fmt.Sprintf(issuerURL+"profile/%s", profileName), //nolint: bodyclose
@@ -252,7 +252,7 @@ func (e *Steps) getProfileData(profileName string) (*profile.DataProfile, error)
 		return nil, err
 	}
 
-	profileResponse := &profile.DataProfile{}
+	profileResponse := &profile.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, profileResponse)
 	if err != nil {
@@ -604,7 +604,7 @@ func (e *Steps) updateCredentialStatus() error {
 }
 
 func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfileDID, expectedSignatureType string,
-	profileResponse *profile.DataProfile) error {
+	profileResponse *profile.IssuerProfile) error {
 	if profileResponse.Name != expectedProfileResponseName {
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}

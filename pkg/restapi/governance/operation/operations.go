@@ -231,20 +231,18 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// set credential status
-	// TODO add status ID
-	// credential.Status, err = o.vcStatusManager.CreateStatusID(profile)
-	// if err != nil {
-	//	commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
-	//		" %s", err.Error()))
-	//
-	//	return
-	//}
+	credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
+			" %s", err.Error()))
+
+		return
+	}
 
 	credential.Context = append(credential.Context, cslstatus.Context)
 
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(&vcprofile.DataProfile{SignatureType: profile.SignatureType,
-		Creator: profile.Creator, SignatureRepresentation: profile.SignatureRepresentation}, credential)
+	signedVC, err := o.crypto.SignCredential(profile.DataProfile, credential)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -269,12 +267,14 @@ func (o *Operation) createGovernanceProfile(pr *GovernanceProfileRequest) (*vcpr
 	created := time.Now().UTC()
 
 	return &vcprofile.GovernanceProfile{
-		Name:                    pr.Name,
-		Created:                 &created,
-		DID:                     didID,
-		SignatureType:           pr.SignatureType,
-		SignatureRepresentation: pr.SignatureRepresentation,
-		Creator:                 publicKeyID,
+		DataProfile: &vcprofile.DataProfile{
+			Name:                    pr.Name,
+			Created:                 &created,
+			DID:                     didID,
+			SignatureType:           pr.SignatureType,
+			SignatureRepresentation: pr.SignatureRepresentation,
+			Creator:                 publicKeyID,
+		},
 	}, nil
 }
 

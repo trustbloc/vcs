@@ -117,7 +117,7 @@ func BuildStructuredDocForStorage(vcData []byte) (*models.StructuredDocument, er
 // UpdateIssuer overrides credential issuer form profile if
 // 'profile.OverwriteIssuer=true' or credential issuer is missing
 // credential issue will always be DID
-func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
+func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
 	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
 		credential.Issuer = verifiable.Issuer{ID: profile.DID,
 			CustomFields: verifiable.CustomFields{"name": profile.Name}}
@@ -125,7 +125,7 @@ func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.DataProf
 }
 
 // UpdateSignatureTypeContext updates context for JSONWebSignature2020
-func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcprofile.DataProfile) {
+func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
 	if profile.SignatureType == crypto.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)
 	}
