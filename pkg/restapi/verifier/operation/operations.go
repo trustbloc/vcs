@@ -311,7 +311,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: verifyPresentationSuccessResp
 //        400: verifyPresentationFailureResp
-func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) { //nolint: funlen
 	// get the profile
 	profileID := mux.Vars(req)[profileIDPathParam]
 
@@ -341,6 +341,15 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 		switch val {
 		case proofCheck:
 			err := o.validatePresentationProof(verificationReq.Presentation, verificationReq.Opts)
+			if err != nil {
+				result = append(result, VerifyPresentationCheckResult{
+					Check: val,
+					Error: err.Error(),
+				})
+			}
+		case statusCheck:
+			_, err := o.parseAndVerifyVP(verificationReq.Presentation, false, false, true)
+
 			if err != nil {
 				result = append(result, VerifyPresentationCheckResult{
 					Check: val,
@@ -425,7 +434,7 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 }
 
 func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresentationOptions) error { // nolint: gocyclo
-	vp, err := o.parseAndVerifyVP(vpByte)
+	vp, err := o.parseAndVerifyVP(vpByte, true, true, false)
 
 	if err != nil {
 		return fmt.Errorf("verifiable presentation proof validation error : %w", err)
@@ -566,17 +575,30 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 	return vc, nil
 }
 
-func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, error) {
-	vp, err := verifiable.ParsePresentation(
-		vpBytes,
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
-		),
-	)
+//nolint: funlen,gocyclo
+func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCredentialProof,
+	validateCredentialStatus bool) (*verifiable.Presentation, error) {
+	var vp *verifiable.Presentation
 
-	if err != nil {
-		return nil, err
+	var err error
+
+	if validateVPPoof {
+		vp, err = verifiable.ParsePresentation(
+			vpBytes,
+			verifiable.WithPresPublicKeyFetcher(
+				verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
+			),
+		)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		vp, err = verifiable.ParseUnverifiedPresentation(vpBytes)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	// vp is verified
 
 	// verify if the credentials in vp are valid
@@ -585,10 +607,34 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte) (*verifiable.Presentation, 
 		if err != nil {
 			return nil, err
 		}
-		// verify if the credential in vp is valid
-		err = o.validateCredentialProof(vcBytes, nil, true)
-		if err != nil {
-			return nil, err
+
+		if validateCredentialProof {
+			// verify if the credential in vp is valid
+			err = o.validateCredentialProof(vcBytes, nil, true)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if validateCredentialStatus {
+			failureMessage := ""
+
+			vc, err := verifiable.ParseUnverifiedCredential(vcBytes)
+			if err != nil {
+				return nil, err
+			}
+
+			ver, err := o.checkVCStatus(vc.Status)
+
+			if err != nil {
+				failureMessage = fmt.Sprintf("failed to fetch the status : %s", err.Error())
+			} else if !ver.Verified {
+				failureMessage = ver.Message
+			}
+
+			if failureMessage != "" {
+				return nil, fmt.Errorf(failureMessage)
+			}
 		}
 	}
 

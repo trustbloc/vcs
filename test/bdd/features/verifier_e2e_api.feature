@@ -51,7 +51,7 @@ Feature: Verifier VC REST API
   Scenario Outline: Verify Presentation
     Given "<verifierProfile>" has a profile
     And   "Alice" has her "<credential>" issued as "<verifiable credential>" and presentable as "<verifiable presentation>"
-    Then  "<verifierProfile>" verifies the verifiable presentation provided by "Alice"
+    Then  "<verifierProfile>" verifies the verifiable presentation provided by "Alice" is "successful" with message "proof"
     Examples:
       | verifierProfile                     | credential                      | verifiable credential  | verifiable presentation |
       | ud_vp_trustbloc                     | university_degree.json          |                        |                         |
@@ -84,3 +84,15 @@ Feature: Verifier VC REST API
       | pr_vp_mavennet                      | permanent_resident_card.json    | mavennet_vc2.json      | mavennet_vp2.json       |
       | cmtr_vp_mavennet                    | certified_mill_test_report.json | mavennet_vc3.json      | mavennet_vp3.json       |
       | crude_vp_mavennet                   | crude_product.json              | mavennet_vc4.json      | mavennet_vp4.json       |
+
+
+  @revokePresentationCred_api
+  Scenario Outline: Revoke Presentation Credential
+    Given "<verifierProfile>" has a profile
+    And   "Alice" has her "<credential>" issued as "<verifiable credential>" and presentable as "<verifiable presentation>"
+    Then  "<verifierProfile>" verifies the verifiable presentation provided by "Alice" is "successful" with message "proof,status"
+    Then  Revoke verifiable presentation credential status provided by "Alice"
+    Then  "<verifierProfile>" verifies the verifiable presentation provided by "Alice" is "failed" with message "Revoked"
+    Examples:
+      | verifierProfile                     | credential                      | verifiable credential  | verifiable presentation |
+      | ud_vp_trustbloc_revoke              | university_degree.json          |                        |                         |

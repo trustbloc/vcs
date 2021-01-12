@@ -72,7 +72,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.verifyCredential)
 	s.Step(`^Now we verify that "([^"]*)" signed with "([^"]*)" presentation for checks "([^"]*)" is "([^"]*)" with message "([^"]*)"$`, //nolint: lll
 		e.signAndVerifyPresentation)
-	s.Step(`^Revoke created credential status$`, e.updateCredentialStatus)
+	s.Step(`^Revoke created credential status$`, e.revokeCredential)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable credential using "([^"]*)", "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfileAndCredential)
 	s.Step(`^"([^"]*)" has her "([^"]*)" issued as verifiable presentation using "([^"]*)", "([^"]*)", "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
@@ -93,6 +93,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^"([^"]*)" has a verifier profile$`, e.createBasicVerifierProfile)
 	s.Step(`^"([^"]*)" verifies the DIDAuth response from "([^"]*)"$`, e.validateDIDAuthResponse)
 	s.Step(`^"([^"]*)" verifies the "([^"]*)" presented by "([^"]*)"$`, e.generateAndVerifyPresentation)
+	s.Step(`^Revoke verifiable presentation credential status provided by "([^"]*)"$`, e.revokePresentationCred)
 }
 
 //nolint: funlen
@@ -573,10 +574,36 @@ func verify(resp *http.Response, checks []string, result, respMessage string) er
 	return nil
 }
 
-func (e *Steps) updateCredentialStatus() error {
+func (e *Steps) revokePresentationCred(user string) error {
+	creds := make([]json.RawMessage, 0)
+
+	vpBytes := e.bddContext.Args[user]
+
+	vp, err := verifiable.ParseUnverifiedPresentation([]byte(vpBytes))
+	if err != nil {
+		return err
+	}
+
+	for _, cred := range vp.Credentials() {
+		credBytes, err := json.Marshal(cred.(map[string]interface{}))
+		if err != nil {
+			return err
+		}
+
+		creds = append(creds, credBytes)
+	}
+
+	return e.updateCredentialStatus(creds)
+}
+
+func (e *Steps) revokeCredential() error {
+	return e.updateCredentialStatus([]json.RawMessage{e.bddContext.CreatedCredential})
+}
+
+func (e *Steps) updateCredentialStatus(creds []json.RawMessage) error {
 	storeRequest := operation.UpdateCredentialStatusRequest{}
 
-	storeRequest.Credential = e.bddContext.CreatedCredential
+	storeRequest.Credentials = creds
 
 	requestBytes, err := json.Marshal(storeRequest)
 	if err != nil {

@@ -270,31 +270,33 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	vc, err := o.parseAndVerifyVC(data.Credential)
-	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
-		return
-	}
+	for _, cred := range data.Credentials {
+		vc, err := o.parseAndVerifyVC(cred)
+		if err != nil {
+			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+				fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
+			return
+		}
 
-	// get profile
-	profile, err := o.profileStore.GetProfile(vc.Issuer.CustomFields["name"].(string))
-	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to get profile: %s", err.Error()))
-		return
-	}
+		// get profile
+		profile, err := o.profileStore.GetProfile(vc.Issuer.CustomFields["name"].(string))
+		if err != nil {
+			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+				fmt.Sprintf("failed to get profile: %s", err.Error()))
+			return
+		}
 
-	if profile.DisableVCStatus {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("vc status is disabled for profile %s", profile.Name))
-		return
-	}
+		if profile.DisableVCStatus {
+			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+				fmt.Sprintf("vc status is disabled for profile %s", profile.Name))
+			return
+		}
 
-	if err := o.vcStatusManager.RevokeVC(vc, profile.DataProfile); err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to update vc status: %s", err.Error()))
-		return
+		if err := o.vcStatusManager.RevokeVC(vc, profile.DataProfile); err != nil {
+			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+				fmt.Sprintf("failed to update vc status: %s", err.Error()))
+			return
+		}
 	}
 
 	rw.WriteHeader(http.StatusOK)

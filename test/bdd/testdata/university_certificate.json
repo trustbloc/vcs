@@ -9,9 +9,5 @@
     "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
     "name": "Example University"
   },
-  "issuanceDate": "2010-01-01T19:23:24Z",
-  "credentialStatus": {
-    "id": "https://example.gov/status/24",
-    "type": "CredentialStatusList2017"
-  }
+  "issuanceDate": "2010-01-01T19:23:24Z"
 }

@@ -344,8 +344,6 @@ func TestVerifyCredential(t *testing.T) {
 	vc, err := verifiable.ParseUnverifiedCredential([]byte(prCardVC))
 	require.NoError(t, err)
 
-	vc.Context = append(vc.Context, cslstatus.Context)
-
 	op, err := New(&Config{
 		VDRI:          &vdrmock.MockVDRegistry{},
 		StoreProvider: memstore.NewProvider(),
@@ -949,7 +947,7 @@ func TestVerifyPresentation(t *testing.T) {
 		ID:                 "test",
 		Name:               "test verifier",
 		CredentialChecks:   []string{proofCheck, statusCheck},
-		PresentationChecks: []string{proofCheck},
+		PresentationChecks: []string{proofCheck, statusCheck},
 	}
 
 	err = op.profileStore.SaveProfile(vReq)
@@ -976,6 +974,12 @@ func TestVerifyPresentation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
+		require.NoError(t, errNew)
+
+		op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
+			Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits)))}}
+
 		err = op.profileStore.SaveProfile(vReq)
 		require.NoError(t, err)
 
@@ -986,7 +990,7 @@ func TestVerifyPresentation(t *testing.T) {
 			Presentation: getSignedVP(t, privKey, prCardVC, didID, verificationMethod,
 				didID, verificationMethod, domain, challenge),
 			Opts: &VerifyPresentationOptions{
-				Checks:    []string{proofCheck},
+				Checks:    []string{proofCheck, statusCheck},
 				Challenge: challenge,
 				Domain:    domain,
 			},
@@ -1002,8 +1006,9 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationResp := &VerifyPresentationSuccessResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, 2, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0])
+		require.Equal(t, statusCheck, verificationResp.Checks[1])
 	})
 
 	t.Run("presentation verification - invalid profile", func(t *testing.T) {
@@ -1019,6 +1024,42 @@ func TestVerifyPresentation(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid verifier profile")
+	})
+
+	t.Run("presentation verification - invalid vp", func(t *testing.T) {
+		ops, err := New(&Config{
+			VDRI:          &vdrmock.MockVDRegistry{},
+			StoreProvider: memstore.NewProvider(),
+		})
+		require.NoError(t, err)
+
+		err = ops.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
+		vReq := &VerifyPresentationRequest{
+			Presentation: []byte(prCardVC),
+			Opts: &VerifyPresentationOptions{
+				Checks:    []string{proofCheck, statusCheck},
+				Challenge: challenge,
+				Domain:    domain,
+			},
+		}
+
+		vReqBytes, err := json.Marshal(vReq)
+		require.NoError(t, err)
+
+		signPresentationHandler := getHandler(t, ops, presentationsVerificationEndpoint, http.MethodPost)
+
+		rr := serveHTTPMux(t, signPresentationHandler, endpoint, vReqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		// verify that the default check was performed
+		verificationResp := &VerifyPresentationFailureResponse{}
+		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
+		require.Contains(t, verificationResp.Checks[0].Error, "verifiable presentation proof validation error")
 	})
 
 	t.Run("presentation verification - request doesn't contain checks", func(t *testing.T) {
@@ -1037,7 +1078,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationResp := &VerifyPresentationFailureResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Equal(t, 2, len(verificationResp.Checks))
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
 		require.Contains(t, verificationResp.Checks[0].Error, " verifiable credential proof validation error")
 	})
@@ -1653,7 +1694,8 @@ const (
 	prCardVC = `{
 	  "@context": [
 		"https://www.w3.org/2018/credentials/v1",
-		"https://w3id.org/citizenship/v1"
+		"https://w3id.org/citizenship/v1",
+        "https://w3id.org/vc-revocation-list-2020/v1"
 	  ],
 	  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	  "type": [
@@ -1665,6 +1707,12 @@ const (
 	  "issuer": "did:example:28394728934792387",
 	  "issuanceDate": "2019-12-03T12:19:52Z",
 	  "expirationDate": "2029-12-03T12:19:52Z",
+	   "credentialStatus": {
+          "id": "https://dmv.example.gov/credentials/status/3#94567",
+          "type": "RevocationList2020Status",
+          "revocationListIndex": "1",
+          "revocationListCredential": "https://example.com/credentials/status/3"
+       },
 	  "credentialSubject": {
 		"id": "did:example:b34ca6cd37bbf23",
 		"type": [

@@ -250,7 +250,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
 	t.Run("update credential status success", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVC)}
+		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVC)}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -263,7 +263,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test disable vc status", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVCWithoutStatus)}
+		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVCWithoutStatus)}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -289,7 +289,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test error from parse credential", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(invalidVC)}
+		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(invalidVC)}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -314,7 +314,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		op.vcStatusManager = &mockVCStatusManager{}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
-		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVC)}
+		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVC)}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
@@ -341,7 +341,7 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		op.vcStatusManager = &mockVCStatusManager{revokeVCErr: fmt.Errorf("error update vc status")}
 		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
-		ucsReq := UpdateCredentialStatusRequest{Credential: []byte(validVC)}
+		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVC)}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
