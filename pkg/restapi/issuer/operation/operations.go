@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
-	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	"github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/restapi/models"
@@ -68,8 +67,7 @@ const (
 
 	cslSize = 1000
 
-	invalidRequestErrMsg        = "Invalid request"
-	issuerProfileNotFoundErrMsg = "Issuer profile with id %s does not exist: %s"
+	invalidRequestErrMsg = "Invalid request"
 
 	// supported proof purpose
 	assertionMethod      = "assertionMethod"
@@ -175,7 +173,7 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for vcs operations
 type Config struct {
-	StoreProvider      storage.Provider
+	StoreProvider      ariesstorage.Provider
 	KMSSecretsProvider ariesstorage.Provider
 	EDVClient          EDVClient
 	KeyManager         keyManager
@@ -325,7 +323,7 @@ func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http
 	}
 
 	profile, err := o.profileStore.GetProfile(data.Name)
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+	if err != nil && !errors.Is(err, ariesstorage.ErrDataNotFound) {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -396,13 +394,6 @@ func (o *Operation) deleteIssuerProfileHandler(rw http.ResponseWriter, req *http
 	err := o.profileStore.DeleteProfile(profileID)
 
 	if err != nil {
-		if errors.Is(err, storage.ErrValueNotFound) {
-			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
-				fmt.Sprintf(issuerProfileNotFoundErrMsg, profileID, err.Error()))
-
-			return
-		}
-
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return

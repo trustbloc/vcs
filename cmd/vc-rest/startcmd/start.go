@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -37,15 +38,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 	restlogspec "github.com/trustbloc/edge-core/pkg/restapi/logspec"
-	"github.com/trustbloc/edge-core/pkg/storage"
-	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	"github.com/trustbloc/edge-core/pkg/storage/mysql"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 	"github.com/trustbloc/edv/pkg/client"
-	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/cmd/common"
 	restgovernance "github.com/trustbloc/edge-service/pkg/restapi/governance"
@@ -763,7 +759,7 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManag
 	}
 
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(trustbloc.New(blocVDRIOpts...)))
+	opts = append(opts, vdrpkg.WithVDR(trustbloc.New(nil, blocVDRIOpts...)))
 
 	vdriProvider, err := context.New(context.WithKMS(km))
 	if err != nil {
@@ -789,7 +785,7 @@ func acceptsDID(method string) bool {
 }
 
 type edgeServiceProviders struct {
-	provider           storage.Provider
+	provider           ariesstorage.Provider
 	kmsSecretsProvider ariesstorage.Provider
 }
 
@@ -799,13 +795,13 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 
 	switch { //nolint: dupl
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
-		edgeServiceProvs.provider = memstore.NewProvider()
+		edgeServiceProvs.provider = ariesmemstorage.NewProvider()
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
 		var err error
 
 		edgeServiceProvs.provider, err =
-			couchdbstore.NewProvider(parameters.dbParameters.databaseURL,
-				couchdbstore.WithDBPrefix(parameters.dbParameters.databasePrefix))
+			ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
+				ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
 		if err != nil {
 			return &edgeServiceProviders{}, err
 		}
@@ -813,8 +809,8 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 		var err error
 
 		edgeServiceProvs.provider, err =
-			mysql.NewProvider(parameters.dbParameters.databaseURL,
-				mysql.WithDBPrefix(parameters.dbParameters.databasePrefix))
+			ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
+				ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
 		if err != nil {
 			return &edgeServiceProviders{}, err
 		}

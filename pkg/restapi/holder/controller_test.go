@@ -11,24 +11,24 @@ import (
 	"testing"
 
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 )
 
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
+		controller, err := New(&operation.Config{StoreProvider: ariesmemstorage.NewProvider(),
 			Crypto: &cryptomock.Crypto{}, VDRI: &vdrmock.MockVDRegistry{}})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		controller, err := New(&operation.Config{StoreProvider: &mockstore.Provider{
+		controller, err := New(&operation.Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf("error open store")},
 			VDRI: &vdrmock.MockVDRegistry{}})
 		require.Error(t, err)
@@ -38,7 +38,7 @@ func TestController_New(t *testing.T) {
 }
 
 func TestController_GetOperations(t *testing.T) {
-	controller, err := New(&operation.Config{StoreProvider: memstore.NewProvider(),
+	controller, err := New(&operation.Config{StoreProvider: ariesmemstorage.NewProvider(),
 		Crypto: &cryptomock.Crypto{}, VDRI: &vdrmock.MockVDRegistry{}})
 
 	require.NoError(t, err)

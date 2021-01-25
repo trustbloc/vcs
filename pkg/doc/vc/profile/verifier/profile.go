@@ -8,10 +8,9 @@ package verifier
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
-	"github.com/trustbloc/edge-core/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
@@ -23,7 +22,7 @@ const (
 
 // Profile db operation
 type Profile struct {
-	store storage.Store
+	store ariesstorage.Store
 }
 
 // ProfileData struct for profile
@@ -35,12 +34,7 @@ type ProfileData struct {
 }
 
 // New returns new credential recorder instance
-func New(provider storage.Provider) (*Profile, error) {
-	err := provider.CreateStore(storeName)
-	if err != nil && !errors.Is(err, storage.ErrDuplicateStore) {
-		return nil, err
-	}
-
+func New(provider ariesstorage.Provider) (*Profile, error) {
 	store, err := provider.OpenStore(storeName)
 	if err != nil {
 		return nil, err

@@ -7,12 +7,11 @@ package profile
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/edge-core/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
@@ -27,14 +26,7 @@ const (
 )
 
 // New returns new credential recorder instance
-func New(provider storage.Provider) (*Profile, error) {
-	err := provider.CreateStore(credentialStoreName)
-	if err != nil {
-		if !errors.Is(err, storage.ErrDuplicateStore) {
-			return nil, err
-		}
-	}
-
+func New(provider ariesstorage.Provider) (*Profile, error) {
 	store, err := provider.OpenStore(credentialStoreName)
 	if err != nil {
 		return nil, err
@@ -45,7 +37,7 @@ func New(provider storage.Provider) (*Profile, error) {
 
 // Profile takes care of features to be persisted for credentials
 type Profile struct {
-	store storage.Store
+	store ariesstorage.Store
 }
 
 // DataProfile base profile

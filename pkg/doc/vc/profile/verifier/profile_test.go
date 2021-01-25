@@ -11,35 +11,28 @@ import (
 	"errors"
 	"testing"
 
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage"
-	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
 const testProfileID = "testProfile"
 
 func TestNew(t *testing.T) {
 	t.Run("test new - success", func(t *testing.T) {
-		record, err := New(mockstorage.NewMockStoreProvider())
-		require.NoError(t, err)
-		require.NotNil(t, record)
-	})
-
-	t.Run("test new - success (store exists already)", func(t *testing.T) {
-		record, err := New(&mockstorage.Provider{ErrCreateStore: storage.ErrDuplicateStore})
+		record, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, record)
 	})
 
 	t.Run("test new - success", func(t *testing.T) {
-		record, err := New(&mockstorage.Provider{ErrCreateStore: errors.New("db provider error")})
+		record, err := New(&ariesmockstorage.MockStoreProvider{ErrOpenStoreHandle: errors.New("db provider error")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "db provider error")
 		require.Nil(t, record)
 	})
 
 	t.Run("test new - success", func(t *testing.T) {
-		record, err := New(&mockstorage.Provider{ErrOpenStoreHandle: errors.New("error opening the handler")})
+		record, err := New(&ariesmockstorage.MockStoreProvider{ErrOpenStoreHandle: errors.New("error opening the handler")})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error opening the handler")
 		require.Nil(t, record)
@@ -48,7 +41,7 @@ func TestNew(t *testing.T) {
 
 func TestCredentialRecord_SaveProfile(t *testing.T) {
 	t.Run("test save profile - success", func(t *testing.T) {
-		record, err := New(mockstorage.NewMockStoreProvider())
+		record, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, record)
 
@@ -71,7 +64,7 @@ func TestGetProfile(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -91,14 +84,15 @@ func TestGetProfile(t *testing.T) {
 	})
 
 	t.Run("test get profile - no data", func(t *testing.T) {
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: make(map[string][]byte)}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
 
 		resp, err := profileStore.GetProfile("verifier-1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "store does not have a value associated with this key")
+		require.Contains(t, err.Error(), "data not found")
 		require.Nil(t, resp)
 	})
 
@@ -106,7 +100,7 @@ func TestGetProfile(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -121,7 +115,7 @@ func TestGetProfile(t *testing.T) {
 
 func TestDeleteProfile(t *testing.T) {
 	t.Run("test delete profile - success", func(t *testing.T) {
-		mockStore, err := New(mockstorage.NewMockStoreProvider())
+		mockStore, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, mockStore)
 

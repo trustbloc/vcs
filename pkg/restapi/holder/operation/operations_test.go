@@ -26,13 +26,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
-	corestorage "github.com/trustbloc/edge-core/pkg/storage"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -54,7 +52,7 @@ func TestCreateHolderProfile(t *testing.T) {
 
 	op, err := New(&Config{
 		Crypto:        customCrypto,
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		KeyManager:    customKMS,
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
@@ -127,7 +125,7 @@ func TestCreateHolderProfile(t *testing.T) {
 	t.Run("create profile - failed to created DID", func(t *testing.T) {
 		ops, err := New(&Config{
 			Crypto:        customCrypto,
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
@@ -157,7 +155,7 @@ func TestGetHolderProfile(t *testing.T) {
 
 	op, err := New(&Config{
 		Crypto:        customCrypto,
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		KeyManager:    customKMS,
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
@@ -200,13 +198,13 @@ func TestGetHolderProfile(t *testing.T) {
 
 		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "store does not have a value associated with this key")
+		require.Contains(t, rr.Body.String(), "data not found")
 	})
 }
 
 func TestDeleteHolderProfileHandler(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -224,31 +222,9 @@ func TestDeleteHolderProfileHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 	})
 
-	t.Run("delete profile - profile does not exist", func(t *testing.T) {
-		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
-
-		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			fmt.Sprintf("Holder profile with id %s does not exist: %s",
-				testProfileID, corestorage.ErrValueNotFound))
-	})
-
-	t.Run("delete profile - delete same profile twice", func(t *testing.T) {
-		saveTestProfile(t, op)
-
-		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
-		require.Equal(t, http.StatusOK, rr.Code)
-
-		rr = serveHTTPMux(t, handler, endpoint, nil, urlVars)
-		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			fmt.Sprintf("Holder profile with id %s does not exist: %s",
-				testProfileID, corestorage.ErrValueNotFound))
-	})
-
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:     make(map[string][]byte),
 				ErrDelete: errors.New("delete error")},
 			},
@@ -283,7 +259,7 @@ func TestSignPresentation(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		KeyManager:    customKMS,
 		Crypto:        customCrypto,
 	})
@@ -309,11 +285,11 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
 			Crypto: customCrypto,
@@ -396,11 +372,11 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS2,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
 			Crypto: customCrypto,
@@ -450,7 +426,7 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			Crypto:        customCrypto,
 			KeyManager:    customKMS,
 		})
@@ -488,7 +464,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - signing error", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto:        customCrypto,
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI:          &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")},
 		})
@@ -678,7 +654,7 @@ const (
 func createKMS(t *testing.T) *localkms.LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
 
 	k, err := localkms.New("local-lock://custom/primary/key/", p)
 	require.NoError(t, err)

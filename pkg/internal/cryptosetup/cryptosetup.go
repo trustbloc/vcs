@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/trustbloc/edge-core/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 )
 
 const (
@@ -34,7 +34,7 @@ type newJWEEncryptFunc func(encAlg jose.EncAlg, encType, senderKID string, sende
 	recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error)
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
-func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider storage.Provider, c cryptoapi.Crypto,
+func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider ariesstorage.Provider, c cryptoapi.Crypto,
 	encAlg jose.EncAlg, keyType kms.KeyType) (*jose.JWEEncrypt, *jose.JWEDecrypt, error) {
 	kid, keyHandle, err := prepareKeyHandle(storeProvider, keyManager, ecdhesKeyIDDBKeyName, keyType)
 	if err != nil {
@@ -89,7 +89,7 @@ func createJWEEncrypter(kid string, keyHandle *keyset.Handle, encAlg jose.EncAlg
 }
 
 // PrepareMACCrypto prepares necessary MAC crypto data for edge-service operations
-func PrepareMACCrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
+func PrepareMACCrypto(keyManager kms.KeyManager, storeProvider ariesstorage.Provider,
 	crypto cryptoapi.Crypto, keyType kms.KeyType) (*keyset.Handle, string, error) {
 	_, keyHandle, err := prepareKeyHandle(storeProvider, keyManager, hmacKeyIDDBKeyName, keyType)
 	if err != nil {
@@ -104,7 +104,7 @@ func PrepareMACCrypto(keyManager kms.KeyManager, storeProvider storage.Provider,
 	return keyHandle, base64.URLEncoding.EncodeToString(vcIDIndexNameMAC), nil
 }
 
-func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
+func prepareKeyHandle(storeProvider ariesstorage.Provider, keyManager kms.KeyManager,
 	keyIDDBKeyName string, keyType kms.KeyType) (string, *keyset.Handle, error) {
 	keyIDStore, err := prepareKeyIDStore(storeProvider)
 	if err != nil {
@@ -112,7 +112,7 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 	}
 
 	keyIDBytes, err := keyIDStore.Get(keyIDDBKeyName)
-	if errors.Is(err, storage.ErrValueNotFound) {
+	if errors.Is(err, ariesstorage.ErrDataNotFound) {
 		keyID, keyHandleUntyped, createErr := keyManager.Create(keyType)
 		if createErr != nil {
 			return "", nil, createErr
@@ -149,13 +149,6 @@ func prepareKeyHandle(storeProvider storage.Provider, keyManager kms.KeyManager,
 	return keyID, kh, nil
 }
 
-func prepareKeyIDStore(storeProvider storage.Provider) (storage.Store, error) {
-	err := storeProvider.CreateStore(keyIDStoreName)
-	if err != nil {
-		if !errors.Is(err, storage.ErrDuplicateStore) {
-			return nil, err
-		}
-	}
-
+func prepareKeyIDStore(storeProvider ariesstorage.Provider) (ariesstorage.Store, error) {
 	return storeProvider.OpenStore(keyIDStoreName)
 }

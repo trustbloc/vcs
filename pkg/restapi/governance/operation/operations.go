@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/trustbloc/edge-core/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -104,7 +104,7 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for vcs operations
 type Config struct {
-	StoreProvider storage.Provider
+	StoreProvider ariesstorage.Provider
 	KeyManager    keyManager
 	VDRI          vdrapi.Registry
 	Domain        string
@@ -159,7 +159,7 @@ func (o *Operation) createGovernanceProfileHandler(rw http.ResponseWriter, req *
 	}
 
 	profile, err := o.profileStore.GetGovernanceProfile(request.Name)
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+	if err != nil && !errors.Is(err, ariesstorage.ErrDataNotFound) {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return

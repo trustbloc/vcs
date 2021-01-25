@@ -289,12 +289,12 @@ func (c *Crypto) getAndResolveDID(verificationMethod string) (*did.Doc, error) {
 		return nil, err
 	}
 
-	didDoc, err := c.vdr.Resolve(didID)
+	docResolution, err := c.vdr.Resolve(didID)
 	if err != nil {
 		return nil, err
 	}
 
-	return didDoc, nil
+	return docResolution.DIDDocument, nil
 }
 
 // getSigner returns signer and verification method based on profile and signing opts

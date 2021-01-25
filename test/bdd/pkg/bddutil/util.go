@@ -33,11 +33,11 @@ type ProofDataOpts struct {
 
 // ResolveDID waits for the DID to become available for resolution.
 func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.Doc, error) {
-	var didDoc *docdid.Doc
+	var docResolution *docdid.DocResolution
 
 	for i := 1; i <= maxRetry; i++ {
 		var err error
-		didDoc, err = vdrRegistry.Resolve(did)
+		docResolution, err = vdrRegistry.Resolve(did)
 
 		if err != nil {
 			if !strings.Contains(err.Error(), "DID does not exist") {
@@ -53,9 +53,9 @@ func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.
 		// check v1 DID is register
 		// v1 will return DID with placeholder keys ID (DID#DID) when not register
 		// will not return 404
-		if strings.Contains(didDoc.ID, "did:v1") {
-			split := strings.Split(didDoc.AssertionMethod[0].VerificationMethod.ID, "#")
-			if strings.Contains(didDoc.ID, split[1]) {
+		if strings.Contains(docResolution.DIDDocument.ID, "did:v1") {
+			split := strings.Split(docResolution.DIDDocument.AssertionMethod[0].VerificationMethod.ID, "#")
+			if strings.Contains(docResolution.DIDDocument.ID, split[1]) {
 				fmt.Printf("v1 did %s not register yet will retry %d of %d\n", did, i, maxRetry)
 				time.Sleep(3 * time.Second) //nolint:gomnd
 
@@ -64,7 +64,7 @@ func ResolveDID(vdrRegistry vdrapi.Registry, did string, maxRetry int) (*docdid.
 		}
 	}
 
-	return didDoc, nil
+	return docResolution.DIDDocument, nil
 }
 
 // HTTPDo send http request

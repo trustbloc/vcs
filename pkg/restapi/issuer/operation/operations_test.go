@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -32,16 +33,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/log/mocklogger"
-	corestorage "github.com/trustbloc/edge-core/pkg/storage"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	edvclient "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/restapi/models"
@@ -199,7 +197,8 @@ func TestMain(m *testing.M) {
 func TestNew(t *testing.T) {
 	t.Run("test error from opening credential store", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{ErrOpenStoreHandle: fmt.Errorf("error open store")},
+		op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
+			ErrOpenStoreHandle: fmt.Errorf("error open store")},
 			EDVClient: client, VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
@@ -207,8 +206,8 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("fail to create credential store", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{
-			ErrCreateStore: fmt.Errorf("create error")}, EDVClient: client, VDRI: &vdrmock.MockVDRegistry{},
+		op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
+			ErrOpenStoreHandle: fmt.Errorf("create error")}, EDVClient: client, VDRI: &vdrmock.MockVDRegistry{},
 			HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create error")
@@ -216,7 +215,7 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("test error from csl", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{FailNameSpace: "credentialstatus"},
+		op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{FailNamespace: "credentialstatus"},
 			EDVClient: client, VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to instantiate new csl status")
@@ -239,8 +238,9 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
-		KMSSecretsProvider: mem.NewProvider(), EDVClient: client, KeyManager: customKMS,
+	op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
+		Store: &ariesmockstorage.MockStore{Store: s}}, KMSSecretsProvider: ariesmemstorage.NewProvider(),
+		EDVClient: client, KeyManager: customKMS,
 		Crypto: customCrypto,
 		VDRI:   &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
 	require.NoError(t, err)
@@ -304,9 +304,9 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 	})
 
 	t.Run("test error from get profile", func(t *testing.T) {
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{
-			Store: &mockstore.MockStore{Store: make(map[string][]byte)}},
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}},
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil),
 			KeyManager:         customKMS, Crypto: customCrypto,
 			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
@@ -332,8 +332,9 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		s := make(map[string][]byte)
 		s["profile_issuer_Example University"] = []byte(testIssuerProfile)
 
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: s}},
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: s}},
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil),
 			KeyManager:         customKMS, Crypto: customCrypto,
 			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080"})
@@ -401,8 +402,8 @@ func testCreateProfileHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
+	op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		EDVClient:          client,
 		KeyManager:         customKMS,
 		VDRI:               &vdrmock.MockVDRegistry{},
@@ -481,16 +482,19 @@ func testCreateProfileHandler(t *testing.T) {
 	})
 
 	t.Run("create profile - other error in GetProfile", func(t *testing.T) {
-		op, err := New(&Config{StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
-			Store:  make(map[string][]byte),
-			ErrGet: errors.New("get error")}},
-			KMSSecretsProvider: mem.NewProvider(),
+		s := &ariesmockstorage.MockStore{
+			Store: make(map[string][]byte)}
+
+		op, err := New(&Config{StoreProvider: &ariesmockstorage.MockStoreProvider{Store: s},
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          client,
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			Crypto:             customCrypto,
 			HostURL:            "localhost:8080", Domain: "testnet"})
 		require.NoError(t, err)
+
+		s.ErrGet = errors.New("get error")
 
 		op.commonDID = &mockCommonDID{}
 
@@ -499,11 +503,7 @@ func testCreateProfileHandler(t *testing.T) {
 		vReqBytes, err := json.Marshal(getTestProfile())
 		require.NoError(t, err)
 
-		// mockStore Get() only returns ErrGet if the key is found in mockStore, so we create profile twice to get ErrGet
 		rr := serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		rr = serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "get error")
 	})
@@ -511,8 +511,8 @@ func testCreateProfileHandler(t *testing.T) {
 	t.Run("create profile success without creating did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client, KeyManager: customKMS,
 			VDRI: &vdrmock.MockVDRegistry{ResolveValue: &did.Doc{ID: "did1",
@@ -548,8 +548,8 @@ func testCreateProfileHandler(t *testing.T) {
 	t.Run("test failed to resolve did", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client, KeyManager: customKMS,
 			VDRI:    &vdrmock.MockVDRegistry{ResolveErr: fmt.Errorf("resolve error")},
@@ -605,8 +605,8 @@ func testCreateProfileHandler(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil,
 			nil, []string{"testID"}, errTest)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          client,
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
@@ -643,8 +643,8 @@ func TestGetProfileHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
+	op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		Crypto:             customCrypto,
 		EDVClient:          client,
 		KeyManager:         customKMS,
@@ -710,8 +710,8 @@ func TestDeleteProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider:      memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
+		StoreProvider:      ariesmemstorage.NewProvider(),
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		EDVClient:          edvClient,
 		KeyManager:         customKMS,
 		VDRI:               &vdrmock.MockVDRegistry{},
@@ -733,35 +733,13 @@ func TestDeleteProfileHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 	})
 
-	t.Run("delete profile - profile does not exist", func(t *testing.T) {
-		rr := serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
-
-		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			fmt.Sprintf("Issuer profile with id %s does not exist: %s",
-				testIssuerProfileID, corestorage.ErrValueNotFound))
-	})
-
-	t.Run("delete profile - delete same profile twice", func(t *testing.T) {
-		saveTestProfile(t, op, getIssuerProfile())
-
-		rr := serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
-		require.Equal(t, http.StatusOK, rr.Code)
-
-		rr = serveHTTPMux(t, handler, deleteProfileEndpoint, nil, urlVars)
-		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			fmt.Sprintf("Issuer profile with id %s does not exist: %s",
-				testIssuerProfileID, corestorage.ErrValueNotFound))
-	})
-
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:     make(map[string][]byte),
 				ErrDelete: errors.New("delete error"),
 			}},
-			KMSSecretsProvider: mem.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          edvClient,
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
@@ -860,8 +838,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -882,8 +860,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while creating the document - vault not found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -909,8 +887,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -933,8 +911,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -958,8 +936,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while computing MAC", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -983,8 +961,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while encrypting structured doc", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1011,8 +989,8 @@ func TestStoreVCHandler(t *testing.T) {
 	t.Run("store vc err while serializing JWE", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1048,8 +1026,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1083,8 +1061,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1118,8 +1096,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID1", "testID2"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1158,8 +1136,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 		// It's set to nil here but later in this test it gets set to a valid object.
 		client := edv.NewMockEDVClient("test", nil, nil, nil, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1193,8 +1171,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1214,8 +1192,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1237,8 +1215,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc error when no document is found", func(t *testing.T) {
 		client := NewMockEDVClient("test")
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          client,
 			Crypto:             customCrypto,
 			KeyManager:         customKMS,
@@ -1267,8 +1245,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	t.Run("retrieve vc fail when writing document retrieval success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1298,8 +1276,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			"Failed to write response for document retrieval success: response writer failed")
 	})
 	t.Run("fail to compute MAC when querying vault", func(t *testing.T) {
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
@@ -1334,8 +1312,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 			&models.EncryptedDocument{JWE: []byte("{ not valid JWE }")},
 			nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1375,8 +1353,8 @@ func TestVCStatus(t *testing.T) {
 	t.Run("test error from get CSL", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
 			EDVClient:          client,
 			KeyManager:         customKMS,
@@ -1400,8 +1378,8 @@ func TestVCStatus(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+		op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			EDVClient:          client,
 			Crypto:             customCrypto,
 			KeyManager:         customKMS,
@@ -1467,8 +1445,8 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	op, err := New(&Config{StoreProvider: memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
+	op, err := New(&Config{StoreProvider: ariesmemstorage.NewProvider(),
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		Crypto:             customCrypto,
 		EDVClient: edv.NewMockEDVClient("test",
 			nil, nil, []string{"testID"}, nil),
@@ -1497,13 +1475,13 @@ func TestIssueCredential(t *testing.T) {
 	profile.Creator = issuerProfileDIDKey
 
 	op, err := New(&Config{
-		StoreProvider:      memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
+		StoreProvider:      ariesmemstorage.NewProvider(),
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		KeyManager:         customKMS,
 		Crypto:             customCrypto,
 		VDRI: &vdrmock.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (*did.Doc, error) {
-				return createDIDDocWithKeyID(didID, keyID, pubKey), nil
+			ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 			}},
 	})
 	require.NoError(t, err)
@@ -1518,14 +1496,13 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - success", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, pubKey), nil
-				},
-			},
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
+				}},
 			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
@@ -1631,14 +1608,13 @@ func TestIssueCredential(t *testing.T) {
 		customVerificationMethod := "did:test:zzz#" + keyID
 
 		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, pubKey), nil
-				},
-			},
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
+				}},
 			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
@@ -1684,14 +1660,13 @@ func TestIssueCredential(t *testing.T) {
 		customPurpose := "customPurpose"
 
 		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDoc(didID, pubKey), nil
-				},
-			},
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
+				}},
 			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
@@ -1721,9 +1696,9 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
 			Crypto:             customCrypto,
-			KMSSecretsProvider: mem.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
@@ -1813,12 +1788,12 @@ func TestIssueCredential(t *testing.T) {
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
 		op1, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (*did.Doc, error) {
-					return nil, errors.New("did not found")
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				}},
 		})
 		require.NoError(t, err)
@@ -1836,7 +1811,7 @@ func TestIssueCredential(t *testing.T) {
 		rr := serveHTTPMux(t, issueHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "does not have a value associated with this key")
+		require.Contains(t, rr.Body.String(), "data not found")
 	})
 
 	t.Run("issue credential - add credential status error", func(t *testing.T) {
@@ -1844,8 +1819,8 @@ func TestIssueCredential(t *testing.T) {
 
 		op, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 		})
@@ -1876,8 +1851,8 @@ func TestIssueCredential(t *testing.T) {
 
 		op, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 		})
@@ -1907,8 +1882,8 @@ func TestIssueCredential(t *testing.T) {
 
 		op, err := New(&Config{
 			Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
 		})
@@ -1961,7 +1936,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	termsOfUseID := "http://example.com/policies/credential/4"
 	termsOfUseType := "IssuerPolicy"
 	degreeType := "UniversityDegreeCredential"
-	types := []string{degreeType}
+	types := []string{"VerifiableCredential", degreeType}
 	evidenceID := "https://example.edu/evidence/f2aeec97-fc0d-42bf-8ca7-0548192d4231"
 	evidenceVerifier := "https://example.edu/issuers/14"
 
@@ -1977,19 +1952,20 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	evidence := make(map[string]interface{})
 	evidence["id"] = evidenceID
+	evidence["type"] = "IssuerPolicy"
 	evidence["verifier"] = evidenceVerifier
 	evidence[customField] = customFieldVal
 
 	op, err := New(&Config{
-		StoreProvider:      memstore.NewProvider(),
-		KMSSecretsProvider: mem.NewProvider(),
+		StoreProvider:      ariesmemstorage.NewProvider(),
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		KeyManager:         customKMS,
 		VDRI:               &vdrmock.MockVDRegistry{},
 		Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
 	})
 	require.NoError(t, err)
 
-	op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
+	op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: uuid.New().URN()}}
 
 	handler := getHandler(t, op, composeAndIssueCredentialPath, http.MethodPost)
 
@@ -2006,17 +1982,20 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - success", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
-			VDRI: &vdrmock.MockVDRegistry{ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-				return createDIDDocWithKeyID(didID, key1ID, pubKey), nil
-			}},
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
+				}},
 			Crypto: customCrypto,
 		})
 		require.NoError(t, err)
 
-		op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
+		op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: uuid.New().URN(),
+			Type: "RevocationList2020Status", CustomFields: verifiable.CustomFields{"revocationListIndex": "94567",
+				"revocationListCredential": "https://example.com/credentials/status/3"}}}
 
 		err = op.profileStore.SaveProfile(profile)
 		require.NoError(t, err)
@@ -2037,8 +2016,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			ExpirationDate: &expiryDate,
 			Types:          types,
 			Claims:         claimJSON,
-			TermsOfUse:     termsOfUseJSON,
 			Evidence:       evidenceJSON,
+			TermsOfUse:     termsOfUseJSON,
 			CredentialFormatOptions: json.RawMessage([]byte(`
 				{
 				"@context": [
@@ -2062,8 +2041,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 		// top level values
 		require.Equal(t, issuer, vcResp.Issuer.ID)
-		require.Equal(t, 1, len(vcResp.Types))
-		require.Equal(t, degreeType, vcResp.Types[0])
+		require.Equal(t, 2, len(vcResp.Types))
+		require.Equal(t, degreeType, vcResp.Types[1])
 		require.Equal(t, issueDate, vcResp.Issued.Time)
 		require.Equal(t, expiryDate, vcResp.Expired.Time)
 		require.NotNil(t, vcResp.Evidence)
@@ -2146,8 +2125,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	t.Run("compose and issue credential - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
@@ -2170,8 +2149,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	t.Run("compose and issue credential - add credential status error", func(t *testing.T) {
 		ops, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
@@ -2258,12 +2237,12 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 		op1, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (*did.Doc, error) {
-					return createDIDDocWithKeyID(didID, key1ID, pubKey), nil
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
 				}},
 		})
 		require.NoError(t, err)
@@ -2401,8 +2380,8 @@ func TestGenerateKeypair(t *testing.T) {
 	t.Run("generate key pair - success", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto:             customCrypto,
-			StoreProvider:      memstore.NewProvider(),
-			KMSSecretsProvider: mem.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
@@ -2423,8 +2402,8 @@ func TestGenerateKeypair(t *testing.T) {
 	t.Run("generate key pair - failure", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto:             customCrypto,
-			KMSSecretsProvider: mem.NewProvider(),
-			StoreProvider:      memstore.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
+			StoreProvider:      ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 		})
 		require.NoError(t, err)
@@ -2715,7 +2694,7 @@ func (m *mockCredentialStatusManager) GetRevocationListVC(id string) ([]byte, er
 func createKMS(t *testing.T) *localkms.LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
 
 	k, err := localkms.New("local-lock://custom/primary/key/", p)
 	require.NoError(t, err)
