@@ -18,6 +18,7 @@ import (
 
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -318,6 +319,8 @@ func buildCredential(signatureType, did string, claims []byte) (*verifiable.Cred
 
 		credential.Subject = credentialSubject
 	}
+
+	credential.Issued = util.NewTime(time.Now().UTC())
 
 	// set issuer
 	credential.Issuer = verifiable.Issuer{
