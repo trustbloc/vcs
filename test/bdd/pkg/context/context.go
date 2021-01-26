@@ -12,12 +12,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
-	"github.com/trustbloc/trustbloc-did-method/pkg/vdri/trustbloc"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 )
@@ -89,6 +89,6 @@ func createVDRI(didResolverURL string) (vdrapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new vdr provider: %w", err)
 	}
 
-	return vdrpkg.New(vdrProvider, vdrpkg.WithVDR(trustbloc.New(trustbloc.WithResolverURL(didResolverURL),
+	return vdrpkg.New(vdrProvider, vdrpkg.WithVDR(trustbloc.New(nil, trustbloc.WithResolverURL(didResolverURL),
 		trustbloc.WithDomain("testnet.trustbloc.local"))), vdrpkg.WithVDR(didResolverVDRI)), nil
 }

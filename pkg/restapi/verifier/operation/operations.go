@@ -19,8 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
-	"github.com/trustbloc/edge-core/pkg/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
@@ -42,8 +42,7 @@ const (
 	credentialsVerificationEndpoint   = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/credentials"
 	presentationsVerificationEndpoint = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/presentations"
 
-	invalidRequestErrMsg          = "Invalid request"
-	verifierProfileNotFoundErrMsg = "Verifier profile with id %s does not exist: %s"
+	invalidRequestErrMsg = "Invalid request"
 
 	successMsg = "success"
 
@@ -92,7 +91,7 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for verifier operations
 type Config struct {
-	StoreProvider storage.Provider
+	StoreProvider ariesstorage.Provider
 	VDRI          vdrapi.Registry
 	TLSConfig     *tls.Config
 	RequestTokens map[string]string
@@ -144,7 +143,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 
 	profile, err := o.profileStore.GetProfile(request.ID)
 
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+	if err != nil && !errors.Is(err, ariesstorage.ErrDataNotFound) {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -200,13 +199,6 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 	err := o.profileStore.DeleteProfile(profileID)
 
 	if err != nil {
-		if errors.Is(err, storage.ErrValueNotFound) {
-			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
-				fmt.Sprintf(verifierProfileNotFoundErrMsg, profileID, err.Error()))
-
-			return
-		}
-
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -756,12 +748,12 @@ func getDIDDocFromProof(verificationMethod string, vdr vdrapi.Registry) (*did.Do
 		return nil, err
 	}
 
-	didDoc, err := vdr.Resolve(didID)
+	docResolution, err := vdr.Resolve(didID)
 	if err != nil {
 		return nil, err
 	}
 
-	return didDoc, nil
+	return docResolution.DIDDocument, nil
 }
 
 func validateProfileRequest(pr *verifier.ProfileData) error { // nolint: gocyclo

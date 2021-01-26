@@ -20,12 +20,13 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
-	didclient "github.com/trustbloc/trustbloc-did-method/pkg/did"
-	"github.com/trustbloc/trustbloc-did-method/pkg/did/doc"
-	"github.com/trustbloc/trustbloc-did-method/pkg/did/option/create"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
@@ -247,7 +248,8 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 		return nil, err
 	}
 
-	c := didclient.New(didclient.WithTLSConfig(e.bddContext.TLSConfig))
+	c := trustbloc.New(nil, trustbloc.WithTLSConfig(e.bddContext.TLSConfig),
+		trustbloc.WithDomain("testnet.trustbloc.local"))
 
 	_, ed25519RecoveryPubKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -259,13 +261,32 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 		return nil, err
 	}
 
-	return c.CreateDID("testnet.trustbloc.local",
-		create.WithPublicKey(&doc.PublicKey{ID: keyID, Type: doc.JWSVerificationKey2020,
-			Value: base58.Decode(base58PubKey), KeyType: doc.Ed25519KeyType,
-			Purposes: []string{doc.KeyPurposeAssertionMethod, doc.KeyPurposeAuthentication},
-			Encoding: doc.PublicKeyEncodingJwk}),
-		create.WithRecoveryPublicKey(ed25519.PublicKey(ed25519RecoveryPubKey)),
-		create.WithUpdatePublicKey(ed25519.PublicKey(ed25519UpdatePubKey)))
+	didDoc := &docdid.Doc{}
+
+	jwk, err := jose.JWKFromPublicKey(ed25519.PublicKey(base58.Decode(base58PubKey)))
+	if err != nil {
+		return nil, err
+	}
+
+	vm, err := docdid.NewVerificationMethodFromJWK(keyID, doc.JWSVerificationKey2020, "", jwk)
+	if err != nil {
+		return nil, err
+	}
+
+	didDoc.Authentication = append(didDoc.Authentication,
+		*docdid.NewReferencedVerification(vm, docdid.Authentication))
+
+	didDoc.AssertionMethod = append(didDoc.AssertionMethod,
+		*docdid.NewReferencedVerification(vm, docdid.AssertionMethod))
+
+	docResolution, err := c.Create(nil, didDoc,
+		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, ed25519.PublicKey(ed25519RecoveryPubKey)),
+		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, ed25519.PublicKey(ed25519UpdatePubKey)))
+	if err != nil {
+		return nil, err
+	}
+
+	return docResolution.DIDDocument, nil
 }
 
 func (e *Steps) verifyCredential(signedVCByte []byte, domain, challenge, purpose string) error { // nolint: gocyclo

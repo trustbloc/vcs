@@ -26,11 +26,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
@@ -46,7 +45,7 @@ const (
 func Test_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -55,8 +54,9 @@ func Test_New(t *testing.T) {
 
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&Config{
-			StoreProvider: &mockstorage.Provider{ErrCreateStore: errors.New("error creating the store")},
-			VDRI:          &vdrmock.MockVDRegistry{},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				ErrOpenStoreHandle: errors.New("error creating the store")},
+			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the store")
@@ -66,7 +66,7 @@ func Test_New(t *testing.T) {
 
 func TestCreateProfile(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("create profile - get profile error", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrGet: errors.New("get error")},
 			},
@@ -200,18 +200,14 @@ func TestCreateProfile(t *testing.T) {
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
 
-		// mockStore Get() only returns ErrGet if the key is found in mockStore, so we create profile twice to get ErrGet
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-		require.Equal(t, http.StatusCreated, rr.Code)
-
-		rr = serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "get error")
 	})
 
 	t.Run("create profile - profile fetch db error", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:  make(map[string][]byte),
 				ErrPut: errors.New("save error")},
 			},
@@ -239,7 +235,7 @@ func TestCreateProfile(t *testing.T) {
 
 func TestGetProfile(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -275,13 +271,13 @@ func TestGetProfile(t *testing.T) {
 		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "store does not have a value associated with this key")
+		require.Contains(t, rr.Body.String(), "data not found")
 	})
 }
 
 func TestDeleteProfileHandler(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -299,31 +295,9 @@ func TestDeleteProfileHandler(t *testing.T) {
 		require.Equal(t, http.StatusOK, rr.Code)
 	})
 
-	t.Run("delete profile - profile does not exist", func(t *testing.T) {
-		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
-
-		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			fmt.Sprintf("Verifier profile with id %s does not exist: %s",
-				testProfileID, storage.ErrValueNotFound))
-	})
-
-	t.Run("delete profile - delete same profile twice", func(t *testing.T) {
-		saveTestProfile(t, op)
-
-		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
-		require.Equal(t, http.StatusOK, rr.Code)
-
-		rr = serveHTTPMux(t, handler, endpoint, nil, urlVars)
-		require.Equal(t, http.StatusNotFound, rr.Code)
-		require.Contains(t, rr.Body.String(),
-			fmt.Sprintf("Verifier profile with id %s does not exist: %s",
-				testProfileID, storage.ErrValueNotFound))
-	})
-
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &mockstorage.Provider{Store: &mockstorage.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:     make(map[string][]byte),
 				ErrDelete: errors.New("delete error")},
 			},
@@ -346,7 +320,7 @@ func TestVerifyCredential(t *testing.T) {
 
 	op, err := New(&Config{
 		VDRI:          &vdrmock.MockVDRegistry{},
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		RequestTokens: map[string]string{cslRequestTokenName: "tk1"},
 	})
 	require.NoError(t, err)
@@ -379,7 +353,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, errNew := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, errNew)
 
@@ -429,7 +403,7 @@ func TestVerifyCredential(t *testing.T) {
 	t.Run("credential verification - invalid profile", func(t *testing.T) {
 		ops, errNew := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, errNew)
 
@@ -765,7 +739,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -852,7 +826,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -904,7 +878,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -939,7 +913,7 @@ func TestVerifyCredential(t *testing.T) {
 func TestVerifyPresentation(t *testing.T) {
 	op, err := New(&Config{
 		VDRI:          &vdrmock.MockVDRegistry{},
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 	})
 	require.NoError(t, err)
 
@@ -970,7 +944,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -1014,7 +988,7 @@ func TestVerifyPresentation(t *testing.T) {
 	t.Run("presentation verification - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -1029,7 +1003,7 @@ func TestVerifyPresentation(t *testing.T) {
 	t.Run("presentation verification - invalid vp", func(t *testing.T) {
 		ops, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -1171,7 +1145,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -1262,7 +1236,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -1304,7 +1278,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 
@@ -1345,7 +1319,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 		})
 		require.NoError(t, err)
 

@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/edge-core/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -57,7 +57,7 @@ type crypto interface {
 
 // CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-status-rl-2020/
 type CredentialStatusManager struct {
-	store    storage.Store
+	store    ariesstorage.Store
 	url      string
 	listSize int
 	crypto   crypto
@@ -79,14 +79,7 @@ type credentialSubject struct {
 }
 
 // New returns new Credential Status List
-func New(provider storage.Provider, url string, listSize int, c crypto) (*CredentialStatusManager, error) {
-	err := provider.CreateStore(credentialStatusStore)
-	if err != nil {
-		if !errors.Is(err, storage.ErrDuplicateStore) {
-			return nil, err
-		}
-	}
-
+func New(provider ariesstorage.Provider, url string, listSize int, c crypto) (*CredentialStatusManager, error) {
 	store, err := provider.OpenStore(credentialStatusStore)
 	if err != nil {
 		return nil, err
@@ -247,7 +240,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 	// get latest id
 	id, err := c.store.Get(latestListID)
 	if err != nil { //nolint: nestif
-		if errors.Is(err, storage.ErrValueNotFound) {
+		if errors.Is(err, ariesstorage.ErrDataNotFound) {
 			if errPut := c.store.Put(latestListID, []byte("1")); errPut != nil {
 				return nil, fmt.Errorf("failed to store latest list ID in store: %w", errPut)
 			}
@@ -273,7 +266,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 
 	w, err := c.getCSLWrapper(vcID)
 	if err != nil { //nolint: nestif
-		if errors.Is(err, storage.ErrValueNotFound) {
+		if errors.Is(err, ariesstorage.ErrDataNotFound) {
 			// create verifiable credential that encapsulates the revocation list
 			vc, errCreateVC := c.createVC(vcID, profile)
 			if errCreateVC != nil {

@@ -10,10 +10,10 @@ import (
 	"errors"
 	"testing"
 
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 )
@@ -21,7 +21,7 @@ import (
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -30,8 +30,9 @@ func TestController_New(t *testing.T) {
 
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: &mockstorage.Provider{ErrCreateStore: errors.New("error creating the store")},
-			VDRI:          &vdrmock.MockVDRegistry{},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				ErrOpenStoreHandle: errors.New("error creating the store")},
+			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the store")
@@ -42,7 +43,7 @@ func TestController_New(t *testing.T) {
 func TestController_GetOperations(t *testing.T) {
 	controller, err := New(&operation.Config{
 		VDRI:          &vdrmock.MockVDRegistry{},
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, controller)

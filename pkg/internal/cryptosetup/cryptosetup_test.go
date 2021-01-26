@@ -20,10 +20,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
 var errTest = errors.New("testError")
@@ -38,7 +37,7 @@ func TestPrepareJWECrypto(t *testing.T) {
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
 
 		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&mockkms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
-			mockstore.NewMockStoreProvider(), &mockCrypto, jose.A256GCM, kmsservice.ECDH256KWAES256GCMType)
+			ariesmockstorage.NewMockStoreProvider(), &mockCrypto, jose.A256GCM, kmsservice.ECDH256KWAES256GCMType)
 		require.EqualError(t, err, "keyset.Handle: keyset.Handle: keyset contains a non-private key")
 		require.Nil(t, jweEncrypter)
 		require.Nil(t, jweDecrypter)
@@ -79,7 +78,7 @@ func Test_createJWEEncrypter(t *testing.T) {
 
 func TestPrepareMACCrypto(t *testing.T) {
 	t.Run("Success: key ID already in store", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
@@ -96,7 +95,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	})
 	t.Run("Failure: key ID already in store, "+
 		"but failed to retrieve key handle from key manager", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
@@ -110,7 +109,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 	})
 	t.Run("Failure: key ID already in store, "+
 		"but failed to assert retrieved key handle from key manager as a *keyset.Handle", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 
@@ -123,7 +122,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		require.Empty(t, encodedVCIDIndexNameMAC)
 	})
 	t.Run("Unexpected failure while getting key ID from store", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 		err := mockStoreProvider.Store.Put(hmacKeyIDDBKeyName, []byte("testKeyID"))
 		require.NoError(t, err)
 		mockStoreProvider.Store.ErrGet = errTest
@@ -135,7 +134,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		require.Empty(t, encodedVCIDIndexNameMAC)
 	})
 	t.Run("Failure while creating new HMAC key set", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 
 		mockKMS := mockkms.KeyManager{CreateKeyErr: errTest}
 
@@ -149,7 +148,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		require.Empty(t, encodedVCIDIndexNameMAC)
 	})
 	t.Run("Failure: unable to assert newly created key handle as a *keyset.Handle", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrPut = errTest
 
 		km := createKMS(t)
@@ -161,7 +160,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		require.Empty(t, encodedVCIDIndexNameMAC)
 	})
 	t.Run("Failure: error while putting new key ID in store", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 		mockStoreProvider.Store.ErrPut = errTest
 
 		mockKMS := mockkms.KeyManager{}
@@ -173,7 +172,7 @@ func TestPrepareMACCrypto(t *testing.T) {
 		require.Empty(t, encodedVCIDIndexNameMAC)
 	})
 	t.Run("Failure while computing MAC", func(t *testing.T) {
-		mockStoreProvider := mockstore.NewMockStoreProvider()
+		mockStoreProvider := ariesmockstorage.NewMockStoreProvider()
 
 		mockKMS := mockkms.KeyManager{}
 
@@ -222,7 +221,7 @@ func (m mockKeyManager) ImportPrivateKey(
 func createKMS(t *testing.T) *localkms.LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
 
 	k, err := localkms.New("local-lock://custom/primary/key/", p)
 	require.NoError(t, err)

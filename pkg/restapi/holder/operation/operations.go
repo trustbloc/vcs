@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/trustbloc/edge-core/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -38,8 +38,7 @@ const (
 	deleteHolderProfileEndpoint = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
 	signPresentationEndpoint    = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
 
-	invalidRequestErrMsg        = "Invalid request"
-	holderProfileNotFoundErrMsg = "Holder profile with id %s does not exist: %s"
+	invalidRequestErrMsg = "Invalid request"
 )
 
 // Handler http handler for each controller API endpoint
@@ -73,7 +72,7 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for vcs operations
 type Config struct {
-	StoreProvider storage.Provider
+	StoreProvider ariesstorage.Provider
 	KeyManager    keyManager
 	VDRI          vdrapi.Registry
 	Domain        string
@@ -126,7 +125,7 @@ func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http
 	}
 
 	profile, err := o.profileStore.GetHolderProfile(request.Name)
-	if err != nil && !errors.Is(err, storage.ErrValueNotFound) {
+	if err != nil && !errors.Is(err, ariesstorage.ErrDataNotFound) {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -190,13 +189,6 @@ func (o *Operation) deleteHolderProfileHandler(rw http.ResponseWriter, req *http
 
 	err := o.profileStore.DeleteHolderProfile(profileID)
 	if err != nil {
-		if errors.Is(err, storage.ErrValueNotFound) {
-			commhttp.WriteErrorResponse(rw, http.StatusNotFound,
-				fmt.Sprintf(holderProfileNotFoundErrMsg, profileID, err.Error()))
-
-			return
-		}
-
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return

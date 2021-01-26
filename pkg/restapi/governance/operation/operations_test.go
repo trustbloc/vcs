@@ -27,12 +27,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -47,7 +46,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 
 	op, err := New(&Config{
 		Crypto:        customCrypto,
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: ariesmemstorage.NewProvider(),
 		KeyManager:    customKMS,
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
@@ -120,7 +119,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 	t.Run("create profile - failed to get profile", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto: customCrypto,
-			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
 				ErrGet: fmt.Errorf("failed to get")}},
 			KeyManager: customKMS,
@@ -150,8 +149,9 @@ func TestCreateGovernanceProfile(t *testing.T) {
 	t.Run("create profile - failed to store governance profile", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto: customCrypto,
-			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{Store: make(map[string][]byte),
-				ErrPut: fmt.Errorf("failed to put")}},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte),
+					ErrPut: fmt.Errorf("failed to put")}},
 			KeyManager: customKMS,
 			VDRI:       &vdrmock.MockVDRegistry{},
 		})
@@ -179,7 +179,7 @@ func TestCreateGovernanceProfile(t *testing.T) {
 	t.Run("create profile - failed to created DID", func(t *testing.T) {
 		ops, err := New(&Config{
 			Crypto:        customCrypto,
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
@@ -241,11 +241,11 @@ func TestIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOpts) (doc *did.Doc, e error) {
-					return createDIDDocWithKeyID(didID, keyID, signingKey), nil
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
 			Crypto:     customCrypto,
@@ -290,7 +290,7 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - failed to get governance", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider: &mockstore.Provider{Store: &mockstore.MockStore{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
 				ErrGet: fmt.Errorf("failed to get")}},
 			KeyManager: customKMS,
@@ -319,7 +319,7 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - failed to create status id", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI:          &vdrmock.MockVDRegistry{},
 			Crypto:        customCrypto,
@@ -351,7 +351,7 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - failed to sign credential", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider: memstore.NewProvider(),
+			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI:          &vdrmock.MockVDRegistry{},
 			Crypto:        customCrypto,
@@ -507,7 +507,7 @@ func (m *mockVCStatusManager) GetRevocationListVC(id string) ([]byte, error) {
 func createKMS(t *testing.T) *localkms.LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(storage.NewMockStoreProvider(), &noop.NoLock{})
+	p := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
 
 	k, err := localkms.New("local-lock://custom/primary/key/", p)
 	require.NoError(t, err)

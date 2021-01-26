@@ -7,20 +7,29 @@ SPDX-License-Identifier: Apache-2.0
 package did
 
 import (
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
 	"github.com/btcsuite/btcutil/base58"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/trustbloc-did-method/pkg/did/option/create"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
+)
+
+const (
+	key1 = "key1"
 )
 
 func TestCommonDID_ResolveDID(t *testing.T) {
@@ -65,20 +74,54 @@ func TestCommonDID_ResolveDID(t *testing.T) {
 
 func TestCommonDID_CreateDID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{VDRI: &vdr.MockVDRegistry{
+			CreateFunc: func(s string, doc *ariesdid.Doc,
+				option ...vdrapi.DIDMethodOption) (*ariesdid.DocResolution, error) {
+				return &ariesdid.DocResolution{DIDDocument: &ariesdid.Doc{ID: "did:trustbloc:123"}}, nil
+			}}})
 
-		c.trustBlocDIDClient = &mockTrustBlocDIDClient{CreateDIDValue: &ariesdid.Doc{ID: "did:trustbloc:123"}}
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return key1, v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return key1, ecPubKeyBytes, nil
+		}
 
 		did, keyID, err := c.CreateDID(crypto.P256KeyType, crypto.JSONWebSignature2020, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{})
 
 		require.NoError(t, err)
-		require.Equal(t, "did:trustbloc:123#key-1", keyID)
+		require.Equal(t, "did:trustbloc:123#key1", keyID)
 		require.Equal(t, "did:trustbloc:123", did)
 	})
 
 	t.Run("test error - create public keys failed", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return key1, v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return key1, ecPubKeyBytes, nil
+		}
 
 		did, keyID, err := c.CreateDID(crypto.P256KeyType, crypto.Ed25519Signature2018, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{})
@@ -90,9 +133,27 @@ func TestCommonDID_CreateDID(t *testing.T) {
 	})
 
 	t.Run("test error - create did failed", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{VDRI: &vdr.MockVDRegistry{
+			CreateFunc: func(s string, doc *ariesdid.Doc,
+				option ...vdrapi.DIDMethodOption) (*ariesdid.DocResolution, error) {
+				return nil, fmt.Errorf("failed to create DID")
+			}}})
 
-		c.trustBlocDIDClient = &mockTrustBlocDIDClient{CreateDIDErr: fmt.Errorf("failed to create DID")}
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return key1, v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return key1, ecPubKeyBytes, nil
+		}
 
 		did, keyID, err := c.CreateDID(crypto.P256KeyType, crypto.JSONWebSignature2020, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{})
@@ -105,7 +166,23 @@ func TestCommonDID_CreateDID(t *testing.T) {
 }
 func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 	t.Run("test success - trustbloc method", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return "key-1", v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return "key-1", ecPubKeyBytes, nil
+		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:trustbloc:123",
 			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:trustbloc:123#key-1"}, {ID: "did:trustbloc:123#key2"}}}
@@ -119,7 +196,23 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 	})
 
 	t.Run("test error - trustbloc method key not found", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-3"}})
+		c := New(&Config{})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return "key-3", v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return "key-3", ecPubKeyBytes, nil
+		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:trustbloc:123",
 			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:trustbloc:123#key-1"}, {ID: "did:trustbloc:123#key2"}}}
@@ -134,7 +227,27 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 	})
 
 	t.Run("test success - v1 method", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{KeyManager: &mockkms.KeyManager{}, VDRI: &vdr.MockVDRegistry{
+			CreateFunc: func(s string, doc *ariesdid.Doc,
+				option ...vdrapi.DIDMethodOption) (*ariesdid.DocResolution, error) {
+				return &ariesdid.DocResolution{DIDDocument: &ariesdid.Doc{ID: "did:v1:123"}}, nil
+			}}})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return "key-2", v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return "key-2", ecPubKeyBytes, nil
+		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:v1:123",
 			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
@@ -149,7 +262,23 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 	})
 
 	t.Run("test error - v1 method key not found", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{KeyManager: &mockkms.KeyManager{}})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return key1, v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return key1, ecPubKeyBytes, nil
+		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:v1:123",
 			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
@@ -165,7 +294,23 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 	})
 
 	t.Run("test success - other did methods", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{KeyManager: &mockkms.KeyManager{}})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return key1, v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return key1, ecPubKeyBytes, nil
+		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:test:123",
 			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:test:123#key-1", Purposes: []string{crypto.AssertionMethod}},
@@ -192,7 +337,23 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 	})
 
 	t.Run("test error - create did through uni registrar failed", func(t *testing.T) {
-		c := New(&Config{KeyManager: &mockkms.KeyManager{CreateKeyID: "key-1"}})
+		c := New(&Config{KeyManager: &mockkms.KeyManager{}})
+
+		c.createKey = func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error) {
+			if keyType == kms.ED25519Type {
+				_, v, err := ed25519.GenerateKey(rand.Reader)
+				require.NoError(t, err)
+
+				return key1, v, nil
+			}
+
+			ecPrivKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			require.NoError(t, err)
+
+			ecPubKeyBytes := elliptic.Marshal(ecPrivKey.PublicKey.Curve, ecPrivKey.PublicKey.X, ecPrivKey.PublicKey.Y)
+
+			return key1, ecPubKeyBytes, nil
+		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDErr: fmt.Errorf("failed create DID")}
 
@@ -209,7 +370,7 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 func TestCommonDID_CreateKey(t *testing.T) {
 	t.Run("test error - export public key failed", func(t *testing.T) {
 		c := New(&Config{KeyManager: &mockkms.KeyManager{ExportPubKeyBytesErr: fmt.Errorf("failed export public key")}})
-		_, _, err := c.createKey("ED25519")
+		_, _, err := c.createKey("ED25519", c.keyManager)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed export public key")
 	})
@@ -233,13 +394,4 @@ type mockUNIRegistrarClient struct {
 func (m *mockUNIRegistrarClient) CreateDID(driverURL string,
 	opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error) {
 	return m.CreateDIDValue, m.CreateDIDKeys, m.CreateDIDErr
-}
-
-type mockTrustBlocDIDClient struct {
-	CreateDIDValue *ariesdid.Doc
-	CreateDIDErr   error
-}
-
-func (m *mockTrustBlocDIDClient) CreateDID(domain string, opts ...create.Option) (*ariesdid.Doc, error) {
-	return m.CreateDIDValue, m.CreateDIDErr
 }

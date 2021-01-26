@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/stretchr/testify/require"
-	mockstorage "github.com/trustbloc/edge-core/pkg/storage/mockstore"
 )
 
 func TestCredentialRecord_SaveProfile(t *testing.T) {
 	t.Run("test save profile success", func(t *testing.T) {
-		record, err := New(mockstorage.NewMockStoreProvider())
+		record, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, record)
 
@@ -44,7 +44,7 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 
 func TestCredentialRecord_GetProfile(t *testing.T) {
 	t.Run("test get profile success", func(t *testing.T) {
-		record, err := New(mockstorage.NewMockStoreProvider())
+		record, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, record)
 
@@ -69,20 +69,20 @@ func TestCredentialRecord_GetProfile(t *testing.T) {
 	})
 
 	t.Run("test get profile failure due to invalid id", func(t *testing.T) {
-		record, err := New(mockstorage.NewMockStoreProvider())
+		record, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, record)
 
 		profileByte, err := record.GetProfile("")
 		require.Nil(t, profileByte)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "store does not have a value associated with this key")
+		require.Contains(t, err.Error(), "data not found")
 	})
 }
 
 func TestCredentialRecord_DeleteProfile(t *testing.T) {
 	t.Run("test delete profile - success", func(t *testing.T) {
-		mockStore, err := New(mockstorage.NewMockStoreProvider())
+		mockStore, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, mockStore)
 
@@ -109,7 +109,7 @@ func TestSaveHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			Store: s,
 		}})
 		require.NoError(t, err)
@@ -133,8 +133,8 @@ func TestSaveHolder(t *testing.T) {
 	t.Run("test save holder - fail", func(t *testing.T) {
 		s := make(map[string][]byte)
 
-		profileStore, err := New(&mockstorage.Provider{
-			Store: &mockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -155,7 +155,7 @@ func TestSaveHolder(t *testing.T) {
 
 func TestDeleteHolderProfile(t *testing.T) {
 	t.Run("test delete holder profile - success", func(t *testing.T) {
-		mockStore, err := New(mockstorage.NewMockStoreProvider())
+		mockStore, err := New(ariesmockstorage.NewMockStoreProvider())
 		require.NoError(t, err)
 		require.NotNil(t, mockStore)
 
@@ -180,7 +180,7 @@ func TestSaveGovernance(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			Store: s,
 		}})
 		require.NoError(t, err)
@@ -204,8 +204,8 @@ func TestSaveGovernance(t *testing.T) {
 	t.Run("test save governance - fail", func(t *testing.T) {
 		s := make(map[string][]byte)
 
-		profileStore, err := New(&mockstorage.Provider{
-			Store: &mockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -229,7 +229,7 @@ func TestGetHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -254,14 +254,15 @@ func TestGetHolder(t *testing.T) {
 	})
 
 	t.Run("test get holder - no data", func(t *testing.T) {
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: make(map[string][]byte)}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
 
 		resp, err := profileStore.GetHolderProfile("holder-1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "store does not have a value associated with this key")
+		require.Contains(t, err.Error(), "data not found")
 		require.Nil(t, resp)
 	})
 
@@ -269,7 +270,8 @@ func TestGetHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -287,7 +289,8 @@ func TestGovernanceHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -312,14 +315,15 @@ func TestGovernanceHolder(t *testing.T) {
 	})
 
 	t.Run("test get governance - no data", func(t *testing.T) {
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: make(map[string][]byte)}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
 
 		resp, err := profileStore.GetGovernanceProfile("governance-1")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "store does not have a value associated with this key")
+		require.Contains(t, err.Error(), "data not found")
 		require.Nil(t, resp)
 	})
 
@@ -327,7 +331,7 @@ func TestGovernanceHolder(t *testing.T) {
 		s := make(map[string][]byte)
 		require.Equal(t, 0, len(s))
 
-		profileStore, err := New(&mockstorage.Provider{Store: &mockstorage.MockStore{Store: s}})
+		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 

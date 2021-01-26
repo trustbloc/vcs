@@ -116,11 +116,11 @@ func (o *Operation) resolveWithVDRI(rw http.ResponseWriter, didURI string) {
 		return
 	}
 
-	var doc *diddoc.Doc
+	var docResolution *diddoc.DocResolution
 
 	switch did.Method {
 	case didMethodKey:
-		doc, err = o.keyVDRI.Read(did.String())
+		docResolution, err = o.keyVDRI.Read(did.String())
 		if err != nil {
 			writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID: %s", err.Error()))
 			return
@@ -130,7 +130,7 @@ func (o *Operation) resolveWithVDRI(rw http.ResponseWriter, didURI string) {
 		return
 	}
 
-	bytes, err := doc.JSONBytes()
+	bytes, err := docResolution.DIDDocument.JSONBytes()
 	if err != nil {
 		writeErrorResponse(rw, http.StatusInternalServerError,
 			fmt.Sprintf("failed to convert DIDDoc to json bytes: %s", err.Error()))
