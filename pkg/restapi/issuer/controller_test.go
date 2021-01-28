@@ -27,7 +27,7 @@ func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-		kh, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+		kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 		require.NoError(t, err)
 
 		controller, err := New(&operation.Config{StoreProvider: ariesmemstorage.NewProvider(),
@@ -53,7 +53,7 @@ func TestController_New(t *testing.T) {
 func TestController_GetOperations(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
-	kh, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+	kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	controller, err := New(&operation.Config{StoreProvider: ariesmemstorage.NewProvider(),

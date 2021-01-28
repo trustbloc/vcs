@@ -37,7 +37,7 @@ func TestPrepareJWECrypto(t *testing.T) {
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
 
 		jweEncrypter, jweDecrypter, err := PrepareJWECrypto(&mockkms.KeyManager{CreateKeyValue: keyHandleToBeCreated},
-			ariesmockstorage.NewMockStoreProvider(), &mockCrypto, jose.A256GCM, kmsservice.ECDH256KWAES256GCMType)
+			ariesmockstorage.NewMockStoreProvider(), &mockCrypto, jose.A256GCM, kmsservice.NISTP256ECDHKWType)
 		require.EqualError(t, err, "keyset.Handle: keyset.Handle: keyset contains a non-private key")
 		require.Nil(t, jweEncrypter)
 		require.Nil(t, jweDecrypter)
@@ -46,7 +46,7 @@ func TestPrepareJWECrypto(t *testing.T) {
 
 func Test_createJWEEncrypter(t *testing.T) {
 	t.Run("Fail to unmarshal", func(t *testing.T) {
-		keyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+		keyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 		require.NoError(t, err)
 
 		testMACValue := []byte("testValue")
@@ -60,7 +60,7 @@ func Test_createJWEEncrypter(t *testing.T) {
 		require.Nil(t, jweEncrypter)
 	})
 	t.Run("Fail to create new JWE Encrypter", func(t *testing.T) {
-		keyHandle, err := keyset.NewHandle(ecdh.ECDH256KWAES256GCMKeyTemplate())
+		keyHandle, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 		require.NoError(t, err)
 
 		testMACValue := []byte("testValue")
