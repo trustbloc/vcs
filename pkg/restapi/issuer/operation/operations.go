@@ -132,7 +132,7 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	jweEncrypter, jweDecrypter, err := cryptosetup.PrepareJWECrypto(config.KeyManager, config.StoreProvider,
-		config.Crypto, jose.A256GCM, kms.ECDH256KWAES256GCMType)
+		config.Crypto, jose.A256GCM, kms.NISTP256ECDHKWType)
 	if err != nil {
 		return nil, err
 	}
