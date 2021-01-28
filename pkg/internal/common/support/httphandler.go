@@ -10,6 +10,13 @@ import (
 	"net/http"
 )
 
+// Handler http handler for each controller API endpoint
+type Handler interface {
+	Path() string
+	Method() string
+	Handle() http.HandlerFunc
+}
+
 // NewHTTPHandler returns instance of HTTPHandler which can be used to handle http requests
 func NewHTTPHandler(path, method string, handle http.HandlerFunc) *HTTPHandler {
 	return &HTTPHandler{path: path, method: method, handle: handle}

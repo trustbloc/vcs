@@ -4,6 +4,7 @@
 
 VC_REST_PATH=cmd/vc-rest
 DID_REST_PATH=cmd/did-rest
+VAULT_REST_PATH=cmd/vault-server
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS   ?= ghcr.io
@@ -43,6 +44,12 @@ vc-rest:
 	@echo "Building vc-rest"
 	@mkdir -p ./.build/bin
 	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
+
+.PHONY: vault-server
+vault-server:
+	@echo "Building vault-server"
+	@mkdir -p ./build/bin
+	@cd ${VAULT_REST_PATH} && go build -o ../../build/bin/vault-server main.go
 
 .PHONY: vc-server-docker
 vc-server-docker:
@@ -99,6 +106,14 @@ generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
 	@mkdir -p build/rest/openapi/spec
 	@SPEC_META=$(VC_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
+	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+	scripts/generate-openapi-spec.sh
+
+.PHONY: generate-openapi-spec-vault
+generate-openapi-spec-vault: clean
+	@echo "Generating and validating controller API specifications using Open API"
+	@mkdir -p build/rest/openapi/spec/vault
+	@SPEC_META=$(VAULT_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/vault  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
 
