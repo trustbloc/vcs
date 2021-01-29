@@ -5,11 +5,13 @@
 VC_REST_PATH=cmd/vc-rest
 DID_REST_PATH=cmd/did-rest
 VAULT_REST_PATH=cmd/vault-server
+COMPARATOR_REST_PATH=cmd/comparator-rest
 
 # Namespace for the agent images
-DOCKER_OUTPUT_NS   ?= ghcr.io
-VC_REST_IMAGE_NAME   ?= trustbloc/vc-server
-DID_REST_IMAGE_NAME   ?= trustbloc/did-resolver
+DOCKER_OUTPUT_NS             ?= ghcr.io
+VC_REST_IMAGE_NAME           ?= trustbloc/vc-server
+COMPARATOR_REST_IMAGE_NAME   ?= trustbloc/comparator-server
+DID_REST_IMAGE_NAME          ?= trustbloc/did-resolver
 DID_ELEMENT_SIDETREE_REQUEST_URL ?= https://element-did.com/api/v1/sidetree/requests
 
 # OpenAPI spec
@@ -45,6 +47,13 @@ vc-rest:
 	@mkdir -p ./.build/bin
 	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
 
+
+.PHONY: comparator-rest
+comparator-rest:
+	@echo "Building comparator-rest"
+	@mkdir -p ./.build/bin
+	@cd ${COMPARATOR_REST_PATH} && go build -o ../../.build/bin/comparator-rest main.go
+
 .PHONY: vault-server
 vault-server:
 	@echo "Building vault-server"
@@ -55,6 +64,14 @@ vault-server:
 vc-server-docker:
 	@echo "Building vc rest docker image"
 	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) .
+
+
+.PHONY: comparator-rest-docker
+comparator-rest-docker:
+	@echo "Building comparator rest docker image"
+	@docker build -f ./images/comparator-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(COMPARATOR_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
@@ -72,7 +89,7 @@ did-resolver-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: clean vc-server-docker did-resolver-docker generate-test-keys generate-test-config
+bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker generate-test-keys generate-test-config
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test

@@ -18,6 +18,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/governance"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/holder"
@@ -61,7 +62,7 @@ func runBDDTests(tags, format string) int {
 		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/mysql", "./fixtures/vc-rest",
 			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/did-method-rest", "./fixtures/universal-registrar", "./fixtures/discovery-server",
-			"./fixtures/stakeholder-server"}
+			"./fixtures/stakeholder-server", "./fixtures/comparator-rest"}
 
 		s.BeforeSuite(func() {
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
@@ -133,6 +134,8 @@ func FeatureContext(s *godog.Suite) {
 	if err != nil {
 		panic(fmt.Sprintf("Error returned from NewBDDContext: %s", err))
 	}
+
+	common.NewSteps(bddContext).RegisterSteps(s)
 
 	vc.NewSteps(bddContext).RegisterSteps(s)
 

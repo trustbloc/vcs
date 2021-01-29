@@ -13,6 +13,7 @@ declare -a tests=(
    "verifier_rest"
    "vc_rest"
    "w3c_workflow"
+   "comparator_rest"
 )
 
 PWD=`pwd`
