@@ -7,14 +7,21 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/vault"
+	vault "github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 
 const (
@@ -22,10 +29,20 @@ const (
 	hostURLFlagShorthand = "u"
 	hostURLFlagUsage     = "Host URL to run the vault instance on. Format: HostName:Port."
 	hostURLEnvKey        = "VAULT_HOST_URL"
+
+	remoteKMSURLFlagName  = "remote-kms-url"
+	remoteKMSURLFlagUsage = "Remote KMS URL."
+	remoteKMSURLEnvKey    = "VAULT_REMOTE_KMS_URL"
+
+	edvURLFlagName  = "edv-url"
+	edvURLFlagUsage = "EDV URL."
+	edvURLEnvKey    = "VAULT_EDV_URL"
 )
 
 type serviceParameters struct {
-	host string
+	host         string
+	remoteKMSURL string
+	edvURL       string
 }
 
 type server interface {
@@ -70,24 +87,69 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	remoteKMSURL, err := cmdutils.GetUserSetVarFromString(cmd, remoteKMSURLFlagName, remoteKMSURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	edvURL, err := cmdutils.GetUserSetVarFromString(cmd, edvURLFlagName, edvURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
-		host: host,
+		host:         host,
+		remoteKMSURL: remoteKMSURL,
+		edvURL:       edvURL,
 	}, err
 }
 
 func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
+	cmd.Flags().StringP(remoteKMSURLFlagName, "", "", remoteKMSURLFlagUsage)
+	cmd.Flags().StringP(edvURLFlagName, "", "", edvURLFlagUsage)
+}
+
+const (
+	keystorePrimaryKeyURI = "local-lock://keystorekms"
+)
+
+type kmsProvider struct {
+	storageProvider storage.Provider
+	secretLock      secretlock.Service
+}
+
+func (k kmsProvider) StorageProvider() storage.Provider {
+	return k.storageProvider
+}
+
+func (k kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLock
 }
 
 func startService(params *serviceParameters, srv server) error {
-	router := mux.NewRouter()
-
-	service, err := vault.New(nil)
+	keyManager, err := localkms.New(keystorePrimaryKeyURI, &kmsProvider{
+		// TODO: make a storage configurable
+		storageProvider: mem.NewProvider(),
+		secretLock:      &noop.NoLock{},
+	})
 	if err != nil {
-		return err
+		return fmt.Errorf("localkms new: %w", err)
 	}
 
-	for _, handler := range service.GetOperations() {
+	service, err := vault.New(&vault.Config{
+		RemoteKMSURL: params.remoteKMSURL,
+		EDVURL:       params.edvURL,
+		LocalKMS:     keyManager,
+		HTTPClient:   &http.Client{Timeout: time.Minute},
+	})
+	if err != nil {
+		return fmt.Errorf("vault new: %w", err)
+	}
+
+	router := mux.NewRouter()
+
+	for _, handler := range service.GetRESTHandlers() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 

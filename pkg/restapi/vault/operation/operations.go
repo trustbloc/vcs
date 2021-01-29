@@ -7,41 +7,64 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
+	"github.com/trustbloc/edge-core/pkg/log"
+
+	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
+// API endpoints.
 const (
 	operationID             = "/vaults"
-	createVaultPath         = operationID
-	saveDocPath             = operationID + "/{vaultID}/docs"
-	getDocPath              = operationID + "/{vaultID}/docs/{docID}"
-	createAuthorizationPath = operationID + "/{vaultID}/authorizations"
-	getAuthorizationPath    = operationID + "/{vaultID}/authorizations/{authID}"
-	deleteAuthorizationPath = operationID + "/{vaultID}/authorizations/{authID}"
+	CreateVaultPath         = operationID
+	DeleteVaultPath         = operationID + "/{vaultID}"
+	SaveDocPath             = operationID + "/{vaultID}/docs"
+	GetDocMetadataPath      = operationID + "/{vaultID}/docs/{docID}/metadata"
+	CreateAuthorizationPath = operationID + "/{vaultID}/authorizations"
+	GetAuthorizationPath    = operationID + "/{vaultID}/authorizations/{authID}"
+	DeleteAuthorizationPath = operationID + "/{vaultID}/authorizations/{authID}"
 )
 
+var logger = log.New("vault-operation")
+
 // Operation defines handlers for vault service.
-type Operation struct{}
+type Operation struct {
+	vault *vault.Client
+}
 
 // Config defines configuration for vault operations.
-type Config struct{}
+type Config struct {
+	RemoteKMSURL string
+	EDVURL       string
+	LocalKMS     vault.KeyManager
+	HTTPClient   vault.HTTPClient
+}
 
 // New returns operation instance.
 func New(cfg *Config) (*Operation, error) {
-	return &Operation{}, nil
+	vaultClient, err := vault.NewClient(cfg.RemoteKMSURL, cfg.EDVURL, cfg.LocalKMS, vault.WithHTTPClient(cfg.HTTPClient))
+	if err != nil {
+		return nil, fmt.Errorf("vault new client: %w", err)
+	}
+
+	return &Operation{vault: vaultClient}, nil
 }
 
 // GetRESTHandlers get all controller API handler available for this service.
 func (o *Operation) GetRESTHandlers() []support.Handler {
 	return []support.Handler{
-		support.NewHTTPHandler(createVaultPath, http.MethodPost, o.CreateVault),
-		support.NewHTTPHandler(saveDocPath, http.MethodPost, o.SaveDoc),
-		support.NewHTTPHandler(getDocPath, http.MethodGet, o.GetDoc),
-		support.NewHTTPHandler(createAuthorizationPath, http.MethodPost, o.CreateAuthorization),
-		support.NewHTTPHandler(getAuthorizationPath, http.MethodGet, o.GetAuthorization),
-		support.NewHTTPHandler(deleteAuthorizationPath, http.MethodDelete, o.DeleteAuthorization),
+		support.NewHTTPHandler(CreateVaultPath, http.MethodPost, o.CreateVault),
+		support.NewHTTPHandler(DeleteVaultPath, http.MethodDelete, o.DeleteVault),
+		support.NewHTTPHandler(SaveDocPath, http.MethodPost, o.SaveDoc),
+		support.NewHTTPHandler(GetDocMetadataPath, http.MethodGet, o.GetDocMetadata),
+		support.NewHTTPHandler(CreateAuthorizationPath, http.MethodPost, o.CreateAuthorization),
+		support.NewHTTPHandler(GetAuthorizationPath, http.MethodGet, o.GetAuthorization),
+		support.NewHTTPHandler(DeleteAuthorizationPath, http.MethodDelete, o.DeleteAuthorization),
 	}
 }
 
@@ -53,12 +76,30 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 //    default: genericError
 //        201: createVaultResp
 func (o *Operation) CreateVault(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(http.StatusCreated)
+	res, err := o.vault.CreateVault()
+	if err != nil {
+		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
+
+		return
+	}
+
+	o.WriteResponse(rw, res, http.StatusCreated)
+}
+
+// DeleteVault swagger:route DELETE /vaults/{vaultID} vault deleteVaultReq
+//
+// Deletes an existing vault.
+//
+// Responses:
+//    default: genericError
+//        200: deleteVaultResp
+func (o *Operation) DeleteVault(rw http.ResponseWriter, _ *http.Request) {
+	rw.WriteHeader(http.StatusOK)
 }
 
 // SaveDoc swagger:route POST /vaults/{vaultID}/docs vault saveDocReq
 //
-// Encrypts and stores the document in the vault.
+// Creates or updates a document by encrypting it and storing it in the vault.
 //
 // Responses:
 //    default: genericError
@@ -67,14 +108,14 @@ func (o *Operation) SaveDoc(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(http.StatusCreated)
 }
 
-// GetDoc swagger:route GET /vaults/{vaultID}/docs/{docID} vault getDocReq
+// GetDocMetadata swagger:route GET /vaults/{vaultID}/docs/{docID}/metadata vault getDocMetadataReq
 //
-// Returns the plaintext document by given ID.
+// Returns the document`s metadata by given docID.
 //
 // Responses:
 //    default: genericError
-//        200: getDocResp
-func (o *Operation) GetDoc(rw http.ResponseWriter, _ *http.Request) {
+//        200: getDocMetadataResp
+func (o *Operation) GetDocMetadata(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(http.StatusOK)
 }
 
@@ -109,4 +150,22 @@ func (o *Operation) GetAuthorization(rw http.ResponseWriter, _ *http.Request) {
 //        200: deleteAuthorizationResp
 func (o *Operation) DeleteAuthorization(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(http.StatusOK)
+}
+
+func (o *Operation) writeErrorResponse(rw http.ResponseWriter, err error, status int) {
+	logger.Errorf("%v", err)
+
+	o.WriteResponse(rw, model.ErrorResponse{
+		Message: fmt.Sprintf("%v", err),
+	}, status)
+}
+
+// WriteResponse writes response.
+func (o *Operation) WriteResponse(rw http.ResponseWriter, v interface{}, status int) {
+	rw.WriteHeader(status)
+
+	err := json.NewEncoder(rw).Encode(v)
+	if err != nil {
+		logger.Errorf("unable to send a response: %v", err)
+	}
 }

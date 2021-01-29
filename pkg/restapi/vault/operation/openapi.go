@@ -6,14 +6,17 @@ SPDX-License-Identifier: Apache-2.0
 
 package operation
 
-import "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+import (
+	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
+)
 
 // genericError model
 //
 // swagger:response genericError
 type genericError struct { // nolint: unused,deadcode
 	// in: body
-	Body http.ErrorResponse
+	Body model.ErrorResponse
 }
 
 // createVaultReq model
@@ -26,16 +29,7 @@ type createVaultReq struct{} // nolint: unused,deadcode
 // swagger:response createVaultResp
 type createVaultResp struct { // nolint: unused,deadcode
 	// in: body
-	Body struct {
-		ID  string   `json:"id"`
-		EDV location `json:"edv"`
-		KMS location `json:"kms"`
-	}
-}
-
-type location struct { // nolint: unused
-	URI  string      `json:"uri"`
-	ZCap interface{} `json:"zcap"`
+	Body vault.CreatedVault
 }
 
 // saveDocReq model
@@ -46,7 +40,11 @@ type saveDocReq struct { // nolint: unused,deadcode
 	VaultID string `json:"vaultID"`
 	// in: body
 	// required: true
-	Request doc
+	Request struct {
+		ID      string      `json:"id"`
+		Content interface{} `json:"content"`
+		Tags    []string    `json:"tags"`
+	}
 }
 
 // saveDocResp model
@@ -54,25 +52,31 @@ type saveDocReq struct { // nolint: unused,deadcode
 // swagger:response saveDocResp
 type saveDocResp struct { // nolint: unused,deadcode
 	// in: body
-	Body doc
+	Body struct {
+		ID        string `json:"docID"`
+		EDVDocURI string `json:"edvDocURI"`
+	}
 }
 
-// getDocReq model
+// getDocMetadataReq model
 //
-// swagger:parameters getDocReq
-type getDocReq struct { // nolint: unused,deadcode
+// swagger:parameters getDocMetadataReq
+type getDocMetadataReq struct { // nolint: unused,deadcode
 	// in: path
 	VaultID string `json:"vaultID"`
 	// in: path
 	DocID string `json:"docID"`
 }
 
-// getDocResp model
+// getDocMetadataResp model
 //
-// swagger:response getDocResp
-type getDocResp struct { // nolint: unused,deadcode
+// swagger:response getDocMetadataResp
+type getDocMetadataResp struct { // nolint: unused,deadcode
 	// in: body
-	Body struct{}
+	Body struct {
+		ID        string `json:"docID"`
+		EDVDocURI string `json:"edvDocURI"`
+	}
 }
 
 // createAuthorizationReq model
@@ -127,6 +131,19 @@ type deleteAuthorizationReq struct { // nolint: unused,deadcode
 // swagger:response deleteAuthorizationResp
 type deleteAuthorizationResp struct{} // nolint: unused,deadcode
 
+// deleteVaultReq model
+//
+// swagger:parameters deleteVaultReq
+type deleteVaultReq struct { // nolint: unused,deadcode
+	// in: path
+	VaultID string `json:"vaultID"`
+}
+
+// deleteVaultResp model
+//
+// swagger:response deleteVaultResp
+type deleteVaultResp struct{} // nolint: unused,deadcode
+
 type authorization struct { // nolint: unused
 	ID    string `json:"id"`
 	Scope struct {
@@ -137,14 +154,7 @@ type authorization struct { // nolint: unused
 			Type string `json:"type"`
 		} `json:"caveats"`
 	} `json:"scope"`
-	RequestingParty string   `json:"requestingParty"`
-	EDV             location `json:"edv"`
-	KMS             location `json:"kms"`
-}
-
-type doc struct { // nolint: unused
-	ID        string      `json:"id"`
-	Content   interface{} `json:"content"`
-	Tags      []string    `json:"tags"`
-	EDVDocURI string      `json:"edvDocURI"`
+	RequestingParty string         `json:"requestingParty"`
+	EDV             vault.Location `json:"edv"`
+	KMS             vault.Location `json:"kms"`
 }
