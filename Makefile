@@ -93,7 +93,7 @@ bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker gene
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean vc-server-docker did-resolver-docker generate-test-keys generate-test-config
+bdd-interop-test:clean vc-server-docker did-resolver-docker comparator-rest-docker generate-test-keys generate-test-config
 	@scripts/check_integration_interop.sh
 
 unit-test:
