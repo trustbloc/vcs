@@ -14,6 +14,7 @@ declare -a tests=(
    "vc_rest"
    "w3c_workflow"
    "comparator_rest"
+   "confidential-storage-hub"
 )
 
 PWD=`pwd`

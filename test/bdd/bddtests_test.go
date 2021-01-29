@@ -62,7 +62,7 @@ func runBDDTests(tags, format string) int {
 		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/mysql", "./fixtures/vc-rest",
 			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/did-method-rest", "./fixtures/universal-registrar", "./fixtures/discovery-server",
-			"./fixtures/stakeholder-server", "./fixtures/comparator-rest"}
+			"./fixtures/stakeholder-server", "./fixtures/comparator-rest", "./fixtures/confidential-storage-hub"}
 
 		s.BeforeSuite(func() {
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
