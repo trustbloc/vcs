@@ -13,6 +13,7 @@ DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 COMPARATOR_REST_IMAGE_NAME          ?= trustbloc/comparator-server
 CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME ?= trustbloc/confidential-storage-hub
+VAULT_SERVER_IMAGE_NAME				?= trustbloc/vault-server
 DID_REST_IMAGE_NAME                 ?= trustbloc/did-resolver
 DID_ELEMENT_SIDETREE_REQUEST_URL    ?= https://element-did.com/api/v1/sidetree/requests
 
@@ -59,7 +60,7 @@ comparator-rest:
 .PHONY: vault-server
 vault-server:
 	@echo "Building vault-server"
-	@mkdir -p ./build/bin
+	@mkdir -p ./.build/bin
 	@cd ${VAULT_REST_PATH} && go build -o ../../.build/bin/vault-server main.go
 
 .PHONY: confidential-storage-hub
@@ -74,6 +75,13 @@ confidential-storage-hub-docker:
 	@docker build -f ./images/confidential-storage-hub/Dockerfile --no-cache -t ${DOCKER_OUTPUT_NS}/${CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME}:latest \
 		--build-arg GO_VER=${GO_VER} \
 		--build-arg ALPINE_VER=${ALPINE_VER} .
+
+.PHONY: vault-server-docker
+vault-server-docker:
+	@echo "Building vault-server docker image"
+	@docker build -f ./images/vault-server/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VAULT_SERVER_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: vc-server-docker
 vc-server-docker:
@@ -104,11 +112,11 @@ did-resolver-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker confidential-storage-hub-docker generate-test-keys generate-test-config
+bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker confidential-storage-hub-docker vault-server-docker generate-test-keys generate-test-config
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean vc-server-docker did-resolver-docker comparator-rest-docker generate-test-keys generate-test-config
+bdd-interop-test:clean vc-server-docker did-resolver-docker comparator-rest-docker vault-server-docker generate-test-keys generate-test-config
 	@scripts/check_integration_interop.sh
 
 unit-test:

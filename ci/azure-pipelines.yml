@@ -42,7 +42,7 @@ jobs:
     pool:
       vmImage: ubuntu-18.04
     strategy:
-      parallel: 8
+      parallel: 9
     timeoutInMinutes: 30
     steps:
       - template: azp-dependencies.yml
@@ -85,6 +85,9 @@ jobs:
           make confidential-storage-hub-docker
           docker tag ghcr.io/trustbloc/confidential-storage-hub:latest ${CONFIDENTIAL_STORAGE_HUB_PKG}:${CONFIDENTIAL_STORAGE_HUB_TAG}
           docker push ${CONFIDENTIAL_STORAGE_HUB_PKG}:${CONFIDENTIAL_STORAGE_HUB_TAG}
+          make vault-server-docker
+          docker tag ghcr.io/trustbloc/comparator-server:latest ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
+          docker push ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
         env:
           DOCKER_USER: $(DOCKER_USER)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)

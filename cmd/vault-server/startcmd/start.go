@@ -9,6 +9,7 @@ package startcmd
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -37,24 +38,57 @@ const (
 	edvURLFlagName  = "edv-url"
 	edvURLFlagUsage = "EDV URL."
 	edvURLEnvKey    = "VAULT_EDV_URL"
+
+	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
+	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
+		" Possible values [true] [false]. Defaults to false if not set." +
+		" Alternatively, this can be set with the following environment variable: " + tlsSystemCertPoolEnvKey
+	tlsSystemCertPoolEnvKey = "VAULT_TLS_SYSTEMCERTPOOL"
+
+	tlsCACertsFlagName  = "tls-cacerts"
+	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." +
+		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
+	tlsCACertsEnvKey = "VAULT_TLS_CACERTS"
+
+	tlsServeCertPathFlagName  = "tls-serve-cert"
+	tlsServeCertPathFlagUsage = "Path to the server certificate to use when serving HTTPS." +
+		" Alternatively, this can be set with the following environment variable: " + tlsServeCertPathEnvKey
+	tlsServeCertPathEnvKey = "VAULT_TLS_SERVE_CERT"
+
+	tlsServeKeyPathFlagName  = "tls-serve-key"
+	tlsServeKeyPathFlagUsage = "Path to the private key to use when serving HTTPS." +
+		" Alternatively, this can be set with the following environment variable: " + tlsServeKeyPathFlagEnvKey
+	tlsServeKeyPathFlagEnvKey = "VAULT_TLS_SERVE_KEY"
 )
 
 type serviceParameters struct {
 	host         string
 	remoteKMSURL string
 	edvURL       string
+	tlsParams    *tlsParameters
+}
+
+type tlsParameters struct {
+	systemCertPool bool
+	caCerts        []string
+	serveCertPath  string
+	serveKeyPath   string
 }
 
 type server interface {
-	ListenAndServe(host string, router http.Handler) error
+	ListenAndServe(host string, certFile, keyFile string, router http.Handler) error
 }
 
 // HTTPServer represents an actual HTTP server implementation.
 type HTTPServer struct{}
 
 // ListenAndServe starts the server using the standard Go HTTP server implementation.
-func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
-	return http.ListenAndServe(host, router)
+func (s *HTTPServer) ListenAndServe(host, certFile, keyFile string, router http.Handler) error {
+	if certFile == "" || keyFile == "" {
+		return http.ListenAndServe(host, router)
+	}
+
+	return http.ListenAndServeTLS(host, certFile, keyFile, router)
 }
 
 // GetStartCmd returns the Cobra start command.
@@ -97,17 +131,56 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	tlsParams, err := getTLS(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
 		host:         host,
 		remoteKMSURL: remoteKMSURL,
 		edvURL:       edvURL,
+		tlsParams:    tlsParams,
 	}, err
+}
+
+func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
+	tlsSystemCertPoolString := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsSystemCertPoolFlagName,
+		tlsSystemCertPoolEnvKey)
+
+	tlsSystemCertPool := false
+
+	if tlsSystemCertPoolString != "" {
+		var err error
+
+		tlsSystemCertPool, err = strconv.ParseBool(tlsSystemCertPoolString)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	tlsCACerts := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
+
+	tlsServeCertPath := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsServeCertPathFlagName, tlsServeCertPathEnvKey)
+
+	tlsServeKeyPath := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsServeKeyPathFlagName, tlsServeKeyPathFlagEnvKey)
+
+	return &tlsParameters{
+		systemCertPool: tlsSystemCertPool,
+		caCerts:        tlsCACerts,
+		serveCertPath:  tlsServeCertPath,
+		serveKeyPath:   tlsServeKeyPath,
+	}, nil
 }
 
 func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	cmd.Flags().StringP(remoteKMSURLFlagName, "", "", remoteKMSURLFlagUsage)
 	cmd.Flags().StringP(edvURLFlagName, "", "", edvURLFlagUsage)
+	cmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
+	cmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
+	cmd.Flags().StringP(tlsServeCertPathFlagName, "", "", tlsServeCertPathFlagUsage)
+	cmd.Flags().StringP(tlsServeKeyPathFlagName, "", "", tlsServeKeyPathFlagUsage)
 }
 
 const (
@@ -154,19 +227,22 @@ func startService(params *serviceParameters, srv server) error {
 	}
 
 	// start server on given port and serve using given handlers
-	return srv.ListenAndServe(params.host, cors.New(cors.Options{
-		AllowedMethods: []string{
-			http.MethodHead,
-			http.MethodGet,
-			http.MethodPost,
-			http.MethodDelete,
-		},
-		AllowedHeaders: []string{
-			"Origin",
-			"Accept",
-			"Content-Type",
-			"X-Requested-With",
-			"Authorization",
-		},
-	}).Handler(router))
+	return srv.ListenAndServe(params.host,
+		params.tlsParams.serveCertPath,
+		params.tlsParams.serveKeyPath,
+		cors.New(cors.Options{
+			AllowedMethods: []string{
+				http.MethodHead,
+				http.MethodGet,
+				http.MethodPost,
+				http.MethodDelete,
+			},
+			AllowedHeaders: []string{
+				"Origin",
+				"Accept",
+				"Content-Type",
+				"X-Requested-With",
+				"Authorization",
+			},
+		}).Handler(router))
 }
