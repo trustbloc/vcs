@@ -1,0 +1,30 @@
+
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+
+  hubstore.example.com:
+    container_name: hubstore.example.com
+    image: ${CHS_REST_IMAGE}:latest
+    environment:
+      - CHS_HOST_URL=${CHS_REST_HOST}:${CHS_REST_PORT}
+      - CHS_TLS_SYSTEMCERTPOOL=true
+      - CHS_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - CHS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
+      - CHS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
+    ports:
+      - ${CHS_REST_PORT}:${CHS_REST_PORT}
+    command: start
+    volumes:
+      - ../keys/tls:/etc/tls
+    networks:
+      - couchdb_bdd_net
+
+networks:
+  couchdb_bdd_net:
+    external: true

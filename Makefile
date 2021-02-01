@@ -6,18 +6,20 @@ VC_REST_PATH=cmd/vc-rest
 DID_REST_PATH=cmd/did-rest
 VAULT_REST_PATH=cmd/vault-server
 COMPARATOR_REST_PATH=cmd/comparator-rest
+CONFIDENTIAL_STORAGE_HUB_PATH=cmd/confidential-storage-hub
 
 # Namespace for the agent images
-DOCKER_OUTPUT_NS             ?= ghcr.io
-VC_REST_IMAGE_NAME           ?= trustbloc/vc-server
-COMPARATOR_REST_IMAGE_NAME   ?= trustbloc/comparator-server
-DID_REST_IMAGE_NAME          ?= trustbloc/did-resolver
-DID_ELEMENT_SIDETREE_REQUEST_URL ?= https://element-did.com/api/v1/sidetree/requests
+DOCKER_OUTPUT_NS                    ?= ghcr.io
+VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
+COMPARATOR_REST_IMAGE_NAME          ?= trustbloc/comparator-server
+CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME ?= trustbloc/confidential-storage-hub
+DID_REST_IMAGE_NAME                 ?= trustbloc/did-resolver
+DID_ELEMENT_SIDETREE_REQUEST_URL    ?= https://element-did.com/api/v1/sidetree/requests
 
 # OpenAPI spec
 OPENAPI_DOCKER_IMG=quay.io/goswagger/swagger
-OPENAPI_SPEC_PATH=build/rest/openapi/spec
-OPENAPI_DOCKER_IMG_VERSION=v0.23.0
+OPENAPI_SPEC_PATH=.build/rest/openapi/spec
+OPENAPI_DOCKER_IMG_VERSION=v0.26.0
 
 # Tool commands (overridable)
 ALPINE_VER ?= 3.12
@@ -27,7 +29,7 @@ GO_VER ?= 1.15
 all: checks unit-test bdd-test
 
 .PHONY: checks
-checks: license lint generate-openapi-spec
+checks: license lint check-openapi-specs
 
 .PHONY: lint
 lint:
@@ -58,7 +60,20 @@ comparator-rest:
 vault-server:
 	@echo "Building vault-server"
 	@mkdir -p ./build/bin
-	@cd ${VAULT_REST_PATH} && go build -o ../../build/bin/vault-server main.go
+	@cd ${VAULT_REST_PATH} && go build -o ../../.build/bin/vault-server main.go
+
+.PHONY: confidential-storage-hub
+confidential-storage-hub:
+	@echo "Building confidential-storage-hub"
+	@mkdir -p .build/bin
+	@cd ${CONFIDENTIAL_STORAGE_HUB_PATH} && go build -o ../../.build/bin/confidential-storage-hub main.go
+
+.PHONY: confidential-storage-hub-docker
+confidential-storage-hub-docker:
+	@echo "Building confidential-storage-hub docker image"
+	@docker build -f ./images/confidential-storage-hub/Dockerfile --no-cache -t ${DOCKER_OUTPUT_NS}/${CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME}:latest \
+		--build-arg GO_VER=${GO_VER} \
+		--build-arg ALPINE_VER=${ALPINE_VER} .
 
 .PHONY: vc-server-docker
 vc-server-docker:
@@ -89,7 +104,7 @@ did-resolver-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: bdd-test
-bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker generate-test-keys generate-test-config
+bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker confidential-storage-hub-docker generate-test-keys generate-test-config
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
@@ -118,10 +133,13 @@ prepare-test-verifiables: clean
 	@cp scripts/prepare-test-verifiables.js .build/
 	@scripts/prepare_test_verifiables.sh
 
+.PHONY: check-openapi-specs
+check-openapi-specs: generate-openapi-spec generate-openapi-spec-vault generate-openapi-spec-confidential-storage-hub
+
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean
 	@echo "Generating and validating controller API specifications using Open API"
-	@mkdir -p build/rest/openapi/spec
+	@mkdir -p ${OPENAPI_SPEC_PATH}
 	@SPEC_META=$(VC_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
@@ -129,8 +147,16 @@ generate-openapi-spec: clean
 .PHONY: generate-openapi-spec-vault
 generate-openapi-spec-vault: clean
 	@echo "Generating and validating controller API specifications using Open API"
-	@mkdir -p build/rest/openapi/spec/vault
+	@mkdir -p ${OPENAPI_SPEC_PATH}/vault
 	@SPEC_META=$(VAULT_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/vault  \
+	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+	scripts/generate-openapi-spec.sh
+
+.PHONY: generate-openapi-spec-confidential-storage-hub
+generate-openapi-spec-confidential-storage-hub: clean
+	@echo "Generating and validating confidential-storage-hub API OpenAPI specifications"
+	@mkdir -p ${OPENAPI_SPEC_PATH}/confidential-storage-hub
+	@SPEC_META=$(CONFIDENTIAL_STORAGE_HUB_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/confidential-storage-hub  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
 
