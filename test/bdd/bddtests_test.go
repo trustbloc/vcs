@@ -23,6 +23,7 @@ import (
 	"github.com/trustbloc/edge-service/test/bdd/pkg/governance"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/holder"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/issuer"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/vault"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/vc"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/verifier"
 )
@@ -59,10 +60,13 @@ func TestMain(m *testing.M) {
 func runBDDTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		var composition []*dockerutil.Composition
-		var composeFiles = []string{"./fixtures/couchdb", "./fixtures/mysql", "./fixtures/vc-rest",
+		composeFiles := []string{
+			"./fixtures/couchdb", "./fixtures/mysql", "./fixtures/vc-rest",
 			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/did-method-rest", "./fixtures/universal-registrar", "./fixtures/discovery-server",
-			"./fixtures/stakeholder-server", "./fixtures/comparator-rest", "./fixtures/confidential-storage-hub"}
+			"./fixtures/stakeholder-server", "./fixtures/comparator-rest", "./fixtures/confidential-storage-hub",
+			"./fixtures/vault-server",
+		}
 
 		s.BeforeSuite(func() {
 			if os.Getenv("DISABLE_COMPOSITION") != "true" {
@@ -146,4 +150,6 @@ func FeatureContext(s *godog.Suite) {
 	holder.NewSteps(bddContext).RegisterSteps(s)
 
 	governance.NewSteps(bddContext).RegisterSteps(s)
+
+	vault.NewSteps(bddContext).RegisterSteps(s)
 }
