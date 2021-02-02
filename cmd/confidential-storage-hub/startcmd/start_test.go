@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/trustbloc/edge-service/cmd/common"
 )
 
 func TestListenAndServe(t *testing.T) {
@@ -45,6 +47,35 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither host-url (command line flag) nor CHS_HOST_URL (environment variable) have been set.",
 			err.Error())
 	})
+
+	t.Run("missing database url arg", func(t *testing.T) {
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + common.DatabasePrefixFlagName, "test",
+		}
+		startCmd := GetStartCmd(&mockServer{})
+
+		startCmd.SetArgs(args)
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.EqualError(t, err, "failed to configure dbURL: Neither database-url (command line flag) nor DATABASE_URL (environment variable) have been set.") // nolint:lll
+	})
+}
+
+func TestStartCmdWithInvalidArgs(t *testing.T) {
+	t.Run("invalid database url", func(t *testing.T) {
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + common.DatabaseURLFlagName, "invalid",
+			"--" + common.DatabasePrefixFlagName, "test",
+		}
+		startCmd := GetStartCmd(&mockServer{})
+
+		startCmd.SetArgs(args)
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.EqualError(t, err, "failed to init edge store: failed to init aries storage provider: failed to parse invalid: invalid dbURL invalid") // nolint:lll
+	})
 }
 
 func TestStartCmdWithBlankEnvVar(t *testing.T) {
@@ -65,6 +96,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",
+		"--" + common.DatabaseURLFlagName, "mem://test",
+		"--" + common.DatabasePrefixFlagName, "test",
 	}
 	startCmd.SetArgs(args)
 

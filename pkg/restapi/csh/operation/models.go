@@ -8,8 +8,9 @@ package operation
 
 // Profile is a client's profile.
 type Profile struct {
-	ID   string `json:"id"`
-	ZCAP string `json:"zcap"`
+	ID         string `json:"id"`
+	Controller string `json:"controller"`
+	ZCAP       string `json:"zcap,omitempty"`
 }
 
 // Query is an abstract query object.

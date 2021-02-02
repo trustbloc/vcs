@@ -12,12 +12,19 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
+	"github.com/trustbloc/edge-service/cmd/common"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
 )
 
@@ -54,6 +61,7 @@ var logger = log.New("confidential-storage-hub/start")
 type serviceParameters struct {
 	host      string
 	tlsParams *tlsParameters
+	dbParams  *common.DBParameters
 }
 
 type tlsParameters struct {
@@ -114,13 +122,20 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	dbParams, err := common.DBParams(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
 		host:      host,
 		tlsParams: tlsParams,
+		dbParams:  dbParams,
 	}, err
 }
 
 func createFlags(cmd *cobra.Command) {
+	common.Flags(cmd)
 	cmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	cmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	cmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
@@ -160,6 +175,16 @@ func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
 func startService(params *serviceParameters, srv server) error {
 	router := mux.NewRouter()
 
+	edgeStorage, err := common.InitEdgeStore(params.dbParams, logger)
+	if err != nil {
+		return fmt.Errorf("failed to init edge store: %w", err)
+	}
+
+	ariesConfig, err := newAriesConfig(params.dbParams)
+	if err != nil {
+		return fmt.Errorf("failed to init aries config: %w", err)
+	}
+
 	// add health check endpoint
 	healthCheckService := healthcheck.New()
 
@@ -168,7 +193,10 @@ func startService(params *serviceParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	service, err := csh.New(nil)
+	service, err := csh.New(&operation.Config{
+		StoreProvider: edgeStorage,
+		Aries:         ariesConfig,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize confidential storage hub operations: %w", err)
 	}
@@ -199,4 +227,46 @@ func startService(params *serviceParameters, srv server) error {
 			},
 		},
 		).Handler(router))
+}
+
+// TODO make KMS and crypto configurable: https://github.com/trustbloc/edge-service/issues/578
+func newAriesConfig(params *common.DBParameters) (*operation.AriesConfig, error) {
+	store, err := common.InitAriesStore(params, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init aries store: %w", err)
+	}
+
+	k, err := localkms.New(
+		"local-lock://custom/primary/key/",
+		&kmsProvider{
+			sp: store,
+			sl: &noop.NoLock{},
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init local kms: %w", err)
+	}
+
+	c, err := tinkcrypto.New()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init tink crypto: %w", err)
+	}
+
+	return &operation.AriesConfig{
+		KMS:    k,
+		Crypto: c,
+	}, nil
+}
+
+type kmsProvider struct {
+	sp ariesstorage.Provider
+	sl secretlock.Service
+}
+
+func (k *kmsProvider) StorageProvider() ariesstorage.Provider {
+	return k.sp
+}
+
+func (k *kmsProvider) SecretLock() secretlock.Service {
+	return k.sl
 }

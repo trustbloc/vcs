@@ -18,6 +18,7 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/chs"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/governance"
@@ -152,4 +153,6 @@ func FeatureContext(s *godog.Suite) {
 	governance.NewSteps(bddContext).RegisterSteps(s)
 
 	vault.NewSteps(bddContext).RegisterSteps(s)
+
+	chs.NewSteps(bddContext).RegisterSteps(s)
 }
