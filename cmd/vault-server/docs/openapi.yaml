@@ -1,0 +1,367 @@
+openapi: 3.0.0
+info:
+  title: Vault Server
+  description: Vault Server
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+paths:
+  /vaults:
+    post:
+      tags:
+        - required
+      description: Creates a new vault.
+      responses:
+        201:
+          description: Vault created successfully.
+          headers:
+            Location:
+              description: Location of the vault
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vault"
+              example: {
+                "id": "did:example:123",
+                "edv": {
+                  "uri": "https://edv.example.com/encrypted-data-vaults/123/documents/456",
+                  "authToken": "123456789abcdefghi"
+                },
+                "kms": {
+                  "uri": "https://kms.example.com/keystores/123/keys/456",
+                  "authToken": "v6gmMNam3uVAjZpfkcJCwD"
+                }
+              }
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      description: Deletes an existing vault.
+      responses:
+        200:
+          description: Vault deleted.
+        404:
+          description: Vault does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /vaults/{vaultID}/docs:
+    parameters:
+      - in: path
+        name: vaultID
+        required: true
+        schema:
+          type: string
+    post:
+      tags:
+        - required
+      description: Create or update a document by encrypting it and storing it in the vault.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Document"
+            example: {
+              "id": "did:example:123",
+              "content": {
+                "my_attribute": "my_data"
+              }
+            }
+      responses:
+        201:
+          description: Document encrypted and stored successfully.
+          headers:
+            Location:
+              description: Location of the document's metadata.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentMetadata"
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Vault not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /vaults/{vaultID}/docs/{docID}/metadata:
+    parameters:
+      - in: path
+        name: vaultID
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: docID
+        schema:
+          type: string
+        required: true
+    get:
+      description: Metadata about a stored document.
+      responses:
+        200:
+          description: The plaintext document.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentMetadata"
+        404:
+          description: Vault or document not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /vaults/{vaultID}/authorizations:
+    parameters:
+      - in: path
+        name: vaultID
+        schema:
+          type: string
+        required: true
+    post:
+      tags:
+        - required
+      description: Create an authorization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Authorization"
+            example: {
+              "scope": {
+                "target": "did:example:123",
+                "actions": ["read"],
+                "caveats": [
+                  {
+                    "type": "expiry",
+                    "duration": 600
+                  }
+                ]
+              },
+              "requestingParty": "did:example:other_party"
+            }
+      responses:
+        201:
+          description: Authorization created.
+          headers:
+            Location:
+              description: Location of the authorization
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Authorization"
+              example: {
+                "id": "123",
+                "scope": {
+                  "target": "did:example:123",
+                  "actions": ["read"],
+                  "caveats": [
+                    {
+                      "type": "expiry",
+                      "duration": 600
+                    }
+                  ]
+                },
+                "requestingParty": "did:example:other_party",
+                "authTokens": {
+                  "edv": "21tDAKCERh95uGgKbJNHYp",
+                  "kms": "bcehfew7h32f32h7af3"
+                }
+              }
+        400:
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        404:
+          description: Vault not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /vaults/{vaultID}/authorizations/{authorizationID}:
+    parameters:
+      - in: path
+        name: vaultID
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: authorizationID
+        schema:
+          type: string
+        required: true
+    get:
+      description: Fetch an authorization.
+      responses:
+        200:
+          description: An authorization object.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Authorization"
+        404:
+          description: Vault or authorization not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      description: Delete an authorization.
+      responses:
+        200:
+          description: Authorization deleted.
+        404:
+          description: Vault or authorization not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    Vault:
+      type: object
+      required:
+        - id
+        - edv
+        - kms
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the vault.
+        edv:
+          type: object
+          properties:
+            uri:
+              type: string
+            authToken:
+              type: string
+        kms:
+          type: object
+          properties:
+            uri:
+              type: string
+            authToken:
+              type: string
+    Document:
+      type: object
+      required:
+        - id
+        - content
+      properties:
+        id:
+          description: The identifier to associate with the document.
+          type: string
+        content:
+          description: The document to be encrypted and stored in the vault.
+          type: object
+    DocumentMetadata:
+      type: object
+      required:
+        - docID
+        - edvDocURI
+      properties:
+        docID:
+          type: string
+        edvDocURI:
+          type: string
+    Authorization:
+      description: An authorization.
+      type: object
+      required:
+        - scope
+        - requestingParty
+      properties:
+        id:
+          type: string
+        scope:
+          $ref: "#/components/schemas/Scope"
+        requestingParty:
+          description: keyID
+          type: string
+        authTokens:
+          type: object
+          properties:
+            edv:
+              type: string
+            kms:
+              type: string
+    Scope:
+      type: object
+      required:
+        - target
+        - actions
+      properties:
+        target:
+          type: string
+        targetAttr:
+          type: string
+        actions:
+          type: array
+          items:
+            type: string
+        caveats:
+          type: array
+          items:
+            $ref: "#/components/schemas/Caveat"
+    Caveat:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+      discriminator:
+        propertyName: type
+        mapping:
+          expiry: ExpiryCaveat
+    ExpiryCaveat:
+      allOf:
+        - $ref: "#/components/schemas/Caveat"
+        - type: object
+          properties:
+            duration:
+              type: integer
+              description: Duration (in seconds) for which this authorization will remain valid.
+    Error:
+      type: object
+      properties:
+        errMessage:
+          type: string
