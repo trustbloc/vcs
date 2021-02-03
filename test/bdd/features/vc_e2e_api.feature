@@ -50,5 +50,5 @@ Feature: Using VC REST API
       | danubetech-profile    | danubetech_vc1.json    |
       | digitalbazaar-profile | digitalbazaar_vc1.json |
       | mavennet-profile      | mavennet_vc1.json      |
-      | factom-profile        | factom_vc1.json        |
+      #| factom-profile        | factom_vc1.json        |
       | sicpa-profile         | sicpa_vc1.json         |
