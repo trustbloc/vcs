@@ -31,6 +31,7 @@ To build from source see [here](docs/build.md).
 ## Services
 
 - [vault-server](./cmd/vault-server/README.md)
+- [comparator](./cmd/comparator-rest/README.md)
 
 ## Contributing
 Thank you for your interest in contributing. Please see our [community contribution guidelines](https://github.com/trustbloc/community/blob/main/CONTRIBUTING.md) for more information.
