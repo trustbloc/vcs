@@ -1,0 +1,294 @@
+openapi: 3.0.0
+info:
+  title: Comparator
+  description: Comparator
+  version: 1.0.0
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+paths:
+  /authorizations:
+    post:
+      tags:
+        - required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Authorization"
+            example: {
+              "requestingParty": "did:example:other_party",
+              "scope": [
+                {
+                  "docID": "did:example:123",
+                  "actions": ["compare"],
+                  "caveats": [
+                    {
+                      "type": "expiry",
+                      "duration": 600
+                    }
+                  ],
+                }
+              ]
+            }
+      responses:
+        200:
+          description: Authorization created.
+          headers:
+            Location:
+              description: Location of the Authorization.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Authorization"
+              example: {
+                "id": "123456",
+                "requestingParty": "did:example:other_party",
+                "scope": [
+                  {
+                    "docID": "did:example:123",
+                    "actions": [ "compare" ],
+                    "caveats": [
+                      {
+                        "type": "expiry",
+                        "duration": 600
+                      }
+                    ],
+                    "authToken": "21tDAKCERh95uGgKbJNHYp"
+                  }
+                ]
+              }
+  /compare:
+    post:
+      tags:
+        - required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Comparison"
+            example: {
+              "op": {
+                "type": "eq",
+                "args": [
+                  {
+                    "type": "doc",
+                    "docID": "did:example:123",
+                    "authTokens": {
+                      "edv": "21tDAKCERh95uGgKbJNHYp",
+                      "kms": "bcehfew7h32f32h7af3"
+                    }
+                  },
+                  {
+                    "type": "auth",
+                    "authToken": "123456789abcdefghi"
+                  }
+                ]
+              }
+            }
+      responses:
+        200:
+          description: Result of comparison.
+          content:
+            application/json:
+              schema:
+                properties:
+                  result:
+                    type: boolean
+              example: {
+                "result": true
+              }
+  /extract:
+    post:
+      tags:
+        - required
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                authTokens:
+                  description: list of base64url-encoded authorization tokens to extract documents
+                  type: array
+                  items:
+                    type: string
+            example: ["authToken1", "authToken2", "authToken3"]
+      responses:
+        200:
+          description: list of extracted documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      type: object
+  /config:
+    get:
+      tags:
+        - required
+      responses:
+        200:
+          description: The comparator's configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+              example: {
+                "did": "did:example:H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV",
+                "key": {
+                  "keys": [
+                    {
+                      "kty": "EC",
+                      "crv": "P-256",
+                      "x": "MKBCTNIcKUSDii11ySs3526iDZ8AiTo7Tu6KPAqv7D4",
+                      "y": "4Etl6SRW2YiLUrN5vfvVHuhp7x8PxltmWWlbbM4IFyM",
+                      "d": "870MB6gfuTJ4HtUnUvYMyJpr5eUZNP4Bk43bVdj3eAE",
+                      "kid": "1"
+                    }
+                  ]
+                }
+              }
+components:
+  schemas:
+    Authorization:
+      description: An authorization.
+      type: object
+      required:
+        - scope
+        - requestingParty
+        - authToken
+      properties:
+        id:
+          type: string
+        scope:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scope"
+        requestingParty:
+          description: requesting party DID
+          type: string
+        authToken:
+          type: string
+    Scope:
+      type: object
+      required:
+        - docID
+        - actions
+      properties:
+        docID:
+          description: an identifier for a document stored in the Vault Server.
+          type: string
+        actions:
+          type: array
+          items:
+            type: string
+        caveats:
+          type: array
+          items:
+            $ref: "#/components/schemas/Caveat"
+    Caveat:
+      type: object
+      required:
+        - type
+      discriminator:
+        propertyName: type
+        mapping:
+          expiry: ExpiryCaveat
+      properties:
+        type:
+          type: string
+    ExpiryCaveat:
+      allOf:
+        - $ref: "#/components/schemas/Caveat"
+        - type: object
+          properties:
+            duration:
+              type: integer
+              description: Duration (in seconds) for which this authorization will remain valid.
+    Comparison:
+      type: object
+      properties:
+        op:
+          $ref: "#/components/schemas/Operator"
+    Operator:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+      discriminator:
+        propertyName: type
+        mapping:
+          eq: EqOp
+    EqOp:
+      allOf:
+        - $ref: "#/components/schemas/Operator"
+        - type: object
+          required:
+            - args
+          properties:
+            args:
+              type: array
+              items:
+                $ref: "#/components/schemas/Query"
+              minItems: 2
+    Query:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+      discriminator:
+        propertyName: type
+        mapping:
+          doc: DocQuery
+          auth: AuthorizedQuery
+    DocQuery:
+      allOf:
+        - $ref: "#/components/schemas/Query"
+        - type: object
+          required:
+            - docID
+            - authTokens
+          properties:
+            docID:
+              description: an identifier for a document stored in the Vault Server.
+              type: string
+            authTokens:
+              type: object
+              properties:
+                edv:
+                  type: string
+                kms:
+                  type: string
+    AuthorizedQuery:
+      allOf:
+        - $ref: "#/components/schemas/Query"
+        - type: object
+          required:
+            - authToken
+          properties:
+            authToken:
+              type: string
+    Config:
+      type: object
+      required:
+        - did
+        - key
+      properties:
+        did:
+          type: string
+        key:
+          type: object
+          description: A JWK Set containing the primary public/private key pair.
