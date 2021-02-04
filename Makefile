@@ -142,7 +142,7 @@ prepare-test-verifiables: clean
 	@scripts/prepare_test_verifiables.sh
 
 .PHONY: check-openapi-specs
-check-openapi-specs: generate-openapi-spec generate-openapi-spec-vault generate-openapi-spec-confidential-storage-hub
+check-openapi-specs: generate-openapi-spec generate-openapi-spec-vault generate-openapi-spec-confidential-storage-hub generate-openapi-spec-comparator
 
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean
@@ -165,6 +165,15 @@ generate-openapi-spec-confidential-storage-hub: clean
 	@echo "Generating and validating confidential-storage-hub API OpenAPI specifications"
 	@mkdir -p ${OPENAPI_SPEC_PATH}/confidential-storage-hub
 	@SPEC_META=$(CONFIDENTIAL_STORAGE_HUB_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/confidential-storage-hub  \
+	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+	scripts/generate-openapi-spec.sh
+
+
+.PHONY: generate-openapi-spec-comparator
+generate-openapi-spec-comparator: clean
+	@echo "Generating and validating comparator API OpenAPI specifications"
+	@mkdir -p ${OPENAPI_SPEC_PATH}/comparator
+	@SPEC_META=$(COMPARATOR_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/comparator  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
 
