@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
@@ -34,25 +35,12 @@ var logger = log.New("vault-operation")
 
 // Operation defines handlers for vault service.
 type Operation struct {
-	vault *vault.Client
-}
-
-// Config defines configuration for vault operations.
-type Config struct {
-	RemoteKMSURL string
-	EDVURL       string
-	LocalKMS     vault.KeyManager
-	HTTPClient   vault.HTTPClient
+	vault vault.Vault
 }
 
 // New returns operation instance.
-func New(cfg *Config) (*Operation, error) {
-	vaultClient, err := vault.NewClient(cfg.RemoteKMSURL, cfg.EDVURL, cfg.LocalKMS, vault.WithHTTPClient(cfg.HTTPClient))
-	if err != nil {
-		return nil, fmt.Errorf("vault new client: %w", err)
-	}
-
-	return &Operation{vault: vaultClient}, nil
+func New(v vault.Vault) *Operation {
+	return &Operation{vault: v}
 }
 
 // GetRESTHandlers get all controller API handler available for this service.
@@ -76,14 +64,17 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 //    default: genericError
 //        201: createVaultResp
 func (o *Operation) CreateVault(rw http.ResponseWriter, _ *http.Request) {
-	res, err := o.vault.CreateVault()
+	result, err := o.vault.CreateVault()
 	if err != nil {
 		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
 
 		return
 	}
 
-	o.WriteResponse(rw, res, http.StatusCreated)
+	var resp createVaultResp
+	resp.Body = result
+
+	o.WriteResponse(rw, resp.Body, http.StatusCreated)
 }
 
 // DeleteVault swagger:route DELETE /vaults/{vaultID} vault deleteVaultReq
@@ -104,8 +95,32 @@ func (o *Operation) DeleteVault(rw http.ResponseWriter, _ *http.Request) {
 // Responses:
 //    default: genericError
 //        201: saveDocResp
-func (o *Operation) SaveDoc(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(http.StatusCreated)
+func (o *Operation) SaveDoc(rw http.ResponseWriter, req *http.Request) {
+	var doc saveDocReq
+
+	if err := json.NewDecoder(req.Body).Decode(&doc.Request); err != nil {
+		o.writeErrorResponse(rw, err, http.StatusBadRequest)
+
+		return
+	}
+
+	var (
+		vaultID    = mux.Vars(req)["vaultID"]
+		docID      = doc.Request.ID
+		docContent = doc.Request.Content
+	)
+
+	result, err := o.vault.SaveDoc(vaultID, docID, docContent)
+	if err != nil {
+		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
+
+		return
+	}
+
+	var resp saveDocResp
+	resp.Body = result
+
+	o.WriteResponse(rw, resp.Body, http.StatusCreated)
 }
 
 // GetDocMetadata swagger:route GET /vaults/{vaultID}/docs/{docID}/metadata vault getDocMetadataReq

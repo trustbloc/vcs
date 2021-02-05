@@ -19,7 +19,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
-	mocks "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
@@ -28,23 +27,16 @@ import (
 	. "github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 
-func TestNew(t *testing.T) {
-	op, err := New(&Config{})
-	require.NoError(t, err)
-	require.NotNil(t, op)
-}
-
 func TestCreateVault(t *testing.T) {
 	const path = "/vaults"
 
 	t.Run("Internal error", func(t *testing.T) {
-		kms := &mocks.KeyManager{CreateKeyErr: errors.New("test")}
+		v := newVaultMock()
+		v.createVaultFn = func() (*vault.CreatedVault, error) {
+			return nil, errors.New("test")
+		}
 
-		operation, err := New(&Config{
-			LocalKMS: kms,
-		})
-
-		require.NoError(t, err)
+		operation := New(v)
 
 		h := handlerLookup(t, operation, CreateVaultPath, http.MethodPost)
 
@@ -59,28 +51,7 @@ func TestCreateVault(t *testing.T) {
 	})
 
 	t.Run("Create vault", func(t *testing.T) {
-		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0b9em5ioud57602s7og")
-			w.Header().Set("X-ROOTCAPABILITY", "H4sIAAAAAAAA_5SSS3OjOBSF_8vt5ZAY8AOs1fiBE-LYhEDHga4ul4wULF4ikrAhqfz3KcdxL2bVWfFRdW4d3XPuO_yb8ErRVgGCvVK1RL3esc_INRdpT9KkEUx1vYMJGjACCHp5KXs57aTigspeou_GtBwy3pChNdJNafH0JK0OPKcCEBBGUE479DZa5a951ZGsiukofn1e3ziHLAof2mP5822SvwWGdT-5C5tIrnzZiR_fHQANcFHwIyWTRDFeAfoFiaBY0SXtQAPa1lyoM0uWVqDBgQr2cvo_ClyDBk31BQkv60bR1WT2R3VmWiWiqxVoQOiFmppgRZ350wzXeMcKpj7tsLx8vJqe3CTFxSf-PueT4NMzQyxSqgC9gzv_63jDrqaAoBEVykuJLnr40KAWnL8A-vX-tfypM1M3jSvduOobodFHAwMZ5rU1tAf20DTMf3QT6TpokB0lIKDd3X53kzCP3S1i5zH0A1e6pWuuZ-4oLhcyMX9Kt1x3-NlnXiFZlEW6Wxjj62ujHOZr7Ja7m2c7nT4MNvOGL5WzXSuRkg2RwTLbhtvcC3dzj-I9JtvNON0_tYNVvFkEzzOGsXf3ZlnjdExuX9vofvCoT3zQoOJVclr3celOR0VQzLb2yH1alF5nK8uyjiz37JSNkix4HQ-UT62t8l8qZ8mUzGpxu7ufBk5ylbrjjdVv4sWSvFQ0cpxFNDpOxQS-MntoRM3lySf50-OcFjT9rAk0UOfQHWIOh8Y4YGmFVSOoqRv25UrYudMVVXtO_nf8h9u970dtsG-btj9VEZkZ94_TDV-bmd1ZflyZ093DNMOxPaA_vjsAH78__gsAAP__CIjUdMsDAAA=") // nolint: lll
-
-			w.WriteHeader(http.StatusCreated)
-		}))
-
-		edv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
-
-			_, err := w.Write([]byte(`{"@context":"https://w3id.org/security/v2","id":"urn:uuid:293817e5-3a47-4685-9bd3-51eba3d5e928","invoker":"did:key:z6MkqknydjnZe6ZqXNGEvjYTPxwmUzAkzS17LAJTuYsMQsyr#z6MkqknydjnZe6ZqXNGEvjYTPxwmUzAkzS17LAJTuYsMQsyr","parentCapability":"urn:uuid:3e7f55ea-2e2c-41bd-a167-3cb71db9ca14","allowedAction":["read","write"],"invocationTarget":{"ID":"DWPPbEVn1afJY4We3kpQmq","Type":"urn:edv:vault"},"proof":[{"capabilityChain":["urn:uuid:3e7f55ea-2e2c-41bd-a167-3cb71db9ca14"],"created":"2021-01-31T13:41:13.863452194+02:00","jws":"eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..NfznOmAi16H7fXJ1lI3-JzzHlOMopAhdGnBaF_FYK_F5BHbJMpH0u1aZ_JMgrG2XHUFMLNCBxG91DA-tJn2gDQ","nonce":"ZjtzLnBIpSNLteskV4bgTI8LOwrqrETpDI31qPglCNT_V-78ZmChHhqksMEu59WhkA_hofadF8saneziAhCDRA","proofPurpose":"capabilityDelegation","type":"Ed25519Signature2018","verificationMethod":"did:key:z6Mkpi5ZtFzsZv5UQhLzejwaNM5YX38cHBuMopUkayU13zyn#z6Mkpi5ZtFzsZv5UQhLzejwaNM5YX38cHBuMopUkayU13zyn"}]}`)) // nolint: lll
-			require.NoError(t, err)
-		}))
-
-		operation, err := New(&Config{
-			RemoteKMSURL: remoteKMS.URL,
-			EDVURL:       edv.URL,
-			LocalKMS:     &mocks.KeyManager{},
-			HTTPClient:   &http.Client{},
-		})
-		require.NoError(t, err)
+		operation := New(newVaultMock())
 
 		h := handlerLookup(t, operation, CreateVaultPath, http.MethodPost)
 
@@ -93,30 +64,71 @@ func TestCreateVault(t *testing.T) {
 		require.NoError(t, json.NewDecoder(respBody).Decode(&resp))
 
 		require.NotEmpty(t, resp.ID)
-		require.NotEmpty(t, resp.EDV.URI)
-		require.NotEmpty(t, resp.EDV.ZCAP)
 		require.NotEmpty(t, resp.KMS.URI)
-		require.NotEmpty(t, resp.KMS.ZCAP)
+		require.NotEmpty(t, resp.KMS.AuthToken)
+		require.NotEmpty(t, resp.EDV.URI)
+		require.NotEmpty(t, resp.EDV.AuthToken)
 	})
 }
 
 func TestSaveDoc(t *testing.T) {
-	const path = "/vaults/vaultID1/docs"
+	t.Run("Error", func(t *testing.T) {
+		const path = "/vaults/vaultID1/docs"
 
-	operation, err := New(&Config{})
-	require.NoError(t, err)
+		v := newVaultMock()
+		v.saveDocFn = func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
+			return nil, errors.New("test")
+		}
 
-	h := handlerLookup(t, operation, SaveDocPath, http.MethodPost)
-	_, code := sendRequestToHandler(t, h, nil, path)
+		operation := New(v)
 
-	require.Equal(t, http.StatusCreated, code)
+		h := handlerLookup(t, operation, SaveDocPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{}`), path)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(res).Decode(&errResp))
+	})
+	t.Run("JSON error", func(t *testing.T) {
+		const path = "/vaults/vaultID1/docs"
+
+		operation := New(newVaultMock())
+
+		h := handlerLookup(t, operation, SaveDocPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{`), path)
+
+		require.Equal(t, http.StatusBadRequest, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(res).Decode(&errResp))
+		require.Contains(t, errResp.Message, "unexpected EOF")
+	})
+	t.Run("Success", func(t *testing.T) {
+		const path = "/vaults/vaultID1/docs"
+
+		operation := New(newVaultMock())
+
+		h := handlerLookup(t, operation, SaveDocPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{}`), path)
+
+		require.Equal(t, http.StatusCreated, code)
+
+		var resp *vault.DocumentMetadata
+
+		require.NoError(t, json.NewDecoder(res).Decode(&resp))
+
+		require.NotEmpty(t, resp.ID)
+		require.NotEmpty(t, resp.URI)
+	})
 }
 
 func TestGetDocMetadata(t *testing.T) {
 	const path = "/vaults/vaultID1/docs/docID1/metadata"
 
-	operation, err := New(&Config{})
-	require.NoError(t, err)
+	operation := New(newVaultMock())
 
 	h := handlerLookup(t, operation, GetDocMetadataPath, http.MethodGet)
 	_, code := sendRequestToHandler(t, h, nil, path)
@@ -127,8 +139,7 @@ func TestGetDocMetadata(t *testing.T) {
 func TestCreateAuthorization(t *testing.T) {
 	const path = "/vaults/vaultID1/authorizations"
 
-	operation, err := New(&Config{})
-	require.NoError(t, err)
+	operation := New(newVaultMock())
 
 	h := handlerLookup(t, operation, CreateAuthorizationPath, http.MethodPost)
 	_, code := sendRequestToHandler(t, h, nil, path)
@@ -139,8 +150,7 @@ func TestCreateAuthorization(t *testing.T) {
 func TestGetAuthorization(t *testing.T) {
 	const path = "/vaults/vaultID1/authorizations/authID1"
 
-	operation, err := New(&Config{})
-	require.NoError(t, err)
+	operation := New(newVaultMock())
 
 	h := handlerLookup(t, operation, GetAuthorizationPath, http.MethodGet)
 	_, code := sendRequestToHandler(t, h, nil, path)
@@ -151,8 +161,7 @@ func TestGetAuthorization(t *testing.T) {
 func TestDeleteVault(t *testing.T) {
 	const path = "/vaults/vaultID1"
 
-	operation, err := New(&Config{})
-	require.NoError(t, err)
+	operation := New(newVaultMock())
 
 	h := handlerLookup(t, operation, DeleteVaultPath, http.MethodDelete)
 	_, code := sendRequestToHandler(t, h, nil, path)
@@ -175,8 +184,7 @@ func TestWriteResponse(t *testing.T) {
 func TestDeleteAuthorization(t *testing.T) {
 	const path = "/vaults/vaultID1/authorizations/authID1"
 
-	operation, err := New(&Config{})
-	require.NoError(t, err)
+	operation := New(newVaultMock())
 
 	h := handlerLookup(t, operation, DeleteAuthorizationPath, http.MethodDelete)
 	_, code := sendRequestToHandler(t, h, nil, path)
@@ -216,4 +224,43 @@ func handlerLookup(t *testing.T, op *Operation, lookup, method string) rest.Hand
 	require.Fail(t, "unable to find handler")
 
 	return nil
+}
+
+func newVaultMock() *vaultMock {
+	return &vaultMock{
+		createVaultFn: func() (*vault.CreatedVault, error) {
+			return &vault.CreatedVault{
+				ID: "did:key:z6MkiCxgAoySWK",
+				Authorization: &vault.Authorization{
+					EDV: &vault.Location{
+						URI:       "localhost:7777/encrypted-data-vaults/HwtZ1bUn4SzXoQRoX9br6m",
+						AuthToken: "H4sIAAAAAAAA_5SSX3OrNhTEv8u5j4UEZP5JT3VIHGM7jolNYnMn0xFC2DJ",
+					},
+					KMS: &vault.Location{
+						URI:       "/kms/keystores/c0ehl35ioude7fdbosfg",
+						AuthToken: "mcwMlgYIHI3JNWk0rk3BH6U6NDSyQglTNS4uWCA4EGgkqW4kWGkjFeoGs",
+					},
+				},
+			}, nil
+		},
+		saveDocFn: func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
+			return &vault.DocumentMetadata{
+				ID:  "M3aS9xwj8ybCwHkEiCJJR1",
+				URI: "localhost:7777/encrypted-data-vaults/HwtZ1bUn4SzXoQRoX9br6m/documents/M3aS9xwj8ybCwHkEiCJJR1",
+			}, nil
+		},
+	}
+}
+
+type vaultMock struct {
+	createVaultFn func() (*vault.CreatedVault, error)
+	saveDocFn     func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
+}
+
+func (v *vaultMock) CreateVault() (*vault.CreatedVault, error) {
+	return v.createVaultFn()
+}
+
+func (v *vaultMock) SaveDoc(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
+	return v.saveDocFn(vaultID, id, content)
 }

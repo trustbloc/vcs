@@ -27,15 +27,15 @@ type createVaultReq struct{} // nolint: unused,deadcode
 // createVaultResp model
 //
 // swagger:response createVaultResp
-type createVaultResp struct { // nolint: unused,deadcode
+type createVaultResp struct {
 	// in: body
-	Body vault.CreatedVault
+	Body *vault.CreatedVault
 }
 
 // saveDocReq model
 //
 // swagger:parameters saveDocReq
-type saveDocReq struct { // nolint: unused,deadcode
+type saveDocReq struct {
 	// in: path
 	VaultID string `json:"vaultID"`
 	// in: body
@@ -50,12 +50,9 @@ type saveDocReq struct { // nolint: unused,deadcode
 // saveDocResp model
 //
 // swagger:response saveDocResp
-type saveDocResp struct { // nolint: unused,deadcode
+type saveDocResp struct {
 	// in: body
-	Body struct {
-		ID        string `json:"docID"`
-		EDVDocURI string `json:"edvDocURI"`
-	}
+	Body *vault.DocumentMetadata
 }
 
 // getDocMetadataReq model

@@ -86,7 +86,7 @@ jobs:
           docker tag ghcr.io/trustbloc/confidential-storage-hub:latest ${CONFIDENTIAL_STORAGE_HUB_PKG}:${CONFIDENTIAL_STORAGE_HUB_TAG}
           docker push ${CONFIDENTIAL_STORAGE_HUB_PKG}:${CONFIDENTIAL_STORAGE_HUB_TAG}
           make vault-server-docker
-          docker tag ghcr.io/trustbloc/comparator-server:latest ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
+          docker tag ghcr.io/trustbloc/vault-server:latest ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
           docker push ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
         env:
           DOCKER_USER: $(DOCKER_USER)

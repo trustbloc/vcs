@@ -22,7 +22,8 @@ import (
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
-	vault "github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
+	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 
 const (
@@ -201,24 +202,29 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 }
 
 func startService(params *serviceParameters, srv server) error {
+	DB := mem.NewProvider()
+
 	keyManager, err := localkms.New(keystorePrimaryKeyURI, &kmsProvider{
 		// TODO: make a storage configurable
-		storageProvider: mem.NewProvider(),
+		storageProvider: DB,
 		secretLock:      &noop.NoLock{},
 	})
 	if err != nil {
 		return fmt.Errorf("localkms new: %w", err)
 	}
 
-	service, err := vault.New(&vault.Config{
-		RemoteKMSURL: params.remoteKMSURL,
-		EDVURL:       params.edvURL,
-		LocalKMS:     keyManager,
-		HTTPClient:   &http.Client{Timeout: time.Minute},
-	})
+	vaultClient, err := vault.NewClient(
+		params.remoteKMSURL,
+		params.edvURL,
+		keyManager,
+		DB,
+		vault.WithHTTPClient(&http.Client{Timeout: time.Minute}),
+	)
 	if err != nil {
-		return fmt.Errorf("vault new: %w", err)
+		return fmt.Errorf("vault new client: %w", err)
 	}
+
+	service := operation.New(vaultClient)
 
 	router := mux.NewRouter()
 
