@@ -6,14 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 
 package operation
 
-import "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+import (
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models"
+)
 
 // Error.
 //
 // swagger:response Error
 type errorResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body http.ErrorResponse
+	Body models.Error
 }
 
 // createProfileReq model
@@ -28,7 +30,7 @@ type createProfileResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Profile
+	Body models.Profile
 }
 
 // createQueryReq model
@@ -40,7 +42,7 @@ type createQueryReq struct { // nolint:deadcode,unused // swagger model
 	ProfileID string `json:"profileID"`
 
 	// in: body
-	Body DocQuery
+	Body models.DocQuery
 }
 
 // Query.
@@ -51,7 +53,7 @@ type createQueryResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Query
+	Body models.Query
 }
 
 // createAuthorizationReq model
@@ -63,7 +65,7 @@ type createAuthorizationReq struct { // nolint:deadcode,unused // swagger model
 	ProfileID string `json:"profileID"`
 
 	// in: body
-	Body Authorization
+	Body models.Authorization
 }
 
 // Authorization.
@@ -73,7 +75,7 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Authorization
+	Body models.Authorization
 }
 
 // comparisonReq model
@@ -81,9 +83,7 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 // swagger:parameters comparisonReq
 type comparisonReq struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body struct {
-		OP Operator `json:"op"`
-	}
+	Body models.ComparisonRequest
 }
 
 // Comparison.
@@ -91,7 +91,7 @@ type comparisonReq struct { // nolint:deadcode,unused // swagger model
 // swagger:response comparisonResp
 type comparisonResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body Comparison
+	Body models.Comparison
 }
 
 // extractionReq model

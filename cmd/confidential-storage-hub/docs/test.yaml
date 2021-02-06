@@ -1,0 +1,317 @@
+swagger: "2.0"
+consumes:
+  - application/json
+definitions:
+  Authorization:
+    description: Authorization authorization
+    properties:
+      id:
+        description: id
+        type: string
+        x-go-name: ID
+      requestingParty:
+        description: requesting party
+        type: string
+        x-go-name: RequestingParty
+      scope:
+        $ref: '#/definitions/AuthorizationScope'
+      zcap:
+        description: zcap
+        type: object
+        x-go-name: Zcap
+    required:
+      - requestingParty
+      - scope
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  AuthorizationScope:
+    description: AuthorizationScope authorization scope
+    properties:
+      action:
+        description: action
+        items:
+          type: string
+        type: array
+        x-go-name: Action
+      caveats:
+        description: caveats
+        items:
+          $ref: '#/definitions/Caveat'
+        type: array
+        x-go-name: Caveats
+      resourceID:
+        description: resource ID
+        type: string
+        x-go-name: ResourceID
+      resourceType:
+        description: resource type
+        type: string
+        x-go-name: ResourceType
+    required:
+      - action
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  Caveat:
+    description: Caveat caveat
+    properties:
+      type:
+        description: type
+        enum:
+          - '[expiry]'
+        type: string
+        x-go-name: Type
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  Comparison:
+    description: Comparison TODO - "comparison" does not sound apt as a name
+    properties:
+      result:
+        description: result
+        type: boolean
+        x-go-name: Result
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  DocQuery:
+    description: DocQuery doc query
+    properties:
+      docID:
+        description: doc ID
+        type: string
+        x-go-name: DocID
+      path:
+        description: path
+        type: string
+        x-go-name: Path
+      upstreamAuth:
+        $ref: '#/definitions/DocQueryAO1UpstreamAuth'
+      vaultID:
+        description: vault ID
+        type: string
+        x-go-name: VaultID
+    required:
+      - docID
+      - upstreamAuth
+      - vaultID
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  DocQueryAO1UpstreamAuth:
+    description: DocQueryAO1UpstreamAuth doc query a o1 upstream auth
+    properties:
+      edv:
+        $ref: '#/definitions/UpstreamAuthorization'
+      kms:
+        $ref: '#/definitions/UpstreamAuthorization'
+    required:
+      - edv
+      - kms
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  Error:
+    description: Error error
+    properties:
+      errMessage:
+        description: err message
+        type: string
+        x-go-name: ErrMessage
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  Profile:
+    description: Profile profile
+    properties:
+      controller:
+        description: controller
+        type: string
+        x-go-name: Controller
+      id:
+        description: id
+        type: string
+        x-go-name: ID
+      zcap:
+        description: zcap
+        type: string
+        x-go-name: Zcap
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  Query:
+    allOf:
+      - type: object
+      - type: object
+      - allOf:
+          - type: object
+          - type: object
+        description: Query query
+        properties:
+          ID:
+            description: id
+            type: string
+          Type:
+            description: type
+            type: string
+        required:
+          - Type
+        type: object
+    description: Query query
+    properties:
+      ID:
+        description: id
+        type: string
+      Type:
+        description: type
+        type: string
+    required:
+      - Type
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+  UpstreamAuthorization:
+    description: UpstreamAuthorization upstream authorization
+    properties:
+      baseURL:
+        description: base URL
+        type: string
+        x-go-name: BaseURL
+      zcap:
+        description: zcap
+        type: string
+        x-go-name: Zcap
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models
+info:
+  license:
+    name: Apache-2.0
+  title: Confidential Storage Hub.
+  version: 0.1.0
+paths:
+  /hubstore/compare:
+    post:
+      consumes:
+        - application/json
+      operationId: comparisonReq
+      parameters:
+        - in: body
+          name: Body
+          schema:
+            type: object
+      produces:
+        - application/json
+      responses:
+        "200":
+          $ref: '#/responses/comparisonResp'
+        default:
+          $ref: '#/responses/Error'
+      summary: Performs a comparison.
+  /hubstore/extract:
+    get:
+      operationId: extractionReq
+      parameters:
+        - description: Resource identifier.
+          in: query
+          name: resource
+          type: string
+          x-go-name: Resource
+      produces:
+        - application/json
+      responses:
+        "200":
+          $ref: '#/responses/extractionResp'
+        "500":
+          $ref: '#/responses/Error'
+      summary: Extracts the contents of a document.
+  /hubstore/profiles:
+    post:
+      operationId: createProfileReq
+      produces:
+        - application/json
+      responses:
+        "201":
+          $ref: '#/responses/createProfileResp'
+        default:
+          $ref: '#/responses/Error'
+      summary: Creates a Profile.
+  /hubstore/profiles/{profileID}/authorizations:
+    post:
+      consumes:
+        - application/json
+      operationId: createAuthorizationReq
+      parameters:
+        - in: path
+          name: profileID
+          required: true
+          type: string
+          x-go-name: ProfileID
+        - in: body
+          name: Body
+          schema:
+            $ref: '#/definitions/Authorization'
+      produces:
+        - application/json
+      responses:
+        "201":
+          $ref: '#/responses/createAuthorizationResp'
+        default:
+          $ref: '#/responses/Error'
+      summary: Creates an Authorization.
+  /hubstore/profiles/{profileID}/queries:
+    post:
+      consumes:
+        - application/json
+      operationId: createQueryReq
+      parameters:
+        - in: path
+          name: profileID
+          required: true
+          type: string
+          x-go-name: ProfileID
+        - in: body
+          name: Body
+          schema:
+            $ref: '#/definitions/DocQuery'
+      produces:
+        - application/json
+      responses:
+        "201":
+          $ref: '#/responses/createQueryResp'
+        default:
+          $ref: '#/responses/Error'
+      summary: Creates a Query.
+produces:
+  - application/json
+responses:
+  Error:
+    description: Error.
+    schema:
+      $ref: '#/definitions/Error'
+  comparisonResp:
+    description: Comparison.
+    schema:
+      $ref: '#/definitions/Comparison'
+  createAuthorizationResp:
+    description: Authorization.
+    headers:
+      Location:
+        description: 'in: header'
+        type: string
+    schema:
+      $ref: '#/definitions/Authorization'
+  createProfileResp:
+    description: Profile.
+    headers:
+      Location:
+        description: 'in: header'
+        type: string
+    schema:
+      $ref: '#/definitions/Profile'
+  createQueryResp:
+    description: Query.
+    headers:
+      Location:
+        description: 'in: header'
+        type: string
+    schema:
+      $ref: '#/definitions/Query'
+  extractionResp:
+    description: extractionResp model
+    schema:
+      type: object
+schemes:
+  - http
+  - https

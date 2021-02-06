@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -84,19 +85,19 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&operation.Profile{
+			&models.Profile{
 				Controller: controller,
 			},
 		))
 		require.Equal(t, http.StatusCreated, result.Code)
-		response := &operation.Profile{}
+		response := &models.Profile{}
 
 		err := json.NewDecoder(result.Body).Decode(response)
 		require.NoError(t, err)
 
 		require.Equal(t, controller, response.Controller)
 		require.NotEmpty(t, response.ID)
-		require.NotEmpty(t, response.ZCAP)
+		require.NotEmpty(t, response.Zcap)
 	})
 
 	t.Run("err badrequest if controller is missing", func(t *testing.T) {
@@ -105,7 +106,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&operation.Profile{},
+			&models.Profile{},
 		))
 
 		require.Equal(t, http.StatusBadRequest, result.Code)
@@ -125,7 +126,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&operation.Profile{Controller: "did:example:controller#key"},
+			&models.Profile{Controller: "did:example:controller#key"},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -151,7 +152,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profile",
-			&operation.Profile{Controller: "did:example:controller#key"},
+			&models.Profile{Controller: "did:example:controller#key"},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -177,7 +178,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profile",
-			&operation.Profile{Controller: "did:example:controller#key"},
+			&models.Profile{Controller: "did:example:controller#key"},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)

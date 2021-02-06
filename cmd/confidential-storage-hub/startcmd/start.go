@@ -196,6 +196,7 @@ func startService(params *serviceParameters, srv server) error {
 	service, err := csh.New(&operation.Config{
 		StoreProvider: edgeStorage,
 		Aries:         ariesConfig,
+		HTTPClient:    &http.Client{},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize confidential storage hub operations: %w", err)

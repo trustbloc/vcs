@@ -32,6 +32,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/Account"
   /profiles/{profileID}/queries:
+    parameters:
+      - name: profileID
+        in: path
+        schema:
+          type: string
     post:
       requestBody:
         content:
@@ -48,6 +53,11 @@ paths:
               schema:
                 type: string
   /profiles/{profileID}/authorizations:
+    parameters:
+      - name: profileID
+        in: path
+        schema:
+          type: string
     post:
       description: TODO
       requestBody:
@@ -145,15 +155,13 @@ components:
       type: object
       required:
         - type
-        - upstreamAuth
+      discriminator:
+        propertyName: type
       properties:
         id:
           type: string
         type:
           type: string
-          enum:
-            - doc
-            - ref
     DocQuery:
       allOf:
         - $ref: "#/components/schemas/Query"
@@ -191,7 +199,6 @@ components:
     Authorization:
       type: object
       required:
-        - queryID
         - requestingParty
         - scope
       properties:

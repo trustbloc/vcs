@@ -13,18 +13,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/trustbloc/edge-service/pkg/client/vault"
+	edv "github.com/trustbloc/edv/pkg/client"
 	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	remotekms "github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
@@ -53,25 +58,33 @@ type Operation struct {
 		profiles storage.Store
 		zcaps    storage.Store
 	}
-	aries *AriesConfig
+	aries      *AriesConfig
+	httpClient *http.Client
+	edvClient  func(string, ...edv.Option) vault.ConfidentialStorageDocReader
 }
 
 // Config defines configuration for vault operations.
 type Config struct {
 	StoreProvider storage.Provider
 	Aries         *AriesConfig
+	HTTPClient    *http.Client
+	EDVClient     func(string, ...edv.Option) vault.ConfidentialStorageDocReader
 }
 
 // AriesConfig holds all configurations for aries-framework-go dependencies.
 type AriesConfig struct {
-	KMS    kms.KeyManager
-	Crypto crypto.Crypto
+	KMS       kms.KeyManager
+	Crypto    crypto.Crypto
+	WebKMS    func(string, *http.Client, ...remotekms.Opt) *remotekms.RemoteKMS
+	WebCrypto func(string, *http.Client, ...remotekms.Opt) *remotecrypto.RemoteCrypto
 }
 
 // New returns operation instance.
 func New(cfg *Config) (*Operation, error) {
 	ops := &Operation{
-		aries: cfg.Aries,
+		aries:      cfg.Aries,
+		httpClient: cfg.HTTPClient,
+		edvClient:  cfg.EDVClient,
 	}
 
 	var err error
@@ -103,11 +116,11 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 //   - application/json
 // Responses:
 //   201: createProfileResp
-//   500: Error
+//   default: Error
 func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 	logger.Infof("handling request")
 
-	profile := &Profile{}
+	profile := &models.Profile{}
 
 	err := json.NewDecoder(r.Body).Decode(profile)
 	if err != nil {
@@ -145,7 +158,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile.ZCAP, err = gzipThenBase64URL(zcap)
+	profile.Zcap, err = gzipThenBase64URLEncode(zcap)
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError, "failed to compress zcap: %s", err.Error())
 
@@ -172,8 +185,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 //   - application/json
 // Responses:
 //   201: createQueryResp
-//   403: Error
-//   500: Error
+//   default: Error
 func (o *Operation) CreateQuery(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
@@ -188,8 +200,7 @@ func (o *Operation) CreateQuery(w http.ResponseWriter, _ *http.Request) {
 //   - application/json
 // Responses:
 //   201: createAuthorizationResp
-//   403: Error
-//   500: Error
+//   default: Error
 func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 }
@@ -204,9 +215,27 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 //   - application/json
 // Responses:
 //   200: comparisonResp
-//   500: Error
-func (o *Operation) Compare(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
+//   default: Error
+func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
+	logger.Infof("handling request")
+
+	request := &models.ComparisonRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(request)
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "invalid request: %s", err.Error())
+
+		return
+	}
+
+	switch op := request.Op().(type) {
+	case *models.EqOp:
+		o.handleEqOp(w, op)
+	default:
+		respondErrorf(w, http.StatusBadRequest, "invalid operation: %s", request.Op().Type())
+	}
+
+	logger.Infof("successfully handled request")
 }
 
 // Extract swagger:route GET /hubstore/extract extractionReq
@@ -311,7 +340,7 @@ func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ..
 	}
 }
 
-func gzipThenBase64URL(msg interface{}) (string, error) {
+func gzipThenBase64URLEncode(msg interface{}) (string, error) {
 	raw, err := json.Marshal(msg)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal msg: %w", err)
