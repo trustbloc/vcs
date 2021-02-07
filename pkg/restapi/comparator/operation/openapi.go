@@ -7,8 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"github.com/square/go-jose/v3"
-
 	"github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 )
 
@@ -84,8 +82,5 @@ type configReq struct{} // nolint:deadcode,unused // swagger model
 // swagger:response configResp
 type configResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body struct {
-		DID  string `json:"did"`
-		Keys []jose.JSONWebKey
-	}
+	Body ComparatorConfig
 }

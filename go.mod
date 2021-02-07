@@ -21,7 +21,6 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.6.1
-	github.com/tidwall/sjson v1.1.4
 	github.com/trustbloc/edge-core v0.1.6-0.20210127161542-9e174750f523
 	github.com/trustbloc/edv v0.1.5
 	github.com/trustbloc/kms v0.1.6-0.20210203150736-e4c6b3a7dbef

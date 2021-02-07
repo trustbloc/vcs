@@ -12,3 +12,7 @@ Feature: Comparator_REST API
   Scenario: Comparator healthcheck
     When an HTTP GET is sent to "https://localhost:8065/healthcheck"
     Then the JSON path "status" of the response equals "success"
+
+  @comparator_e2e
+  Scenario: Comparator
+    Then Check comparator config is created

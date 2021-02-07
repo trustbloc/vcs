@@ -8,6 +8,7 @@ package bddutil
 
 import (
 	"crypto/ed25519"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -83,6 +84,26 @@ func HTTPDo(method, url, contentType, token string, body io.Reader) (*http.Respo
 	}
 
 	return http.DefaultClient.Do(req)
+}
+
+// HTTPSDo send https request
+func HTTPSDo(method, url, contentType, token string, body io.Reader, tlsConfig *tls.Config) (*http.Response, error) {
+	req, err := http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	if contentType != "" {
+		req.Header.Add("Content-Type", contentType)
+	}
+
+	if token != "" {
+		req.Header.Add("Authorization", "Bearer "+token)
+	}
+
+	c := &http.Client{Transport: &http.Transport{TLSClientConfig: tlsConfig}}
+
+	return c.Do(req)
 }
 
 // GetSigner returns private key based signer for bdd tests
