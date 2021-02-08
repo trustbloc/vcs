@@ -383,6 +383,58 @@ func TestSaveDoc(t *testing.T) {
 	})
 }
 
+func TestClient_GetDocMetadata(t *testing.T) {
+	t.Run("No authorization", func(t *testing.T) {
+		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{},
+		})
+		require.NoError(t, err)
+
+		_, err = client.GetDocMetadata("vID", "docID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get authorization: get: data not found")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		edvHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 1)
+		edvHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write([]byte(`{"@context":"https://w3id.org/security/v2","id":"urn:uuid:293817e5-3a47-4685-9bd3-51eba3d5e928","invoker":"did:key:z6MkqknydjnZe6ZqXNGEvjYTPxwmUzAkzS17LAJTuYsMQsyr#z6MkqknydjnZe6ZqXNGEvjYTPxwmUzAkzS17LAJTuYsMQsyr","parentCapability":"urn:uuid:3e7f55ea-2e2c-41bd-a167-3cb71db9ca14","allowedAction":["read","write"],"invocationTarget":{"ID":"DWPPbEVn1afJY4We3kpQmq","Type":"urn:edv:vault"},"proof":[{"capabilityChain":["urn:uuid:3e7f55ea-2e2c-41bd-a167-3cb71db9ca14"],"created":"2021-01-31T13:41:13.863452194+02:00","jws":"eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..NfznOmAi16H7fXJ1lI3-JzzHlOMopAhdGnBaF_FYK_F5BHbJMpH0u1aZ_JMgrG2XHUFMLNCBxG91DA-tJn2gDQ","nonce":"ZjtzLnBIpSNLteskV4bgTI8LOwrqrETpDI31qPglCNT_V-78ZmChHhqksMEu59WhkA_hofadF8saneziAhCDRA","proofPurpose":"capabilityDelegation","type":"Ed25519Signature2018","verificationMethod":"did:key:z6Mkpi5ZtFzsZv5UQhLzejwaNM5YX38cHBuMopUkayU13zyn#z6Mkpi5ZtFzsZv5UQhLzejwaNM5YX38cHBuMopUkayU13zyn"}]}`)) // nolint: lll
+			require.NoError(t, err)
+		}
+
+		edv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case fn := <-edvHandlers:
+				fn(w, r)
+			default:
+				t.Error("no handler")
+			}
+		}))
+
+		data := map[string][]byte{}
+
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		lKMS := newLocalKms(t, store)
+		client, err := NewClient("", edv.URL, lKMS, store)
+		require.NoError(t, err)
+
+		vID := createVaultID(t, lKMS)
+
+		data["auth_"+vID] = []byte(`{"edv":{},"kms":{}}`)
+
+		docMeta, err := client.GetDocMetadata(vID, "docID")
+		require.NoError(t, err)
+		require.NotEmpty(t, docMeta.ID)
+		require.NotEmpty(t, docMeta.URI)
+	})
+}
+
 const keystorePrimaryKeyURI = "local-lock://keystorekms"
 
 func newLocalKms(t *testing.T, db storage.Provider) KeyManager {

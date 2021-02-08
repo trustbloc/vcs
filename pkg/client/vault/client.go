@@ -40,6 +40,7 @@ const storeName = "vault"
 type Vault interface {
 	CreateVault() (*CreatedVault, error)
 	SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error)
+	GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error)
 }
 
 // KeyManager KMS alias.
@@ -164,6 +165,23 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 		ID:            didKey,
 		Authorization: auth,
 	}, nil
+}
+
+// GetDocMetadata returns document`s metadata.
+func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error) {
+	auth, err := c.getAuthorization(vaultID)
+	if err != nil {
+		return nil, fmt.Errorf("get authorization: %w", err)
+	}
+
+	edvVaultID := lastElm(auth.EDV.URI, "/")
+
+	_, err = c.edvClient.ReadDocument(edvVaultID, docID, edv.WithRequestHeader(c.edvSign(vaultID, auth.EDV)))
+	if err != nil {
+		return nil, fmt.Errorf("read document: %w", err)
+	}
+
+	return &DocumentMetadata{ID: docID, URI: buildEDVURI(c.edvHost, edvVaultID, docID)}, nil
 }
 
 // SaveDoc saves a document by encrypting it and storing it in the vault.
@@ -344,7 +362,7 @@ func compressZCAP(zcap *zcapld.Capability) (string, error) {
 	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
 }
 
-func lastElm(s, sep string) string {
+func lastElm(s, sep string) string { // nolint: unparam
 	all := strings.Split(s, sep)
 
 	return all[len(all)-1]

@@ -10,9 +10,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/edv/pkg/restapi/messages"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
@@ -130,8 +132,28 @@ func (o *Operation) SaveDoc(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 //        200: getDocMetadataResp
-func (o *Operation) GetDocMetadata(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(http.StatusOK)
+func (o *Operation) GetDocMetadata(rw http.ResponseWriter, req *http.Request) {
+	var (
+		vaultID = mux.Vars(req)["vaultID"]
+		docID   = mux.Vars(req)["docID"]
+	)
+
+	result, err := o.vault.GetDocMetadata(vaultID, docID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if strings.HasSuffix(err.Error(), messages.ErrDocumentNotFound.Error()+".") {
+			status = http.StatusNotFound
+		}
+
+		o.writeErrorResponse(rw, err, status)
+
+		return
+	}
+
+	var resp getDocMetadataResp
+	resp.Body = result
+
+	o.WriteResponse(rw, resp.Body, http.StatusOK)
 }
 
 // CreateAuthorization swagger:route POST /vaults/{vaultID}/authorizations vault createAuthorizationReq
