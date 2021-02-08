@@ -50,6 +50,88 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither host-url (command line flag) nor COMPARATOR_HOST_URL (environment variable) have been set.",
 			err.Error())
 	})
+
+	t.Run("test missing dsn arg", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+
+		require.Error(t, err)
+		require.Equal(t,
+			"failed to configure dsn: Neither dsn (command line flag) nor COMPARATOR_DSN (environment variable) have been set.",
+			err.Error())
+	})
+
+	t.Run("test missing did domain arg", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + datasourceNameFlagName, "mem://test",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+
+		require.Error(t, err)
+		require.Equal(t,
+			"Neither did-domain (command line flag) nor COMPARATOR_DID_DOMAIN (environment variable) have been set.",
+			err.Error())
+	})
+}
+
+func TestNotSupportedDSN(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080",
+		"--" + datasourceNameFlagName, "mem1://test",
+		"--" + didDomainFlagName, "did",
+	}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported storage driver: mem1")
+}
+
+func TestFailedToConnectToDB(t *testing.T) {
+	t.Run("test couchdb", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + datasourceNameFlagName, "couchdb://url",
+			"--" + didDomainFlagName, "did",
+			"--" + datasourceTimeoutFlagName, "1",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to connect to storage at url")
+	})
+
+	t.Run("test mysql", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + datasourceNameFlagName, "mysql://url",
+			"--" + didDomainFlagName, "did",
+			"--" + datasourceTimeoutFlagName, "1",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to connect to storage at url")
+	})
 }
 
 func TestStartCmdWithBlankEnvVar(t *testing.T) {
@@ -70,11 +152,14 @@ func TestStartCmdValidArgs(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",
+		"--" + datasourceNameFlagName, "mem://test",
+		"--" + didDomainFlagName, "did",
 	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
-	require.NoError(t, err)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create DID")
 }
 
 func TestTLSInvalidArgs(t *testing.T) {

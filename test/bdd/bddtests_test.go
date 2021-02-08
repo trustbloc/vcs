@@ -20,6 +20,7 @@ import (
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/chs"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/common"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/comparator"
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/governance"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/holder"
@@ -155,4 +156,6 @@ func FeatureContext(s *godog.Suite) {
 	vault.NewSteps(bddContext).RegisterSteps(s)
 
 	chs.NewSteps(bddContext).RegisterSteps(s)
+
+	comparator.NewSteps(bddContext).RegisterSteps(s)
 }

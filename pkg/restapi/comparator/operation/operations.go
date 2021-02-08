@@ -7,9 +7,28 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"crypto"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/square/go-jose/v3"
+	"github.com/trustbloc/edge-core/pkg/log"
+
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 )
 
 const (
@@ -19,15 +38,58 @@ const (
 	getConfigPath   = "/config"
 )
 
+const (
+	configKeyDB = "config"
+	storeName   = "comparator"
+)
+
+var logger = log.New("comparator-ops")
+
 // Operation defines handlers for comparator service.
-type Operation struct{}
+type Operation struct {
+	vdr        vdr.Registry
+	keyManager kms.KeyManager
+	tlsConfig  *tls.Config
+	didMethod  string
+	store      storage.Store
+}
 
 // Config defines configuration for comparator operations.
-type Config struct{}
+type Config struct {
+	VDR           vdr.Registry
+	KeyManager    kms.KeyManager
+	TLSConfig     *tls.Config
+	DIDMethod     string
+	StoreProvider storage.Provider
+}
 
 // New returns operation instance.
 func New(cfg *Config) (*Operation, error) {
-	return &Operation{}, nil
+	store, err := cfg.StoreProvider.OpenStore(storeName)
+	if err != nil {
+		return nil, err
+	}
+
+	op := &Operation{vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
+		store: store}
+
+	if _, err := op.getConfig(); err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			if errCreate := op.createConfig(); errCreate != nil {
+				return nil, errCreate
+			}
+
+			logger.Infof("comparator config is created")
+
+			return op, nil
+		}
+
+		return nil, err
+	}
+
+	logger.Infof("comparator config already created")
+
+	return op, nil
 }
 
 // GetRESTHandlers get all controller API handler available for this service.
@@ -36,7 +98,7 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 		support.NewHTTPHandler(createAuthzPath, http.MethodPost, o.CreateAuthorization),
 		support.NewHTTPHandler(comparePath, http.MethodPost, o.Compare),
 		support.NewHTTPHandler(extractPath, http.MethodPost, o.Extract),
-		support.NewHTTPHandler(getConfigPath, http.MethodPost, o.Config),
+		support.NewHTTPHandler(getConfigPath, http.MethodPost, o.GetConfig),
 	}
 }
 
@@ -84,7 +146,7 @@ func (o *Operation) Extract(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// Config swagger:route GET /config configReq
+// GetConfig swagger:route GET /config configReq
 //
 // Get config.
 //
@@ -93,6 +155,111 @@ func (o *Operation) Extract(w http.ResponseWriter, _ *http.Request) {
 // Responses:
 //   200: configResp
 //   500: Error
-func (o *Operation) Config(w http.ResponseWriter, _ *http.Request) {
+func (o *Operation) GetConfig(w http.ResponseWriter, _ *http.Request) {
+	cc, err := o.getConfig()
+	if err != nil {
+		if errors.Is(err, storage.ErrDataNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		commhttp.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
+	commhttp.WriteResponse(w, cc)
+}
+
+func (o *Operation) getConfig() (*ComparatorConfig, error) {
+	bytes, err := o.store.Get(configKeyDB)
+	if err != nil {
+		return nil, err
+	}
+
+	cc := ComparatorConfig{}
+	if err := json.Unmarshal(bytes, &cc); err != nil {
+		return nil, err
+	}
+
+	return &cc, nil
+}
+
+func (o *Operation) createConfig() error {
+	// create did
+	didDoc, keys, err := o.newPublicKeys()
+	if err != nil {
+		return fmt.Errorf("failed to create public keys : %w", err)
+	}
+
+	recoverKey, err := o.newKey()
+	if err != nil {
+		return fmt.Errorf("failed to create recover key : %w", err)
+	}
+
+	updateKey, err := o.newKey()
+	if err != nil {
+		return fmt.Errorf("failed to update recover key : %w", err)
+	}
+
+	docResolution, err := o.vdr.Create(o.didMethod, didDoc,
+		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
+		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create DID : %w", err)
+	}
+
+	bytes, err := json.Marshal(ComparatorConfig{DID: docResolution.DIDDocument.ID, Keys: keys})
+	if err != nil {
+		return err
+	}
+
+	// store config
+	return o.store.Put(configKeyDB, bytes)
+}
+
+func (o *Operation) newPublicKeys() (*did.Doc, [][]json.RawMessage, error) {
+	didDoc := &did.Doc{}
+
+	m := make([][]json.RawMessage, 0)
+
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	keyID := uuid.New().String()
+
+	jwkBytes, err := jose.JSONWebKey{KeyID: keyID, Key: privateKey}.MarshalJSON()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	m = append(m, []json.RawMessage{jwkBytes})
+
+	jwk, err := ariesjoes.JWKFromPublicKey(publicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	vm, err := did.NewVerificationMethodFromJWK(keyID, doc.JWSVerificationKey2020, "", jwk)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
+	didDoc.AssertionMethod = append(didDoc.AssertionMethod, *did.NewReferencedVerification(vm, did.AssertionMethod))
+
+	return didDoc, m, nil
+}
+
+func (o *Operation) newKey() (crypto.PublicKey, error) {
+	_, bits, err := o.keyManager.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key : %w", err)
+	}
+
+	return ed25519.PublicKey(bits), nil
 }

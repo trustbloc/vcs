@@ -6,6 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 
 package operation
 
+import (
+	"encoding/json"
+)
+
 // Query is an abstract query object.
 type Query struct {
 	// discriminator: true
@@ -63,4 +67,10 @@ type EqualityOperator struct {
 // Comparison is the result of a comparison.
 type Comparison struct {
 	Result bool `json:"result"`
+}
+
+// ComparatorConfig config for comparator
+type ComparatorConfig struct {
+	DID  string              `json:"did"`
+	Keys [][]json.RawMessage `json:"keys"`
 }

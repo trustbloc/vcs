@@ -7,15 +7,33 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"crypto/tls"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gorilla/mux"
+	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator"
+	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
 )
 
@@ -45,7 +63,65 @@ const (
 	tlsServeKeyPathFlagUsage = "Path to the private key to use when serving HTTPS." +
 		" Alternatively, this can be set with the following environment variable: " + tlsServeKeyPathFlagEnvKey
 	tlsServeKeyPathFlagEnvKey = "COMPARATOR_TLS_SERVE_KEY"
+
+	datasourceNameFlagName  = "dsn"
+	datasourceNameFlagUsage = "Datasource Name with credentials if required." +
+		" Format must be <driver>:[//]<driver-specific-dsn>." +
+		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'." +
+		" Supported drivers are [mem, couchdb, mysql]." +
+		" Alternatively, this can be set with the following environment variable: " + datasourceNameEnvKey
+	datasourceNameEnvKey = "COMPARATOR_DSN"
+
+	datasourceTimeoutFlagName  = "dsn-timeout"
+	datasourceTimeoutFlagUsage = "Total time in seconds to wait until the datasource is available before giving up." +
+		" Default: " + datasourceTimeoutDefault + " seconds." +
+		" Alternatively, this can be set with the following environment variable: " + datasourceTimeoutEnvKey
+	datasourceTimeoutEnvKey  = "COMPARATOR_DSN_TIMEOUT"
+	datasourceTimeoutDefault = "30"
+
+	databasePrefixFlagName  = "database-prefix"
+	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
+		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
+	databasePrefixEnvKey = "COMPARATOR_DATABASE_PREFIX"
+
+	didDomainFlagName  = "did-domain"
+	didDomainFlagUsage = "URL to the did consortium's domain." +
+		" Alternatively, this can be set with the following environment variable: " + didDomainEnvKey
+	didDomainEnvKey = "COMPARATOR_DID_DOMAIN"
 )
+
+const (
+	keystorePrimaryKeyURI = "local-lock://keystorekms"
+	sleep                 = 1 * time.Second
+)
+
+var logger = log.New("comparator-rest")
+
+// nolint:gochecknoglobals
+var supportedStorageProviders = map[string]func(string, string) (storage.Provider, error){
+	"couchdb": func(dsn, prefix string) (storage.Provider, error) {
+		return ariescouchdbstorage.NewProvider(dsn, ariescouchdbstorage.WithDBPrefix(prefix))
+	},
+	"mysql": func(dsn, prefix string) (storage.Provider, error) {
+		return ariesmysql.NewProvider(dsn, ariesmysql.WithDBPrefix(prefix))
+	},
+	"mem": func(_, _ string) (storage.Provider, error) { // nolint:unparam
+		return mem.NewProvider(), nil
+	},
+}
+
+type kmsProvider struct {
+	storageProvider storage.Provider
+	secretLock      secretlock.Service
+}
+
+func (k kmsProvider) StorageProvider() storage.Provider {
+	return k.storageProvider
+}
+
+func (k kmsProvider) SecretLock() secretlock.Service {
+	return k.secretLock
+}
 
 type tlsParameters struct {
 	systemCertPool bool
@@ -54,9 +130,17 @@ type tlsParameters struct {
 	serveKeyPath   string
 }
 
+type dsnParams struct {
+	dsn      string
+	timeout  uint64
+	dbPrefix string
+}
+
 type serviceParameters struct {
 	host      string
 	tlsParams *tlsParameters
+	dsnParams *dsnParams
+	didDomain string
 }
 
 type server interface {
@@ -139,10 +223,113 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	dsnParams, err := getDsnParams(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	didDomain, err := cmdutils.GetUserSetVarFromString(cmd, didDomainFlagName, didDomainEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
 		host:      host,
 		tlsParams: tlsParams,
+		dsnParams: dsnParams,
+		didDomain: didDomain,
 	}, err
+}
+
+func getDsnParams(cmd *cobra.Command) (*dsnParams, error) {
+	params := &dsnParams{}
+
+	var err error
+
+	params.dsn, err = cmdutils.GetUserSetVarFromString(cmd, datasourceNameFlagName, datasourceNameEnvKey, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure dsn: %w", err)
+	}
+
+	timeout := cmdutils.GetUserSetOptionalVarFromString(cmd, datasourceTimeoutFlagName, datasourceTimeoutEnvKey)
+
+	if timeout == "" {
+		timeout = datasourceTimeoutDefault
+	}
+
+	t, err := strconv.Atoi(timeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse dsn timeout %s: %w", timeout, err)
+	}
+
+	params.timeout = uint64(t)
+
+	params.dbPrefix = cmdutils.GetUserSetOptionalVarFromString(cmd, databasePrefixFlagName, databasePrefixEnvKey)
+
+	return params, nil
+}
+
+func initStore(dbURL string, timeout uint64, prefix string) (storage.Provider, error) {
+	driver, dsn, err := getDBParams(dbURL)
+	if err != nil {
+		return nil, err
+	}
+
+	providerFunc, supported := supportedStorageProviders[driver]
+	if !supported {
+		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
+	}
+
+	var store storage.Provider
+
+	err = retry(func() error {
+		var openErr error
+		store, openErr = providerFunc(dsn, prefix)
+		return openErr
+	}, timeout)
+	if err != nil {
+		return nil, fmt.Errorf("store init - failed to connect to storage at %s : %w", dsn, err)
+	}
+
+	return store, nil
+}
+
+func retry(fn func() error, timeout uint64) error {
+	numRetries, err := strconv.Atoi(datasourceTimeoutDefault)
+	if err != nil {
+		return fmt.Errorf("failed to parse dsn timeout %d: %w", timeout, err)
+	}
+
+	if timeout != 0 {
+		numRetries = int(timeout)
+	}
+
+	return backoff.RetryNotify(
+		fn,
+		backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), uint64(numRetries)),
+		func(retryErr error, t time.Duration) {
+			logger.Warnf(
+				"failed to connect to storage, will sleep for %s before trying again : %s\n",
+				t, retryErr)
+		},
+	)
+}
+
+func getDBParams(dbURL string) (driver, dsn string, err error) {
+	const (
+		urlParts = 2
+	)
+
+	parsed := strings.SplitN(dbURL, ":", urlParts)
+
+	if len(parsed) != urlParts {
+		return "", "", fmt.Errorf("invalid dbURL %s", dbURL)
+	}
+
+	driver = parsed[0]
+	dsn = strings.TrimPrefix(parsed[1], "//")
+
+	return driver, dsn, nil
 }
 
 func createFlags(cmd *cobra.Command) {
@@ -151,9 +338,36 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	cmd.Flags().StringP(tlsServeCertPathFlagName, "", "", tlsServeCertPathFlagUsage)
 	cmd.Flags().StringP(tlsServeKeyPathFlagName, "", "", tlsServeKeyPathFlagUsage)
+	cmd.Flags().StringP(datasourceNameFlagName, "", "", datasourceNameFlagUsage)
+	cmd.Flags().StringP(datasourceTimeoutFlagName, "", "", datasourceTimeoutFlagUsage)
+	cmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
+	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 }
 
+//nolint: funlen
 func startService(params *serviceParameters, srv server) error {
+	rootCAs, err := tlsutils.GetCertPool(params.tlsParams.systemCertPool, params.tlsParams.caCerts)
+	if err != nil {
+		return err
+	}
+
+	tlsConfig := &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}
+
+	storeProvider, err := initStore(params.dsnParams.dsn, params.dsnParams.timeout, params.dsnParams.dbPrefix)
+	if err != nil {
+		return err
+	}
+
+	keyManager, err := localkms.New(keystorePrimaryKeyURI, &kmsProvider{
+		storageProvider: storeProvider,
+		secretLock:      &noop.NoLock{},
+	})
+	if err != nil {
+		return err
+	}
+
+	trustblocVDR := trustbloc.New(nil, trustbloc.WithDomain(params.didDomain), trustbloc.WithTLSConfig(tlsConfig))
+
 	router := mux.NewRouter()
 
 	// add health check endpoint
@@ -164,7 +378,18 @@ func startService(params *serviceParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	service, err := comparator.New(nil)
+	vdrProvider, err := context.New(context.WithKMS(keyManager))
+	if err != nil {
+		return fmt.Errorf("failed to create new vdr provider: %w", err)
+	}
+
+	service, err := comparator.New(&operation.Config{
+		VDR:           vdr.New(vdrProvider, vdr.WithVDR(trustblocVDR)),
+		KeyManager:    keyManager,
+		TLSConfig:     tlsConfig,
+		DIDMethod:     trustbloc.DIDMethod,
+		StoreProvider: storeProvider,
+	})
 	if err != nil {
 		return err
 	}
