@@ -27,7 +27,9 @@ import (
 	"github.com/square/go-jose/v3"
 	"github.com/trustbloc/edge-core/pkg/log"
 
+	"github.com/trustbloc/edge-service/pkg/client/csh"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 )
 
@@ -39,9 +41,14 @@ const (
 )
 
 const (
-	configKeyDB = "config"
-	storeName   = "comparator"
+	configKeyDB    = "config"
+	cshConfigKeyDB = "csh_config"
+	storeName      = "comparator"
 )
+
+type cshClient interface {
+	CreateProfile(controller string) (*operation.Profile, error)
+}
 
 var logger = log.New("comparator-ops")
 
@@ -52,6 +59,7 @@ type Operation struct {
 	tlsConfig  *tls.Config
 	didMethod  string
 	store      storage.Store
+	cshClient  cshClient
 }
 
 // Config defines configuration for comparator operations.
@@ -61,6 +69,7 @@ type Config struct {
 	TLSConfig     *tls.Config
 	DIDMethod     string
 	StoreProvider storage.Provider
+	CSHBaseURL    string
 }
 
 // New returns operation instance.
@@ -71,7 +80,7 @@ func New(cfg *Config) (*Operation, error) {
 	}
 
 	op := &Operation{vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
-		store: store}
+		store: store, cshClient: csh.New(cfg.CSHBaseURL, csh.WithTLSConfig(cfg.TLSConfig))}
 
 	if _, err := op.getConfig(); err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
@@ -102,7 +111,7 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 	}
 }
 
-// CreateAuthorization swagger:route POST /authorizations createAuthorizationReq
+// CreateAuthorization swagger:route POST /authorizations createAuthzReq
 //
 // Creates an Authorization.
 //
@@ -118,7 +127,7 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 	w.WriteHeader(http.StatusCreated)
 }
 
-// Compare swagger:route POST /compare comparisonReq
+// Compare swagger:route POST /compare compareReq
 //
 // Performs a comparison.
 //
@@ -133,7 +142,7 @@ func (o *Operation) Compare(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// Extract swagger:route POST /extract extractionReq
+// Extract swagger:route POST /extract extractReq
 //
 // Extracts the contents of a document.
 //
@@ -211,13 +220,27 @@ func (o *Operation) createConfig() error {
 		return fmt.Errorf("failed to create DID : %w", err)
 	}
 
-	bytes, err := json.Marshal(ComparatorConfig{DID: docResolution.DIDDocument.ID, Keys: keys})
+	configBytes, err := json.Marshal(ComparatorConfig{DID: docResolution.DIDDocument.ID, Keys: keys})
 	if err != nil {
 		return err
 	}
 
+	cshProfile, err := o.cshClient.CreateProfile(docResolution.DIDDocument.ID)
+	if err != nil {
+		return err
+	}
+
+	cshConfigBytes, err := json.Marshal(cshProfile)
+	if err != nil {
+		return err
+	}
+
+	if err := o.store.Put(cshConfigKeyDB, cshConfigBytes); err != nil {
+		return err
+	}
+
 	// store config
-	return o.store.Put(configKeyDB, bytes)
+	return o.store.Put(configKeyDB, configBytes)
 }
 
 func (o *Operation) newPublicKeys() (*did.Doc, [][]json.RawMessage, error) {

@@ -88,6 +88,11 @@ const (
 	didDomainFlagUsage = "URL to the did consortium's domain." +
 		" Alternatively, this can be set with the following environment variable: " + didDomainEnvKey
 	didDomainEnvKey = "COMPARATOR_DID_DOMAIN"
+
+	cshURLFlagName  = "csh-url"
+	cshURLFlagUsage = "URL for confidential storage hub." +
+		" Alternatively, this can be set with the following environment variable: " + cshURLEnvKey
+	cshURLEnvKey = "COMPARATOR_CSH_URL"
 )
 
 const (
@@ -141,6 +146,7 @@ type serviceParameters struct {
 	tlsParams *tlsParameters
 	dsnParams *dsnParams
 	didDomain string
+	cshURL    string
 }
 
 type server interface {
@@ -233,11 +239,17 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	cshURL, err := cmdutils.GetUserSetVarFromString(cmd, cshURLFlagName, cshURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
 		host:      host,
 		tlsParams: tlsParams,
 		dsnParams: dsnParams,
 		didDomain: didDomain,
+		cshURL:    cshURL,
 	}, err
 }
 
@@ -342,6 +354,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(datasourceTimeoutFlagName, "", "", datasourceTimeoutFlagUsage)
 	cmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
+	cmd.Flags().StringP(cshURLFlagName, "", "", cshURLFlagUsage)
 }
 
 //nolint: funlen
@@ -389,6 +402,7 @@ func startService(params *serviceParameters, srv server) error {
 		TLSConfig:     tlsConfig,
 		DIDMethod:     trustbloc.DIDMethod,
 		StoreProvider: storeProvider,
+		CSHBaseURL:    params.cshURL,
 	})
 	if err != nil {
 		return err

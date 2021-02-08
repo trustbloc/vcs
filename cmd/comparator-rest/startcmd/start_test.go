@@ -83,6 +83,24 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither did-domain (command line flag) nor COMPARATOR_DID_DOMAIN (environment variable) have been set.",
 			err.Error())
 	})
+
+	t.Run("test missing csh url arg", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + datasourceNameFlagName, "mem://test",
+			"--" + didDomainFlagName, "did",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+
+		require.Error(t, err)
+		require.Equal(t,
+			"Neither csh-url (command line flag) nor COMPARATOR_CSH_URL (environment variable) have been set.",
+			err.Error())
+	})
 }
 
 func TestNotSupportedDSN(t *testing.T) {
@@ -92,6 +110,7 @@ func TestNotSupportedDSN(t *testing.T) {
 		"--" + hostURLFlagName, "localhost:8080",
 		"--" + datasourceNameFlagName, "mem1://test",
 		"--" + didDomainFlagName, "did",
+		"--" + cshURLFlagName, "localhost:8081",
 	}
 	startCmd.SetArgs(args)
 
@@ -109,6 +128,7 @@ func TestFailedToConnectToDB(t *testing.T) {
 			"--" + datasourceNameFlagName, "couchdb://url",
 			"--" + didDomainFlagName, "did",
 			"--" + datasourceTimeoutFlagName, "1",
+			"--" + cshURLFlagName, "localhost:8081",
 		}
 		startCmd.SetArgs(args)
 
@@ -125,6 +145,7 @@ func TestFailedToConnectToDB(t *testing.T) {
 			"--" + datasourceNameFlagName, "mysql://url",
 			"--" + didDomainFlagName, "did",
 			"--" + datasourceTimeoutFlagName, "1",
+			"--" + cshURLFlagName, "localhost:8081",
 		}
 		startCmd.SetArgs(args)
 
@@ -154,6 +175,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + hostURLFlagName, "localhost:8080",
 		"--" + datasourceNameFlagName, "mem://test",
 		"--" + didDomainFlagName, "did",
+		"--" + cshURLFlagName, "localhost:8081",
 	}
 	startCmd.SetArgs(args)
 
