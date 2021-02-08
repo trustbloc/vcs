@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/edv/pkg/restapi/messages"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
@@ -128,12 +129,61 @@ func TestSaveDoc(t *testing.T) {
 func TestGetDocMetadata(t *testing.T) {
 	const path = "/vaults/vaultID1/docs/docID1/metadata"
 
-	operation := New(newVaultMock())
+	t.Run("Internal error", func(t *testing.T) {
+		v := newVaultMock()
+		v.getDocMetadataFn = func(_, _ string) (*vault.DocumentMetadata, error) {
+			return nil, errors.New("test")
+		}
 
-	h := handlerLookup(t, operation, GetDocMetadataPath, http.MethodGet)
-	_, code := sendRequestToHandler(t, h, nil, path)
+		operation := New(v)
 
-	require.Equal(t, http.StatusOK, code)
+		h := handlerLookup(t, operation, GetDocMetadataPath, http.MethodGet)
+
+		respBody, code := sendRequestToHandler(t, h, nil, path)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(respBody).Decode(&errResp))
+		require.NotEmpty(t, errResp.Message)
+	})
+
+	t.Run("Not found", func(t *testing.T) {
+		v := newVaultMock()
+		v.getDocMetadataFn = func(_, _ string) (*vault.DocumentMetadata, error) {
+			return nil, errors.New(messages.ErrDocumentNotFound.Error() + ".")
+		}
+
+		operation := New(v)
+
+		h := handlerLookup(t, operation, GetDocMetadataPath, http.MethodGet)
+
+		respBody, code := sendRequestToHandler(t, h, nil, path)
+
+		require.Equal(t, http.StatusNotFound, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(respBody).Decode(&errResp))
+		require.NotEmpty(t, errResp.Message)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation := New(newVaultMock())
+
+		h := handlerLookup(t, operation, GetDocMetadataPath, http.MethodGet)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{}`), path)
+
+		require.Equal(t, http.StatusOK, code)
+
+		var resp *vault.DocumentMetadata
+
+		require.NoError(t, json.NewDecoder(res).Decode(&resp))
+
+		require.NotEmpty(t, resp.ID)
+		require.NotEmpty(t, resp.URI)
+	})
 }
 
 func TestCreateAuthorization(t *testing.T) {
@@ -249,12 +299,19 @@ func newVaultMock() *vaultMock {
 				URI: "localhost:7777/encrypted-data-vaults/HwtZ1bUn4SzXoQRoX9br6m/documents/M3aS9xwj8ybCwHkEiCJJR1",
 			}, nil
 		},
+		getDocMetadataFn: func(vaultID, id string) (*vault.DocumentMetadata, error) {
+			return &vault.DocumentMetadata{
+				ID:  "M3aS9xwj8ybCwHkEiCJJR1",
+				URI: "localhost:7777/encrypted-data-vaults/HwtZ1bUn4SzXoQRoX9br6m/documents/M3aS9xwj8ybCwHkEiCJJR1",
+			}, nil
+		},
 	}
 }
 
 type vaultMock struct {
-	createVaultFn func() (*vault.CreatedVault, error)
-	saveDocFn     func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
+	createVaultFn    func() (*vault.CreatedVault, error)
+	saveDocFn        func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
+	getDocMetadataFn func(vaultID, docID string) (*vault.DocumentMetadata, error)
 }
 
 func (v *vaultMock) CreateVault() (*vault.CreatedVault, error) {
@@ -263,4 +320,8 @@ func (v *vaultMock) CreateVault() (*vault.CreatedVault, error) {
 
 func (v *vaultMock) SaveDoc(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
 	return v.saveDocFn(vaultID, id, content)
+}
+
+func (v *vaultMock) GetDocMetadata(vaultID, docID string) (*vault.DocumentMetadata, error) {
+	return v.getDocMetadataFn(vaultID, docID)
 }

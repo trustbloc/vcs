@@ -68,12 +68,9 @@ type getDocMetadataReq struct { // nolint: unused,deadcode
 // getDocMetadataResp model
 //
 // swagger:response getDocMetadataResp
-type getDocMetadataResp struct { // nolint: unused,deadcode
+type getDocMetadataResp struct {
 	// in: body
-	Body struct {
-		ID        string `json:"docID"`
-		EDVDocURI string `json:"edvDocURI"`
-	}
+	Body *vault.DocumentMetadata
 }
 
 // createAuthorizationReq model
