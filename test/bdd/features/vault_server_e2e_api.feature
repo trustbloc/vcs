@@ -8,6 +8,11 @@
 @vault_server
 Feature: Vault server API
 
+  @vault_server_healthcheck
+  Scenario: Vault server healthcheck
+    When an HTTP GET is sent to "http://localhost:9099/healthcheck"
+    Then the JSON path "status" of the response equals "success"
+
   @vault_server_create
   Scenario: Creates a vault
     When Create a new vault using the vault server "http://localhost:9099"

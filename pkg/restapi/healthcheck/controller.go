@@ -6,12 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 package healthcheck
 
 import (
+	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck/operation"
 )
 
 // New returns new controller instance.
 func New() *Controller {
-	var allHandlers []operation.Handler
+	var allHandlers []support.Handler
 
 	rpService := operation.New()
 
@@ -24,10 +25,10 @@ func New() *Controller {
 
 // Controller contains handlers for controller.
 type Controller struct {
-	handlers []operation.Handler
+	handlers []support.Handler
 }
 
 // GetOperations returns all controller endpoints.
-func (c *Controller) GetOperations() []operation.Handler {
+func (c *Controller) GetOperations() []support.Handler {
 	return c.handlers
 }
