@@ -23,6 +23,7 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 
@@ -225,10 +226,15 @@ func startService(params *serviceParameters, srv server) error {
 	}
 
 	service := operation.New(vaultClient)
+	handlers := service.GetRESTHandlers()
+
+	// add health check endpoint
+	healthCheckService := healthcheck.New()
+	handlers = append(handlers, healthCheckService.GetOperations()...)
 
 	router := mux.NewRouter()
 
-	for _, handler := range service.GetRESTHandlers() {
+	for _, handler := range handlers {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
