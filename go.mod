@@ -22,7 +22,7 @@ require (
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.6.1
 	github.com/trustbloc/edge-core v0.1.6-0.20210127161542-9e174750f523
-	github.com/trustbloc/edv v0.1.5
+	github.com/trustbloc/edv v0.1.6-0.20210209144926-25e1e913a8c4
 	github.com/trustbloc/kms v0.1.6-0.20210203150736-e4c6b3a7dbef
 	github.com/trustbloc/trustbloc-did-method v0.1.6-0.20210125153736-5f85874c49b8
 )

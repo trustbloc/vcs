@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -119,14 +120,16 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 		kms:          kmsClient,
 		crypto:       cryptoService,
 		store:        store,
-		// TODO: EDV client does not support injection own HTTP client
-		edvClient:  edv.New(edvURL),
-		httpClient: &http.Client{},
+		httpClient: &http.Client{
+			Timeout: time.Minute,
+		},
 	}
 
 	for _, fn := range opts {
 		fn(client)
 	}
+
+	client.edvClient = edv.New(edvURL, edv.WithHTTPClient(client.httpClient))
 
 	return client, nil
 }
