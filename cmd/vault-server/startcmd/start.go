@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -21,6 +22,7 @@ import (
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
@@ -202,7 +204,12 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLock
 }
 
-func startService(params *serviceParameters, srv server) error {
+func startService(params *serviceParameters, srv server) error { // nolint: funlen
+	rootCAs, err := tlsutils.GetCertPool(params.tlsParams.systemCertPool, params.tlsParams.caCerts)
+	if err != nil {
+		return err
+	}
+
 	DB := mem.NewProvider()
 
 	keyManager, err := localkms.New(keystorePrimaryKeyURI, &kmsProvider{
@@ -219,7 +226,15 @@ func startService(params *serviceParameters, srv server) error {
 		params.edvURL,
 		keyManager,
 		DB,
-		vault.WithHTTPClient(&http.Client{Timeout: time.Minute}),
+		vault.WithHTTPClient(&http.Client{
+			Timeout: time.Minute,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs:    rootCAs,
+					MinVersion: tls.VersionTLS12,
+				},
+			},
+		}),
 	)
 	if err != nil {
 		return fmt.Errorf("vault new client: %w", err)

@@ -30,7 +30,13 @@ type Steps struct {
 
 // NewSteps returns new vault steps.
 func NewSteps(ctx *context.BDDContext) *Steps {
-	return &Steps{bddContext: ctx, client: &http.Client{}}
+	return &Steps{
+		bddContext: ctx, client: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: ctx.TLSConfig,
+			},
+		},
+	}
 }
 
 // RegisterSteps registers agent steps
