@@ -24,8 +24,15 @@ import (
 
 func Test_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
+		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusCreated)
+			_, err := fmt.Fprint(w, "{}")
+			require.NoError(t, err)
+		}))
+		defer serv.Close()
+
 		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		op, err := operation.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{
+		op, err := operation.New(&operation.Config{CSHBaseURL: serv.URL, StoreProvider: &mockstorage.MockStoreProvider{
 			Store: s}, KeyManager: &mockkms.KeyManager{}, VDR: &vdr.MockVDRegistry{
 			CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: &did.Doc{ID: "did:ex:123"}}, nil
@@ -34,6 +41,21 @@ func Test_New(t *testing.T) {
 		require.NotNil(t, op)
 
 		require.Equal(t, 4, len(op.GetRESTHandlers()))
+	})
+
+	t.Run("test failed to create profile from csh", func(t *testing.T) {
+		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer serv.Close()
+
+		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		_, err := operation.New(&operation.Config{CSHBaseURL: serv.URL, StoreProvider: &mockstorage.MockStoreProvider{
+			Store: s}, KeyManager: &mockkms.KeyManager{}, VDR: &vdr.MockVDRegistry{
+			CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
+				return &did.DocResolution{DIDDocument: &did.Doc{ID: "did:ex:123"}}, nil
+			}}})
+		require.Error(t, err)
 	})
 
 	t.Run("test failed to create store", func(t *testing.T) {

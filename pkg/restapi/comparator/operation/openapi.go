@@ -18,10 +18,10 @@ type errorResp struct { // nolint:deadcode,unused // swagger model
 	Body http.ErrorResponse
 }
 
-// createAuthorizationReq model.
+// createAuthzReq model.
 //
-// swagger:parameters createAuthorizationReq
-type createAuthorizationReq struct { // nolint:deadcode,unused // swagger model
+// swagger:parameters createAuthzReq
+type createAuthzReq struct { // nolint:deadcode,unused // swagger model
 	// in: body
 	Body Authorization
 }
@@ -36,10 +36,10 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 	Body Authorization
 }
 
-// comparisonReq model.
+// compareReq model.
 //
-// swagger:parameters comparisonReq
-type comparisonReq struct { // nolint:deadcode,unused // swagger model
+// swagger:parameters compareReq
+type compareReq struct { // nolint:deadcode,unused // swagger model
 	// in: body
 	Body struct {
 		OP Operator `json:"op"`
@@ -54,10 +54,10 @@ type comparisonResp struct { // nolint:deadcode,unused // swagger model
 	Body Comparison
 }
 
-// extractionReq model.
+// extractReq model.
 //
-// swagger:parameters extractionReq
-type extractionReq struct { // nolint:deadcode,unused // swagger model
+// swagger:parameters extractReq
+type extractReq struct { // nolint:deadcode,unused // swagger model
 	// Resource identifier.
 	//
 	// in: query
