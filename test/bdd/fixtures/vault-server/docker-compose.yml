@@ -19,6 +19,7 @@ services:
       - VAULT_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VAULT_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - VAULT_TLS_SERVE_KEY=/etc/tls/ec-key.pem
+      - VAULT_DSN=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
     ports:
       - ${VAULT_SERVER_PORT}:${VAULT_SERVER_PORT}
     entrypoint: ""
