@@ -243,10 +243,10 @@ func (o *Operation) createConfig() error {
 	return o.store.Put(configKeyDB, configBytes)
 }
 
-func (o *Operation) newPublicKeys() (*did.Doc, [][]json.RawMessage, error) {
+func (o *Operation) newPublicKeys() (*did.Doc, []json.RawMessage, error) {
 	didDoc := &did.Doc{}
 
-	m := make([][]json.RawMessage, 0)
+	m := make([]json.RawMessage, 0)
 
 	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
@@ -260,7 +260,7 @@ func (o *Operation) newPublicKeys() (*did.Doc, [][]json.RawMessage, error) {
 		return nil, nil, err
 	}
 
-	m = append(m, []json.RawMessage{jwkBytes})
+	m = append(m, jwkBytes)
 
 	jwk, err := ariesjoes.JWKFromPublicKey(publicKey)
 	if err != nil {

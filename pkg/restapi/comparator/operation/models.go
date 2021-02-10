@@ -71,6 +71,6 @@ type Comparison struct {
 
 // ComparatorConfig config for comparator
 type ComparatorConfig struct {
-	DID  string              `json:"did"`
-	Keys [][]json.RawMessage `json:"keys"`
+	DID  string            `json:"did"`
+	Keys []json.RawMessage `json:"keys"`
 }
