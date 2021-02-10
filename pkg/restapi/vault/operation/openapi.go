@@ -76,20 +76,23 @@ type getDocMetadataResp struct {
 // createAuthorizationReq model
 //
 // swagger:parameters createAuthorizationReq
-type createAuthorizationReq struct { // nolint: unused,deadcode
+type createAuthorizationReq struct {
 	// in: path
 	VaultID string `json:"vaultID"`
 	// in: body
 	// required: true
-	Request authorization
+	Request struct {
+		Scope           *vault.Scope `json:"scope"`
+		RequestingParty string       `json:"requestingParty"`
+	}
 }
 
 // createAuthorizationResp model
 //
 // swagger:response createAuthorizationResp
-type createAuthorizationResp struct { // nolint: unused,deadcode
+type createAuthorizationResp struct {
 	// in: body
-	Body authorization
+	Body *vault.CreatedAuthorization
 }
 
 // getAuthorizationReq model
@@ -107,7 +110,7 @@ type getAuthorizationReq struct { // nolint: unused,deadcode
 // swagger:response getAuthorizationResp
 type getAuthorizationResp struct { // nolint: unused,deadcode
 	// in: body
-	Body authorization
+	Body *vault.CreatedAuthorization
 }
 
 // deleteAuthorizationReq model
@@ -137,18 +140,3 @@ type deleteVaultReq struct { // nolint: unused,deadcode
 //
 // swagger:response deleteVaultResp
 type deleteVaultResp struct{} // nolint: unused,deadcode
-
-type authorization struct { // nolint: unused
-	ID    string `json:"id"`
-	Scope struct {
-		Target     string   `json:"target"`
-		TargetAttr string   `json:"targetAttr"`
-		Actions    []string `json:"actions"`
-		Caveats    []struct {
-			Type string `json:"type"`
-		} `json:"caveats"`
-	} `json:"scope"`
-	RequestingParty string         `json:"requestingParty"`
-	EDV             vault.Location `json:"edv"`
-	KMS             vault.Location `json:"kms"`
-}

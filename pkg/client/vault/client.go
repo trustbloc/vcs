@@ -42,6 +42,7 @@ type Vault interface {
 	CreateVault() (*CreatedVault, error)
 	SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error)
 	GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error)
+	CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error)
 }
 
 // KeyManager KMS alias.
@@ -56,6 +57,28 @@ type HTTPClient interface {
 type CreatedVault struct {
 	ID string `json:"id"`
 	*Authorization
+}
+
+// CreatedAuthorization represents success response of CreateAuthorization function.
+type CreatedAuthorization struct {
+	*Authorization
+	ID              string `json:"id"`
+	Scope           Scope  `json:"scope"`
+	RequestingParty string `json:"requestingParty"`
+}
+
+// Scope represents authorization request.
+type Scope struct {
+	Target     string   `json:"target"`
+	TargetAttr string   `json:"targetAttr"`
+	Actions    []string `json:"actions"`
+	Caveats    []Caveat `json:"caveats"`
+}
+
+// Caveat for the Scope request.
+type Caveat struct {
+	Type     string `json:"type"`
+	Duration string `json:"duration"`
 }
 
 // Authorization consists of info needed for the authorization.
@@ -170,6 +193,11 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 	}, nil
 }
 
+// CreateAuthorization creates a new authorization.
+func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error) {
+	return &CreatedAuthorization{}, nil
+}
+
 // GetDocMetadata returns document`s metadata.
 func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error) {
 	auth, err := c.getAuthorization(vaultID)
@@ -251,15 +279,23 @@ func (c *Client) getAuthorization(id string) (*Authorization, error) {
 
 func (c *Client) webKMS(controller string, auth *Location) *webkms.RemoteKMS {
 	return webkms.New(
-		c.remoteKMSURL+auth.URI,
+		c.buildMKSURL(auth.URI),
 		c.httpClient,
 		webkms.WithHeaders(c.kmsSign(controller, auth)),
 	)
 }
 
+func (c *Client) buildMKSURL(uri string) string {
+	if strings.HasPrefix(uri, "/") {
+		return c.remoteKMSURL + uri
+	}
+
+	return uri
+}
+
 func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteCrypto {
 	return webcrypto.New(
-		c.remoteKMSURL+auth.URI,
+		c.buildMKSURL(auth.URI),
 		c.httpClient,
 		webkms.WithHeaders(c.kmsSign(controller, auth)),
 	)

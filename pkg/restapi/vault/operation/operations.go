@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
@@ -37,12 +38,16 @@ var logger = log.New("vault-operation")
 
 // Operation defines handlers for vault service.
 type Operation struct {
-	vault vault.Vault
+	vault      vault.Vault
+	GenerateID func() (string, error)
 }
 
 // New returns operation instance.
 func New(v vault.Vault) *Operation {
-	return &Operation{vault: v}
+	return &Operation{
+		vault:      v,
+		GenerateID: edvutils.GenerateEDVCompatibleID,
+	}
 }
 
 // GetRESTHandlers get all controller API handler available for this service.
@@ -112,6 +117,17 @@ func (o *Operation) SaveDoc(rw http.ResponseWriter, req *http.Request) {
 		docContent = doc.Request.Content
 	)
 
+	if docID == "" {
+		var err error
+
+		docID, err = o.GenerateID()
+		if err != nil {
+			o.writeErrorResponse(rw, err, http.StatusInternalServerError)
+
+			return
+		}
+	}
+
 	result, err := o.vault.SaveDoc(vaultID, docID, docContent)
 	if err != nil {
 		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
@@ -163,8 +179,32 @@ func (o *Operation) GetDocMetadata(rw http.ResponseWriter, req *http.Request) {
 // Responses:
 //    default: genericError
 //        201: createAuthorizationResp
-func (o *Operation) CreateAuthorization(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(http.StatusCreated)
+func (o *Operation) CreateAuthorization(rw http.ResponseWriter, req *http.Request) {
+	var doc createAuthorizationReq
+
+	if err := json.NewDecoder(req.Body).Decode(&doc.Request); err != nil {
+		o.writeErrorResponse(rw, err, http.StatusBadRequest)
+
+		return
+	}
+
+	var (
+		vaultID         = mux.Vars(req)["vaultID"]
+		scope           = doc.Request.Scope
+		requestingParty = doc.Request.RequestingParty
+	)
+
+	result, err := o.vault.CreateAuthorization(vaultID, requestingParty, scope)
+	if err != nil {
+		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
+
+		return
+	}
+
+	var resp createAuthorizationResp
+	resp.Body = result
+
+	o.WriteResponse(rw, resp.Body, http.StatusCreated)
 }
 
 // GetAuthorization swagger:route GET /vaults/{vaultID}/authorizations/{authID} vault getAuthorizationReq
