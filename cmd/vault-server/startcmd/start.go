@@ -11,9 +11,13 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff"
 	"github.com/gorilla/mux"
+	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
@@ -21,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
@@ -63,13 +68,42 @@ const (
 	tlsServeKeyPathFlagUsage = "Path to the private key to use when serving HTTPS." +
 		" Alternatively, this can be set with the following environment variable: " + tlsServeKeyPathFlagEnvKey
 	tlsServeKeyPathFlagEnvKey = "VAULT_TLS_SERVE_KEY"
+
+	datasourceNameFlagName  = "dsn"
+	datasourceNameFlagUsage = "Datasource Name with credentials if required." +
+		" Format must be <driver>:[//]<driver-specific-dsn>." +
+		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'." +
+		" Supported drivers are [mem, couchdb, mysql]." +
+		" Alternatively, this can be set with the following environment variable: " + datasourceNameEnvKey
+	datasourceNameEnvKey = "VAULT_DSN"
+
+	datasourceTimeoutFlagName  = "dsn-timeout"
+	datasourceTimeoutFlagUsage = "Total time in seconds to wait until the datasource is available before giving up." +
+		" Default: " + datasourceTimeoutDefault + " seconds." +
+		" Alternatively, this can be set with the following environment variable: " + datasourceTimeoutEnvKey
+	datasourceTimeoutEnvKey  = "VAULT_DSN_TIMEOUT"
+	datasourceTimeoutDefault = "30"
+
+	databasePrefixFlagName  = "database-prefix"
+	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
+		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
+	databasePrefixEnvKey = "VAULT_DATABASE_PREFIX"
 )
+
+var logger = log.New("vault-server")
 
 type serviceParameters struct {
 	host         string
 	remoteKMSURL string
 	edvURL       string
 	tlsParams    *tlsParameters
+	dsnParams    *dsnParams
+}
+
+type dsnParams struct {
+	dsn      string
+	timeout  uint64
+	dbPrefix string
 }
 
 type tlsParameters struct {
@@ -77,6 +111,19 @@ type tlsParameters struct {
 	caCerts        []string
 	serveCertPath  string
 	serveKeyPath   string
+}
+
+// nolint:gochecknoglobals
+var supportedStorageProviders = map[string]func(string, string) (storage.Provider, error){
+	"couchdb": func(dsn, prefix string) (storage.Provider, error) {
+		return ariescouchdbstorage.NewProvider(dsn, ariescouchdbstorage.WithDBPrefix(prefix))
+	},
+	"mysql": func(dsn, prefix string) (storage.Provider, error) {
+		return ariesmysql.NewProvider(dsn, ariesmysql.WithDBPrefix(prefix))
+	},
+	"mem": func(_, _ string) (storage.Provider, error) { // nolint:unparam
+		return mem.NewProvider(), nil
+	},
 }
 
 type server interface {
@@ -140,10 +187,16 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	dsn, err := getDsnParams(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
 		host:         host,
 		remoteKMSURL: remoteKMSURL,
 		edvURL:       edvURL,
+		dsnParams:    dsn,
 		tlsParams:    tlsParams,
 	}, err
 }
@@ -185,10 +238,14 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	cmd.Flags().StringP(tlsServeCertPathFlagName, "", "", tlsServeCertPathFlagUsage)
 	cmd.Flags().StringP(tlsServeKeyPathFlagName, "", "", tlsServeKeyPathFlagUsage)
+	cmd.Flags().StringP(datasourceNameFlagName, "", "", datasourceNameFlagUsage)
+	cmd.Flags().StringP(datasourceTimeoutFlagName, "", "", datasourceTimeoutFlagUsage)
+	cmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 }
 
 const (
 	keystorePrimaryKeyURI = "local-lock://keystorekms"
+	sleep                 = time.Second
 )
 
 type kmsProvider struct {
@@ -210,11 +267,13 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		return err
 	}
 
-	DB := mem.NewProvider()
+	storeProvider, err := initStore(params.dsnParams.dsn, params.dsnParams.timeout, params.dsnParams.dbPrefix)
+	if err != nil {
+		return err
+	}
 
 	keyManager, err := localkms.New(keystorePrimaryKeyURI, &kmsProvider{
-		// TODO: make a storage configurable
-		storageProvider: DB,
+		storageProvider: storeProvider,
 		secretLock:      &noop.NoLock{},
 	})
 	if err != nil {
@@ -225,7 +284,7 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		params.remoteKMSURL,
 		params.edvURL,
 		keyManager,
-		DB,
+		storeProvider,
 		vault.WithHTTPClient(&http.Client{
 			Timeout: time.Minute,
 			Transport: &http.Transport{
@@ -272,4 +331,84 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 				"Authorization",
 			},
 		}).Handler(router))
+}
+
+func initStore(dbURL string, timeout uint64, prefix string) (storage.Provider, error) {
+	driver, dsn, err := getDBParams(dbURL)
+	if err != nil {
+		return nil, err
+	}
+
+	providerFunc, supported := supportedStorageProviders[driver]
+	if !supported {
+		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
+	}
+
+	var store storage.Provider
+
+	return store, retry(func() error {
+		var openErr error
+		store, openErr = providerFunc(dsn, prefix)
+		return openErr
+	}, timeout)
+}
+
+func retry(fn func() error, timeout uint64) error {
+	numRetries, err := strconv.Atoi(datasourceTimeoutDefault)
+	if err != nil {
+		return fmt.Errorf("failed to parse dsn timeout %d: %w", timeout, err)
+	}
+
+	if timeout != 0 {
+		numRetries = int(timeout)
+	}
+
+	return backoff.RetryNotify(fn, backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), uint64(numRetries)),
+		func(retryErr error, t time.Duration) {
+			logger.Warnf("failed to connect to storage, will sleep for %s before trying again : %s\n", t, retryErr)
+		},
+	)
+}
+
+func getDBParams(dbURL string) (driver, dsn string, err error) {
+	const urlParts = 2
+
+	parsed := strings.SplitN(dbURL, ":", urlParts)
+
+	if len(parsed) != urlParts {
+		return "", "", fmt.Errorf("invalid dbURL %s", dbURL)
+	}
+
+	driver = parsed[0]
+	dsn = strings.TrimPrefix(parsed[1], "//")
+
+	return driver, dsn, nil
+}
+
+func getDsnParams(cmd *cobra.Command) (*dsnParams, error) {
+	params := &dsnParams{}
+
+	var err error
+
+	params.dsn, err = cmdutils.GetUserSetVarFromString(cmd, datasourceNameFlagName, datasourceNameEnvKey, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure dsn: %w", err)
+	}
+
+	timeout := cmdutils.GetUserSetOptionalVarFromString(cmd, datasourceTimeoutFlagName, datasourceTimeoutEnvKey)
+
+	if timeout == "" {
+		timeout = datasourceTimeoutDefault
+	}
+
+	t, err := strconv.Atoi(timeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse dsn timeout %s: %w", timeout, err)
+	}
+
+	params.timeout = uint64(t)
+
+	params.dbPrefix = cmdutils.GetUserSetOptionalVarFromString(cmd, databasePrefixFlagName, databasePrefixEnvKey)
+
+	return params, nil
 }
