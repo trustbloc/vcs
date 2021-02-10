@@ -107,6 +107,24 @@ func TestSaveDoc(t *testing.T) {
 		require.NoError(t, json.NewDecoder(res).Decode(&errResp))
 		require.Contains(t, errResp.Message, "unexpected EOF")
 	})
+	t.Run("Error (generate ID)", func(t *testing.T) {
+		const path = "/vaults/vaultID1/docs"
+
+		operation := New(newVaultMock())
+		operation.GenerateID = func() (string, error) {
+			return "", errors.New("test error")
+		}
+
+		h := handlerLookup(t, operation, SaveDocPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{}`), path)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(res).Decode(&errResp))
+		require.Contains(t, errResp.Message, "test error")
+	})
 	t.Run("Success", func(t *testing.T) {
 		const path = "/vaults/vaultID1/docs"
 

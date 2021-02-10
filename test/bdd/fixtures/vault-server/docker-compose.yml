@@ -33,6 +33,7 @@ services:
     container_name: vault.kms.example.com
     image: ${KMS_IMAGE}:${KMS_IMAGE_TAG}
     environment:
+      - KMS_BASE_URL=https://vault.kms.example.com:${KMS_PORT}
       - KMS_HOST_URL=0.0.0.0:${KMS_PORT}
       - KMS_DATABASE_TYPE=mem
       - KMS_PRIMARY_KEY_DATABASE_TYPE=mem

@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
@@ -37,12 +38,16 @@ var logger = log.New("vault-operation")
 
 // Operation defines handlers for vault service.
 type Operation struct {
-	vault vault.Vault
+	vault      vault.Vault
+	GenerateID func() (string, error)
 }
 
 // New returns operation instance.
 func New(v vault.Vault) *Operation {
-	return &Operation{vault: v}
+	return &Operation{
+		vault:      v,
+		GenerateID: edvutils.GenerateEDVCompatibleID,
+	}
 }
 
 // GetRESTHandlers get all controller API handler available for this service.
@@ -111,6 +116,17 @@ func (o *Operation) SaveDoc(rw http.ResponseWriter, req *http.Request) {
 		docID      = doc.Request.ID
 		docContent = doc.Request.Content
 	)
+
+	if docID == "" {
+		var err error
+
+		docID, err = o.GenerateID()
+		if err != nil {
+			o.writeErrorResponse(rw, err, http.StatusInternalServerError)
+
+			return
+		}
+	}
 
 	result, err := o.vault.SaveDoc(vaultID, docID, docContent)
 	if err != nil {
