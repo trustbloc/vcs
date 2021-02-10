@@ -280,7 +280,7 @@ func TestSaveDoc(t *testing.T) {
 
 		vID := createVaultID(t, lKMS)
 
-		data["auth_"+vID] = []byte(`{"edv":{},"kms":{}}`)
+		data["auth_"+vID] = []byte(`{"edv":{},"kms":{"uri":"/"}}`)
 
 		docMeta, err := client.SaveDoc(vID, docID, nil)
 		require.NoError(t, err)
@@ -374,7 +374,7 @@ func TestSaveDoc(t *testing.T) {
 
 		vID := createVaultID(t, lKMS)
 
-		data["auth_"+vID] = []byte(`{"edv":{},"kms":{}}`)
+		data["auth_"+vID] = []byte(`{"edv":{},"kms":{"uri":"/"}}`)
 
 		docMeta, err := client.SaveDoc(vID, docID, nil)
 		require.NoError(t, err)

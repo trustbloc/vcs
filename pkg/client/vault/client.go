@@ -251,15 +251,23 @@ func (c *Client) getAuthorization(id string) (*Authorization, error) {
 
 func (c *Client) webKMS(controller string, auth *Location) *webkms.RemoteKMS {
 	return webkms.New(
-		c.remoteKMSURL+auth.URI,
+		c.buildMKSURL(auth.URI),
 		c.httpClient,
 		webkms.WithHeaders(c.kmsSign(controller, auth)),
 	)
 }
 
+func (c *Client) buildMKSURL(uri string) string {
+	if strings.HasPrefix(uri, "/") {
+		return c.remoteKMSURL + uri
+	}
+
+	return uri
+}
+
 func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteCrypto {
 	return webcrypto.New(
-		c.remoteKMSURL+auth.URI,
+		c.buildMKSURL(auth.URI),
 		c.httpClient,
 		webkms.WithHeaders(c.kmsSign(controller, auth)),
 	)
