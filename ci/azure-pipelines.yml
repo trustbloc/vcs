@@ -49,6 +49,8 @@ jobs:
       - checkout: self
       - bash: |
           echo '127.0.0.1 testnet.trustbloc.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
           echo '127.0.0.1 stakeholder.one' | sudo tee -a /etc/hosts
           echo '127.0.0.1 sidetree-mock' | sudo tee -a /etc/hosts
           make bdd-test

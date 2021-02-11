@@ -82,8 +82,8 @@ type createAuthorizationReq struct {
 	// in: body
 	// required: true
 	Request struct {
-		Scope           *vault.Scope `json:"scope"`
-		RequestingParty string       `json:"requestingParty"`
+		Scope           vault.Scope `json:"scope"`
+		RequestingParty string      `json:"requestingParty"`
 	}
 }
 

@@ -24,3 +24,11 @@ Feature: Vault server API
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document without id and save the result ID as "created"
     And Check that a document with id "created" is stored
+
+  @vault_server_create_authorization
+  Scenario: Creates an authorization
+    When Create a new vault using the vault server "https://localhost:9099"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
+    Then Create a new authorization and save the result as "auth"
+    And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
