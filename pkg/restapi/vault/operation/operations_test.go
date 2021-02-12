@@ -17,6 +17,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
 	"github.com/stretchr/testify/require"
@@ -207,12 +208,53 @@ func TestGetDocMetadata(t *testing.T) {
 func TestCreateAuthorization(t *testing.T) {
 	const path = "/vaults/vaultID1/authorizations"
 
-	operation := New(newVaultMock())
+	t.Run("JSON error", func(t *testing.T) {
+		operation := New(newVaultMock())
 
-	h := handlerLookup(t, operation, CreateAuthorizationPath, http.MethodPost)
-	_, code := sendRequestToHandler(t, h, nil, path)
+		h := handlerLookup(t, operation, CreateAuthorizationPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{`), path)
 
-	require.Equal(t, http.StatusCreated, code)
+		require.Equal(t, http.StatusBadRequest, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(res).Decode(&errResp))
+		require.Contains(t, errResp.Message, "unexpected EOF")
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		v := newVaultMock()
+		v.createAuthorizationFn = func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
+			return nil, errors.New("test error")
+		}
+
+		operation := New(v)
+
+		h := handlerLookup(t, operation, CreateAuthorizationPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{}`), path)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(res).Decode(&errResp))
+		require.Contains(t, errResp.Message, "test error")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation := New(newVaultMock())
+
+		h := handlerLookup(t, operation, CreateAuthorizationPath, http.MethodPost)
+		res, code := sendRequestToHandler(t, h, strings.NewReader(`{}`), path)
+
+		require.Equal(t, http.StatusCreated, code)
+
+		var resp *vault.CreatedAuthorization
+
+		require.NoError(t, json.NewDecoder(res).Decode(&resp))
+
+		require.NotEmpty(t, resp.ID)
+	})
 }
 
 func TestGetAuthorization(t *testing.T) {
@@ -323,13 +365,17 @@ func newVaultMock() *vaultMock {
 				URI: "localhost:7777/encrypted-data-vaults/HwtZ1bUn4SzXoQRoX9br6m/documents/M3aS9xwj8ybCwHkEiCJJR1",
 			}, nil
 		},
+		createAuthorizationFn: func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
+			return &vault.CreatedAuthorization{ID: uuid.New().String()}, nil
+		},
 	}
 }
 
 type vaultMock struct {
-	createVaultFn    func() (*vault.CreatedVault, error)
-	saveDocFn        func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
-	getDocMetadataFn func(vaultID, docID string) (*vault.DocumentMetadata, error)
+	createVaultFn         func() (*vault.CreatedVault, error)
+	saveDocFn             func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
+	getDocMetadataFn      func(vaultID, docID string) (*vault.DocumentMetadata, error)
+	createAuthorizationFn func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error)
 }
 
 func (v *vaultMock) CreateVault() (*vault.CreatedVault, error) {
@@ -342,4 +388,8 @@ func (v *vaultMock) SaveDoc(vaultID, id string, content interface{}) (*vault.Doc
 
 func (v *vaultMock) GetDocMetadata(vaultID, docID string) (*vault.DocumentMetadata, error) {
 	return v.getDocMetadataFn(vaultID, docID)
+}
+
+func (v *vaultMock) CreateAuthorization(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
+	return v.createAuthorizationFn(vID, rp, scope)
 }

@@ -11,7 +11,9 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,6 +24,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -42,6 +46,7 @@ type Vault interface {
 	CreateVault() (*CreatedVault, error)
 	SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error)
 	GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error)
+	CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error)
 }
 
 // KeyManager KMS alias.
@@ -56,6 +61,34 @@ type HTTPClient interface {
 type CreatedVault struct {
 	ID string `json:"id"`
 	*Authorization
+}
+
+// CreatedAuthorization represents success response of CreateAuthorization function.
+type CreatedAuthorization struct {
+	ID              string  `json:"id"`
+	Scope           *Scope  `json:"scope"`
+	RequestingParty string  `json:"requestingParty"`
+	Tokens          *Tokens `json:"authTokens"`
+}
+
+// Tokens zcap tokens.
+type Tokens struct {
+	EDV string `json:"edv"`
+	KMS string `json:"kms"`
+}
+
+// Scope represents authorization request.
+type Scope struct {
+	Target     string   `json:"target,omitempty"`
+	TargetAttr string   `json:"targetAttr,omitempty"`
+	Actions    []string `json:"actions,omitempty"`
+	Caveats    []Caveat `json:"caveats,omitempty"`
+}
+
+// Caveat for the Scope request.
+type Caveat struct {
+	Type     string `json:"type,omitempty"`
+	Duration string `json:"duration,omitempty"`
 }
 
 // Authorization consists of info needed for the authorization.
@@ -136,7 +169,7 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 
 // CreateVault creates a new vault and KMS store bases on generated DIDKey.
 func (c *Client) CreateVault() (*CreatedVault, error) {
-	didKey, err := c.createDIDKey()
+	didKey, kid, err := c.createDIDKey()
 	if err != nil {
 		return nil, fmt.Errorf("create DID key: %w", err)
 	}
@@ -159,9 +192,9 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 		EDV: edvLoc,
 	}
 
-	err = c.saveAuthorization(didKey, auth)
+	err = c.saveVaultInfo(didKey, &vaultInfo{Auth: auth, KID: kid})
 	if err != nil {
-		return nil, fmt.Errorf("save authorization: %w", err)
+		return nil, fmt.Errorf("save vault info: %w", err)
 	}
 
 	return &CreatedVault{
@@ -170,16 +203,84 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 	}, nil
 }
 
-// GetDocMetadata returns document`s metadata.
-func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error) {
-	auth, err := c.getAuthorization(vaultID)
+// CreateAuthorization creates a new authorization.
+// nolint: funlen
+func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error) {
+	info, err := c.getVaultInfo(vaultID)
 	if err != nil {
-		return nil, fmt.Errorf("get authorization: %w", err)
+		return nil, fmt.Errorf("get vault info: %w", err)
 	}
 
-	edvVaultID := lastElm(auth.EDV.URI, "/")
+	kh, err := c.kms.Get(info.KID)
+	if err != nil {
+		return nil, fmt.Errorf("kms get: %w", err)
+	}
 
-	_, err = c.edvClient.ReadDocument(edvVaultID, docID, edv.WithRequestHeader(c.edvSign(vaultID, auth.EDV)))
+	kmsCapability, err := uncompressZCAP(info.Auth.KMS.AuthToken)
+	if err != nil {
+		return nil, fmt.Errorf("kms uncompressZCAP: %w", err)
+	}
+
+	kmsNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
+		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
+		SuiteType:          ed25519signature2018.SignatureType,
+		VerificationMethod: vaultID,
+	}, zcapld.WithParent(kmsCapability.ID), zcapld.WithInvoker(requestingParty),
+		zcapld.WithAllowedActions("unwrap"),
+		zcapld.WithInvocationTarget(kmsCapability.InvocationTarget.ID, kmsCapability.InvocationTarget.Type),
+		zcapld.WithCapabilityChain(kmsCapability.ID))
+	if err != nil {
+		return nil, fmt.Errorf("kms new capability: %w", err)
+	}
+
+	kmsCompressedCapability, err := compressZCAP(kmsNewCapability)
+	if err != nil {
+		return nil, fmt.Errorf("kms compressZCAP: %w", err)
+	}
+
+	edvCapability, err := uncompressZCAP(info.Auth.EDV.AuthToken)
+	if err != nil {
+		return nil, fmt.Errorf("edv uncompressZCAP: %w", err)
+	}
+
+	edvNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
+		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
+		SuiteType:          ed25519signature2018.SignatureType,
+		VerificationMethod: vaultID,
+	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingParty),
+		zcapld.WithAllowedActions(scope.Actions...),
+		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),
+		zcapld.WithCapabilityChain(edvCapability.Parent, edvCapability.ID))
+	if err != nil {
+		return nil, fmt.Errorf("edv new capability: %w", err)
+	}
+
+	edvCompressedCapability, err := compressZCAP(edvNewCapability)
+	if err != nil {
+		return nil, fmt.Errorf("edv compressZCAP: %w", err)
+	}
+
+	return &CreatedAuthorization{
+		ID:              uuid.New().String(),
+		Scope:           scope,
+		RequestingParty: requestingParty,
+		Tokens: &Tokens{
+			KMS: kmsCompressedCapability,
+			EDV: edvCompressedCapability,
+		},
+	}, nil
+}
+
+// GetDocMetadata returns document`s metadata.
+func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error) {
+	info, err := c.getVaultInfo(vaultID)
+	if err != nil {
+		return nil, fmt.Errorf("get vault info: %w", err)
+	}
+
+	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
+
+	_, err = c.edvClient.ReadDocument(edvVaultID, docID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("read document: %w", err)
 	}
@@ -189,22 +290,22 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 
 // SaveDoc saves a document by encrypting it and storing it in the vault.
 func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error) {
-	auth, err := c.getAuthorization(vaultID)
+	info, err := c.getVaultInfo(vaultID)
 	if err != nil {
-		return nil, fmt.Errorf("get authorization: %w", err)
+		return nil, fmt.Errorf("get vault info: %w", err)
 	}
 
-	encContent, err := encryptContent(c.webKMS(vaultID, auth.KMS), c.webCrypto(vaultID, auth.KMS), content)
+	encContent, err := encryptContent(c.webKMS(vaultID, info.Auth.KMS), c.webCrypto(vaultID, info.Auth.KMS), content)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt key: %w", err)
 	}
 
-	edvVaultID := lastElm(auth.EDV.URI, "/")
+	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
 	res, err := c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
 		ID:  id,
 		JWE: []byte(encContent),
-	}, edv.WithRequestHeader(c.edvSign(vaultID, auth.EDV)))
+	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err == nil {
 		return &DocumentMetadata{URI: res, ID: lastElm(res, "/")}, nil
 	}
@@ -216,7 +317,7 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 	err = c.edvClient.UpdateDocument(edvVaultID, id, &models.EncryptedDocument{
 		ID:  id,
 		JWE: []byte(encContent),
-	}, edv.WithRequestHeader(c.edvSign(vaultID, auth.EDV)))
+	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("update document: %w", err)
 	}
@@ -224,29 +325,34 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 	return &DocumentMetadata{ID: id, URI: buildEDVURI(c.edvHost, edvVaultID, id)}, nil
 }
 
-func (c *Client) saveAuthorization(id string, auth *Authorization) error {
-	src, err := json.Marshal(auth)
+type vaultInfo struct {
+	KID  string         `json:"kid"`
+	Auth *Authorization `json:"auth"`
+}
+
+func (c *Client) saveVaultInfo(id string, info *vaultInfo) error {
+	src, err := json.Marshal(info)
 	if err != nil {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	return c.store.Put(fmt.Sprintf("auth_%s", id), src)
+	return c.store.Put(fmt.Sprintf("info_%s", id), src)
 }
 
-func (c *Client) getAuthorization(id string) (*Authorization, error) {
-	src, err := c.store.Get(fmt.Sprintf("auth_%s", id))
+func (c *Client) getVaultInfo(id string) (*vaultInfo, error) {
+	src, err := c.store.Get(fmt.Sprintf("info_%s", id))
 	if err != nil {
 		return nil, fmt.Errorf("get: %w", err)
 	}
 
-	var auth *Authorization
+	var info *vaultInfo
 
-	err = json.Unmarshal(src, &auth)
+	err = json.Unmarshal(src, &info)
 	if err != nil {
 		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 
-	return auth, nil
+	return info, nil
 }
 
 func (c *Client) webKMS(controller string, auth *Location) *webkms.RemoteKMS {
@@ -273,15 +379,20 @@ func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteC
 	)
 }
 
-func (c *Client) createDIDKey() (string, error) {
+func (c *Client) createDIDKey() (string, string, error) {
 	sig, err := signature.NewCryptoSigner(c.crypto, c.kms, kms.ED25519)
 	if err != nil {
-		return "", fmt.Errorf("new crypto signer: %w", err)
+		return "", "", fmt.Errorf("new crypto signer: %w", err)
+	}
+
+	cryptoSigner, ok := sig.(interface{ KID() string })
+	if !ok {
+		return "", "", errors.New("cannot retrieve the KID")
 	}
 
 	_, didKey := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
-	return didKey, nil
+	return didKey, cryptoSigner.KID(), nil
 }
 
 func (c *Client) createDataVault(didKey string) (*Location, error) {
@@ -373,6 +484,30 @@ func compressZCAP(zcap *zcapld.Capability) (string, error) {
 	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
 }
 
+func uncompressZCAP(zcap string) (*zcapld.Capability, error) {
+	src, err := base64.URLEncoding.DecodeString(zcap)
+	if err != nil {
+		return nil, err
+	}
+
+	zr, err := gzip.NewReader(bytes.NewBuffer(src))
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := ioutil.ReadAll(zr)
+	if err != nil {
+		return nil, err
+	}
+
+	err = zr.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return zcapld.ParseCapability(result)
+}
+
 func lastElm(s, sep string) string { // nolint: unparam
 	all := strings.Split(s, sep)
 
@@ -418,4 +553,17 @@ func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{})
 	}
 
 	return jwe.FullSerialize(json.Marshal)
+}
+
+type signer struct {
+	crypto crypto.Crypto
+	kh     interface{}
+}
+
+func newSigner(cr crypto.Crypto, kh interface{}) *signer {
+	return &signer{crypto: cr, kh: kh}
+}
+
+func (s *signer) Sign(data []byte) ([]byte, error) {
+	return s.crypto.Sign(data, s.kh)
 }
