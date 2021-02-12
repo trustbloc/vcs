@@ -40,6 +40,11 @@ import (
 
 const keystorePrimaryKeyURI = "local-lock://keystorekms"
 
+type authorization struct {
+	*vault.CreatedAuthorization
+	didURL string
+}
+
 // Steps is steps for vault tests.
 type Steps struct {
 	bddContext     *context.BDDContext
@@ -47,7 +52,7 @@ type Steps struct {
 	vaultID        string
 	vaultURL       string
 	variableMapper map[string]string
-	authorizations map[string]*vault.CreatedAuthorization
+	authorizations map[string]authorization
 	kms            kms.KeyManager
 	kmsURI         string
 	crypto         crypto.Crypto
@@ -72,7 +77,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 		crypto:         cryptoService,
 		kms:            keyManager,
 		variableMapper: map[string]string{},
-		authorizations: map[string]*vault.CreatedAuthorization{},
+		authorizations: map[string]authorization{},
 		bddContext:     ctx, client: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: ctx.TLSConfig,
@@ -92,7 +97,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) checkAccessibility(docID, auth string) error {
-	authorization, ok := e.authorizations[auth]
+	authInfo, ok := e.authorizations[auth]
 	if !ok {
 		return errors.New("no authorization")
 	}
@@ -107,7 +112,7 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 	edvClient := edv.New("http://" + URIParts[0] + "/" + URIParts[1])
 
 	eDoc, err := edvClient.ReadDocument(URIParts[2], URIParts[4], edv.WithRequestHeader(
-		e.edvSign(authorization.RequestingParty, authorization.Tokens.EDV)),
+		e.edvSign(authInfo.RequestingParty, authInfo.Tokens.EDV)),
 	)
 	if err != nil {
 		return err
@@ -121,11 +126,11 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 	decrypter := jose.NewJWEDecrypt(store, webcrypto.New(
 		e.kmsURI,
 		e.client,
-		webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
+		webkms.WithHeaders(e.kmsSign(authInfo.didURL, authInfo.Tokens.KMS)),
 	), webkms.New(
 		e.kmsURI,
 		e.client,
-		webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
+		webkms.WithHeaders(e.kmsSign(authInfo.didURL, authInfo.Tokens.KMS)),
 	))
 
 	JWE, err := jose.Deserialize(string(eDoc.JWE))
@@ -141,13 +146,13 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 func (e *Steps) createAuthorization(name string) error {
 	endpoint := fmt.Sprintf("/vaults/%s/authorizations", url.QueryEscape(e.vaultID))
 
-	requestingParty, err := e.createDIDKey()
+	_, didURL, err := e.createDIDKey()
 	if err != nil {
 		return err
 	}
 
 	payload := bytes.NewReader([]byte(`{"requestingParty":"` +
-		requestingParty + `", "scope": {"target":"` + e.vaultID + `", "actions":["read"]}}`))
+		didURL + `", "scope": {"target":"` + e.vaultID + `", "actions":["read"]}}`))
 
 	resp, err := e.client.Post(e.vaultURL+endpoint, "", payload)
 	if err != nil {
@@ -167,7 +172,7 @@ func (e *Steps) createAuthorization(name string) error {
 		return errors.New("id is empty")
 	}
 
-	e.authorizations[name] = result
+	e.authorizations[name] = authorization{CreatedAuthorization: result, didURL: didURL}
 
 	return nil
 }
@@ -321,15 +326,15 @@ func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.
 	return &req.Header, nil
 }
 
-func (e *Steps) createDIDKey() (string, error) {
+func (e *Steps) createDIDKey() (string, string, error) {
 	sig, err := signature.NewCryptoSigner(e.crypto, e.kms, kms.ED25519)
 	if err != nil {
-		return "", fmt.Errorf("new crypto signer: %w", err)
+		return "", "", fmt.Errorf("new crypto signer: %w", err)
 	}
 
-	_, didKey := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	didKey, didURL := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
-	return didKey, nil
+	return didKey, didURL, nil
 }
 
 type kmsProvider struct {

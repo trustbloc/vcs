@@ -169,17 +169,17 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 
 // CreateVault creates a new vault and KMS store bases on generated DIDKey.
 func (c *Client) CreateVault() (*CreatedVault, error) {
-	didKey, kid, err := c.createDIDKey()
+	didKey, didURL, kid, err := c.createDIDKey()
 	if err != nil {
 		return nil, fmt.Errorf("create DID key: %w", err)
 	}
 
-	kmsURI, kmsZCAP, err := webkms.CreateKeyStore(c.httpClient, c.remoteKMSURL, didKey, "")
+	kmsURI, kmsZCAP, err := webkms.CreateKeyStore(c.httpClient, c.remoteKMSURL, didURL, "")
 	if err != nil {
 		return nil, fmt.Errorf("create key store: %w", err)
 	}
 
-	edvLoc, err := c.createDataVault(didKey)
+	edvLoc, err := c.createDataVault(didURL)
 	if err != nil {
 		return nil, fmt.Errorf("create data vault: %w", err)
 	}
@@ -192,7 +192,7 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 		EDV: edvLoc,
 	}
 
-	err = c.saveVaultInfo(didKey, &vaultInfo{Auth: auth, KID: kid})
+	err = c.saveVaultInfo(didKey, &vaultInfo{DidURL: didURL, Auth: auth, KID: kid})
 	if err != nil {
 		return nil, fmt.Errorf("save vault info: %w", err)
 	}
@@ -224,7 +224,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Sco
 	kmsNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
-		VerificationMethod: vaultID,
+		VerificationMethod: info.DidURL,
 	}, zcapld.WithParent(kmsCapability.ID), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions("unwrap"),
 		zcapld.WithInvocationTarget(kmsCapability.InvocationTarget.ID, kmsCapability.InvocationTarget.Type),
@@ -246,7 +246,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Sco
 	edvNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
-		VerificationMethod: vaultID,
+		VerificationMethod: info.DidURL,
 	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions(scope.Actions...),
 		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),
@@ -280,7 +280,7 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
-	_, err = c.edvClient.ReadDocument(edvVaultID, docID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	_, err = c.edvClient.ReadDocument(edvVaultID, docID, edv.WithRequestHeader(c.edvSign(info.DidURL, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("read document: %w", err)
 	}
@@ -295,7 +295,11 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 		return nil, fmt.Errorf("get vault info: %w", err)
 	}
 
-	encContent, err := encryptContent(c.webKMS(vaultID, info.Auth.KMS), c.webCrypto(vaultID, info.Auth.KMS), content)
+	encContent, err := encryptContent(
+		c.webKMS(info.DidURL, info.Auth.KMS),
+		c.webCrypto(info.DidURL, info.Auth.KMS),
+		content,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt key: %w", err)
 	}
@@ -305,7 +309,7 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 	res, err := c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
 		ID:  id,
 		JWE: []byte(encContent),
-	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	}, edv.WithRequestHeader(c.edvSign(info.DidURL, info.Auth.EDV)))
 	if err == nil {
 		return &DocumentMetadata{URI: res, ID: lastElm(res, "/")}, nil
 	}
@@ -317,7 +321,7 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 	err = c.edvClient.UpdateDocument(edvVaultID, id, &models.EncryptedDocument{
 		ID:  id,
 		JWE: []byte(encContent),
-	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	}, edv.WithRequestHeader(c.edvSign(info.DidURL, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("update document: %w", err)
 	}
@@ -326,8 +330,9 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 }
 
 type vaultInfo struct {
-	KID  string         `json:"kid"`
-	Auth *Authorization `json:"auth"`
+	KID    string         `json:"kid"`
+	DidURL string         `json:"did_url"`
+	Auth   *Authorization `json:"auth"`
 }
 
 func (c *Client) saveVaultInfo(id string, info *vaultInfo) error {
@@ -379,20 +384,20 @@ func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteC
 	)
 }
 
-func (c *Client) createDIDKey() (string, string, error) {
+func (c *Client) createDIDKey() (string, string, string, error) {
 	sig, err := signature.NewCryptoSigner(c.crypto, c.kms, kms.ED25519)
 	if err != nil {
-		return "", "", fmt.Errorf("new crypto signer: %w", err)
+		return "", "", "", fmt.Errorf("new crypto signer: %w", err)
 	}
 
 	cryptoSigner, ok := sig.(interface{ KID() string })
 	if !ok {
-		return "", "", errors.New("cannot retrieve the KID")
+		return "", "", "", errors.New("cannot retrieve the KID")
 	}
 
-	_, didKey := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	didKey, didURL := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
-	return didKey, cryptoSigner.KID(), nil
+	return didKey, didURL, cryptoSigner.KID(), nil
 }
 
 func (c *Client) createDataVault(didKey string) (*Location, error) {
