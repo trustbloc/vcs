@@ -169,17 +169,17 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 
 // CreateVault creates a new vault and KMS store bases on generated DIDKey.
 func (c *Client) CreateVault() (*CreatedVault, error) {
-	didKey, kid, err := c.createDIDKey()
+	didKey, didURL, kid, err := c.createDIDKey()
 	if err != nil {
 		return nil, fmt.Errorf("create DID key: %w", err)
 	}
 
-	kmsURI, kmsZCAP, err := webkms.CreateKeyStore(c.httpClient, c.remoteKMSURL, didKey, "")
+	kmsURI, kmsZCAP, err := webkms.CreateKeyStore(c.httpClient, c.remoteKMSURL, didURL, "")
 	if err != nil {
 		return nil, fmt.Errorf("create key store: %w", err)
 	}
 
-	edvLoc, err := c.createDataVault(didKey)
+	edvLoc, err := c.createDataVault(didURL)
 	if err != nil {
 		return nil, fmt.Errorf("create data vault: %w", err)
 	}
@@ -204,7 +204,7 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 }
 
 // CreateAuthorization creates a new authorization.
-// nolint: funlen
+// nolint: funlen,gocyclo
 func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error) {
 	info, err := c.getVaultInfo(vaultID)
 	if err != nil {
@@ -221,11 +221,21 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Sco
 		return nil, fmt.Errorf("kms uncompressZCAP: %w", err)
 	}
 
+	didURL, err := toDidURL(vaultID)
+	if err != nil {
+		return nil, fmt.Errorf("to DidURL: %w", err)
+	}
+
+	requestingPartyDidURL, err := toDidURL(requestingParty)
+	if err != nil {
+		return nil, fmt.Errorf("requesting party to DidURL: %w", err)
+	}
+
 	kmsNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
-		VerificationMethod: vaultID,
-	}, zcapld.WithParent(kmsCapability.ID), zcapld.WithInvoker(requestingParty),
+		VerificationMethod: didURL,
+	}, zcapld.WithParent(kmsCapability.ID), zcapld.WithInvoker(requestingPartyDidURL),
 		zcapld.WithAllowedActions("unwrap"),
 		zcapld.WithInvocationTarget(kmsCapability.InvocationTarget.ID, kmsCapability.InvocationTarget.Type),
 		zcapld.WithCapabilityChain(kmsCapability.ID))
@@ -246,8 +256,8 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Sco
 	edvNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
-		VerificationMethod: vaultID,
-	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingParty),
+		VerificationMethod: didURL,
+	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingPartyDidURL),
 		zcapld.WithAllowedActions(scope.Actions...),
 		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),
 		zcapld.WithCapabilityChain(edvCapability.Parent, edvCapability.ID))
@@ -379,20 +389,20 @@ func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteC
 	)
 }
 
-func (c *Client) createDIDKey() (string, string, error) {
+func (c *Client) createDIDKey() (string, string, string, error) {
 	sig, err := signature.NewCryptoSigner(c.crypto, c.kms, kms.ED25519)
 	if err != nil {
-		return "", "", fmt.Errorf("new crypto signer: %w", err)
+		return "", "", "", fmt.Errorf("new crypto signer: %w", err)
 	}
 
 	cryptoSigner, ok := sig.(interface{ KID() string })
 	if !ok {
-		return "", "", errors.New("cannot retrieve the KID")
+		return "", "", "", errors.New("cannot retrieve the KID")
 	}
 
-	_, didKey := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	didKey, didURL := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
-	return didKey, cryptoSigner.KID(), nil
+	return didKey, didURL, cryptoSigner.KID(), nil
 }
 
 func (c *Client) createDataVault(didKey string) (*Location, error) {
@@ -453,12 +463,28 @@ func (c *Client) sign(req *http.Request, controller, action, zcap string) (*http
 		KMS:    c.kms,
 	})
 
-	err := hs.Sign(controller, req)
+	didURL, err := toDidURL(controller)
+	if err != nil {
+		return nil, fmt.Errorf("to DidURL: %w", err)
+	}
+
+	err = hs.Sign(didURL, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign http request: %w", err)
 	}
 
 	return &req.Header, nil
+}
+
+func toDidURL(did string) (string, error) {
+	pub, err := fingerprint.PubKeyFromDIDKey(did)
+	if err != nil {
+		return "", err
+	}
+
+	_, didURL := fingerprint.CreateDIDKey(pub)
+
+	return didURL, nil
 }
 
 func compressZCAP(zcap *zcapld.Capability) (string, error) {

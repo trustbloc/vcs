@@ -432,6 +432,44 @@ func TestClient_CreateAuthorization(t *testing.T) {
 		require.Contains(t, err.Error(), "kms uncompressZCAP: EOF")
 	})
 
+	t.Run("Vault to didURL party (error)", func(t *testing.T) {
+		data := map[string][]byte{}
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		lKMS := newLocalKms(t, store)
+
+		client, err := NewClient("", "", lKMS, store)
+		require.NoError(t, err)
+
+		vID, kid := createVaultID(t, lKMS)
+		data["info_"+kid] = []byte(`{"kid":"` + kid + `","auth":{"edv":{"authToken":""},"kms":{"authToken":"H4sIAAAAAAAA_5SSTW-rOBSG_8u5y4EWTEzAq0lDm9CbkC86SbmqKmNs4obGyBhSUvW_j3JbzYxm1_XRq_O8H-_wJ1NHw98MENgbUzfk-vrkyeJK6fK64azV0vTXHQILZAEEWn0kbSsLwvzQ911U2MJDwh4MWWjnrnBt5oicD7AIHFRcRMdOHbgGAoUsyIH35OzPD6_bRHY5bqb7szvsRK3Lzekh54lIV_O7t7l8GGC6FssNNn7_47sCsKCmmh_NmNY0l5U0_X_Bh57Ic8dBduFxegFHNi280PZCQQd5Hg7CIQMLaFWpEy9GzEh1BPILNKcXQyctDYenT2eMXq4p1SU3QN4hjoDAKFjRaCdkbTKdJJnG_s0pmoAFaV_zLxJedKSjbWXgw4JaKyWA_HoH9g_xeE_l77ff436ygGlODb90hRzk2g6yXZQ6AcEecf2r0B8EeOBi9IeDiOOABS-nBgjw_n6fT5hcyPu77HadrjZxE7_GKBnHfvZ61zD00MSvSU93K7moGvn48ujElRteXWEeJ7vWa26mcn0ug90aLX6mtvhrHy_VgtJe5MvmnCos19l0hnDAEtv2d3py9vE4Ww690-oxUtWsb5-nCzraOH2A8_EKLDiqI7vkNdfjw8R7fKui2UyHyQOqh4dbJ2LzMw2j-Hm2510yG-KRzG-rdJuImyJ4jm1P-8FYJZkcuWrbbOee9Dc_R7lWKHNLl47gK_dlq2vVXP78G37EK17-rhYsMJ-t3RYIYzfcyPJITas5ctwALOi4lkJ-7mDOzV4V_5t6jYMunCy3y1K_pQbjjL4EyqujpAvbKO9e2LScNmxzz-6b-Y_vCuDj6ePvAAAA___BBC2CwwMAAA=="}}}`) // nolint: lll
+
+		_, err = client.CreateAuthorization(kid, vID, &Scope{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "to DidURL: failed to parse did:key")
+	})
+
+	t.Run("Requesting party (error)", func(t *testing.T) {
+		data := map[string][]byte{}
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		lKMS := newLocalKms(t, store)
+
+		client, err := NewClient("", "", lKMS, store)
+		require.NoError(t, err)
+
+		vID, kid := createVaultID(t, lKMS)
+		data["info_"+vID] = []byte(`{"kid":"` + kid + `","auth":{"edv":{"authToken":""},"kms":{"authToken":"H4sIAAAAAAAA_5SSTW-rOBSG_8u5y4EWTEzAq0lDm9CbkC86SbmqKmNs4obGyBhSUvW_j3JbzYxm1_XRq_O8H-_wJ1NHw98MENgbUzfk-vrkyeJK6fK64azV0vTXHQILZAEEWn0kbSsLwvzQ911U2MJDwh4MWWjnrnBt5oicD7AIHFRcRMdOHbgGAoUsyIH35OzPD6_bRHY5bqb7szvsRK3Lzekh54lIV_O7t7l8GGC6FssNNn7_47sCsKCmmh_NmNY0l5U0_X_Bh57Ic8dBduFxegFHNi280PZCQQd5Hg7CIQMLaFWpEy9GzEh1BPILNKcXQyctDYenT2eMXq4p1SU3QN4hjoDAKFjRaCdkbTKdJJnG_s0pmoAFaV_zLxJedKSjbWXgw4JaKyWA_HoH9g_xeE_l77ff436ygGlODb90hRzk2g6yXZQ6AcEecf2r0B8EeOBi9IeDiOOABS-nBgjw_n6fT5hcyPu77HadrjZxE7_GKBnHfvZ61zD00MSvSU93K7moGvn48ujElRteXWEeJ7vWa26mcn0ug90aLX6mtvhrHy_VgtJe5MvmnCos19l0hnDAEtv2d3py9vE4Ww690-oxUtWsb5-nCzraOH2A8_EKLDiqI7vkNdfjw8R7fKui2UyHyQOqh4dbJ2LzMw2j-Hm2510yG-KRzG-rdJuImyJ4jm1P-8FYJZkcuWrbbOee9Dc_R7lWKHNLl47gK_dlq2vVXP78G37EK17-rhYsMJ-t3RYIYzfcyPJITas5ctwALOi4lkJ-7mDOzV4V_5t6jYMunCy3y1K_pQbjjL4EyqujpAvbKO9e2LScNmxzz-6b-Y_vCuDj6ePvAAAA___BBC2CwwMAAA=="}}}`) // nolint: lll
+
+		_, err = client.CreateAuthorization(vID, kid, &Scope{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "requesting party to DidURL")
+	})
+
 	t.Run("EDV uncompress (error)", func(t *testing.T) {
 		data := map[string][]byte{}
 		store := &mockstorage.MockStoreProvider{
@@ -446,7 +484,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 		vID, kid := createVaultID(t, lKMS)
 		data["info_"+vID] = []byte(`{"kid":"` + kid + `","auth":{"edv":{"authToken":""},"kms":{"authToken":"H4sIAAAAAAAA_5SSTW-rOBSG_8u5y4EWTEzAq0lDm9CbkC86SbmqKmNs4obGyBhSUvW_j3JbzYxm1_XRq_O8H-_wJ1NHw98MENgbUzfk-vrkyeJK6fK64azV0vTXHQILZAEEWn0kbSsLwvzQ911U2MJDwh4MWWjnrnBt5oicD7AIHFRcRMdOHbgGAoUsyIH35OzPD6_bRHY5bqb7szvsRK3Lzekh54lIV_O7t7l8GGC6FssNNn7_47sCsKCmmh_NmNY0l5U0_X_Bh57Ic8dBduFxegFHNi280PZCQQd5Hg7CIQMLaFWpEy9GzEh1BPILNKcXQyctDYenT2eMXq4p1SU3QN4hjoDAKFjRaCdkbTKdJJnG_s0pmoAFaV_zLxJedKSjbWXgw4JaKyWA_HoH9g_xeE_l77ff436ygGlODb90hRzk2g6yXZQ6AcEecf2r0B8EeOBi9IeDiOOABS-nBgjw_n6fT5hcyPu77HadrjZxE7_GKBnHfvZ61zD00MSvSU93K7moGvn48ujElRteXWEeJ7vWa26mcn0ug90aLX6mtvhrHy_VgtJe5MvmnCos19l0hnDAEtv2d3py9vE4Ww690-oxUtWsb5-nCzraOH2A8_EKLDiqI7vkNdfjw8R7fKui2UyHyQOqh4dbJ2LzMw2j-Hm2510yG-KRzG-rdJuImyJ4jm1P-8FYJZkcuWrbbOee9Dc_R7lWKHNLl47gK_dlq2vVXP78G37EK17-rhYsMJ-t3RYIYzfcyPJITas5ctwALOi4lkJ-7mDOzV4V_5t6jYMunCy3y1K_pQbjjL4EyqujpAvbKO9e2LScNmxzz-6b-Y_vCuDj6ePvAAAA___BBC2CwwMAAA=="}}}`) // nolint: lll
 
-		_, err = client.CreateAuthorization(vID, "", &Scope{})
+		_, err = client.CreateAuthorization(vID, vID, &Scope{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "edv uncompressZCAP: EOF")
 	})
@@ -466,7 +504,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 
 		data["info_"+vID] = []byte(`{"kid":"` + kid + `","auth":{"edv":{"authToken":"H4sIAAAAAAAA_5SSTW-rOBSG_8u5y4EWTEzAq0lDm9CbkC86SbmqKmNs4obGyBhSUvW_j3JbzYxm1_XRq_O8H-_wJ1NHw98MENgbUzfk-vrkyeJK6fK64azV0vTXHQILZAEEWn0kbSsLwvzQ911U2MJDwh4MWWjnrnBt5oicD7AIHFRcRMdOHbgGAoUsyIH35OzPD6_bRHY5bqb7szvsRK3Lzekh54lIV_O7t7l8GGC6FssNNn7_47sCsKCmmh_NmNY0l5U0_X_Bh57Ic8dBduFxegFHNi280PZCQQd5Hg7CIQMLaFWpEy9GzEh1BPILNKcXQyctDYenT2eMXq4p1SU3QN4hjoDAKFjRaCdkbTKdJJnG_s0pmoAFaV_zLxJedKSjbWXgw4JaKyWA_HoH9g_xeE_l77ff436ygGlODb90hRzk2g6yXZQ6AcEecf2r0B8EeOBi9IeDiOOABS-nBgjw_n6fT5hcyPu77HadrjZxE7_GKBnHfvZ61zD00MSvSU93K7moGvn48ujElRteXWEeJ7vWa26mcn0ug90aLX6mtvhrHy_VgtJe5MvmnCos19l0hnDAEtv2d3py9vE4Ww690-oxUtWsb5-nCzraOH2A8_EKLDiqI7vkNdfjw8R7fKui2UyHyQOqh4dbJ2LzMw2j-Hm2510yG-KRzG-rdJuImyJ4jm1P-8FYJZkcuWrbbOee9Dc_R7lWKHNLl47gK_dlq2vVXP78G37EK17-rhYsMJ-t3RYIYzfcyPJITas5ctwALOi4lkJ-7mDOzV4V_5t6jYMunCy3y1K_pQbjjL4EyqujpAvbKO9e2LScNmxzz-6b-Y_vCuDj6ePvAAAA___BBC2CwwMAAA=="},"kms":{"authToken":"H4sIAAAAAAAA_6RTS3PiOBj8L98c18SP2EB02oADhmBexkPC1BxkWbaFH_JIMuCk8t-3HMIc9jY1J7VK3dVSt753-JfwStGLAgSZUrVEun6-Z_EdF6kuKWkEU61-skADFn9xkK4XnOAi41KhYX_Y1_NS6jltpeKCSp0YRyuqHMabOCp-WQXPzLTTVyeeUwEIYhajnLbore_n5X7JTpEjvezNHJySWqTBOYzoMtlt_MnFZ6Ht4G2yDhzVb7_9qQA0wEXBzzR-JIrxCtAPIIJiRZ9pd0gvNRfqiiVLK9DgRAVLuv1Z4Bo0aKovQHhZN4r6j-PfrCumFRFtrUCDmN5QU8dY0Sf3-xjXOGIFU592WN6WVU07N0lx8Ql_XvMhuLvmDouUKkDvMHP_LvNdW1NA0IgK5aVENz58aFALzhNAP96_EunatQzL7BlWz7R2xhA598js3z3Y9mBg25b1j2EhwwANjmcJCGg7z6IpYSs2nxyetrtNMJOzcmYtx7P-oZxIYoVyVi5b_LJhq0Ky1-OrMSvMh7u7-7bc7UfHqTf2pjuflA8Ofr2EbzQ4L5wiOdkqtFthH9hiHDYsOZ1nrb-I3eeel2wHi2gxx6Itm01vaPV77ps52Z9Gw_V4AxpUvCLdc19W46jxh-SpyAO1fQ5ar12sKm-0dh97CWkm4Xo3GA2NMFv5wSR3cUKku_dl4k0qtrcP5uTyPVu-FL8WwZT0RvTRPKy3VWfwmdm6ETWXnQ_5Xa5LC5p-dgcaqGvoT7HlOOZDwNIKq0ZQyzCHt6_DrkX7VGU8_t9EpMfsudkfS1r1s-ZyGWfePA_WYYnvPfe8SQ6jUZZGWz4_TBPr258K4OPnx38BAAD__xy0S3b1AwAA"}}}`) // nolint: lll
 
-		created, err := client.CreateAuthorization(vID, "", &Scope{Actions: []string{"read"}})
+		created, err := client.CreateAuthorization(vID, vID, &Scope{Actions: []string{"read"}})
 		require.NoError(t, err)
 		require.NotEmpty(t, created.Tokens.EDV)
 		require.NotEmpty(t, created.Tokens.KMS)
@@ -564,7 +602,7 @@ func createVaultID(t *testing.T, k KeyManager) (string, string) {
 	cryptoSigner, ok := sig.(interface{ KID() string })
 	require.True(t, ok)
 
-	_, didKey := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	didKey, _ := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
 	return didKey, cryptoSigner.KID()
 }

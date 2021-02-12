@@ -313,7 +313,12 @@ func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.
 		KMS:    e.kms,
 	})
 
-	err := hs.Sign(controller, req)
+	didURL, err := toDidURL(controller)
+	if err != nil {
+		return nil, fmt.Errorf("to DidURL: %w", err)
+	}
+
+	err = hs.Sign(didURL, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign http request: %w", err)
 	}
@@ -327,9 +332,20 @@ func (e *Steps) createDIDKey() (string, error) {
 		return "", fmt.Errorf("new crypto signer: %w", err)
 	}
 
-	_, didKey := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	didKey, _ := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
 	return didKey, nil
+}
+
+func toDidURL(did string) (string, error) {
+	pub, err := fingerprint.PubKeyFromDIDKey(did)
+	if err != nil {
+		return "", err
+	}
+
+	_, didURL := fingerprint.CreateDIDKey(pub)
+
+	return didURL, nil
 }
 
 type kmsProvider struct {
