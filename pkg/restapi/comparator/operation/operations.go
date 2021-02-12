@@ -28,9 +28,11 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/client/csh"
+	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
 const (
@@ -50,16 +52,21 @@ type cshClient interface {
 	CreateProfile(controller string) (*operation.Profile, error)
 }
 
+type vaultClient interface {
+	GetDocMetaData(vaultID, docID string) (*vault.DocumentMetadata, error)
+}
+
 var logger = log.New("comparator-ops")
 
 // Operation defines handlers for comparator service.
 type Operation struct {
-	vdr        vdr.Registry
-	keyManager kms.KeyManager
-	tlsConfig  *tls.Config
-	didMethod  string
-	store      storage.Store
-	cshClient  cshClient
+	vdr         vdr.Registry
+	keyManager  kms.KeyManager
+	tlsConfig   *tls.Config
+	didMethod   string
+	store       storage.Store
+	cshClient   cshClient
+	vaultClient vaultClient
 }
 
 // Config defines configuration for comparator operations.
@@ -70,6 +77,7 @@ type Config struct {
 	DIDMethod     string
 	StoreProvider storage.Provider
 	CSHBaseURL    string
+	VaultBaseURL  string
 }
 
 // New returns operation instance.
@@ -80,7 +88,8 @@ func New(cfg *Config) (*Operation, error) {
 	}
 
 	op := &Operation{vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
-		store: store, cshClient: csh.New(cfg.CSHBaseURL, csh.WithTLSConfig(cfg.TLSConfig))}
+		store: store, cshClient: csh.New(cfg.CSHBaseURL, csh.WithTLSConfig(cfg.TLSConfig)),
+		vaultClient: vaultclient.New(cfg.VaultBaseURL, vaultclient.WithTLSConfig(cfg.TLSConfig))}
 
 	if _, err := op.getConfig(); err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
@@ -125,6 +134,7 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 //   500: Error
 func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusCreated)
+	commhttp.WriteResponse(w, Authorization{ID: "fakeID", RequestingParty: "fakeRP", AuthToken: "fakeZCAP"})
 }
 
 // Compare swagger:route POST /compare compareReq
@@ -140,6 +150,7 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 //   500: Error
 func (o *Operation) Compare(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
+	commhttp.WriteResponse(w, Comparison{Result: true})
 }
 
 // Extract swagger:route POST /extract extractReq

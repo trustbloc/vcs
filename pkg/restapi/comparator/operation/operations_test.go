@@ -94,6 +94,7 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		result := httptest.NewRecorder()
 		op.CreateAuthorization(result, nil)
 		require.Equal(t, http.StatusCreated, result.Code)
+		require.Contains(t, result.Body.String(), "fakeZCAP")
 	})
 }
 
@@ -108,6 +109,7 @@ func TestOperation_Compare(t *testing.T) {
 		result := httptest.NewRecorder()
 		op.Compare(result, nil)
 		require.Equal(t, http.StatusOK, result.Code)
+		require.Contains(t, result.Body.String(), "true")
 	})
 }
 

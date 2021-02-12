@@ -34,7 +34,7 @@ import (
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
-	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
 
