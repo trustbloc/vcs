@@ -17,9 +17,9 @@ import (
 	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 
-	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
 // API endpoints.

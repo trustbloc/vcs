@@ -101,6 +101,25 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither csh-url (command line flag) nor COMPARATOR_CSH_URL (environment variable) have been set.",
 			err.Error())
 	})
+
+	t.Run("test missing vault url arg", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + datasourceNameFlagName, "mem://test",
+			"--" + didDomainFlagName, "did",
+			"--" + cshURLFlagName, "localhost:8081",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+
+		require.Error(t, err)
+		require.Equal(t,
+			"Neither vault-url (command line flag) nor COMPARATOR_VAULT_URL (environment variable) have been set.",
+			err.Error())
+	})
 }
 
 func TestNotSupportedDSN(t *testing.T) {
@@ -111,6 +130,7 @@ func TestNotSupportedDSN(t *testing.T) {
 		"--" + datasourceNameFlagName, "mem1://test",
 		"--" + didDomainFlagName, "did",
 		"--" + cshURLFlagName, "localhost:8081",
+		"--" + vaultURLFlagName, "localhost:8081",
 	}
 	startCmd.SetArgs(args)
 
@@ -129,6 +149,7 @@ func TestFailedToConnectToDB(t *testing.T) {
 			"--" + didDomainFlagName, "did",
 			"--" + datasourceTimeoutFlagName, "1",
 			"--" + cshURLFlagName, "localhost:8081",
+			"--" + vaultURLFlagName, "localhost:8081",
 		}
 		startCmd.SetArgs(args)
 
@@ -146,6 +167,7 @@ func TestFailedToConnectToDB(t *testing.T) {
 			"--" + didDomainFlagName, "did",
 			"--" + datasourceTimeoutFlagName, "1",
 			"--" + cshURLFlagName, "localhost:8081",
+			"--" + vaultURLFlagName, "localhost:8081",
 		}
 		startCmd.SetArgs(args)
 
@@ -176,6 +198,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + datasourceNameFlagName, "mem://test",
 		"--" + didDomainFlagName, "did",
 		"--" + cshURLFlagName, "localhost:8081",
+		"--" + vaultURLFlagName, "localhost:8081",
 	}
 	startCmd.SetArgs(args)
 

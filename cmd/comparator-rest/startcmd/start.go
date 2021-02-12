@@ -93,6 +93,11 @@ const (
 	cshURLFlagUsage = "URL for confidential storage hub." +
 		" Alternatively, this can be set with the following environment variable: " + cshURLEnvKey
 	cshURLEnvKey = "COMPARATOR_CSH_URL"
+
+	vaultURLFlagName  = "vault-url"
+	vaultURLFlagUsage = "URL for vault server." +
+		" Alternatively, this can be set with the following environment variable: " + vaultURLEnvKey
+	vaultURLEnvKey = "COMPARATOR_VAULT_URL"
 )
 
 const (
@@ -147,6 +152,7 @@ type serviceParameters struct {
 	dsnParams *dsnParams
 	didDomain string
 	cshURL    string
+	vaultURL  string
 }
 
 type server interface {
@@ -244,12 +250,18 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	vaultURL, err := cmdutils.GetUserSetVarFromString(cmd, vaultURLFlagName, vaultURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
 	return &serviceParameters{
 		host:      host,
 		tlsParams: tlsParams,
 		dsnParams: dsnParams,
 		didDomain: didDomain,
 		cshURL:    cshURL,
+		vaultURL:  vaultURL,
 	}, err
 }
 
@@ -355,6 +367,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 	cmd.Flags().StringP(cshURLFlagName, "", "", cshURLFlagUsage)
+	cmd.Flags().StringP(vaultURLFlagName, "", "", vaultURLFlagUsage)
 }
 
 //nolint: funlen
@@ -403,6 +416,7 @@ func startService(params *serviceParameters, srv server) error {
 		DIDMethod:     trustbloc.DIDMethod,
 		StoreProvider: storeProvider,
 		CSHBaseURL:    params.cshURL,
+		VaultBaseURL:  params.vaultURL,
 	})
 	if err != nil {
 		return err

@@ -18,7 +18,8 @@ type Query struct {
 
 // DocQuery is a concrete Query object that identifies a specific document.
 type DocQuery struct {
-	DocID string `json:"docID"`
+	DocID   string `json:"docID"`
+	VaultID string `json:"vaultID"`
 	// swagger:allOf Query
 	Query
 	UpstreamAuth struct {

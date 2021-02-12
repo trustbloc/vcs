@@ -29,8 +29,8 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
-	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 

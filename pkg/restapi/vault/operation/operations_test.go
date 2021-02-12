@@ -23,9 +23,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 
-	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	. "github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 
