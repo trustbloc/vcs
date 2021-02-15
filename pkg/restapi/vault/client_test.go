@@ -201,6 +201,20 @@ func TestSaveDoc(t *testing.T) {
 		require.Contains(t, err.Error(), "get vault info: get: data not found")
 	})
 
+	t.Run("Create alias (error)", func(t *testing.T) {
+		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				Store:  map[string][]byte{"info_v_id": []byte(`{"auth":{"edv":{},"kms":{}}}`)},
+				ErrPut: errors.New("test error"),
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = client.SaveDoc(vaultID, docID, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create alias: store put: test error")
+	})
+
 	t.Run("Encrypt key (create error)", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{Store: map[string][]byte{"info_v_id": []byte(`{"auth":{"edv":{},"kms":{}}}`)}},
@@ -523,6 +537,26 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		require.Contains(t, err.Error(), "get vault info: get: data not found")
 	})
 
+	t.Run("No alias", func(t *testing.T) {
+		data := map[string][]byte{}
+
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		lKMS := newLocalKms(t, store)
+		client, err := NewClient("", "", lKMS, store)
+		require.NoError(t, err)
+
+		vID, _ := createVaultID(t, lKMS)
+
+		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{}}}`)
+
+		_, err = client.GetDocMetadata(vID, "docID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get alias: store get: data not found")
+	})
+
 	t.Run("Success", func(t *testing.T) {
 		edvHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 1)
 		edvHandlers <- func(w http.ResponseWriter, _ *http.Request) {
@@ -542,7 +576,9 @@ func TestClient_GetDocMetadata(t *testing.T) {
 			}
 		}))
 
-		data := map[string][]byte{}
+		const docID = "docID"
+
+		data := map[string][]byte{"alias_" + docID: []byte(`key`)}
 
 		store := &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{Store: data},
@@ -556,7 +592,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{}}}`)
 
-		docMeta, err := client.GetDocMetadata(vID, "docID")
+		docMeta, err := client.GetDocMetadata(vID, docID)
 		require.NoError(t, err)
 		require.NotEmpty(t, docMeta.ID)
 		require.NotEmpty(t, docMeta.URI)

@@ -34,6 +34,7 @@ import (
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
+	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
@@ -290,12 +291,17 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
-	_, err = c.edvClient.ReadDocument(edvVaultID, docID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	eID, err := c.getIDAlias(docID)
+	if err != nil {
+		return nil, fmt.Errorf("get alias: %w", err)
+	}
+
+	_, err = c.edvClient.ReadDocument(edvVaultID, eID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("read document: %w", err)
 	}
 
-	return &DocumentMetadata{ID: docID, URI: buildEDVURI(c.edvHost, edvVaultID, docID)}, nil
+	return &DocumentMetadata{ID: docID, URI: buildEDVURI(c.edvHost, edvVaultID, eID)}, nil
 }
 
 // SaveDoc saves a document by encrypting it and storing it in the vault.
@@ -303,6 +309,18 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 	info, err := c.getVaultInfo(vaultID)
 	if err != nil {
 		return nil, fmt.Errorf("get vault info: %w", err)
+	}
+
+	eID, err := c.getIDAlias(id)
+	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
+		return nil, fmt.Errorf("get alias: %w", err)
+	}
+
+	if errors.Is(err, storage.ErrDataNotFound) {
+		eID, err = c.createIDAlias(id)
+		if err != nil {
+			return nil, fmt.Errorf("create alias: %w", err)
+		}
 	}
 
 	encContent, err := encryptContent(c.webKMS(vaultID, info.Auth.KMS), c.webCrypto(vaultID, info.Auth.KMS), content)
@@ -313,26 +331,26 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
 	res, err := c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
-		ID:  id,
+		ID:  eID,
 		JWE: []byte(encContent),
 	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err == nil {
-		return &DocumentMetadata{URI: res, ID: lastElm(res, "/")}, nil
+		return &DocumentMetadata{URI: res, ID: id}, nil
 	}
 
 	if !strings.HasSuffix(err.Error(), messages.ErrDuplicateDocument.Error()+".") {
 		return nil, fmt.Errorf("create document: %w", err)
 	}
 
-	err = c.edvClient.UpdateDocument(edvVaultID, id, &models.EncryptedDocument{
-		ID:  id,
+	err = c.edvClient.UpdateDocument(edvVaultID, eID, &models.EncryptedDocument{
+		ID:  eID,
 		JWE: []byte(encContent),
 	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("update document: %w", err)
 	}
 
-	return &DocumentMetadata{ID: id, URI: buildEDVURI(c.edvHost, edvVaultID, id)}, nil
+	return &DocumentMetadata{ID: id, URI: buildEDVURI(c.edvHost, edvVaultID, eID)}, nil
 }
 
 type vaultInfo struct {
@@ -347,6 +365,29 @@ func (c *Client) saveVaultInfo(id string, info *vaultInfo) error {
 	}
 
 	return c.store.Put(fmt.Sprintf("info_%s", id), src)
+}
+
+func (c *Client) createIDAlias(id string) (string, error) {
+	edvID, err := edvutils.GenerateEDVCompatibleID()
+	if err != nil {
+		return "", fmt.Errorf("generate EDV compatible id: %w", err)
+	}
+
+	err = c.store.Put(fmt.Sprintf("alias_%s", id), []byte(edvID))
+	if err != nil {
+		return "", fmt.Errorf("store put: %w", err)
+	}
+
+	return edvID, nil
+}
+
+func (c *Client) getIDAlias(id string) (string, error) {
+	edvID, err := c.store.Get(fmt.Sprintf("alias_%s", id))
+	if err != nil {
+		return "", fmt.Errorf("store get: %w", err)
+	}
+
+	return string(edvID), nil
 }
 
 func (c *Client) getVaultInfo(id string) (*vaultInfo, error) {
@@ -534,7 +575,7 @@ func uncompressZCAP(zcap string) (*zcapld.Capability, error) {
 	return zcapld.ParseCapability(result)
 }
 
-func lastElm(s, sep string) string { // nolint: unparam
+func lastElm(s, sep string) string {
 	all := strings.Split(s, sep)
 
 	return all[len(all)-1]
