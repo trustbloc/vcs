@@ -67,11 +67,11 @@ func (s *Steps) userProfileIsCreated() error {
 		return errors.New("profile does not have a controller")
 	}
 
-	if s.user.profile.ZCAP == "" {
+	if s.user.profile.Zcap == "" {
 		return errors.New("profile does not have a zcap")
 	}
 
-	zcap, err := parseZCAP(s.user.profile.ZCAP)
+	zcap, err := parseZCAP(s.user.profile.Zcap)
 	if err != nil {
 		return fmt.Errorf("failed to parse profile zcap: %w", err)
 	}

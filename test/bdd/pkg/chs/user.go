@@ -24,7 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 )
@@ -65,7 +65,7 @@ func newUser(baseURL string, tlsConfig *tls.Config) (*user, error) {
 type user struct {
 	kms        kms.KeyManager
 	crypto     crypto.Crypto
-	profile    *operation.Profile
+	profile    *openapi.Profile
 	httpClient *http.Client
 	controller string
 	baseURL    string
@@ -79,7 +79,7 @@ func (u *user) requestNewProfile() error {
 
 	u.controller = didKeyURL(signer.PublicKeyBytes())
 
-	payload, err := json.Marshal(&operation.Profile{
+	payload, err := json.Marshal(&openapi.Profile{
 		Controller: u.controller,
 	})
 	if err != nil {
@@ -111,7 +111,7 @@ func (u *user) requestNewProfile() error {
 		return fmt.Errorf("unexpected response: code=%d msg=%+v", response.StatusCode, msg)
 	}
 
-	u.profile = &operation.Profile{}
+	u.profile = &openapi.Profile{}
 
 	err = json.NewDecoder(response.Body).Decode(u.profile)
 	if err != nil {

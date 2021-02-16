@@ -9,6 +9,11 @@ go 1.15
 require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.1.0
+	github.com/go-openapi/errors v0.20.0
+	github.com/go-openapi/runtime v0.19.26
+	github.com/go-openapi/strfmt v0.20.0
+	github.com/go-openapi/swag v0.19.14
+	github.com/go-openapi/validate v0.20.2
 	github.com/google/tink/go v1.5.0
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
@@ -20,7 +25,7 @@ require (
 	github.com/igor-pavlenko/httpsignatures-go v0.0.21
 	github.com/spf13/cobra v1.1.1
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/trustbloc/edge-core v0.1.6-0.20210127161542-9e174750f523
 	github.com/trustbloc/edv v0.1.6-0.20210209144926-25e1e913a8c4
 	github.com/trustbloc/kms v0.1.6-0.20210203150736-e4c6b3a7dbef

@@ -13,7 +13,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210125133828-10c25f5d6d37
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.1.1
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/trustbloc/edge-core v0.1.6-0.20210127161542-9e174750f523
 	github.com/trustbloc/edge-service v0.0.0
 	github.com/trustbloc/edv v0.1.6-0.20210209144926-25e1e913a8c4

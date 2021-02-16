@@ -15,7 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 )
 
 func TestClient_CreateProfile(t *testing.T) {
@@ -58,7 +58,7 @@ func TestClient_CreateProfile(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusCreated)
-			p := operation.Profile{ID: "test"}
+			p := openapi.Profile{ID: "test"}
 			bytes, err := json.Marshal(p)
 			require.NoError(t, err)
 

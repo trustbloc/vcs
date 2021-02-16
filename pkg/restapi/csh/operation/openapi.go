@@ -6,14 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 
 package operation
 
-import "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+import (
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
+)
 
 // Error.
 //
 // swagger:response Error
 type errorResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body http.ErrorResponse
+	Body openapi.Error
 }
 
 // createProfileReq model
@@ -28,7 +30,7 @@ type createProfileResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Profile
+	Body openapi.Profile
 }
 
 // createQueryReq model
@@ -40,7 +42,7 @@ type createQueryReq struct { // nolint:deadcode,unused // swagger model
 	ProfileID string `json:"profileID"`
 
 	// in: body
-	Body DocQuery
+	Body openapi.Query
 }
 
 // Query.
@@ -51,7 +53,7 @@ type createQueryResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Query
+	Body openapi.Query
 }
 
 // createAuthorizationReq model
@@ -63,7 +65,7 @@ type createAuthorizationReq struct { // nolint:deadcode,unused // swagger model
 	ProfileID string `json:"profileID"`
 
 	// in: body
-	Body Authorization
+	Body openapi.Authorization
 }
 
 // Authorization.
@@ -73,7 +75,7 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Authorization
+	Body openapi.Authorization
 }
 
 // comparisonReq model
@@ -81,9 +83,7 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 // swagger:parameters comparisonReq
 type comparisonReq struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body struct {
-		OP Operator `json:"op"`
-	}
+	Body openapi.ComparisonRequest
 }
 
 // Comparison.
@@ -91,7 +91,7 @@ type comparisonReq struct { // nolint:deadcode,unused // swagger model
 // swagger:response comparisonResp
 type comparisonResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body Comparison
+	Body openapi.Comparison
 }
 
 // extractionReq model
