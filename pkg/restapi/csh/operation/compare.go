@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"encoding/json"
 	"net/http"
 	"reflect"
+
+	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 )
@@ -25,25 +28,28 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) {
 
 	comparison := &openapi.Comparison{Result: true}
 
-	var prevDoc []byte
+	var prevDoc interface{}
 
 	for i := range op.Args() {
 		query := op.Args()[i]
 
-		var (
-			document []byte
-			err      error
-		)
+		document := &models.StructuredDocument{}
 
 		switch q := query.(type) {
 		case *openapi.DocQuery:
-			document, err = o.ReadDocQuery(q)
+			contents, err := o.ReadDocQuery(q)
 			if err != nil {
 				// TODO discern specific error codes (can also be a bad zcap, bad url, etc)
 				respondErrorf(w, http.StatusInternalServerError,
 					"failed to read Confidential Storage document: %s", err.Error())
 
 				return
+			}
+
+			err = json.Unmarshal(contents, document)
+			if err != nil {
+				respondErrorf(w, http.StatusInternalServerError,
+					"failed to parse Confidential Storage structured document: %s", err.Error())
 			}
 		case *openapi.RefQuery:
 			respondErrorf(w, http.StatusNotImplemented, "'RefQuery' not yet implemented by 'EqOp'")
@@ -52,14 +58,14 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) {
 		}
 
 		if i == 0 {
-			prevDoc = document
+			prevDoc = document.Content
 
 			continue
 		}
 
 		// TODO implement JSONPath
 
-		comparison.Result = reflect.DeepEqual(prevDoc, document)
+		comparison.Result = reflect.DeepEqual(prevDoc, document.Content)
 		if !comparison.Result {
 			break
 		}
@@ -67,5 +73,9 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) {
 		prevDoc = document
 	}
 
-	respond(w, http.StatusOK, nil, comparison)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	respond(w, http.StatusOK, headers, comparison)
 }

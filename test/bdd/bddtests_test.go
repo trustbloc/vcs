@@ -67,7 +67,7 @@ func runBDDTests(tags, format string) int {
 			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/did-method-rest", "./fixtures/universal-registrar", "./fixtures/discovery-server",
 			"./fixtures/stakeholder-server", "./fixtures/confidential-storage-hub", "./fixtures/comparator-rest",
-			"./fixtures/vault-server",
+			"./fixtures/vault-server", "./fixtures/hub-kms",
 		}
 
 		s.BeforeSuite(func() {

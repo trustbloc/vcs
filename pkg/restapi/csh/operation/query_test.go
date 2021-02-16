@@ -52,9 +52,38 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 			config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
 				return newMockEDVClient(t, nil, jwe)
 			}
+			config.Aries.WebKMS = func(url string, c webkms.HTTPClient, opts ...webkms.Opt) kms.KeyManager {
+				return webkms.New(url, c, opts...)
+			}
+			config.Aries.WebCrypto = func(url string, c remotecrypto.HTTPClient, opts ...webkms.Opt) crypto.Crypto {
+				return remotecrypto.New(url, c, opts...)
+			}
+
+			kmsURL := newServer(t, func(w http.ResponseWriter, r *http.Request) {
+				request := &unwrapRequest{}
+				err := json.NewDecoder(r.Body).Decode(request)
+				require.NoError(t, err)
+
+				cek := unwrapKey(t, keyID(r.URL.Path), agent.KMS(), agent.Crypto(), request)
+
+				err = json.NewEncoder(w).Encode(&unwrapResp{Key: base64.URLEncoding.EncodeToString(cek)})
+				require.NoError(t, err)
+			})
+
+			invoker := newVerMethod(t, agent.KMS())
+			query := newDocQuery(t)
+			query.UpstreamAuth.Kms = &openapi.UpstreamAuthorization{
+				BaseURL: kmsURL,
+				Zcap: compress(t, marshal(t, &zcapld.Capability{
+					Invoker: invoker,
+					InvocationTarget: zcapld.InvocationTarget{
+						ID: "/kms/keystores/abc",
+					},
+				})),
+			}
 
 			o := newOperation(t, config)
-			result, err := o.ReadDocQuery(newDocQuery())
+			result, err := o.ReadDocQuery(query)
 			require.NoError(t, err)
 			require.Equal(t, expected, result)
 		})
@@ -81,11 +110,10 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 			edvZCAP := newZCAP(t, edvServer, chs)
 
-			query := newDocQuery()
-			query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
+			query := docQuery(&openapi.UpstreamAuthorization{
 				BaseURL: edvURL,
 				Zcap:    compress(t, marshal(t, edvZCAP)),
-			}
+			}, nil)
 
 			result, err := o.ReadDocQuery(query)
 			require.NoError(t, err)
@@ -96,7 +124,8 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 	t.Run("reads documents encrypted with remote KMS", func(t *testing.T) {
 		t.Run("no zcaps", func(t *testing.T) {
-			expected := []byte(uuid.New().String())
+			t.Skip("TODO - to be re-enabled once remote KMS zcaps are made optional again")
+			expected := randomDoc(t)
 			chs := newAgent(t)
 			jwe := encryptedJWE(t, chs, expected)
 
@@ -104,10 +133,10 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 			config.EDVClient = func(url string, options ...edv.Option) vault.ConfidentialStorageDocReader {
 				return edv.New(url, options...)
 			}
-			config.Aries.WebKMS = func(url string, c *http.Client, opts ...webkms.Opt) *webkms.RemoteKMS {
+			config.Aries.WebKMS = func(url string, c webkms.HTTPClient, opts ...webkms.Opt) kms.KeyManager {
 				return webkms.New(url, c, opts...)
 			}
-			config.Aries.WebCrypto = func(url string, c *http.Client, opts ...webkms.Opt) *remotecrypto.RemoteCrypto {
+			config.Aries.WebCrypto = func(url string, c remotecrypto.HTTPClient, opts ...webkms.Opt) crypto.Crypto {
 				return remotecrypto.New(url, c, opts...)
 			}
 			o := newOperation(t, config)
@@ -132,12 +161,20 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 				}
 			})
 
-			query := newDocQuery()
+			invoker := newVerMethod(t, chs.KMS())
+
+			query := newDocQuery(t)
 			query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
 				BaseURL: edvURL,
 			}
 			query.UpstreamAuth.Kms = &openapi.UpstreamAuthorization{
 				BaseURL: kmsURL,
+				Zcap: compress(t, marshal(t, &zcapld.Capability{
+					InvocationTarget: zcapld.InvocationTarget{
+						ID: "/kms/keystores/abc",
+					},
+					Invoker: invoker,
+				})),
 			}
 
 			result, err := o.ReadDocQuery(query)
@@ -156,10 +193,10 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 			config.EDVClient = func(url string, options ...edv.Option) vault.ConfidentialStorageDocReader {
 				return edv.New(url, options...)
 			}
-			config.Aries.WebKMS = func(url string, c *http.Client, opts ...webkms.Opt) *webkms.RemoteKMS {
+			config.Aries.WebKMS = func(url string, c webkms.HTTPClient, opts ...webkms.Opt) kms.KeyManager {
 				return webkms.New(url, c, opts...)
 			}
-			config.Aries.WebCrypto = func(url string, c *http.Client, opts ...webkms.Opt) *remotecrypto.RemoteCrypto {
+			config.Aries.WebCrypto = func(url string, c remotecrypto.HTTPClient, opts ...webkms.Opt) crypto.Crypto {
 				return remotecrypto.New(url, c, opts...)
 			}
 			o := newOperation(t, config)
@@ -190,7 +227,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 			zcap := newZCAP(t, edvServer, chs)
 
-			query := newDocQuery()
+			query := newDocQuery(t)
 			query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
 				BaseURL: edvURL,
 				Zcap:    compress(t, marshal(t, zcap)),
@@ -218,7 +255,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 		o := newOperation(t, config)
 
-		query := newDocQuery()
+		query := newDocQuery(t)
 		query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
 			BaseURL: "https://edv.example.com",
 			Zcap:    compress(t, marshal(t, zcap)),
@@ -246,7 +283,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 		o := newOperation(t, config)
 
-		query := newDocQuery()
+		query := newDocQuery(t)
 		query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
 			BaseURL: "https://edv.example.com",
 			Zcap:    compress(t, marshal(t, edvZCAP)),
@@ -262,14 +299,14 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 			"failed to determine KMS verification method: zcap does not specify a controller nor an invoker")
 	})
 
-	t.Run("fails if the zcap is malformed", func(t *testing.T) {
+	t.Run("fails if the EDV zcap is malformed", func(t *testing.T) {
 		chsServer := newAgent(t)
 
 		config := agentConfig(chsServer)
 
 		o := newOperation(t, config)
 
-		query := newDocQuery()
+		query := newDocQuery(t)
 		query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
 			BaseURL: "https://edv.example.com",
 			Zcap:    compress(t, []byte("{")),
@@ -280,14 +317,14 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to parse zcap")
 	})
 
-	t.Run("fails if the zcap is not gzipped", func(t *testing.T) {
+	t.Run("fails if the EDV zcap is not gzipped", func(t *testing.T) {
 		chsServer := newAgent(t)
 
 		config := agentConfig(chsServer)
 
 		o := newOperation(t, config)
 
-		query := newDocQuery()
+		query := newDocQuery(t)
 		query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
 			BaseURL: "https://edv.example.com",
 			Zcap:    base64.URLEncoding.EncodeToString([]byte("{")),
@@ -296,6 +333,58 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 		_, err := o.ReadDocQuery(query)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to decompress zcap")
+	})
+
+	t.Run("fails if the KMS zcap is malformed", func(t *testing.T) {
+		chsServer := newAgent(t)
+		edvServer := newAgent(t)
+
+		config := agentConfig(chsServer)
+
+		o := newOperation(t, config)
+
+		edvZCAP := newZCAP(t, edvServer, chsServer)
+
+		query := newDocQuery(t)
+		query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
+			BaseURL: "https://edv.example.com",
+			Zcap:    compress(t, marshal(t, edvZCAP)),
+		}
+		query.UpstreamAuth.Kms = &openapi.UpstreamAuthorization{
+			BaseURL: "https://kms.example.com",
+			Zcap:    "INVALID",
+		}
+
+		_, err := o.ReadDocQuery(query)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "verMethod: failed to decompress zcap")
+	})
+
+	t.Run("fails if the KMS zcap has a malformed invocation target ID", func(t *testing.T) {
+		chsServer := newAgent(t)
+		edvServer := newAgent(t)
+
+		config := agentConfig(chsServer)
+
+		o := newOperation(t, config)
+
+		edvZCAP := newZCAP(t, edvServer, chsServer)
+		kmsZCAP := newZCAP(t, edvServer, chsServer)
+		kmsZCAP.InvocationTarget.ID = "%"
+
+		query := newDocQuery(t)
+		query.UpstreamAuth.Edv = &openapi.UpstreamAuthorization{
+			BaseURL: "https://edv.example.com",
+			Zcap:    compress(t, marshal(t, edvZCAP)),
+		}
+		query.UpstreamAuth.Kms = &openapi.UpstreamAuthorization{
+			BaseURL: "https://kms.example.com",
+			Zcap:    compress(t, marshal(t, kmsZCAP)),
+		}
+
+		_, err := o.ReadDocQuery(query)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to parse zcap invocation target id")
 	})
 }
 
@@ -335,19 +424,45 @@ func newOperation(t *testing.T, cfg *operation.Config) *operation.Operation {
 	return op
 }
 
-func newDocQuery() *openapi.DocQuery {
+func newDocQuery(t *testing.T) *openapi.DocQuery {
 	docID := uuid.New().String()
 	vaultID := uuid.New().String()
 
-	return &openapi.DocQuery{
+	query := &openapi.DocQuery{
 		VaultID: &vaultID,
 		DocID:   &docID,
 		UpstreamAuth: &openapi.DocQueryAO1UpstreamAuth{
 			Edv: &openapi.UpstreamAuthorization{
 				BaseURL: "https://edv.example.com",
 			},
+			Kms: &openapi.UpstreamAuthorization{
+				BaseURL: "https://kms.example.com",
+				Zcap: compress(t, marshal(t, &zcapld.Capability{
+					InvocationTarget: zcapld.InvocationTarget{
+						ID: "https://kms.example.com/kms/keystores/abc",
+					},
+				})),
+			},
 		},
 	}
+
+	return query
+}
+
+func docQuery(edvAuth, kmsAuth *openapi.UpstreamAuthorization) *openapi.DocQuery { // nolint:unparam
+	docID := uuid.New().String()
+	vaultID := uuid.New().String()
+
+	query := &openapi.DocQuery{
+		VaultID: &vaultID,
+		DocID:   &docID,
+		UpstreamAuth: &openapi.DocQueryAO1UpstreamAuth{
+			Edv: edvAuth,
+			Kms: kmsAuth,
+		},
+	}
+
+	return query
 }
 
 func newRefQuery() *openapi.RefQuery {
@@ -406,6 +521,15 @@ func newAgent(t *testing.T) *context.Provider {
 	return ctx
 }
 
+func newVerMethod(t *testing.T, k kms.KeyManager) string {
+	_, pubKeyBytes, err := k.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
+	_, didKeyURL := fingerprint.CreateDIDKey(pubKeyBytes)
+
+	return didKeyURL
+}
+
 func newMockEDVClient(t *testing.T, err error, docs ...*jose.JSONWebEncryption) *mockEDVClient {
 	edvDocs := make([]*models.EncryptedDocument, len(docs))
 
@@ -461,7 +585,10 @@ func newZCAP(t *testing.T, server, rp *context.Provider) *zcapld.Capability {
 		zcapld.WithID(uuid.New().String()),
 		zcapld.WithInvoker(invoker),
 		zcapld.WithController(invoker),
-		zcapld.WithInvocationTarget(uuid.New().String(), "urn:confidentialstoragehub:profile"),
+		zcapld.WithInvocationTarget(
+			fmt.Sprintf("https://kms.example.com/kms/keystores/%s", uuid.New().String()),
+			"urn:confidentialstoragehub:profile",
+		),
 	)
 	require.NoError(t, err)
 

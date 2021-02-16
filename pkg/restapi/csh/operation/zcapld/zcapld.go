@@ -19,22 +19,30 @@ import (
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 )
 
-const signatureHashAlgorithm = "https://github.com/trustbloc/edge-service/zcapld/DIDSecrets"
+// TODO this MUST be configurable and MUST be a shared and understood identifier:
+//  https://github.com/trustbloc/edge-service/issues/614.
+const signatureHashAlgorithm = "https://github.com/hyperledger/aries-framework-go/zcaps"
 
 // NewHTTPSigner returns a ZCAP-LD based HTTP signer.
-func NewHTTPSigner(verMethod, zcap string, secrets httpsignatures.Secrets,
+func NewHTTPSigner(
+	verMethod, capability string, action func(*http.Request) (string, error), secrets httpsignatures.Secrets,
 	algorithm httpsignatures.SignatureHashAlgorithm) func(*http.Request) (*http.Header, error) {
 	return func(r *http.Request) (*http.Header, error) {
 		hs := httpsignatures.NewHTTPSignatures(secrets)
 
 		hs.SetSignatureHashAlgorithm(algorithm)
 
+		a, err := action(r)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine invocation action for request: %w", err)
+		}
+
 		r.Header.Set(
 			zcapld.CapabilityInvocationHTTPHeader,
-			fmt.Sprintf(`zcap capability="%s",action="%s"`, zcap, "read"),
+			fmt.Sprintf(`zcap capability="%s",action="%s"`, capability, a),
 		)
 
-		err := hs.Sign(verMethod, r)
+		err = hs.Sign(verMethod, r)
 		if err != nil {
 			return nil, fmt.Errorf("failed to sign request: %w", err)
 		}

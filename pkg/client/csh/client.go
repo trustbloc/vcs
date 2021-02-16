@@ -44,7 +44,7 @@ func New(baseURL string, opts ...Option) *Client {
 // CreateProfile create csh profile
 func (c *Client) CreateProfile(controller string) (*openapi.Profile, error) {
 	reqBytes, err := json.Marshal(&openapi.Profile{
-		Controller: controller,
+		Controller: &controller,
 	})
 	if err != nil {
 		return nil, err
