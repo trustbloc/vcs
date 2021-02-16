@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/controller/rest"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 
@@ -205,6 +206,65 @@ func TestGetDocMetadata(t *testing.T) {
 	})
 }
 
+func TestOperation_GetAuthorization(t *testing.T) {
+	const path = "/vaults/vaultID/authorizations/authID"
+
+	t.Run("Internal error", func(t *testing.T) {
+		v := newVaultMock()
+		v.getAuthorizationFn = func(_, _ string) (*vault.CreatedAuthorization, error) {
+			return nil, errors.New("test")
+		}
+
+		operation := New(v)
+
+		h := handlerLookup(t, operation, GetAuthorizationPath, http.MethodGet)
+
+		respBody, code := sendRequestToHandler(t, h, nil, path)
+
+		require.Equal(t, http.StatusInternalServerError, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(respBody).Decode(&errResp))
+		require.NotEmpty(t, errResp.Message)
+	})
+
+	t.Run("Not found", func(t *testing.T) {
+		v := newVaultMock()
+		v.getAuthorizationFn = func(_, _ string) (*vault.CreatedAuthorization, error) {
+			return nil, storage.ErrDataNotFound
+		}
+
+		operation := New(v)
+
+		h := handlerLookup(t, operation, GetAuthorizationPath, http.MethodGet)
+
+		respBody, code := sendRequestToHandler(t, h, nil, path)
+
+		require.Equal(t, http.StatusNotFound, code)
+
+		var errResp *model.ErrorResponse
+
+		require.NoError(t, json.NewDecoder(respBody).Decode(&errResp))
+		require.NotEmpty(t, errResp.Message)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		operation := New(newVaultMock())
+
+		h := handlerLookup(t, operation, GetAuthorizationPath, http.MethodGet)
+		res, code := sendRequestToHandler(t, h, nil, path)
+
+		require.Equal(t, http.StatusOK, code)
+
+		var resp *vault.CreatedVault
+
+		require.NoError(t, json.NewDecoder(res).Decode(&resp))
+
+		require.NotEmpty(t, resp.ID)
+	})
+}
+
 func TestCreateAuthorization(t *testing.T) {
 	const path = "/vaults/vaultID1/authorizations"
 
@@ -368,6 +428,9 @@ func newVaultMock() *vaultMock {
 		createAuthorizationFn: func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
 			return &vault.CreatedAuthorization{ID: uuid.New().String()}, nil
 		},
+		getAuthorizationFn: func(vaultID, id string) (*vault.CreatedAuthorization, error) {
+			return &vault.CreatedAuthorization{ID: uuid.New().String()}, nil
+		},
 	}
 }
 
@@ -376,6 +439,7 @@ type vaultMock struct {
 	saveDocFn             func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
 	getDocMetadataFn      func(vaultID, docID string) (*vault.DocumentMetadata, error)
 	createAuthorizationFn func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error)
+	getAuthorizationFn    func(vaultID, id string) (*vault.CreatedAuthorization, error)
 }
 
 func (v *vaultMock) CreateVault() (*vault.CreatedVault, error) {
@@ -392,4 +456,8 @@ func (v *vaultMock) GetDocMetadata(vaultID, docID string) (*vault.DocumentMetada
 
 func (v *vaultMock) CreateAuthorization(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
 	return v.createAuthorizationFn(vID, rp, scope)
+}
+
+func (v *vaultMock) GetAuthorization(vaultID, id string) (*vault.CreatedAuthorization, error) {
+	return v.getAuthorizationFn(vaultID, id)
 }

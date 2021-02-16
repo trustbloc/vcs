@@ -89,6 +89,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Check that a document with id "([^"]*)" is stored$`, e.getDocument)
 	s.Step(`^Create a new authorization and save the result as "([^"]*)"$`, e.createAuthorization)
 	s.Step(`^Check that a document with id "([^"]*)" is available for "([^"]*)"$`, e.checkAccessibility)
+	s.Step(`^Check that an authorization "([^"]*)" was stored$`, e.checkAuthorization)
 }
 
 func (e *Steps) checkAccessibility(docID, auth string) error {
@@ -248,6 +249,35 @@ func (e *Steps) getDocument(id string) error {
 	_, err := e.getDoc(docID)
 
 	return err
+}
+
+func (e *Steps) checkAuthorization(auth string) error {
+	authorization, ok := e.authorizations[auth]
+	if !ok {
+		return errors.New("no authorization")
+	}
+
+	endpoint := fmt.Sprintf("/vaults/%s/authorizations/%s", url.QueryEscape(e.vaultID), authorization.ID)
+
+	resp, err := e.client.Get(e.vaultURL + endpoint)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close() // nolint: errcheck
+
+	var result *vault.CreatedAuthorization
+
+	err = json.NewDecoder(resp.Body).Decode(&result)
+	if err != nil {
+		return err
+	}
+
+	if result.ID == "" || result.Tokens.KMS == "" || result.Tokens.EDV == "" {
+		return errors.New("result is empty")
+	}
+
+	return nil
 }
 
 func (e *Steps) kmsSign(controller, authToken string) func(req *http.Request) (*http.Header, error) {

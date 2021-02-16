@@ -32,3 +32,9 @@ Feature: Vault server API
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
     Then Create a new authorization and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
+
+  @vault_server_get_authorization
+  Scenario: Creates an authorization
+    When Create a new vault using the vault server "https://localhost:9099"
+    Then Create a new authorization and save the result as "auth"
+    And Check that an authorization "auth" was stored

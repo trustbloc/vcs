@@ -40,7 +40,13 @@ import (
 	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 )
 
-const storeName = "vault"
+const (
+	storeName = "vault"
+
+	authorizationFormat = "authorization_%s_%s"
+	aliasFormat         = "alias_%s_%s"
+	infoFormat          = "info_%s"
+)
 
 // Vault defines vault client interface.
 type Vault interface {
@@ -48,6 +54,7 @@ type Vault interface {
 	SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error)
 	GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error)
 	CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error)
+	GetAuthorization(vaultID, id string) (*CreatedAuthorization, error)
 }
 
 // KeyManager KMS alias.
@@ -271,7 +278,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Sco
 		return nil, fmt.Errorf("edv compressZCAP: %w", err)
 	}
 
-	return &CreatedAuthorization{
+	res := &CreatedAuthorization{
 		ID:              uuid.New().String(),
 		Scope:           scope,
 		RequestingParty: requestingParty,
@@ -279,7 +286,44 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Sco
 			KMS: kmsCompressedCapability,
 			EDV: edvCompressedCapability,
 		},
-	}, nil
+	}
+
+	err = c.saveAuthorization(vaultID, res)
+	if err != nil {
+		return nil, fmt.Errorf("save authorization: %w", err)
+	}
+
+	return res, nil
+}
+
+// GetAuthorization returns an authorization by given id.
+func (c *Client) GetAuthorization(vaultID, id string) (*CreatedAuthorization, error) {
+	return c.getAuthorization(vaultID, id)
+}
+
+func (c *Client) saveAuthorization(vID string, a *CreatedAuthorization) error {
+	src, err := json.Marshal(a)
+	if err != nil {
+		return fmt.Errorf("marshal: %w", err)
+	}
+
+	return c.store.Put(fmt.Sprintf(authorizationFormat, vID, a.ID), src)
+}
+
+func (c *Client) getAuthorization(vID, id string) (*CreatedAuthorization, error) {
+	src, err := c.store.Get(fmt.Sprintf(authorizationFormat, vID, id))
+	if err != nil {
+		return nil, fmt.Errorf("get: %w", err)
+	}
+
+	var res *CreatedAuthorization
+
+	err = json.Unmarshal(src, &res)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal: %w", err)
+	}
+
+	return res, nil
 }
 
 // GetDocMetadata returns document`s metadata.
@@ -291,7 +335,7 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
-	eID, err := c.getIDAlias(docID)
+	eID, err := c.getIDAlias(vaultID, docID)
 	if err != nil {
 		return nil, fmt.Errorf("get alias: %w", err)
 	}
@@ -311,13 +355,13 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 		return nil, fmt.Errorf("get vault info: %w", err)
 	}
 
-	eID, err := c.getIDAlias(id)
+	eID, err := c.getIDAlias(vaultID, id)
 	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
 		return nil, fmt.Errorf("get alias: %w", err)
 	}
 
 	if errors.Is(err, storage.ErrDataNotFound) {
-		eID, err = c.createIDAlias(id)
+		eID, err = c.createIDAlias(vaultID, id)
 		if err != nil {
 			return nil, fmt.Errorf("create alias: %w", err)
 		}
@@ -364,16 +408,16 @@ func (c *Client) saveVaultInfo(id string, info *vaultInfo) error {
 		return fmt.Errorf("marshal: %w", err)
 	}
 
-	return c.store.Put(fmt.Sprintf("info_%s", id), src)
+	return c.store.Put(fmt.Sprintf(infoFormat, id), src)
 }
 
-func (c *Client) createIDAlias(id string) (string, error) {
+func (c *Client) createIDAlias(vid, id string) (string, error) {
 	edvID, err := edvutils.GenerateEDVCompatibleID()
 	if err != nil {
 		return "", fmt.Errorf("generate EDV compatible id: %w", err)
 	}
 
-	err = c.store.Put(fmt.Sprintf("alias_%s", id), []byte(edvID))
+	err = c.store.Put(fmt.Sprintf(aliasFormat, vid, id), []byte(edvID))
 	if err != nil {
 		return "", fmt.Errorf("store put: %w", err)
 	}
@@ -381,8 +425,8 @@ func (c *Client) createIDAlias(id string) (string, error) {
 	return edvID, nil
 }
 
-func (c *Client) getIDAlias(id string) (string, error) {
-	edvID, err := c.store.Get(fmt.Sprintf("alias_%s", id))
+func (c *Client) getIDAlias(vid, id string) (string, error) {
+	edvID, err := c.store.Get(fmt.Sprintf(aliasFormat, vid, id))
 	if err != nil {
 		return "", fmt.Errorf("store get: %w", err)
 	}
@@ -391,7 +435,7 @@ func (c *Client) getIDAlias(id string) (string, error) {
 }
 
 func (c *Client) getVaultInfo(id string) (*vaultInfo, error) {
-	src, err := c.store.Get(fmt.Sprintf("info_%s", id))
+	src, err := c.store.Get(fmt.Sprintf(infoFormat, id))
 	if err != nil {
 		return nil, fmt.Errorf("get: %w", err)
 	}

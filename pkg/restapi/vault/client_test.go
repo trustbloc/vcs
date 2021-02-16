@@ -46,7 +46,7 @@ func TestNewClient(t *testing.T) {
 	})
 }
 
-func TestCreateVault(t *testing.T) {
+func TestClient_CreateVault(t *testing.T) {
 	t.Run("Crypto signer error", func(t *testing.T) {
 		mKMS := &mocks.KeyManager{CreateKeyErr: errors.New("test")}
 
@@ -174,7 +174,42 @@ func TestCreateVault(t *testing.T) {
 	})
 }
 
-func TestSaveDoc(t *testing.T) {
+func TestClient_GetAuthorization(t *testing.T) {
+	t.Run("No authorization", func(t *testing.T) {
+		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{},
+		})
+		require.NoError(t, err)
+
+		_, err = client.GetAuthorization("", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get: data not found")
+	})
+
+	t.Run("Unmarshal error", func(t *testing.T) {
+		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: map[string][]byte{"authorization_vid_id": []byte(`{`)}},
+		})
+		require.NoError(t, err)
+
+		_, err = client.GetAuthorization("vid", "id")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unmarshal: unexpected end of JSON input")
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: map[string][]byte{"authorization_vid_id": []byte(`{}`)}},
+		})
+		require.NoError(t, err)
+
+		res, err := client.GetAuthorization("vid", "id")
+		require.NoError(t, err)
+		require.NotNil(t, res)
+	})
+}
+
+func TestClient_SaveDoc(t *testing.T) {
 	const (
 		docID   = "id"
 		vaultID = "v_id"
@@ -578,7 +613,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 
 		const docID = "docID"
 
-		data := map[string][]byte{"alias_" + docID: []byte(`key`)}
+		data := map[string][]byte{}
 
 		store := &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{Store: data},
@@ -591,6 +626,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		vID, _ := createVaultID(t, lKMS)
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{}}}`)
+		data["alias_"+vID+"_"+docID] = []byte(`key`)
 
 		docMeta, err := client.GetDocMetadata(vID, docID)
 		require.NoError(t, err)
