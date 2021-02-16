@@ -8,11 +8,13 @@ package operation
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
@@ -214,8 +216,28 @@ func (o *Operation) CreateAuthorization(rw http.ResponseWriter, req *http.Reques
 // Responses:
 //    default: genericError
 //        200: getAuthorizationResp
-func (o *Operation) GetAuthorization(rw http.ResponseWriter, _ *http.Request) {
-	rw.WriteHeader(http.StatusOK)
+func (o *Operation) GetAuthorization(rw http.ResponseWriter, req *http.Request) {
+	var (
+		vaultID = mux.Vars(req)["vaultID"]
+		authID  = mux.Vars(req)["authID"]
+	)
+
+	result, err := o.vault.GetAuthorization(vaultID, authID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, storage.ErrDataNotFound) {
+			status = http.StatusNotFound
+		}
+
+		o.writeErrorResponse(rw, err, status)
+
+		return
+	}
+
+	var resp createAuthorizationResp
+	resp.Body = result
+
+	o.WriteResponse(rw, resp.Body, http.StatusOK)
 }
 
 // DeleteAuthorization swagger:route DELETE /vaults/{vaultID}/authorizations/{authID} vault deleteAuthorizationReq
