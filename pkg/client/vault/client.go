@@ -6,33 +6,48 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"crypto/tls"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
 )
 
 const (
-	getDocMetadataPath = "/vaults/%s/docs/%s/metadata"
+	saveDocPath              = "/vaults/%s/docs"
+	getDocMetadataPath       = "/vaults/%s/docs/%s/metadata"
+	getAuthorizationsPath    = "/vaults/%s/authorizations/%s"
+	createAuthorizationsPath = "/vaults/%s/authorizations"
 )
 
 var logger = log.New("vault-client")
 
+// HTTPClient interface for the http client.
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // Client for vault
 type Client struct {
-	httpClient *http.Client
+	httpClient HTTPClient
 	baseURL    string
 }
 
 // New return new instance of vault client
 func New(baseURL string, opts ...Option) *Client {
-	c := &Client{httpClient: &http.Client{}, baseURL: baseURL}
+	c := &Client{
+		httpClient: &http.Client{
+			Timeout: time.Minute,
+		},
+		baseURL: baseURL,
+	}
 
 	for _, opt := range opts {
 		opt(c)
@@ -41,18 +56,72 @@ func New(baseURL string, opts ...Option) *Client {
 	return c
 }
 
+// CreateVault creates a new vault.
+func (c *Client) CreateVault() (*vault.CreatedVault, error) {
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+operation.CreateVaultPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new request: %w", err)
+	}
+
+	resp, err := c.sendHTTPRequest(req, http.StatusCreated)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+
+	var result vault.CreatedVault
+
+	err = json.Unmarshal(resp, &result)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal to CreatedVault: %w", err)
+	}
+
+	return &result, nil
+}
+
+// SaveDoc saves a document.
+func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
+	target := c.baseURL + fmt.Sprintf(saveDocPath, url.QueryEscape(vaultID))
+
+	src, err := json.Marshal(operation.SaveDocRequestBody{
+		ID:      id,
+		Content: content,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, target, bytes.NewReader(src))
+	if err != nil {
+		return nil, fmt.Errorf("new request: %w", err)
+	}
+
+	resp, err := c.sendHTTPRequest(req, http.StatusCreated)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+
+	var result vault.DocumentMetadata
+
+	err = json.Unmarshal(resp, &result)
+	if err != nil {
+		return nil, fmt.Errorf("unmarshal to DocumentMetadata: %w", err)
+	}
+
+	return &result, nil
+}
+
 // GetDocMetaData get doc metadata
-func (c *Client) GetDocMetaData(vaultID, docID string) (*vault.DocumentMetadata, error) {
-	target := c.baseURL + fmt.Sprintf(getDocMetadataPath, url.QueryEscape(vaultID), docID)
+func (c *Client) GetDocMetaData(vaultID, docID string) (*vault.DocumentMetadata, error) { // nolint: dupl
+	target := c.baseURL + fmt.Sprintf(getDocMetadataPath, url.QueryEscape(vaultID), url.QueryEscape(docID))
 
 	req, err := http.NewRequest(http.MethodGet, target, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new request: %w", err)
 	}
 
 	resp, err := c.sendHTTPRequest(req, http.StatusOK)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("http request: %w", err)
 	}
 
 	var docMeta vault.DocumentMetadata
@@ -63,7 +132,60 @@ func (c *Client) GetDocMetaData(vaultID, docID string) (*vault.DocumentMetadata,
 	return &docMeta, nil
 }
 
-func (c *Client) sendHTTPRequest(req *http.Request, status int) ([]byte, error) {
+// CreateAuthorization creates an authorization.
+func (c *Client) CreateAuthorization(vaultID, requestingParty string,
+	scope *vault.AuthorizationsScope) (*vault.CreatedAuthorization, error) {
+	target := c.baseURL + fmt.Sprintf(createAuthorizationsPath, url.QueryEscape(vaultID))
+
+	src, err := json.Marshal(operation.CreateAuthorizationsBody{
+		RequestingParty: requestingParty,
+		Scope:           scope,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, target, bytes.NewReader(src))
+	if err != nil {
+		return nil, fmt.Errorf("new request: %w", err)
+	}
+
+	resp, err := c.sendHTTPRequest(req, http.StatusCreated)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+
+	var result vault.CreatedAuthorization
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal to CreatedAuthorization: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetAuthorization returns an authorization.
+func (c *Client) GetAuthorization(vaultID, id string) (*vault.CreatedAuthorization, error) { // nolint: dupl
+	target := c.baseURL + fmt.Sprintf(getAuthorizationsPath, url.QueryEscape(vaultID), url.QueryEscape(id))
+
+	req, err := http.NewRequest(http.MethodGet, target, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new request: %w", err)
+	}
+
+	resp, err := c.sendHTTPRequest(req, http.StatusOK)
+	if err != nil {
+		return nil, fmt.Errorf("http request: %w", err)
+	}
+
+	var result vault.CreatedAuthorization
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal to CreatedAuthorization: %w", err)
+	}
+
+	return &result, nil
+}
+
+func (c *Client) sendHTTPRequest(req *http.Request, status int) ([]byte, error) { // nolunt: dupl
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -91,9 +213,9 @@ func (c *Client) sendHTTPRequest(req *http.Request, status int) ([]byte, error) 
 // Option is a vault client instance option
 type Option func(opts *Client)
 
-// WithTLSConfig option is for definition of secured HTTP transport using a tls.Config instance
-func WithTLSConfig(tlsConfig *tls.Config) Option {
+// WithHTTPClient allows providing HTTP client.
+func WithHTTPClient(c HTTPClient) Option {
 	return func(opts *Client) {
-		opts.httpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
+		opts.httpClient = c
 	}
 }
