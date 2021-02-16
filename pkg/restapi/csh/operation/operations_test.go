@@ -22,9 +22,12 @@ import (
 	"github.com/stretchr/testify/require"
 	storage2 "github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
+	edv "github.com/trustbloc/edv/pkg/client"
 
+	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/storage"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 )
 
 func TestNew(t *testing.T) {
@@ -84,19 +87,19 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&operation.Profile{
+			&openapi.Profile{
 				Controller: controller,
 			},
 		))
 		require.Equal(t, http.StatusCreated, result.Code)
-		response := &operation.Profile{}
+		response := &openapi.Profile{}
 
 		err := json.NewDecoder(result.Body).Decode(response)
 		require.NoError(t, err)
 
 		require.Equal(t, controller, response.Controller)
 		require.NotEmpty(t, response.ID)
-		require.NotEmpty(t, response.ZCAP)
+		require.NotEmpty(t, response.Zcap)
 	})
 
 	t.Run("err badrequest if controller is missing", func(t *testing.T) {
@@ -105,7 +108,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&operation.Profile{},
+			&openapi.Profile{},
 		))
 
 		require.Equal(t, http.StatusBadRequest, result.Code)
@@ -125,7 +128,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&operation.Profile{Controller: "did:example:controller#key"},
+			&openapi.Profile{Controller: "did:example:controller#key"},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -151,7 +154,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profile",
-			&operation.Profile{Controller: "did:example:controller#key"},
+			&openapi.Profile{Controller: "did:example:controller#key"},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -177,7 +180,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profile",
-			&operation.Profile{Controller: "did:example:controller#key"},
+			&openapi.Profile{Controller: "did:example:controller#key"},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -204,11 +207,41 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 }
 
 func TestOperation_Compare(t *testing.T) {
-	t.Run("TODO - runs a comparison", func(t *testing.T) {
-		o := newOp(t)
+	t.Run("equal documents", func(t *testing.T) {
+		doc := []byte(uuid.New().String())
+		agent := newAgent(t)
+
+		jwe1 := encryptedJWE(t, agent, doc)
+		jwe2 := encryptedJWE(t, agent, doc)
+
+		config := agentConfig(agent)
+		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+			return newMockEDVClient(t, nil, jwe1, jwe2)
+		}
+
+		payload := marshal(t, map[string]interface{}{
+			"op": newEqOp(t, newDocQuery(), newDocQuery()),
+		})
+
+		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(payload))
+
+		o := newOperation(t, config)
 		result := httptest.NewRecorder()
-		o.Compare(result, nil)
+
+		o.Compare(result, request)
 		require.Equal(t, http.StatusOK, result.Code)
+		requireCompareResult(t, true, result.Body)
+	})
+
+	t.Run("error BadRequest if cannot parse request", func(t *testing.T) {
+		o := newOperation(t, agentConfig(newAgent(t)))
+		result := httptest.NewRecorder()
+
+		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader([]byte("'}")))
+
+		o.Compare(result, request)
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "bad request")
 	})
 }
 

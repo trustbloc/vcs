@@ -17,16 +17,21 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
+	edv "github.com/trustbloc/edv/pkg/client"
 
+	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -53,25 +58,33 @@ type Operation struct {
 		profiles storage.Store
 		zcaps    storage.Store
 	}
-	aries *AriesConfig
+	aries      *AriesConfig
+	httpClient *http.Client
+	edvClient  func(string, ...edv.Option) vault.ConfidentialStorageDocReader
 }
 
 // Config defines configuration for vault operations.
 type Config struct {
 	StoreProvider storage.Provider
 	Aries         *AriesConfig
+	HTTPClient    *http.Client
+	EDVClient     func(string, ...edv.Option) vault.ConfidentialStorageDocReader
 }
 
 // AriesConfig holds all configurations for aries-framework-go dependencies.
 type AriesConfig struct {
-	KMS    kms.KeyManager
-	Crypto crypto.Crypto
+	KMS       kms.KeyManager
+	Crypto    crypto.Crypto
+	WebKMS    func(string, *http.Client, ...webkms.Opt) *webkms.RemoteKMS
+	WebCrypto func(string, *http.Client, ...webkms.Opt) *webcrypto.RemoteCrypto
 }
 
 // New returns operation instance.
 func New(cfg *Config) (*Operation, error) {
 	ops := &Operation{
-		aries: cfg.Aries,
+		aries:      cfg.Aries,
+		httpClient: cfg.HTTPClient,
+		edvClient:  cfg.EDVClient,
 	}
 
 	var err error
@@ -107,7 +120,7 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 	logger.Infof("handling request")
 
-	profile := &Profile{}
+	profile := &openapi.Profile{}
 
 	err := json.NewDecoder(r.Body).Decode(profile)
 	if err != nil {
@@ -145,7 +158,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile.ZCAP, err = gzipThenBase64URL(zcap)
+	profile.Zcap, err = gzipThenBase64URL(zcap)
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError, "failed to compress zcap: %s", err.Error())
 
@@ -205,8 +218,26 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 // Responses:
 //   200: comparisonResp
 //   500: Error
-func (o *Operation) Compare(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
+func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
+	logger.Debugf("handling request")
+
+	request := &openapi.ComparisonRequest{}
+
+	err := json.NewDecoder(r.Body).Decode(request)
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "bad request: %s", err.Error())
+
+		return
+	}
+
+	switch t := request.Op().(type) {
+	case *openapi.EqOp:
+		o.HandleEqOp(w, t)
+	default:
+		respondErrorf(w, http.StatusNotImplemented, "operator not yet implemented: %s", request.Op().Type())
+	}
+
+	logger.Debugf("handled request")
 }
 
 // Extract swagger:route GET /hubstore/extract extractionReq

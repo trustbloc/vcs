@@ -15,7 +15,7 @@ import (
 
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 )
 
 const (
@@ -42,8 +42,8 @@ func New(baseURL string, opts ...Option) *Client {
 }
 
 // CreateProfile create csh profile
-func (c *Client) CreateProfile(controller string) (*operation.Profile, error) {
-	reqBytes, err := json.Marshal(&operation.Profile{
+func (c *Client) CreateProfile(controller string) (*openapi.Profile, error) {
+	reqBytes, err := json.Marshal(&openapi.Profile{
 		Controller: controller,
 	})
 	if err != nil {
@@ -62,7 +62,7 @@ func (c *Client) CreateProfile(controller string) (*operation.Profile, error) {
 		return nil, err
 	}
 
-	var profile operation.Profile
+	var profile openapi.Profile
 	if err := json.Unmarshal(resp, &profile); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal resp to csh profile: %w", err)
 	}

@@ -30,7 +30,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/client/csh"
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
@@ -49,7 +49,7 @@ const (
 )
 
 type cshClient interface {
-	CreateProfile(controller string) (*operation.Profile, error)
+	CreateProfile(controller string) (*openapi.Profile, error)
 }
 
 type vaultClient interface {
