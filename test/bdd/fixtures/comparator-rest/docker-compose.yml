@@ -20,7 +20,7 @@ services:
       - COMPARATOR_DSN=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
       - COMPARATOR_DID_DOMAIN=testnet.trustbloc.local
       - COMPARATOR_CSH_URL=https://hubstore.example.com:8095
-      - COMPARATOR_VAULT_URL=https://hubstore.example.com:9099
+      - COMPARATOR_VAULT_URL=https://vault.server.example.com:9099
     ports:
       - ${COMPARATOR_REST_PORT}:${COMPARATOR_REST_PORT}
     command:  start

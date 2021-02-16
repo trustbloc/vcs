@@ -7,7 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package operation_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation"
+	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
+	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
 func Test_New(t *testing.T) {
@@ -99,15 +104,87 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 }
 
 func TestOperation_Compare(t *testing.T) {
-	t.Run("TODO - runs a comparison", func(t *testing.T) {
+	t.Run("test bad request", func(t *testing.T) {
 		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		s.Store["config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{
-			Store: s}})
+		op, err := operation.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
-		op.Compare(result, nil)
+		op.Compare(result, newReq(t,
+			http.MethodPost,
+			"/compare",
+			nil,
+		))
+
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "bad request")
+	})
+
+	t.Run("test failed to get doc meta from vault server", func(t *testing.T) {
+		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer serv.Close()
+
+		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s.Store["config"] = []byte(`{}`)
+		op, err := operation.New(&operation.Config{VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		require.NoError(t, err)
+		require.NotNil(t, op)
+		result := httptest.NewRecorder()
+		cr := &openapi.ComparisonRequest{}
+		eq := &openapi.EqOp{}
+		query := make([]openapi.Query, 0)
+		docID := "docID"
+		vaultID := "vaultID"
+		query = append(query, &openapi.DocQuery{DocID: &docID, VaultID: &vaultID})
+		eq.SetArgs(query)
+		cr.SetOp(eq)
+		op.Compare(result, newReq(t,
+			http.MethodPost,
+			"/compare",
+			cr,
+		))
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to get doc meta")
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			p := vault.DocumentMetadata{ID: "id"}
+			b, err := json.Marshal(p)
+			require.NoError(t, err)
+
+			_, err = fmt.Fprint(w, string(b))
+			require.NoError(t, err)
+		}))
+		defer serv.Close()
+
+		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s.Store["config"] = []byte(`{}`)
+		op, err := operation.New(&operation.Config{VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		require.NoError(t, err)
+		require.NotNil(t, op)
+		result := httptest.NewRecorder()
+		cr := &openapi.ComparisonRequest{}
+		eq := &openapi.EqOp{}
+		query := make([]openapi.Query, 0)
+		docID := "docID"
+		vaultID := "vaultID"
+		query = append(query, &openapi.DocQuery{DocID: &docID, VaultID: &vaultID})
+		eq.SetArgs(query)
+		cr.SetOp(eq)
+		op.Compare(result, newReq(t,
+			http.MethodPost,
+			"/compare",
+			cr,
+		))
+
 		require.Equal(t, http.StatusOK, result.Code)
 		require.Contains(t, result.Body.String(), "true")
 	})
@@ -167,4 +244,19 @@ func TestOperation_GetConfig(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, result.Code)
 		require.Contains(t, result.Body.String(), "failed to get config")
 	})
+}
+
+func newReq(t *testing.T, method, path string, payload interface{}) *http.Request {
+	t.Helper()
+
+	var body io.Reader
+
+	if payload != nil {
+		raw, err := json.Marshal(payload)
+		require.NoError(t, err)
+
+		body = bytes.NewReader(raw)
+	}
+
+	return httptest.NewRequest(method, path, body)
 }

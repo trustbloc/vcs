@@ -100,9 +100,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  result:
-                    type: boolean
+                $ref: "#/components/schemas/ComparisonResult"
               example: {
                 "result": true
               }
@@ -223,6 +221,11 @@ components:
       properties:
         op:
           $ref: "#/components/schemas/Operator"
+    ComparisonResult:
+      type: object
+      properties:
+        result:
+          type: boolean
     Operator:
       type: object
       required:
@@ -263,9 +266,12 @@ components:
         - $ref: "#/components/schemas/Query"
         - type: object
           required:
+            - vaultID
             - docID
             - authTokens
           properties:
+            vaultID:
+              type: string
             docID:
               description: an identifier for a document stored in the Vault Server.
               type: string

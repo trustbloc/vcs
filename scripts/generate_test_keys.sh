@@ -25,6 +25,7 @@ DNS.3 = stakeholder.one
 DNS.4 = sidetree-mock
 DNS.5 = vault.kms.example.com
 DNS.6 = hubstore.example.com
+DNS.7 = vault.server.example.com
 " >> "$tmp"
 
 #create CA

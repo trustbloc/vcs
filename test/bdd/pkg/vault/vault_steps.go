@@ -196,6 +196,8 @@ func (e *Steps) createVault(endpoint string) error {
 	e.vaultURL = endpoint
 	e.kmsURI = result.KMS.URI
 
+	e.bddContext.VaultID = result.ID
+
 	return nil
 }
 
