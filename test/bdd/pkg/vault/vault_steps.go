@@ -7,12 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/cucumber/godog"
@@ -34,6 +31,7 @@ import (
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
+	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
@@ -140,26 +138,19 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 }
 
 func (e *Steps) createAuthorization(name string) error {
-	endpoint := fmt.Sprintf("/vaults/%s/authorizations", url.QueryEscape(e.vaultID))
-
 	requestingParty, err := e.createDIDKey()
 	if err != nil {
 		return err
 	}
 
-	payload := bytes.NewReader([]byte(`{"requestingParty":"` +
-		requestingParty + `", "scope": {"target":"` + e.vaultID + `", "actions":["read"]}}`))
-
-	resp, err := e.client.Post(e.vaultURL+endpoint, "", payload)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint: errcheck
-
-	var result *vault.CreatedAuthorization
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	result, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).CreateAuthorization(
+		e.vaultID,
+		requestingParty,
+		&vault.AuthorizationsScope{
+			Target:  e.vaultID,
+			Actions: []string{"read"},
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -174,16 +165,7 @@ func (e *Steps) createAuthorization(name string) error {
 }
 
 func (e *Steps) createVault(endpoint string) error {
-	resp, err := e.client.Post(endpoint+"/vaults", "", nil)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint: errcheck
-
-	var result *vault.CreatedVault
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	result, err := vaultclient.New(endpoint, vaultclient.WithHTTPClient(e.client)).CreateVault()
 	if err != nil {
 		return err
 	}
@@ -202,27 +184,16 @@ func (e *Steps) createVault(endpoint string) error {
 }
 
 func (e *Steps) saveDoc(docID string) (*vault.DocumentMetadata, error) {
-	endpoint := fmt.Sprintf("/vaults/%s/docs", url.QueryEscape(e.vaultID))
-
-	resp, err := e.client.Post(e.vaultURL+endpoint, "", strings.NewReader(fmt.Sprintf(`{"id":%q}`, docID)))
+	res, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).SaveDoc(e.vaultID, docID, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	defer resp.Body.Close() // nolint: errcheck
-
-	var result *vault.DocumentMetadata
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return nil, err
-	}
-
-	if result.ID == "" || result.URI == "" {
+	if res.ID == "" || res.URI == "" {
 		return nil, errors.New("result is empty")
 	}
 
-	return result, nil
+	return res, nil
 }
 
 func (e *Steps) saveDocumentWithoutID(name string) error {
@@ -259,18 +230,8 @@ func (e *Steps) checkAuthorization(auth string) error {
 		return errors.New("no authorization")
 	}
 
-	endpoint := fmt.Sprintf("/vaults/%s/authorizations/%s", url.QueryEscape(e.vaultID), authorization.ID)
-
-	resp, err := e.client.Get(e.vaultURL + endpoint)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint: errcheck
-
-	var result *vault.CreatedAuthorization
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	result, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).
+		GetAuthorization(e.vaultID, authorization.ID)
 	if err != nil {
 		return err
 	}
@@ -299,18 +260,7 @@ func (e *Steps) getDoc(id string) (*vault.DocumentMetadata, error) {
 		docID = id
 	}
 
-	endpoint := fmt.Sprintf("/vaults/%s/docs/%s/metadata", url.QueryEscape(e.vaultID), docID)
-
-	resp, err := e.client.Get(e.vaultURL + endpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close() // nolint: errcheck
-
-	var result *vault.DocumentMetadata
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
+	result, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).GetDocMetaData(e.vaultID, docID)
 	if err != nil {
 		return nil, err
 	}

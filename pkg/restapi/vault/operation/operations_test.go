@@ -284,7 +284,8 @@ func TestCreateAuthorization(t *testing.T) {
 
 	t.Run("Error", func(t *testing.T) {
 		v := newVaultMock()
-		v.createAuthorizationFn = func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
+		v.createAuthorizationFn = func(vID, rp string,
+			scope *vault.AuthorizationsScope) (*vault.CreatedAuthorization, error) {
 			return nil, errors.New("test error")
 		}
 
@@ -425,7 +426,7 @@ func newVaultMock() *vaultMock {
 				URI: "localhost:7777/encrypted-data-vaults/HwtZ1bUn4SzXoQRoX9br6m/documents/M3aS9xwj8ybCwHkEiCJJR1",
 			}, nil
 		},
-		createAuthorizationFn: func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
+		createAuthorizationFn: func(vID, rp string, scope *vault.AuthorizationsScope) (*vault.CreatedAuthorization, error) {
 			return &vault.CreatedAuthorization{ID: uuid.New().String()}, nil
 		},
 		getAuthorizationFn: func(vaultID, id string) (*vault.CreatedAuthorization, error) {
@@ -438,7 +439,7 @@ type vaultMock struct {
 	createVaultFn         func() (*vault.CreatedVault, error)
 	saveDocFn             func(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error)
 	getDocMetadataFn      func(vaultID, docID string) (*vault.DocumentMetadata, error)
-	createAuthorizationFn func(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error)
+	createAuthorizationFn func(vID, rp string, scope *vault.AuthorizationsScope) (*vault.CreatedAuthorization, error)
 	getAuthorizationFn    func(vaultID, id string) (*vault.CreatedAuthorization, error)
 }
 
@@ -454,7 +455,8 @@ func (v *vaultMock) GetDocMetadata(vaultID, docID string) (*vault.DocumentMetada
 	return v.getDocMetadataFn(vaultID, docID)
 }
 
-func (v *vaultMock) CreateAuthorization(vID, rp string, scope *vault.Scope) (*vault.CreatedAuthorization, error) {
+func (v *vaultMock) CreateAuthorization(vID, rp string,
+	scope *vault.AuthorizationsScope) (*vault.CreatedAuthorization, error) {
 	return v.createAuthorizationFn(vID, rp, scope)
 }
 

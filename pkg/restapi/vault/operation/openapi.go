@@ -40,11 +40,14 @@ type saveDocReq struct {
 	VaultID string `json:"vaultID"`
 	// in: body
 	// required: true
-	Request struct {
-		ID      string      `json:"id"`
-		Content interface{} `json:"content"`
-		Tags    []string    `json:"tags"`
-	}
+	Request SaveDocRequestBody
+}
+
+// SaveDocRequestBody describes body for the SaveDoc request.
+type SaveDocRequestBody struct {
+	ID      string      `json:"id"`
+	Content interface{} `json:"content"`
+	Tags    []string    `json:"tags"`
 }
 
 // saveDocResp model
@@ -73,18 +76,21 @@ type getDocMetadataResp struct {
 	Body *vault.DocumentMetadata
 }
 
-// createAuthorizationReq model
+// createAuthorizationsReq model
 //
-// swagger:parameters createAuthorizationReq
-type createAuthorizationReq struct {
+// swagger:parameters createAuthorizationsReq
+type createAuthorizationsReq struct {
 	// in: path
 	VaultID string `json:"vaultID"`
 	// in: body
 	// required: true
-	Request struct {
-		Scope           vault.Scope `json:"scope"`
-		RequestingParty string      `json:"requestingParty"`
-	}
+	Request CreateAuthorizationsBody
+}
+
+// CreateAuthorizationsBody describes body for the createAuthorizations request.
+type CreateAuthorizationsBody struct {
+	Scope           *vault.AuthorizationsScope `json:"scope"`
+	RequestingParty string                     `json:"requestingParty"`
 }
 
 // createAuthorizationResp model

@@ -89,9 +89,15 @@ func New(cfg *Config) (*Operation, error) {
 		return nil, err
 	}
 
-	op := &Operation{vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
+	op := &Operation{
+		vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
 		store: store, cshClient: csh.New(cfg.CSHBaseURL, csh.WithTLSConfig(cfg.TLSConfig)),
-		vaultClient: vaultclient.New(cfg.VaultBaseURL, vaultclient.WithTLSConfig(cfg.TLSConfig))}
+		vaultClient: vaultclient.New(cfg.VaultBaseURL, vaultclient.WithHTTPClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: cfg.TLSConfig,
+			},
+		})),
+	}
 
 	if _, err := op.getConfig(); err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {

@@ -174,7 +174,7 @@ func (o *Operation) GetDocMetadata(rw http.ResponseWriter, req *http.Request) {
 	o.WriteResponse(rw, resp.Body, http.StatusOK)
 }
 
-// CreateAuthorization swagger:route POST /vaults/{vaultID}/authorizations vault createAuthorizationReq
+// CreateAuthorization swagger:route POST /vaults/{vaultID}/authorizations vault createAuthorizationsReq
 //
 // Creates an authorization.
 //
@@ -182,7 +182,7 @@ func (o *Operation) GetDocMetadata(rw http.ResponseWriter, req *http.Request) {
 //    default: genericError
 //        201: createAuthorizationResp
 func (o *Operation) CreateAuthorization(rw http.ResponseWriter, req *http.Request) {
-	var doc createAuthorizationReq
+	var doc createAuthorizationsReq
 
 	if err := json.NewDecoder(req.Body).Decode(&doc.Request); err != nil {
 		o.writeErrorResponse(rw, err, http.StatusBadRequest)
@@ -196,7 +196,7 @@ func (o *Operation) CreateAuthorization(rw http.ResponseWriter, req *http.Reques
 		requestingParty = doc.Request.RequestingParty
 	)
 
-	result, err := o.vault.CreateAuthorization(vaultID, requestingParty, &scope)
+	result, err := o.vault.CreateAuthorization(vaultID, requestingParty, scope)
 	if err != nil {
 		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
 

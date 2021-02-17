@@ -53,7 +53,7 @@ type Vault interface {
 	CreateVault() (*CreatedVault, error)
 	SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error)
 	GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error)
-	CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error)
+	CreateAuthorization(vaultID, requestingParty string, scope *AuthorizationsScope) (*CreatedAuthorization, error)
 	GetAuthorization(vaultID, id string) (*CreatedAuthorization, error)
 }
 
@@ -73,10 +73,10 @@ type CreatedVault struct {
 
 // CreatedAuthorization represents success response of CreateAuthorization function.
 type CreatedAuthorization struct {
-	ID              string  `json:"id"`
-	Scope           *Scope  `json:"scope"`
-	RequestingParty string  `json:"requestingParty"`
-	Tokens          *Tokens `json:"authTokens"`
+	ID              string               `json:"id"`
+	Scope           *AuthorizationsScope `json:"scope"`
+	RequestingParty string               `json:"requestingParty"`
+	Tokens          *Tokens              `json:"authTokens"`
 }
 
 // Tokens zcap tokens.
@@ -85,15 +85,15 @@ type Tokens struct {
 	KMS string `json:"kms"`
 }
 
-// Scope represents authorization request.
-type Scope struct {
+// AuthorizationsScope represents authorization request.
+type AuthorizationsScope struct {
 	Target     string   `json:"target,omitempty"`
 	TargetAttr string   `json:"targetAttr,omitempty"`
 	Actions    []string `json:"actions,omitempty"`
 	Caveats    []Caveat `json:"caveats,omitempty"`
 }
 
-// Caveat for the Scope request.
+// Caveat for the AuthorizationsScope request.
 type Caveat struct {
 	Type     string `json:"type,omitempty"`
 	Duration string `json:"duration,omitempty"`
@@ -213,7 +213,8 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 
 // CreateAuthorization creates a new authorization.
 // nolint: funlen,gocyclo
-func (c *Client) CreateAuthorization(vaultID, requestingParty string, scope *Scope) (*CreatedAuthorization, error) {
+func (c *Client) CreateAuthorization(vaultID, requestingParty string,
+	scope *AuthorizationsScope) (*CreatedAuthorization, error) {
 	info, err := c.getVaultInfo(vaultID)
 	if err != nil {
 		return nil, fmt.Errorf("get vault info: %w", err)
