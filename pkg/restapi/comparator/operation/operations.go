@@ -30,8 +30,10 @@ import (
 	"github.com/trustbloc/edge-service/pkg/client/csh"
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
+	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
+	cshopenapi "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
@@ -49,7 +51,7 @@ const (
 )
 
 type cshClient interface {
-	CreateProfile(controller string) (*openapi.Profile, error)
+	CreateProfile(controller string) (*cshopenapi.Profile, error)
 }
 
 type vaultClient interface {
@@ -133,8 +135,11 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 //   403: Error
 //   500: Error
 func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) {
+	rp := "fakeRP"
+	authToken := "fakeZCAP"
+
 	w.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(w, Authorization{ID: "fakeID", RequestingParty: "fakeRP", AuthToken: "fakeZCAP"})
+	commhttp.WriteResponse(w, openapi.Authorization{ID: "fakeID", RequestingParty: &rp, AuthToken: &authToken})
 }
 
 // Compare swagger:route POST /compare compareReq
@@ -148,9 +153,22 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 // Responses:
 //   200: comparisonResp
 //   500: Error
-func (o *Operation) Compare(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	commhttp.WriteResponse(w, Comparison{Result: true})
+func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
+	request := &openapi.Comparison{}
+
+	err := json.NewDecoder(r.Body).Decode(request)
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "bad request: %s", err.Error())
+
+		return
+	}
+
+	switch t := request.Op().(type) {
+	case *openapi.EqOp:
+		o.HandleEqOp(w, t)
+	default:
+		respondErrorf(w, http.StatusNotImplemented, "operator not yet implemented: %s", request.Op().Type())
+	}
 }
 
 // Extract swagger:route POST /extract extractReq
@@ -179,26 +197,26 @@ func (o *Operation) GetConfig(w http.ResponseWriter, _ *http.Request) {
 	cc, err := o.getConfig()
 	if err != nil {
 		if errors.Is(err, storage.ErrDataNotFound) {
-			w.WriteHeader(http.StatusNotFound)
+			respond(w, http.StatusNotFound, nil, nil)
+
 			return
 		}
 
-		commhttp.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+		respondErrorf(w, http.StatusInternalServerError, err.Error())
 
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	commhttp.WriteResponse(w, cc)
+	respond(w, http.StatusOK, nil, cc)
 }
 
-func (o *Operation) getConfig() (*ComparatorConfig, error) {
+func (o *Operation) getConfig() (*openapi.Config, error) {
 	bytes, err := o.store.Get(configKeyDB)
 	if err != nil {
 		return nil, err
 	}
 
-	cc := ComparatorConfig{}
+	cc := openapi.Config{}
 	if err := json.Unmarshal(bytes, &cc); err != nil {
 		return nil, err
 	}
@@ -231,7 +249,7 @@ func (o *Operation) createConfig() error {
 		return fmt.Errorf("failed to create DID : %w", err)
 	}
 
-	configBytes, err := json.Marshal(ComparatorConfig{DID: docResolution.DIDDocument.ID, Keys: keys})
+	configBytes, err := json.Marshal(openapi.Config{Did: &docResolution.DIDDocument.ID, Key: keys})
 	if err != nil {
 		return err
 	}
@@ -296,4 +314,31 @@ func (o *Operation) newKey() (crypto.PublicKey, error) {
 	}
 
 	return ed25519.PublicKey(bits), nil
+}
+
+func respond(w http.ResponseWriter, statusCode int, headers map[string]string, payload interface{}) {
+	w.WriteHeader(statusCode)
+
+	for k, v := range headers {
+		w.Header().Add(k, v)
+	}
+
+	err := json.NewEncoder(w).Encode(payload)
+	if err != nil {
+		logger.Errorf("failed to write response: %s", err.Error())
+	}
+}
+
+func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+
+	logger.Errorf(msg)
+	w.WriteHeader(statusCode)
+
+	err := json.NewEncoder(w).Encode(&model.ErrorResponse{
+		Message: msg,
+	})
+	if err != nil {
+		logger.Errorf("failed to write error response: %s", err.Error())
+	}
 }

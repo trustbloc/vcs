@@ -42,7 +42,7 @@ func TestClient_GetDocMetaData(t *testing.T) {
 
 	t.Run("test error from unmarshal resp to profile response", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 			_, err := fmt.Fprint(w, "wrongValue")
 			require.NoError(t, err)
 		}))
@@ -57,7 +57,7 @@ func TestClient_GetDocMetaData(t *testing.T) {
 
 	t.Run("test success", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 			p := vault.DocumentMetadata{ID: "test"}
 			bytes, err := json.Marshal(p)
 			require.NoError(t, err)

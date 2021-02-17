@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
 )
 
 // Error.
@@ -15,7 +15,7 @@ import (
 // swagger:response Error
 type errorResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body http.ErrorResponse
+	Body openapi.Error
 }
 
 // createAuthzReq model.
@@ -23,7 +23,7 @@ type errorResp struct { // nolint:deadcode,unused // swagger model
 // swagger:parameters createAuthzReq
 type createAuthzReq struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body Authorization
+	Body openapi.Authorization
 }
 
 // createAuthorizationResp model.
@@ -33,7 +33,7 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 	// in: header
 	Location string
 	// in: body
-	Body Authorization
+	Body openapi.Authorization
 }
 
 // compareReq model.
@@ -41,9 +41,7 @@ type createAuthorizationResp struct { // nolint:deadcode,unused // swagger model
 // swagger:parameters compareReq
 type compareReq struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body struct {
-		OP Operator `json:"op"`
-	}
+	Body openapi.Comparison
 }
 
 // comparisonResp model.
@@ -51,7 +49,7 @@ type compareReq struct { // nolint:deadcode,unused // swagger model
 // swagger:response comparisonResp
 type comparisonResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body Comparison
+	Body openapi.ComparisonResult
 }
 
 // extractReq model.
@@ -82,5 +80,5 @@ type configReq struct{} // nolint:deadcode,unused // swagger model
 // swagger:response configResp
 type configResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body ComparatorConfig
+	Body openapi.Config
 }
