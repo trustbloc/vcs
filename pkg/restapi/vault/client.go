@@ -96,7 +96,7 @@ type AuthorizationsScope struct {
 // Caveat for the AuthorizationsScope request.
 type Caveat struct {
 	Type     string `json:"type,omitempty"`
-	Duration string `json:"duration,omitempty"`
+	Duration uint64 `json:"duration,omitempty"`
 }
 
 // Authorization consists of info needed for the authorization.
@@ -247,6 +247,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 	}, zcapld.WithParent(kmsCapability.ID), zcapld.WithInvoker(requestingPartyDidURL),
 		zcapld.WithAllowedActions("unwrap"),
 		zcapld.WithInvocationTarget(kmsCapability.InvocationTarget.ID, kmsCapability.InvocationTarget.Type),
+		zcapld.WithCaveats(toZCaveats(scope.Caveats)...),
 		zcapld.WithCapabilityChain(kmsCapability.ID))
 	if err != nil {
 		return nil, fmt.Errorf("kms new capability: %w", err)
@@ -269,6 +270,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingPartyDidURL),
 		zcapld.WithAllowedActions(scope.Actions...),
 		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),
+		zcapld.WithCaveats(toZCaveats(scope.Caveats)...),
 		zcapld.WithCapabilityChain(edvCapability.Parent, edvCapability.ID))
 	if err != nil {
 		return nil, fmt.Errorf("edv new capability: %w", err)
@@ -295,6 +297,19 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 	}
 
 	return res, nil
+}
+
+func toZCaveats(caveats []Caveat) []zcapld.Caveat {
+	zCaveats := make([]zcapld.Caveat, len(caveats))
+
+	for i, caveat := range caveats {
+		zCaveats[i] = zcapld.Caveat{
+			Type:     caveat.Type,
+			Duration: caveat.Duration,
+		}
+	}
+
+	return zCaveats
 }
 
 // GetAuthorization returns an authorization by given id.

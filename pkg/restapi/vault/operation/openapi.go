@@ -89,8 +89,8 @@ type createAuthorizationsReq struct {
 
 // CreateAuthorizationsBody describes body for the createAuthorizations request.
 type CreateAuthorizationsBody struct {
-	Scope           *vault.AuthorizationsScope `json:"scope"`
-	RequestingParty string                     `json:"requestingParty"`
+	Scope           vault.AuthorizationsScope `json:"scope"`
+	RequestingParty string                    `json:"requestingParty"`
 }
 
 // createAuthorizationResp model

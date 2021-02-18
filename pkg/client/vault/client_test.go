@@ -132,7 +132,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 	)
 
 	t.Run("Send request (error)", func(t *testing.T) {
-		_, err := New("").CreateAuthorization(vID, rp, nil)
+		_, err := New("").CreateAuthorization(vID, rp, &vault.AuthorizationsScope{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported protocol scheme")
 	})
@@ -145,7 +145,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		_, err := New(serv.URL).CreateAuthorization(vID, rp, nil)
+		_, err := New(serv.URL).CreateAuthorization(vID, rp, &vault.AuthorizationsScope{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unmarshal to CreatedAuthorization")
 	})
@@ -164,7 +164,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		p, err := New(serv.URL).CreateAuthorization(vID, rp, nil)
+		p, err := New(serv.URL).CreateAuthorization(vID, rp, &vault.AuthorizationsScope{})
 		require.NoError(t, err)
 		require.Equal(t, ID, p.ID)
 	})

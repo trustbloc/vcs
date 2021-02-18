@@ -139,7 +139,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 
 	src, err := json.Marshal(operation.CreateAuthorizationsBody{
 		RequestingParty: requestingParty,
-		Scope:           scope,
+		Scope:           *scope,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal: %w", err)
