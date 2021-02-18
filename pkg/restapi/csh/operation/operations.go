@@ -32,7 +32,6 @@ import (
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 const (
@@ -75,8 +74,8 @@ type Config struct {
 type AriesConfig struct {
 	KMS       kms.KeyManager
 	Crypto    crypto.Crypto
-	WebKMS    func(string, *http.Client, ...webkms.Opt) *webkms.RemoteKMS
-	WebCrypto func(string, *http.Client, ...webkms.Opt) *webcrypto.RemoteCrypto
+	WebKMS    func(string, webkms.HTTPClient, ...webkms.Opt) kms.KeyManager
+	WebCrypto func(string, webcrypto.HTTPClient, ...webkms.Opt) crypto.Crypto
 }
 
 // New returns operation instance.
@@ -129,7 +128,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if profile.Controller == "" {
+	if profile.Controller == nil {
 		respondErrorf(w, http.StatusBadRequest, "missing controller")
 
 		return
@@ -137,7 +136,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 
 	profile.ID = fmt.Sprintf("/hubstore/profiles/%s", uuid.New().String())
 
-	zcap, err := o.newProfileZCAP(profile.ID, profile.Controller)
+	zcap, err := o.newProfileZCAP(profile.ID, *profile.Controller)
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError, "failed to create zcap: %s", err.Error())
 
@@ -316,11 +315,14 @@ func didKeyURL(pubKeyBytes []byte) string {
 }
 
 func respond(w http.ResponseWriter, statusCode int, headers map[string]string, payload interface{}) {
-	w.WriteHeader(statusCode)
-
+	// godocs:
+	// Changing the header map after a call to WriteHeader (or Write) has no effect unless the modified headers
+	// are trailers.
 	for k, v := range headers {
 		w.Header().Add(k, v)
 	}
+
+	w.WriteHeader(statusCode)
 
 	err := json.NewEncoder(w).Encode(payload)
 	if err != nil {
@@ -332,10 +334,12 @@ func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ..
 	msg := fmt.Sprintf(format, args...)
 
 	logger.Errorf(msg)
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 
-	err := json.NewEncoder(w).Encode(&model.ErrorResponse{
-		Message: msg,
+	err := json.NewEncoder(w).Encode(&openapi.Error{
+		ErrMessage: msg,
 	})
 	if err != nil {
 		logger.Errorf("failed to write error response: %s", err.Error())

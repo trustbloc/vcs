@@ -39,6 +39,7 @@ func TestNewHTTPSigner(t *testing.T) {
 		sign := zcapld.NewHTTPSigner(
 			verMethod,
 			"mockZCAP",
+			action("test", nil),
 			&zcapld.DIDSecrets{
 				Secrets: map[string]httpsignatures.Secrets{
 					"key": &zcapld2.AriesDIDKeySecrets{},
@@ -73,6 +74,23 @@ func TestNewHTTPSigner(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("wraps action error", func(t *testing.T) {
+		expected := errors.New("test error")
+		agent := newAgent(t)
+		verMethod := newVerMethod(t, agent.KMS())
+		sign := zcapld.NewHTTPSigner(
+			verMethod,
+			"mockZCAP",
+			action("", expected),
+			&zcapld.DIDSecrets{},
+			&zcapld.DIDSignatureHashAlgorithms{},
+		)
+		request := httptest.NewRequest(http.MethodGet, "/some/path", nil)
+		_, err := sign(request)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), expected.Error())
+	})
+
 	t.Run("wraps signature error", func(t *testing.T) {
 		expected := errors.New("test error")
 		agent := newAgent(t)
@@ -80,6 +98,7 @@ func TestNewHTTPSigner(t *testing.T) {
 		sign := zcapld.NewHTTPSigner(
 			verMethod,
 			"mockZCAP",
+			action("test", nil),
 			&zcapld.DIDSecrets{
 				Secrets: map[string]httpsignatures.Secrets{
 					"key": &zcapld2.AriesDIDKeySecrets{},
@@ -425,4 +444,10 @@ func (m *mockDIDResolver) Accept(method string) bool {
 
 func (m *mockDIDResolver) Read(string, ...vdr.ResolveOption) (*did.DocResolution, error) {
 	return m.readValue, m.readErr
+}
+
+func action(a string, err error) func(*http.Request) (string, error) {
+	return func(*http.Request) (string, error) {
+		return a, err
+	}
 }

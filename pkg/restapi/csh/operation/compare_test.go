@@ -14,7 +14,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	edv "github.com/trustbloc/edv/pkg/client"
 
@@ -24,7 +23,7 @@ import (
 
 func TestOperation_HandleEqOp(t *testing.T) {
 	t.Run("equal documents", func(t *testing.T) {
-		doc := []byte(uuid.New().String())
+		doc := randomDoc(t)
 		agent := newAgent(t)
 
 		jwe1 := encryptedJWE(t, agent, doc)
@@ -38,7 +37,14 @@ func TestOperation_HandleEqOp(t *testing.T) {
 		o := newOperation(t, config)
 		result := httptest.NewRecorder()
 
-		op := newEqOp(t, newDocQuery(), newDocQuery())
+		op := newEqOp(t,
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+		)
 
 		o.HandleEqOp(result, op)
 		require.Equal(t, http.StatusOK, result.Code)
@@ -48,8 +54,8 @@ func TestOperation_HandleEqOp(t *testing.T) {
 	t.Run("unequal documents", func(t *testing.T) {
 		agent := newAgent(t)
 
-		jwe1 := encryptedJWE(t, agent, []byte(uuid.New().String()))
-		jwe2 := encryptedJWE(t, agent, []byte(uuid.New().String()))
+		jwe1 := encryptedJWE(t, agent, randomDoc(t))
+		jwe2 := encryptedJWE(t, agent, randomDoc(t))
 
 		edvClient := newMockEDVClient(t, nil, jwe1, jwe2)
 
@@ -61,7 +67,14 @@ func TestOperation_HandleEqOp(t *testing.T) {
 		o := newOperation(t, config)
 		result := httptest.NewRecorder()
 
-		op := newEqOp(t, newDocQuery(), newDocQuery())
+		op := newEqOp(t,
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+		)
 
 		o.HandleEqOp(result, op)
 		require.Equal(t, http.StatusOK, result.Code)
@@ -85,18 +98,48 @@ func TestOperation_HandleEqOp(t *testing.T) {
 
 		o := newOperation(t, config)
 		result := httptest.NewRecorder()
-		op := newEqOp(t, newDocQuery(), newDocQuery())
+		op := newEqOp(t, newDocQuery(t), newDocQuery(t))
 
 		o.HandleEqOp(result, op)
 		require.Equal(t, http.StatusInternalServerError, result.Code)
 		require.Contains(t, result.Body.String(), "failed to read Confidential Storage document")
 	})
 
+	t.Run("error parsing results of doc query", func(t *testing.T) {
+		agent := newAgent(t)
+
+		jwe1 := encryptedJWE(t, agent, []byte("INVALID"))
+		jwe2 := encryptedJWE(t, agent, randomDoc(t))
+
+		edvClient := newMockEDVClient(t, nil, jwe1, jwe2)
+
+		config := agentConfig(agent)
+		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+			return edvClient
+		}
+
+		o := newOperation(t, config)
+		result := httptest.NewRecorder()
+
+		op := newEqOp(t,
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+		)
+
+		o.HandleEqOp(result, op)
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to parse Confidential Storage structured document")
+	})
+
 	t.Run("TODO - RefQuery not yet implemented", func(t *testing.T) {
 		o := newOperation(t, agentConfig(newAgent(t)))
 		result := httptest.NewRecorder()
 
-		o.HandleEqOp(result, newEqOp(t, newRefQuery(), newDocQuery()))
+		o.HandleEqOp(result, newEqOp(t, newRefQuery(), newDocQuery(t)))
 		require.Equal(t, http.StatusNotImplemented, result.Code)
 		require.Contains(t, result.Body.String(), "not yet implemented")
 	})

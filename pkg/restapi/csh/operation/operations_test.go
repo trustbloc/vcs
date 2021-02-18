@@ -23,6 +23,8 @@ import (
 	storage2 "github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	edv "github.com/trustbloc/edv/pkg/client"
+	"github.com/trustbloc/edv/pkg/edvutils"
+	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/storage"
@@ -88,7 +90,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 			http.MethodPost,
 			"/profiles",
 			&openapi.Profile{
-				Controller: controller,
+				Controller: &controller,
 			},
 		))
 		require.Equal(t, http.StatusCreated, result.Code)
@@ -97,7 +99,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		err := json.NewDecoder(result.Body).Decode(response)
 		require.NoError(t, err)
 
-		require.Equal(t, controller, response.Controller)
+		require.Equal(t, controller, *response.Controller)
 		require.NotEmpty(t, response.ID)
 		require.NotEmpty(t, response.Zcap)
 	})
@@ -128,7 +130,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profiles",
-			&openapi.Profile{Controller: "did:example:controller#key"},
+			&openapi.Profile{Controller: controller()},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -154,7 +156,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profile",
-			&openapi.Profile{Controller: "did:example:controller#key"},
+			&openapi.Profile{Controller: controller()},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -180,7 +182,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 		o.CreateProfile(result, newReq(t,
 			http.MethodPost,
 			"/profile",
-			&openapi.Profile{Controller: "did:example:controller#key"},
+			&openapi.Profile{Controller: controller()},
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -208,7 +210,7 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 
 func TestOperation_Compare(t *testing.T) {
 	t.Run("equal documents", func(t *testing.T) {
-		doc := []byte(uuid.New().String())
+		doc := randomDoc(t)
 		agent := newAgent(t)
 
 		jwe1 := encryptedJWE(t, agent, doc)
@@ -220,7 +222,14 @@ func TestOperation_Compare(t *testing.T) {
 		}
 
 		payload := marshal(t, map[string]interface{}{
-			"op": newEqOp(t, newDocQuery(), newDocQuery()),
+			"op": newEqOp(t,
+				docQuery(&openapi.UpstreamAuthorization{
+					BaseURL: "https://edv.example.com",
+				}, nil),
+				docQuery(&openapi.UpstreamAuthorization{
+					BaseURL: "https://edv.example.com",
+				}, nil),
+			),
 		})
 
 		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(payload))
@@ -289,4 +298,27 @@ func newReq(t *testing.T, method, path string, payload interface{}) *http.Reques
 	}
 
 	return httptest.NewRequest(method, path, body)
+}
+
+func controller() *string {
+	c := fmt.Sprintf("did:example:%s#key1", uuid.New().String())
+
+	return &c
+}
+
+func randomDoc(t *testing.T) []byte {
+	t.Helper()
+
+	docID, err := edvutils.GenerateEDVCompatibleID()
+	require.NoError(t, err)
+
+	raw, err := json.Marshal(&models.StructuredDocument{
+		ID: docID,
+		Content: map[string]interface{}{
+			"content": uuid.New().String(),
+		},
+	})
+	require.NoError(t, err)
+
+	return raw
 }

@@ -7,13 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -21,8 +26,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
+	edv "github.com/trustbloc/edv/pkg/client"
+	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/cmd/common"
+	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
@@ -172,7 +181,7 @@ func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
 	}, nil
 }
 
-func startService(params *serviceParameters, srv server) error {
+func startService(params *serviceParameters, srv server) error { // nolint:funlen
 	router := mux.NewRouter()
 
 	edgeStorage, err := common.InitEdgeStore(params.dbParams, logger)
@@ -193,9 +202,21 @@ func startService(params *serviceParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
+	rootCAs, err := tlsutils.GetCertPool(true, params.tlsParams.caCerts)
+	if err != nil {
+		return fmt.Errorf("failed to get tls cert pool: %w", err)
+	}
+
 	service, err := csh.New(&operation.Config{
 		StoreProvider: edgeStorage,
 		Aries:         ariesConfig,
+		EDVClient:     adaptedEDVClientConstructor(),
+		HTTPClient: &http.Client{Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs:    rootCAs,
+				MinVersion: tls.VersionTLS12,
+			},
+		}},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize confidential storage hub operations: %w", err)
@@ -255,6 +276,12 @@ func newAriesConfig(params *common.DBParameters) (*operation.AriesConfig, error)
 	return &operation.AriesConfig{
 		KMS:    k,
 		Crypto: c,
+		WebKMS: func(url string, client webkms.HTTPClient, opts ...webkms.Opt) kms.KeyManager {
+			return webkms.New(url, client, opts...)
+		},
+		WebCrypto: func(url string, client webcrypto.HTTPClient, opts ...webkms.Opt) crypto.Crypto {
+			return webcrypto.New(url, client, opts...)
+		},
 	}, nil
 }
 
@@ -269,4 +296,19 @@ func (k *kmsProvider) StorageProvider() ariesstorage.Provider {
 
 func (k *kmsProvider) SecretLock() secretlock.Service {
 	return k.sl
+}
+
+func adaptedEDVClientConstructor() func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+	return func(url string, opts ...edv.Option) vault.ConfidentialStorageDocReader {
+		return &adaptedEDVClient{wrapped: edv.New(url, opts...)}
+	}
+}
+
+type adaptedEDVClient struct {
+	wrapped *edv.Client
+}
+
+func (a *adaptedEDVClient) ReadDocument(
+	vaultID, docID string, opts ...edv.ReqOption) (*models.EncryptedDocument, error) {
+	return a.wrapped.ReadDocument(vaultID, docID, opts...)
 }

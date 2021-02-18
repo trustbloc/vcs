@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-openapi: 3.0.0
+swagger: "2.0"
 info:
   title: Confidential Storage Hub
   description: Confidential Storage Hub
@@ -10,238 +10,273 @@ info:
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
+schemes:
+  - http
+  - https
 paths:
-  /profiles:
+  /hubstore/profiles:
     post:
-      description: Create new account.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Account"
+      description: Create new profile.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/Profile"
       responses:
         201:
-          description: Create a new account.
+          description: New profile.
           headers:
             Location:
-              description: Location of the new Account.
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Account"
-  /profiles/{profileID}/queries:
+              description: Location of the new Profile.
+              type: string
+          schema:
+            $ref: "#/definitions/Profile"
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
+  /hubstore/profiles/{profileID}/queries:
+    parameters:
+      - name: profileID
+        in: path
+        description: The profile's ID.
+        required: true
+        type: string
     post:
-      requestBody:
-        content:
-          application/json:
-            schema:
-              oneOf:
-                - $ref: "#/components/schemas/DocQuery"
+      description: Store queries.
+      consumes:
+        - application/json
+      parameters:
+        - name: request
+          in: body
+          schema:
+            $ref: "#/definitions/Query"
       responses:
         201:
-          description: TODO
+          description: Query stored.
           headers:
             Location:
-              description: TODO
-              schema:
-                type: string
-  /profiles/{profileID}/authorizations:
+              description: Location of the query resource.
+              type: string
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
+  /hubstore/profiles/{profileID}/authorizations:
+    parameters:
+      - name: profileID
+        in: path
+        description: The profile's ID.
+        type: string
+        required: true
     post:
-      description: TODO
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Authorization"
+      description: Creates a new authorization.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/Authorization"
       responses:
         201:
-          description: TODO
+          description: The new authorization.
           headers:
             Location:
-              description: TODO
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Authorization"
+              description: Location of the authorization.
+              type: string
+          schema:
+            $ref: "#/definitions/Authorization"
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
   /compare:
     post:
       description: Evaluates an operator with its inputs and returns the result.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ComparisonRequest"
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: request
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/ComparisonRequest"
       responses:
         200:
-          description: TODO
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Comparison"
+          description: Result.
+          schema:
+            $ref: "#/definitions/Comparison"
+        500:
+          description: Generic error.
+          schema:
+            $ref: "#/definitions/Error"
   /extract:
     get:
       description: extracts the contents of a document. TODO - request schema
-      parameters:
-        - in: query
-          name: resource
-          schema:
-            type: string
       responses:
         200:
           description: The extracted and decrypted object.
-          content:
-            application/json:
-              schema:
-                type: object
-components:
-  schemas:
-    Account:
-      type: object
-      properties:
-        id:
-          type: string
-        controller:
-          type: string
-        zcap:
-          type: string
-    ComparisonRequest:
-      type: object
-      properties:
-        op:
-          $ref: "#/components/schemas/Operator"
-    Comparison:
-      description: TODO - "comparison" does not sound apt as a name
-      type: object
-      properties:
-        result:
-          type: boolean
-    Operator:
-      type: object
-      required:
-        - type
-      discriminator:
-        propertyName: type
-      properties:
-        type:
-          type: string
-    EqOp:
-      allOf:
-        - $ref: "#/components/schemas/Operator"
-        - type: object
-          required:
-            - args
-          properties:
-            args:
-              type: array
-              items:
-                $ref: "#/components/schemas/Query"
-              minItems: 2
-    Query:
-      type: object
-      required:
-        - type
-        - upstreamAuth
-      discriminator:
-        propertyName: type
-      properties:
-        id:
-          type: string
-        type:
-          type: string
-    DocQuery:
-      allOf:
-        - $ref: "#/components/schemas/Query"
-        - type: object
-          required:
-            - vaultID
-            - docID
-            - upstreamAuth
-          properties:
-            vaultID:
+          schema:
+            type: object
+        500:
+          $ref: "#/definitions/Error"
+definitions:
+  Profile:
+    type: object
+    required:
+      - controller
+    properties:
+      id:
+        type: string
+      controller:
+        type: string
+      zcap:
+        type: string
+  ComparisonRequest:
+    type: object
+    properties:
+      op:
+        $ref: "#/definitions/Operator"
+  Comparison:
+    description: TODO - "comparison" does not sound apt as a name
+    type: object
+    properties:
+      result:
+        type: boolean
+  Operator:
+    type: object
+    required:
+      - type
+    discriminator: type
+    properties:
+      type:
+        type: string
+  EqOp:
+    allOf:
+      - $ref: "#/definitions/Operator"
+      - type: object
+        required:
+          - args
+        properties:
+          args:
+            type: array
+            items:
+              $ref: "#/definitions/Query"
+            minItems: 2
+  Query:
+    type: object
+    required:
+      - type
+    discriminator: type
+    properties:
+      id:
+        type: string
+      type:
+        type: string
+  DocQuery:
+    allOf:
+      - $ref: "#/definitions/Query"
+      - type: object
+        required:
+          - vaultID
+          - docID
+          - upstreamAuth
+        properties:
+          vaultID:
+            type: string
+          docID:
+            type: string
+          path:
+            type: string
+          upstreamAuth:
+            type: object
+            required:
+              - edv
+              - kms
+            properties:
+              edv:
+                $ref: "#/definitions/UpstreamAuthorization"
+              kms:
+                $ref: "#/definitions/UpstreamAuthorization"
+  RefQuery:
+    allOf:
+      - $ref: "#/definitions/Query"
+      - type: object
+        required:
+          - ref
+        properties:
+          ref:
+            type: string
+  Authorization:
+    type: object
+    required:
+      - requestingParty
+      - scope
+    properties:
+      id:
+        type: string
+      requestingParty:
+        type: string
+      scope:
+        type: object
+        required:
+          - resourceID
+          - resourceType
+          - action
+        properties:
+          resourceID:
+            type: string
+          resourceType:
+            type: string
+          action:
+            type: array
+            items:
               type: string
-            docID:
-              type: string
-            path:
-              type: string
-            upstreamAuth:
-              type: object
-              required:
-                - edv
-                - kms
-              properties:
-                edv:
-                  $ref: "#/components/schemas/UpstreamAuthorization"
-                kms:
-                  $ref: "#/components/schemas/UpstreamAuthorization"
-    RefQuery:
-      allOf:
-        - $ref: "#/components/schemas/Query"
-        - type: object
-          required:
-            - ref
-          properties:
-            ref:
-              type: string
-    Authorization:
-      type: object
-      required:
-        - requestingParty
-        - scope
-      properties:
-        id:
-          type: string
-        requestingParty:
-          type: string
-        scope:
-          type: object
-          required:
-            - resourceID
-            - resourceType
-            - action
-          properties:
-            resourceID:
-              type: string
-            resourceType:
-              type: string
-            action:
-              type: array
-              items:
-                type: string
-                enum:
-                  - read
-                  - reference
-            caveats:
-              type: array
-              items:
-                $ref: "#/components/schemas/Caveat"
-        zcap:
-          type: object
-    UpstreamAuthorization:
-      type: object
-      properties:
-        baseURL:
-          type: string
-        zcap:
-          type: string
-    Caveat:
-      type: object
-      required:
-        - type
-      discriminator:
-        propertyName: type
-      properties:
-        type:
-          type: string
-    ExpiryCaveat:
-      allOf:
-        - $ref: "#/components/schemas/Caveat"
-        - type: object
-          properties:
-            duration:
-              type: integer
-              description: Duration (in seconds) for which this authorization will remain valid.
+              enum:
+                - read
+                - reference
+          caveats:
+            type: array
+            items:
+              $ref: "#/definitions/Caveat"
+      zcap:
+        type: string
+  UpstreamAuthorization:
+    type: object
+    properties:
+      baseURL:
+        type: string
+      zcap:
+        type: string
+  Caveat:
+    type: object
+    required:
+      - type
+    discriminator: type
+    properties:
+      type:
+        type: string
+  ExpiryCaveat:
+    allOf:
+      - $ref: "#/definitions/Caveat"
+      - type: object
+        properties:
+          duration:
+            type: integer
+            description: Duration (in seconds) for which this authorization will remain valid.
+  Error:
+    type: object
+    properties:
+      errMessage:
+        type: string

@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -20,6 +22,7 @@ import (
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
+	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
@@ -56,7 +59,7 @@ func (o *Operation) ReadDocQuery(query *openapi.DocQuery) ([]byte, error) {
 }
 
 func (o *Operation) edvOptions(query *openapi.DocQuery) ([]edv.Option, error) {
-	opts := make([]edv.Option, 0)
+	opts := []edv.Option{edv.WithHTTPClient(o.httpClient)}
 
 	if query.UpstreamAuth.Edv == nil || query.UpstreamAuth.Edv.Zcap == "" {
 		return opts, nil
@@ -68,7 +71,19 @@ func (o *Operation) edvOptions(query *openapi.DocQuery) ([]edv.Option, error) {
 	}
 
 	opts = append(opts, edv.WithHeaders(zcapld2.NewHTTPSigner(
-		verMethod, query.UpstreamAuth.Edv.Zcap, o.supportedSecrets(), o.supportedSignatureHashAlgorithms(),
+		verMethod,
+		query.UpstreamAuth.Edv.Zcap,
+		func(r *http.Request) (string, error) {
+			action := "write"
+
+			if r.Method == http.MethodGet {
+				action = "read"
+			}
+
+			return action, nil
+		},
+		o.supportedSecrets(),
+		o.supportedSignatureHashAlgorithms(),
 	)))
 
 	return opts, nil
@@ -93,21 +108,38 @@ func (o *Operation) documentReaderOptions(query *openapi.DocQuery) ([]vault.Read
 			return nil, fmt.Errorf("failed to determine KMS verification method: %w", err)
 		}
 
-		kmsOptions = append(kmsOptions, webkms.WithHeaders(zcapld2.NewHTTPSigner(
-			verMethod, query.UpstreamAuth.Kms.Zcap, o.supportedSecrets(), o.supportedSignatureHashAlgorithms(),
-		)))
+		kmsOptions = append(kmsOptions,
+			webkms.WithHeaders(zcapld2.NewHTTPSigner(
+				verMethod,
+				query.UpstreamAuth.Kms.Zcap,
+				operation.CapabilityInvocationAction,
+				o.supportedSecrets(),
+				o.supportedSignatureHashAlgorithms(),
+			),
+			))
 	}
+
+	path, err := keystorePath(query.UpstreamAuth.Kms.Zcap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine remote keystore relative path: %w", err)
+	}
+
+	// TODO this is a scary hack: seems like the REST API message needs to include the remote keystore's
+	//  URI in a separate field in order to support scenarios with remote KMS but no zcaps.
+	//  Also it would decouple the CHS from the invocation target ID on the KMS zcap:
+	//  https://github.com/trustbloc/edge-service/issues/613.
+	keystoreURL := query.UpstreamAuth.Kms.BaseURL + path
 
 	opts = append(opts, vault.WithDocumentDecrypter( // remote decrypter
 		jose.NewJWEDecrypt(
 			nil,
 			o.aries.WebCrypto(
-				query.UpstreamAuth.Kms.BaseURL,
+				keystoreURL,
 				o.httpClient,
 				kmsOptions...,
 			),
 			o.aries.WebKMS(
-				query.UpstreamAuth.Kms.BaseURL,
+				keystoreURL,
 				o.httpClient,
 				kmsOptions...,
 			),
@@ -137,7 +169,7 @@ func (o *Operation) supportedSignatureHashAlgorithms() httpsignatures.SignatureH
 func verificationMethod(compressedZCAP string) (string, error) {
 	raw, err := base64URLDecodeThenGunzip(compressedZCAP)
 	if err != nil {
-		return "", fmt.Errorf("failed to decompress zcap: %w", err)
+		return "", fmt.Errorf("verMethod: failed to decompress zcap: %w", err)
 	}
 
 	zcap, err := zcapld.ParseCapability(raw)
@@ -175,4 +207,23 @@ func base64URLDecodeThenGunzip(encoded string) ([]byte, error) {
 	}
 
 	return inflated.Bytes(), nil
+}
+
+func keystorePath(compressedZCAP string) (string, error) {
+	raw, err := base64URLDecodeThenGunzip(compressedZCAP)
+	if err != nil {
+		return "", fmt.Errorf("keystorePath: failed to decompress zcap: %w", err)
+	}
+
+	zcap, err := zcapld.ParseCapability(raw)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse zcap: %w", err)
+	}
+
+	u, err := url.Parse(zcap.InvocationTarget.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse zcap invocation target id: %w", err)
+	}
+
+	return u.Path, nil
 }

@@ -119,6 +119,24 @@ func TestTLSInvalidArgs(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid syntax")
 	})
+
+	t.Run("test invalid TLS pool path", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + common.DatabaseURLFlagName, "mem://test",
+			"--" + common.DatabasePrefixFlagName, "test",
+			"--" + tlsSystemCertPoolFlagName, "true",
+			"--" + tlsCACertsFlagName, "INVALID",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.EqualError(t, err,
+			"failed to get tls cert pool: failed to read cert: open INVALID: no such file or directory")
+	})
 }
 
 type mockServer struct{}
