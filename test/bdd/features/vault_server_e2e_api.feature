@@ -20,7 +20,7 @@ Feature: Vault server API
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
 
   @vault_server_create_no_id
-  Scenario: Creates a vault without id
+  Scenario: Creates a vault and saves document without id
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document without id and save the result ID as "created"
     And Check that a document with id "created" is stored
@@ -30,11 +30,19 @@ Feature: Vault server API
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
-    Then Create a new authorization and save the result as "auth"
+    Then Create a new authorization with duration "100" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
 
-  @vault_server_get_authorization
-  Scenario: Creates an authorization
+  @vault_server_check_expired_authorization
+  Scenario: Creates an expired authorization
     When Create a new vault using the vault server "https://localhost:9099"
-    Then Create a new authorization and save the result as "auth"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
+    Then Create a new authorization with duration "0" and save the result as "auth"
+    And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is not available for "auth"
+
+  @vault_server_get_authorization
+  Scenario: Creates an authorization and gets it
+    When Create a new vault using the vault server "https://localhost:9099"
+    Then Create a new authorization with duration "100" and save the result as "auth"
     And Check that an authorization "auth" was stored

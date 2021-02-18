@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -85,8 +87,10 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Save a document with the following id "([^"]*)"$`, e.saveDocument)
 	s.Step(`^Save a document without id and save the result ID as "([^"]*)"$`, e.saveDocumentWithoutID)
 	s.Step(`^Check that a document with id "([^"]*)" is stored$`, e.getDocument)
-	s.Step(`^Create a new authorization and save the result as "([^"]*)"$`, e.createAuthorization)
+	s.Step(`^Create a new authorization with duration "([^"]*)" and save the result as "([^"]*)"$`,
+		e.createAuthorization)
 	s.Step(`^Check that a document with id "([^"]*)" is available for "([^"]*)"$`, e.checkAccessibility)
+	s.Step(`^Check that a document with id "([^"]*)" is not available for "([^"]*)"$`, e.checkNotAvailable)
 	s.Step(`^Check that an authorization "([^"]*)" was stored$`, e.checkAuthorization)
 }
 
@@ -137,7 +141,44 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 	return err
 }
 
-func (e *Steps) createAuthorization(name string) error {
+func (e *Steps) checkNotAvailable(docID, auth string) error {
+	authorization, ok := e.authorizations[auth]
+	if !ok {
+		return errors.New("no authorization")
+	}
+
+	time.Sleep(time.Duration(authorization.Scope.Caveats[0].Duration+1) * time.Second)
+
+	docMeta, err := e.getDoc(docID)
+	if err != nil {
+		return err
+	}
+
+	URIParts := strings.Split(docMeta.URI, "/")
+
+	edvClient := edv.New("http://" + URIParts[0] + "/" + URIParts[1])
+
+	_, err = edvClient.ReadDocument(URIParts[2], URIParts[4], edv.WithRequestHeader(
+		e.edvSign(authorization.RequestingParty, authorization.Tokens.EDV)),
+	)
+
+	if err == nil {
+		return errors.New("expected an error, but got <nil>")
+	}
+
+	if strings.Contains(err.Error(), "caveat expiry: token expired") {
+		return nil
+	}
+
+	return err
+}
+
+func (e *Steps) createAuthorization(duration, name string) error {
+	sec, err := strconv.Atoi(duration)
+	if err != nil {
+		return err
+	}
+
 	requestingParty, err := e.createDIDKey()
 	if err != nil {
 		return err
@@ -149,6 +190,7 @@ func (e *Steps) createAuthorization(name string) error {
 		&vault.AuthorizationsScope{
 			Target:  e.vaultID,
 			Actions: []string{"read"},
+			Caveats: []vault.Caveat{{Type: zcapld.CaveatTypeExpiry, Duration: uint64(sec)}},
 		},
 	)
 	if err != nil {

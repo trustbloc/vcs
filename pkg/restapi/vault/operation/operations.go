@@ -196,7 +196,7 @@ func (o *Operation) CreateAuthorization(rw http.ResponseWriter, req *http.Reques
 		requestingParty = doc.Request.RequestingParty
 	)
 
-	result, err := o.vault.CreateAuthorization(vaultID, requestingParty, scope)
+	result, err := o.vault.CreateAuthorization(vaultID, requestingParty, &scope)
 	if err != nil {
 		o.writeErrorResponse(rw, err, http.StatusInternalServerError)
 
