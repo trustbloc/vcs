@@ -5,7 +5,14 @@
 openapi: 3.0.0
 info:
   title: Vault Server
-  description: Vault Server
+  description: |
+    The Vault Server is a multi-tenant facade over remote Confidential Storage vaults and WebKMS keystores. Each Vault
+    Server vault corresponds to a unique Confidential Storage vault and a WebKMS keystore.
+    Each Vault Server vault is identified by a DID.
+
+    Confidential Storage vaults are permissioned "buckets" where users can securely store arbitrary documents.
+    WebKMS keystores manage signing and encryption keys. Control of both a vault's Confidential Storage vault and
+    WebKMS keystore are cryptographically bound to the key material in the vault's DID.
   version: 1.0.0
   license:
     name: Apache 2.0
@@ -15,13 +22,21 @@ paths:
     post:
       tags:
         - required
-      description: Creates a new vault.
+      description: |
+        Creates a new vault. A new DID is minted and used as the vault's identifier.
+
+        All documents stored in this vault are deposited in a new Confidential Storage vault backend unique to this vault.
+        The documents are encrypted with encryption keys managed remotely in a new WebKMS keystore unique to this vault.
+
+        Control of the Confidential Storage vault and the WebKMS keystore is bound to the vault's DID and codified
+        in opaque 'authTokens'. These tokens are part of the Vault's properties and are required only when accessing
+        the backing Confidential Storage vault and WebKMS keystore directly.
       responses:
         201:
           description: Vault created successfully.
           headers:
             Location:
-              description: Location of the vault
+              description: Location of the vault.
               schema:
                 type: string
           content:
@@ -31,11 +46,11 @@ paths:
               example: {
                 "id": "did:example:123",
                 "edv": {
-                  "uri": "https://edv.example.com/encrypted-data-vaults/123/documents/456",
+                  "uri": "https://edv.example.com/encrypted-data-vaults/123",
                   "authToken": "123456789abcdefghi"
                 },
                 "kms": {
-                  "uri": "https://kms.example.com/keystores/123/keys/456",
+                  "uri": "https://kms.example.com/keystores/xyz",
                   "authToken": "v6gmMNam3uVAjZpfkcJCwD"
                 }
               }
@@ -46,10 +61,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
     delete:
-      description: Deletes an existing vault.
+      description: |
+        Deletes an existing vault.
+
+        The vault's unique Confidential Storage vault and WebKMS keystore are deleted, and its DID is deactivated.
       responses:
         200:
-          description: Vault deleted.
+          description: Vault deleted, with all contents purged and its DID deactivated.
         404:
           description: Vault does not exist.
           content:
@@ -69,10 +87,18 @@ paths:
         required: true
         schema:
           type: string
+        description: The Vault's ID (DID).
     post:
       tags:
         - required
-      description: Create or update a document by encrypting it and storing it in the vault.
+      description: |
+        Create a document by encrypting it and storing it in the vault.
+
+        Users can store any JSON document and specify a unique identifier of their choosing. The identifier will
+        be mapped to a random value to use as identifier in the backing Confidential Storage vault.
+
+        The response does not replay the document back. Instead, it contains metadata about the document,
+        including its unique Confidential Storage document URI and unique WebKMS encryption key.
       requestBody:
         required: true
         content:
@@ -80,9 +106,9 @@ paths:
             schema:
               $ref: "#/components/schemas/Document"
             example: {
-              "id": "did:example:123",
+              "id": "batphone",
               "content": {
-                "my_attribute": "my_data"
+                "phone_number": "+12125557972"
               }
             }
       responses:
@@ -122,11 +148,13 @@ paths:
         schema:
           type: string
         required: true
+        description: The vault's ID (DID).
       - in: path
         name: docID
         schema:
           type: string
         required: true
+        description: The document's ID.
     get:
       description: Metadata about a stored document.
       responses:
@@ -155,10 +183,24 @@ paths:
         schema:
           type: string
         required: true
+        description: The vault's ID (DID).
     post:
       tags:
         - required
-      description: Create an authorization.
+      description: |
+        Authorize a third party (`requestingParty`) to gain access to a document in the backing Confidential Storage vault.
+        Authorization is also granted for the third party to use the remote WebKMS encryption key to decrypt the contents
+        of the document.
+
+        Only `scope` and `requestingParty` need to be provided to create an authorization:
+
+        - The `requestingParty` is identified by a keyID in the format of a DID URL. This url MUST be resolvable
+        by the Vault Server.
+        - The authorization's scope indicates the actions allowed, the object on which to perform them (eg. a document),
+        as well as any optional caveats (eg. expiration).
+
+        The response contains opaque authorization tokens for use at the vault's remote Confidential Storage vault and
+        WebKMS keystore.
       requestBody:
         required: true
         content:
@@ -167,7 +209,7 @@ paths:
               $ref: "#/components/schemas/Authorization"
             example: {
               "scope": {
-                "target": "did:example:123",
+                "target": "batphone",
                 "actions": ["read"],
                 "caveats": [
                   {
@@ -176,7 +218,7 @@ paths:
                   }
                 ]
               },
-              "requestingParty": "did:example:other_party"
+              "requestingParty": "did:example:phone_dialer_47583#key1"
             }
       responses:
         201:
@@ -193,7 +235,7 @@ paths:
               example: {
                 "id": "123",
                 "scope": {
-                  "target": "did:example:123",
+                  "target": "batphone",
                   "actions": ["read"],
                   "caveats": [
                     {
@@ -202,7 +244,7 @@ paths:
                     }
                   ]
                 },
-                "requestingParty": "did:example:other_party",
+                "requestingParty": "did:example:phone_dialer_47583#key1",
                 "authTokens": {
                   "edv": "21tDAKCERh95uGgKbJNHYp",
                   "kms": "bcehfew7h32f32h7af3"
@@ -220,6 +262,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /vaults/{vaultID}/authorizations/{authorizationID}:
     parameters:
       - in: path
@@ -227,11 +275,13 @@ paths:
         schema:
           type: string
         required: true
+        description: The vault's ID (DID).
       - in: path
         name: authorizationID
         schema:
           type: string
         required: true
+        description: The authorization's ID.
     get:
       description: Fetch an authorization.
       responses:
@@ -247,8 +297,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     delete:
-      description: Delete an authorization.
+      description: Delete an authorization. This revokes the tokens issued by the authorization.
       responses:
         200:
           description: Authorization deleted.
@@ -258,9 +314,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        500:
+          description: An error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     Vault:
+      description: |
+        A user-friendly abstraction over a Confidential Storage vault with an accompanying WebKMS keystore
+        to encrypt documents.
       type: object
       required:
         - id
@@ -269,34 +334,46 @@ components:
       properties:
         id:
           type: string
-          description: Unique identifier for the vault.
+          description: A DID that uniquely identifies this vault.
         edv:
           type: object
+          description: Properties of the backing Confidential Storage vault.
           properties:
             uri:
               type: string
+              description: The backing Confidential Storage vault's unique URI.
             authToken:
               type: string
+              description: Opaque authorization token assigned to the vault's DID.
         kms:
           type: object
+          description: Properties of the backing WebKMS keystore.
           properties:
             uri:
               type: string
+              description: The backing WebKMS keystore's unique URI.
             authToken:
               type: string
+              description: Opaque authorization token assigned to the vault's DID.
     Document:
+      description: A JSON document in plaintext (not encrypted).
       type: object
       required:
         - id
         - content
       properties:
         id:
-          description: The identifier to associate with the document.
+          description: |
+            The user-chosen identifier to associate with the document.
+
+            This identifier is mapped to the randomized value used to identify the encrypted document at the backing
+            Confidential Storage vault.
           type: string
         content:
-          description: The document to be encrypted and stored in the vault.
+          description: The JSON document to be encrypted and stored in the vault.
           type: object
     DocumentMetadata:
+      description: Metadata about a document.
       type: object
       required:
         - docID
@@ -304,23 +381,38 @@ components:
       properties:
         docID:
           type: string
+          description: The document's identifier provided by the user.
         edvDocURI:
           type: string
+          description: The document's unique Confidential Storage URI.
+        encKeyURI:
+          type: string
+          description: The URI of the document's unique encryption key.
     Authorization:
-      description: An authorization.
+      description: |
+        An authorization object encodes the permissions granted to a third party. Its `scope` details the allowed
+        action and the object on which the action will be performed. The `requestingParty` is the third party
+        allowed to perform those actions.
+
+        `authTokens` contains opaque tokens granting the `requestingParty` access to the document in the
+        backing Confidential Storage vault as well as the encryption keys in the remote WebKMS keystore.
       type: object
       required:
         - scope
         - requestingParty
       properties:
         id:
+          description: The authorization's unique ID.
           type: string
         scope:
           $ref: "#/components/schemas/Scope"
         requestingParty:
-          description: keyID
+          description: KeyID in the format of a DID URL that identifies the party granted authorization.
           type: string
         authTokens:
+          description: |
+            Opaque authorization tokens granting access to the document in the Confidential Storage vault as well
+            as the document's unique encryption key in the remote WebKMS keystore.
           type: object
           properties:
             edv:
@@ -335,13 +427,18 @@ components:
       properties:
         target:
           type: string
-        targetAttr:
-          type: string
         actions:
+          description: The allowed actions on the target.
           type: array
           items:
             type: string
+            enum:
+              - read
+              - write
         caveats:
+          description: |
+            A set of orthogonal constraints placed on the authorization.
+            For example, an authorization may allow to read a document but only for a certain length of time (caveat).
           type: array
           items:
             $ref: "#/components/schemas/Caveat"

@@ -5,7 +5,19 @@
 openapi: 3.0.0
 info:
   title: Comparator
-  description: Comparator
+  description: |
+    The Comparator orchestrates user requests for comparisons and authorizations to allow comparisons.
+
+    To authorize a comparison on a Vault Server document, the Comparator requests the Vault Server authorization
+    for the remote _Confidential Storage Hub_ to read the documents on the user's behalf. A resource is then created
+    at the remote Confidential Storage Hub configured with the Vault Server authorization tokens. This resource - hosted
+    on the Confidential Storage Hub itself - is in turn protected by a newly minted token authorizing the requesting
+    party to _reference_ the resource in a comparison. **Note that 'reference' is not the same as 'read'.** The
+    new authorization token issued by the Confidential Storage Hub does **not** allow the requesting party to extract
+    documents - it just allows them to 'reference' them in a comparison request.
+
+    To execute a comparison, the Comparator forwards the request with the authorization tokens to the remote
+    Confidential Storage Hub.
   version: 1.0.0
   license:
     name: Apache 2.0
@@ -13,6 +25,11 @@ info:
 paths:
   /authorizations:
     post:
+      description: |
+        Authorize a third party to perform a comparison on a Vault Server document.
+
+        Authorization to read the document is obtained at the Vault Server and pre-configured in the remote
+        Confidential Storage Hub, to be referenced during the actual comparison operation.
       tags:
         - required
       requestBody:
@@ -22,10 +39,11 @@ paths:
             schema:
               $ref: "#/components/schemas/Authorization"
             example: {
-              "requestingParty": "did:example:other_party",
+              "requestingParty": "did:example:party_doing_comparison",
               "scope": [
                 {
-                  "docID": "did:example:123",
+                  "vaultID": "did:example:123",
+                  "docID": "batphone",
                   "actions": ["compare"],
                   "caveats": [
                     {
@@ -50,10 +68,11 @@ paths:
                 $ref: "#/components/schemas/Authorization"
               example: {
                 "id": "123456",
-                "requestingParty": "did:example:other_party",
+                "requestingParty": "did:example:party_doing_comparison",
                 "scope": [
                   {
-                    "docID": "did:example:123",
+                    "vaultID": "did:example:123",
+                    "docID": "batphone",
                     "actions": [ "compare" ],
                     "caveats": [
                       {
@@ -67,6 +86,13 @@ paths:
               }
   /compare:
     post:
+      description: |
+        Execute a _remote_ comparison of the Confidential Storage documents fetched with the credentials provided.
+        This comparison is performed remotely by the Confidential Storage hub using the credentials.
+
+        The comparison's operator's type determines the type of comparison to be performed.
+
+        The result is always a boolean value.
       tags:
         - required
       requestBody:
@@ -81,7 +107,8 @@ paths:
                 "args": [
                   {
                     "type": "doc",
-                    "docID": "did:example:123",
+                    "vaultID": "did:example:123",
+                    "docID": "batphone",
                     "authTokens": {
                       "edv": "21tDAKCERh95uGgKbJNHYp",
                       "kms": "bcehfew7h32f32h7af3"
@@ -106,6 +133,9 @@ paths:
               }
   /extract:
     post:
+      description: |
+        Extract the contents of one or more documents using the authorization tokens provided. The tokens originate
+        from authorizations granted at other Comparators.
       tags:
         - required
       requestBody:
@@ -116,7 +146,7 @@ paths:
               type: object
               properties:
                 authTokens:
-                  description: list of base64url-encoded authorization tokens to extract documents
+                  description: list of authorization tokens used to extract documents
                   type: array
                   items:
                     type: string
@@ -134,6 +164,11 @@ paths:
                     items:
                       type: object
   /config:
+    description: |
+      Returns the Comparator's auto-generated configuration.
+
+      This configuration may be used for instance to configure a profile in the VC HTTP API for issuance of
+      Verifiable Credentials using the same DID and keys.
     get:
       tags:
         - required
@@ -146,6 +181,7 @@ paths:
                 $ref: "#/components/schemas/Config"
               example: {
                 "did": "did:example:H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV",
+                "authKeyURL": "did:example:H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV#H3C2AVvLMv6gmMNam3uVAjZpfkcJCwDwnZn6z3wXmqPV",
                 "key": {
                   "keys": [
                     {
@@ -162,7 +198,13 @@ paths:
 components:
   schemas:
     Authorization:
-      description: An authorization.
+      description: |
+        An authorization object encodes the permissions granted to a third party. Its `scope` details the allowed
+        action and the object on which the action will be performed. The `requestingParty` is the third party
+        allowed to perform those actions.
+
+        The `authToken` is an opaque tokens granting the `requestingParty` the priviledge of running a comparison
+        with the document identified in `scope` at the remote Confidential Storage Hub.
       type: object
       required:
         - scope
@@ -171,21 +213,26 @@ components:
       properties:
         id:
           type: string
+          description: The authorization's unique ID.
         scope:
-          type: array
-          items:
-            $ref: "#/components/schemas/Scope"
+          $ref: "#/components/schemas/Scope"
         requestingParty:
-          description: requesting party DID
+          description: KeyID in the format of a DID URL that identifies the party granted authorization.
           type: string
         authToken:
           type: string
+          description: |
+            An opaque authorization token authorizing the requesting party to perform a comparison
+            referencing the document in the `scope`.
     Scope:
       type: object
       required:
         - docID
         - actions
       properties:
+        vaultID:
+          description: the Vault Server ID (DID)
+          type: string
         docID:
           description: an identifier for a document stored in the Vault Server.
           type: string
@@ -193,11 +240,16 @@ components:
           type: array
           items:
             type: string
+            enum:
+              - compare
         caveats:
           type: array
           items:
             $ref: "#/components/schemas/Caveat"
     Caveat:
+      description: |
+        Caveats place constraints on the scope of an authorization.
+        For example, an authorization may allow to compare a document but only for a certain length of time (caveat).
       type: object
       required:
         - type
@@ -217,6 +269,10 @@ components:
               type: integer
               description: Duration (in seconds) for which this authorization will remain valid.
     Comparison:
+      description: |
+        A comparison is a request to compare two or more documents.
+
+        Comparisons have an operator that determines the kind of comparison to be performed.
       type: object
       properties:
         op:
@@ -227,6 +283,8 @@ components:
         result:
           type: boolean
     Operator:
+      description: |
+        Operators indicate the kind of comparison operation to be performed.
       type: object
       required:
         - type
@@ -250,6 +308,7 @@ components:
                 $ref: "#/components/schemas/Query"
               minItems: 2
     Query:
+      description: A query identifies a document to be compared.
       type: object
       required:
         - type
@@ -262,6 +321,10 @@ components:
           doc: DocQuery
           auth: AuthorizedQuery
     DocQuery:
+      description: |
+        DocQuery identifies a document by directly referencing the document's Vault Server vaultID and docID.
+        It also contains the necessary authorization tokens to access the document at the remote Confidential Storage
+        vault and decrypt with the WebKMS key.
       allOf:
         - $ref: "#/components/schemas/Query"
         - type: object
@@ -275,6 +338,12 @@ components:
             docID:
               description: an identifier for a document stored in the Vault Server.
               type: string
+            docAttrPath:
+              description: |
+                By default, a DocQuery identifies a document in its entirety, which means the entire contents of the
+                document are used in the comparison. `docAttrPath` is a JSONPath that allows a _portion_ of the
+                document to be used during the comparison.
+              type: string
             authTokens:
               type: object
               properties:
@@ -283,6 +352,10 @@ components:
                 kms:
                   type: string
     AuthorizedQuery:
+      description: |
+        AuthorizedQuery is a query that has been pre-authorized by another Comparator.
+        The AuthorizedQuery's `authToken` is the authorization token handed back by the other Comparator authorizing
+        the comparison on a document.
       allOf:
         - $ref: "#/components/schemas/Query"
         - type: object
@@ -299,6 +372,10 @@ components:
       properties:
         did:
           type: string
+          description: The comparator's unique DID.
+        authKeyURL:
+          type: string
+          description: The comparator's authentication key's keyID in the format of a DID URL.
         key:
           type: object
           description: A JWK Set containing the primary public/private key pair.
