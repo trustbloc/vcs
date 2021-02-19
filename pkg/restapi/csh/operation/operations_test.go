@@ -14,6 +14,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
@@ -73,6 +75,24 @@ func TestNew(t *testing.T) {
 		_, err := operation.New(cfg)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, expected))
+	})
+
+	t.Run("error when creating queries store", func(t *testing.T) {
+		expected := errors.New("test")
+		cfg := config(t)
+
+		cfg.StoreProvider = &storage.MockProvider{
+			Stores: map[string]storage2.Store{
+				"profile": &mockstore.MockStore{Store: make(map[string][]byte)},
+				"zcap":    &mockstore.MockStore{Store: make(map[string][]byte)},
+			},
+			CreateErrors: map[string]error{
+				"queries": expected,
+			},
+		}
+
+		_, err := operation.New(cfg)
+		require.ErrorIs(t, err, expected)
 	})
 }
 
@@ -191,11 +211,107 @@ func TestOperation_CreateProfile(t *testing.T) {
 }
 
 func TestOperation_CreateQuery(t *testing.T) {
-	t.Run("TODO - creates a query", func(t *testing.T) {
-		o := newOp(t)
+	t.Run("creates a query", func(t *testing.T) {
+		server := newAgent(t)
+		rp := newAgent(t)
+		profileID := uuid.New().String()
+		queryURL := fmt.Sprintf("https://hubstore.example.com/hubstore/profiles/%s/queries", profileID)
+		expected := docQuery(
+			&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com/encrypted-data-vaules",
+				Zcap:    compress(t, marshal(t, newZCAP(t, server, rp))),
+			},
+			&openapi.UpstreamAuthorization{
+				BaseURL: "https://kms.example.com/kms/keystores/123",
+				Zcap:    compress(t, marshal(t, newZCAP(t, server, rp))),
+			},
+		)
+
+		config := config(t)
+		config.BaseURL = fmt.Sprintf("https://hubstore.example.com/%s", uuid.New().String())
+		o := newOperation(t, config)
+
 		result := httptest.NewRecorder()
-		o.CreateQuery(result, nil)
+		o.CreateQuery(result, httptest.NewRequest(
+			http.MethodPost,
+			queryURL,
+			bytes.NewReader(marshal(t, expected)),
+		))
+
 		require.Equal(t, http.StatusCreated, result.Code)
+		header := result.Header().Get("location")
+		require.NotEmpty(t, header)
+		location, err := url.Parse(header)
+		require.NoError(t, err)
+		base, err := url.Parse(config.BaseURL)
+		require.NoError(t, err)
+		relative, err := filepath.Rel(base.Path, location.Path)
+		require.NoError(t, err)
+		require.NotEmpty(t, relative)
+	})
+
+	t.Run("error BadRequest if request is malformed", func(t *testing.T) {
+		o := newOperation(t, config(t))
+		result := httptest.NewRecorder()
+
+		o.CreateQuery(result, httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader([]byte("'}"))))
+
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "bad request")
+	})
+
+	t.Run("error BadRequest for RefQuery", func(t *testing.T) {
+		o := newOperation(t, config(t))
+		result := httptest.NewRecorder()
+
+		o.CreateQuery(
+			result,
+			httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(marshal(t, &openapi.RefQuery{}))),
+		)
+
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "query type not allowed")
+	})
+
+	t.Run("error StatusNotImplemented for other query types", func(t *testing.T) {
+		o := newOperation(t, config(t))
+		result := httptest.NewRecorder()
+
+		fake := &struct {
+			Type string `json:"type"`
+		}{
+			Type: "Query",
+		}
+
+		o.CreateQuery(
+			result,
+			httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(marshal(t, fake))),
+		)
+
+		require.Equal(t, http.StatusNotImplemented, result.Code)
+		require.Contains(t, result.Body.String(), "unsupported query type")
+	})
+
+	t.Run("error InternalServerError if cannot persist query", func(t *testing.T) {
+		expected := errors.New("test error")
+
+		config := config(t)
+		config.StoreProvider = &mockstore.Provider{
+			Store: &mockstore.MockStore{
+				Store:  make(map[string][]byte),
+				ErrPut: expected,
+			},
+		}
+		o := newOperation(t, config)
+		result := httptest.NewRecorder()
+
+		o.CreateQuery(
+			result,
+			httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(marshal(t, &openapi.DocQuery{}))),
+		)
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "test error")
 	})
 }
 

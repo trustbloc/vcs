@@ -15,7 +15,9 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/go-openapi/runtime"
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -47,6 +49,7 @@ const (
 const (
 	profileStore = "profile"
 	zcapStore    = "zcap"
+	queryStore   = "queries"
 )
 
 var logger = log.New("confidential-storage-hub")
@@ -56,10 +59,12 @@ type Operation struct {
 	storage *struct {
 		profiles storage.Store
 		zcaps    storage.Store
+		queries  storage.Store
 	}
 	aries      *AriesConfig
 	httpClient *http.Client
 	edvClient  func(string, ...edv.Option) vault.ConfidentialStorageDocReader
+	baseURL    string
 }
 
 // Config defines configuration for vault operations.
@@ -68,6 +73,7 @@ type Config struct {
 	Aries         *AriesConfig
 	HTTPClient    *http.Client
 	EDVClient     func(string, ...edv.Option) vault.ConfidentialStorageDocReader
+	BaseURL       string
 }
 
 // AriesConfig holds all configurations for aries-framework-go dependencies.
@@ -84,6 +90,7 @@ func New(cfg *Config) (*Operation, error) {
 		aries:      cfg.Aries,
 		httpClient: cfg.HTTPClient,
 		edvClient:  cfg.EDVClient,
+		baseURL:    cfg.BaseURL,
 	}
 
 	var err error
@@ -134,7 +141,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile.ID = fmt.Sprintf("/hubstore/profiles/%s", uuid.New().String())
+	profile.ID = uuid.New().String()
 
 	zcap, err := o.newProfileZCAP(profile.ID, *profile.Controller)
 	if err != nil {
@@ -166,7 +173,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 
 	// TODO specify full path for location
 	headers := map[string]string{
-		"Location":     profile.ID,
+		"Location":     fmt.Sprintf("%s/hubstore/profiles/%s", o.baseURL, profile.ID),
 		"Content-Type": "application/json",
 	}
 
@@ -184,10 +191,58 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 //   - application/json
 // Responses:
 //   201: createQueryResp
+//   400: Error
 //   403: Error
 //   500: Error
-func (o *Operation) CreateQuery(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusCreated)
+func (o *Operation) CreateQuery(w http.ResponseWriter, r *http.Request) {
+	logger.Debugf("handling request")
+
+	query, err := openapi.UnmarshalQuery(r.Body, runtime.JSONConsumer())
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "bad request: %s", err.Error())
+
+		return
+	}
+
+	switch query.(type) {
+	case *openapi.DocQuery: // allow DocQuery
+	case *openapi.RefQuery:
+		respondErrorf(w, http.StatusBadRequest, "query type not allowed: %s", query.Type())
+
+		return
+	default:
+		respondErrorf(w, http.StatusNotImplemented, "unsupported query type: %s", query.Type())
+
+		return
+	}
+
+	profileID := mux.Vars(r)["profileID"]
+
+	raw, err := json.Marshal(query)
+	if err != nil {
+		respondErrorf(w, http.StatusInternalServerError,
+			"failed to marshal query (this shouldn't have happened): %s", err.Error())
+
+		return
+	}
+
+	entity := &Query{
+		ID:        uuid.New().String(),
+		ProfileID: profileID,
+		Spec:      raw,
+	}
+
+	err = save(o.storage.queries, entity.ID, entity)
+	if err != nil {
+		respondErrorf(w, http.StatusInternalServerError, "failed to persist query: %s", err.Error())
+	}
+
+	headers := map[string]string{
+		"Location": fmt.Sprintf("%s/hubstore/profiles/%s/queries/%s", o.baseURL, profileID, entity.ID),
+	}
+
+	respond(w, http.StatusCreated, headers, nil)
+	logger.Debugf("handled request")
 }
 
 // CreateAuthorization swagger:route POST /hubstore/profiles/{profileID}/authorizations createAuthorizationReq
@@ -277,12 +332,14 @@ func (o *Operation) newProfileZCAP(profileID, controller string) (*zcapld.Capabi
 func initStores(p storage.Provider) (*struct {
 	profiles storage.Store
 	zcaps    storage.Store
+	queries  storage.Store
 }, error) {
 	var (
 		err    error
 		stores = &struct {
 			profiles storage.Store
 			zcaps    storage.Store
+			queries  storage.Store
 		}{}
 	)
 
@@ -294,6 +351,11 @@ func initStores(p storage.Provider) (*struct {
 	stores.zcaps, err = initStore(p, zcapStore)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init %s: %w", zcapStore, err)
+	}
+
+	stores.queries, err = initStore(p, queryStore)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init %s: %w", queryStore, err)
 	}
 
 	return stores, nil

@@ -18,6 +18,7 @@ services:
       - CHS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
       - DATABASE_URL=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
       - DATABASE_PREFIX=confidentialstoragehub
+      - BASE_URL=https://hubstore.example.com
     ports:
       - ${CHS_REST_PORT}:${CHS_REST_PORT}
     command: start
