@@ -21,4 +21,5 @@ Feature: Comparator_REST API
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR3"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR2" is stored
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR3" is stored
+    Then Create a new authorization with duration "100"
     Then Compare two docs with doc1 id "M3aS9xwj8ybCwHkEiCJJR2" and doc2 id "M3aS9xwj8ybCwHkEiCJJR3"

@@ -19,6 +19,10 @@ import (
 // swagger:model Config
 type Config struct {
 
+	// auth key url
+	// Required: true
+	AuthKeyURL string `json:"authKeyURL"`
+
 	// did
 	// Required: true
 	Did *string `json:"did"`
@@ -32,6 +36,10 @@ type Config struct {
 func (m *Config) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateAuthKeyURL(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateDid(formats); err != nil {
 		res = append(res, err)
 	}
@@ -43,6 +51,15 @@ func (m *Config) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *Config) validateAuthKeyURL(formats strfmt.Registry) error {
+
+	if err := validate.Required("authKeyURL", "body", m.AuthKeyURL); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -226,7 +226,10 @@ func (e *Steps) createVault(endpoint string) error {
 }
 
 func (e *Steps) saveDoc(docID string) (*vault.DocumentMetadata, error) {
-	res, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).SaveDoc(e.vaultID, docID, nil)
+	res, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).SaveDoc(e.vaultID, docID,
+		map[string]interface{}{
+			"contents": "data",
+		})
 	if err != nil {
 		return nil, err
 	}
