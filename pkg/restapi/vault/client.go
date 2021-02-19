@@ -122,6 +122,7 @@ type DocumentMetadata struct {
 type Client struct {
 	remoteKMSURL string
 	edvHost      string
+	edvScheme    string
 	kms          KeyManager
 	crypto       crypto.Crypto
 	edvClient    *edv.Client
@@ -159,6 +160,7 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 	client := &Client{
 		remoteKMSURL: kmsURL,
 		edvHost:      u.Host,
+		edvScheme:    u.Scheme,
 		kms:          kmsClient,
 		crypto:       cryptoService,
 		store:        store,
@@ -193,9 +195,11 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 		return nil, fmt.Errorf("create data vault: %w", err)
 	}
 
+	edvLoc.URI = buildEDVURI(c.edvScheme, c.edvHost, lastElm(edvLoc.URI, "/"))
+
 	auth := &Authorization{
 		KMS: &Location{
-			URI:       kmsURI,
+			URI:       c.buildKMSURL(kmsURI),
 			AuthToken: kmsZCAP,
 		},
 		EDV: edvLoc,
@@ -364,7 +368,7 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 
 	return &DocumentMetadata{
 		ID:        docID,
-		URI:       buildEDVURI(c.edvHost, edvVaultID, dInfo.EdvID),
+		URI:       buildEDVDocURI(c.edvScheme, c.edvHost, edvVaultID, dInfo.EdvID),
 		EncKeyURI: dInfo.KidURL,
 	}, nil
 }
@@ -399,12 +403,16 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
-	res, err := c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
+	_, err = c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
 		ID:  dInfo.EdvID,
 		JWE: []byte(encContent),
 	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err == nil {
-		return &DocumentMetadata{URI: res, ID: id, EncKeyURI: dInfo.KidURL}, nil
+		return &DocumentMetadata{
+			URI:       buildEDVDocURI(c.edvScheme, c.edvHost, edvVaultID, dInfo.EdvID),
+			ID:        id,
+			EncKeyURI: dInfo.KidURL,
+		}, nil
 	}
 
 	if !strings.HasSuffix(err.Error(), messages.ErrDuplicateDocument.Error()+".") {
@@ -421,7 +429,7 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 
 	return &DocumentMetadata{
 		ID:        id,
-		URI:       buildEDVURI(c.edvHost, edvVaultID, dInfo.EdvID),
+		URI:       buildEDVDocURI(c.edvScheme, c.edvHost, edvVaultID, dInfo.EdvID),
 		EncKeyURI: dInfo.KidURL,
 	}, nil
 }
@@ -667,14 +675,18 @@ func uncompressZCAP(zcap string) (*zcapld.Capability, error) {
 	return zcapld.ParseCapability(result)
 }
 
-func lastElm(s, sep string) string {
+func lastElm(s, sep string) string { // nolint: unparam
 	all := strings.Split(s, sep)
 
 	return all[len(all)-1]
 }
 
-func buildEDVURI(h, vid, did string) string {
-	return fmt.Sprintf("%s/encrypted-data-vaults/%s/documents/%s", h, vid, did)
+func buildEDVDocURI(s, h, vid, did string) string {
+	return fmt.Sprintf("%s/documents/%s", buildEDVURI(s, h, vid), did)
+}
+
+func buildEDVURI(s, h, vid string) string {
+	return fmt.Sprintf("%s://%s/encrypted-data-vaults/%s", s, h, vid)
 }
 
 func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{}) (string, string, error) {
