@@ -107,9 +107,9 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 
 	URIParts := strings.Split(docMeta.URI, "/")
 
-	edvClient := edv.New("http://" + URIParts[0] + "/" + URIParts[1])
+	edvClient := edv.New("http://" + URIParts[2] + "/" + URIParts[3])
 
-	eDoc, err := edvClient.ReadDocument(URIParts[2], URIParts[4], edv.WithRequestHeader(
+	eDoc, err := edvClient.ReadDocument(URIParts[4], URIParts[6], edv.WithRequestHeader(
 		e.edvSign(authorization.RequestingParty, authorization.Tokens.EDV)),
 	)
 	if err != nil {
@@ -156,9 +156,9 @@ func (e *Steps) checkNotAvailable(docID, auth string) error {
 
 	URIParts := strings.Split(docMeta.URI, "/")
 
-	edvClient := edv.New("http://" + URIParts[0] + "/" + URIParts[1])
+	edvClient := edv.New("http://" + URIParts[2] + "/" + URIParts[1])
 
-	_, err = edvClient.ReadDocument(URIParts[2], URIParts[4], edv.WithRequestHeader(
+	_, err = edvClient.ReadDocument(URIParts[4], URIParts[6], edv.WithRequestHeader(
 		e.edvSign(authorization.RequestingParty, authorization.Tokens.EDV)),
 	)
 
