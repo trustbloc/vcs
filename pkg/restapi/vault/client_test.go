@@ -30,6 +30,21 @@ import (
 	. "github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
+const kmsResponse = `
+{
+   "wrappedKey":{
+      "kid":"R0tzelREUWNXckZsTVMtQk83LWFzZk5nYUZmTVo5NnQ2ZWVUaklfX1kxYw==",
+      "encryptedCEK":"5es-1SkzIwvKnM1suaYLrNnXzzUTMG28Ow5cDKCsK_yUBiCqlvtDmw==",
+      "epk":{
+         "x":"f9ccLKPnZcFwW1BroF56M1XTUG5GSYrXLAPLsi-OFsI=",
+         "y":"aqdkBFWEUZ0RWa9p4W66gPd37oe2s26gypmHZ_P0eUU=",
+         "curve":"UC0yNTY=",
+         "type":"RUM="
+      },
+      "alg":"RUNESC1FUytBMjU2S1c="
+   }
+}`
+
 func TestNewClient(t *testing.T) {
 	t.Run("URL parse error", func(t *testing.T) {
 		client, err := NewClient("", "http://user^foo.com", nil, nil)
@@ -210,7 +225,7 @@ func TestClient_GetAuthorization(t *testing.T) {
 	})
 }
 
-func TestClient_SaveDoc(t *testing.T) {
+func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 	const (
 		docID   = "id"
 		vaultID = "v_id"
@@ -237,18 +252,133 @@ func TestClient_SaveDoc(t *testing.T) {
 		require.Contains(t, err.Error(), "get vault info: get: data not found")
 	})
 
-	t.Run("Create alias (error)", func(t *testing.T) {
+	t.Run("Create meta doc info (error)", func(t *testing.T) {
+		data := map[string][]byte{}
+
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		kmsHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 3)
+		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", "/kms/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c")
+
+			w.WriteHeader(http.StatusCreated)
+		}
+
+		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			payload, err := json.Marshal(map[string][]byte{"publicKey": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
+			require.NoError(t, err)
+
+			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
+			w.WriteHeader(http.StatusCreated)
+
+			_, err = w.Write(payload)
+			require.NoError(t, err)
+		}
+
+		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			payload := []byte(kmsResponse)
+
+			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
+			w.WriteHeader(http.StatusCreated)
+
+			_, err := w.Write(payload)
+			require.NoError(t, err)
+
+			store.Store.ErrPut = errors.New("text")
+		}
+
+		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case fn := <-kmsHandlers:
+				fn(w, r)
+			default:
+				t.Error("no handler")
+			}
+		}))
+
+		lKMS := newLocalKms(t, store)
+		client, err := NewClient(remoteKMS.URL, "", lKMS, store)
+		require.NoError(t, err)
+
+		vID, _ := createVaultID(t, lKMS)
+
+		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)
+
+		_, err = client.SaveDoc(vID, docID, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create meta doc info: store put: text")
+	})
+
+	t.Run("Encrypt key (create error)", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
-			Store: &mockstorage.MockStore{
-				Store:  map[string][]byte{"info_v_id": []byte(`{"auth":{"edv":{},"kms":{}}}`)},
-				ErrPut: errors.New("test error"),
-			},
+			Store: &mockstorage.MockStore{Store: map[string][]byte{"info_v_id": []byte(`{"auth":{"edv":{},"kms":{}}}`)}},
 		})
 		require.NoError(t, err)
 
 		_, err = client.SaveDoc(vaultID, docID, nil)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "create alias: store put: test error")
+		require.Contains(t, err.Error(), "encrypt key: create: posting Create key failed")
+	})
+
+	t.Run("Get meta doc info (error)", func(t *testing.T) {
+		data := map[string][]byte{}
+
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		kmsHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 3)
+		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", "/kms/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c")
+
+			w.WriteHeader(http.StatusCreated)
+		}
+
+		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			payload, err := json.Marshal(map[string][]byte{"publicKey": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
+			require.NoError(t, err)
+
+			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
+			w.WriteHeader(http.StatusCreated)
+
+			_, err = w.Write(payload)
+			require.NoError(t, err)
+		}
+
+		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
+			payload := []byte(kmsResponse)
+
+			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
+			w.WriteHeader(http.StatusCreated)
+
+			_, err := w.Write(payload)
+			require.NoError(t, err)
+
+			store.Store.ErrGet = errors.New("text")
+		}
+
+		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case fn := <-kmsHandlers:
+				fn(w, r)
+			default:
+				t.Error("no handler")
+			}
+		}))
+
+		lKMS := newLocalKms(t, store)
+		client, err := NewClient(remoteKMS.URL, "", lKMS, store)
+		require.NoError(t, err)
+
+		vID, _ := createVaultID(t, lKMS)
+
+		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)
+
+		_, err = client.SaveDoc(vID, docID, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get meta doc info: store get: text")
 	})
 
 	t.Run("Encrypt key (create error)", func(t *testing.T) {
@@ -282,17 +412,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		}
 
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			payload := []byte(`{"wrappedKey": {
-		 "kid": "R0tzelREUWNXckZsTVMtQk83LWFzZk5nYUZmTVo5NnQ2ZWVUaklfX1kxYw==",
-		 "encryptedCEK": "5es-1SkzIwvKnM1suaYLrNnXzzUTMG28Ow5cDKCsK_yUBiCqlvtDmw==",
-		 "epk": {
-		  "x": "f9ccLKPnZcFwW1BroF56M1XTUG5GSYrXLAPLsi-OFsI=",
-		  "y": "aqdkBFWEUZ0RWa9p4W66gPd37oe2s26gypmHZ_P0eUU=",
-		  "curve": "UC0yNTY=",
-		  "type": "RUM="
-		 },
-		 "alg": "RUNESC1FUytBMjU2S1c="
-		}}`)
+			payload := []byte(kmsResponse)
 
 			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
 			w.WriteHeader(http.StatusCreated)
@@ -358,17 +478,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		}
 
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			payload := []byte(`{"wrappedKey": {
-		 "kid": "R0tzelREUWNXckZsTVMtQk83LWFzZk5nYUZmTVo5NnQ2ZWVUaklfX1kxYw==",
-		 "encryptedCEK": "5es-1SkzIwvKnM1suaYLrNnXzzUTMG28Ow5cDKCsK_yUBiCqlvtDmw==",
-		 "epk": {
-		  "x": "f9ccLKPnZcFwW1BroF56M1XTUG5GSYrXLAPLsi-OFsI=",
-		  "y": "aqdkBFWEUZ0RWa9p4W66gPd37oe2s26gypmHZ_P0eUU=",
-		  "curve": "UC0yNTY=",
-		  "type": "RUM="
-		 },
-		 "alg": "RUNESC1FUytBMjU2S1c="
-		}}`)
+			payload := []byte(kmsResponse)
 
 			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
 			w.WriteHeader(http.StatusCreated)
@@ -576,7 +686,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		require.Contains(t, err.Error(), "get vault info: get: data not found")
 	})
 
-	t.Run("No alias", func(t *testing.T) {
+	t.Run("No meta doc info", func(t *testing.T) {
 		data := map[string][]byte{}
 
 		store := &mockstorage.MockStoreProvider{
@@ -593,7 +703,28 @@ func TestClient_GetDocMetadata(t *testing.T) {
 
 		_, err = client.GetDocMetadata(vID, "docID")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "get alias: store get: data not found")
+		require.Contains(t, err.Error(), "get meta doc info: store get: data not found")
+	})
+
+	t.Run("Bad meta info", func(t *testing.T) {
+		data := map[string][]byte{}
+
+		store := &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{Store: data},
+		}
+
+		lKMS := newLocalKms(t, store)
+		client, err := NewClient("", "", lKMS, store)
+		require.NoError(t, err)
+
+		vID, _ := createVaultID(t, lKMS)
+
+		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{}}}`)
+		data["meta_doc_info_"+vID+"_docID"] = []byte(`{`)
+
+		_, err = client.GetDocMetadata(vID, "docID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get meta doc info: store get: unexpected end of JSON")
 	})
 
 	t.Run("Success", func(t *testing.T) {
@@ -630,12 +761,13 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		vID, _ := createVaultID(t, lKMS)
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{}}}`)
-		data["alias_"+vID+"_"+docID] = []byte(`key`)
+		data["meta_doc_info_"+vID+"_"+docID] = []byte(`{"edv_id":"eURL", "kid_url":"kURL"}`)
 
 		docMeta, err := client.GetDocMetadata(vID, docID)
 		require.NoError(t, err)
 		require.NotEmpty(t, docMeta.ID)
 		require.NotEmpty(t, docMeta.URI)
+		require.NotEmpty(t, docMeta.EncKeyURI)
 	})
 }
 
