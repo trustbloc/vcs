@@ -44,7 +44,7 @@ const (
 	storeName = "vault"
 
 	authorizationFormat = "authorization_%s_%s"
-	aliasFormat         = "alias_%s_%s"
+	metaDocInfoFormat   = "meta_doc_info_%s_%s"
 	infoFormat          = "info_%s"
 )
 
@@ -113,8 +113,9 @@ type Location struct {
 
 // DocumentMetadata represents document`s metadata.
 type DocumentMetadata struct {
-	ID  string `json:"docID"`
-	URI string `json:"edvDocURI"`
+	ID        string `json:"docID"`
+	URI       string `json:"edvDocURI"`
+	EncKeyURI string `json:"encKeyURI"`
 }
 
 // Client vault`s client.
@@ -351,17 +352,21 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
-	eID, err := c.getIDAlias(vaultID, docID)
+	dInfo, err := c.getMetaDocInfo(vaultID, docID)
 	if err != nil {
-		return nil, fmt.Errorf("get alias: %w", err)
+		return nil, fmt.Errorf("get meta doc info: %w", err)
 	}
 
-	_, err = c.edvClient.ReadDocument(edvVaultID, eID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	_, err = c.edvClient.ReadDocument(edvVaultID, dInfo.EdvID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("read document: %w", err)
 	}
 
-	return &DocumentMetadata{ID: docID, URI: buildEDVURI(c.edvHost, edvVaultID, eID)}, nil
+	return &DocumentMetadata{
+		ID:        docID,
+		URI:       buildEDVURI(c.edvHost, edvVaultID, dInfo.EdvID),
+		EncKeyURI: dInfo.KidURL,
+	}, nil
 }
 
 // SaveDoc saves a document by encrypting it and storing it in the vault.
@@ -371,46 +376,54 @@ func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMeta
 		return nil, fmt.Errorf("get vault info: %w", err)
 	}
 
-	eID, err := c.getIDAlias(vaultID, id)
+	kidURL, encContent, err := encryptContent(
+		c.webKMS(vaultID, info.Auth.KMS),
+		c.webCrypto(vaultID, info.Auth.KMS),
+		content,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt key: %w", err)
+	}
+
+	dInfo, err := c.getMetaDocInfo(vaultID, id)
 	if err != nil && !errors.Is(err, storage.ErrDataNotFound) {
-		return nil, fmt.Errorf("get alias: %w", err)
+		return nil, fmt.Errorf("get meta doc info: %w", err)
 	}
 
 	if errors.Is(err, storage.ErrDataNotFound) {
-		eID, err = c.createIDAlias(vaultID, id)
+		dInfo, err = c.createMetaDocInfo(vaultID, id, kidURL)
 		if err != nil {
-			return nil, fmt.Errorf("create alias: %w", err)
+			return nil, fmt.Errorf("create meta doc info: %w", err)
 		}
-	}
-
-	encContent, err := encryptContent(c.webKMS(vaultID, info.Auth.KMS), c.webCrypto(vaultID, info.Auth.KMS), content)
-	if err != nil {
-		return nil, fmt.Errorf("encrypt key: %w", err)
 	}
 
 	edvVaultID := lastElm(info.Auth.EDV.URI, "/")
 
 	res, err := c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
-		ID:  eID,
+		ID:  dInfo.EdvID,
 		JWE: []byte(encContent),
 	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err == nil {
-		return &DocumentMetadata{URI: res, ID: id}, nil
+		return &DocumentMetadata{URI: res, ID: id, EncKeyURI: dInfo.KidURL}, nil
 	}
 
 	if !strings.HasSuffix(err.Error(), messages.ErrDuplicateDocument.Error()+".") {
 		return nil, fmt.Errorf("create document: %w", err)
 	}
 
-	err = c.edvClient.UpdateDocument(edvVaultID, eID, &models.EncryptedDocument{
-		ID:  eID,
+	err = c.edvClient.UpdateDocument(edvVaultID, dInfo.EdvID, &models.EncryptedDocument{
+		ID:  dInfo.EdvID,
 		JWE: []byte(encContent),
 	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("update document: %w", err)
 	}
 
-	return &DocumentMetadata{ID: id, URI: buildEDVURI(c.edvHost, edvVaultID, eID)}, nil
+	return &DocumentMetadata{
+		ID:        id,
+		URI:       buildEDVURI(c.edvHost, edvVaultID, dInfo.EdvID),
+		EncKeyURI: dInfo.KidURL,
+	}, nil
 }
 
 type vaultInfo struct {
@@ -427,27 +440,46 @@ func (c *Client) saveVaultInfo(id string, info *vaultInfo) error {
 	return c.store.Put(fmt.Sprintf(infoFormat, id), src)
 }
 
-func (c *Client) createIDAlias(vid, id string) (string, error) {
-	edvID, err := edvutils.GenerateEDVCompatibleID()
-	if err != nil {
-		return "", fmt.Errorf("generate EDV compatible id: %w", err)
-	}
-
-	err = c.store.Put(fmt.Sprintf(aliasFormat, vid, id), []byte(edvID))
-	if err != nil {
-		return "", fmt.Errorf("store put: %w", err)
-	}
-
-	return edvID, nil
+type metaDocInfo struct {
+	EdvID  string `json:"edv_id"`
+	KidURL string `json:"kid_url"`
 }
 
-func (c *Client) getIDAlias(vid, id string) (string, error) {
-	edvID, err := c.store.Get(fmt.Sprintf(aliasFormat, vid, id))
+func (c *Client) createMetaDocInfo(vid, id, kid string) (*metaDocInfo, error) {
+	edvID, err := edvutils.GenerateEDVCompatibleID()
 	if err != nil {
-		return "", fmt.Errorf("store get: %w", err)
+		return nil, fmt.Errorf("generate EDV compatible id: %w", err)
 	}
 
-	return string(edvID), nil
+	info := &metaDocInfo{EdvID: edvID, KidURL: c.buildKMSURL(kid)}
+
+	src, err := json.Marshal(info)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	err = c.store.Put(fmt.Sprintf(metaDocInfoFormat, vid, id), src)
+	if err != nil {
+		return nil, fmt.Errorf("store put: %w", err)
+	}
+
+	return info, nil
+}
+
+func (c *Client) getMetaDocInfo(vid, id string) (*metaDocInfo, error) {
+	src, err := c.store.Get(fmt.Sprintf(metaDocInfoFormat, vid, id))
+	if err != nil {
+		return nil, fmt.Errorf("store get: %w", err)
+	}
+
+	var info *metaDocInfo
+
+	err = json.Unmarshal(src, &info)
+	if err != nil {
+		return nil, fmt.Errorf("store get: %w", err)
+	}
+
+	return info, nil
 }
 
 func (c *Client) getVaultInfo(id string) (*vaultInfo, error) {
@@ -645,41 +677,51 @@ func buildEDVURI(h, vid, did string) string {
 	return fmt.Sprintf("%s/encrypted-data-vaults/%s/documents/%s", h, vid, did)
 }
 
-func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{}) (string, error) {
+func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{}) (string, string, error) {
 	src, err := json.Marshal(content)
 	if err != nil {
-		return "", fmt.Errorf("marshal: %w", err)
+		return "", "", fmt.Errorf("marshal: %w", err)
 	}
 
 	_, kidURL, err := wKMS.Create(kms.NISTP256ECDHKW)
 	if err != nil {
-		return "", fmt.Errorf("create: %w", err)
+		return "", "", fmt.Errorf("create: %w", err)
 	}
 
-	pubKeyBytes, err := wKMS.ExportPubKeyBytes(lastElm(kidURL.(string), "/"))
+	kidURLStr, ok := kidURL.(string)
+	if !ok {
+		return "", "", fmt.Errorf("kidURL is not a string")
+	}
+
+	pubKeyBytes, err := wKMS.ExportPubKeyBytes(lastElm(kidURLStr, "/"))
 	if err != nil {
-		return "", fmt.Errorf("export pubKey bytes: %w", err)
+		return "", "", fmt.Errorf("export pubKey bytes: %w", err)
 	}
 
 	var ecPubKey *crypto.PublicKey
 
 	err = json.Unmarshal(pubKeyBytes, &ecPubKey)
 	if err != nil {
-		return "", fmt.Errorf("unmarshal: %w", err)
+		return "", "", fmt.Errorf("unmarshal: %w", err)
 	}
 
 	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, jose.A256GCMALG, "", nil,
 		[]*crypto.PublicKey{ecPubKey}, wCrypto)
 	if err != nil {
-		return "", fmt.Errorf("new JWE encrypt: %w", err)
+		return "", "", fmt.Errorf("new JWE encrypt: %w", err)
 	}
 
 	jwe, err := encrypter.Encrypt(src)
 	if err != nil {
-		return "", fmt.Errorf("encrypt: %w", err)
+		return "", "", fmt.Errorf("encrypt: %w", err)
 	}
 
-	return jwe.FullSerialize(json.Marshal)
+	eContent, err := jwe.FullSerialize(json.Marshal)
+	if err != nil {
+		return "", "", fmt.Errorf("full serialize: %w", err)
+	}
+
+	return kidURLStr, eContent, nil
 }
 
 type signer struct {
