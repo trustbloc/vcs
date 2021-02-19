@@ -21,14 +21,16 @@ func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		s.Store["config"] = []byte(`{}`)
-		controller, err := comparator.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		controller, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		_, err := comparator.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("failed to open store")}})
+		_, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store")}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
@@ -37,7 +39,8 @@ func TestController_New(t *testing.T) {
 func TestController_GetOperations(t *testing.T) {
 	s := &mockstorage.MockStore{Store: make(map[string][]byte)}
 	s.Store["config"] = []byte(`{}`)
-	controller, err := comparator.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+	controller, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
+		StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 

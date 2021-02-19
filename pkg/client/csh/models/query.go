@@ -27,7 +27,7 @@ import (
 
 // Query query
 //
-// swagger:discriminator Query type
+// swagger:discriminated Query type
 type Query interface {
 	runtime.Validatable
 	runtime.ContextValidatable

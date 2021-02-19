@@ -27,7 +27,7 @@ import (
 
 // Caveat caveat
 //
-// swagger:discriminator Caveat type
+// swagger:discriminated Caveat type
 type Caveat interface {
 	runtime.Validatable
 	runtime.ContextValidatable

@@ -197,8 +197,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + hostURLFlagName, "localhost:8080",
 		"--" + datasourceNameFlagName, "mem://test",
 		"--" + didDomainFlagName, "did",
-		"--" + cshURLFlagName, "localhost:8081",
-		"--" + vaultURLFlagName, "localhost:8081",
+		"--" + cshURLFlagName, "https://localhost:8081",
+		"--" + vaultURLFlagName, "https://localhost:8081",
 	}
 	startCmd.SetArgs(args)
 

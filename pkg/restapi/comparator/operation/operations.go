@@ -7,15 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
+	"time"
 
+	httptransport "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
@@ -26,12 +33,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/square/go-jose/v3"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/edge-core/pkg/zcapld"
 
-	"github.com/trustbloc/edge-service/pkg/client/csh"
+	"github.com/trustbloc/edge-service/pkg/client/csh/client"
+	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
+	"github.com/trustbloc/edge-service/pkg/client/csh/models"
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
-	cshopenapi "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
@@ -48,10 +57,15 @@ const (
 	configKeyDB    = "config"
 	cshConfigKeyDB = "csh_config"
 	storeName      = "comparator"
+	requestTimeout = 5 * time.Second
 )
 
 type cshClient interface {
-	CreateProfile(controller string) (*cshopenapi.Profile, error)
+	PostCompare(params *operations.PostCompareParams,
+		opts ...operations.ClientOption) (*operations.PostCompareOK, error)
+
+	PostHubstoreProfiles(params *operations.PostHubstoreProfilesParams,
+		opts ...operations.ClientOption) (*operations.PostHubstoreProfilesCreated, error)
 }
 
 type vaultClient interface {
@@ -89,9 +103,24 @@ func New(cfg *Config) (*Operation, error) {
 		return nil, err
 	}
 
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: cfg.TLSConfig,
+		},
+	}
+
+	cshURL := strings.Split(cfg.CSHBaseURL, "://")
+
+	transport := httptransport.NewWithClient(
+		cshURL[1],
+		client.DefaultBasePath,
+		[]string{cshURL[0]},
+		httpClient,
+	)
+
 	op := &Operation{
 		vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
-		store: store, cshClient: csh.New(cfg.CSHBaseURL, csh.WithTLSConfig(cfg.TLSConfig)),
+		store: store, cshClient: client.New(transport, strfmt.Default).Operations,
 		vaultClient: vaultclient.New(cfg.VaultBaseURL, vaultclient.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: cfg.TLSConfig,
@@ -217,20 +246,20 @@ func (o *Operation) GetConfig(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (o *Operation) getConfig() (*openapi.Config, error) {
-	bytes, err := o.store.Get(configKeyDB)
+	b, err := o.store.Get(configKeyDB)
 	if err != nil {
 		return nil, err
 	}
 
 	cc := openapi.Config{}
-	if err := json.Unmarshal(bytes, &cc); err != nil {
+	if err := json.Unmarshal(b, &cc); err != nil {
 		return nil, err
 	}
 
 	return &cc, nil
 }
 
-func (o *Operation) createConfig() error {
+func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 	// create did
 	didDoc, keys, err := o.newPublicKeys()
 	if err != nil {
@@ -255,22 +284,38 @@ func (o *Operation) createConfig() error {
 		return fmt.Errorf("failed to create DID : %w", err)
 	}
 
-	configBytes, err := json.Marshal(openapi.Config{Did: &docResolution.DIDDocument.ID, Key: keys})
+	request := &models.Profile{}
+	request.Controller = &docResolution.DIDDocument.ID
+
+	cshProfile, err := o.cshClient.PostHubstoreProfiles(
+		operations.NewPostHubstoreProfilesParams().WithTimeout(requestTimeout).WithRequest(request))
 	if err != nil {
 		return err
 	}
 
-	cshProfile, err := o.cshClient.CreateProfile(docResolution.DIDDocument.ID)
+	// TODO need to find better way to get csh DID
+	cshZCAP, err := parseCompressedZCAP(cshProfile.Payload.Zcap)
+	if err != nil {
+		return fmt.Errorf("failed to parse CHS profile zcap: %w", err)
+	}
+
+	cshConfigBytes, err := cshProfile.Payload.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	cshConfigBytes, err := json.Marshal(cshProfile)
-	if err != nil {
-		return err
+	if errPut := o.store.Put(cshConfigKeyDB, cshConfigBytes); errPut != nil {
+		return errPut
 	}
 
-	if err := o.store.Put(cshConfigKeyDB, cshConfigBytes); err != nil {
+	authKeyURL, ok := cshZCAP.Proof[0]["verificationMethod"].(string)
+	if !ok {
+		return fmt.Errorf("failed to cast verificationMethod from cshZCAP")
+	}
+
+	configBytes, err := json.Marshal(openapi.Config{Did: &docResolution.DIDDocument.ID, Key: keys,
+		AuthKeyURL: authKeyURL})
+	if err != nil {
 		return err
 	}
 
@@ -347,4 +392,39 @@ func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ..
 	if err != nil {
 		logger.Errorf("failed to write error response: %s", err.Error())
 	}
+}
+
+func parseCompressedZCAP(compressed string) (*zcapld.Capability, error) {
+	uncompressed, err := base64URLDecodeThenGunzip(compressed)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress zcap: %w", err)
+	}
+
+	zcap, err := zcapld.ParseCapability(uncompressed)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse zcap: %w", err)
+	}
+
+	return zcap, nil
+}
+
+func base64URLDecodeThenGunzip(encoded string) ([]byte, error) {
+	compressed, err := base64.URLEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("failed to base64url-decode string: %w", err)
+	}
+
+	r, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open a new gzip reader: %w", err)
+	}
+
+	inflated := bytes.NewBuffer(nil)
+
+	_, err = inflated.ReadFrom(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to gunzip string: %w", err)
+	}
+
+	return inflated.Bytes(), nil
 }

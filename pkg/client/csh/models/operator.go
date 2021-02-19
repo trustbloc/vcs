@@ -27,7 +27,7 @@ import (
 
 // Operator operator
 //
-// swagger:discriminator Operator type
+// swagger:discriminated Operator type
 type Operator interface {
 	runtime.Validatable
 	runtime.ContextValidatable

@@ -12,11 +12,8 @@ require (
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cucumber/godog v0.8.1
 	github.com/fsouza/go-dockerclient v1.6.0
-	github.com/go-openapi/errors v0.20.0
 	github.com/go-openapi/runtime v0.19.26
 	github.com/go-openapi/strfmt v0.20.0
-	github.com/go-openapi/swag v0.19.14
-	github.com/go-openapi/validate v0.20.2
 	github.com/google/uuid v1.1.2
 	github.com/hyperledger/aries-framework-go v0.1.6-0.20210212132055-b94cce120dda
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210121210840-ee9984a4579c
