@@ -244,11 +244,11 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
 		VerificationMethod: didURL,
-	}, zcapld.WithParent(kmsCapability.ID), zcapld.WithInvoker(requestingPartyDidURL),
+	}, zcapld.WithParent(c.buildKMSURL(kmsCapability.ID)), zcapld.WithInvoker(requestingPartyDidURL),
 		zcapld.WithAllowedActions("unwrap"),
-		zcapld.WithInvocationTarget(kmsCapability.InvocationTarget.ID, kmsCapability.InvocationTarget.Type),
+		zcapld.WithInvocationTarget(c.buildKMSURL(kmsCapability.InvocationTarget.ID), kmsCapability.InvocationTarget.Type),
 		zcapld.WithCaveats(toZCaveats(scope.Caveats)...),
-		zcapld.WithCapabilityChain(kmsCapability.ID))
+		zcapld.WithCapabilityChain(c.buildKMSURL(kmsCapability.ID)))
 	if err != nil {
 		return nil, fmt.Errorf("kms new capability: %w", err)
 	}
@@ -468,13 +468,13 @@ func (c *Client) getVaultInfo(id string) (*vaultInfo, error) {
 
 func (c *Client) webKMS(controller string, auth *Location) *webkms.RemoteKMS {
 	return webkms.New(
-		c.buildMKSURL(auth.URI),
+		c.buildKMSURL(auth.URI),
 		c.httpClient,
 		webkms.WithHeaders(c.kmsSign(controller, auth)),
 	)
 }
 
-func (c *Client) buildMKSURL(uri string) string {
+func (c *Client) buildKMSURL(uri string) string {
 	if strings.HasPrefix(uri, "/") {
 		return c.remoteKMSURL + uri
 	}
@@ -484,7 +484,7 @@ func (c *Client) buildMKSURL(uri string) string {
 
 func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteCrypto {
 	return webcrypto.New(
-		c.buildMKSURL(auth.URI),
+		c.buildKMSURL(auth.URI),
 		c.httpClient,
 		webkms.WithHeaders(c.kmsSign(controller, auth)),
 	)
