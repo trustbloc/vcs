@@ -13,19 +13,19 @@ import (
 	"strings"
 
 	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
-	"github.com/trustbloc/edge-service/pkg/client/csh/models"
-	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
+	cshclientmodels "github.com/trustbloc/edge-service/pkg/client/csh/models"
+	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
 )
 
 // HandleEqOp handles a ComparisonRequest using the EqOp operator.
-func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) { //nolint: funlen
+func (o *Operation) HandleEqOp(w http.ResponseWriter, op *models.EqOp) { //nolint: funlen
 	queries := make([]models.Query, 0)
 
 	for i := range op.Args() {
 		query := op.Args()[i]
 
 		switch q := query.(type) {
-		case *openapi.DocQuery:
+		case *models.DocQuery:
 			docMeta, err := o.vaultClient.GetDocMetaData(*q.VaultID, *q.DocID)
 			if err != nil {
 				respondErrorf(w, http.StatusInternalServerError, "failed to get doc meta: %s", err.Error())
@@ -52,13 +52,13 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) { //noli
 				return
 			}
 
-			queries = append(queries, &models.DocQuery{VaultID: &vaultID, DocID: &docID,
-				UpstreamAuth: &models.DocQueryAO1UpstreamAuth{
-					Edv: &models.UpstreamAuthorization{
+			queries = append(queries, &cshclientmodels.DocQuery{VaultID: &vaultID, DocID: &docID,
+				UpstreamAuth: &cshclientmodels.DocQueryAO1UpstreamAuth{
+					Edv: &cshclientmodels.UpstreamAuthorization{
 						BaseURL: fmt.Sprintf("%s://%s/%s", edvURL.Scheme, edvURL.Host, parts[3]),
 						Zcap:    q.AuthTokens.Edv,
 					},
-					Kms: &models.UpstreamAuthorization{
+					Kms: &cshclientmodels.UpstreamAuthorization{
 						BaseURL: fmt.Sprintf("%s://%s", kmsURL.Scheme, kmsURL.Host),
 						Zcap:    q.AuthTokens.Kms,
 					},
@@ -66,7 +66,7 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) { //noli
 
 			// TODO get query id for orgCompQueryZCAP
 
-		case *openapi.AuthorizedQuery:
+		case *models.AuthorizedQuery:
 			respondErrorf(w, http.StatusNotImplemented, "'RefQuery' not yet implemented by 'EqOp'")
 
 			return
@@ -76,7 +76,7 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) { //noli
 	cshOP := &models.EqOp{}
 	cshOP.SetArgs(queries)
 
-	request := &models.ComparisonRequest{}
+	request := &cshclientmodels.ComparisonRequest{}
 	request.SetOp(cshOP)
 
 	response, err := o.cshClient.PostCompare(
@@ -94,5 +94,5 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) { //noli
 		"Content-Type": "application/json",
 	}
 
-	respond(w, http.StatusOK, headers, openapi.ComparisonResult{Result: response.Payload.Result})
+	respond(w, http.StatusOK, headers, models.ComparisonResult{Result: response.Payload.Result})
 }

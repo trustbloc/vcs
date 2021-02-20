@@ -37,10 +37,10 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/client/csh/client"
 	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
-	"github.com/trustbloc/edge-service/pkg/client/csh/models"
+	cshclientmodels "github.com/trustbloc/edge-service/pkg/client/csh/models"
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
+	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
@@ -153,7 +153,7 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 		support.NewHTTPHandler(createAuthzPath, http.MethodPost, o.CreateAuthorization),
 		support.NewHTTPHandler(comparePath, http.MethodPost, o.Compare),
 		support.NewHTTPHandler(extractPath, http.MethodPost, o.Extract),
-		support.NewHTTPHandler(getConfigPath, http.MethodPost, o.GetConfig),
+		support.NewHTTPHandler(getConfigPath, http.MethodGet, o.GetConfig),
 	}
 }
 
@@ -174,7 +174,7 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 	authToken := "fakeZCAP"
 
 	w.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(w, openapi.Authorization{ID: "fakeID", RequestingParty: &rp, AuthToken: &authToken})
+	commhttp.WriteResponse(w, models.Authorization{ID: "fakeID", RequestingParty: &rp, AuthToken: &authToken})
 }
 
 // Compare swagger:route POST /compare compareReq
@@ -189,7 +189,7 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 //   200: comparisonResp
 //   500: Error
 func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
-	request := &openapi.Comparison{}
+	request := &models.Comparison{}
 
 	err := json.NewDecoder(r.Body).Decode(request)
 	if err != nil {
@@ -199,7 +199,7 @@ func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch t := request.Op().(type) {
-	case *openapi.EqOp:
+	case *models.EqOp:
 		o.HandleEqOp(w, t)
 	default:
 		respondErrorf(w, http.StatusNotImplemented, "operator not yet implemented: %s", request.Op().Type())
@@ -242,16 +242,20 @@ func (o *Operation) GetConfig(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	respond(w, http.StatusOK, nil, cc)
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	respond(w, http.StatusOK, headers, cc)
 }
 
-func (o *Operation) getConfig() (*openapi.Config, error) {
+func (o *Operation) getConfig() (*models.Config, error) {
 	b, err := o.store.Get(configKeyDB)
 	if err != nil {
 		return nil, err
 	}
 
-	cc := openapi.Config{}
+	cc := models.Config{}
 	if err := json.Unmarshal(b, &cc); err != nil {
 		return nil, err
 	}
@@ -284,7 +288,7 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 		return fmt.Errorf("failed to create DID : %w", err)
 	}
 
-	request := &models.Profile{}
+	request := &cshclientmodels.Profile{}
 	request.Controller = &docResolution.DIDDocument.ID
 
 	cshProfile, err := o.cshClient.PostHubstoreProfiles(
@@ -313,7 +317,7 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 		return fmt.Errorf("failed to cast verificationMethod from cshZCAP")
 	}
 
-	configBytes, err := json.Marshal(openapi.Config{Did: &docResolution.DIDDocument.ID, Key: keys,
+	configBytes, err := json.Marshal(models.Config{Did: &docResolution.DIDDocument.ID, Key: keys,
 		AuthKeyURL: authKeyURL})
 	if err != nil {
 		return err
@@ -368,11 +372,11 @@ func (o *Operation) newKey() (crypto.PublicKey, error) {
 }
 
 func respond(w http.ResponseWriter, statusCode int, headers map[string]string, payload interface{}) {
-	w.WriteHeader(statusCode)
-
 	for k, v := range headers {
 		w.Header().Add(k, v)
 	}
+
+	w.WriteHeader(statusCode)
 
 	err := json.NewEncoder(w).Encode(payload)
 	if err != nil {
