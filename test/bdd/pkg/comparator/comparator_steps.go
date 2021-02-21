@@ -11,26 +11,31 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
+	httptransport "github.com/go-openapi/runtime/client"
+	"github.com/go-openapi/strfmt"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 
-	"github.com/trustbloc/edge-service/pkg/client/comparator"
+	"github.com/trustbloc/edge-service/pkg/client/comparator/client"
+	"github.com/trustbloc/edge-service/pkg/client/comparator/client/operations"
+	"github.com/trustbloc/edge-service/pkg/client/comparator/models"
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
-	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
 
 const (
-	comparatorURL = "https://localhost:8065"
-	vaultURL      = "https://localhost:9099"
+	comparatorURL  = "localhost:8065"
+	vaultURL       = "https://localhost:9099"
+	requestTimeout = 5 * time.Second
 )
 
 // Steps is steps for BDD tests
 type Steps struct {
 	bddContext *context.BDDContext
-	client     *comparator.Client
+	client     *client.Comparator
 	cshDID     string
 	edvToken   string
 	kmsToken   string
@@ -38,7 +43,20 @@ type Steps struct {
 
 // NewSteps returns new steps
 func NewSteps(ctx *context.BDDContext) *Steps {
-	return &Steps{bddContext: ctx, client: comparator.New(comparatorURL, comparator.WithTLSConfig(ctx.TLSConfig))}
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: ctx.TLSConfig,
+		},
+	}
+
+	transport := httptransport.NewWithClient(
+		comparatorURL,
+		client.DefaultBasePath,
+		[]string{"https"},
+		httpClient,
+	)
+
+	return &Steps{bddContext: ctx, client: client.New(transport, strfmt.Default)}
 }
 
 // RegisterSteps registers agent steps
@@ -49,27 +67,28 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) compare(doc1, doc2 string) error {
-	eq := &openapi.EqOp{}
-	query := make([]openapi.Query, 0)
+	eq := &models.EqOp{}
+	query := make([]models.Query, 0)
 
 	vaultID := e.bddContext.VaultID
 
-	query = append(query, &openapi.DocQuery{DocID: &doc1, VaultID: &vaultID,
-		AuthTokens: &openapi.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}},
-		&openapi.DocQuery{DocID: &doc2, VaultID: &vaultID,
-			AuthTokens: &openapi.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}})
+	query = append(query, &models.DocQuery{DocID: &doc1, VaultID: &vaultID,
+		AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}},
+		&models.DocQuery{DocID: &doc2, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}})
 
 	eq.SetArgs(query)
 
-	cr := openapi.Comparison{}
+	cr := models.Comparison{}
 	cr.SetOp(eq)
 
-	r, err := e.client.Compare(cr)
+	r, err := e.client.Operations.PostCompare(operations.NewPostCompareParams().
+		WithTimeout(requestTimeout).WithComparison(&cr))
 	if err != nil {
 		return err
 	}
 
-	if !r {
+	if !r.Payload.Result {
 		return fmt.Errorf("compare result not true")
 	}
 
@@ -109,16 +128,17 @@ func (e *Steps) createAuthorization(duration string) error {
 }
 
 func (e *Steps) checkConfig() error {
-	cc, err := e.client.GetConfig()
+	cc, err := e.client.Operations.GetConfig(operations.NewGetConfigParams().
+		WithTimeout(requestTimeout))
 	if err != nil {
 		return err
 	}
 
-	if *cc.Did == "" {
+	if *cc.Payload.Did == "" {
 		return fmt.Errorf("comparator config DID is empty")
 	}
 
-	e.cshDID = strings.Split(cc.AuthKeyURL, "#")[0]
+	e.cshDID = strings.Split(cc.Payload.AuthKeyURL, "#")[0]
 
 	return nil
 }

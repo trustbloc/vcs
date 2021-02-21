@@ -34,9 +34,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 
-	"github.com/trustbloc/edge-service/pkg/client/csh/models"
+	cshclientmodels "github.com/trustbloc/edge-service/pkg/client/csh/models"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/openapi"
+	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
@@ -47,7 +47,7 @@ func Test_New(t *testing.T) {
 			w.WriteHeader(http.StatusCreated)
 			chs := newAgent(t)
 			chsZCAP := newZCAP(t, chs, chs)
-			p := models.Profile{Zcap: compress(t, marshal(t, chsZCAP))}
+			p := cshclientmodels.Profile{Zcap: compress(t, marshal(t, chsZCAP))}
 			b, err := p.MarshalBinary()
 			require.NoError(t, err)
 
@@ -156,12 +156,12 @@ func TestOperation_Compare(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
-		cr := &openapi.Comparison{}
-		eq := &openapi.EqOp{}
-		query := make([]openapi.Query, 0)
+		cr := &models.Comparison{}
+		eq := &models.EqOp{}
+		query := make([]models.Query, 0)
 		docID := "docID1"
 		vaultID := "vaultID1"
-		query = append(query, &openapi.DocQuery{DocID: &docID, VaultID: &vaultID})
+		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
 		op.Compare(result, newReq(t,
@@ -198,13 +198,13 @@ func TestOperation_Compare(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
-		cr := &openapi.Comparison{}
-		eq := &openapi.EqOp{}
-		query := make([]openapi.Query, 0)
+		cr := &models.Comparison{}
+		eq := &models.EqOp{}
+		query := make([]models.Query, 0)
 		docID := "docID2"
 		vaultID := "vaultID2"
-		query = append(query, &openapi.DocQuery{DocID: &docID, VaultID: &vaultID,
-			AuthTokens: &openapi.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}})
+		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
 		op.Compare(result, newReq(t,
@@ -232,7 +232,7 @@ func TestOperation_Compare(t *testing.T) {
 		cshServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			p := models.Comparison{Result: true}
+			p := cshclientmodels.Comparison{Result: true}
 			b, err := p.MarshalBinary()
 			require.NoError(t, err)
 
@@ -248,13 +248,13 @@ func TestOperation_Compare(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
-		cr := &openapi.Comparison{}
-		eq := &openapi.EqOp{}
-		query := make([]openapi.Query, 0)
+		cr := &models.Comparison{}
+		eq := &models.EqOp{}
+		query := make([]models.Query, 0)
 		docID := "docID3"
 		vaultID := "vaultID3"
-		query = append(query, &openapi.DocQuery{DocID: &docID, VaultID: &vaultID,
-			AuthTokens: &openapi.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}})
+		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
 		op.Compare(result, newReq(t,

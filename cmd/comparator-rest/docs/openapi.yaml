@@ -30,8 +30,6 @@ paths:
 
         Authorization to read the document is obtained at the Vault Server and pre-configured in the remote
         Confidential Storage Hub, to be referenced during the actual comparison operation.
-      tags:
-        - required
       consumes:
         - application/json
       produces:
@@ -71,6 +69,10 @@ paths:
               ]
             }
           }
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
   /compare:
     post:
       description: |
@@ -80,8 +82,6 @@ paths:
         The comparison's operator's type determines the type of comparison to be performed.
 
         The result is always a boolean value.
-      tags:
-        - required
       consumes:
         - application/json
       produces:
@@ -102,13 +102,15 @@ paths:
               "result": true
             }
           }
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
   /extract:
     post:
       description: |
         Extract the contents of one or more documents using the authorization tokens provided. The tokens originate
         from authorizations granted at other Comparators.
-      tags:
-        - required
       consumes:
         - application/json
       produces:
@@ -136,6 +138,10 @@ paths:
                 type: array
                 items:
                   type: object
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
   /config:
     get:
       description: |
@@ -143,8 +149,6 @@ paths:
 
         This configuration may be used for instance to configure a profile in the VC HTTP API for issuance of
         Verifiable Credentials using the same DID and keys.
-      tags:
-        - required
       produces:
         - application/json
       responses:
@@ -170,6 +174,10 @@ paths:
               }
             }
           }
+        500:
+          description: Generic Error
+          schema:
+            $ref: "#/definitions/Error"
 definitions:
   Authorization:
     description: |
@@ -379,3 +387,8 @@ definitions:
       key:
         type: object
         description: A JWK Set containing the primary public/private key pair.
+  Error:
+    type: object
+    properties:
+      errMessage:
+        type: string

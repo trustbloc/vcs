@@ -177,6 +177,15 @@ generate-openapi-spec-comparator: clean
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
 
+
+.PHONY: generate-models-client-comparator
+generate-models-client-comparator:
+	@echo "Generating comparator models and client"
+	@MODELS_PATH=pkg/restapi/comparator/operation CLIENT_PATH=pkg/client/comparator SPEC_LOC=${COMPARATOR_REST_PATH}/docs/openapi.yaml  \
+	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
+	scripts/generate-models-client.sh
+
+
 .PHONY: generate-openapi-demo-specs
 generate-openapi-demo-specs: clean generate-openapi-spec vc-server-docker did-resolver-docker
 	@echo "Generate demo agent rest controller API specifications using Open API"
