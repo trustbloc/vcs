@@ -16,6 +16,7 @@ Feature: Comparator_REST API
   @comparator_e2e
   Scenario: Comparator
     Then Check comparator config is created
+    Then Create Authorization
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR2"
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR3"
