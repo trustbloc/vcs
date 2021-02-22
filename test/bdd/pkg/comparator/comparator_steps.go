@@ -61,9 +61,24 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
+	s.Step(`^Create Authorization`, e.createAuthorization)
 	s.Step(`^Check comparator config is created`, e.checkConfig)
 	s.Step(`^Compare two docs with doc1 id "([^"]*)" and doc2 id "([^"]*)"$`, e.compare)
-	s.Step(`^Create a new authorization with duration "([^"]*)"$`, e.createAuthorization)
+	s.Step(`^Create a new authorization with duration "([^"]*)"$`, e.createVaultAuthorization)
+}
+
+func (e *Steps) createAuthorization() error {
+	r, err := e.client.Operations.PostAuthorizations(operations.NewPostAuthorizationsParams().
+		WithTimeout(requestTimeout).WithAuthorization(&models.Authorization{}))
+	if err != nil {
+		return err
+	}
+
+	if *r.Payload.AuthToken != "fakeZCAP" {
+		return fmt.Errorf("authorization return wrong auth token")
+	}
+
+	return nil
 }
 
 func (e *Steps) compare(doc1, doc2 string) error {
@@ -95,7 +110,7 @@ func (e *Steps) compare(doc1, doc2 string) error {
 	return nil
 }
 
-func (e *Steps) createAuthorization(duration string) error {
+func (e *Steps) createVaultAuthorization(duration string) error {
 	sec, err := strconv.Atoi(duration)
 	if err != nil {
 		return err

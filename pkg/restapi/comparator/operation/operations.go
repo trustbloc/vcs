@@ -41,7 +41,6 @@ import (
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
-	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
@@ -173,8 +172,11 @@ func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) 
 	rp := "fakeRP"
 	authToken := "fakeZCAP"
 
-	w.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(w, models.Authorization{ID: "fakeID", RequestingParty: &rp, AuthToken: &authToken})
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	respond(w, http.StatusOK, headers, models.Authorization{ID: "fakeID", RequestingParty: &rp, AuthToken: &authToken})
 }
 
 // Compare swagger:route POST /compare compareReq

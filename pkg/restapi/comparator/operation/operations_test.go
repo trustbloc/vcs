@@ -119,7 +119,7 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
 		op.CreateAuthorization(result, nil)
-		require.Equal(t, http.StatusCreated, result.Code)
+		require.Equal(t, http.StatusOK, result.Code)
 		require.Contains(t, result.Body.String(), "fakeZCAP")
 	})
 }
