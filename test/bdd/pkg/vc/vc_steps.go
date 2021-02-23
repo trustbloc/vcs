@@ -105,7 +105,7 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 	}
 
 	// create verifiable presentation from vc
-	vp, err := vc.Presentation()
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	if err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func (e *Steps) createCredential(credential, profileName string) error {
 		return fmt.Errorf("unable to find credential '%s' request template", credential)
 	}
 
-	cred, err := verifiable.ParseUnverifiedCredential(template)
+	cred, err := verifiable.ParseCredential(template, verifiable.WithDisabledProofCheck())
 	if err != nil {
 		return err
 	}
@@ -579,7 +579,7 @@ func (e *Steps) revokePresentationCred(user string) error {
 
 	vpBytes := e.bddContext.Args[user]
 
-	vp, err := verifiable.ParseUnverifiedPresentation([]byte(vpBytes))
+	vp, err := verifiable.ParsePresentation([]byte(vpBytes), verifiable.WithPresDisabledProofCheck())
 	if err != nil {
 		return err
 	}
@@ -1101,12 +1101,12 @@ func (e *Steps) createBasicVerifierProfile(profileID string) error {
 func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) error {
 	cred := e.bddContext.Args[bddutil.GetCredentialKey(holder)]
 
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(cred))
+	vc, err := verifiable.ParseCredential([]byte(cred), verifiable.WithDisabledProofCheck())
 	if err != nil {
 		return err
 	}
 
-	pres, err := vc.Presentation()
+	pres, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	if err != nil {
 		return err
 	}

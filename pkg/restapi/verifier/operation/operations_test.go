@@ -315,7 +315,7 @@ func TestDeleteProfileHandler(t *testing.T) {
 }
 
 func TestVerifyCredential(t *testing.T) {
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(prCardVC))
+	vc, err := verifiable.ParseCredential([]byte(prCardVC), verifiable.WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	op, err := New(&Config{
@@ -1031,7 +1031,7 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationResp := &VerifyPresentationFailureResponse{}
 		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(verificationResp.Checks))
+		require.Greater(t, len(verificationResp.Checks), 0)
 		require.Equal(t, proofCheck, verificationResp.Checks[0].Check)
 		require.Contains(t, verificationResp.Checks[0].Error, "verifiable presentation proof validation error")
 	})
@@ -1483,7 +1483,7 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod, domain, challenge string) []byte {
-	vc, err := verifiable.ParseUnverifiedCredential([]byte(vcJSON))
+	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	vc.Issuer.ID = didID
@@ -1517,13 +1517,13 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod
 func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerificationMethod, issuerDID, vcVerificationMethod, domain, challenge string) []byte { // nolint
 	signedVC := getSignedVC(t, privKey, vcJSON, issuerDID, vcVerificationMethod, "", "")
 
-	vc, err := verifiable.ParseUnverifiedCredential(signedVC)
+	vc, err := verifiable.ParseCredential(signedVC, verifiable.WithDisabledProofCheck())
 	require.NoError(t, err)
 
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
 	require.NoError(t, err)
 
-	vp, err := vc.Presentation()
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	require.NoError(t, err)
 
 	vp.Holder = holderDID

@@ -488,7 +488,7 @@ func (e *Steps) createPresentation(user, cred, domain, challenge string) ([]byte
 	}
 
 	// create verifiable presentation from vc
-	vp, err := vc.Presentation()
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	if err != nil {
 		return nil, err
 	}
