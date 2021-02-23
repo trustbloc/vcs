@@ -207,7 +207,6 @@ definitions:
     required:
       - scope
       - requestingParty
-      - authToken
     properties:
       id:
         type: string
@@ -227,6 +226,7 @@ definitions:
     required:
       - docID
       - actions
+      - authTokens
     properties:
       vaultID:
         description: the Vault Server ID (DID)
@@ -234,6 +234,13 @@ definitions:
       docID:
         description: an identifier for a document stored in the Vault Server.
         type: string
+      authTokens:
+        type: object
+        properties:
+          edv:
+            type: string
+          kms:
+            type: string
       actions:
         type: array
         items:
