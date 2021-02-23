@@ -22,9 +22,11 @@ import (
 )
 
 const (
-	cshHost    = "localhost:8095"
-	kmsBaseURL = "https://localhost:8077"
-	edvBaseURL = "http://localhost:8071/encrypted-data-vaults"
+	cshHost           = "localhost:8095"
+	kmsBaseURL        = "https://localhost:8077"
+	kmsNetworkBaseURL = "https://kms.example.com:8077"
+	edvBaseURL        = "http://localhost:8071/encrypted-data-vaults"
+	edvNetworkBaseURL = "http://edv.rest.example.com:8071/encrypted-data-vaults"
 )
 
 // NewSteps returns BDD test steps for the confidential storage hub.
@@ -32,6 +34,7 @@ func NewSteps(ctx *bddctx.BDDContext) *Steps {
 	return &Steps{
 		ctx:  ctx,
 		docs: make([]*docCoords, 0),
+		refs: make([]string, 0),
 	}
 }
 
@@ -47,6 +50,7 @@ type Steps struct {
 	ctx              *bddctx.BDDContext
 	user             *user
 	docs             []*docCoords
+	refs             []string
 	comparisonResult bool
 }
 
@@ -56,6 +60,7 @@ func (s *Steps) RegisterSteps(gs *godog.Suite) {
 	gs.Step("^the confidential-storage-hub profile is created$", s.userProfileIsCreated)
 	gs.Step(`^the user has a profile$`, s.userHasProfile)
 	gs.Step(`^the user saves a Confidential Storage document with content "([^"]*)"$`, s.userSavesDocument)
+	gs.Step(`^the user creates a RefQuery for one document$`, s.userCreatesRefQuery)
 	gs.Step(`^the user authorizes the CSH to read the documents$`, s.userAuthorizesCSHToReadDocuments)
 	gs.Step(`^the user requests a comparison between the two documents$`, s.userRequestsComparison)
 	gs.Step(`^the result is "([^"]*)"$`, s.confirmComparisonResult)
@@ -75,6 +80,7 @@ func (s *Steps) userCreatesProfile() error {
 	}
 
 	s.docs = make([]*docCoords, 0)
+	s.refs = make([]string, 0)
 
 	return nil
 }
@@ -142,6 +148,37 @@ func (s *Steps) userSavesDocument(contents string) error {
 	return nil
 }
 
+func (s *Steps) userCreatesRefQuery() error {
+	if len(s.docs) == 0 {
+		return errors.New("BDD test steps error: user has not saved any docs yet")
+	}
+
+	doc := s.docs[len(s.docs)-1]
+	s.docs = s.docs[:len(s.docs)-1]
+
+	ref, err := s.user.createRef(&models.DocQuery{
+		VaultID: &doc.vaultID,
+		DocID:   &doc.docID,
+		UpstreamAuth: &models.DocQueryAO1UpstreamAuth{
+			Edv: &models.UpstreamAuthorization{
+				BaseURL: edvNetworkBaseURL,
+				Zcap:    doc.edvZCAP,
+			},
+			Kms: &models.UpstreamAuthorization{
+				BaseURL: kmsNetworkBaseURL,
+				Zcap:    doc.kmsZCAP,
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("user failed to create ref: %w", err)
+	}
+
+	s.refs = append(s.refs, ref)
+
+	return nil
+}
+
 func (s *Steps) userAuthorizesCSHToReadDocuments() error {
 	chsZCAP, err := parseCompressedZCAP(s.user.profile.Zcap)
 	if err != nil {
@@ -161,7 +198,7 @@ func (s *Steps) userAuthorizesCSHToReadDocuments() error {
 }
 
 func (s *Steps) userRequestsComparison() error {
-	queries := make([]models.Query, len(s.docs))
+	queries := make([]models.Query, len(s.docs)+len(s.refs))
 
 	for i := range s.docs {
 		queries[i] = &models.DocQuery{
@@ -169,14 +206,21 @@ func (s *Steps) userRequestsComparison() error {
 			DocID:   &s.docs[i].docID,
 			UpstreamAuth: &models.DocQueryAO1UpstreamAuth{
 				Edv: &models.UpstreamAuthorization{
-					BaseURL: "http://edv.rest.example.com:8071/encrypted-data-vaults",
+					BaseURL: edvNetworkBaseURL,
 					Zcap:    s.docs[i].edvZCAP,
 				},
 				Kms: &models.UpstreamAuthorization{
-					BaseURL: "https://kms.example.com:8077",
+					BaseURL: kmsNetworkBaseURL,
 					Zcap:    s.docs[i].kmsZCAP,
 				},
 			},
+		}
+	}
+
+	for i := range s.refs {
+		idx := i + len(s.docs)
+		queries[idx] = &models.RefQuery{
+			Ref: &s.refs[i],
 		}
 	}
 

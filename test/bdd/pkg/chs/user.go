@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -95,7 +97,7 @@ type user struct {
 	edvClient        *edv.Client
 }
 
-func (u *user) initKeystore(url string, httpClient webkms.HTTPClient) error {
+func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error {
 	var err error
 
 	u.localkms, err = localkms.New(
@@ -121,7 +123,7 @@ func (u *user) initKeystore(url string, httpClient webkms.HTTPClient) error {
 
 	u.controller = didKeyURL(u.signer.PublicKeyBytes())
 
-	u.keystoreURL, u.keystoreRootZCAP, err = webkms.CreateKeyStore(httpClient, url, u.controller, "")
+	u.keystoreURL, u.keystoreRootZCAP, err = webkms.CreateKeyStore(httpClient, baseURL, u.controller, "")
 	if err != nil {
 		return fmt.Errorf("failed to create remote keystore: %w", err)
 	}
@@ -155,7 +157,7 @@ func (u *user) initKeystore(url string, httpClient webkms.HTTPClient) error {
 	return nil
 }
 
-func (u *user) initConfidentialStorage(url string, httpClient edv.HTTPClient) error {
+func (u *user) initConfidentialStorage(baseURL string, httpClient edv.HTTPClient) error {
 	var (
 		err         error
 		zcapBytes   []byte
@@ -163,7 +165,7 @@ func (u *user) initConfidentialStorage(url string, httpClient edv.HTTPClient) er
 	)
 
 	tmp := edv.New(
-		url,
+		baseURL,
 		edv.WithHTTPClient(httpClient),
 	)
 
@@ -186,7 +188,7 @@ func (u *user) initConfidentialStorage(url string, httpClient edv.HTTPClient) er
 	}
 
 	u.edvClient = edv.New(
-		url,
+		baseURL,
 		edv.WithHTTPClient(httpClient),
 		edv.WithHeaders(zcapld2.NewHTTPSigner(
 			u.controller,
@@ -366,6 +368,28 @@ func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nol
 	}
 
 	return compressedEdvZCAP, compressedKMSZcap, nil
+}
+
+// nolint:interfacer // only support doc queries for now
+func (u *user) createRef(docQuery *models.DocQuery) (string, error) {
+	response, err := u.cshClient.Operations.PostHubstoreProfilesProfileIDQueries(
+		operations.NewPostHubstoreProfilesProfileIDQueriesParams().
+			WithTimeout(requestTimeout).
+			WithProfileID(u.profile.ID).
+			WithRequest(docQuery),
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create ref: %w", err)
+	}
+
+	location, err := url.Parse(response.Location)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse response location [%s]: %w", response.Location, err)
+	}
+
+	_, ref := filepath.Split(location.Path)
+
+	return ref, nil
 }
 
 func (u *user) compare(queries ...models.Query) (bool, error) {

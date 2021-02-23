@@ -43,6 +43,10 @@ const (
 	hostURLFlagUsage     = "Host URL to run the confidential storage hub instance on. Format: HostName:Port."
 	hostURLEnvKey        = "CHS_HOST_URL"
 
+	baseURLFlagName  = "base-url"
+	baseURLEnvKey    = "BASE_URL"
+	baseURLFlagUsage = "Optional. Base URL on which the CSH service is exposed to clients. Defaults to `host-url`."
+
 	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
 	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
 		" Possible values [true] [false]. Defaults to false if not set." +
@@ -69,6 +73,7 @@ var logger = log.New("confidential-storage-hub/start")
 
 type serviceParameters struct {
 	host      string
+	baseURL   string
 	tlsParams *tlsParameters
 	dbParams  *common.DBParameters
 }
@@ -126,6 +131,11 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	baseURL, err := cmdutils.GetUserSetVarFromString(cmd, baseURLFlagName, baseURLEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	tlsParams, err := getTLS(cmd)
 	if err != nil {
 		return nil, err
@@ -140,12 +150,14 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		host:      host,
 		tlsParams: tlsParams,
 		dbParams:  dbParams,
+		baseURL:   baseURL,
 	}, err
 }
 
 func createFlags(cmd *cobra.Command) {
 	common.Flags(cmd)
 	cmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
+	cmd.Flags().StringP(baseURLFlagName, "", "", baseURLFlagUsage)
 	cmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	cmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	cmd.Flags().StringP(tlsServeCertPathFlagName, "", "", tlsServeCertPathFlagUsage)
@@ -207,6 +219,11 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		return fmt.Errorf("failed to get tls cert pool: %w", err)
 	}
 
+	baseURL := params.baseURL
+	if baseURL == "" {
+		baseURL = params.host
+	}
+
 	service, err := csh.New(&operation.Config{
 		StoreProvider: edgeStorage,
 		Aries:         ariesConfig,
@@ -217,6 +234,7 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 				MinVersion: tls.VersionTLS12,
 			},
 		}},
+		BaseURL: baseURL,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize confidential storage hub operations: %w", err)

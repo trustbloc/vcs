@@ -63,6 +63,10 @@ paths:
             Location:
               description: Location of the query resource.
               type: string
+        400:
+          description: Bad request.
+          schema:
+            $ref: "#/definitions/Error"
         500:
           description: Generic Error
           schema:

@@ -449,7 +449,7 @@ func newDocQuery(t *testing.T) *openapi.DocQuery {
 	return query
 }
 
-func docQuery(edvAuth, kmsAuth *openapi.UpstreamAuthorization) *openapi.DocQuery { // nolint:unparam
+func docQuery(edvAuth, kmsAuth *openapi.UpstreamAuthorization) *openapi.DocQuery {
 	docID := uuid.New().String()
 	vaultID := uuid.New().String()
 
@@ -465,9 +465,7 @@ func docQuery(edvAuth, kmsAuth *openapi.UpstreamAuthorization) *openapi.DocQuery
 	return query
 }
 
-func newRefQuery() *openapi.RefQuery {
-	ref := uuid.New().String()
-
+func refQuery(ref string) *openapi.RefQuery {
 	return &openapi.RefQuery{
 		Ref: &ref,
 	}
