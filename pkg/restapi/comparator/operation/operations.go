@@ -389,6 +389,8 @@ func respond(w http.ResponseWriter, statusCode int, headers map[string]string, p
 func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 
+	w.Header().Add("Content-Type", "application/json")
+
 	logger.Errorf(msg)
 	w.WriteHeader(statusCode)
 
