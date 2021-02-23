@@ -65,6 +65,9 @@ type cshClient interface {
 
 	PostHubstoreProfiles(params *operations.PostHubstoreProfilesParams,
 		opts ...operations.ClientOption) (*operations.PostHubstoreProfilesCreated, error)
+
+	PostHubstoreProfilesProfileIDQueries(params *operations.PostHubstoreProfilesProfileIDQueriesParams,
+		opts ...operations.ClientOption) (*operations.PostHubstoreProfilesProfileIDQueriesCreated, error)
 }
 
 type vaultClient interface {
@@ -75,13 +78,15 @@ var logger = log.New("comparator-ops")
 
 // Operation defines handlers for comparator service.
 type Operation struct {
-	vdr         vdr.Registry
-	keyManager  kms.KeyManager
-	tlsConfig   *tls.Config
-	didMethod   string
-	store       storage.Store
-	cshClient   cshClient
-	vaultClient vaultClient
+	vdr              vdr.Registry
+	keyManager       kms.KeyManager
+	tlsConfig        *tls.Config
+	didMethod        string
+	store            storage.Store
+	cshClient        cshClient
+	vaultClient      vaultClient
+	cshProfile       *cshclientmodels.Profile
+	comparatorConfig *models.Config
 }
 
 // Config defines configuration for comparator operations.
@@ -127,10 +132,14 @@ func New(cfg *Config) (*Operation, error) {
 		})),
 	}
 
-	if _, err := op.getConfig(); err != nil {
+	if _, err := op.getConfig(); err != nil { //nolint: nestif
 		if errors.Is(err, storage.ErrDataNotFound) {
 			if errCreate := op.createConfig(); errCreate != nil {
 				return nil, errCreate
+			}
+
+			if errSet := op.setConfigs(); errSet != nil {
+				return nil, errSet
 			}
 
 			logger.Infof("comparator config is created")
@@ -138,6 +147,10 @@ func New(cfg *Config) (*Operation, error) {
 			return op, nil
 		}
 
+		return nil, err
+	}
+
+	if err := op.setConfigs(); err != nil {
 		return nil, err
 	}
 
@@ -168,15 +181,17 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 //   201: createAuthorizationResp
 //   403: Error
 //   500: Error
-func (o *Operation) CreateAuthorization(w http.ResponseWriter, _ *http.Request) {
-	rp := "fakeRP"
-	authToken := "fakeZCAP"
+func (o *Operation) CreateAuthorization(w http.ResponseWriter, r *http.Request) {
+	request := &models.Authorization{}
 
-	headers := map[string]string{
-		"Content-Type": "application/json",
+	err := json.NewDecoder(r.Body).Decode(request)
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "bad request: %s", err.Error())
+
+		return
 	}
 
-	respond(w, http.StatusOK, headers, models.Authorization{ID: "fakeID", RequestingParty: &rp, AuthToken: &authToken})
+	o.HandleAuthz(w, request)
 }
 
 // Compare swagger:route POST /compare compareReq
@@ -319,8 +334,10 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 		return fmt.Errorf("failed to cast verificationMethod from cshZCAP")
 	}
 
-	configBytes, err := json.Marshal(models.Config{Did: &docResolution.DIDDocument.ID, Key: keys,
-		AuthKeyURL: authKeyURL})
+	comparatorConfig := &models.Config{Did: &docResolution.DIDDocument.ID, Key: keys,
+		AuthKeyURL: authKeyURL}
+
+	configBytes, err := json.Marshal(comparatorConfig)
 	if err != nil {
 		return err
 	}
@@ -435,4 +452,31 @@ func base64URLDecodeThenGunzip(encoded string) ([]byte, error) {
 	}
 
 	return inflated.Bytes(), nil
+}
+
+func (o *Operation) setConfigs() error {
+	configBytes, err := o.store.Get(configKeyDB)
+	if err != nil {
+		return err
+	}
+
+	config := &models.Config{}
+	if errUnmarshalBinary := config.UnmarshalBinary(configBytes); errUnmarshalBinary != nil {
+		return errUnmarshalBinary
+	}
+
+	cshProfileBytes, err := o.store.Get(cshConfigKeyDB)
+	if err != nil {
+		return err
+	}
+
+	cshProfile := &cshclientmodels.Profile{}
+	if err := cshProfile.UnmarshalBinary(cshProfileBytes); err != nil {
+		return err
+	}
+
+	o.cshProfile = cshProfile
+	o.comparatorConfig = config
+
+	return nil
 }
