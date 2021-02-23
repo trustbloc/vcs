@@ -585,7 +585,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 			return nil, err
 		}
 	} else {
-		vp, err = verifiable.ParseUnverifiedPresentation(vpBytes)
+		vp, err = verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
 		if err != nil {
 			return nil, err
 		}
@@ -611,7 +611,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 		if validateCredentialStatus {
 			failureMessage := ""
 
-			vc, err := verifiable.ParseUnverifiedCredential(vcBytes)
+			vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck())
 			if err != nil {
 				return nil, err
 			}

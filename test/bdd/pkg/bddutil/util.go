@@ -210,7 +210,7 @@ func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 	}
 
 	// create verifiable presentation from vc
-	vp, err := vc.Presentation()
+	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vc))
 	if err != nil {
 		return nil, err
 	}

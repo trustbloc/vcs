@@ -1747,7 +1747,7 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - issuer ID validation", func(t *testing.T) {
-		vc, err := verifiable.ParseUnverifiedCredential([]byte(validVC))
+		vc, err := verifiable.ParseCredential([]byte(validVC), verifiable.WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		vc.Issuer.ID = "invalid did"
@@ -2036,7 +2036,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
-		vcResp, err := verifiable.ParseUnverifiedCredential(rr.Body.Bytes())
+		vcResp, err := verifiable.ParseCredential(rr.Body.Bytes(), verifiable.WithDisabledProofCheck())
 		require.NoError(t, err)
 
 		// top level values
@@ -2079,7 +2079,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
-		vcResp, err = verifiable.ParseUnverifiedCredential(rr.Body.Bytes())
+		vcResp, err = verifiable.ParseCredential(rr.Body.Bytes(), verifiable.WithDisabledProofCheck())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(vcResp.Types))
 		require.Equal(t, "VerifiableCredential", vcResp.Types[0])

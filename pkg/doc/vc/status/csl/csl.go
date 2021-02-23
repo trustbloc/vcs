@@ -228,7 +228,7 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 		return nil, fmt.Errorf("failed to unmarshal csl bytes: %w", errUnmarshal)
 	}
 
-	w.VC, err = verifiable.ParseUnverifiedCredential(w.VCByte)
+	w.VC, err = verifiable.ParseCredential(w.VCByte, verifiable.WithDisabledProofCheck())
 	if err != nil {
 		return nil, err
 	}
