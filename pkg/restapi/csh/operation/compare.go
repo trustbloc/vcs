@@ -8,12 +8,15 @@ package operation
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
 
+	"github.com/PaesslerAG/gval"
+	"github.com/PaesslerAG/jsonpath"
 	"github.com/go-openapi/runtime"
 	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edv/pkg/restapi/models"
@@ -38,13 +41,13 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) {
 	for i := range op.Args() {
 		query := op.Args()[i]
 
-		document := &models.StructuredDocument{}
+		var document interface{}
 
 		switch q := query.(type) {
 		case *openapi.DocQuery:
 			var err error
 
-			document, err = o.fetchStructuredDocument(q)
+			document, err = o.fetchDocument(q)
 			if err != nil {
 				respondErrorf(w, http.StatusInternalServerError,
 					"failed to fetch Confidential Storage document for docquery: %s", err.Error())
@@ -61,14 +64,12 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) {
 		}
 
 		if i == 0 {
-			prevDoc = document.Content
+			prevDoc = document
 
 			continue
 		}
 
-		// TODO implement JSONPath
-
-		comparison.Result = reflect.DeepEqual(prevDoc, document.Content)
+		comparison.Result = reflect.DeepEqual(prevDoc, document)
 		if !comparison.Result {
 			break
 		}
@@ -83,7 +84,7 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *openapi.EqOp) {
 	respond(w, http.StatusOK, headers, comparison)
 }
 
-func (o *Operation) fetchStructuredDocument(query openapi.Query) (*models.StructuredDocument, error) {
+func (o *Operation) fetchDocument(query openapi.Query) (interface{}, error) {
 	docQuery, ok := query.(*openapi.DocQuery)
 	if !ok {
 		return nil, fmt.Errorf("cannot fetch structured documents for query type: %s", query.Type())
@@ -101,10 +102,26 @@ func (o *Operation) fetchStructuredDocument(query openapi.Query) (*models.Struct
 		return nil, fmt.Errorf("failed to parse Confidential Storage structured document: %w", err)
 	}
 
-	return document, nil
+	var result interface{} = document.Content
+
+	if docQuery.Path != "" {
+		builder := gval.Full(jsonpath.PlaceholderExtension())
+
+		path, err := builder.NewEvaluable(docQuery.Path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build new json path evaluator: %w", err)
+		}
+
+		result, err = path(context.TODO(), result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to evaluate json path [%s]: %w", docQuery.Path, err)
+		}
+	}
+
+	return result, nil
 }
 
-func (o *Operation) resolveRefQuery(w http.ResponseWriter, query *openapi.RefQuery) (*models.StructuredDocument, bool) {
+func (o *Operation) resolveRefQuery(w http.ResponseWriter, query *openapi.RefQuery) (interface{}, bool) {
 	raw, err := o.storage.queries.Get(*query.Ref)
 	if errors.Is(err, storage.ErrValueNotFound) {
 		respondErrorf(w, http.StatusBadRequest, "no such query: %s", *query.Ref)
@@ -135,7 +152,7 @@ func (o *Operation) resolveRefQuery(w http.ResponseWriter, query *openapi.RefQue
 		return nil, false
 	}
 
-	document, err := o.fetchStructuredDocument(querySpec)
+	document, err := o.fetchDocument(querySpec)
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError,
 			"failed to fetch Confidential Storage document for refquery: %s", err.Error())
