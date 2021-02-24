@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -235,30 +236,45 @@ func (u *user) requestNewProfile() error {
 	return nil
 }
 
-func (u *user) saveInConfidentialStorage(msg string) (string, string, error) {
+func (u *user) saveInConfidentialStorage(msg string) (*docCoords, error) {
 	docID, err := edvutils.GenerateEDVCompatibleID()
 	if err != nil {
-		return "", "", fmt.Errorf("failed to generate an EDV-compatible document ID: %w", err)
+		return nil, fmt.Errorf("failed to generate an EDV-compatible document ID: %w", err)
+	}
+
+	vc, err := u.newVC(msg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new VC: %w", err)
+	}
+
+	vcRaw, err := json.Marshal(vc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal vc: %w", err)
+	}
+
+	vcMap := make(map[string]interface{})
+
+	err = json.Unmarshal(vcRaw, &vcMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal vc: %w", err)
 	}
 
 	structuredDoc, err := json.Marshal(&models2.StructuredDocument{
-		ID: docID,
-		Content: map[string]interface{}{
-			"contents": msg,
-		},
+		ID:      docID,
+		Content: vcMap,
 	})
 	if err != nil {
-		return "", "", fmt.Errorf("failed to marshal EDV structured document: %w", err)
+		return nil, fmt.Errorf("failed to marshal EDV structured document: %w", err)
 	}
 
 	jwe, err := encryptedJWE(structuredDoc, u.webkms, u.remotecrypto)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to encrypt msg as JWE: %w", err)
+		return nil, fmt.Errorf("failed to encrypt msg as JWE: %w", err)
 	}
 
 	serialized, err := jwe.FullSerialize(json.Marshal)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to serialize JWE: %w", err)
+		return nil, fmt.Errorf("failed to serialize JWE: %w", err)
 	}
 
 	encryptedDoc := &models2.EncryptedDocument{
@@ -269,13 +285,52 @@ func (u *user) saveInConfidentialStorage(msg string) (string, string, error) {
 
 	docURI, err := u.edvClient.CreateDocument(u.edvVaultID, encryptedDoc)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to save edv document: %w", err)
+		return nil, fmt.Errorf("failed to save edv document: %w", err)
 	}
 
 	parts := strings.Split(docURI, "/")
 	vaultID := parts[len(parts)-3]
 
-	return vaultID, docID, nil
+	return &docCoords{
+		vaultID: vaultID,
+		docID:   docID,
+		path:    "$.credentialSubject.testMessage",
+	}, nil
+}
+
+func (u *user) newVC(msg string) (*verifiable.Credential, error) {
+	vc := &verifiable.Credential{
+		ID:      uuid.New().URN(),
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		Issuer:  verifiable.Issuer{ID: u.controller},
+		Subject: &verifiable.Subject{
+			ID: uuid.New().URN(),
+			CustomFields: map[string]interface{}{
+				"testMessage": msg,
+			},
+		},
+	}
+
+	signer, err := signature.NewCryptoSigner(u.remotecrypto, u.webkms, kms.ED25519Type)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new signer: %w", err)
+	}
+
+	err = vc.AddLinkedDataProof(
+		&verifiable.LinkedDataProofContext{
+			SignatureType:           ed25519signature2018.SignatureType,
+			Suite:                   ed25519signature2018.New(suite.WithSigner(signer)),
+			SignatureRepresentation: verifiable.SignatureJWS,
+			Purpose:                 "assertionMethod",
+			VerificationMethod:      didKeyURL(signer.PublicKeyBytes()),
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add linked data proof to the vc: %w", err)
+	}
+
+	return vc, nil
 }
 
 // TODO docID should eventually be used once the EDV can handle zcaps for individual documents and not

@@ -7,6 +7,8 @@ module github.com/trustbloc/edge-service
 go 1.15
 
 require (
+	github.com/PaesslerAG/gval v1.1.0
+	github.com/PaesslerAG/jsonpath v0.1.1
 	github.com/btcsuite/btcutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/go-openapi/errors v0.20.0

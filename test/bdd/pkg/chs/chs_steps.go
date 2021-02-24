@@ -41,6 +41,7 @@ func NewSteps(ctx *bddctx.BDDContext) *Steps {
 type docCoords struct {
 	vaultID string
 	docID   string
+	path    string
 	edvZCAP string
 	kmsZCAP string
 }
@@ -135,15 +136,12 @@ func (s *Steps) userHasProfile() error {
 }
 
 func (s *Steps) userSavesDocument(contents string) error {
-	vaultID, docID, err := s.user.saveInConfidentialStorage(contents)
+	coords, err := s.user.saveInConfidentialStorage(contents)
 	if err != nil {
 		return fmt.Errorf("user failed to save document: %w", err)
 	}
 
-	s.docs = append(s.docs, &docCoords{
-		vaultID: vaultID,
-		docID:   docID,
-	})
+	s.docs = append(s.docs, coords)
 
 	return nil
 }
@@ -159,6 +157,7 @@ func (s *Steps) userCreatesRefQuery() error {
 	ref, err := s.user.createRef(&models.DocQuery{
 		VaultID: &doc.vaultID,
 		DocID:   &doc.docID,
+		Path:    doc.path,
 		UpstreamAuth: &models.DocQueryAO1UpstreamAuth{
 			Edv: &models.UpstreamAuthorization{
 				BaseURL: edvNetworkBaseURL,
@@ -204,6 +203,7 @@ func (s *Steps) userRequestsComparison() error {
 		queries[i] = &models.DocQuery{
 			VaultID: &s.docs[i].vaultID,
 			DocID:   &s.docs[i].docID,
+			Path:    s.docs[i].path,
 			UpstreamAuth: &models.DocQueryAO1UpstreamAuth{
 				Edv: &models.UpstreamAuthorization{
 					BaseURL: edvNetworkBaseURL,

@@ -298,6 +298,72 @@ func TestOperation_HandleEqOp(t *testing.T) {
 		require.Equal(t, http.StatusInternalServerError, result.Code)
 		require.Contains(t, result.Body.String(), "failed to parse Confidential Storage structured document")
 	})
+
+	t.Run("error on malformed jsonpath", func(t *testing.T) {
+		doc := randomDoc(t)
+		agent := newAgent(t)
+
+		jwe1 := encryptedJWE(t, agent, doc)
+		jwe2 := encryptedJWE(t, agent, doc)
+
+		config := agentConfig(agent)
+		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+			return newMockEDVClient(t, nil, jwe1, jwe2)
+		}
+
+		o := newOperation(t, config)
+		result := httptest.NewRecorder()
+
+		query1 := docQuery(&openapi.UpstreamAuthorization{
+			BaseURL: "https://edv.example.com",
+		}, nil)
+
+		query1.Path = "}"
+
+		op := newEqOp(t,
+			query1,
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+		)
+
+		o.HandleEqOp(result, op)
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to build new json path evaluator")
+	})
+
+	t.Run("error on invalid jsonpath", func(t *testing.T) {
+		doc := randomDoc(t)
+		agent := newAgent(t)
+
+		jwe1 := encryptedJWE(t, agent, doc)
+		jwe2 := encryptedJWE(t, agent, doc)
+
+		config := agentConfig(agent)
+		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+			return newMockEDVClient(t, nil, jwe1, jwe2)
+		}
+
+		o := newOperation(t, config)
+		result := httptest.NewRecorder()
+
+		query1 := docQuery(&openapi.UpstreamAuthorization{
+			BaseURL: "https://edv.example.com",
+		}, nil)
+
+		query1.Path = "$.invalid.path"
+
+		op := newEqOp(t,
+			query1,
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+		)
+
+		o.HandleEqOp(result, op)
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to evaluate json path")
+	})
 }
 
 func requireCompareResult(t *testing.T, expected bool, r io.Reader) {
