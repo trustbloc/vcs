@@ -21,6 +21,7 @@ func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
 		s.Store["config"] = []byte(`{}`)
+		s.Store["csh_config"] = []byte(`{}`)
 		controller, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
 		require.NoError(t, err)
@@ -39,6 +40,7 @@ func TestController_New(t *testing.T) {
 func TestController_GetOperations(t *testing.T) {
 	s := &mockstorage.MockStore{Store: make(map[string][]byte)}
 	s.Store["config"] = []byte(`{}`)
+	s.Store["csh_config"] = []byte(`{}`)
 	controller, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
 		StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
 	require.NoError(t, err)

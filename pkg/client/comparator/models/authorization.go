@@ -29,8 +29,7 @@ type Authorization struct {
 	// An opaque authorization token authorizing the requesting party to perform a comparison
 	// referencing the document in the `scope`.
 	//
-	// Required: true
-	AuthToken *string `json:"authToken"`
+	AuthToken string `json:"authToken,omitempty"`
 
 	// The authorization's unique ID.
 	ID string `json:"id,omitempty"`
@@ -48,10 +47,6 @@ type Authorization struct {
 func (m *Authorization) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateAuthToken(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateRequestingParty(formats); err != nil {
 		res = append(res, err)
 	}
@@ -63,15 +58,6 @@ func (m *Authorization) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *Authorization) validateAuthToken(formats strfmt.Registry) error {
-
-	if err := validate.Required("authToken", "body", m.AuthToken); err != nil {
-		return err
-	}
-
 	return nil
 }
 

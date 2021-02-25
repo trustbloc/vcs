@@ -28,6 +28,10 @@ type Scope struct {
 	// Required: true
 	Actions []string `json:"actions"`
 
+	// auth tokens
+	// Required: true
+	AuthTokens *ScopeAuthTokens `json:"authTokens"`
+
 	caveatsField []Caveat
 
 	// an identifier for a document stored in the Vault Server.
@@ -52,6 +56,8 @@ func (m *Scope) SetCaveats(val []Caveat) {
 func (m *Scope) UnmarshalJSON(raw []byte) error {
 	var data struct {
 		Actions []string `json:"actions"`
+
+		AuthTokens *ScopeAuthTokens `json:"authTokens"`
 
 		Caveats json.RawMessage `json:"caveats"`
 
@@ -81,6 +87,9 @@ func (m *Scope) UnmarshalJSON(raw []byte) error {
 	// actions
 	result.Actions = data.Actions
 
+	// authTokens
+	result.AuthTokens = data.AuthTokens
+
 	// caveats
 	result.caveatsField = propCaveats
 
@@ -102,12 +111,16 @@ func (m Scope) MarshalJSON() ([]byte, error) {
 	b1, err = json.Marshal(struct {
 		Actions []string `json:"actions"`
 
+		AuthTokens *ScopeAuthTokens `json:"authTokens"`
+
 		DocID *string `json:"docID"`
 
 		VaultID string `json:"vaultID,omitempty"`
 	}{
 
 		Actions: m.Actions,
+
+		AuthTokens: m.AuthTokens,
 
 		DocID: m.DocID,
 
@@ -134,6 +147,10 @@ func (m *Scope) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateActions(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateAuthTokens(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -188,6 +205,24 @@ func (m *Scope) validateActions(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *Scope) validateAuthTokens(formats strfmt.Registry) error {
+
+	if err := validate.Required("authTokens", "body", m.AuthTokens); err != nil {
+		return err
+	}
+
+	if m.AuthTokens != nil {
+		if err := m.AuthTokens.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("authTokens")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (m *Scope) validateCaveats(formats strfmt.Registry) error {
 	if swag.IsZero(m.Caveats()) { // not required
 		return nil
@@ -220,6 +255,10 @@ func (m *Scope) validateDocID(formats strfmt.Registry) error {
 func (m *Scope) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.contextValidateAuthTokens(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.contextValidateCaveats(ctx, formats); err != nil {
 		res = append(res, err)
 	}
@@ -227,6 +266,20 @@ func (m *Scope) ContextValidate(ctx context.Context, formats strfmt.Registry) er
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *Scope) contextValidateAuthTokens(ctx context.Context, formats strfmt.Registry) error {
+
+	if m.AuthTokens != nil {
+		if err := m.AuthTokens.ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("authTokens")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -257,6 +310,46 @@ func (m *Scope) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *Scope) UnmarshalBinary(b []byte) error {
 	var res Scope
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// ScopeAuthTokens scope auth tokens
+//
+// swagger:model ScopeAuthTokens
+type ScopeAuthTokens struct {
+
+	// edv
+	Edv string `json:"edv,omitempty"`
+
+	// kms
+	Kms string `json:"kms,omitempty"`
+}
+
+// Validate validates this scope auth tokens
+func (m *ScopeAuthTokens) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this scope auth tokens based on context it is used
+func (m *ScopeAuthTokens) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *ScopeAuthTokens) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *ScopeAuthTokens) UnmarshalBinary(b []byte) error {
+	var res ScopeAuthTokens
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}
