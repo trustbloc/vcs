@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package vault
 
 import (
+	"crypto"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"net/http"
@@ -15,11 +17,16 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -27,7 +34,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	ariesvdr "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	vdrkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -50,7 +59,8 @@ type Steps struct {
 	authorizations map[string]*vault.CreatedAuthorization
 	kms            kms.KeyManager
 	kmsURI         string
-	crypto         crypto.Crypto
+	crypto         ariescrypto.Crypto
+	trustblocVDR   *trustbloc.VDRI
 }
 
 // NewSteps returns new vault steps.
@@ -73,7 +83,10 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 		kms:            keyManager,
 		variableMapper: map[string]string{},
 		authorizations: map[string]*vault.CreatedAuthorization{},
-		bddContext:     ctx, client: &http.Client{
+		trustblocVDR: trustbloc.New(nil, trustbloc.WithDomain("testnet.trustbloc.local"),
+			trustbloc.WithTLSConfig(ctx.TLSConfig),
+		),
+		bddContext: ctx, client: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: ctx.TLSConfig,
 			},
@@ -87,7 +100,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Save a document with the following id "([^"]*)"$`, e.saveDocument)
 	s.Step(`^Save a document without id and save the result ID as "([^"]*)"$`, e.saveDocumentWithoutID)
 	s.Step(`^Check that a document with id "([^"]*)" is stored$`, e.getDocument)
-	s.Step(`^Create a new authorization with duration "([^"]*)" and save the result as "([^"]*)"$`,
+	s.Step(`^Create a new "([^"]*)" authorization with duration "([^"]*)" and save the result as "([^"]*)"$`,
 		e.createAuthorization)
 	s.Step(`^Check that a document with id "([^"]*)" is available for "([^"]*)"$`, e.checkAccessibility)
 	s.Step(`^Check that a document with id "([^"]*)" is not available for "([^"]*)"$`, e.checkNotAvailable)
@@ -116,12 +129,15 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 		return err
 	}
 
+	fmt.Println(authorization.RequestingParty)
+	fmt.Println(string(eDoc.JWE))
+
 	store, err := mem.NewProvider().OpenStore("test")
 	if err != nil {
 		return err
 	}
 
-	decrypter := jose.NewJWEDecrypt(store, webcrypto.New(
+	decrypter := ariesjoes.NewJWEDecrypt(store, webcrypto.New(
 		e.kmsURI,
 		e.client,
 		webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
@@ -131,7 +147,7 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 		webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
 	))
 
-	JWE, err := jose.Deserialize(string(eDoc.JWE))
+	JWE, err := ariesjoes.Deserialize(string(eDoc.JWE))
 	if err != nil {
 		return err
 	}
@@ -173,15 +189,25 @@ func (e *Steps) checkNotAvailable(docID, auth string) error {
 	return err
 }
 
-func (e *Steps) createAuthorization(duration, name string) error {
+func (e *Steps) createAuthorization(method, duration, name string) error {
 	sec, err := strconv.Atoi(duration)
 	if err != nil {
 		return err
 	}
 
-	requestingParty, err := e.createDIDKey()
-	if err != nil {
-		return err
+	var requestingParty string
+	if method == "key" {
+		requestingParty, err = e.createDIDKey()
+		if err != nil {
+			return err
+		}
+	}
+
+	if method == "trustbloc" {
+		requestingParty, err = e.createDIDTrustbloc()
+		if err != nil {
+			return err
+		}
 	}
 
 	result, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).CreateAuthorization(
@@ -328,6 +354,12 @@ func (e *Steps) edvSign(controller, authToken string) func(req *http.Request) (*
 	}
 }
 
+type kmsCtx struct{ kms.KeyManager }
+
+func (c *kmsCtx) KMS() kms.KeyManager {
+	return c.KeyManager
+}
+
 func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.Header, error) {
 	req.Header.Set(
 		zcapld.CapabilityInvocationHTTPHeader,
@@ -338,14 +370,14 @@ func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.
 	hs.SetSignatureHashAlgorithm(&zcapld.AriesDIDKeySignatureHashAlgorithm{
 		Crypto: e.crypto,
 		KMS:    e.kms,
+		Resolver: ariesvdr.New(
+			&kmsCtx{e.kms},
+			ariesvdr.WithVDR(vdrkey.New()),
+			ariesvdr.WithVDR(e.trustblocVDR),
+		),
 	})
 
-	didURL, err := toDidURL(controller)
-	if err != nil {
-		return nil, fmt.Errorf("to DidURL: %w", err)
-	}
-
-	err = hs.Sign(didURL, req)
+	err := hs.Sign(controller, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign http request: %w", err)
 	}
@@ -359,20 +391,74 @@ func (e *Steps) createDIDKey() (string, error) {
 		return "", fmt.Errorf("new crypto signer: %w", err)
 	}
 
-	didKey, _ := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	_, didURL := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
-	return didKey, nil
+	return didURL, nil
 }
 
-func toDidURL(did string) (string, error) {
-	pub, err := fingerprint.PubKeyFromDIDKey(did)
+func (e *Steps) createDIDTrustbloc() (string, error) {
+	didDoc, err := newDidDoc(e.kms)
 	if err != nil {
 		return "", err
 	}
 
-	_, didURL := fingerprint.CreateDIDKey(pub)
+	recoverKey, err := newKey(e.kms)
+	if err != nil {
+		return "", err
+	}
 
-	return didURL, nil
+	updateKey, err := newKey(e.kms)
+	if err != nil {
+		return "", err
+	}
+
+	docResolution, err := e.trustblocVDR.Create(nil, didDoc,
+		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
+		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	// to prevent an error "failed to resolve did: DID does not exist"
+	time.Sleep(time.Second)
+
+	return docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, nil
+}
+
+func newDidDoc(k kms.KeyManager) (*did.Doc, error) {
+	didDoc := &did.Doc{}
+
+	publicKey, err := newKey(k)
+	if err != nil {
+		return nil, err
+	}
+
+	jwk, err := ariesjoes.JWKFromPublicKey(publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	vm, err := did.NewVerificationMethodFromJWK(uuid.New().String(), doc.JWSVerificationKey2020, "", jwk)
+	if err != nil {
+		return nil, err
+	}
+
+	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
+	didDoc.AssertionMethod = append(didDoc.AssertionMethod, *did.NewReferencedVerification(vm, did.AssertionMethod))
+	didDoc.CapabilityDelegation = append(didDoc.CapabilityDelegation,
+		*did.NewReferencedVerification(vm, did.CapabilityDelegation))
+
+	return didDoc, nil
+}
+
+func newKey(k kms.KeyManager) (crypto.PublicKey, error) {
+	_, bits, err := k.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key : %w", err)
+	}
+
+	return ed25519.PublicKey(bits), nil
 }
 
 type kmsProvider struct {

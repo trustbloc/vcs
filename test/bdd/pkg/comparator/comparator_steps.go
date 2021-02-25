@@ -104,8 +104,10 @@ func (e *Steps) createAuthorization(docID string) error {
 
 	vaultID := e.bddContext.VaultID
 
-	scope := &models.Scope{Actions: []string{"compare"}, VaultID: vaultID, DocID: &docID,
-		AuthTokens: &models.ScopeAuthTokens{Edv: e.edvToken, Kms: e.kmsToken}}
+	scope := &models.Scope{
+		Actions: []string{"compare"}, VaultID: vaultID, DocID: &docID,
+		AuthTokens: &models.ScopeAuthTokens{Edv: e.edvToken, Kms: e.kmsToken},
+	}
 
 	caveat := make([]models.Caveat, 0)
 	caveat = append(caveat, &models.ExpiryCaveat{Duration: expiryDuration})
@@ -113,8 +115,10 @@ func (e *Steps) createAuthorization(docID string) error {
 	scope.SetCaveats(caveat)
 
 	r, err := e.client.Operations.PostAuthorizations(operations.NewPostAuthorizationsParams().
-		WithTimeout(requestTimeout).WithAuthorization(&models.Authorization{RequestingParty: &rpID,
-		Scope: scope}))
+		WithTimeout(requestTimeout).WithAuthorization(&models.Authorization{
+		RequestingParty: &rpID,
+		Scope:           scope,
+	}))
 	if err != nil {
 		return err
 	}
@@ -130,8 +134,10 @@ func (e *Steps) compare(doc1 string) error {
 
 	vaultID := e.bddContext.VaultID
 
-	query = append(query, &models.DocQuery{DocID: &doc1, VaultID: &vaultID,
-		AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}},
+	query = append(query, &models.DocQuery{
+		DocID: &doc1, VaultID: &vaultID,
+		AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken},
+	},
 		&models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken})
 
 	eq.SetArgs(query)
@@ -158,12 +164,18 @@ func (e *Steps) createVaultAuthorization(duration string) error {
 		return err
 	}
 
+	cshDIDURL, err := toDidURL(e.cshDID)
+	if err != nil {
+		return err
+	}
+
 	result, err := vaultclient.New(vaultURL, vaultclient.WithHTTPClient(&http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: e.bddContext.TLSConfig,
-		}})).CreateAuthorization(
+		},
+	})).CreateAuthorization(
 		e.bddContext.VaultID,
-		e.cshDID,
+		cshDIDURL,
 		&vault.AuthorizationsScope{
 			Target:  e.bddContext.VaultID,
 			Actions: []string{"read"},
@@ -182,6 +194,17 @@ func (e *Steps) createVaultAuthorization(duration string) error {
 	e.kmsToken = result.Tokens.KMS
 
 	return nil
+}
+
+func toDidURL(did string) (string, error) {
+	pub, err := fingerprint.PubKeyFromDIDKey(did)
+	if err != nil {
+		return "", err
+	}
+
+	_, didURL := fingerprint.CreateDIDKey(pub)
+
+	return didURL, nil
 }
 
 func (e *Steps) checkConfig() error {

@@ -20,9 +20,14 @@ services:
       - EDV_LOCALKMS_SECRETS_DATABASE_TYPE=${EDV_DATABASE_TYPE}
       - EDV_LOCALKMS_SECRETS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@${EDV_DATABASE_URL}
       - EDV_LOCALKMS_SECRETS_DATABASE_PREFIX=${EDV_DATABASE_PREFIX}_kms
+      - EDV_TLS_SYSTEMCERTPOOL=true
+      - EDV_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - EDV_DID_DOMAIN=testnet.trustbloc.local
     ports:
       - ${EDV_PORT}:${EDV_PORT}
     command: start
+    volumes:
+      - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net
 

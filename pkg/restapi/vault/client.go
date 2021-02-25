@@ -240,16 +240,11 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		return nil, fmt.Errorf("to DidURL: %w", err)
 	}
 
-	requestingPartyDidURL, err := toDidURL(requestingParty)
-	if err != nil {
-		return nil, fmt.Errorf("requesting party to DidURL: %w", err)
-	}
-
 	kmsNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
 		VerificationMethod: didURL,
-	}, zcapld.WithParent(c.buildKMSURL(kmsCapability.ID)), zcapld.WithInvoker(requestingPartyDidURL),
+	}, zcapld.WithParent(c.buildKMSURL(kmsCapability.ID)), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions("unwrap"),
 		zcapld.WithInvocationTarget(c.buildKMSURL(kmsCapability.InvocationTarget.ID), kmsCapability.InvocationTarget.Type),
 		zcapld.WithCaveats(toZCaveats(scope.Caveats)...),
@@ -272,7 +267,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
 		VerificationMethod: didURL,
-	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingPartyDidURL),
+	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions(scope.Actions...),
 		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),
 		zcapld.WithCaveats(toZCaveats(scope.Caveats)...),
