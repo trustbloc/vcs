@@ -517,6 +517,59 @@ func TestOperation_Compare(t *testing.T) {
 		require.Contains(t, result.Body.String(), "failed to execute comparison")
 	})
 
+	t.Run("test error from getting zcap", func(t *testing.T) {
+		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			p := vault.DocumentMetadata{ID: "id", URI: "/test/test/test/test"}
+			b, err := json.Marshal(p)
+			require.NoError(t, err)
+
+			_, err = fmt.Fprint(w, string(b))
+			require.NoError(t, err)
+		}))
+		defer serv.Close()
+
+		cshServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			p := cshclientmodels.Comparison{Result: true}
+			b, err := p.MarshalBinary()
+			require.NoError(t, err)
+
+			_, err = fmt.Fprint(w, string(b))
+			require.NoError(t, err)
+		}))
+		defer serv.Close()
+
+		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s.Store["config"] = []byte(`{}`)
+		s.Store["csh_config"] = []byte(`{}`)
+		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		require.NoError(t, err)
+		require.NotNil(t, op)
+		result := httptest.NewRecorder()
+		cr := &models.Comparison{}
+		eq := &models.EqOp{}
+		query := make([]models.Query, 0)
+		docID := "docID3"
+		vaultID := "vaultID3"
+		zcap := "wrong"
+		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}},
+			&models.AuthorizedQuery{AuthToken: &zcap})
+		eq.SetArgs(query)
+		cr.SetOp(eq)
+		op.Compare(result, newReq(t,
+			http.MethodPost,
+			"/compare",
+			cr,
+		))
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to parse org zcap")
+	})
+
 	t.Run("test success", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -554,8 +607,11 @@ func TestOperation_Compare(t *testing.T) {
 		query := make([]models.Query, 0)
 		docID := "docID3"
 		vaultID := "vaultID3"
+		chs := newAgent(t)
+		chsZCAP := compress(t, marshal(t, newZCAP(t, chs, chs)))
 		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
-			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}})
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}},
+			&models.AuthorizedQuery{AuthToken: &chsZCAP})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
 		op.Compare(result, newReq(t,
@@ -671,7 +727,7 @@ func newZCAP(t *testing.T, server, rp *context.Provider) *zcapld.Capability {
 		zcapld.WithInvoker(invoker),
 		zcapld.WithController(invoker),
 		zcapld.WithInvocationTarget(
-			fmt.Sprintf("https://kms.example.com/kms/keystores/%s", uuid.New().String()),
+			fmt.Sprintf("https://localhost/queries/%s", uuid.New().String()),
 			"urn:confidentialstoragehub:profile",
 		),
 	)

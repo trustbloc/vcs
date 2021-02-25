@@ -63,13 +63,17 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *models.EqOp) { //nolin
 						Zcap:    q.AuthTokens.Kms,
 					},
 				}})
-
-			// TODO get query id for orgCompQueryZCAP
-
 		case *models.AuthorizedQuery:
-			respondErrorf(w, http.StatusNotImplemented, "'RefQuery' not yet implemented by 'EqOp'")
+			orgZCAP, err := parseCompressedZCAP(*q.AuthToken)
+			if err != nil {
+				respondErrorf(w, http.StatusInternalServerError, "failed to parse org zcap: %s", err.Error())
 
-			return
+				return
+			}
+
+			queryPath := strings.Split(orgZCAP.InvocationTarget.ID, "/queries/")
+
+			queries = append(queries, &cshclientmodels.RefQuery{Ref: &queryPath[1]})
 		}
 	}
 
