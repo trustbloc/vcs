@@ -141,7 +141,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile.ID = uuid.New().String()
+	profile.ID = uuid.New().URN()
 
 	zcap, err := o.newProfileZCAP(profile.ID, *profile.Controller)
 	if err != nil {

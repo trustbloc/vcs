@@ -8,6 +8,8 @@ package operation_test
 
 import (
 	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,11 +21,16 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/stretchr/testify/require"
 	storage2 "github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
+	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/models"
@@ -207,6 +214,44 @@ func TestOperation_CreateProfile(t *testing.T) {
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
 		require.Contains(t, result.Body.String(), "failed to store zcap")
+	})
+
+	t.Run("can create child zcap from profile's zcap", func(t *testing.T) {
+		controller := fmt.Sprintf("did:example:controller#%s", uuid.New().String())
+		o := newOp(t)
+		result := httptest.NewRecorder()
+		o.CreateProfile(result, newReq(t,
+			http.MethodPost,
+			"/profiles",
+			&openapi.Profile{
+				Controller: &controller,
+			},
+		))
+		require.Equal(t, http.StatusCreated, result.Code)
+		response := &openapi.Profile{}
+
+		err := json.NewDecoder(result.Body).Decode(response)
+		require.NoError(t, err)
+
+		rootZCAP := decompressZCAP(t, response.Zcap)
+		agent := newAgent(t)
+
+		signer, err := signature.NewCryptoSigner(agent.Crypto(), agent.KMS(), kms.ED25519Type)
+		require.NoError(t, err)
+
+		_, err = zcapld.NewCapability(
+			&zcapld.Signer{
+				SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
+				SuiteType:          ed25519signature2018.SignatureType,
+				VerificationMethod: didKeyURL(signer.PublicKeyBytes()),
+			},
+			zcapld.WithParent(rootZCAP.ID),
+			zcapld.WithInvoker("did:example:abc#123"),
+			zcapld.WithAllowedActions("reference"),
+			zcapld.WithInvocationTarget(uuid.New().URN(), "urn:hubstore:query"),
+			zcapld.WithCapabilityChain(rootZCAP.ID),
+		)
+		require.NoError(t, err)
 	})
 }
 
@@ -437,4 +482,24 @@ func randomDoc(t *testing.T) []byte {
 	require.NoError(t, err)
 
 	return raw
+}
+
+func decompressZCAP(t *testing.T, encoded string) *zcapld.Capability {
+	t.Helper()
+
+	compressed, err := base64.URLEncoding.DecodeString(encoded)
+	require.NoError(t, err)
+
+	r, err := gzip.NewReader(bytes.NewReader(compressed))
+	require.NoError(t, err)
+
+	inflated := bytes.NewBuffer(nil)
+
+	_, err = inflated.ReadFrom(r)
+	require.NoError(t, err)
+
+	zcap, err := zcapld.ParseCapability(inflated.Bytes())
+	require.NoError(t, err)
+
+	return zcap
 }
