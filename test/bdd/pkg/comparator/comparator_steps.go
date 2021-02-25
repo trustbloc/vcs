@@ -74,7 +74,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Create comparator authorization for doc "([^"]*)"$`, e.createAuthorization)
 	s.Step(`^Check comparator config is created`, e.checkConfig)
-	s.Step(`^Compare two docs with doc1 id "([^"]*)" and doc2 id "([^"]*)"$`, e.compare)
+	s.Step(`^Compare two docs with doc1 id "([^"]*)" and ref doc$`, e.compare)
 	s.Step(`^Create vault authorization with duration "([^"]*)"$`, e.createVaultAuthorization)
 }
 
@@ -124,7 +124,7 @@ func (e *Steps) createAuthorization(docID string) error {
 	return nil
 }
 
-func (e *Steps) compare(doc1, doc2 string) error {
+func (e *Steps) compare(doc1 string) error {
 	eq := &models.EqOp{}
 	query := make([]models.Query, 0)
 
@@ -132,8 +132,7 @@ func (e *Steps) compare(doc1, doc2 string) error {
 
 	query = append(query, &models.DocQuery{DocID: &doc1, VaultID: &vaultID,
 		AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}},
-		&models.DocQuery{DocID: &doc2, VaultID: &vaultID,
-			AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken}})
+		&models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken})
 
 	eq.SetArgs(query)
 
