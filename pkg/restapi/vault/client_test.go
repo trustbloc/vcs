@@ -611,25 +611,6 @@ func TestClient_CreateAuthorization(t *testing.T) {
 		require.Contains(t, err.Error(), "to DidURL: failed to parse did:key")
 	})
 
-	t.Run("Requesting party (error)", func(t *testing.T) {
-		data := map[string][]byte{}
-		store := &mockstorage.MockStoreProvider{
-			Store: &mockstorage.MockStore{Store: data},
-		}
-
-		lKMS := newLocalKms(t, store)
-
-		client, err := NewClient("", "", lKMS, store)
-		require.NoError(t, err)
-
-		vID, kid := createVaultID(t, lKMS)
-		data["info_"+vID] = []byte(`{"kid":"` + kid + `","auth":{"edv":{"authToken":""},"kms":{"authToken":"H4sIAAAAAAAA_5SSTW-rOBSG_8u5y4EWTEzAq0lDm9CbkC86SbmqKmNs4obGyBhSUvW_j3JbzYxm1_XRq_O8H-_wJ1NHw98MENgbUzfk-vrkyeJK6fK64azV0vTXHQILZAEEWn0kbSsLwvzQ911U2MJDwh4MWWjnrnBt5oicD7AIHFRcRMdOHbgGAoUsyIH35OzPD6_bRHY5bqb7szvsRK3Lzekh54lIV_O7t7l8GGC6FssNNn7_47sCsKCmmh_NmNY0l5U0_X_Bh57Ic8dBduFxegFHNi280PZCQQd5Hg7CIQMLaFWpEy9GzEh1BPILNKcXQyctDYenT2eMXq4p1SU3QN4hjoDAKFjRaCdkbTKdJJnG_s0pmoAFaV_zLxJedKSjbWXgw4JaKyWA_HoH9g_xeE_l77ff436ygGlODb90hRzk2g6yXZQ6AcEecf2r0B8EeOBi9IeDiOOABS-nBgjw_n6fT5hcyPu77HadrjZxE7_GKBnHfvZ61zD00MSvSU93K7moGvn48ujElRteXWEeJ7vWa26mcn0ug90aLX6mtvhrHy_VgtJe5MvmnCos19l0hnDAEtv2d3py9vE4Ww690-oxUtWsb5-nCzraOH2A8_EKLDiqI7vkNdfjw8R7fKui2UyHyQOqh4dbJ2LzMw2j-Hm2510yG-KRzG-rdJuImyJ4jm1P-8FYJZkcuWrbbOee9Dc_R7lWKHNLl47gK_dlq2vVXP78G37EK17-rhYsMJ-t3RYIYzfcyPJITas5ctwALOi4lkJ-7mDOzV4V_5t6jYMunCy3y1K_pQbjjL4EyqujpAvbKO9e2LScNmxzz-6b-Y_vCuDj6ePvAAAA___BBC2CwwMAAA=="}}}`) // nolint: lll
-
-		_, err = client.CreateAuthorization(vID, kid, &AuthorizationsScope{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "requesting party to DidURL")
-	})
-
 	t.Run("EDV uncompress (error)", func(t *testing.T) {
 		data := map[string][]byte{}
 		store := &mockstorage.MockStoreProvider{

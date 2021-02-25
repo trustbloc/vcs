@@ -30,7 +30,15 @@ Feature: Vault server API
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
-    Then Create a new authorization with duration "100" and save the result as "auth"
+    Then Create a new "key" authorization with duration "100" and save the result as "auth"
+    And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
+
+  @vault_server_create_authorization_trustbloc
+  Scenario: Creates an authorization (trustbloc)
+    When Create a new vault using the vault server "https://localhost:9099"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
+    Then Create a new "trustbloc" authorization with duration "100" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
 
   @vault_server_check_expired_authorization
@@ -38,11 +46,11 @@ Feature: Vault server API
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
-    Then Create a new authorization with duration "0" and save the result as "auth"
+    Then Create a new "key" authorization with duration "0" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is not available for "auth"
 
   @vault_server_get_authorization
   Scenario: Creates an authorization and gets it
     When Create a new vault using the vault server "https://localhost:9099"
-    Then Create a new authorization with duration "100" and save the result as "auth"
+    Then Create a new "key" authorization with duration "100" and save the result as "auth"
     And Check that an authorization "auth" was stored
