@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"encoding/json"
+
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
@@ -45,9 +47,9 @@ type saveDocReq struct {
 
 // SaveDocRequestBody describes body for the SaveDoc request.
 type SaveDocRequestBody struct {
-	ID      string      `json:"id"`
-	Content interface{} `json:"content"`
-	Tags    []string    `json:"tags"`
+	ID      string          `json:"id"`
+	Content json.RawMessage `json:"content"`
+	Tags    []string        `json:"tags"`
 }
 
 // saveDocResp model

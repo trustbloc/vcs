@@ -51,7 +51,7 @@ const (
 // Vault defines vault client interface.
 type Vault interface {
 	CreateVault() (*CreatedVault, error)
-	SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error)
+	SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata, error)
 	GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error)
 	CreateAuthorization(vaultID, requestingParty string, scope *AuthorizationsScope) (*CreatedAuthorization, error)
 	GetAuthorization(vaultID, id string) (*CreatedAuthorization, error)
@@ -369,16 +369,33 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 }
 
 // SaveDoc saves a document by encrypting it and storing it in the vault.
-func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*DocumentMetadata, error) {
+func (c *Client) SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata, error) { // nolint:funlen,gocyclo
 	info, err := c.getVaultInfo(vaultID)
 	if err != nil {
 		return nil, fmt.Errorf("get vault info: %w", err)
 	}
 
+	docID, err := edvutils.GenerateEDVCompatibleID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate an EDV document ID: %w", err)
+	}
+
+	docContents := make(map[string]interface{})
+
+	err = json.NewDecoder(bytes.NewReader(content)).Decode(&docContents)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode content: %w", err)
+	}
+
+	doc := &models.StructuredDocument{
+		ID:      docID,
+		Content: docContents,
+	}
+
 	kidURL, encContent, err := encryptContent(
 		c.webKMS(vaultID, info.Auth.KMS),
 		c.webCrypto(vaultID, info.Auth.KMS),
-		content,
+		doc,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt key: %w", err)

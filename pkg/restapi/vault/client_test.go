@@ -306,7 +306,7 @@ func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)
 
-		_, err = client.SaveDoc(vID, docID, nil)
+		_, err = client.SaveDoc(vID, docID, data["info_"+vID])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create meta doc info: store put: text")
 	})
@@ -317,7 +317,7 @@ func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 		})
 		require.NoError(t, err)
 
-		_, err = client.SaveDoc(vaultID, docID, nil)
+		_, err = client.SaveDoc(vaultID, docID, []byte(`{"auth":{"edv":{},"kms":{}}}`))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "encrypt key: create: posting Create key failed")
 	})
@@ -376,7 +376,7 @@ func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)
 
-		_, err = client.SaveDoc(vID, docID, nil)
+		_, err = client.SaveDoc(vID, docID, data["info_"+vID])
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "get meta doc info: store get: text")
 	})
@@ -387,7 +387,7 @@ func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 		})
 		require.NoError(t, err)
 
-		_, err = client.SaveDoc(vaultID, docID, nil)
+		_, err = client.SaveDoc(vaultID, docID, []byte(`{"auth":{"edv":{},"kms":{}}}`))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "encrypt key: create: posting Create key failed")
 	})
@@ -452,7 +452,7 @@ func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)
 
-		docMeta, err := client.SaveDoc(vID, docID, nil)
+		docMeta, err := client.SaveDoc(vID, docID, data["info_"+vID])
 		require.NoError(t, err)
 		require.NotEmpty(t, docMeta.ID)
 		require.NotEmpty(t, docMeta.URI)
@@ -536,10 +536,25 @@ func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
 
 		data["info_"+vID] = []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)
 
-		docMeta, err := client.SaveDoc(vID, docID, nil)
+		docMeta, err := client.SaveDoc(vID, docID, data["info_"+vID])
 		require.NoError(t, err)
 		require.NotEmpty(t, docMeta.ID)
 		require.NotEmpty(t, docMeta.URI)
+	})
+
+	t.Run("error if doc contents are not JSON", func(t *testing.T) {
+		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
+			Store: &mockstorage.MockStore{
+				Store: map[string][]byte{
+					"info_v_id": []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`),
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		_, err = client.SaveDoc(vaultID, docID, []byte("}"))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to decode content")
 	})
 }
 

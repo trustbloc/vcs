@@ -447,7 +447,7 @@ func (v *vaultMock) CreateVault() (*vault.CreatedVault, error) {
 	return v.createVaultFn()
 }
 
-func (v *vaultMock) SaveDoc(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
+func (v *vaultMock) SaveDoc(vaultID, id string, content []byte) (*vault.DocumentMetadata, error) {
 	return v.saveDocFn(vaultID, id, content)
 }
 
