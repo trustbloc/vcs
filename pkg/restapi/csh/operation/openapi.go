@@ -98,10 +98,8 @@ type comparisonResp struct { // nolint:deadcode,unused // swagger model
 //
 // swagger:parameters extractionReq
 type extractionReq struct { // nolint:deadcode,unused // swagger model
-	// Resource identifier.
-	//
-	// in: query
-	Resource string `json:"resource"`
+	// in: body
+	Body []openapi.Query
 }
 
 // extractionResp model
@@ -109,5 +107,5 @@ type extractionReq struct { // nolint:deadcode,unused // swagger model
 // swagger:response extractionResp
 type extractionResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body struct{}
+	Body []interface{}
 }

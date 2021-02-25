@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/cucumber/godog"
@@ -32,9 +33,10 @@ const (
 // NewSteps returns BDD test steps for the confidential storage hub.
 func NewSteps(ctx *bddctx.BDDContext) *Steps {
 	return &Steps{
-		ctx:  ctx,
-		docs: make([]*docCoords, 0),
-		refs: make([]string, 0),
+		ctx:          ctx,
+		docs:         make([]*docCoords, 0),
+		refs:         make([]string, 0),
+		rawDocuments: make([]string, 0),
 	}
 }
 
@@ -53,6 +55,8 @@ type Steps struct {
 	docs             []*docCoords
 	refs             []string
 	comparisonResult bool
+	rawDocuments     []string
+	extractions      []interface{}
 }
 
 // RegisterSteps for this BDD test.
@@ -64,7 +68,9 @@ func (s *Steps) RegisterSteps(gs *godog.Suite) {
 	gs.Step(`^the user creates a RefQuery for one document$`, s.userCreatesRefQuery)
 	gs.Step(`^the user authorizes the CSH to read the documents$`, s.userAuthorizesCSHToReadDocuments)
 	gs.Step(`^the user requests a comparison between the two documents$`, s.userRequestsComparison)
+	gs.Step(`^the user requests extraction of all documents$`, s.userRequestsExtraction)
 	gs.Step(`^the result is "([^"]*)"$`, s.confirmComparisonResult)
+	gs.Step(`^the CSH returns the decrypted documents$`, s.confirmExtractionResults)
 }
 
 func (s *Steps) userCreatesProfile() error {
@@ -82,6 +88,7 @@ func (s *Steps) userCreatesProfile() error {
 
 	s.docs = make([]*docCoords, 0)
 	s.refs = make([]string, 0)
+	s.rawDocuments = make([]string, 0)
 
 	return nil
 }
@@ -142,6 +149,7 @@ func (s *Steps) userSavesDocument(contents string) error {
 	}
 
 	s.docs = append(s.docs, coords)
+	s.rawDocuments = append(s.rawDocuments, contents)
 
 	return nil
 }
@@ -197,6 +205,63 @@ func (s *Steps) userAuthorizesCSHToReadDocuments() error {
 }
 
 func (s *Steps) userRequestsComparison() error {
+	var err error
+
+	s.comparisonResult, err = s.user.compare(s.buildAllQueries()...)
+	if err != nil {
+		return fmt.Errorf("user failed to execute comparison: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) userRequestsExtraction() error {
+	var err error
+
+	s.extractions, err = s.user.extract(s.buildAllQueries()...)
+	if err != nil {
+		return fmt.Errorf("user failed to extract documents: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Steps) confirmComparisonResult(want string) error {
+	expected, err := strconv.ParseBool(want)
+	if err != nil {
+		return fmt.Errorf("'%s' is not a bool value: %w", want, err)
+	}
+
+	if s.comparisonResult != expected {
+		return fmt.Errorf("expected '%t' but got '%t'", expected, s.comparisonResult)
+	}
+
+	return nil
+}
+
+func (s *Steps) confirmExtractionResults() error {
+	for i := range s.rawDocuments {
+		want := s.rawDocuments[i]
+		found := false
+
+		for j := range s.extractions {
+			got := s.extractions[j]
+
+			found = reflect.DeepEqual(want, got)
+			if found {
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("document not extracted: %s", want)
+		}
+	}
+
+	return nil
+}
+
+func (s *Steps) buildAllQueries() []models.Query {
 	queries := make([]models.Query, len(s.docs)+len(s.refs))
 
 	for i := range s.docs {
@@ -224,27 +289,7 @@ func (s *Steps) userRequestsComparison() error {
 		}
 	}
 
-	var err error
-
-	s.comparisonResult, err = s.user.compare(queries...)
-	if err != nil {
-		return fmt.Errorf("user failed to execute comparison: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Steps) confirmComparisonResult(want string) error {
-	expected, err := strconv.ParseBool(want)
-	if err != nil {
-		return fmt.Errorf("'%s' is not a bool value: %w", want, err)
-	}
-
-	if s.comparisonResult != expected {
-		return fmt.Errorf("expected '%t' but got '%t'", expected, s.comparisonResult)
-	}
-
-	return nil
+	return queries
 }
 
 func parseZCAP(encoded string) (*zcapld.Capability, error) {

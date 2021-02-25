@@ -466,6 +466,19 @@ func (u *user) compare(queries ...models.Query) (bool, error) {
 	return response.Payload.Result, nil
 }
 
+func (u *user) extract(queries ...models.Query) ([]interface{}, error) {
+	response, err := u.cshClient.Operations.PostExtract(
+		operations.NewPostExtractParams().
+			WithTimeout(requestTimeout).
+			WithRequest(queries),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract documents: %w", err)
+	}
+
+	return response.Payload, nil
+}
+
 func didKeyURL(pubKeyBytes []byte) string {
 	_, didKeyURL := fingerprint.CreateDIDKey(pubKeyBytes)
 

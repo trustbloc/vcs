@@ -75,3 +75,30 @@ Feature: Confidential Storage Hub
      And the user creates a RefQuery for one document
      And the user requests a comparison between the two documents
     Then the result is "false"
+
+  Scenario: Extraction of several documents with DocQuery and RefQuery
+    When the user has a profile
+     And the user saves a Confidential Storage document with content "Hey Alice!"
+     And the user saves a Confidential Storage document with content "Goodbye Bob!"
+     And the user authorizes the CSH to read the documents
+     And the user creates a RefQuery for one document
+     And the user requests extraction of all documents
+    Then the CSH returns the decrypted documents
+
+  Scenario: Extraction of several documents with RefQuery
+    When the user has a profile
+     And the user saves a Confidential Storage document with content "Hey Alice!"
+     And the user saves a Confidential Storage document with content "Goodbye Bob!"
+     And the user authorizes the CSH to read the documents
+     And the user creates a RefQuery for one document
+     And the user creates a RefQuery for one document
+     And the user requests extraction of all documents
+    Then the CSH returns the decrypted documents
+
+  Scenario: Extraction of several documents with DocQuery
+    When the user has a profile
+     And the user saves a Confidential Storage document with content "Hey Alice!"
+     And the user saves a Confidential Storage document with content "Goodbye Bob!"
+     And the user authorizes the CSH to read the documents
+     And the user requests extraction of all documents
+    Then the CSH returns the decrypted documents
