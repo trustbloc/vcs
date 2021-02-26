@@ -22,13 +22,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -55,7 +55,8 @@ func Test_New(t *testing.T) {
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&Config{
 			StoreProvider: &ariesmockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: errors.New("error creating the store")},
+				ErrOpenStoreHandle: errors.New("error creating the store"),
+			},
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
@@ -181,9 +182,11 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("create profile - get profile error", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-				Store:  make(map[string][]byte),
-				ErrGet: errors.New("get error")},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					Store:  make(map[string]ariesmockstorage.DBEntry),
+					ErrGet: errors.New("get error"),
+				},
 			},
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
@@ -207,9 +210,11 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("create profile - profile fetch db error", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-				Store:  make(map[string][]byte),
-				ErrPut: errors.New("save error")},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					Store:  make(map[string]ariesmockstorage.DBEntry),
+					ErrPut: errors.New("save error"),
+				},
 			},
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
@@ -297,9 +302,11 @@ func TestDeleteProfileHandler(t *testing.T) {
 
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-				Store:     make(map[string][]byte),
-				ErrDelete: errors.New("delete error")},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					Store:     make(map[string]ariesmockstorage.DBEntry),
+					ErrDelete: errors.New("delete error"),
+				},
 			},
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
@@ -363,14 +370,18 @@ func TestVerifyCredential(t *testing.T) {
 		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
 		require.NoError(t, errNew)
 
-		ops.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-			Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits)))}}
+		ops.httpClient = &mockHTTPClient{doValue: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits))),
+		}}
 
 		vc.Status = &verifiable.TypedID{
 			ID:   "http://example.com/status/100#1",
 			Type: cslstatus.RevocationList2020Status,
-			CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
-				cslstatus.RevocationListCredential: "http://example.com/status/100"},
+			CustomFields: map[string]interface{}{
+				cslstatus.RevocationListIndex:      "1",
+				cslstatus.RevocationListCredential: "http://example.com/status/100",
+			},
 		}
 
 		vcBytes, errMarshal := vc.MarshalJSON()
@@ -525,8 +536,10 @@ func TestVerifyCredential(t *testing.T) {
 			vc.Status = &verifiable.TypedID{
 				ID:   "http://example.com/status/100#1",
 				Type: "NotMatch",
-				CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
-					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+				CustomFields: map[string]interface{}{
+					cslstatus.RevocationListIndex:      "1",
+					cslstatus.RevocationListCredential: "http://example.com/status/100",
+				},
 			}
 
 			vcBytes, errMarshal := vc.MarshalJSON()
@@ -559,7 +572,8 @@ func TestVerifyCredential(t *testing.T) {
 				ID:   "http://example.com/status/100#1",
 				Type: cslstatus.RevocationList2020Status,
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+					cslstatus.RevocationListCredential: "http://example.com/status/100",
+				},
 			}
 
 			vcBytes, errMarshal := vc.MarshalJSON()
@@ -592,7 +606,8 @@ func TestVerifyCredential(t *testing.T) {
 				ID:   "http://example.com/status/100#1",
 				Type: cslstatus.RevocationList2020Status,
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListIndex: "1"},
+					cslstatus.RevocationListIndex: "1",
+				},
 			}
 
 			vcBytes, errMarshal := vc.MarshalJSON()
@@ -624,8 +639,10 @@ func TestVerifyCredential(t *testing.T) {
 			vc.Status = &verifiable.TypedID{
 				ID:   "http://example.com/status/100#1",
 				Type: cslstatus.RevocationList2020Status,
-				CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
-					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+				CustomFields: map[string]interface{}{
+					cslstatus.RevocationListIndex:      "1",
+					cslstatus.RevocationListCredential: "http://example.com/status/100",
+				},
 			}
 
 			vcBytes, errMarshal := vc.MarshalJSON()
@@ -663,14 +680,18 @@ func TestVerifyCredential(t *testing.T) {
 			encodeBits, err := bitString.EncodeBits()
 			require.NoError(t, err)
 
-			op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-				Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits)))}}
+			op.httpClient = &mockHTTPClient{doValue: &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits))),
+			}}
 
 			vc.Status = &verifiable.TypedID{
 				ID:   "http://example.com/status/100#1",
 				Type: cslstatus.RevocationList2020Status,
-				CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "1",
-					cslstatus.RevocationListCredential: "http://example.com/status/100"},
+				CustomFields: map[string]interface{}{
+					cslstatus.RevocationListIndex:      "1",
+					cslstatus.RevocationListCredential: "http://example.com/status/100",
+				},
 			}
 
 			vcBytes, err := vc.MarshalJSON()
@@ -833,14 +854,18 @@ func TestVerifyCredential(t *testing.T) {
 		err = ops.profileStore.SaveProfile(vReq)
 		require.NoError(t, err)
 
-		ops.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-			Body: ioutil.NopCloser(strings.NewReader(""))}}
+		ops.httpClient = &mockHTTPClient{doValue: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(strings.NewReader("")),
+		}}
 
 		vc.Status = &verifiable.TypedID{
 			ID:   "http://example.com/status/100#94567",
 			Type: cslstatus.RevocationList2020Status,
-			CustomFields: map[string]interface{}{cslstatus.RevocationListIndex: "94567",
-				cslstatus.RevocationListCredential: "http://example.com/status/100"},
+			CustomFields: map[string]interface{}{
+				cslstatus.RevocationListIndex:      "94567",
+				cslstatus.RevocationListCredential: "http://example.com/status/100",
+			},
 		}
 
 		vcBytes, err := vc.MarshalJSON()
@@ -951,8 +976,10 @@ func TestVerifyPresentation(t *testing.T) {
 		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
 		require.NoError(t, errNew)
 
-		op.httpClient = &mockHTTPClient{doValue: &http.Response{StatusCode: http.StatusOK,
-			Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits)))}}
+		op.httpClient = &mockHTTPClient{doValue: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits))),
+		}}
 
 		err = op.profileStore.SaveProfile(vReq)
 		require.NoError(t, err)

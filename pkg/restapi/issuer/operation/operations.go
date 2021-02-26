@@ -28,7 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	"github.com/trustbloc/edv/pkg/client"
@@ -80,8 +80,10 @@ const (
 
 var logger = log.New("edge-service-issuer-restapi")
 
-var errProfileNotFound = errors.New("specified profile ID does not exist")
-var errNoDocsMatchQuery = errors.New("no documents match the given query")
+var (
+	errProfileNotFound  = errors.New("specified profile ID does not exist")
+	errNoDocsMatchQuery = errors.New("no documents match the given query")
+)
 
 var errMultipleInconsistentVCsFoundForOneID = errors.New("multiple VCs with " +
 	"differing contents were found matching the given ID. This indicates inconsistency in " +
@@ -163,8 +165,10 @@ func New(config *Config) (*Operation, error) {
 		macKeyHandle:         kh,
 		macCrypto:            config.Crypto,
 		vcIDIndexNameEncoded: vcIDIndexNameMACEncoded,
-		commonDID: commondid.New(&commondid.Config{VDRI: config.VDRI, KeyManager: config.KeyManager,
-			Domain: config.Domain, TLSConfig: config.TLSConfig}),
+		commonDID: commondid.New(&commondid.Config{
+			VDRI: config.VDRI, KeyManager: config.KeyManager,
+			Domain: config.Domain, TLSConfig: config.TLSConfig,
+		}),
 		retryParameters: config.RetryParameters,
 	}
 
@@ -260,8 +264,8 @@ func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.R
 //        200: emptyRes
 func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *http.Request) {
 	data := UpdateCredentialStatusRequest{}
-	err := json.NewDecoder(req.Body).Decode(&data)
 
+	err := json.NewDecoder(req.Body).Decode(&data)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to decode request received: %s", err.Error()))
@@ -392,7 +396,6 @@ func (o *Operation) deleteIssuerProfileHandler(rw http.ResponseWriter, req *http
 	// TODO: https://github.com/trustbloc/edge-service/issues/508 delete the edv vault
 
 	err := o.profileStore.DeleteProfile(profileID)
-
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -576,10 +579,14 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.IssuerPr
 		return nil, fmt.Errorf("fail to create issuer profile vault: %w", err)
 	}
 
-	return &vcprofile.IssuerProfile{DataProfile: &vcprofile.DataProfile{Name: pr.Name, Created: &created, DID: didID,
-		SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID},
+	return &vcprofile.IssuerProfile{
+		DataProfile: &vcprofile.DataProfile{
+			Name: pr.Name, Created: &created, DID: didID,
+			SignatureType: pr.SignatureType, SignatureRepresentation: pr.SignatureRepresentation, Creator: publicKeyID,
+		},
 		URI: pr.URI, EDVCapability: capability, EDVVaultID: edvVaultID, DisableVCStatus: pr.DisableVCStatus,
-		OverwriteIssuer: pr.OverwriteIssuer, EDVController: didKey}, nil
+		OverwriteIssuer: pr.OverwriteIssuer, EDVController: didKey,
+	}, nil
 }
 
 // createIssuerProfileVault creates the vault associated with the profile
@@ -590,9 +597,11 @@ func (o *Operation) createIssuerProfileVault() (string, []byte, string, error) {
 		return "", nil, "", err
 	}
 
-	dataVaultConfig := &models.DataVaultConfiguration{Sequence: 0, Controller: didKey, ReferenceID: uuid.New().String(),
+	dataVaultConfig := &models.DataVaultConfiguration{
+		Sequence: 0, Controller: didKey, ReferenceID: uuid.New().String(),
 		KEK:  models.IDTypePair{ID: uuid.New().URN(), Type: "X25519KeyAgreementKey2019"},
-		HMAC: models.IDTypePair{ID: uuid.New().URN(), Type: "Sha256HmacKey2019"}}
+		HMAC: models.IDTypePair{ID: uuid.New().URN(), Type: "Sha256HmacKey2019"},
+	}
 
 	vaultLocationURL, resp, err := o.edvClient.CreateDataVault(dataVaultConfig)
 	if err != nil {
@@ -955,7 +964,6 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
-
 	if err != nil {
 		return nil, err
 	}

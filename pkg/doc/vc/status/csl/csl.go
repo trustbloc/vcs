@@ -15,7 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -117,9 +117,13 @@ func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile)
 		}
 	}
 
-	return &verifiable.TypedID{ID: cslWrapper.VC.ID + "#" + revocationListIndex,
-		Type: RevocationList2020Status, CustomFields: verifiable.CustomFields{RevocationListIndex: revocationListIndex,
-			RevocationListCredential: cslWrapper.VC.ID}}, nil
+	return &verifiable.TypedID{
+		ID:   cslWrapper.VC.ID + "#" + revocationListIndex,
+		Type: RevocationList2020Status, CustomFields: verifiable.CustomFields{
+			RevocationListIndex:      revocationListIndex,
+			RevocationListCredential: cslWrapper.VC.ID,
+		},
+	}, nil
 }
 
 // RevokeVC revoke vc
@@ -307,8 +311,10 @@ func (c *CredentialStatusManager) createVC(vcID string,
 		return nil, err
 	}
 
-	credential.Subject = &credentialSubject{ID: credential.ID + "#list", Type: revocationList2020Type,
-		EncodedList: encodeBits}
+	credential.Subject = &credentialSubject{
+		ID: credential.ID + "#list", Type: revocationList2020Type,
+		EncodedList: encodeBits,
+	}
 
 	signOpts, err := prepareSigningOpts(profile, credential.Proofs)
 	if err != nil {

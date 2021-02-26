@@ -11,12 +11,12 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
@@ -30,20 +30,25 @@ func TestController_New(t *testing.T) {
 		kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 		require.NoError(t, err)
 
-		controller, err := New(&operation.Config{StoreProvider: ariesmemstorage.NewProvider(),
+		controller, err := New(&operation.Config{
+			StoreProvider:      ariesmemstorage.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
 			KMSSecretsProvider: ariesmemstorage.NewProvider(), EDVClient: client,
 			KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-			VDRI:       &vdrmock.MockVDRegistry{}, HostURL: ""})
+			VDRI:       &vdrmock.MockVDRegistry{}, HostURL: "",
+		})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
-		controller, err := New(&operation.Config{StoreProvider: &ariesmockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("error open store")}, EDVClient: client,
-			VDRI: &vdrmock.MockVDRegistry{}, HostURL: ""})
+		controller, err := New(&operation.Config{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				ErrOpenStoreHandle: fmt.Errorf("error open store"),
+			}, EDVClient: client,
+			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "",
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
 		require.Nil(t, controller)
@@ -56,11 +61,13 @@ func TestController_GetOperations(t *testing.T) {
 	kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
-	controller, err := New(&operation.Config{StoreProvider: ariesmemstorage.NewProvider(),
+	controller, err := New(&operation.Config{
+		StoreProvider:      ariesmemstorage.NewProvider(),
 		Crypto:             &cryptomock.Crypto{},
 		KMSSecretsProvider: ariesmemstorage.NewProvider(), EDVClient: client,
 		KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-		VDRI:       &vdrmock.MockVDRegistry{}, HostURL: ""})
+		VDRI:       &vdrmock.MockVDRegistry{}, HostURL: "",
+	})
 
 	require.NoError(t, err)
 	require.NotNil(t, controller)

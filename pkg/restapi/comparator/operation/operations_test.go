@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -31,7 +32,6 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/square/go-jose/v3"
 	"github.com/stretchr/testify/require"
@@ -59,12 +59,14 @@ func Test_New(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		op, err := operation.New(&operation.Config{CSHBaseURL: serv.URL, StoreProvider: &mockstorage.MockStoreProvider{
-			Store: s}, KeyManager: &mockkms.KeyManager{}, VDR: &vdr.MockVDRegistry{
+			Store: s,
+		}, KeyManager: &mockkms.KeyManager{}, VDR: &vdr.MockVDRegistry{
 			CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: &did.Doc{ID: "did:ex:123"}}, nil
-			}}})
+			},
+		}})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 
@@ -77,36 +79,44 @@ func Test_New(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		_, err := operation.New(&operation.Config{CSHBaseURL: serv.URL, StoreProvider: &mockstorage.MockStoreProvider{
-			Store: s}, KeyManager: &mockkms.KeyManager{}, VDR: &vdr.MockVDRegistry{
+			Store: s,
+		}, KeyManager: &mockkms.KeyManager{}, VDR: &vdr.MockVDRegistry{
 			CreateFunc: func(s string, doc *did.Doc, option ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: &did.Doc{ID: "did:ex:123"}}, nil
-			}}})
+			},
+		}})
 		require.Error(t, err)
 	})
 
 	t.Run("test failed to create store", func(t *testing.T) {
 		_, err := operation.New(&operation.Config{StoreProvider: &mockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("failed to open store")}})
+			ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
+		}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
 
 	t.Run("test failed to export public key", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		_, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		_, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{
-				Store: s}, KeyManager: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("failed to export")}})
+				Store: s,
+			}, KeyManager: &mockkms.KeyManager{CrAndExportPubKeyErr: fmt.Errorf("failed to export")},
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to export")
 	})
 
 	t.Run("test failed to get config", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		s.ErrGet = fmt.Errorf("failed to get config")
-		_, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		_, err := operation.New(&operation.Config{
+			CSHBaseURL:    "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get config")
 	})
@@ -114,11 +124,13 @@ func Test_New(t *testing.T) {
 
 func TestOperation_CreateAuthorization(t *testing.T) {
 	t.Run("test bad request", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL:    "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -138,11 +150,13 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -172,11 +186,13 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -206,11 +222,13 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -245,19 +263,23 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
 		auth := &models.Authorization{}
 		docID := "docID14"
 		vaultID := "vaultID14"
-		auth.Scope = &models.Scope{DocID: &docID, VaultID: vaultID,
-			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"}}
+		auth.Scope = &models.Scope{
+			DocID: &docID, VaultID: vaultID,
+			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"},
+		}
 		op.CreateAuthorization(result, newReq(t,
 			http.MethodPost,
 			"/authorizations",
@@ -287,11 +309,13 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -299,8 +323,10 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		auth := &models.Authorization{RequestingParty: &rpDID}
 		docID := "docID15"
 		vaultID := "vaultID15"
-		auth.Scope = &models.Scope{DocID: &docID, VaultID: vaultID,
-			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"}}
+		auth.Scope = &models.Scope{
+			DocID: &docID, VaultID: vaultID,
+			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"},
+		}
 		op.CreateAuthorization(result, newReq(t,
 			http.MethodPost,
 			"/authorizations",
@@ -330,17 +356,19 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
 
 		chs := newAgent(t)
 		chsZCAP := newZCAP(t, chs, chs)
 		p := cshclientmodels.Profile{Zcap: compress(t, marshal(t, chsZCAP))}
 		chsProfileBytes, err := p.MarshalBinary()
 		require.NoError(t, err)
-		s.Store["csh_config"] = chsProfileBytes
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: chsProfileBytes}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -348,8 +376,10 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		auth := &models.Authorization{RequestingParty: &rpDID}
 		docID := "docID16"
 		vaultID := "vaultID16"
-		auth.Scope = &models.Scope{DocID: &docID, VaultID: vaultID,
-			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"}}
+		auth.Scope = &models.Scope{
+			DocID: &docID, VaultID: vaultID,
+			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"},
+		}
 		op.CreateAuthorization(result, newReq(t,
 			http.MethodPost,
 			"/authorizations",
@@ -379,7 +409,7 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		didID := "did:ex:123"
 		m := make([]json.RawMessage, 0)
 		_, privateKey, err := ed25519.GenerateKey(rand.Reader)
@@ -391,15 +421,17 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		conf := models.Config{Did: &didID, Key: m}
 		confBytes, err := conf.MarshalBinary()
 		require.NoError(t, err)
-		s.Store["config"] = confBytes
+		s.Store["config"] = mockstorage.DBEntry{Value: confBytes}
 		chs := newAgent(t)
 		chsZCAP := newZCAP(t, chs, chs)
 		p := cshclientmodels.Profile{Zcap: compress(t, marshal(t, chsZCAP))}
 		chsProfileBytes, err := p.MarshalBinary()
 		require.NoError(t, err)
-		s.Store["csh_config"] = chsProfileBytes
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: chsProfileBytes}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -407,8 +439,10 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		auth := &models.Authorization{RequestingParty: &rpDID}
 		docID := "docID17"
 		vaultID := "vaultID17"
-		auth.Scope = &models.Scope{DocID: &docID, VaultID: vaultID,
-			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"}}
+		auth.Scope = &models.Scope{
+			DocID: &docID, VaultID: vaultID,
+			AuthTokens: &models.ScopeAuthTokens{Kms: "kms", Edv: "edv"},
+		}
 		auth.Scope.SetCaveats([]models.Caveat{&models.ExpiryCaveat{Duration: int64(200)}})
 		op.CreateAuthorization(result, newReq(t,
 			http.MethodPost,
@@ -423,11 +457,13 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 
 func TestOperation_Compare(t *testing.T) {
 	t.Run("test bad request", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL:    "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -447,11 +483,13 @@ func TestOperation_Compare(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost", VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -490,11 +528,13 @@ func TestOperation_Compare(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -503,8 +543,10 @@ func TestOperation_Compare(t *testing.T) {
 		query := make([]models.Query, 0)
 		docID := "docID2"
 		vaultID := "vaultID2"
-		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
-			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}})
+		query = append(query, &models.DocQuery{
+			DocID: &docID, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"},
+		})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
 		op.Compare(result, newReq(t,
@@ -541,11 +583,13 @@ func TestOperation_Compare(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -555,8 +599,10 @@ func TestOperation_Compare(t *testing.T) {
 		docID := "docID3"
 		vaultID := "vaultID3"
 		zcap := "wrong"
-		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
-			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}},
+		query = append(query, &models.DocQuery{
+			DocID: &docID, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"},
+		},
 			&models.AuthorizedQuery{AuthToken: &zcap})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
@@ -594,11 +640,13 @@ func TestOperation_Compare(t *testing.T) {
 		}))
 		defer serv.Close()
 
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -609,8 +657,10 @@ func TestOperation_Compare(t *testing.T) {
 		vaultID := "vaultID3"
 		chs := newAgent(t)
 		chsZCAP := compress(t, marshal(t, newZCAP(t, chs, chs)))
-		query = append(query, &models.DocQuery{DocID: &docID, VaultID: &vaultID,
-			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"}},
+		query = append(query, &models.DocQuery{
+			DocID: &docID, VaultID: &vaultID,
+			AuthTokens: &models.DocQueryAO1AuthTokens{Edv: "edvToken", Kms: "kmsToken"},
+		},
 			&models.AuthorizedQuery{AuthToken: &chsZCAP})
 		eq.SetArgs(query)
 		cr.SetOp(eq)
@@ -627,12 +677,15 @@ func TestOperation_Compare(t *testing.T) {
 
 func TestOperation_Extract(t *testing.T) {
 	t.Run("TODO - performs an extraction", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{
-				Store: s}})
+				Store: s,
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -643,12 +696,15 @@ func TestOperation_Extract(t *testing.T) {
 
 func TestOperation_GetConfig(t *testing.T) {
 	t.Run("get config success", func(t *testing.T) {
-		s := make(map[string][]byte)
-		s["config"] = []byte(`{}`)
-		s["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
+		s := make(map[string]mockstorage.DBEntry)
+		s["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{
-				Store: &mockstorage.MockStore{Store: s}}})
+				Store: &mockstorage.MockStore{Store: s},
+			},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
@@ -658,12 +714,15 @@ func TestOperation_GetConfig(t *testing.T) {
 	})
 
 	t.Run("get config not found", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{
-				Store: s}})
+				Store: s,
+			},
+		})
 		delete(s.Store, "config")
 		require.NoError(t, err)
 		require.NotNil(t, op)
@@ -673,12 +732,15 @@ func TestOperation_GetConfig(t *testing.T) {
 	})
 
 	t.Run("get config error", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		op, err := operation.New(&operation.Config{CSHBaseURL: "https://localhost",
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{
-				Store: s}})
+				Store: s,
+			},
+		})
 		s.ErrGet = fmt.Errorf("failed to get config")
 		require.NoError(t, err)
 		require.NotNil(t, op)

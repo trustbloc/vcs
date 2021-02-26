@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (
@@ -29,9 +29,11 @@ const (
 
 var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as a key set handle pointer")
 
-type unmarshalFunc func([]byte, interface{}) error
-type newJWEEncryptFunc func(encAlg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
-	recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error)
+type (
+	unmarshalFunc     func([]byte, interface{}) error
+	newJWEEncryptFunc func(encAlg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
+		recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error)
+)
 
 // PrepareJWECrypto prepares necessary JWE crypto data for edge-service operations
 func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider ariesstorage.Provider, c cryptoapi.Crypto,

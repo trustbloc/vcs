@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -30,7 +31,6 @@ import (
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -120,8 +120,11 @@ func TestCreateGovernanceProfile(t *testing.T) {
 		op, err := New(&Config{
 			Crypto: customCrypto,
 			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
-				ErrGet: fmt.Errorf("failed to get")}},
+				Store: map[string]ariesmockstorage.DBEntry{
+					"profile_governance_test1": {Value: []byte("")},
+				},
+				ErrGet: fmt.Errorf("failed to get"),
+			}},
 			KeyManager: customKMS,
 			VDRI:       &vdrmock.MockVDRegistry{},
 		})
@@ -150,8 +153,11 @@ func TestCreateGovernanceProfile(t *testing.T) {
 		op, err := New(&Config{
 			Crypto: customCrypto,
 			StoreProvider: &ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte),
-					ErrPut: fmt.Errorf("failed to put")}},
+				Store: &ariesmockstorage.MockStore{
+					Store:  make(map[string]ariesmockstorage.DBEntry),
+					ErrPut: fmt.Errorf("failed to put"),
+				},
+			},
 			KeyManager: customKMS,
 			VDRI:       &vdrmock.MockVDRegistry{},
 		})
@@ -291,8 +297,11 @@ func TestIssueCredential(t *testing.T) {
 	t.Run("issue credential - failed to get governance", func(t *testing.T) {
 		ops, err := New(&Config{
 			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-				Store:  map[string][]byte{"profile_governance_test1": []byte("")},
-				ErrGet: fmt.Errorf("failed to get")}},
+				Store: map[string]ariesmockstorage.DBEntry{
+					"profile_governance_test1": {Value: []byte("")},
+				},
+				ErrGet: fmt.Errorf("failed to get"),
+			}},
 			KeyManager: customKMS,
 			VDRI:       &vdrmock.MockVDRegistry{},
 			Crypto:     customCrypto,

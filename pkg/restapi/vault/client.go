@@ -8,6 +8,8 @@ package vault
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,17 +19,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	ariesvdr "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	vdrkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -120,11 +126,13 @@ type Client struct {
 	remoteKMSURL string
 	edvHost      string
 	edvScheme    string
+	didMethod    string
 	kms          KeyManager
-	crypto       crypto.Crypto
+	crypto       ariescrypto.Crypto
 	edvClient    *edv.Client
 	httpClient   HTTPClient
 	store        storage.Store
+	registry     *ariesvdr.Registry
 }
 
 // Opt represents Client`s option.
@@ -135,6 +143,26 @@ func WithHTTPClient(client HTTPClient) Opt {
 	return func(vault *Client) {
 		vault.httpClient = client
 	}
+}
+
+// WithDidMethod allows providing did method.
+func WithDidMethod(method string) Opt {
+	return func(vault *Client) {
+		vault.didMethod = method
+	}
+}
+
+// WithRegistry allows providing registry.
+func WithRegistry(registry *ariesvdr.Registry) Opt {
+	return func(vault *Client) {
+		vault.registry = registry
+	}
+}
+
+type kmsCtx struct{ kms.KeyManager }
+
+func (c *kmsCtx) KMS() kms.KeyManager {
+	return c.KeyManager
 }
 
 // NewClient creates a new vault client.
@@ -164,6 +192,11 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 		httpClient: &http.Client{
 			Timeout: time.Minute,
 		},
+		didMethod: "key",
+		registry: ariesvdr.New(
+			&kmsCtx{KeyManager: kmsClient},
+			ariesvdr.WithVDR(vdrkey.New()),
+		),
 	}
 
 	for _, fn := range opts {
@@ -381,15 +414,13 @@ func (c *Client) SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata,
 		return nil, fmt.Errorf("failed to decode content: %w", err)
 	}
 
-	doc := &models.StructuredDocument{
-		ID:      docID,
-		Content: docContents,
-	}
-
 	kidURL, encContent, err := encryptContent(
 		c.webKMS(info.DidURL, info.Auth.KMS),
 		c.webCrypto(info.DidURL, info.Auth.KMS),
-		doc,
+		&models.StructuredDocument{
+			ID:      docID,
+			Content: docContents,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("encrypt key: %w", err)
@@ -538,19 +569,67 @@ func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteC
 }
 
 func (c *Client) createDIDKey() (string, string, string, error) {
-	sig, err := signature.NewCryptoSigner(c.crypto, c.kms, kms.ED25519)
+	kid, didDoc, err := newDidDoc(c.kms)
 	if err != nil {
-		return "", "", "", fmt.Errorf("new crypto signer: %w", err)
+		return "", "", "", err
 	}
 
-	cryptoSigner, ok := sig.(interface{ KID() string })
-	if !ok {
-		return "", "", "", errors.New("cannot retrieve the KID")
+	_, recoverKey, err := newKey(c.kms)
+	if err != nil {
+		return "", "", "", err
 	}
 
-	didKey, didURL := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
+	_, updateKey, err := newKey(c.kms)
+	if err != nil {
+		return "", "", "", err
+	}
 
-	return didKey, didURL, cryptoSigner.KID(), nil
+	docResolution, err := c.registry.Create(c.didMethod, didDoc,
+		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
+		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
+	)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return docResolution.DIDDocument.ID, docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, kid, nil
+}
+
+func newDidDoc(k kms.KeyManager) (string, *ariesdid.Doc, error) {
+	didDoc := &ariesdid.Doc{}
+
+	kid, publicKey, err := newKey(k)
+	if err != nil {
+		return "", nil, err
+	}
+
+	jwk, err := jose.JWKFromPublicKey(publicKey)
+	if err != nil {
+		return "", nil, err
+	}
+
+	vm, err := ariesdid.NewVerificationMethodFromJWK(uuid.New().String(), doc.JWSVerificationKey2020, "", jwk)
+	if err != nil {
+		return "", nil, err
+	}
+
+	didDoc.Authentication = append(didDoc.Authentication,
+		*ariesdid.NewReferencedVerification(vm, ariesdid.Authentication))
+	didDoc.AssertionMethod = append(didDoc.AssertionMethod,
+		*ariesdid.NewReferencedVerification(vm, ariesdid.AssertionMethod))
+	didDoc.CapabilityDelegation = append(didDoc.CapabilityDelegation,
+		*ariesdid.NewReferencedVerification(vm, ariesdid.CapabilityDelegation))
+
+	return kid, didDoc, nil
+}
+
+func newKey(k kms.KeyManager) (string, crypto.PublicKey, error) {
+	keyID, bits, err := k.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	if err != nil {
+		return "", nil, fmt.Errorf("failed to create key : %w", err)
+	}
+
+	return keyID, ed25519.PublicKey(bits), nil
 }
 
 func (c *Client) createDataVault(didKey string) (*Location, error) {
@@ -607,8 +686,9 @@ func (c *Client) sign(req *http.Request, controller, action, zcap string) (*http
 
 	hs := httpsignatures.NewHTTPSignatures(&zcapld.AriesDIDKeySecrets{})
 	hs.SetSignatureHashAlgorithm(&zcapld.AriesDIDKeySignatureHashAlgorithm{
-		Crypto: c.crypto,
-		KMS:    c.kms,
+		Crypto:   c.crypto,
+		KMS:      c.kms,
+		Resolver: c.registry,
 	})
 
 	err := hs.Sign(controller, req)
@@ -633,7 +713,7 @@ func buildEDVURI(s, h, vid string) string {
 	return fmt.Sprintf("%s://%s/encrypted-data-vaults/%s", s, h, vid)
 }
 
-func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{}) (string, string, error) {
+func encryptContent(wKMS KeyManager, wCrypto ariescrypto.Crypto, content interface{}) (string, string, error) {
 	src, err := json.Marshal(content)
 	if err != nil {
 		return "", "", fmt.Errorf("marshal: %w", err)
@@ -654,7 +734,7 @@ func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{})
 		return "", "", fmt.Errorf("export pubKey bytes: %w", err)
 	}
 
-	var ecPubKey *crypto.PublicKey
+	var ecPubKey *ariescrypto.PublicKey
 
 	err = json.Unmarshal(pubKeyBytes, &ecPubKey)
 	if err != nil {
@@ -662,7 +742,7 @@ func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{})
 	}
 
 	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, jose.A256GCMALG, "", nil,
-		[]*crypto.PublicKey{ecPubKey}, wCrypto)
+		[]*ariescrypto.PublicKey{ecPubKey}, wCrypto)
 	if err != nil {
 		return "", "", fmt.Errorf("new JWE encrypt: %w", err)
 	}
@@ -681,11 +761,11 @@ func encryptContent(wKMS KeyManager, wCrypto crypto.Crypto, content interface{})
 }
 
 type signer struct {
-	crypto crypto.Crypto
+	crypto ariescrypto.Crypto
 	kh     interface{}
 }
 
-func newSigner(cr crypto.Crypto, kh interface{}) *signer {
+func newSigner(cr ariescrypto.Crypto, kh interface{}) *signer {
 	return &signer{crypto: cr, kh: kh}
 }
 

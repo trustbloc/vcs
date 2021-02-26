@@ -23,6 +23,7 @@ import (
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
@@ -30,10 +31,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -649,39 +649,53 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		router.Use(authorizationMiddleware(parameters.token))
 	}
 
-	issuerService, err := restissuer.New(&issuerops.Config{StoreProvider: edgeServiceProvs.provider,
+	issuerService, err := restissuer.New(&issuerops.Config{
+		StoreProvider:      edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
-		EDVClient: client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{RootCAs: rootCAs,
-			MinVersion: tls.VersionTLS12})),
+		EDVClient: client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
+		})),
 		KeyManager:      localKMS,
 		Crypto:          crypto,
 		VDRI:            vdr,
 		HostURL:         externalHostURL,
 		Domain:          parameters.blocDomain,
 		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
-		RetryParameters: parameters.retryParameters})
+		RetryParameters: parameters.retryParameters,
+	})
 	if err != nil {
 		return err
 	}
 
-	holderService, err := restholder.New(&holderops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs,
-		MinVersion: tls.VersionTLS12},
+	holderService, err := restholder.New(&holderops.Config{
+		TLSConfig: &tls.Config{
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
+		},
 		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
-		VDRI: vdr, Domain: parameters.blocDomain})
+		VDRI: vdr, Domain: parameters.blocDomain,
+	})
 	if err != nil {
 		return err
 	}
 
-	verifierService, err := restverifier.New(&verifierops.Config{StoreProvider: edgeServiceProvs.provider,
-		TLSConfig: &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, VDRI: vdr,
-		RequestTokens: parameters.requestTokens})
+	verifierService, err := restverifier.New(&verifierops.Config{
+		StoreProvider: edgeServiceProvs.provider,
+		TLSConfig:     &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, VDRI: vdr,
+		RequestTokens: parameters.requestTokens,
+	})
 	if err != nil {
 		return err
 	}
 
-	governanceService, err := restgovernance.New(&governanceops.Config{TLSConfig: &tls.Config{RootCAs: rootCAs,
-		MinVersion: tls.VersionTLS12}, StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
-		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile})
+	governanceService, err := restgovernance.New(&governanceops.Config{
+		TLSConfig: &tls.Config{
+			RootCAs:    rootCAs,
+			MinVersion: tls.VersionTLS12,
+		}, StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
+		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile,
+	})
 	if err != nil {
 		return err
 	}
