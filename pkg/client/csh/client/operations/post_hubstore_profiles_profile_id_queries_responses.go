@@ -36,6 +36,12 @@ func (o *PostHubstoreProfilesProfileIDQueriesReader) ReadResponse(response runti
 			return nil, err
 		}
 		return result, nil
+	case 400:
+		result := NewPostHubstoreProfilesProfileIDQueriesBadRequest()
+		if err := result.readResponse(response, consumer, o.formats); err != nil {
+			return nil, err
+		}
+		return nil, result
 	case 500:
 		result := NewPostHubstoreProfilesProfileIDQueriesInternalServerError()
 		if err := result.readResponse(response, consumer, o.formats); err != nil {
@@ -74,6 +80,38 @@ func (o *PostHubstoreProfilesProfileIDQueriesCreated) readResponse(response runt
 
 	if hdrLocation != "" {
 		o.Location = hdrLocation
+	}
+
+	return nil
+}
+
+// NewPostHubstoreProfilesProfileIDQueriesBadRequest creates a PostHubstoreProfilesProfileIDQueriesBadRequest with default headers values
+func NewPostHubstoreProfilesProfileIDQueriesBadRequest() *PostHubstoreProfilesProfileIDQueriesBadRequest {
+	return &PostHubstoreProfilesProfileIDQueriesBadRequest{}
+}
+
+/* PostHubstoreProfilesProfileIDQueriesBadRequest describes a response with status code 400, with default header values.
+
+Bad request.
+*/
+type PostHubstoreProfilesProfileIDQueriesBadRequest struct {
+	Payload *models.Error
+}
+
+func (o *PostHubstoreProfilesProfileIDQueriesBadRequest) Error() string {
+	return fmt.Sprintf("[POST /hubstore/profiles/{profileID}/queries][%d] postHubstoreProfilesProfileIdQueriesBadRequest  %+v", 400, o.Payload)
+}
+func (o *PostHubstoreProfilesProfileIDQueriesBadRequest) GetPayload() *models.Error {
+	return o.Payload
+}
+
+func (o *PostHubstoreProfilesProfileIDQueriesBadRequest) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
+
+	o.Payload = new(models.Error)
+
+	// response payload
+	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
+		return err
 	}
 
 	return nil

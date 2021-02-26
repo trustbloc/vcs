@@ -37,9 +37,9 @@ type ClientOption func(*runtime.ClientOperation)
 
 // ClientService is the interface for Client methods
 type ClientService interface {
-	GetExtract(params *GetExtractParams, opts ...ClientOption) (*GetExtractOK, error)
-
 	PostCompare(params *PostCompareParams, opts ...ClientOption) (*PostCompareOK, error)
+
+	PostExtract(params *PostExtractParams, opts ...ClientOption) (*PostExtractOK, error)
 
 	PostHubstoreProfiles(params *PostHubstoreProfilesParams, opts ...ClientOption) (*PostHubstoreProfilesCreated, error)
 
@@ -48,44 +48,6 @@ type ClientService interface {
 	PostHubstoreProfilesProfileIDQueries(params *PostHubstoreProfilesProfileIDQueriesParams, opts ...ClientOption) (*PostHubstoreProfilesProfileIDQueriesCreated, error)
 
 	SetTransport(transport runtime.ClientTransport)
-}
-
-/*
-  GetExtract extracts the contents of a document. TODO - request schema
-*/
-func (a *Client) GetExtract(params *GetExtractParams, opts ...ClientOption) (*GetExtractOK, error) {
-	// TODO: Validate the params before sending
-	if params == nil {
-		params = NewGetExtractParams()
-	}
-	op := &runtime.ClientOperation{
-		ID:                 "GetExtract",
-		Method:             "GET",
-		PathPattern:        "/extract",
-		ProducesMediaTypes: []string{"application/json"},
-		ConsumesMediaTypes: []string{"application/json"},
-		Schemes:            []string{"http", "https"},
-		Params:             params,
-		Reader:             &GetExtractReader{formats: a.formats},
-		Context:            params.Context,
-		Client:             params.HTTPClient,
-	}
-	for _, opt := range opts {
-		opt(op)
-	}
-
-	result, err := a.transport.Submit(op)
-	if err != nil {
-		return nil, err
-	}
-	success, ok := result.(*GetExtractOK)
-	if ok {
-		return success, nil
-	}
-	// unexpected success response
-	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
-	msg := fmt.Sprintf("unexpected success response for GetExtract: API contract not enforced by server. Client expected to get an error, but got: %T", result)
-	panic(msg)
 }
 
 /*
@@ -123,6 +85,44 @@ func (a *Client) PostCompare(params *PostCompareParams, opts ...ClientOption) (*
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for PostCompare: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+  PostExtract Extracts the contents of documents.
+*/
+func (a *Client) PostExtract(params *PostExtractParams, opts ...ClientOption) (*PostExtractOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewPostExtractParams()
+	}
+	op := &runtime.ClientOperation{
+		ID:                 "PostExtract",
+		Method:             "POST",
+		PathPattern:        "/extract",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http", "https"},
+		Params:             params,
+		Reader:             &PostExtractReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	}
+	for _, opt := range opts {
+		opt(op)
+	}
+
+	result, err := a.transport.Submit(op)
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*PostExtractOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for PostExtract: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 

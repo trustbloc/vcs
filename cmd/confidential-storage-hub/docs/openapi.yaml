@@ -126,13 +126,27 @@ paths:
           schema:
             $ref: "#/definitions/Error"
   /extract:
-    get:
-      description: extracts the contents of a document. TODO - request schema
+    post:
+      description: Extracts the contents of documents.
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: request
+          in: body
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/Query"
+            minItems: 1
       responses:
         200:
-          description: The extracted and decrypted object.
+          description: The extracted and decrypted documents.
           schema:
-            type: object
+            type: array
+            items:
+              type: object
         500:
           $ref: "#/definitions/Error"
 definitions:

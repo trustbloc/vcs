@@ -608,6 +608,13 @@ func marshal(t *testing.T, v interface{}) []byte {
 	return bits
 }
 
+func unmarshal(t *testing.T, v interface{}, raw []byte) {
+	t.Helper()
+
+	err := json.NewDecoder(bytes.NewReader(raw)).Decode(v)
+	require.NoError(t, err)
+}
+
 func compress(t *testing.T, msg []byte) string {
 	t.Helper()
 

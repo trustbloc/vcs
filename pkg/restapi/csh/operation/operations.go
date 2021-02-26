@@ -110,7 +110,7 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 		support.NewHTTPHandler(createQueryPath, http.MethodPost, o.CreateQuery),
 		support.NewHTTPHandler(createAuthzPath, http.MethodPost, o.CreateAuthorization),
 		support.NewHTTPHandler(comparePath, http.MethodPost, o.Compare),
-		support.NewHTTPHandler(extractPath, http.MethodGet, o.Extract),
+		support.NewHTTPHandler(extractPath, http.MethodPost, o.Extract),
 	}
 }
 
@@ -294,17 +294,62 @@ func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
 	logger.Debugf("handled request")
 }
 
-// Extract swagger:route GET /hubstore/extract extractionReq
+// Extract swagger:route POST /hubstore/extract extractionReq
 //
 // Extracts the contents of a document.
 //
+// Consumes:
+//   - application/json
 // Produces:
 //   - application/json
 // Responses:
 //   200: extractionResp
+//   400: Error
 //   500: Error
-func (o *Operation) Extract(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
+func (o *Operation) Extract(w http.ResponseWriter, r *http.Request) {
+	logger.Debugf("handling request")
+
+	queries, err := openapi.UnmarshalQuerySlice(r.Body, runtime.JSONConsumer())
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "bad request: %s", err.Error())
+
+		return
+	}
+
+	var documents []interface{}
+
+	for i := range queries {
+		var doc interface{}
+
+		switch query := queries[i].(type) {
+		case *openapi.DocQuery:
+			var err error
+
+			doc, err = o.fetchDocument(query)
+			if err != nil {
+				respondErrorf(w, http.StatusInternalServerError,
+					"failed to fetch document for DocQuery: %s", err.Error())
+
+				return
+			}
+		case *openapi.RefQuery:
+			var proceed bool
+
+			doc, proceed = o.resolveRefQuery(w, query)
+			if !proceed {
+				return
+			}
+		}
+
+		documents = append(documents, doc)
+	}
+
+	headers := map[string]string{
+		"Content-Type": "application/json",
+	}
+
+	respond(w, http.StatusOK, headers, documents)
+	logger.Debugf("handled request")
 }
 
 // TODO add support for caveats in zcap: https://github.com/trustbloc/edge-core/issues/134

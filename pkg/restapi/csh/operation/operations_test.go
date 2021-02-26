@@ -18,6 +18,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/google/uuid"
@@ -416,11 +417,118 @@ func TestOperation_Compare(t *testing.T) {
 }
 
 func TestOperation_Extract(t *testing.T) {
-	t.Run("TODO - performs an extraction", func(t *testing.T) {
-		o := newOp(t)
+	t.Run("performs an extraction", func(t *testing.T) {
+		doc1 := randomDoc(t)
+		doc2 := randomDoc(t)
+		agent := newAgent(t)
+
+		queryID := uuid.New().String()
+
+		jwe1 := encryptedJWE(t, agent, doc1)
+		jwe2 := encryptedJWE(t, agent, doc2)
+
+		edvClient := newMockEDVClient(t, nil, jwe1, jwe2)
+
+		config := agentConfig(agent)
+		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+			return edvClient
+		}
+		config.StoreProvider = &storage.MockProvider{
+			Stores: map[string]storage2.Store{
+				"profile": &mockstore.MockStore{Store: make(map[string][]byte)},
+				"zcap":    &mockstore.MockStore{Store: make(map[string][]byte)},
+				"queries": &mockstore.MockStore{Store: map[string][]byte{
+					queryID: marshal(t, &operation.Query{
+						ID:        queryID,
+						ProfileID: uuid.New().URN(),
+						Spec: marshal(t, docQuery(&openapi.UpstreamAuthorization{
+							BaseURL: "https://edv.example.com",
+						}, nil)),
+					}),
+				}},
+			},
+		}
+
+		o := newOperation(t, config)
+
+		payload := marshal(t, []interface{}{
+			docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil),
+			refQuery(queryID),
+		})
+		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(payload))
+
 		result := httptest.NewRecorder()
-		o.Extract(result, nil)
+		o.Extract(result, request)
 		require.Equal(t, http.StatusOK, result.Code)
+
+		var extractions []interface{}
+
+		err := json.NewDecoder(result.Body).Decode(&extractions)
+		require.NoError(t, err)
+
+		for _, doc := range [][]byte{doc1, doc2} {
+			d := &models.StructuredDocument{}
+
+			unmarshal(t, d, doc)
+
+			found := false
+
+			for _, extract := range extractions {
+				found = reflect.DeepEqual(d.Content, extract)
+				if found {
+					break
+				}
+			}
+
+			require.True(t, found)
+		}
+	})
+
+	t.Run("error BadRequest if request is malformed", func(t *testing.T) {
+		o := newOperation(t, agentConfig(newAgent(t)))
+		result := httptest.NewRecorder()
+
+		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(marshal(t, "{}")))
+
+		o.Extract(result, request)
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "bad request")
+	})
+
+	t.Run("error InternalServerError if cannot fetch EDV document", func(t *testing.T) {
+		expected := errors.New("test error")
+		config := agentConfig(newAgent(t))
+		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
+			return newMockEDVClient(t, expected)
+		}
+
+		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(marshal(t, []interface{}{
+			docQuery(&openapi.UpstreamAuthorization{}, nil), docQuery(&openapi.UpstreamAuthorization{}, nil),
+		})))
+		result := httptest.NewRecorder()
+
+		o := newOperation(t, config)
+		o.Extract(result, request)
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), expected.Error())
+	})
+
+	t.Run("error BadRequest if queryRef does not exist", func(t *testing.T) {
+		config := agentConfig(newAgent(t))
+
+		request := httptest.NewRequest(http.MethodPost, "/test", bytes.NewReader(marshal(t, []interface{}{
+			refQuery(uuid.New().String()), docQuery(&openapi.UpstreamAuthorization{}, nil),
+		})))
+		result := httptest.NewRecorder()
+
+		o := newOperation(t, config)
+		o.Extract(result, request)
+
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "no such query")
 	})
 }
 
