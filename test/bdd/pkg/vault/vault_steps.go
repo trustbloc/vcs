@@ -22,12 +22,14 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/storage"
@@ -127,41 +129,33 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 		return fmt.Errorf("edvClient failed to read document: %w", err)
 	}
 
-	fmt.Println(authorization.RequestingParty)
-	fmt.Println(string(eDoc.JWE))
+	store, err := mem.NewProvider().OpenStore("test")
+	if err != nil {
+		return fmt.Errorf("failed to open mem store: %w", err)
+	}
 
-	// TODO - figure out why JWEDecrypt.Decrypt() is failing. It should work given the correct
-	//  keystore URL.
-	// nolint:gocritic
-	//store, err := mem.NewProvider().OpenStore("test")
-	//if err != nil {
-	//	return fmt.Errorf("failed to open mem store: %w", err)
-	//}
-	//
-	//decrypter := ariesjoes.NewJWEDecrypt(
-	//	store,
-	//	webcrypto.New(
-	//		e.kmsURI,
-	//		e.client,
-	//		webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
-	//	),
-	//	webkms.New(
-	//		e.kmsURI,
-	//		e.client,
-	//		webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
-	//	),
-	//)
-	//
-	//JWE, err := ariesjoes.Deserialize(string(eDoc.JWE))
-	//if err != nil {
-	//	return fmt.Errorf("failed to decrypt JWE: %w", err)
-	//}
-	//
-	//_, err = decrypter.Decrypt(JWE)
-	//
-	//return err
+	decrypter := ariesjoes.NewJWEDecrypt(
+		store,
+		webcrypto.New(
+			e.kmsURI,
+			e.client,
+			webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
+		),
+		webkms.New(
+			e.kmsURI,
+			e.client,
+			webkms.WithHeaders(e.kmsSign(authorization.RequestingParty, authorization.Tokens.KMS)),
+		),
+	)
 
-	return nil
+	JWE, err := ariesjoes.Deserialize(string(eDoc.JWE))
+	if err != nil {
+		return fmt.Errorf("failed to decrypt JWE: %w", err)
+	}
+
+	_, err = decrypter.Decrypt(JWE)
+
+	return err
 }
 
 func (e *Steps) checkNotAvailable(docID, auth string) error {
@@ -321,7 +315,6 @@ func (e *Steps) checkAuthorization(auth string) error {
 	return nil
 }
 
-// nolint:unused
 func (e *Steps) kmsSign(controller, authToken string) func(req *http.Request) (*http.Header, error) {
 	return func(req *http.Request) (*http.Header, error) {
 		action, err := operation.CapabilityInvocationAction(req)
