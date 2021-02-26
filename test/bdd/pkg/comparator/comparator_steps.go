@@ -105,8 +105,14 @@ func (e *Steps) createAuthorization(docID string) error {
 	vaultID := e.bddContext.VaultID
 
 	scope := &models.Scope{
-		Actions: []string{"compare"}, VaultID: vaultID, DocID: &docID,
-		AuthTokens: &models.ScopeAuthTokens{Edv: e.edvToken, Kms: e.kmsToken},
+		VaultID:     vaultID,
+		DocID:       &docID,
+		DocAttrPath: "$.contents", // vault server BDD tests are saving contents under this path
+		Actions:     []string{"compare"},
+		AuthTokens: &models.ScopeAuthTokens{
+			Edv: e.edvToken,
+			Kms: e.kmsToken,
+		},
 	}
 
 	caveat := make([]models.Caveat, 0)
@@ -134,11 +140,19 @@ func (e *Steps) compare(doc1 string) error {
 
 	vaultID := e.bddContext.VaultID
 
-	query = append(query, &models.DocQuery{
-		DocID: &doc1, VaultID: &vaultID,
-		AuthTokens: &models.DocQueryAO1AuthTokens{Kms: e.kmsToken, Edv: e.edvToken},
-	},
-		&models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken})
+	query = append(
+		query,
+		&models.DocQuery{
+			DocID:       &doc1,
+			VaultID:     &vaultID,
+			DocAttrPath: "$.contents", // vault server BDD tests are saving contents under this path
+			AuthTokens: &models.DocQueryAO1AuthTokens{
+				Kms: e.kmsToken,
+				Edv: e.edvToken,
+			},
+		},
+		&models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken},
+	)
 
 	eq.SetArgs(query)
 

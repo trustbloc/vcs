@@ -52,17 +52,24 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *models.EqOp) { //nolin
 				return
 			}
 
-			queries = append(queries, &cshclientmodels.DocQuery{VaultID: &vaultID, DocID: &docID,
-				UpstreamAuth: &cshclientmodels.DocQueryAO1UpstreamAuth{
-					Edv: &cshclientmodels.UpstreamAuthorization{
-						BaseURL: fmt.Sprintf("%s://%s/%s", edvURL.Scheme, edvURL.Host, parts[3]),
-						Zcap:    q.AuthTokens.Edv,
+			queries = append(
+				queries,
+				&cshclientmodels.DocQuery{
+					VaultID: &vaultID,
+					DocID:   &docID,
+					Path:    q.DocAttrPath,
+					UpstreamAuth: &cshclientmodels.DocQueryAO1UpstreamAuth{
+						Edv: &cshclientmodels.UpstreamAuthorization{
+							BaseURL: fmt.Sprintf("%s://%s/%s", edvURL.Scheme, edvURL.Host, parts[3]),
+							Zcap:    q.AuthTokens.Edv,
+						},
+						Kms: &cshclientmodels.UpstreamAuthorization{
+							BaseURL: fmt.Sprintf("%s://%s", kmsURL.Scheme, kmsURL.Host),
+							Zcap:    q.AuthTokens.Kms,
+						},
 					},
-					Kms: &cshclientmodels.UpstreamAuthorization{
-						BaseURL: fmt.Sprintf("%s://%s", kmsURL.Scheme, kmsURL.Host),
-						Zcap:    q.AuthTokens.Kms,
-					},
-				}})
+				},
+			)
 		case *models.AuthorizedQuery:
 			orgZCAP, err := parseCompressedZCAP(*q.AuthToken)
 			if err != nil {

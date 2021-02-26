@@ -234,6 +234,9 @@ definitions:
       docID:
         description: an identifier for a document stored in the Vault Server.
         type: string
+      docAttrPath:
+        description: Optional json path. Authorizes the comparison of a portion of the document.
+        type: string
       authTokens:
         type: object
         properties:

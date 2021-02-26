@@ -45,6 +45,7 @@ services:
       - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - KMS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
       - KMS_DID_DOMAIN=testnet.trustbloc.local
+      - KMS_LOG_LEVEL=debug
     ports:
       - ${KMS_PORT}:${KMS_PORT}
     entrypoint: ""

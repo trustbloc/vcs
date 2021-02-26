@@ -82,9 +82,14 @@ func (c *Client) CreateVault() (*vault.CreatedVault, error) {
 func (c *Client) SaveDoc(vaultID, id string, content interface{}) (*vault.DocumentMetadata, error) {
 	target := c.baseURL + fmt.Sprintf(saveDocPath, url.QueryEscape(vaultID))
 
+	raw, err := json.Marshal(content)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal content: %w", err)
+	}
+
 	src, err := json.Marshal(operation.SaveDocRequestBody{
 		ID:      id,
-		Content: content,
+		Content: raw,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal: %w", err)

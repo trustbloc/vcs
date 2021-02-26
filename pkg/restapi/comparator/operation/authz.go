@@ -61,7 +61,10 @@ func (o *Operation) HandleAuthz(w http.ResponseWriter, authz *models.Authorizati
 		operations.NewPostHubstoreProfilesProfileIDQueriesParams().
 			WithTimeout(requestTimeout).
 			WithProfileID(o.cshProfile.ID).
-			WithRequest(&cshclientmodels.DocQuery{VaultID: &vaultID, DocID: &docID,
+			WithRequest(&cshclientmodels.DocQuery{
+				VaultID: &vaultID,
+				DocID:   &docID,
+				Path:    authz.Scope.DocAttrPath,
 				UpstreamAuth: &cshclientmodels.DocQueryAO1UpstreamAuth{
 					Edv: &cshclientmodels.UpstreamAuthorization{
 						BaseURL: fmt.Sprintf("%s://%s/%s", edvURL.Scheme, edvURL.Host, parts[3]),
@@ -78,6 +81,7 @@ func (o *Operation) HandleAuthz(w http.ResponseWriter, authz *models.Authorizati
 		return
 	}
 
+	// TODO - encode docPathAttr in zcap token
 	// deriving a child zcap for csh
 	zcap, err := o.driveZCAPForCSH(*authz.RequestingParty, response.Location,
 		authz.Scope.Caveats())

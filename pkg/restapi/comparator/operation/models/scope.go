@@ -34,6 +34,9 @@ type Scope struct {
 
 	caveatsField []Caveat
 
+	// doc attr path
+	DocAttrPath string `json:"docAttrPath,omitempty"`
+
 	// an identifier for a document stored in the Vault Server.
 	// Required: true
 	DocID *string `json:"docID"`
@@ -60,6 +63,8 @@ func (m *Scope) UnmarshalJSON(raw []byte) error {
 		AuthTokens *ScopeAuthTokens `json:"authTokens"`
 
 		Caveats json.RawMessage `json:"caveats"`
+
+		DocAttrPath string `json:"docAttrPath,omitempty"`
 
 		DocID *string `json:"docID"`
 
@@ -93,6 +98,9 @@ func (m *Scope) UnmarshalJSON(raw []byte) error {
 	// caveats
 	result.caveatsField = propCaveats
 
+	// docAttrPath
+	result.DocAttrPath = data.DocAttrPath
+
 	// docID
 	result.DocID = data.DocID
 
@@ -113,6 +121,8 @@ func (m Scope) MarshalJSON() ([]byte, error) {
 
 		AuthTokens *ScopeAuthTokens `json:"authTokens"`
 
+		DocAttrPath string `json:"docAttrPath,omitempty"`
+
 		DocID *string `json:"docID"`
 
 		VaultID string `json:"vaultID,omitempty"`
@@ -121,6 +131,8 @@ func (m Scope) MarshalJSON() ([]byte, error) {
 		Actions: m.Actions,
 
 		AuthTokens: m.AuthTokens,
+
+		DocAttrPath: m.DocAttrPath,
 
 		DocID: m.DocID,
 
