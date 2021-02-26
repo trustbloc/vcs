@@ -16,7 +16,7 @@ Feature: Vault server API
   @vault_server_create
   Scenario: Creates a vault
     When Create a new vault using the vault server "https://localhost:9099"
-    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1" with data "data1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
 
   @vault_server_create_no_id
@@ -28,7 +28,7 @@ Feature: Vault server API
   @vault_server_create_authorization
   Scenario: Creates an authorization
     When Create a new vault using the vault server "https://localhost:9099"
-    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1" with data "data1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
     Then Create a new "key" authorization with duration "100" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
@@ -36,7 +36,7 @@ Feature: Vault server API
   @vault_server_create_authorization_trustbloc
   Scenario: Creates an authorization (trustbloc)
     When Create a new vault using the vault server "https://localhost:9099"
-    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1" with data "data1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
     Then Create a new "trustbloc" authorization with duration "100" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
@@ -44,7 +44,7 @@ Feature: Vault server API
   @vault_server_check_expired_authorization
   Scenario: Creates an expired authorization
     When Create a new vault using the vault server "https://localhost:9099"
-    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1"
+    Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1" with data "data1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
     Then Create a new "key" authorization with duration "0" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is not available for "auth"

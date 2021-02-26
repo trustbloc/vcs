@@ -97,7 +97,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Create a new vault using the vault server "([^"]*)"$`, e.createVault)
-	s.Step(`^Save a document with the following id "([^"]*)"$`, e.saveDocument)
+	s.Step(`^Save a document with the following id "([^"]*)" with data "([^"]*)"$`, e.saveDocument)
 	s.Step(`^Save a document without id and save the result ID as "([^"]*)"$`, e.saveDocumentWithoutID)
 	s.Step(`^Check that a document with id "([^"]*)" is stored$`, e.getDocument)
 	s.Step(`^Create a new "([^"]*)" authorization with duration "([^"]*)" and save the result as "([^"]*)"$`,
@@ -252,10 +252,10 @@ func (e *Steps) createVault(endpoint string) error {
 	return nil
 }
 
-func (e *Steps) saveDoc(docID string) (*vault.DocumentMetadata, error) {
+func (e *Steps) saveDoc(docID, data string) (*vault.DocumentMetadata, error) {
 	res, err := vaultclient.New(e.vaultURL, vaultclient.WithHTTPClient(e.client)).SaveDoc(e.vaultID, docID,
 		map[string]interface{}{
-			"contents": "data",
+			"contents": data,
 		})
 	if err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ func (e *Steps) saveDoc(docID string) (*vault.DocumentMetadata, error) {
 }
 
 func (e *Steps) saveDocumentWithoutID(name string) error {
-	result, err := e.saveDoc("")
+	result, err := e.saveDoc("", "data")
 	if err != nil {
 		return err
 	}
@@ -279,8 +279,8 @@ func (e *Steps) saveDocumentWithoutID(name string) error {
 	return nil
 }
 
-func (e *Steps) saveDocument(docID string) error {
-	_, err := e.saveDoc(docID)
+func (e *Steps) saveDocument(docID, data string) error {
+	_, err := e.saveDoc(docID, data)
 
 	return err
 }

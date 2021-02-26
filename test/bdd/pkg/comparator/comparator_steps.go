@@ -74,7 +74,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Create comparator authorization for doc "([^"]*)"$`, e.createAuthorization)
 	s.Step(`^Check comparator config is created`, e.checkConfig)
-	s.Step(`^Compare two docs with doc1 id "([^"]*)" and ref doc$`, e.compare)
+	s.Step(`^Compare two docs with doc1 id "([^"]*)" and ref doc with compare result "([^"]*)"$`, e.compare)
 	s.Step(`^Create vault authorization with duration "([^"]*)"$`, e.createVaultAuthorization)
 }
 
@@ -134,7 +134,7 @@ func (e *Steps) createAuthorization(docID string) error {
 	return nil
 }
 
-func (e *Steps) compare(doc1 string) error {
+func (e *Steps) compare(doc1, result string) error {
 	eq := &models.EqOp{}
 	query := make([]models.Query, 0)
 
@@ -165,8 +165,13 @@ func (e *Steps) compare(doc1 string) error {
 		return err
 	}
 
-	if !r.Payload.Result {
-		return fmt.Errorf("compare result not true")
+	res, err := strconv.ParseBool(result)
+	if err != nil {
+		return err
+	}
+
+	if r.Payload.Result != res {
+		return fmt.Errorf("compare result not %t", res)
 	}
 
 	return nil
