@@ -36,3 +36,4 @@ To run BDD tests (`make bdd-test`) you need to modify your hosts file (`/etc/hos
     127.0.0.1 testnet.trustbloc.local
     127.0.0.1 stakeholder.one
     127.0.0.1 sidetree-mock
+    127.0.0.1 vault.kms.example.com
