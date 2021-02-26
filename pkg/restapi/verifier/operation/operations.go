@@ -48,7 +48,7 @@ const (
 
 	// credential verification checks
 	proofCheck  = "proof"
-	statusCheck = "status"
+	statusCheck = "credentialStatus"
 
 	// proof data keys
 	challenge          = "challenge"
