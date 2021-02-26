@@ -74,7 +74,7 @@ func (e *Steps) createAndVerifyPresentation(verifierProfile, user, result, respM
 	}
 
 	if strings.Contains(verifierProfile, "revoke") {
-		opts.Checks = append(opts.Checks, "status")
+		opts.Checks = append(opts.Checks, "credentialStatus")
 	}
 
 	return e.verifyPresentation(fmt.Sprintf(verifyPresentationURLFormat, verifierProfile), []byte(vp), opts,

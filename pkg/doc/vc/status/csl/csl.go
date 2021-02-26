@@ -47,7 +47,7 @@ const (
 	jsonKeyVerificationMethod = "verificationMethod"
 	jsonKeySignatureOfType    = "type"
 
-	bitStringSize = 16000
+	bitStringSize = 128000
 )
 
 type crypto interface {

@@ -16,7 +16,7 @@ func TestBitString(t *testing.T) {
 	t.Run("test error position is invalid", func(t *testing.T) {
 		bitString := NewBitString(5)
 
-		_, err := bitString.Get(5)
+		_, err := bitString.Get(9)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "position is invalid")
 
@@ -26,13 +26,13 @@ func TestBitString(t *testing.T) {
 	})
 
 	t.Run("test error decode bits", func(t *testing.T) {
-		_, err := DecodeBits("wrongvalue")
+		_, err := DecodeBits("!!!!wrongvalue")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "illegal base64 data at input")
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		bitString := NewBitString(5)
+		bitString := NewBitString(17)
 
 		err := bitString.Set(1, true)
 		require.NoError(t, err)

@@ -18,11 +18,11 @@ Feature: Using VC REST API
     And   New verifiable credential is created from "<credential>" under "<profile>" profile
     And   That credential is stored under "<profile>" profile
     Then  We can retrieve credential under "<profile>" profile
-    And   Now we verify that credential for checks "proof,status" is "successful" with message "proof,status"
+    And   Now we verify that credential for checks "proof,credentialStatus" is "successful" with message "proof,status"
     And   Now we verify that "JWS" signed with "<signatureType>" presentation for checks "proof" is "successful" with message "proof"
     And   Now we verify that "ProofValue" signed with "<signatureType>" presentation for checks "proof" is "successful" with message "proof"
     Then  Revoke created credential status
-    And   Now we verify that credential for checks "proof,status" is "failed" with message "Revoked"
+    And   Now we verify that credential for checks "proof,credentialStatus" is "failed" with message "Revoked"
     Examples:
       | profile                        | credential                      | did                                                      | privateKey                                                                               | keyID                                                                                                           | signatureHolder | uniRegistrar                                                                                                                                                    | didMethod       | signatureType        | keyType |
       | myprofile_ud_unireg_ed25519_pv | university_degree.json          |                                                          |                                                                                          |                                                                                                                 | ProofValue      | {"driverURL":"http://uni-registrar-web:9080/1.0/register?driverId=driver-did-method-rest"}                                                                      | did:trustbloc   | Ed25519Signature2018 | Ed25519 |
