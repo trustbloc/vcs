@@ -332,7 +332,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 		_, err := o.ReadDocQuery(query)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to decompress zcap")
+		require.Contains(t, err.Error(), "failed to parse zcap: failed to init gzip reader: unexpected EOF")
 	})
 
 	t.Run("fails if the KMS zcap is malformed", func(t *testing.T) {
@@ -357,7 +357,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 		_, err := o.ReadDocQuery(query)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "verMethod: failed to decompress zcap")
+		require.Contains(t, err.Error(), "failed to parse zcap: failed to base64URL-decode value INVALID")
 	})
 
 	t.Run("fails if the KMS zcap has a malformed invocation target ID", func(t *testing.T) {

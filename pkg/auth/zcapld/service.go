@@ -6,10 +6,6 @@ SPDX-License-Identifier: Apache-2.0
 package zcapld
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -52,7 +48,7 @@ func (s *Service) SignHeader(req *http.Request, capabilityBytes []byte,
 		return nil, err
 	}
 
-	compressedZcap, err := compressZCAP(capability)
+	compressedZcap, err := zcapld.CompressZCAP(capability)
 	if err != nil {
 		return nil, err
 	}
@@ -77,27 +73,4 @@ func (s *Service) SignHeader(req *http.Request, capabilityBytes []byte,
 	}
 
 	return &req.Header, nil
-}
-
-func compressZCAP(zcap *zcapld.Capability) (string, error) {
-	raw, err := json.Marshal(zcap)
-	if err != nil {
-		return "", err
-	}
-
-	compressed := bytes.NewBuffer(nil)
-
-	w := gzip.NewWriter(compressed)
-
-	_, err = w.Write(raw)
-	if err != nil {
-		return "", err
-	}
-
-	err = w.Close()
-	if err != nil {
-		return "", err
-	}
-
-	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
 }

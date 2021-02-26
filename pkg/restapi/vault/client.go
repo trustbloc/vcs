@@ -8,12 +8,9 @@ package vault
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -205,7 +202,7 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 		EDV: edvLoc,
 	}
 
-	err = c.saveVaultInfo(didKey, &vaultInfo{Auth: auth, KID: kid})
+	err = c.saveVaultInfo(didKey, &vaultInfo{Auth: auth, KID: kid, DidURL: didURL})
 	if err != nil {
 		return nil, fmt.Errorf("save vault info: %w", err)
 	}
@@ -230,20 +227,15 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		return nil, fmt.Errorf("kms get: %w", err)
 	}
 
-	kmsCapability, err := uncompressZCAP(info.Auth.KMS.AuthToken)
+	kmsCapability, err := zcapld.DecompressZCAP(info.Auth.KMS.AuthToken)
 	if err != nil {
 		return nil, fmt.Errorf("kms uncompressZCAP: %w", err)
-	}
-
-	didURL, err := toDidURL(vaultID)
-	if err != nil {
-		return nil, fmt.Errorf("to DidURL: %w", err)
 	}
 
 	kmsNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
-		VerificationMethod: didURL,
+		VerificationMethod: info.DidURL,
 	}, zcapld.WithParent(c.buildKMSURL(kmsCapability.ID)), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions("unwrap"),
 		zcapld.WithInvocationTarget(c.buildKMSURL(kmsCapability.InvocationTarget.ID), kmsCapability.InvocationTarget.Type),
@@ -253,12 +245,12 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		return nil, fmt.Errorf("kms new capability: %w", err)
 	}
 
-	kmsCompressedCapability, err := compressZCAP(kmsNewCapability)
+	kmsCompressedCapability, err := zcapld.CompressZCAP(kmsNewCapability)
 	if err != nil {
 		return nil, fmt.Errorf("kms compressZCAP: %w", err)
 	}
 
-	edvCapability, err := uncompressZCAP(info.Auth.EDV.AuthToken)
+	edvCapability, err := zcapld.DecompressZCAP(info.Auth.EDV.AuthToken)
 	if err != nil {
 		return nil, fmt.Errorf("edv uncompressZCAP: %w", err)
 	}
@@ -266,7 +258,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 	edvNewCapability, err := zcapld.NewCapability(&zcapld.Signer{
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
-		VerificationMethod: didURL,
+		VerificationMethod: info.DidURL,
 	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions(scope.Actions...),
 		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),
@@ -276,7 +268,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		return nil, fmt.Errorf("edv new capability: %w", err)
 	}
 
-	edvCompressedCapability, err := compressZCAP(edvNewCapability)
+	edvCompressedCapability, err := zcapld.CompressZCAP(edvNewCapability)
 	if err != nil {
 		return nil, fmt.Errorf("edv compressZCAP: %w", err)
 	}
@@ -356,7 +348,9 @@ func (c *Client) GetDocMetadata(vaultID, docID string) (*DocumentMetadata, error
 		return nil, fmt.Errorf("get meta doc info: %w", err)
 	}
 
-	_, err = c.edvClient.ReadDocument(edvVaultID, dInfo.EdvID, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	_, err = c.edvClient.ReadDocument(edvVaultID, dInfo.EdvID, edv.WithRequestHeader(
+		c.edvSign(info.DidURL, info.Auth.EDV)),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("read document: %w", err)
 	}
@@ -393,8 +387,8 @@ func (c *Client) SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata,
 	}
 
 	kidURL, encContent, err := encryptContent(
-		c.webKMS(vaultID, info.Auth.KMS),
-		c.webCrypto(vaultID, info.Auth.KMS),
+		c.webKMS(info.DidURL, info.Auth.KMS),
+		c.webCrypto(info.DidURL, info.Auth.KMS),
 		doc,
 	)
 	if err != nil {
@@ -418,7 +412,7 @@ func (c *Client) SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata,
 	_, err = c.edvClient.CreateDocument(edvVaultID, &models.EncryptedDocument{
 		ID:  dInfo.EdvID,
 		JWE: []byte(encContent),
-	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	}, edv.WithRequestHeader(c.edvSign(info.DidURL, info.Auth.EDV)))
 	if err == nil {
 		return &DocumentMetadata{
 			URI:       buildEDVDocURI(c.edvScheme, c.edvHost, edvVaultID, dInfo.EdvID),
@@ -434,7 +428,7 @@ func (c *Client) SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata,
 	err = c.edvClient.UpdateDocument(edvVaultID, dInfo.EdvID, &models.EncryptedDocument{
 		ID:  dInfo.EdvID,
 		JWE: []byte(encContent),
-	}, edv.WithRequestHeader(c.edvSign(vaultID, info.Auth.EDV)))
+	}, edv.WithRequestHeader(c.edvSign(info.DidURL, info.Auth.EDV)))
 	if err != nil {
 		return nil, fmt.Errorf("update document: %w", err)
 	}
@@ -447,8 +441,9 @@ func (c *Client) SaveDoc(vaultID, id string, content []byte) (*DocumentMetadata,
 }
 
 type vaultInfo struct {
-	KID  string         `json:"kid"`
-	Auth *Authorization `json:"auth"`
+	KID    string         `json:"kid"`
+	DidURL string         `json:"did_url"`
+	Auth   *Authorization `json:"auth"`
 }
 
 func (c *Client) saveVaultInfo(id string, info *vaultInfo) error {
@@ -574,7 +569,7 @@ func (c *Client) createDataVault(didKey string) (*Location, error) {
 		return nil, fmt.Errorf("parse capability: %w", err)
 	}
 
-	compressedZcap, err := compressZCAP(capability)
+	compressedZcap, err := zcapld.CompressZCAP(capability)
 	if err != nil {
 		return nil, fmt.Errorf("compress zcap: %w", err)
 	}
@@ -616,75 +611,12 @@ func (c *Client) sign(req *http.Request, controller, action, zcap string) (*http
 		KMS:    c.kms,
 	})
 
-	didURL, err := toDidURL(controller)
-	if err != nil {
-		return nil, fmt.Errorf("to DidURL: %w", err)
-	}
-
-	err = hs.Sign(didURL, req)
+	err := hs.Sign(controller, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign http request: %w", err)
 	}
 
 	return &req.Header, nil
-}
-
-func toDidURL(did string) (string, error) {
-	pub, err := fingerprint.PubKeyFromDIDKey(did)
-	if err != nil {
-		return "", err
-	}
-
-	_, didURL := fingerprint.CreateDIDKey(pub)
-
-	return didURL, nil
-}
-
-func compressZCAP(zcap *zcapld.Capability) (string, error) {
-	raw, err := json.Marshal(zcap)
-	if err != nil {
-		return "", err
-	}
-
-	compressed := bytes.NewBuffer(nil)
-
-	w := gzip.NewWriter(compressed)
-
-	_, err = w.Write(raw)
-	if err != nil {
-		return "", err
-	}
-
-	err = w.Close()
-	if err != nil {
-		return "", err
-	}
-
-	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
-}
-
-func uncompressZCAP(zcap string) (*zcapld.Capability, error) {
-	src, err := base64.URLEncoding.DecodeString(zcap)
-	if err != nil {
-		return nil, err
-	}
-
-	zr, err := gzip.NewReader(bytes.NewBuffer(src))
-	if err != nil {
-		return nil, err
-	}
-
-	result, err := ioutil.ReadAll(zr)
-	if err != nil {
-		return nil, err
-	}
-
-	err = zr.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	return zcapld.ParseCapability(result)
 }
 
 func lastElm(s, sep string) string { // nolint: unparam

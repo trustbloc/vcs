@@ -8,8 +8,6 @@ package operation_test
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -595,18 +593,7 @@ func randomDoc(t *testing.T) []byte {
 func decompressZCAP(t *testing.T, encoded string) *zcapld.Capability {
 	t.Helper()
 
-	compressed, err := base64.URLEncoding.DecodeString(encoded)
-	require.NoError(t, err)
-
-	r, err := gzip.NewReader(bytes.NewReader(compressed))
-	require.NoError(t, err)
-
-	inflated := bytes.NewBuffer(nil)
-
-	_, err = inflated.ReadFrom(r)
-	require.NoError(t, err)
-
-	zcap, err := zcapld.ParseCapability(inflated.Bytes())
+	zcap, err := zcapld.DecompressZCAP(encoded)
 	require.NoError(t, err)
 
 	return zcap

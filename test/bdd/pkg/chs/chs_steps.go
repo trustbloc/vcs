@@ -106,7 +106,7 @@ func (s *Steps) userProfileIsCreated() error {
 		return errors.New("profile does not have a zcap")
 	}
 
-	zcap, err := parseZCAP(s.user.profile.Zcap)
+	zcap, err := zcapld.DecompressZCAP(s.user.profile.Zcap)
 	if err != nil {
 		return fmt.Errorf("failed to parse profile zcap: %w", err)
 	}
@@ -187,7 +187,7 @@ func (s *Steps) userCreatesRefQuery() error {
 }
 
 func (s *Steps) userAuthorizesCSHToReadDocuments() error {
-	chsZCAP, err := parseCompressedZCAP(s.user.profile.Zcap)
+	chsZCAP, err := zcapld.DecompressZCAP(s.user.profile.Zcap)
 	if err != nil {
 		return fmt.Errorf("failed to parse CHS profile zcap: %w", err)
 	}
@@ -292,46 +292,6 @@ func (s *Steps) buildAllQueries() []models.Query {
 	return queries
 }
 
-func parseZCAP(encoded string) (*zcapld.Capability, error) {
-	deflated, err := base64.URLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64URL-decode zcap: %w", err)
-	}
-
-	pump, err := gzip.NewReader(bytes.NewReader(deflated))
-	if err != nil {
-		return nil, fmt.Errorf("failed to init gzip reader: %w", err)
-	}
-
-	inflated := bytes.NewBuffer(nil)
-
-	_, err = inflated.ReadFrom(pump)
-	if err != nil {
-		return nil, fmt.Errorf("failed to gunzip zcap: %w", err)
-	}
-
-	zcap, err := zcapld.ParseCapability(inflated.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse zcap: %w", err)
-	}
-
-	return zcap, nil
-}
-
-func parseCompressedZCAP(compressed string) (*zcapld.Capability, error) {
-	uncompressed, err := base64URLDecodeThenGunzip(compressed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decompress zcap: %w", err)
-	}
-
-	zcap, err := zcapld.ParseCapability(uncompressed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse zcap: %w", err)
-	}
-
-	return zcap, nil
-}
-
 func gzipThenBase64URL(msg []byte) (string, error) {
 	compressed := bytes.NewBuffer(nil)
 
@@ -348,27 +308,6 @@ func gzipThenBase64URL(msg []byte) (string, error) {
 	}
 
 	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
-}
-
-func base64URLDecodeThenGunzip(encoded string) ([]byte, error) {
-	compressed, err := base64.URLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64url-decode string: %w", err)
-	}
-
-	r, err := gzip.NewReader(bytes.NewReader(compressed))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a new gzip reader: %w", err)
-	}
-
-	inflated := bytes.NewBuffer(nil)
-
-	_, err = inflated.ReadFrom(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to gunzip string: %w", err)
-	}
-
-	return inflated.Bytes(), nil
 }
 
 func verificationMethod(zcap *zcapld.Capability) string {

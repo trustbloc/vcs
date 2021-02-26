@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/trustbloc/edge-core/pkg/zcapld"
+
 	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
 	cshclientmodels "github.com/trustbloc/edge-service/pkg/client/csh/models"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
@@ -71,7 +73,7 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *models.EqOp) { //nolin
 				},
 			)
 		case *models.AuthorizedQuery:
-			orgZCAP, err := parseCompressedZCAP(*q.AuthToken)
+			orgZCAP, err := zcapld.DecompressZCAP(*q.AuthToken)
 			if err != nil {
 				respondErrorf(w, http.StatusInternalServerError, "failed to parse org zcap: %s", err.Error())
 

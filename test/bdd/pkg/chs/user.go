@@ -335,13 +335,8 @@ func (u *user) newVC(msg string) (*verifiable.Credential, error) {
 
 // TODO docID should eventually be used once the EDV can handle zcaps for individual documents and not
 //  the entire vaults.
-func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nolint:funlen,gocyclo
-	raw, err := base64URLDecodeThenGunzip(u.edvRootZCAP)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to decompress edv zcap: %w", err)
-	}
-
-	rootEdvZCAP, err := zcapld.ParseCapability(raw)
+func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nolint:funlen
+	rootEdvZCAP, err := zcapld.DecompressZCAP(u.edvRootZCAP)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to parse edv zcap: %w", err)
 	}
@@ -369,7 +364,7 @@ func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nol
 		return "", "", fmt.Errorf("failed to create authorized EDV capability: %w", err)
 	}
 
-	raw, err = json.Marshal(authorizedEDVZcap)
+	raw, err := json.Marshal(authorizedEDVZcap)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to marshal authorized edv zcap: %w", err)
 	}
@@ -379,12 +374,7 @@ func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nol
 		return "", "", fmt.Errorf("failed to compress authorized edv zcap: %w", err)
 	}
 
-	raw, err = base64URLDecodeThenGunzip(u.keystoreRootZCAP)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to decompress kms zcap: %w", err)
-	}
-
-	rootKmsZCAP, err := zcapld.ParseCapability(raw)
+	rootKmsZCAP, err := zcapld.DecompressZCAP(u.keystoreRootZCAP)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to parse KMS zcap: %w", err)
 	}
