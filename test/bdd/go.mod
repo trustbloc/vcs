@@ -20,7 +20,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210125133828-10c25f5d6d37
 	github.com/igor-pavlenko/httpsignatures-go v0.0.21
 	github.com/tidwall/gjson v1.6.7
-	github.com/trustbloc/edge-core v0.1.6-0.20210224175343-275d0e0370c4
+	github.com/trustbloc/edge-core v0.1.6-0.20210226125453-b9a45cad81f5
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/edv v0.1.6-0.20210212224738-ec2041a015c9
 	github.com/trustbloc/kms v0.1.6-0.20210212190250-8b11dc498eb1

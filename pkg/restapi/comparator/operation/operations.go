@@ -7,13 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -315,7 +312,7 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 	}
 
 	// TODO need to find better way to get csh DID
-	cshZCAP, err := parseCompressedZCAP(cshProfile.Payload.Zcap)
+	cshZCAP, err := zcapld.DecompressZCAP(cshProfile.Payload.Zcap)
 	if err != nil {
 		return fmt.Errorf("failed to parse CHS profile zcap: %w", err)
 	}
@@ -334,8 +331,10 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 		return fmt.Errorf("failed to cast verificationMethod from cshZCAP")
 	}
 
-	comparatorConfig := &models.Config{Did: &docResolution.DIDDocument.ID, Key: keys,
-		AuthKeyURL: authKeyURL}
+	comparatorConfig := &models.Config{
+		Did: &docResolution.DIDDocument.ID, Key: keys,
+		AuthKeyURL: authKeyURL,
+	}
 
 	configBytes, err := json.Marshal(comparatorConfig)
 	if err != nil {
@@ -417,41 +416,6 @@ func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ..
 	if err != nil {
 		logger.Errorf("failed to write error response: %s", err.Error())
 	}
-}
-
-func parseCompressedZCAP(compressed string) (*zcapld.Capability, error) {
-	uncompressed, err := base64URLDecodeThenGunzip(compressed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decompress zcap: %w", err)
-	}
-
-	zcap, err := zcapld.ParseCapability(uncompressed)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse zcap: %w", err)
-	}
-
-	return zcap, nil
-}
-
-func base64URLDecodeThenGunzip(encoded string) ([]byte, error) {
-	compressed, err := base64.URLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64url-decode string: %w", err)
-	}
-
-	r, err := gzip.NewReader(bytes.NewReader(compressed))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a new gzip reader: %w", err)
-	}
-
-	inflated := bytes.NewBuffer(nil)
-
-	_, err = inflated.ReadFrom(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to gunzip string: %w", err)
-	}
-
-	return inflated.Bytes(), nil
 }
 
 func (o *Operation) setConfigs() error {

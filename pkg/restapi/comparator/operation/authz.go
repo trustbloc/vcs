@@ -7,10 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/ed25519"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -74,7 +71,8 @@ func (o *Operation) HandleAuthz(w http.ResponseWriter, authz *models.Authorizati
 						BaseURL: fmt.Sprintf("%s://%s", kmsURL.Scheme, kmsURL.Host),
 						Zcap:    authz.Scope.AuthTokens.Kms,
 					},
-				}}))
+				},
+			}))
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError, "failed to create query: %s", err.Error())
 
@@ -91,7 +89,7 @@ func (o *Operation) HandleAuthz(w http.ResponseWriter, authz *models.Authorizati
 		return
 	}
 
-	authToken, err := gzipThenBase64URL(zcap)
+	authToken, err := zcapld.CompressZCAP(zcap)
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError, "failed to compress zcap: %s", err.Error())
 
@@ -102,13 +100,15 @@ func (o *Operation) HandleAuthz(w http.ResponseWriter, authz *models.Authorizati
 		"Content-Type": "application/json",
 	}
 
-	respond(w, http.StatusOK, headers, models.Authorization{RequestingParty: authz.RequestingParty,
-		AuthToken: authToken})
+	respond(w, http.StatusOK, headers, models.Authorization{
+		RequestingParty: authz.RequestingParty,
+		AuthToken:       authToken,
+	})
 }
 
 func (o *Operation) driveZCAPForCSH(invokerDID, queryIDPath string,
 	caveats []models.Caveat) (*zcapld.Capability, error) {
-	cshZCAP, err := parseCompressedZCAP(o.cshProfile.Zcap)
+	cshZCAP, err := zcapld.DecompressZCAP(o.cshProfile.Zcap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CHS profile zcap: %w", err)
 	}
@@ -161,29 +161,6 @@ type ed25519Signer struct {
 
 func (s *ed25519Signer) Sign(data []byte) ([]byte, error) {
 	return ed25519.Sign(s.key, data), nil
-}
-
-func gzipThenBase64URL(msg interface{}) (string, error) {
-	raw, err := json.Marshal(msg)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal msg: %w", err)
-	}
-
-	compressed := bytes.NewBuffer(nil)
-
-	w := gzip.NewWriter(compressed)
-
-	_, err = w.Write(raw)
-	if err != nil {
-		return "", fmt.Errorf("failed to compress msg: %w", err)
-	}
-
-	err = w.Close()
-	if err != nil {
-		return "", fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
 }
 
 func toZCaveats(caveats []models.Caveat) []zcapld.Caveat {

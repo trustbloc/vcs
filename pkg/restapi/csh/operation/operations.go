@@ -7,9 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -164,7 +161,7 @@ func (o *Operation) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	profile.Zcap, err = gzipThenBase64URL(zcap)
+	profile.Zcap, err = zcapld.CompressZCAP(zcap)
 	if err != nil {
 		respondErrorf(w, http.StatusInternalServerError, "failed to compress zcap: %s", err.Error())
 
@@ -451,29 +448,6 @@ func respondErrorf(w http.ResponseWriter, statusCode int, format string, args ..
 	if err != nil {
 		logger.Errorf("failed to write error response: %s", err.Error())
 	}
-}
-
-func gzipThenBase64URL(msg interface{}) (string, error) {
-	raw, err := json.Marshal(msg)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal msg: %w", err)
-	}
-
-	compressed := bytes.NewBuffer(nil)
-
-	w := gzip.NewWriter(compressed)
-
-	_, err = w.Write(raw)
-	if err != nil {
-		return "", fmt.Errorf("failed to compress msg: %w", err)
-	}
-
-	err = w.Close()
-	if err != nil {
-		return "", fmt.Errorf("failed to close gzip writer: %w", err)
-	}
-
-	return base64.URLEncoding.EncodeToString(compressed.Bytes()), nil
 }
 
 func save(s storage.Store, k string, v interface{}) error {

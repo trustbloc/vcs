@@ -8,8 +8,6 @@ package operation
 
 import (
 	"bytes"
-	"compress/gzip"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -167,12 +165,7 @@ func (o *Operation) supportedSignatureHashAlgorithms() httpsignatures.SignatureH
 }
 
 func verificationMethod(compressedZCAP string) (string, error) {
-	raw, err := base64URLDecodeThenGunzip(compressedZCAP)
-	if err != nil {
-		return "", fmt.Errorf("verMethod: failed to decompress zcap: %w", err)
-	}
-
-	zcap, err := zcapld.ParseCapability(raw)
+	zcap, err := zcapld.DecompressZCAP(compressedZCAP)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse zcap: %w", err)
 	}
@@ -188,34 +181,8 @@ func verificationMethod(compressedZCAP string) (string, error) {
 	return "", errors.New("zcap does not specify a controller nor an invoker")
 }
 
-func base64URLDecodeThenGunzip(encoded string) ([]byte, error) {
-	compressed, err := base64.URLEncoding.DecodeString(encoded)
-	if err != nil {
-		return nil, fmt.Errorf("failed to base64url-decode string: %w", err)
-	}
-
-	r, err := gzip.NewReader(bytes.NewReader(compressed))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open a new gzip reader: %w", err)
-	}
-
-	inflated := bytes.NewBuffer(nil)
-
-	_, err = inflated.ReadFrom(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to gunzip string: %w", err)
-	}
-
-	return inflated.Bytes(), nil
-}
-
 func keystorePath(compressedZCAP string) (string, error) {
-	raw, err := base64URLDecodeThenGunzip(compressedZCAP)
-	if err != nil {
-		return "", fmt.Errorf("keystorePath: failed to decompress zcap: %w", err)
-	}
-
-	zcap, err := zcapld.ParseCapability(raw)
+	zcap, err := zcapld.DecompressZCAP(compressedZCAP)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse zcap: %w", err)
 	}
