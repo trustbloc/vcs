@@ -56,10 +56,8 @@ type comparisonResp struct { // nolint:deadcode,unused // swagger model
 //
 // swagger:parameters extractReq
 type extractReq struct { // nolint:deadcode,unused // swagger model
-	// Resource identifier.
-	//
-	// in: query
-	AuthTokens []string `json:"authTokens"`
+	// in: body
+	Body models.Extract
 }
 
 // extractionResp model.
@@ -67,7 +65,7 @@ type extractReq struct { // nolint:deadcode,unused // swagger model
 // swagger:response extractionResp
 type extractionResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body struct{}
+	Body models.ExtractResp
 }
 
 // configReq model.

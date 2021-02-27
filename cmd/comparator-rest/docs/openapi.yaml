@@ -116,28 +116,16 @@ paths:
       produces:
         - application/json
       parameters:
-        - name: tokens
+        - name: extract
           in: body
           required: true
           schema:
-            type: object
-            properties:
-              authTokens:
-                description: list of authorization tokens used to extract documents
-                type: array
-                items:
-                  type: string
-                example: [ "authToken1", "authToken2", "authToken3" ]
+            $ref: "#/definitions/Extract"
       responses:
         200:
           description: list of extracted documents
           schema:
-            type: object
-            properties:
-              documents:
-                type: array
-                items:
-                  type: object
+            $ref: "#/definitions/ExtractResp"
         500:
           description: Generic Error
           schema:
@@ -397,6 +385,24 @@ definitions:
       key:
         type: object
         description: A JWK Set containing the primary public/private key pair.
+  Extract:
+    type: object
+    required:
+      - authTokens
+    properties:
+      authTokens:
+        type: array
+        items:
+          type: string
+  ExtractResp:
+    type: object
+    required:
+      - documents
+    properties:
+      documents:
+        type: array
+        items:
+          type: object
   Error:
     type: object
     properties:

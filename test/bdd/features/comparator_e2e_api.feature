@@ -25,5 +25,6 @@ Feature: Comparator_REST API
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR4" is stored
     Then Create vault authorization with duration "100"
     Then Create comparator authorization for doc "M3aS9xwj8ybCwHkEiCJJR3"
+    Then Extract doc from auth token received from comparator authorization and validate data equal "data1"
     Then Compare two docs with doc1 id "M3aS9xwj8ybCwHkEiCJJR2" and ref doc with compare result "true"
     Then Compare two docs with doc1 id "M3aS9xwj8ybCwHkEiCJJR4" and ref doc with compare result "false"

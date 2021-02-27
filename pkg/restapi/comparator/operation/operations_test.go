@@ -676,21 +676,115 @@ func TestOperation_Compare(t *testing.T) {
 }
 
 func TestOperation_Extract(t *testing.T) {
-	t.Run("TODO - performs an extraction", func(t *testing.T) {
+	t.Run("test bad request", func(t *testing.T) {
 		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
 		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
 		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
 		op, err := operation.New(&operation.Config{
-			CSHBaseURL: "https://localhost",
-			StoreProvider: &mockstorage.MockStoreProvider{
-				Store: s,
-			},
+			CSHBaseURL:    "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
-		op.Extract(result, nil)
+		op.Extract(result, newReq(t,
+			http.MethodPost,
+			"/extract",
+			nil,
+		))
+
+		require.Equal(t, http.StatusBadRequest, result.Code)
+		require.Contains(t, result.Body.String(), "bad request")
+	})
+
+	t.Run("test failed to decompress ZCAP", func(t *testing.T) {
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: "https://localhost", VaultBaseURL: "",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, op)
+		result := httptest.NewRecorder()
+		ex := &models.Extract{AuthTokens: []string{"wrongData"}}
+		op.Extract(result, newReq(t,
+			http.MethodPost,
+			"/extract",
+			ex,
+		))
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to parse org zcap")
+	})
+
+	t.Run("test failed to extract from csh", func(t *testing.T) {
+		cshServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+		}))
+		defer cshServ.Close()
+
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: "",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, op)
+		result := httptest.NewRecorder()
+		chs := newAgent(t)
+		chsZCAP := compress(t, marshal(t, newZCAP(t, chs, chs)))
+		ex := &models.Extract{AuthTokens: []string{chsZCAP}}
+		op.Extract(result, newReq(t,
+			http.MethodPost,
+			"/extract",
+			ex,
+		))
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to execute extract")
+	})
+
+	t.Run("test success", func(t *testing.T) {
+		cshServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			m := make([]interface{}, 1)
+			m[0] = "dataValue"
+
+			res, err := json.Marshal(m)
+			require.NoError(t, err)
+
+			_, err = fmt.Fprint(w, string(res))
+			require.NoError(t, err)
+		}))
+		defer cshServ.Close()
+
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL: cshServ.URL, VaultBaseURL: "",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, op)
+		result := httptest.NewRecorder()
+		chs := newAgent(t)
+		chsZCAP := compress(t, marshal(t, newZCAP(t, chs, chs)))
+		ex := &models.Extract{AuthTokens: []string{chsZCAP}}
+		op.Extract(result, newReq(t,
+			http.MethodPost,
+			"/extract",
+			ex,
+		))
+
 		require.Equal(t, http.StatusOK, result.Code)
+		require.Contains(t, result.Body.String(), "dataValue")
 	})
 }
 

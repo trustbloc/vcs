@@ -21,7 +21,7 @@ import (
 
 // HandleEqOp handles a ComparisonRequest using the EqOp operator.
 func (o *Operation) HandleEqOp(w http.ResponseWriter, op *models.EqOp) { //nolint: funlen
-	queries := make([]models.Query, 0)
+	queries := make([]cshclientmodels.Query, 0)
 
 	for i := range op.Args() {
 		query := op.Args()[i]
@@ -86,7 +86,7 @@ func (o *Operation) HandleEqOp(w http.ResponseWriter, op *models.EqOp) { //nolin
 		}
 	}
 
-	cshOP := &models.EqOp{}
+	cshOP := &cshclientmodels.EqOp{}
 	cshOP.SetArgs(queries)
 
 	request := &cshclientmodels.ComparisonRequest{}
