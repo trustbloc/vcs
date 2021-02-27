@@ -75,6 +75,36 @@ func TestStartCmdValidArgs(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStartCmdEmptyDomain(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	startCmd.SetArgs([]string{
+		"--" + hostURLFlagName, "localhost:8080",
+		"--" + remoteKMSURLFlagName, "localhost:8081",
+		"--" + edvURLFlagName, "localhost:8082",
+		"--" + datasourceNameFlagName, "mem://test",
+		"--" + didDomainFlagName, "",
+	})
+
+	err := startCmd.Execute()
+	require.EqualError(t, err, "did-domain value is empty")
+}
+
+func TestStartCmdEmptyDidMethod(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	startCmd.SetArgs([]string{
+		"--" + hostURLFlagName, "localhost:8080",
+		"--" + remoteKMSURLFlagName, "localhost:8081",
+		"--" + edvURLFlagName, "localhost:8082",
+		"--" + datasourceNameFlagName, "mem://test",
+		"--" + didMethodFlagName, "",
+	})
+
+	err := startCmd.Execute()
+	require.EqualError(t, err, "did-method value is empty")
+}
+
 func TestDSN(t *testing.T) {
 	t.Run("Unsupported driver", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})

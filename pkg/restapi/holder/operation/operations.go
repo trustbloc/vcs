@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -62,8 +62,10 @@ func New(config *Config) (*Operation, error) {
 
 	svc := &Operation{
 		profileStore: p,
-		commonDID: commondid.New(&commondid.Config{VDRI: config.VDRI, KeyManager: config.KeyManager,
-			Domain: config.Domain, TLSConfig: config.TLSConfig}),
+		commonDID: commondid.New(&commondid.Config{
+			VDRI: config.VDRI, KeyManager: config.KeyManager,
+			Domain: config.Domain, TLSConfig: config.TLSConfig,
+		}),
 		crypto: crypto.New(config.KeyManager, config.Crypto, config.VDRI),
 	}
 

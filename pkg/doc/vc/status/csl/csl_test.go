@@ -21,7 +21,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/storage"
 
@@ -63,7 +63,8 @@ const (
 func TestCredentialStatusList_New(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("error open")}, "", 0, nil)
+			ErrOpenStoreHandle: fmt.Errorf("error open"),
+		}, "", 0, nil)
 		require.Error(t, err)
 		require.Nil(t, s)
 		require.Contains(t, err.Error(), "error open")
@@ -117,7 +118,8 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 	t.Run("test error from get latest id from store", func(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-			ErrGet: fmt.Errorf("get error")}}, "localhost:8080/status", 1,
+			ErrGet: fmt.Errorf("get error"),
+		}}, "localhost:8080/status", 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 
@@ -130,7 +132,8 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test error from put latest id to store", func(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			ErrGet: ariesstorage.ErrDataNotFound,
-			ErrPut: fmt.Errorf("put error")}}, "localhost:8080/status", 1,
+			ErrPut: fmt.Errorf("put error"),
+		}}, "localhost:8080/status", 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 
@@ -141,9 +144,10 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	})
 
 	t.Run("test error from store csl list in store", func(t *testing.T) {
-		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
-			return nil, ariesstorage.ErrDataNotFound
-		},
+		s, err := New(&storeProvider{store: &mockStore{
+			getFunc: func(k string) (bytes []byte, err error) {
+				return nil, ariesstorage.ErrDataNotFound
+			},
 			putFunc: func(k string, v []byte) error {
 				if k == "localhost:8080/status/1" {
 					return fmt.Errorf("put error")
@@ -162,9 +166,10 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	})
 
 	t.Run("test error from put latest id to store after store new list", func(t *testing.T) {
-		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
-			return nil, ariesstorage.ErrDataNotFound
-		},
+		s, err := New(&storeProvider{store: &mockStore{
+			getFunc: func(k string) (bytes []byte, err error) {
+				return nil, ariesstorage.ErrDataNotFound
+			},
 			putFunc: func(k string, v []byte) error {
 				if k == latestListID && string(v) == "2" {
 					return fmt.Errorf("put error")
@@ -256,7 +261,8 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = &verifiable.TypedID{
-			Type: RevocationList2020Status, CustomFields: map[string]interface{}{RevocationListIndex: "1"}}
+			Type: RevocationList2020Status, CustomFields: map[string]interface{}{RevocationListIndex: "1"},
+		}
 		err = s.RevokeVC(cred, getTestProfile())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "revocationListCredential field not exist in vc status")
@@ -273,7 +279,8 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = &verifiable.TypedID{Type: RevocationList2020Status, CustomFields: map[string]interface{}{
-			RevocationListIndex: "1", RevocationListCredential: 1}}
+			RevocationListIndex: "1", RevocationListCredential: 1,
+		}}
 		err = s.RevokeVC(cred, getTestProfile())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to cast status revocationListCredential")
@@ -320,10 +327,16 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		err = s.RevokeVC(&verifiable.Credential{ID: credID,
-			Status: &verifiable.TypedID{ID: "test", Type: RevocationList2020Status,
-				CustomFields: map[string]interface{}{RevocationListCredential: "test",
-					RevocationListIndex: "1"}}}, getTestProfile())
+		err = s.RevokeVC(&verifiable.Credential{
+			ID: credID,
+			Status: &verifiable.TypedID{
+				ID: "test", Type: RevocationList2020Status,
+				CustomFields: map[string]interface{}{
+					RevocationListCredential: "test",
+					RevocationListIndex:      "1",
+				},
+			},
+		}, getTestProfile())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get csl from store")
 	})
@@ -478,6 +491,21 @@ func (p *storeProvider) OpenStore(name string) (ariesstorage.Store, error) {
 	return p.store, nil
 }
 
+// GetOpenStores is not implemented.
+func (p *storeProvider) GetOpenStores() []ariesstorage.Store {
+	panic("implement me")
+}
+
+// SetStoreConfig always return a nil error.
+func (p *storeProvider) SetStoreConfig(name string, config ariesstorage.StoreConfiguration) error {
+	return nil
+}
+
+// GetStoreConfig is not implemented.
+func (p *storeProvider) GetStoreConfig(name string) (ariesstorage.StoreConfiguration, error) {
+	panic("implement me")
+}
+
 // Close closes all stores created under this store provider
 func (p *storeProvider) CloseStore(name string) error {
 	return nil
@@ -495,12 +523,32 @@ type mockStore struct {
 }
 
 // Put stores the key and the record
-func (s *mockStore) Put(k string, v []byte) error {
+func (s *mockStore) Put(k string, v []byte, tags ...ariesstorage.Tag) error {
 	if s.putFunc != nil {
 		return s.putFunc(k, v)
 	}
 
 	return nil
+}
+
+// GetTags is not implemented.
+func (s *mockStore) GetTags(key string) ([]ariesstorage.Tag, error) {
+	panic("implement me")
+}
+
+// Batch is not implemented.
+func (s *mockStore) Batch(operations []ariesstorage.Operation) error {
+	panic("implement me")
+}
+
+// Flush is not implemented.
+func (s *mockStore) Flush() error {
+	panic("implement me")
+}
+
+// Close is not implemented.
+func (s *mockStore) Close() error {
+	panic("implement me")
 }
 
 // GetALL get all
@@ -539,7 +587,7 @@ func (s *mockStore) CreateIndex(createIndexRequest storage.CreateIndexRequest) e
 
 // Query queries the store for data based on the provided query string, the format of
 // which will be dependent on what the underlying store requires.
-func (s *mockStore) Query(query string) (storage.ResultsIterator, error) {
+func (s *mockStore) Query(expression string, _ ...ariesstorage.QueryOption) (ariesstorage.Iterator, error) {
 	return nil, nil
 }
 
@@ -547,7 +595,7 @@ func (s *mockStore) Delete(k string) error {
 	panic("implement me")
 }
 
-func (s *mockStore) Iterator(startKey, endKey string) ariesstorage.StoreIterator {
+func (s *mockStore) Iterator(startKey, endKey string) ariesstorage.Iterator {
 	return nil
 }
 

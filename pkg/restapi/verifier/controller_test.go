@@ -10,9 +10,9 @@ import (
 	"errors"
 	"testing"
 
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
@@ -31,7 +31,8 @@ func TestController_New(t *testing.T) {
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&operation.Config{
 			StoreProvider: &ariesmockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: errors.New("error creating the store")},
+				ErrOpenStoreHandle: errors.New("error creating the store"),
+			},
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)

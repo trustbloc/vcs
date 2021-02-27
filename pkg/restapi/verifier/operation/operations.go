@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -197,7 +197,6 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 	profileID := mux.Vars(req)["id"]
 
 	err := o.profileStore.DeleteProfile(profileID)
-
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -341,7 +340,6 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 			}
 		case statusCheck:
 			_, err := o.parseAndVerifyVP(verificationReq.Presentation, false, false, true)
-
 			if err != nil {
 				result = append(result, VerifyPresentationCheckResult{
 					Check: val,
@@ -371,7 +369,6 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 
 func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVerificationOptions, vcInVPValidation bool) error { // nolint: lll,gocyclo
 	vc, err := o.parseAndVerifyVCStrictMode(vcByte)
-
 	if err != nil {
 		return fmt.Errorf("verifiable credential proof validation error : %w", err)
 	}
@@ -427,7 +424,6 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 
 func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresentationOptions) error { // nolint: gocyclo
 	vp, err := o.parseAndVerifyVP(vpByte, true, true, false)
-
 	if err != nil {
 		return fmt.Errorf("verifiable presentation proof validation error : %w", err)
 	}
@@ -501,7 +497,8 @@ func (o *Operation) validateVCStatus(vcStatus *verifiable.TypedID) error {
 
 func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID) (*VerifyCredentialResponse, error) {
 	vcResp := &VerifyCredentialResponse{
-		Verified: false, Message: "Revoked"}
+		Verified: false, Message: "Revoked",
+	}
 
 	// validate vc status
 	if err := o.validateVCStatus(vcStatus); err != nil {
@@ -559,7 +556,6 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 		),
 		verifiable.WithStrictValidation(),
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +636,6 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
-
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	ariesstorage "github.com/hyperledger/aries-framework-go/pkg/storage"
+	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 const (

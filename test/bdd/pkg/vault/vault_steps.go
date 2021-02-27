@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
@@ -32,11 +33,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	ariesvdr "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	vdrkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -248,6 +248,9 @@ func (e *Steps) createVault(endpoint string) error {
 	e.kmsURI = result.KMS.URI
 
 	e.bddContext.VaultID = result.ID
+
+	// to prevent an error "failed to resolve did: DID does not exist"
+	time.Sleep(time.Second)
 
 	return nil
 }

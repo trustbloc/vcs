@@ -18,11 +18,15 @@ import (
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/storage/mem"
+	ariesvdr "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	vdrkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -88,6 +92,16 @@ const (
 	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		" Alternatively, this can be set with the following environment variable: " + databasePrefixEnvKey
 	databasePrefixEnvKey = "VAULT_DATABASE_PREFIX"
+
+	didDomainFlagName  = "did-domain"
+	didDomainFlagUsage = "URL to the did consortium's domain." +
+		" Alternatively, this can be set with the following environment variable: " + didDomainEnvKey
+	didDomainEnvKey = "VAULT_DID_DOMAIN"
+
+	didMethodFlagName  = "did-method"
+	didMethodFlagUsage = "DID method for the vault ID." +
+		" Alternatively, this can be set with the following environment variable: " + didMethodEnvKey
+	didMethodEnvKey = "VAULT_DID_METHOD"
 )
 
 var logger = log.New("vault-server")
@@ -96,6 +110,8 @@ type serviceParameters struct {
 	host         string
 	remoteKMSURL string
 	edvURL       string
+	didDomain    string
+	didMethod    string
 	tlsParams    *tlsParameters
 	dsnParams    *dsnParams
 }
@@ -182,6 +198,16 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	didDomain, err := cmdutils.GetUserSetVarFromString(cmd, didDomainFlagName, didDomainEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	didMethod, err := cmdutils.GetUserSetVarFromString(cmd, didMethodFlagName, didMethodEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	tlsParams, err := getTLS(cmd)
 	if err != nil {
 		return nil, err
@@ -195,6 +221,8 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 	return &serviceParameters{
 		host:         host,
 		remoteKMSURL: remoteKMSURL,
+		didDomain:    didDomain,
+		didMethod:    didMethod,
 		edvURL:       edvURL,
 		dsnParams:    dsn,
 		tlsParams:    tlsParams,
@@ -241,6 +269,8 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(datasourceNameFlagName, "", "", datasourceNameFlagUsage)
 	cmd.Flags().StringP(datasourceTimeoutFlagName, "", "", datasourceTimeoutFlagUsage)
 	cmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
+	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
+	cmd.Flags().StringP(didMethodFlagName, "", "key", didMethodFlagUsage)
 }
 
 const (
@@ -259,6 +289,12 @@ func (k kmsProvider) StorageProvider() storage.Provider {
 
 func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLock
+}
+
+type kmsCtx struct{ kms.KeyManager }
+
+func (c *kmsCtx) KMS() kms.KeyManager {
+	return c.KeyManager
 }
 
 func startService(params *serviceParameters, srv server) error { // nolint: funlen
@@ -280,18 +316,30 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		return fmt.Errorf("localkms new: %w", err)
 	}
 
+	tCfg := &tls.Config{
+		RootCAs:    rootCAs,
+		MinVersion: tls.VersionTLS12,
+	}
+
 	vaultClient, err := vault.NewClient(
 		params.remoteKMSURL,
 		params.edvURL,
 		keyManager,
 		storeProvider,
+		vault.WithRegistry(ariesvdr.New(
+			&kmsCtx{KeyManager: keyManager},
+			ariesvdr.WithVDR(vdrkey.New()),
+			ariesvdr.WithVDR(trustbloc.New(
+				nil,
+				trustbloc.WithDomain(params.didDomain),
+				trustbloc.WithTLSConfig(tCfg),
+			)),
+		)),
+		vault.WithDidMethod(params.didMethod),
 		vault.WithHTTPClient(&http.Client{
 			Timeout: time.Minute,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs:    rootCAs,
-					MinVersion: tls.VersionTLS12,
-				},
+				TLSClientConfig: tCfg,
 			},
 		}),
 	)

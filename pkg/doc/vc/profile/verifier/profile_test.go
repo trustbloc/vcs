@@ -61,7 +61,7 @@ func TestCredentialRecord_SaveProfile(t *testing.T) {
 
 func TestGetProfile(t *testing.T) {
 	t.Run("test get profile - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
@@ -75,7 +75,7 @@ func TestGetProfile(t *testing.T) {
 		profileJSON, err := json.Marshal(profileData)
 		require.NoError(t, err)
 
-		s[getDBKey(profileData.Name)] = profileJSON
+		s[getDBKey(profileData.Name)] = ariesmockstorage.DBEntry{Value: profileJSON}
 
 		resp, err := profileStore.GetProfile(profileData.Name)
 		require.NoError(t, err)
@@ -85,7 +85,8 @@ func TestGetProfile(t *testing.T) {
 
 	t.Run("test get profile - no data", func(t *testing.T) {
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}})
+			Store: &ariesmockstorage.MockStore{Store: make(map[string]ariesmockstorage.DBEntry)},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
@@ -97,14 +98,14 @@ func TestGetProfile(t *testing.T) {
 	})
 
 	t.Run("test get profile - invalid json", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
-		s[getDBKey("verifier-1")] = []byte("invalid-data")
+		s[getDBKey("verifier-1")] = ariesmockstorage.DBEntry{Value: []byte("invalid-data")}
 
 		resp, err := profileStore.GetProfile("verifier-1")
 		require.Error(t, err)

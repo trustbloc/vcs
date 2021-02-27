@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -29,7 +30,6 @@ import (
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/pkg/storage/mem"
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -224,9 +224,11 @@ func TestDeleteHolderProfileHandler(t *testing.T) {
 
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-				Store:     make(map[string][]byte),
-				ErrDelete: errors.New("delete error")},
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					Store:     make(map[string]ariesmockstorage.DBEntry),
+					ErrDelete: errors.New("delete error"),
+				},
 			},
 			VDRI: &vdrmock.MockVDRegistry{},
 		})

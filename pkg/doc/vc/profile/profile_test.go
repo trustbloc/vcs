@@ -106,7 +106,7 @@ func TestCredentialRecord_DeleteProfile(t *testing.T) {
 
 func TestSaveHolder(t *testing.T) {
 	t.Run("test save holder - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
@@ -131,10 +131,11 @@ func TestSaveHolder(t *testing.T) {
 	})
 
 	t.Run("test save holder - fail", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
+			Store: &ariesmockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -177,7 +178,7 @@ func TestDeleteHolderProfile(t *testing.T) {
 
 func TestSaveGovernance(t *testing.T) {
 	t.Run("test save governance - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
@@ -202,10 +203,11 @@ func TestSaveGovernance(t *testing.T) {
 	})
 
 	t.Run("test save governance - fail", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")}})
+			Store: &ariesmockstorage.MockStore{Store: s, ErrPut: fmt.Errorf("put error")},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -226,7 +228,7 @@ func TestSaveGovernance(t *testing.T) {
 
 func TestGetHolder(t *testing.T) {
 	t.Run("test get holder - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
@@ -245,7 +247,7 @@ func TestGetHolder(t *testing.T) {
 		profileJSON, err := json.Marshal(holderProfile)
 		require.NoError(t, err)
 
-		s[getDBKey(holderMode, holderProfile.Name)] = profileJSON
+		s[getDBKey(holderMode, holderProfile.Name)] = ariesmockstorage.DBEntry{Value: profileJSON}
 
 		resp, err := profileStore.GetHolderProfile(holderProfile.Name)
 		require.NoError(t, err)
@@ -255,7 +257,8 @@ func TestGetHolder(t *testing.T) {
 
 	t.Run("test get holder - no data", func(t *testing.T) {
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}})
+			Store: &ariesmockstorage.MockStore{Store: make(map[string]ariesmockstorage.DBEntry)},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
@@ -267,15 +270,16 @@ func TestGetHolder(t *testing.T) {
 	})
 
 	t.Run("test get holder - invalid json", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: s}})
+			Store: &ariesmockstorage.MockStore{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
-		s[getDBKey(holderMode, "holder-1")] = []byte("invalid-data")
+		s[getDBKey(holderMode, "holder-1")] = ariesmockstorage.DBEntry{Value: []byte("invalid-data")}
 
 		resp, err := profileStore.GetHolderProfile("holder-1")
 		require.Error(t, err)
@@ -286,11 +290,12 @@ func TestGetHolder(t *testing.T) {
 
 func TestGovernanceHolder(t *testing.T) {
 	t.Run("test get governance - success", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: s}})
+			Store: &ariesmockstorage.MockStore{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
@@ -306,7 +311,7 @@ func TestGovernanceHolder(t *testing.T) {
 		profileJSON, err := json.Marshal(governanceProfile)
 		require.NoError(t, err)
 
-		s[getDBKey(governanceMode, governanceProfile.Name)] = profileJSON
+		s[getDBKey(governanceMode, governanceProfile.Name)] = ariesmockstorage.DBEntry{Value: profileJSON}
 
 		resp, err := profileStore.GetGovernanceProfile(governanceProfile.Name)
 		require.NoError(t, err)
@@ -316,7 +321,8 @@ func TestGovernanceHolder(t *testing.T) {
 
 	t.Run("test get governance - no data", func(t *testing.T) {
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{Store: make(map[string][]byte)}})
+			Store: &ariesmockstorage.MockStore{Store: make(map[string]ariesmockstorage.DBEntry)},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 		require.NotNil(t, profileStore)
@@ -328,14 +334,14 @@ func TestGovernanceHolder(t *testing.T) {
 	})
 
 	t.Run("test get governance - invalid json", func(t *testing.T) {
-		s := make(map[string][]byte)
+		s := make(map[string]ariesmockstorage.DBEntry)
 		require.Equal(t, 0, len(s))
 
 		profileStore, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{Store: s}})
 		require.NoError(t, err)
 		require.NotNil(t, profileStore)
 
-		s[getDBKey(governanceMode, "governance-1")] = []byte("invalid-data")
+		s[getDBKey(governanceMode, "governance-1")] = ariesmockstorage.DBEntry{Value: []byte("invalid-data")}
 
 		resp, err := profileStore.GetGovernanceProfile("governance-1")
 		require.Error(t, err)

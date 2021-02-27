@@ -17,7 +17,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -78,8 +78,10 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 	t.Run("test blank database type arg", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
-		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, ""}
+		args := []string{
+			"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, "",
+		}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
@@ -90,9 +92,11 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 	t.Run("test blank mode type arg", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
-		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+		args := []string{
+			"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
 			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-			"--" + modeFlagName, ""}
+			"--" + modeFlagName, "",
+		}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
@@ -103,9 +107,11 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 	t.Run("invalid mode", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
-		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+		args := []string{
+			"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
 			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + modeFlagName, "invalid"}
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + modeFlagName, "invalid",
+		}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
@@ -170,10 +176,12 @@ func TestStartCmdWithBlankEnvVar(t *testing.T) {
 func TestStartCmdCreateKMSFailure(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeCouchDBOption, "--" + kmsSecretsDatabaseURLFlagName,
-		"badURL"}
+		"badURL",
+	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -184,9 +192,11 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 func TestStartCmdWithNegativeMaxRetries(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + maxRetriesFlagName, "-5"}
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + maxRetriesFlagName, "-5",
+	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -197,9 +207,11 @@ func TestStartCmdWithNegativeMaxRetries(t *testing.T) {
 func TestStartCmdWithNegativeInitialBackoff(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + initialBackoffMillisecFlagName, "-500"}
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + initialBackoffMillisecFlagName, "-500",
+	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -210,9 +222,11 @@ func TestStartCmdWithNegativeInitialBackoff(t *testing.T) {
 func TestStartCmdWithInvalidFloatingPointBackoffFactor(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "1.1.1"}
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "1.1.1",
+	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -223,9 +237,11 @@ func TestStartCmdWithInvalidFloatingPointBackoffFactor(t *testing.T) {
 func TestStartCmdWithNegativeBackoffFactor(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "-2"}
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "-2",
+	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -235,11 +251,13 @@ func TestStartCmdWithNegativeBackoffFactor(t *testing.T) {
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
-	args := []string{"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
 		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
-		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR)}
+		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
+	}
 	startCmd.SetArgs(args)
 
 	err := startCmd.Execute()
@@ -270,7 +288,7 @@ func TestCreateProviders(t *testing.T) {
 	t.Run("test error from create new couchdb", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeCouchDBOption}}, nil)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
+		require.Contains(t, err.Error(), "failed to ping couchDB: url can't be blank")
 	})
 	t.Run("test error from create new mysql", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeMYSQLDBOption}}, nil)
@@ -279,15 +297,21 @@ func TestCreateProviders(t *testing.T) {
 	})
 	t.Run("test error from create new kms secrets couchdb", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{
-			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
-				kmsSecretsDatabaseType: databaseTypeCouchDBOption}}, nil)
+			dbParameters: &dbParameters{
+				databaseType:           databaseTypeMemOption,
+				kmsSecretsDatabaseType: databaseTypeCouchDBOption,
+			},
+		}, nil)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "hostURL for new CouchDB provider can't be blank")
+		require.Contains(t, err.Error(), "failed to ping couchDB: url can't be blank")
 	})
 	t.Run("test error from create new kms secrets mysql", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{
-			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
-				kmsSecretsDatabaseType: databaseTypeMYSQLDBOption}}, nil)
+			dbParameters: &dbParameters{
+				databaseType:           databaseTypeMemOption,
+				kmsSecretsDatabaseType: databaseTypeMYSQLDBOption,
+			},
+		}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
 	})
@@ -298,8 +322,11 @@ func TestCreateProviders(t *testing.T) {
 	})
 	t.Run("test invalid kms secrets database type", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{
-			dbParameters: &dbParameters{databaseType: databaseTypeMemOption,
-				kmsSecretsDatabaseType: "data1"}}, nil)
+			dbParameters: &dbParameters{
+				databaseType:           databaseTypeMemOption,
+				kmsSecretsDatabaseType: "data1",
+			},
+		}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "database type not set to a valid type")
 	})
@@ -314,11 +341,7 @@ func TestCreateKMS(t *testing.T) {
 	})
 	t.Run("fail to create master key service", func(t *testing.T) {
 		masterKeyStore := ariesmockstorage.MockStore{
-			Store:     make(map[string][]byte),
-			ErrPut:    nil,
-			ErrGet:    nil,
-			ErrItr:    nil,
-			ErrDelete: nil,
+			Store: make(map[string]ariesmockstorage.DBEntry),
 		}
 
 		err := masterKeyStore.Put("masterkey", []byte(""))
@@ -351,8 +374,10 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{universalResolverURL: "wrong",
-			dbParameters: &dbParameters{databaseType: "mem", kmsSecretsDatabaseType: "mem"}}, nil)
+		err := startEdgeService(&vcRestParameters{
+			universalResolverURL: "wrong",
+			dbParameters:         &dbParameters{databaseType: "mem", kmsSecretsDatabaseType: "mem"},
+		}, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 	})
@@ -430,7 +455,9 @@ func TestPrepareMasterKeyReader(t *testing.T) {
 		reader, err := prepareMasterKeyReader(
 			&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
-					ErrGet: errors.New("testError")}})
+					ErrGet: errors.New("testError"),
+				},
+			})
 		require.Equal(t, errors.New("testError"), err)
 		require.Nil(t, reader)
 	})
@@ -439,7 +466,9 @@ func TestPrepareMasterKeyReader(t *testing.T) {
 			&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					ErrGet: storage.ErrDataNotFound,
-					ErrPut: errors.New("testError")}})
+					ErrPut: errors.New("testError"),
+				},
+			})
 		require.Equal(t, errors.New("testError"), err)
 		require.Nil(t, reader)
 	})

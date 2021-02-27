@@ -19,30 +19,37 @@ import (
 
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-		s.Store["config"] = []byte(`{}`)
-		s.Store["csh_config"] = []byte(`{}`)
-		controller, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		controller, err := comparator.New(&operation.Config{
+			CSHBaseURL:    "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		_, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
+		_, err := comparator.New(&operation.Config{
+			CSHBaseURL: "https://localhost",
 			StoreProvider: &mockstorage.MockStoreProvider{
-				ErrOpenStoreHandle: fmt.Errorf("failed to open store")}})
+				ErrOpenStoreHandle: fmt.Errorf("failed to open store"),
+			},
+		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to open store")
 	})
 }
 
 func TestController_GetOperations(t *testing.T) {
-	s := &mockstorage.MockStore{Store: make(map[string][]byte)}
-	s.Store["config"] = []byte(`{}`)
-	s.Store["csh_config"] = []byte(`{}`)
-	controller, err := comparator.New(&operation.Config{CSHBaseURL: "https://localhost",
-		StoreProvider: &mockstorage.MockStoreProvider{Store: s}})
+	s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+	s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+	s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+	controller, err := comparator.New(&operation.Config{
+		CSHBaseURL:    "https://localhost",
+		StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
