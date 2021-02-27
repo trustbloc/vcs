@@ -65,6 +65,9 @@ type cshClient interface {
 
 	PostHubstoreProfilesProfileIDQueries(params *operations.PostHubstoreProfilesProfileIDQueriesParams,
 		opts ...operations.ClientOption) (*operations.PostHubstoreProfilesProfileIDQueriesCreated, error)
+
+	PostExtract(params *operations.PostExtractParams,
+		opts ...operations.ClientOption) (*operations.PostExtractOK, error)
 }
 
 type vaultClient interface {
@@ -229,8 +232,17 @@ func (o *Operation) Compare(w http.ResponseWriter, r *http.Request) {
 // Responses:
 //   200: extractionResp
 //   500: Error
-func (o *Operation) Extract(w http.ResponseWriter, _ *http.Request) {
-	w.WriteHeader(http.StatusOK)
+func (o *Operation) Extract(w http.ResponseWriter, r *http.Request) {
+	request := &models.Extract{}
+
+	err := json.NewDecoder(r.Body).Decode(request)
+	if err != nil {
+		respondErrorf(w, http.StatusBadRequest, "bad request: %s", err.Error())
+
+		return
+	}
+
+	o.HandleExtract(w, request)
 }
 
 // GetConfig swagger:route GET /config configReq

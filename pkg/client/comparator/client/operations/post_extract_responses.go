@@ -6,13 +6,11 @@ package operations
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	"context"
 	"fmt"
 	"io"
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
 
 	"github.com/trustbloc/edge-service/pkg/client/comparator/models"
 )
@@ -52,19 +50,19 @@ func NewPostExtractOK() *PostExtractOK {
 list of extracted documents
 */
 type PostExtractOK struct {
-	Payload *PostExtractOKBody
+	Payload *models.ExtractResp
 }
 
 func (o *PostExtractOK) Error() string {
 	return fmt.Sprintf("[POST /extract][%d] postExtractOK  %+v", 200, o.Payload)
 }
-func (o *PostExtractOK) GetPayload() *PostExtractOKBody {
+func (o *PostExtractOK) GetPayload() *models.ExtractResp {
 	return o.Payload
 }
 
 func (o *PostExtractOK) readResponse(response runtime.ClientResponse, consumer runtime.Consumer, formats strfmt.Registry) error {
 
-	o.Payload = new(PostExtractOKBody)
+	o.Payload = new(models.ExtractResp)
 
 	// response payload
 	if err := consumer.Consume(response.Body(), o.Payload); err != nil && err != io.EOF {
@@ -103,80 +101,5 @@ func (o *PostExtractInternalServerError) readResponse(response runtime.ClientRes
 		return err
 	}
 
-	return nil
-}
-
-/*PostExtractBody post extract body
-swagger:model PostExtractBody
-*/
-type PostExtractBody struct {
-
-	// list of authorization tokens used to extract documents
-	// Example: ["authToken1","authToken2","authToken3"]
-	AuthTokens []string `json:"authTokens"`
-}
-
-// Validate validates this post extract body
-func (o *PostExtractBody) Validate(formats strfmt.Registry) error {
-	return nil
-}
-
-// ContextValidate validates this post extract body based on context it is used
-func (o *PostExtractBody) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (o *PostExtractBody) MarshalBinary() ([]byte, error) {
-	if o == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(o)
-}
-
-// UnmarshalBinary interface implementation
-func (o *PostExtractBody) UnmarshalBinary(b []byte) error {
-	var res PostExtractBody
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*o = res
-	return nil
-}
-
-/*PostExtractOKBody post extract o k body
-swagger:model PostExtractOKBody
-*/
-type PostExtractOKBody struct {
-
-	// documents
-	Documents []interface{} `json:"documents"`
-}
-
-// Validate validates this post extract o k body
-func (o *PostExtractOKBody) Validate(formats strfmt.Registry) error {
-	return nil
-}
-
-// ContextValidate validates this post extract o k body based on context it is used
-func (o *PostExtractOKBody) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (o *PostExtractOKBody) MarshalBinary() ([]byte, error) {
-	if o == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(o)
-}
-
-// UnmarshalBinary interface implementation
-func (o *PostExtractOKBody) UnmarshalBinary(b []byte) error {
-	var res PostExtractOKBody
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*o = res
 	return nil
 }

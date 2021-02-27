@@ -14,6 +14,8 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/trustbloc/edge-service/pkg/client/comparator/models"
 )
 
 // NewPostExtractParams creates a new PostExtractParams object,
@@ -59,8 +61,8 @@ func NewPostExtractParamsWithHTTPClient(client *http.Client) *PostExtractParams 
 */
 type PostExtractParams struct {
 
-	// Tokens.
-	Tokens PostExtractBody
+	// Extract.
+	Extract *models.Extract
 
 	timeout    time.Duration
 	Context    context.Context
@@ -115,15 +117,15 @@ func (o *PostExtractParams) SetHTTPClient(client *http.Client) {
 	o.HTTPClient = client
 }
 
-// WithTokens adds the tokens to the post extract params
-func (o *PostExtractParams) WithTokens(tokens PostExtractBody) *PostExtractParams {
-	o.SetTokens(tokens)
+// WithExtract adds the extract to the post extract params
+func (o *PostExtractParams) WithExtract(extract *models.Extract) *PostExtractParams {
+	o.SetExtract(extract)
 	return o
 }
 
-// SetTokens adds the tokens to the post extract params
-func (o *PostExtractParams) SetTokens(tokens PostExtractBody) {
-	o.Tokens = tokens
+// SetExtract adds the extract to the post extract params
+func (o *PostExtractParams) SetExtract(extract *models.Extract) {
+	o.Extract = extract
 }
 
 // WriteToRequest writes these params to a swagger request
@@ -133,8 +135,10 @@ func (o *PostExtractParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.R
 		return err
 	}
 	var res []error
-	if err := r.SetBodyParam(o.Tokens); err != nil {
-		return err
+	if o.Extract != nil {
+		if err := r.SetBodyParam(o.Extract); err != nil {
+			return err
+		}
 	}
 
 	if len(res) > 0 {

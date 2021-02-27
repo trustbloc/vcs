@@ -75,6 +75,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Create comparator authorization for doc "([^"]*)"$`, e.createAuthorization)
 	s.Step(`^Check comparator config is created`, e.checkConfig)
 	s.Step(`^Compare two docs with doc1 id "([^"]*)" and ref doc with compare result "([^"]*)"$`, e.compare)
+	s.Step(`^Extract doc from auth token received from comparator authorization and validate data equal "([^"]*)"$`, e.extract) //nolint: lll
 	s.Step(`^Create vault authorization with duration "([^"]*)"$`, e.createVaultAuthorization)
 }
 
@@ -130,6 +131,25 @@ func (e *Steps) createAuthorization(docID string) error {
 	}
 
 	e.authzPayload = r.Payload
+
+	return nil
+}
+
+func (e *Steps) extract(data string) error {
+	r, err := e.client.Operations.PostExtract(operations.NewPostExtractParams().
+		WithTimeout(requestTimeout).WithExtract(&models.Extract{AuthTokens: []string{e.authzPayload.AuthToken}}))
+	if err != nil {
+		return err
+	}
+
+	respDoc, ok := r.Payload.Documents[0].(string)
+	if !ok {
+		return fmt.Errorf("doc is not string")
+	}
+
+	if data != respDoc {
+		return fmt.Errorf("doc not equal to %s", data)
+	}
 
 	return nil
 }
