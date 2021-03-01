@@ -44,6 +44,7 @@ import (
 
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
 
@@ -249,8 +250,10 @@ func (e *Steps) createVault(endpoint string) error {
 
 	e.bddContext.VaultID = result.ID
 
-	// to prevent an error "failed to resolve did: DID does not exist"
-	time.Sleep(time.Second)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, e.bddContext.VaultID, 10)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -424,8 +427,10 @@ func (e *Steps) createDIDTrustbloc() (string, error) {
 		return "", err
 	}
 
-	// to prevent an error "failed to resolve did: DID does not exist"
-	time.Sleep(time.Second)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, docResolution.DIDDocument.ID, 10)
+	if err != nil {
+		return "", err
+	}
 
 	return docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, nil
 }
