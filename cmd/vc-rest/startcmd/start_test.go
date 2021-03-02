@@ -401,10 +401,6 @@ func TestAcceptedDIDs(t *testing.T) {
 				result: true,
 			},
 			{
-				method: didMethodKey,
-				result: true,
-			},
-			{
 				method: didMethodSov,
 				result: true,
 			},

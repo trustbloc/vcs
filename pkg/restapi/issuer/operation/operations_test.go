@@ -850,6 +850,23 @@ func (m failingCrypto) UnwrapKey(recWK *cryptoapi.RecipientWrappedKey, kh interf
 	panic("implement me")
 }
 
+func (m failingCrypto) SignMulti(messages [][]byte, kh interface{}) ([]byte, error) {
+	panic("implement me")
+}
+
+func (m failingCrypto) VerifyMulti(messages [][]byte, signature []byte, kh interface{}) error {
+	panic("implement me")
+}
+
+func (m failingCrypto) VerifyProof(revealedMessages [][]byte, proof, nonce []byte, kh interface{}) error {
+	panic("implement me")
+}
+
+func (m failingCrypto) DeriveProof(messages [][]byte, bbsSignature []byte, nonce []byte,
+	revealedIndexes []int, kh interface{}) ([]byte, error) {
+	panic("implement me")
+}
+
 type failingJWEEncrypt struct {
 	encryptReturnValue *jose.JSONWebEncryption
 	errEncrypt         error

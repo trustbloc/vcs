@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
@@ -179,7 +180,6 @@ const (
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
 	didMethodWeb     = "web"
-	didMethodKey     = "key"
 	didMethodFactom  = "factom"
 
 	masterKeyURI       = "local-lock://custom/master/key/"
@@ -773,7 +773,7 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManag
 	}
 
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(trustbloc.New(nil, blocVDRIOpts...)))
+	opts = append(opts, vdrpkg.WithVDR(trustbloc.New(nil, blocVDRIOpts...)), vdrpkg.WithVDR(key.New()))
 
 	vdriProvider, err := context.New(context.WithKMS(km))
 	if err != nil {
@@ -795,7 +795,7 @@ func supportedMode(mode string) bool {
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodKey || method == didMethodFactom
+		method == didMethodWeb || method == didMethodFactom
 }
 
 type edgeServiceProviders struct {
