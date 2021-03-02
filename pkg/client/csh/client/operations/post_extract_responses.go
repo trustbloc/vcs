@@ -18,6 +18,8 @@ import (
 
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/trustbloc/edge-service/pkg/client/csh/models"
 )
 
 // PostExtractReader is a Reader for the PostExtract structure.
@@ -55,13 +57,13 @@ func NewPostExtractOK() *PostExtractOK {
 The extracted and decrypted documents.
 */
 type PostExtractOK struct {
-	Payload []interface{}
+	Payload models.ExtractionResponse
 }
 
 func (o *PostExtractOK) Error() string {
 	return fmt.Sprintf("[POST /extract][%d] postExtractOK  %+v", 200, o.Payload)
 }
-func (o *PostExtractOK) GetPayload() []interface{} {
+func (o *PostExtractOK) GetPayload() models.ExtractionResponse {
 	return o.Payload
 }
 

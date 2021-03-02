@@ -34,7 +34,7 @@ type Scope struct {
 
 	caveatsField []Caveat
 
-	// doc attr path
+	// Optional json path. Authorizes the comparison of a portion of the document.
 	DocAttrPath string `json:"docAttrPath,omitempty"`
 
 	// an identifier for a document stored in the Vault Server.

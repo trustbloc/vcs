@@ -662,6 +662,7 @@ github.com/hyperledger/aries-framework-go v0.1.6-0.20210120000618-bdf82385e9df/g
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210212132055-b94cce120dda/go.mod h1:jWpvVjYk1wETWfVJBII71ta6LusGKbzOkha8TOxeBRM=
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210224230531-58e1368e5661/go.mod h1:A6SHE7BuL1x88YN15R+MT8yG59zv2L4gE141Ou4tJJ4=
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210225161605-5a3ea609e830/go.mod h1:uzv9LEnmNwl+3KDTns5H9hoa31dpKdZeEDijoRQQDpM=
+github.com/hyperledger/aries-framework-go v0.1.6-0.20210302035348-993f7e0057da/go.mod h1:uzv9LEnmNwl+3KDTns5H9hoa31dpKdZeEDijoRQQDpM=
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210302111730-b1b076db898f h1:7mIBzhxfGgDt99OFAcnHPQLnF/5eLJC/cY3kFipmcmU=
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210302111730-b1b076db898f/go.mod h1:uzv9LEnmNwl+3KDTns5H9hoa31dpKdZeEDijoRQQDpM=
 github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210227073053-5d4fd6ad6b43 h1:Aqs11Esl1E73337xbhLBcIo9KgVwoipka7CB4sb1Pik=
@@ -1057,6 +1058,8 @@ github.com/trustbloc/edv v0.1.6-0.20210212224738-ec2041a015c9 h1:G40O3d9my8m8U6Q
 github.com/trustbloc/edv v0.1.6-0.20210212224738-ec2041a015c9/go.mod h1:zgY2Rde9Pv0aRmjJTdRZkV7ImW3+r5/c6aRc87moynI=
 github.com/trustbloc/kms v0.1.6-0.20210226144927-6c67cc12839f h1:7bv7NkOidVGiln45ClgO7qTjsUlmbCK2Z7IDNtwoCyQ=
 github.com/trustbloc/kms v0.1.6-0.20210226144927-6c67cc12839f/go.mod h1:cMaz3TCwYJewQjsoPrZWcrAuKWNEHhsDLpJ6GQNW3Mc=
+github.com/trustbloc/kms v0.1.6-0.20210302134939-3933de07039b h1:NXgqtBD/7rvPnS/nrC9aNMo0Ra/GlYlibLh048Z1sys=
+github.com/trustbloc/kms v0.1.6-0.20210302134939-3933de07039b/go.mod h1:ZSDyz2nlDpiNzudhnmuMIvn86qXWh8yz9zKCyY4WuiM=
 github.com/trustbloc/sidetree-core-go v0.1.6-0.20201217192009-0d2b4436912f h1:PHySA3TTpo8xChoP3XlTlrs2wHjkoX6K8A3mbdjVvrs=
 github.com/trustbloc/sidetree-core-go v0.1.6-0.20201217192009-0d2b4436912f/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
 github.com/trustbloc/trustbloc-did-method v0.1.6-0.20210212224127-9a501ef7b9e3/go.mod h1:duA6bdUCZQnIk9pJaX/CXrHXxbNnd778moLhueTPTo0=

@@ -21,8 +21,15 @@ import (
 func (o *Operation) HandleExtract(w http.ResponseWriter, extract *models.Extract) {
 	queries := make([]cshclientmodels.Query, 0)
 
-	for _, token := range extract.AuthTokens {
-		orgZCAP, err := zcapld.DecompressZCAP(token)
+	for _, query := range extract.Queries() {
+		q, ok := query.(*models.AuthorizedQuery)
+		if !ok {
+			respondErrorf(w, http.StatusNotImplemented, "unsupported query type: %s", query.Type())
+
+			return
+		}
+
+		orgZCAP, err := zcapld.DecompressZCAP(*q.AuthToken)
 		if err != nil {
 			respondErrorf(w, http.StatusInternalServerError, "failed to parse org zcap: %s", err.Error())
 
@@ -31,10 +38,13 @@ func (o *Operation) HandleExtract(w http.ResponseWriter, extract *models.Extract
 
 		queryPath := strings.Split(orgZCAP.InvocationTarget.ID, "/queries/")
 
-		queries = append(queries, &cshclientmodels.RefQuery{Ref: &queryPath[1]})
+		refQuery := &cshclientmodels.RefQuery{Ref: &queryPath[1]}
+		refQuery.SetID(query.ID())
+
+		queries = append(queries, refQuery)
 	}
 
-	response, err := o.cshClient.PostExtract(
+	extractions, err := o.cshClient.PostExtract(
 		operations.NewPostExtractParams().
 			WithTimeout(requestTimeout).
 			WithRequest(queries),
@@ -45,9 +55,20 @@ func (o *Operation) HandleExtract(w http.ResponseWriter, extract *models.Extract
 		return
 	}
 
+	response := models.ExtractResp{}
+
+	for i := range extractions.Payload {
+		extraction := extractions.Payload[i]
+
+		response.Documents = append(response.Documents, &models.ExtractRespDocumentsItems0{
+			ID:       extraction.ID,
+			Contents: extraction.Document,
+		})
+	}
+
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
 
-	respond(w, http.StatusOK, headers, models.ExtractResp{Documents: response.Payload})
+	respond(w, http.StatusOK, headers, response)
 }

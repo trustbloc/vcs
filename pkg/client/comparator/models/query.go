@@ -25,6 +25,10 @@ type Query interface {
 	runtime.Validatable
 	runtime.ContextValidatable
 
+	// id
+	ID() string
+	SetID(string)
+
 	// type
 	// Required: true
 	Type() string
@@ -35,7 +39,19 @@ type Query interface {
 }
 
 type query struct {
+	idField string
+
 	typeField string
+}
+
+// ID gets the id of this polymorphic type
+func (m *query) ID() string {
+	return m.idField
+}
+
+// SetID sets the id of this polymorphic type
+func (m *query) SetID(val string) {
+	m.idField = val
 }
 
 // Type gets the type of this polymorphic type

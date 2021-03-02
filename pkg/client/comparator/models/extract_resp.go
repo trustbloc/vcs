@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
@@ -21,7 +22,7 @@ type ExtractResp struct {
 
 	// documents
 	// Required: true
-	Documents []interface{} `json:"documents"`
+	Documents []*ExtractRespDocumentsItems0 `json:"documents"`
 }
 
 // Validate validates this extract resp
@@ -44,11 +45,54 @@ func (m *ExtractResp) validateDocuments(formats strfmt.Registry) error {
 		return err
 	}
 
+	for i := 0; i < len(m.Documents); i++ {
+		if swag.IsZero(m.Documents[i]) { // not required
+			continue
+		}
+
+		if m.Documents[i] != nil {
+			if err := m.Documents[i].Validate(formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("documents" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
-// ContextValidate validates this extract resp based on context it is used
+// ContextValidate validate this extract resp based on the context it is used
 func (m *ExtractResp) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateDocuments(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *ExtractResp) contextValidateDocuments(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Documents); i++ {
+
+		if m.Documents[i] != nil {
+			if err := m.Documents[i].ContextValidate(ctx, formats); err != nil {
+				if ve, ok := err.(*errors.Validation); ok {
+					return ve.ValidateName("documents" + "." + strconv.Itoa(i))
+				}
+				return err
+			}
+		}
+
+	}
+
 	return nil
 }
 
@@ -63,6 +107,46 @@ func (m *ExtractResp) MarshalBinary() ([]byte, error) {
 // UnmarshalBinary interface implementation
 func (m *ExtractResp) UnmarshalBinary(b []byte) error {
 	var res ExtractResp
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
+// ExtractRespDocumentsItems0 extract resp documents items0
+//
+// swagger:model ExtractRespDocumentsItems0
+type ExtractRespDocumentsItems0 struct {
+
+	// contents
+	Contents interface{} `json:"contents,omitempty"`
+
+	// id
+	ID string `json:"id,omitempty"`
+}
+
+// Validate validates this extract resp documents items0
+func (m *ExtractRespDocumentsItems0) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// ContextValidate validates this extract resp documents items0 based on context it is used
+func (m *ExtractRespDocumentsItems0) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *ExtractRespDocumentsItems0) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *ExtractRespDocumentsItems0) UnmarshalBinary(b []byte) error {
+	var res ExtractRespDocumentsItems0
 	if err := swag.ReadJSON(b, &res); err != nil {
 		return err
 	}

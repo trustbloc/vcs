@@ -708,11 +708,13 @@ func TestOperation_Extract(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, op)
 		result := httptest.NewRecorder()
-		ex := &models.Extract{AuthTokens: []string{"wrongData"}}
+		invalid := "wrongData"
+		request := &models.Extract{}
+		request.SetQueries([]models.Query{&models.AuthorizedQuery{AuthToken: &invalid}})
 		op.Extract(result, newReq(t,
 			http.MethodPost,
 			"/extract",
-			ex,
+			request,
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -738,11 +740,12 @@ func TestOperation_Extract(t *testing.T) {
 		result := httptest.NewRecorder()
 		chs := newAgent(t)
 		chsZCAP := compress(t, marshal(t, newZCAP(t, chs, chs)))
-		ex := &models.Extract{AuthTokens: []string{chsZCAP}}
+		request := &models.Extract{}
+		request.SetQueries([]models.Query{&models.AuthorizedQuery{AuthToken: &chsZCAP}})
 		op.Extract(result, newReq(t,
 			http.MethodPost,
 			"/extract",
-			ex,
+			request,
 		))
 
 		require.Equal(t, http.StatusInternalServerError, result.Code)
@@ -753,8 +756,9 @@ func TestOperation_Extract(t *testing.T) {
 		cshServ := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			m := make([]interface{}, 1)
-			m[0] = "dataValue"
+			m := []*cshclientmodels.ExtractionResponseItems0{{
+				Document: "dataValue",
+			}}
 
 			res, err := json.Marshal(m)
 			require.NoError(t, err)
@@ -776,15 +780,36 @@ func TestOperation_Extract(t *testing.T) {
 		result := httptest.NewRecorder()
 		chs := newAgent(t)
 		chsZCAP := compress(t, marshal(t, newZCAP(t, chs, chs)))
-		ex := &models.Extract{AuthTokens: []string{chsZCAP}}
+		request := &models.Extract{}
+		request.SetQueries([]models.Query{&models.AuthorizedQuery{AuthToken: &chsZCAP}})
 		op.Extract(result, newReq(t,
 			http.MethodPost,
 			"/extract",
-			ex,
+			request,
 		))
 
 		require.Equal(t, http.StatusOK, result.Code)
 		require.Contains(t, result.Body.String(), "dataValue")
+	})
+
+	t.Run("error StatusNotImplemented for DocQuery", func(t *testing.T) {
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		s.Store["config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		s.Store["csh_config"] = mockstorage.DBEntry{Value: []byte(`{}`)}
+		op, err := operation.New(&operation.Config{
+			CSHBaseURL:    "https://csh.example.com",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+		})
+		require.NoError(t, err)
+
+		request := &models.Extract{}
+		request.SetQueries([]models.Query{&models.DocQuery{}})
+
+		result := httptest.NewRecorder()
+
+		op.Extract(result, newReq(t, http.MethodPost, "/extract", request))
+		require.Equal(t, http.StatusNotImplemented, result.Code)
+		require.Contains(t, result.Body.String(), "unsupported query type")
 	})
 }
 

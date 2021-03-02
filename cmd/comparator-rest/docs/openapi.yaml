@@ -110,7 +110,8 @@ paths:
     post:
       description: |
         Extract the contents of one or more documents using the authorization tokens provided. The tokens originate
-        from authorizations granted at other Comparators.
+        from authorizations granted at other Comparators. Each element in the response is correlated to its query
+        via the ID.
       consumes:
         - application/json
       produces:
@@ -323,6 +324,8 @@ definitions:
     required:
       - type
     properties:
+      id:
+        type: string
       type:
         type: string
     discriminator: type
@@ -388,12 +391,12 @@ definitions:
   Extract:
     type: object
     required:
-      - authTokens
+      - queries
     properties:
-      authTokens:
+      queries:
         type: array
         items:
-          type: string
+          $ref: "#/definitions/Query"
   ExtractResp:
     type: object
     required:
@@ -402,7 +405,11 @@ definitions:
       documents:
         type: array
         items:
-          type: object
+          properties:
+            id:
+              type: string
+            contents:
+              type: object
   Error:
     type: object
     properties:

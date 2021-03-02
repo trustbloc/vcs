@@ -313,16 +313,18 @@ func (o *Operation) Extract(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var documents []interface{}
+	var extractions openapi.ExtractionResponse
 
 	for i := range queries {
+		query := queries[i]
+
 		var doc interface{}
 
-		switch query := queries[i].(type) {
+		switch q := query.(type) {
 		case *openapi.DocQuery:
 			var err error
 
-			doc, err = o.fetchDocument(query)
+			doc, err = o.fetchDocument(q)
 			if err != nil {
 				respondErrorf(w, http.StatusInternalServerError,
 					"failed to fetch document for DocQuery: %s", err.Error())
@@ -332,20 +334,23 @@ func (o *Operation) Extract(w http.ResponseWriter, r *http.Request) {
 		case *openapi.RefQuery:
 			var proceed bool
 
-			doc, proceed = o.resolveRefQuery(w, query)
+			doc, proceed = o.resolveRefQuery(w, q)
 			if !proceed {
 				return
 			}
 		}
 
-		documents = append(documents, doc)
+		extractions = append(extractions, &openapi.ExtractionResponseItems0{
+			ID:       query.ID(),
+			Document: doc,
+		})
 	}
 
 	headers := map[string]string{
 		"Content-Type": "application/json",
 	}
 
-	respond(w, http.StatusOK, headers, documents)
+	respond(w, http.StatusOK, headers, extractions)
 	logger.Debugf("handled request")
 }
 
