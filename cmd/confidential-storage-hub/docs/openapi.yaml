@@ -135,6 +135,7 @@ paths:
       parameters:
         - name: request
           in: body
+          required: true
           schema:
             type: array
             items:
@@ -144,9 +145,7 @@ paths:
         200:
           description: The extracted and decrypted documents.
           schema:
-            type: array
-            items:
-              type: object
+            $ref: "#/definitions/ExtractionResponse"
         500:
           $ref: "#/definitions/Error"
 definitions:
@@ -293,6 +292,14 @@ definitions:
           duration:
             type: integer
             description: Duration (in seconds) for which this authorization will remain valid.
+  ExtractionResponse:
+    type: array
+    items:
+      properties:
+        id:
+          type: string
+        document:
+          type: object
   Error:
     type: object
     properties:

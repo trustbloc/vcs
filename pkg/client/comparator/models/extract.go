@@ -6,9 +6,14 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"strconv"
 
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
@@ -18,17 +23,74 @@ import (
 //
 // swagger:model Extract
 type Extract struct {
+	queriesField []Query
+}
 
-	// auth tokens
-	// Required: true
-	AuthTokens []string `json:"authTokens"`
+// Queries gets the queries of this base type
+func (m *Extract) Queries() []Query {
+	return m.queriesField
+}
+
+// SetQueries sets the queries of this base type
+func (m *Extract) SetQueries(val []Query) {
+	m.queriesField = val
+}
+
+// UnmarshalJSON unmarshals this object with a polymorphic type from a JSON structure
+func (m *Extract) UnmarshalJSON(raw []byte) error {
+	var data struct {
+		Queries json.RawMessage `json:"queries"`
+	}
+	buf := bytes.NewBuffer(raw)
+	dec := json.NewDecoder(buf)
+	dec.UseNumber()
+
+	if err := dec.Decode(&data); err != nil {
+		return err
+	}
+
+	propQueries, err := UnmarshalQuerySlice(bytes.NewBuffer(data.Queries), runtime.JSONConsumer())
+	if err != nil && err != io.EOF {
+		return err
+	}
+
+	var result Extract
+
+	// queries
+	result.queriesField = propQueries
+
+	*m = result
+
+	return nil
+}
+
+// MarshalJSON marshals this object with a polymorphic type to a JSON structure
+func (m Extract) MarshalJSON() ([]byte, error) {
+	var b1, b2, b3 []byte
+	var err error
+	b1, err = json.Marshal(struct {
+	}{})
+	if err != nil {
+		return nil, err
+	}
+	b2, err = json.Marshal(struct {
+		Queries []Query `json:"queries"`
+	}{
+
+		Queries: m.queriesField,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return swag.ConcatJSON(b1, b2, b3), nil
 }
 
 // Validate validates this extract
 func (m *Extract) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateAuthTokens(formats); err != nil {
+	if err := m.validateQueries(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -38,17 +100,53 @@ func (m *Extract) Validate(formats strfmt.Registry) error {
 	return nil
 }
 
-func (m *Extract) validateAuthTokens(formats strfmt.Registry) error {
+func (m *Extract) validateQueries(formats strfmt.Registry) error {
 
-	if err := validate.Required("authTokens", "body", m.AuthTokens); err != nil {
+	if err := validate.Required("queries", "body", m.Queries()); err != nil {
 		return err
+	}
+
+	for i := 0; i < len(m.Queries()); i++ {
+
+		if err := m.queriesField[i].Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("queries" + "." + strconv.Itoa(i))
+			}
+			return err
+		}
+
 	}
 
 	return nil
 }
 
-// ContextValidate validates this extract based on context it is used
+// ContextValidate validate this extract based on the context it is used
 func (m *Extract) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.contextValidateQueries(ctx, formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *Extract) contextValidateQueries(ctx context.Context, formats strfmt.Registry) error {
+
+	for i := 0; i < len(m.Queries()); i++ {
+
+		if err := m.queriesField[i].ContextValidate(ctx, formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("queries" + "." + strconv.Itoa(i))
+			}
+			return err
+		}
+
+	}
+
 	return nil
 }
 

@@ -456,7 +456,7 @@ func (u *user) compare(queries ...models.Query) (bool, error) {
 	return response.Payload.Result, nil
 }
 
-func (u *user) extract(queries ...models.Query) ([]interface{}, error) {
+func (u *user) extract(queries ...models.Query) (models.ExtractionResponse, error) {
 	response, err := u.cshClient.Operations.PostExtract(
 		operations.NewPostExtractParams().
 			WithTimeout(requestTimeout).

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package comparator
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/cucumber/godog"
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
@@ -136,19 +138,35 @@ func (e *Steps) createAuthorization(docID string) error {
 }
 
 func (e *Steps) extract(data string) error {
+	query := &models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken}
+	query.SetID(uuid.New().String())
+
+	request := &models.Extract{}
+	request.SetQueries([]models.Query{query})
+
 	r, err := e.client.Operations.PostExtract(operations.NewPostExtractParams().
-		WithTimeout(requestTimeout).WithExtract(&models.Extract{AuthTokens: []string{e.authzPayload.AuthToken}}))
+		WithTimeout(requestTimeout).WithExtract(request))
 	if err != nil {
 		return err
 	}
 
-	respDoc, ok := r.Payload.Documents[0].(string)
+	if len(r.Payload.Documents) == 0 {
+		return errors.New("confidential storage hub failed to return extractions")
+	}
+
+	extraction := r.Payload.Documents[0]
+
+	respDoc, ok := extraction.Contents.(string)
 	if !ok {
 		return fmt.Errorf("doc is not string")
 	}
 
 	if data != respDoc {
 		return fmt.Errorf("doc not equal to %s", data)
+	}
+
+	if extraction.ID != query.ID() {
+		return fmt.Errorf("id not equal to %s, got %s", query.ID(), extraction.ID)
 	}
 
 	return nil

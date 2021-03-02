@@ -25,7 +25,7 @@ require (
 	github.com/trustbloc/edge-core v0.1.6-0.20210226125453-b9a45cad81f5
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/edv v0.1.6-0.20210212224738-ec2041a015c9
-	github.com/trustbloc/kms v0.1.6-0.20210226144927-6c67cc12839f
+	github.com/trustbloc/kms v0.1.6-0.20210302134939-3933de07039b
 	gotest.tools/v3 v3.0.3 // indirect
 )
 

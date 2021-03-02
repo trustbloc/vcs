@@ -23,6 +23,7 @@ import (
 //
 // swagger:model DocQuery
 type DocQuery struct {
+	idField string
 
 	// auth tokens
 	// Required: true
@@ -41,6 +42,16 @@ type DocQuery struct {
 	// vault ID
 	// Required: true
 	VaultID *string `json:"vaultID"`
+}
+
+// ID gets the id of this subtype
+func (m *DocQuery) ID() string {
+	return m.idField
+}
+
+// SetID sets the id of this subtype
+func (m *DocQuery) SetID(val string) {
+	m.idField = val
 }
 
 // Type gets the type of this subtype
@@ -85,6 +96,8 @@ func (m *DocQuery) UnmarshalJSON(raw []byte) error {
 	var base struct {
 		/* Just the base type fields. Used for unmashalling polymorphic types.*/
 
+		ID string `json:"id,omitempty"`
+
 		Type string `json:"type"`
 	}
 	buf = bytes.NewBuffer(raw)
@@ -96,6 +109,8 @@ func (m *DocQuery) UnmarshalJSON(raw []byte) error {
 	}
 
 	var result DocQuery
+
+	result.idField = base.ID
 
 	if base.Type != result.Type() {
 		/* Not the type we're looking for. */
@@ -149,8 +164,12 @@ func (m DocQuery) MarshalJSON() ([]byte, error) {
 		return nil, err
 	}
 	b2, err = json.Marshal(struct {
+		ID string `json:"id,omitempty"`
+
 		Type string `json:"type"`
 	}{
+
+		ID: m.ID(),
 
 		Type: m.Type(),
 	})

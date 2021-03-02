@@ -16,6 +16,7 @@ import (
 	"strconv"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 
 	"github.com/trustbloc/edge-service/pkg/client/csh/models"
@@ -33,19 +34,32 @@ const (
 // NewSteps returns BDD test steps for the confidential storage hub.
 func NewSteps(ctx *bddctx.BDDContext) *Steps {
 	return &Steps{
-		ctx:          ctx,
-		docs:         make([]*docCoords, 0),
-		refs:         make([]string, 0),
-		rawDocuments: make([]string, 0),
+		ctx:         ctx,
+		docs:        make([]*docCoords, 0),
+		refs:        make([]*ref, 0),
+		extractions: make(map[string]*extraction),
 	}
 }
 
 type docCoords struct {
-	vaultID string
-	docID   string
-	path    string
-	edvZCAP string
-	kmsZCAP string
+	id       string
+	vaultID  string
+	docID    string
+	path     string
+	edvZCAP  string
+	kmsZCAP  string
+	contents interface{}
+}
+
+type ref struct {
+	id       string
+	ref      string
+	contents interface{}
+}
+
+type extraction struct {
+	want interface{}
+	got  interface{}
 }
 
 // Steps BDD test steps for the confidential storage hub.
@@ -53,10 +67,9 @@ type Steps struct {
 	ctx              *bddctx.BDDContext
 	user             *user
 	docs             []*docCoords
-	refs             []string
+	refs             []*ref
 	comparisonResult bool
-	rawDocuments     []string
-	extractions      []interface{}
+	extractions      map[string]*extraction
 }
 
 // RegisterSteps for this BDD test.
@@ -87,8 +100,8 @@ func (s *Steps) userCreatesProfile() error {
 	}
 
 	s.docs = make([]*docCoords, 0)
-	s.refs = make([]string, 0)
-	s.rawDocuments = make([]string, 0)
+	s.refs = make([]*ref, 0)
+	s.extractions = make(map[string]*extraction)
 
 	return nil
 }
@@ -148,8 +161,10 @@ func (s *Steps) userSavesDocument(contents string) error {
 		return fmt.Errorf("user failed to save document: %w", err)
 	}
 
+	coords.id = uuid.New().String()
+	coords.contents = contents
+
 	s.docs = append(s.docs, coords)
-	s.rawDocuments = append(s.rawDocuments, contents)
 
 	return nil
 }
@@ -162,7 +177,7 @@ func (s *Steps) userCreatesRefQuery() error {
 	doc := s.docs[len(s.docs)-1]
 	s.docs = s.docs[:len(s.docs)-1]
 
-	ref, err := s.user.createRef(&models.DocQuery{
+	r, err := s.user.createRef(&models.DocQuery{
 		VaultID: &doc.vaultID,
 		DocID:   &doc.docID,
 		Path:    doc.path,
@@ -181,7 +196,11 @@ func (s *Steps) userCreatesRefQuery() error {
 		return fmt.Errorf("user failed to create ref: %w", err)
 	}
 
-	s.refs = append(s.refs, ref)
+	s.refs = append(s.refs, &ref{
+		id:       doc.id,
+		ref:      r,
+		contents: doc.contents,
+	})
 
 	return nil
 }
@@ -207,7 +226,9 @@ func (s *Steps) userAuthorizesCSHToReadDocuments() error {
 func (s *Steps) userRequestsComparison() error {
 	var err error
 
-	s.comparisonResult, err = s.user.compare(s.buildAllQueries()...)
+	queries, _ := s.buildAllQueries()
+
+	s.comparisonResult, err = s.user.compare(queries...)
 	if err != nil {
 		return fmt.Errorf("user failed to execute comparison: %w", err)
 	}
@@ -216,11 +237,22 @@ func (s *Steps) userRequestsComparison() error {
 }
 
 func (s *Steps) userRequestsExtraction() error {
-	var err error
+	queries, contents := s.buildAllQueries()
+	s.extractions = make(map[string]*extraction)
 
-	s.extractions, err = s.user.extract(s.buildAllQueries()...)
+	for i := range queries {
+		s.extractions[queries[i].ID()] = &extraction{
+			want: contents[i],
+		}
+	}
+
+	response, err := s.user.extract(queries...)
 	if err != nil {
 		return fmt.Errorf("user failed to extract documents: %w", err)
+	}
+
+	for i := range response {
+		s.extractions[response[i].ID].got = response[i].Document
 	}
 
 	return nil
@@ -240,32 +272,24 @@ func (s *Steps) confirmComparisonResult(want string) error {
 }
 
 func (s *Steps) confirmExtractionResults() error {
-	for i := range s.rawDocuments {
-		want := s.rawDocuments[i]
-		found := false
-
-		for j := range s.extractions {
-			got := s.extractions[j]
-
-			found = reflect.DeepEqual(want, got)
-			if found {
-				break
-			}
-		}
-
-		if !found {
-			return fmt.Errorf("document not extracted: %s", want)
+	for id, extraction := range s.extractions {
+		if !reflect.DeepEqual(extraction.want, extraction.got) {
+			return fmt.Errorf(
+				"document not extracted for id %s: got '%s', want '%s'",
+				id, extraction.got, extraction.want,
+			)
 		}
 	}
 
 	return nil
 }
 
-func (s *Steps) buildAllQueries() []models.Query {
+func (s *Steps) buildAllQueries() ([]models.Query, []interface{}) {
 	queries := make([]models.Query, len(s.docs)+len(s.refs))
+	contents := make([]interface{}, 0)
 
 	for i := range s.docs {
-		queries[i] = &models.DocQuery{
+		query := &models.DocQuery{
 			VaultID: &s.docs[i].vaultID,
 			DocID:   &s.docs[i].docID,
 			Path:    s.docs[i].path,
@@ -280,16 +304,28 @@ func (s *Steps) buildAllQueries() []models.Query {
 				},
 			},
 		}
+
+		query.SetID(s.docs[i].id)
+
+		queries[i] = query
+
+		contents = append(contents, s.docs[i].contents)
 	}
 
 	for i := range s.refs {
-		idx := i + len(s.docs)
-		queries[idx] = &models.RefQuery{
-			Ref: &s.refs[i],
+		query := &models.RefQuery{
+			Ref: &s.refs[i].ref,
 		}
+
+		query.SetID(s.refs[i].id)
+
+		idx := i + len(s.docs)
+		queries[idx] = query
+
+		contents = append(contents, s.refs[i].contents)
 	}
 
-	return queries
+	return queries, contents
 }
 
 func gzipThenBase64URL(msg []byte) (string, error) {

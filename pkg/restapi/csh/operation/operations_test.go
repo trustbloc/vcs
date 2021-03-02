@@ -461,7 +461,7 @@ func TestOperation_Extract(t *testing.T) {
 		o.Extract(result, request)
 		require.Equal(t, http.StatusOK, result.Code)
 
-		var extractions []interface{}
+		var extractions openapi.ExtractionResponse
 
 		err := json.NewDecoder(result.Body).Decode(&extractions)
 		require.NoError(t, err)
@@ -474,7 +474,7 @@ func TestOperation_Extract(t *testing.T) {
 			found := false
 
 			for _, extract := range extractions {
-				found = reflect.DeepEqual(d.Content, extract)
+				found = reflect.DeepEqual(d.Content, extract.Document)
 				if found {
 					break
 				}

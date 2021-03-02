@@ -107,5 +107,5 @@ type extractionReq struct { // nolint:deadcode,unused // swagger model
 // swagger:response extractionResp
 type extractionResp struct { // nolint:deadcode,unused // swagger model
 	// in: body
-	Body []interface{}
+	Body openapi.ExtractionResponse
 }
