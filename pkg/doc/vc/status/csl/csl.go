@@ -126,9 +126,10 @@ func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile)
 	}, nil
 }
 
-// RevokeVC revoke vc
-//nolint: gocyclo
-func (c *CredentialStatusManager) RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error {
+// UpdateVC update vc
+//nolint: gocyclo, funlen
+func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
+	profile *vcprofile.DataProfile, status bool) error {
 	// validate vc status
 	if err := c.validateVCStatus(v.Status); err != nil {
 		return err
@@ -164,7 +165,7 @@ func (c *CredentialStatusManager) RevokeVC(v *verifiable.Credential, profile *vc
 		return err
 	}
 
-	if errSet := bitString.Set(revocationListIndex, true); errSet != nil {
+	if errSet := bitString.Set(revocationListIndex, status); errSet != nil {
 		return errSet
 	}
 

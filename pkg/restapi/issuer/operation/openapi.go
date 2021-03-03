@@ -134,6 +134,12 @@ type retrieveCredentialReq struct { // nolint: unused,deadcode
 //
 // swagger:parameters updateCredentialStatusReq
 type updateCredentialStatusReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+
 	// in: body
 	Params UpdateCredentialStatusRequest
 }

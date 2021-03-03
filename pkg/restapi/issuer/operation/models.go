@@ -26,7 +26,14 @@ type CreateCredentialRequest struct {
 
 // UpdateCredentialStatusRequest request struct for updating vc status
 type UpdateCredentialStatusRequest struct {
-	Credentials []json.RawMessage `json:"credentials"`
+	CredentialID     string           `json:"credentialId"`
+	CredentialStatus CredentialStatus `json:"credentialStatus"`
+}
+
+// CredentialStatus credential status
+type CredentialStatus struct {
+	Type   string `json:"type"`
+	Status string `json:"status"`
 }
 
 // StoreVCRequest stores the credential with profile name
