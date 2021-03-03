@@ -213,7 +213,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.NoError(t, err)
 
 		cred.ID = credID
-		err = s.RevokeVC(cred, getTestProfile())
+		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status not exist")
 	})
@@ -229,7 +229,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = &verifiable.TypedID{Type: "noMatch"}
-		err = s.RevokeVC(cred, getTestProfile())
+		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status noMatch not supported")
 	})
@@ -245,7 +245,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = &verifiable.TypedID{Type: RevocationList2020Status}
-		err = s.RevokeVC(cred, getTestProfile())
+		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "revocationListIndex field not exist in vc status")
 	})
@@ -263,7 +263,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		cred.Status = &verifiable.TypedID{
 			Type: RevocationList2020Status, CustomFields: map[string]interface{}{RevocationListIndex: "1"},
 		}
-		err = s.RevokeVC(cred, getTestProfile())
+		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "revocationListCredential field not exist in vc status")
 	})
@@ -281,7 +281,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		cred.Status = &verifiable.TypedID{Type: RevocationList2020Status, CustomFields: map[string]interface{}{
 			RevocationListIndex: "1", RevocationListCredential: 1,
 		}}
-		err = s.RevokeVC(cred, getTestProfile())
+		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to cast status revocationListCredential")
 	})
@@ -300,7 +300,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = status
-		require.NoError(t, s.RevokeVC(cred, getTestProfile()))
+		require.NoError(t, s.UpdateVC(cred, getTestProfile(), true))
 
 		revocationListVCBytes, err := s.GetRevocationListVC(status.CustomFields["revocationListCredential"].(string))
 		require.NoError(t, err)
@@ -327,7 +327,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		err = s.RevokeVC(&verifiable.Credential{
+		err = s.UpdateVC(&verifiable.Credential{
 			ID: credID,
 			Status: &verifiable.TypedID{
 				ID: "test", Type: RevocationList2020Status,
@@ -336,7 +336,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 					RevocationListIndex:      "1",
 				},
 			},
-		}, getTestProfile())
+		}, getTestProfile(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get csl from store")
 	})

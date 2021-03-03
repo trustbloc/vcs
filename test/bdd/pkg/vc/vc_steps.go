@@ -41,10 +41,11 @@ const (
 	verifierURL                = "http://localhost:8069"
 	holderURL                  = "http://localhost:8067"
 
-	issueCredentialURLFormat    = issuerURL + "%s" + "/credentials/issueCredential"
-	signPresentationURLFormat   = holderURL + "/%s" + "/prove/presentations"
-	verifyCredentialURLFormat   = verifierURL + "/%s" + "/verifier/credentials"
-	verifyPresentationURLFormat = verifierURL + "/%s" + "/verifier/presentations"
+	updateCredentialStatusURLFormat = issuerURL + "%s" + "/credentials/status"
+	issueCredentialURLFormat        = issuerURL + "%s" + "/credentials/issueCredential"
+	signPresentationURLFormat       = holderURL + "/%s" + "/prove/presentations"
+	verifyCredentialURLFormat       = verifierURL + "/%s" + "/verifier/credentials"
+	verifyPresentationURLFormat     = verifierURL + "/%s" + "/verifier/presentations"
 
 	domain = "example.com"
 )
@@ -575,8 +576,6 @@ func verify(resp *http.Response, checks []string, result, respMessage string) er
 }
 
 func (e *Steps) revokePresentationCred(user string) error {
-	creds := make([]json.RawMessage, 0)
-
 	vpBytes := e.bddContext.Args[user]
 
 	vp, err := verifiable.ParsePresentation([]byte(vpBytes), verifiable.WithPresDisabledProofCheck())
@@ -590,27 +589,47 @@ func (e *Steps) revokePresentationCred(user string) error {
 			return err
 		}
 
-		creds = append(creds, credBytes)
+		vc, err := verifiable.ParseCredential(credBytes, verifiable.WithDisabledProofCheck())
+		if err != nil {
+			return err
+		}
+
+		if err := e.storeCredential(vc.Issuer.CustomFields["name"].(string), credBytes); err != nil {
+			return err
+		}
+
+		if err := e.updateCredentialStatus(vc.ID, vc.Issuer.CustomFields["name"].(string)); err != nil {
+			return err
+		}
 	}
 
-	return e.updateCredentialStatus(creds)
+	return nil
 }
 
 func (e *Steps) revokeCredential() error {
-	return e.updateCredentialStatus([]json.RawMessage{e.bddContext.CreatedCredential})
+	vc, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck())
+	if err != nil {
+		return err
+	}
+
+	return e.updateCredentialStatus(vc.ID, vc.Issuer.CustomFields["name"].(string))
 }
 
-func (e *Steps) updateCredentialStatus(creds []json.RawMessage) error {
+func (e *Steps) updateCredentialStatus(credID, profileName string) error {
 	storeRequest := operation.UpdateCredentialStatusRequest{}
 
-	storeRequest.Credentials = creds
+	storeRequest.CredentialID = credID
+	storeRequest.CredentialStatus.Type = csl.RevocationList2020Status
+	storeRequest.CredentialStatus.Status = "1"
 
 	requestBytes, err := json.Marshal(storeRequest)
 	if err != nil {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, issuerURL+"updateStatus", "", //nolint: bodyclose
+	endpointURL := fmt.Sprintf(updateCredentialStatusURLFormat, profileName)
+
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
 	if err != nil {
 		return err

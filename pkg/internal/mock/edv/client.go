@@ -16,6 +16,7 @@ import (
 // Client is the mock edv client
 type Client struct {
 	edvServerURL                      string
+	ReadDocumentError                 error
 	ReadDocumentFirstReturnValue      *models.EncryptedDocument
 	ReadDocumentSubsequentReturnValue *models.EncryptedDocument
 	readDocumentCalledAtLeastOnce     bool
@@ -55,10 +56,10 @@ func (c *Client) ReadDocument(vaultID, docID string, opts ...client.ReqOption) (
 	if !c.readDocumentCalledAtLeastOnce {
 		c.readDocumentCalledAtLeastOnce = true
 
-		return c.ReadDocumentFirstReturnValue, nil
+		return c.ReadDocumentFirstReturnValue, c.ReadDocumentError
 	}
 
-	return c.ReadDocumentSubsequentReturnValue, nil
+	return c.ReadDocumentSubsequentReturnValue, c.ReadDocumentError
 }
 
 // QueryVault mocks a vault query call. It never returns an error.

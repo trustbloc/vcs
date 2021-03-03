@@ -125,9 +125,11 @@ const (
 	  },
 	  "issuanceDate": "2010-01-01T19:23:24Z",
 	  "credentialStatus": {
-		"id": "https://example.gov/status/24",
-		"type": "CredentialStatusList2017"
-	  }
+          "id": "https://example.gov/status/24#94567",
+          "type": "RevocationList2020Status",
+          "revocationListIndex": "94567",
+          "revocationListCredential": "https://example.gov/status/24"
+      }
 	}`
 
 	validVCWithoutStatus = `{` +
@@ -164,6 +166,16 @@ const (
 	   },
 	   "content":{
 		  "message":` + testStructuredDocMessage1 + `
+	   }
+	}`
+
+	testStructuredVCDocument = `{
+	   "id":"someID",
+	   "meta":{
+		  "created":"2019-06-18"
+	   },
+	   "content":{
+		  "message":%s
 	   }
 	}`
 
@@ -232,14 +244,13 @@ func TestNew(t *testing.T) {
 }
 
 func TestUpdateCredentialStatusHandler(t *testing.T) {
-	testUpdateCredentialStatusHandler(t)
-}
+	const profileID = "example_university"
 
-func testUpdateCredentialStatusHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 	s := make(map[string]ariesmockstorage.DBEntry)
-	s["profile_issuer_Example University"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfile)}
-	s["profile_issuer_vc without status"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfileWithDisableVCStatus)}
+	s["profile_issuer_example_university"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfile)}
+	s["profile_issuer_vc_without_status"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfileWithDisableVCStatus)}
+	s["profile_issuer_empty"] = ariesmockstorage.DBEntry{Value: []byte("{}")}
 
 	customKMS := createKMS(t)
 
@@ -250,127 +261,205 @@ func testUpdateCredentialStatusHandler(t *testing.T) {
 		StoreProvider: &ariesmockstorage.MockStoreProvider{
 			Store: &ariesmockstorage.MockStore{Store: s},
 		}, KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		EDVClient: client, KeyManager: customKMS,
-		Crypto: customCrypto,
-		VDRI:   &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
+		KeyManager: customKMS,
+		Crypto:     customCrypto,
+		VDRI:       &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
+		RetryParameters: &retry.Params{},
 	})
 	require.NoError(t, err)
-
-	op.vcStatusManager = &mockVCStatusManager{}
 
 	updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
 
 	t.Run("update credential status success", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVC)}}
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = client
+
+		setMockEDVClientReadDocumentReturnValue(t, client, op, fmt.Sprintf(testStructuredVCDocument, validVC),
+			fmt.Sprintf(testStructuredVCDocument, validVC))
+
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   cslstatus.RevocationList2020Status,
+				Status: "1",
+			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
 
-		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
+
 		require.Equal(t, http.StatusOK, rr.Code)
 	})
 
 	t.Run("test disable vc status", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVCWithoutStatus)}}
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = client
+
+		setMockEDVClientReadDocumentReturnValue(t, client, op,
+			fmt.Sprintf(testStructuredVCDocument, validVCWithoutStatus),
+			fmt.Sprintf(testStructuredVCDocument, validVCWithoutStatus))
+
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   cslstatus.RevocationList2020Status,
+				Status: "1",
+			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = "vc_without_status"
 
-		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-
 		require.Contains(t, rr.Body.String(), "vc status is disabled for profile")
 	})
 
 	t.Run("test error decode request", func(t *testing.T) {
-		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer([]byte("w")))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = client
 
-		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
+
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, []byte("w"),
+			urlVars)
+
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-
 		require.Contains(t, rr.Body.String(), "failed to decode request received")
 	})
 
 	t.Run("test error from parse credential", func(t *testing.T) {
-		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(invalidVC)}}
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = client
+
+		setMockEDVClientReadDocumentReturnValue(t, client, op, fmt.Sprintf(testStructuredVCDocument, invalidVC),
+			fmt.Sprintf(testStructuredVCDocument, invalidVC))
+
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   cslstatus.RevocationList2020Status,
+				Status: "1",
+			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
 
-		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
+
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-
-		require.Contains(t, rr.Body.String(), "unable to unmarshal the VC")
+		require.Contains(t, rr.Body.String(), "failed to parse credentia")
 	})
 
 	t.Run("test error from get profile", func(t *testing.T) {
-		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{Store: make(map[string]ariesmockstorage.DBEntry)},
-			},
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil),
-			KeyManager:         customKMS, Crypto: customCrypto,
-			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
-		})
-		require.NoError(t, err)
 		op.vcStatusManager = &mockVCStatusManager{}
-		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
+		op.edvClient = client
 
-		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVC)}}
-		ucsReqBytes, err := json.Marshal(ucsReq)
-		require.NoError(t, err)
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = "wrongProfile"
 
-		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, []byte("w"),
+			urlVars)
 
-		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-
-		require.Contains(t, rr.Body.String(), "failed to get profile")
+		require.Contains(t, rr.Body.String(), "invalid issuer profile")
 	})
 
 	t.Run("test error from update vc status", func(t *testing.T) {
-		s := make(map[string]ariesmockstorage.DBEntry)
-		s["profile_issuer_Example University"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfile)}
+		op.vcStatusManager = &mockVCStatusManager{updateVCErr: fmt.Errorf("failed to update")}
+		op.edvClient = client
 
-		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{Store: s},
-			},
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			EDVClient:          edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil),
-			KeyManager:         customKMS, Crypto: customCrypto,
-			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
-		})
-		require.NoError(t, err)
-		op.vcStatusManager = &mockVCStatusManager{revokeVCErr: fmt.Errorf("error update vc status")}
-		updateCredentialStatusHandler := getHandler(t, op, updateCredentialStatusEndpoint, http.MethodPost)
+		setMockEDVClientReadDocumentReturnValue(t, client, op, fmt.Sprintf(testStructuredVCDocument, validVC),
+			fmt.Sprintf(testStructuredVCDocument, validVC))
 
-		ucsReq := UpdateCredentialStatusRequest{Credentials: []json.RawMessage{[]byte(validVC)}}
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   cslstatus.RevocationList2020Status,
+				Status: "1",
+			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPost, updateCredentialStatusEndpoint, bytes.NewBuffer(ucsReqBytes))
-		require.NoError(t, err)
-		rr := httptest.NewRecorder()
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
 
-		updateCredentialStatusHandler.Handle().ServeHTTP(rr, req)
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
+
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-
 		require.Contains(t, rr.Body.String(), "failed to update vc status")
+	})
+
+	t.Run("test error from update vc status wrong type", func(t *testing.T) {
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = client
+
+		setMockEDVClientReadDocumentReturnValue(t, client, op, fmt.Sprintf(testStructuredVCDocument, validVC),
+			fmt.Sprintf(testStructuredVCDocument, validVC))
+
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   "wrongType",
+				Status: "1",
+			}}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
+
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "credential status wrongType not supported")
+	})
+
+	t.Run("test error get credential", func(t *testing.T) {
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = &edv.Client{ReadDocumentError: fmt.Errorf("failed to read")}
+
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   cslstatus.RevocationList2020Status,
+				Status: "1",
+			}}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
+
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "no VC under profile")
+	})
+
+	t.Run("test error parse cred status", func(t *testing.T) {
+		op.vcStatusManager = &mockVCStatusManager{}
+		op.edvClient = client
+
+		setMockEDVClientReadDocumentReturnValue(t, client, op, fmt.Sprintf(testStructuredVCDocument, validVC),
+			fmt.Sprintf(testStructuredVCDocument, validVC))
+
+		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
+			CredentialStatus: CredentialStatus{
+				Type:   cslstatus.RevocationList2020Status,
+				Status: "wrong",
+			}}
+		ucsReqBytes, err := json.Marshal(ucsReq)
+		require.NoError(t, err)
+
+		urlVars := make(map[string]string)
+		urlVars[profileIDPathParam] = profileID
+
+		rr := serveHTTPMux(t, updateCredentialStatusHandler, updateCredentialStatusEndpoint, ucsReqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to parse status")
 	})
 }
 
@@ -1105,7 +1194,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		saveTestProfile(t, op, getTestProfile())
 
-		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
+		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1, testStructuredDocument1)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1142,7 +1231,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		saveTestProfile(t, op, getTestProfile())
 
-		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
+		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1, testStructuredDocument1)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1179,7 +1268,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		saveTestProfile(t, op, getTestProfile())
 
-		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument2)
+		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1, testStructuredDocument2)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1221,7 +1310,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		saveTestProfile(t, op, getTestProfile())
 
-		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
+		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1, testStructuredDocument1)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
 			bytes.NewBuffer([]byte(nil)))
@@ -1338,7 +1427,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 
 		saveTestProfile(t, op, getTestProfile())
 
-		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1)
+		setMockEDVClientReadDocumentReturnValue(t, client, op, testStructuredDocument1, testStructuredDocument1)
 
 		retrieveVCHandler := getHandler(t, op, retrieveCredentialEndpoint, http.MethodGet)
 
@@ -2688,8 +2777,8 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 }
 
 func setMockEDVClientReadDocumentReturnValue(t *testing.T, client *edv.Client, op *Operation,
-	structuredDocForSubsequentCalls string) {
-	firstEncryptedDocToReturn := prepareEncryptedDocument(t, op, testStructuredDocument1)
+	structuredDocForFirstCall, structuredDocForSubsequentCalls string) {
+	firstEncryptedDocToReturn := prepareEncryptedDocument(t, op, structuredDocForFirstCall)
 	subsequentEncryptedDocToReturn := prepareEncryptedDocument(t, op, structuredDocForSubsequentCalls)
 
 	client.ReadDocumentFirstReturnValue = &firstEncryptedDocToReturn
@@ -2760,7 +2849,7 @@ func (c *TestClient) QueryVault(vaultID, name, value string, opts ...edvclient.R
 type mockVCStatusManager struct {
 	createStatusIDValue      *verifiable.TypedID
 	createStatusIDErr        error
-	revokeVCErr              error
+	updateVCErr              error
 	getRevocationListVCValue []byte
 	GetRevocationListVCErr   error
 }
@@ -2769,8 +2858,8 @@ func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*v
 	return m.createStatusIDValue, m.createStatusIDErr
 }
 
-func (m *mockVCStatusManager) RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error {
-	return m.revokeVCErr
+func (m *mockVCStatusManager) UpdateVC(v *verifiable.Credential, profile *vcprofile.DataProfile, status bool) error {
+	return m.updateVCErr
 }
 
 func (m *mockVCStatusManager) GetRevocationListVC(id string) ([]byte, error) {
@@ -2789,7 +2878,8 @@ func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProf
 	return nil, nil
 }
 
-func (m *mockCredentialStatusManager) RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error {
+func (m *mockCredentialStatusManager) UpdateVC(v *verifiable.Credential,
+	profile *vcprofile.DataProfile, status bool) error {
 	return nil
 }
 

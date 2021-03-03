@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,9 +58,9 @@ const (
 	storeCredentialEndpoint        = "/store"
 	retrieveCredentialEndpoint     = "/retrieve"
 	credentialStatus               = "/status"
-	updateCredentialStatusEndpoint = "/updateStatus"
 	credentialStatusEndpoint       = credentialStatus + "/{id}"
 	credentialsBasePath            = "/" + "{" + profileIDPathParam + "}" + "/credentials"
+	updateCredentialStatusEndpoint = credentialsBasePath + credentialStatus
 	issueCredentialPath            = credentialsBasePath + "/issueCredential"
 	composeAndIssueCredentialPath  = credentialsBasePath + "/composeAndIssueCredential"
 	kmsBasePath                    = "/kms"
@@ -98,7 +99,7 @@ type Handler interface {
 
 type vcStatusManager interface {
 	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
-	RevokeVC(v *verifiable.Credential, profile *vcprofile.DataProfile) error
+	UpdateVC(v *verifiable.Credential, profile *vcprofile.DataProfile, status bool) error
 	GetRevocationListVC(id string) ([]byte, error)
 }
 
@@ -255,50 +256,85 @@ func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.R
 	}
 }
 
-// UpdateCredentialStatus swagger:route POST /updateStatus issuer updateCredentialStatusReq
+// UpdateCredentialStatus swagger:route POST /{id}/credentials/status issuer updateCredentialStatusReq
 //
 // Updates credential status.
 //
 // Responses:
 //    default: genericError
 //        200: emptyRes
-func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *http.Request) {
-	data := UpdateCredentialStatusRequest{}
+func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *http.Request) { //nolint: funlen,gocyclo
+	profileID := mux.Vars(req)[profileIDPathParam]
 
-	err := json.NewDecoder(req.Body).Decode(&data)
+	profile, err := o.profileStore.GetProfile(profileID)
 	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf("failed to decode request received: %s", err.Error()))
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid issuer profile - id=%s: err=%s",
+			profileID, err.Error()))
+
 		return
 	}
 
-	for _, cred := range data.Credentials {
-		vc, err := o.parseAndVerifyVC(cred)
-		if err != nil {
-			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-				fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
-			return
-		}
+	if profile.DisableVCStatus {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("vc status is disabled for profile %s", profile.Name))
+		return
+	}
 
-		// get profile
-		profile, err := o.profileStore.GetProfile(vc.Issuer.CustomFields["name"].(string))
-		if err != nil {
-			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-				fmt.Sprintf("failed to get profile: %s", err.Error()))
-			return
-		}
+	data := UpdateCredentialStatusRequest{}
 
-		if profile.DisableVCStatus {
-			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-				fmt.Sprintf("vc status is disabled for profile %s", profile.Name))
-			return
-		}
+	err = json.NewDecoder(req.Body).Decode(&data)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to decode request received: %s", err.Error()))
 
-		if err := o.vcStatusManager.RevokeVC(vc, profile.DataProfile); err != nil {
-			commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-				fmt.Sprintf("failed to update vc status: %s", err.Error()))
+		return
+	}
+
+	if data.CredentialStatus.Type != cslstatus.RevocationList2020Status {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("credential status %s not supported", data.CredentialStatus.Type))
+
+		return
+	}
+
+	docURLs, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController, data.CredentialID)
+	if err != nil {
+		// The case where no docs match the given query is handled in o.retrieveCredential.
+		// Any other error is unexpected and is handled here.
+		if err != errNoDocsMatchQuery {
+			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 			return
 		}
+	}
+
+	vcBytes, status, err := o.retrieveCredential(profileID, profile.EDVVaultID, docURLs,
+		profile.EDVCapability, profile.EDVController)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, status, err.Error())
+
+		return
+	}
+
+	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck())
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to parse credential: %s", err.Error()))
+
+		return
+	}
+
+	statusValue, err := strconv.ParseBool(data.CredentialStatus.Status)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to parse status: %s", err.Error()))
+
+		return
+	}
+
+	if err := o.vcStatusManager.UpdateVC(vc, profile.DataProfile, statusValue); err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to update vc status: %s", err.Error()))
+		return
 	}
 
 	rw.WriteHeader(http.StatusOK)
@@ -560,7 +596,21 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		}
 	}
 
-	o.retrieveCredential(rw, profileName, profile.EDVVaultID, docURLs, profile.EDVCapability, profile.EDVController)
+	retrievedVC, status, err := o.retrieveCredential(profileName, profile.EDVVaultID, docURLs,
+		profile.EDVCapability, profile.EDVController)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, status, err.Error())
+
+		return
+	}
+
+	_, err = rw.Write(retrievedVC)
+	if err != nil {
+		logger.Errorf("Failed to write response for document retrieval success: %s",
+			err.Error())
+
+		return
+	}
 }
 
 func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.IssuerProfile, error) {
@@ -1006,14 +1056,13 @@ func (o *Operation) queryVault(vaultID string, capability []byte, vm, vcID strin
 	return docURLs, err
 }
 
-func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvVaultID string, docURLs []string,
-	capability []byte, vm string) {
+func (o *Operation) retrieveCredential(profileName, edvVaultID string, docURLs []string,
+	capability []byte, vm string) ([]byte, int, error) {
 	var retrievedVC []byte
 
 	switch len(docURLs) {
 	case 0:
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
-			fmt.Sprintf(`no VC under profile "%s" was found with the given id`, profileName))
+		return nil, http.StatusBadRequest, fmt.Errorf(`no VC under profile "%s" was found with the given id`, profileName)
 	case 1:
 		docID := vcutil.GetDocIDFromURL(docURLs[0])
 
@@ -1021,9 +1070,7 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvV
 
 		retrievedVC, err = o.retrieveVC(edvVaultID, docID, "retrieving VC", capability, vm)
 		if err != nil {
-			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
-
-			return
+			return nil, http.StatusInternalServerError, err
 		}
 	default:
 		// Multiple VCs were found with the same id. This is technically possible under the right circumstances
@@ -1037,19 +1084,11 @@ func (o *Operation) retrieveCredential(rw http.ResponseWriter, profileName, edvV
 
 		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(edvVaultID, docURLs, capability, vm)
 		if err != nil {
-			commhttp.WriteErrorResponse(rw, statusCode, err.Error())
-
-			return
+			return nil, statusCode, err
 		}
 	}
 
-	_, err := rw.Write(retrievedVC)
-	if err != nil {
-		logger.Errorf("Failed to write response for document retrieval success: %s",
-			err.Error())
-
-		return
-	}
+	return retrievedVC, http.StatusOK, nil
 }
 
 func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, docURLs []string,
