@@ -9,10 +9,10 @@ package csh_test
 import (
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/csh"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
@@ -36,7 +36,7 @@ func config(t *testing.T) *operation.Config {
 	t.Helper()
 
 	return &operation.Config{
-		StoreProvider: mockstore.NewMockStoreProvider(),
+		StoreProvider: &mock.Provider{},
 		Aries: &operation.AriesConfig{
 			KMS:    &mockkms.KeyManager{},
 			Crypto: &mockcrypto.Crypto{},

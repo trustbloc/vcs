@@ -92,9 +92,9 @@ func TestDBParams(t *testing.T) {
 }
 
 func TestInitStore(t *testing.T) {
-	t.Run("edge store", func(t *testing.T) {
+	t.Run("store", func(t *testing.T) {
 		t.Run("inits ok", func(t *testing.T) {
-			s, err := InitEdgeStore(&DBParameters{
+			s, err := InitStore(&DBParameters{
 				URL:     "mem://test",
 				Prefix:  "test",
 				Timeout: 30,
@@ -104,7 +104,7 @@ func TestInitStore(t *testing.T) {
 		})
 
 		t.Run("error if url format is invalid", func(t *testing.T) {
-			_, err := InitEdgeStore(&DBParameters{
+			_, err := InitStore(&DBParameters{
 				URL:     "invalid",
 				Prefix:  "test",
 				Timeout: 30,
@@ -113,7 +113,7 @@ func TestInitStore(t *testing.T) {
 		})
 
 		t.Run("error if driver is not supported", func(t *testing.T) {
-			_, err := InitEdgeStore(&DBParameters{
+			_, err := InitStore(&DBParameters{
 				URL:     "unsupported://test",
 				Prefix:  "test",
 				Timeout: 30,
@@ -128,53 +128,7 @@ func TestInitStore(t *testing.T) {
 			}
 
 			for _, url := range invalid {
-				_, err := InitEdgeStore(&DBParameters{
-					URL:     url,
-					Prefix:  "test",
-					Timeout: 1,
-				}, log.New("test"))
-				require.Error(t, err)
-			}
-		})
-	})
-
-	t.Run("aries store", func(t *testing.T) {
-		t.Run("inits ok", func(t *testing.T) {
-			s, err := InitAriesStore(&DBParameters{
-				URL:     "mem://test",
-				Prefix:  "test",
-				Timeout: 30,
-			}, log.New("test"))
-			require.NoError(t, err)
-			require.NotNil(t, s)
-		})
-
-		t.Run("error if url format is invalid", func(t *testing.T) {
-			_, err := InitAriesStore(&DBParameters{
-				URL:     "invalid",
-				Prefix:  "test",
-				Timeout: 30,
-			}, log.New("test"))
-			require.Error(t, err)
-		})
-
-		t.Run("error if driver is not supported", func(t *testing.T) {
-			_, err := InitAriesStore(&DBParameters{
-				URL:     "unsupported://test",
-				Prefix:  "test",
-				Timeout: 30,
-			}, log.New("test"))
-			require.Error(t, err)
-		})
-
-		t.Run("error if cannot connect to store", func(t *testing.T) {
-			invalid := []string{
-				"mysql://test:secret@tcp(localhost:5984)",
-				"couchdb://test:secret@localhost:5984",
-			}
-
-			for _, url := range invalid {
-				_, err := InitAriesStore(&DBParameters{
+				_, err := InitStore(&DBParameters{
 					URL:     url,
 					Prefix:  "test",
 					Timeout: 1,

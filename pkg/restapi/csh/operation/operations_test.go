@@ -20,15 +20,16 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
-	storage2 "github.com/trustbloc/edge-core/pkg/storage"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/edvutils"
@@ -45,60 +46,6 @@ func TestNew(t *testing.T) {
 		o, err := operation.New(config(t))
 		require.NoError(t, err)
 		require.NotNil(t, o)
-	})
-
-	t.Run("error when creating profile store", func(t *testing.T) {
-		expected := errors.New("test")
-		cfg := config(t)
-
-		cfg.StoreProvider = &storage.MockProvider{
-			Stores: map[string]storage2.Store{
-				"zcap": &mockstore.MockStore{Store: make(map[string][]byte)},
-			},
-			CreateErrors: map[string]error{
-				"profile": expected,
-			},
-		}
-
-		_, err := operation.New(cfg)
-		require.Error(t, err)
-		require.True(t, errors.Is(err, expected))
-	})
-
-	t.Run("error when creating zcap store", func(t *testing.T) {
-		expected := errors.New("test")
-		cfg := config(t)
-
-		cfg.StoreProvider = &storage.MockProvider{
-			Stores: map[string]storage2.Store{
-				"profile": &mockstore.MockStore{Store: make(map[string][]byte)},
-			},
-			CreateErrors: map[string]error{
-				"zcap": expected,
-			},
-		}
-
-		_, err := operation.New(cfg)
-		require.Error(t, err)
-		require.True(t, errors.Is(err, expected))
-	})
-
-	t.Run("error when creating queries store", func(t *testing.T) {
-		expected := errors.New("test")
-		cfg := config(t)
-
-		cfg.StoreProvider = &storage.MockProvider{
-			Stores: map[string]storage2.Store{
-				"profile": &mockstore.MockStore{Store: make(map[string][]byte)},
-				"zcap":    &mockstore.MockStore{Store: make(map[string][]byte)},
-			},
-			CreateErrors: map[string]error{
-				"queries": expected,
-			},
-		}
-
-		_, err := operation.New(cfg)
-		require.ErrorIs(t, err, expected)
 	})
 }
 
@@ -166,12 +113,12 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("err internalservererror if cannot store profile", func(t *testing.T) {
 		cfg := config(t)
 		cfg.StoreProvider = &storage.MockProvider{
-			Stores: map[string]storage2.Store{
-				"profile": &mockstore.MockStore{
-					Store:  make(map[string][]byte),
+			Stores: map[string]spi.Store{
+				"profile": &mock.Store{
 					ErrPut: errors.New("test"),
 				},
-				"zcap": &mockstore.MockStore{Store: make(map[string][]byte)},
+				"zcap":    &mock.Store{},
+				"queries": &mock.Store{},
 			},
 		}
 
@@ -192,12 +139,12 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("err internalservererror if cannot store zcap", func(t *testing.T) {
 		cfg := config(t)
 		cfg.StoreProvider = &storage.MockProvider{
-			Stores: map[string]storage2.Store{
-				"profile": &mockstore.MockStore{Store: make(map[string][]byte)},
-				"zcap": &mockstore.MockStore{
-					Store:  make(map[string][]byte),
+			Stores: map[string]spi.Store{
+				"profile": &mock.Store{},
+				"zcap": &mock.Store{
 					ErrPut: errors.New("test"),
 				},
+				"queries": &mock.Store{},
 			},
 		}
 
@@ -340,9 +287,8 @@ func TestOperation_CreateQuery(t *testing.T) {
 		expected := errors.New("test error")
 
 		config := config(t)
-		config.StoreProvider = &mockstore.Provider{
-			Store: &mockstore.MockStore{
-				Store:  make(map[string][]byte),
+		config.StoreProvider = &mock.Provider{
+			OpenStoreReturn: &mock.Store{
 				ErrPut: expected,
 			},
 		}
@@ -431,19 +377,24 @@ func TestOperation_Extract(t *testing.T) {
 		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
 			return edvClient
 		}
+
+		queriesStore, err := mem.NewProvider().OpenStore("querystore")
+		require.NoError(t, err)
+
+		err = queriesStore.Put(queryID, marshal(t, &operation.Query{
+			ID:        queryID,
+			ProfileID: uuid.New().URN(),
+			Spec: marshal(t, docQuery(&openapi.UpstreamAuthorization{
+				BaseURL: "https://edv.example.com",
+			}, nil)),
+		}))
+		require.NoError(t, err)
+
 		config.StoreProvider = &storage.MockProvider{
-			Stores: map[string]storage2.Store{
-				"profile": &mockstore.MockStore{Store: make(map[string][]byte)},
-				"zcap":    &mockstore.MockStore{Store: make(map[string][]byte)},
-				"queries": &mockstore.MockStore{Store: map[string][]byte{
-					queryID: marshal(t, &operation.Query{
-						ID:        queryID,
-						ProfileID: uuid.New().URN(),
-						Spec: marshal(t, docQuery(&openapi.UpstreamAuthorization{
-							BaseURL: "https://edv.example.com",
-						}, nil)),
-					}),
-				}},
+			Stores: map[string]spi.Store{
+				"profile": &mock.Store{},
+				"zcap":    &mock.Store{},
+				"queries": queriesStore,
 			},
 		}
 
@@ -463,7 +414,7 @@ func TestOperation_Extract(t *testing.T) {
 
 		var extractions openapi.ExtractionResponse
 
-		err := json.NewDecoder(result.Body).Decode(&extractions)
+		err = json.NewDecoder(result.Body).Decode(&extractions)
 		require.NoError(t, err)
 
 		for _, doc := range [][]byte{doc1, doc2} {
@@ -543,7 +494,7 @@ func config(t *testing.T) *operation.Config {
 	t.Helper()
 
 	return &operation.Config{
-		StoreProvider: mockstore.NewMockStoreProvider(),
+		StoreProvider: mem.NewProvider(),
 		Aries: &operation.AriesConfig{
 			KMS:    &mockkms.KeyManager{},
 			Crypto: &mockcrypto.Crypto{},

@@ -31,7 +31,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/restapi/models"
@@ -408,7 +407,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func agentConfig(agent *context.Provider) *operation.Config {
 	return &operation.Config{
-		StoreProvider: memstore.NewProvider(),
+		StoreProvider: mem.NewProvider(),
 		Aries: &operation.AriesConfig{
 			KMS:    agent.KMS(),
 			Crypto: agent.Crypto(),

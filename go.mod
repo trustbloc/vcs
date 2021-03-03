@@ -21,13 +21,13 @@ require (
 	github.com/google/tink/go v1.5.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.6-0.20210302111730-b1b076db898f
+	github.com/hyperledger/aries-framework-go v0.1.6-0.20210303180208-4bb3ae8b32c9
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210227073053-5d4fd6ad6b43
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210226200741-0eb54a9fc74f
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210121210840-ee9984a4579c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210125133828-10c25f5d6d37
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210225161605-5a3ea609e830
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210227013717-0ea0a23d87d3
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210303180208-4bb3ae8b32c9
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210303180208-4bb3ae8b32c9
 	github.com/igor-pavlenko/httpsignatures-go v0.0.21
 	github.com/sirupsen/logrus v1.7.0 // indirect
 	github.com/spf13/cobra v1.1.1

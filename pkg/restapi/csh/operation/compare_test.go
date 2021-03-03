@@ -17,8 +17,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
 	edv "github.com/trustbloc/edv/pkg/client"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
@@ -205,11 +206,8 @@ func TestOperation_HandleEqOp(t *testing.T) {
 	t.Run("error InternalServerError if cannot fetch query object from store", func(t *testing.T) {
 		expected := errors.New("test error")
 		config := config(t)
-		config.StoreProvider = &mockstore.Provider{
-			Store: &mockstore.MockStore{
-				Store: map[string][]byte{
-					"test": []byte("value"),
-				},
+		config.StoreProvider = &mock.Provider{
+			OpenStoreReturn: &mock.Store{
 				ErrGet: expected,
 			},
 		}
@@ -229,22 +227,25 @@ func TestOperation_HandleEqOp(t *testing.T) {
 	t.Run("error InternalServerError if cannot fetch EDV document with RefQuery", func(t *testing.T) {
 		queryID := uuid.New().String()
 		config := config(t)
-		config.StoreProvider = &mockstore.Provider{
-			Store: &mockstore.MockStore{
-				Store: map[string][]byte{
-					queryID: marshal(t, &operation.Query{
-						ID:        queryID,
-						ProfileID: uuid.New().String(),
-						Spec: marshal(t, docQuery(
-							&openapi.UpstreamAuthorization{
-								BaseURL: "https://edv.example.com/encrypted-data-vaults",
-								Zcap:    compress(t, marshal(t, newZCAP(t, newAgent(t), newAgent(t)))),
-							},
-							nil,
-						)),
-					}),
+
+		queryStore, err := mem.NewProvider().OpenStore("querystore")
+		require.NoError(t, err)
+
+		err = queryStore.Put(queryID, marshal(t, &operation.Query{
+			ID:        queryID,
+			ProfileID: uuid.New().String(),
+			Spec: marshal(t, docQuery(
+				&openapi.UpstreamAuthorization{
+					BaseURL: "https://edv.example.com/encrypted-data-vaults",
+					Zcap:    compress(t, marshal(t, newZCAP(t, newAgent(t), newAgent(t)))),
 				},
-			},
+				nil,
+			)),
+		}))
+		require.NoError(t, err)
+
+		config.StoreProvider = &mock.Provider{
+			OpenStoreReturn: queryStore,
 		}
 		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
 			return newMockEDVClient(t, errors.New("test"))
@@ -266,22 +267,25 @@ func TestOperation_HandleEqOp(t *testing.T) {
 		queryID := uuid.New().String()
 		agent := newAgent(t)
 		config := agentConfig(agent)
-		config.StoreProvider = &mockstore.Provider{
-			Store: &mockstore.MockStore{
-				Store: map[string][]byte{
-					queryID: marshal(t, &operation.Query{
-						ID:        queryID,
-						ProfileID: uuid.New().String(),
-						Spec: marshal(t, docQuery(
-							&openapi.UpstreamAuthorization{
-								BaseURL: "https://edv.example.com/encrypted-data-vaults",
-								Zcap:    compress(t, marshal(t, newZCAP(t, agent, agent))),
-							},
-							nil,
-						)),
-					}),
+
+		queryStore, err := mem.NewProvider().OpenStore("querystore")
+		require.NoError(t, err)
+
+		err = queryStore.Put(queryID, marshal(t, &operation.Query{
+			ID:        queryID,
+			ProfileID: uuid.New().String(),
+			Spec: marshal(t, docQuery(
+				&openapi.UpstreamAuthorization{
+					BaseURL: "https://edv.example.com/encrypted-data-vaults",
+					Zcap:    compress(t, marshal(t, newZCAP(t, agent, agent))),
 				},
-			},
+				nil,
+			)),
+		}))
+		require.NoError(t, err)
+
+		config.StoreProvider = &mock.Provider{
+			OpenStoreReturn: queryStore,
 		}
 		config.EDVClient = func(string, ...edv.Option) vault.ConfidentialStorageDocReader {
 			return newMockEDVClient(t, nil, encryptedJWE(t, agent, []byte("'}")))
