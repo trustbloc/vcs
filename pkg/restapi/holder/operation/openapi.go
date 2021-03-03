@@ -82,3 +82,29 @@ type verifiableCredentialRes struct { // nolint: unused,deadcode
 // swagger:response emptyRes
 type emptyRes struct { // nolint: unused,deadcode
 }
+
+// deriveCredentialReq model
+//
+// This is used for deriving a credential.
+//
+// swagger:parameters deriveCredentialReq
+type deriveCredentialReq struct { // nolint: unused,deadcode
+	// profile
+	//
+	// in: path
+	// required: true
+	ID string `json:"id"`
+
+	// in: body
+	Body DeriveCredentialRequest
+}
+
+// deriveCredentialRes model
+//
+// This is used for returning the derive credential response.
+//
+// swagger:response deriveCredentialRes
+type deriveCredentialRes struct { // nolint: unused,deadcode
+	// in: body
+	Body DeriveCredentialResponse
+}

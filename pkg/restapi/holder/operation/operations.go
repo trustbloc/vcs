@@ -37,6 +37,7 @@ const (
 	getHolderProfileEndpoint    = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
 	deleteHolderProfileEndpoint = holderProfileEndpoint + "/" + "{" + profileIDPathParam + "}"
 	signPresentationEndpoint    = "/" + "{" + profileIDPathParam + "}" + "/prove/presentations"
+	deriveCredentialsEndpoint   = "/" + "{" + profileIDPathParam + "}" + "/credentials/derive"
 
 	invalidRequestErrMsg = "Invalid request"
 )
@@ -61,6 +62,7 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
+		vdr:          config.VDRI,
 		profileStore: p,
 		commonDID: commondid.New(&commondid.Config{
 			VDRI: config.VDRI, KeyManager: config.KeyManager,
@@ -91,6 +93,7 @@ type Operation struct {
 	commonDID    commonDID
 	profileStore *vcprofile.Profile
 	crypto       *crypto.Crypto
+	vdr          vdrapi.Registry
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -101,6 +104,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		support.NewHTTPHandler(getHolderProfileEndpoint, http.MethodGet, o.getHolderProfileHandler),
 		support.NewHTTPHandler(deleteHolderProfileEndpoint, http.MethodDelete, o.deleteHolderProfileHandler),
 		support.NewHTTPHandler(signPresentationEndpoint, http.MethodPost, o.signPresentationHandler),
+		support.NewHTTPHandler(deriveCredentialsEndpoint, http.MethodPost, o.deriveCredentialsHandler),
 	}
 }
 
@@ -247,6 +251,68 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 
 	rw.WriteHeader(http.StatusCreated)
 	commhttp.WriteResponse(rw, signedVP)
+}
+
+// DeriveCredentials swagger:route POST /{id}/credentials/derive holder deriveCredentialReq
+//
+// derive Credentials.
+//
+// Responses:
+//    default: genericError
+//        201: deriveCredentialRes
+func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.Request) {
+	// get the request
+	deriveReq := DeriveCredentialRequest{}
+
+	err := json.NewDecoder(req.Body).Decode(&deriveReq)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	if len(deriveReq.Credential) == 0 {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, "credential is mandatory")
+
+		return
+	}
+
+	if len(deriveReq.Frame) == 0 {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, "frame is mandatory")
+
+		return
+	}
+
+	credential, err := verifiable.ParseCredential(deriveReq.Credential,
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher()))
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to parse credential: %s", err.Error()))
+
+		return
+	}
+
+	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, []byte(deriveReq.Opts.Nonce),
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher()))
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
+			fmt.Sprintf("failed to generate BBS selective disclosure: %s", err.Error()))
+
+		return
+	}
+
+	vcBytes, err := derived.MarshalJSON()
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError,
+			fmt.Sprintf("failed to matshal derived vc: %s", err.Error()))
+
+		return
+	}
+
+	rw.WriteHeader(http.StatusCreated)
+	commhttp.WriteResponse(rw, DeriveCredentialResponse{
+		VerifiableCredential: vcBytes,
+	})
 }
 
 func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningOpts {

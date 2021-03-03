@@ -43,3 +43,23 @@ type SignPresentationOptions struct {
 	Challenge          string     `json:"challenge,omitempty"`
 	Domain             string     `json:"domain,omitempty"`
 }
+
+// DeriveCredentialRequest is request for deriving credential.
+type DeriveCredentialRequest struct {
+	// Raw Credential from which a new credential will be derived
+	Credential json.RawMessage `json:"verifiableCredential,omitempty"`
+	// Frame is JSON-LD frame used for selective disclosure.
+	Frame map[string]interface{}  `json:"frame,omitempty"`
+	Opts  DeriveCredentialOptions `json:"options,omitempty"`
+}
+
+// DeriveCredentialResponse is model for derive credential response.
+type DeriveCredentialResponse struct {
+	VerifiableCredential json.RawMessage `json:"verifiableCredential,omitempty"`
+}
+
+// DeriveCredentialOptions options for derive credential.
+type DeriveCredentialOptions struct {
+	// Nonce to prove uniqueness or freshness of the proof.
+	Nonce string `json:"nonce,omitempty"`
+}

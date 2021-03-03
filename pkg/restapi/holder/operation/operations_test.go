@@ -10,18 +10,25 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -30,6 +37,8 @@ import (
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -42,6 +51,63 @@ const (
 	validContext  = `"@context":["https://www.w3.org/2018/credentials/v1"]`
 	domain        = "domain"
 	challenge     = "challenge"
+	vcForDerive   = `
+	{
+	 	"@context": [
+	   		"https://www.w3.org/2018/credentials/v1",
+	   		"https://w3id.org/citizenship/v1",
+	   		"https://w3id.org/security/bbs/v1"
+	 	],
+	 	"id": "https://issuer.oidp.uscis.gov/credentials/83627465",
+	 	"type": [
+	   		"VerifiableCredential",
+	   		"PermanentResidentCard"
+	 	],
+	 	"issuer": "did:example:489398593",
+	 	"identifier": "83627465",
+	 	"name": "Permanent Resident Card",
+	 	"description": "Government of Example Permanent Resident Card.",
+	 	"issuanceDate": "2019-12-03T12:19:52Z",
+	 	"expirationDate": "2029-12-03T12:19:52Z",
+	 	"credentialSubject": {
+	   		"id": "did:example:b34ca6cd37bbf23",
+	   		"type": [
+	     		"PermanentResident",
+	     		"Person"
+	   		],
+	   		"givenName": "JOHN",
+	   		"familyName": "SMITH",
+	   		"gender": "Male",
+	   		"image": "data:image/png;base64,iVBORw0KGgokJggg==",
+	   		"residentSince": "2015-01-01",
+	   		"lprCategory": "C09",
+	   		"lprNumber": "999-999-999",
+	   		"commuterClassification": "C1",
+	   		"birthCountry": "Bahamas",
+	   		"birthDate": "1958-07-17"
+	 	}
+	}`
+
+	sampleFrame = `
+	{
+	"@context": [
+    	"https://www.w3.org/2018/credentials/v1",
+		"https://w3id.org/citizenship/v1",
+    	"https://w3id.org/security/bbs/v1"
+	],
+  	"type": ["VerifiableCredential", "PermanentResidentCard"],
+  	"@explicit": true,
+  	"identifier": {},
+  	"issuer": {},
+  	"issuanceDate": {},
+  	"credentialSubject": {
+    	"@explicit": true,
+    	"type": ["PermanentResident", "Person"],
+    	"givenName": {},
+    	"familyName": {},
+    	"gender": {}
+  	}
+	}`
 )
 
 func TestCreateHolderProfile(t *testing.T) {
@@ -240,6 +306,212 @@ func TestDeleteHolderProfileHandler(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "delete error")
+	})
+}
+
+func TestDeriveCredentials(t *testing.T) {
+	endpoint := "/test/credentials/derive"
+
+	urlVars := make(map[string]string)
+	urlVars[profileIDPathParam] = "profile"
+
+	vc, err := verifiable.ParseCredential([]byte(vcForDerive))
+	require.NoError(t, err)
+
+	require.Len(t, vc.Proofs, 0)
+	didKey := signVCWithBBS(t, vc)
+	require.Len(t, vc.Proofs, 1)
+
+	requestVC, err := vc.MarshalJSON()
+	require.NoError(t, err)
+	require.NotEmpty(t, requestVC)
+
+	ops, err := New(&Config{
+		StoreProvider: ariesmemstorage.NewProvider(),
+		VDRI: &vdrmock.MockVDRegistry{
+			ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				if didID == didKey {
+					k := key.New()
+
+					d, e := k.Read(didKey)
+					if e != nil {
+						return nil, e
+					}
+
+					return d, nil
+				}
+
+				return nil, fmt.Errorf("did not found")
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	handler := getHandler(t, ops, deriveCredentialsEndpoint, http.MethodPost)
+
+	var frameDoc map[string]interface{}
+
+	require.NoError(t, json.Unmarshal([]byte(sampleFrame), &frameDoc))
+
+	t.Run("derive credentials - success without opts nonce", func(t *testing.T) {
+		req := &DeriveCredentialRequest{
+			Credential: json.RawMessage(requestVC),
+			Frame:      frameDoc,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		var response DeriveCredentialResponse
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiableCredential)
+
+		// verify VC
+		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(ops.vdr).PublicKeyFetcher(),
+		))
+
+		// check expected proof
+		require.NoError(t, err)
+		require.NotEmpty(t, derived)
+		require.Len(t, derived.Proofs, 1)
+		require.Equal(t, derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
+		require.Empty(t, derived.Proofs[0]["nonce"])
+		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
+	})
+
+	t.Run("derive credentials - success with opts nonce", func(t *testing.T) {
+		nonce := uuid.New().String()
+
+		req := &DeriveCredentialRequest{
+			Credential: json.RawMessage(requestVC),
+			Frame:      frameDoc,
+			Opts: DeriveCredentialOptions{
+				Nonce: nonce,
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		var response DeriveCredentialResponse
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiableCredential)
+
+		// verify VC
+		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(ops.vdr).PublicKeyFetcher(),
+		))
+
+		// check expected proof
+		require.NoError(t, err)
+		require.NotEmpty(t, derived)
+		require.Len(t, derived.Proofs, 1)
+		require.Equal(t, derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
+		require.NotEmpty(t, derived.Proofs[0]["nonce"])
+		require.EqualValues(t, derived.Proofs[0]["nonce"], base64.StdEncoding.EncodeToString([]byte(nonce)))
+		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
+	})
+
+	t.Run("derive credentials  - invalid request", func(t *testing.T) {
+		rr := serveHTTPMux(t, handler, endpoint, []byte("invalid json"), urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), invalidRequestErrMsg)
+	})
+
+	t.Run("derive credentials  - invalid request empty credential", func(t *testing.T) {
+		req := &DeriveCredentialRequest{}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "credential is mandatory")
+	})
+
+	t.Run("derive credentials  - invalid request empty frame", func(t *testing.T) {
+		req := &DeriveCredentialRequest{
+			Credential: json.RawMessage(vcForDerive),
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "frame is mandatory")
+	})
+
+	t.Run("derive credentials  - failed to parse credential", func(t *testing.T) {
+		req := &DeriveCredentialRequest{
+			Credential: json.RawMessage(`{"k":"v"}`),
+			Frame:      frameDoc,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to parse credential")
+	})
+
+	t.Run("derive credentials - failed to generate BBS selective disclosure", func(t *testing.T) {
+		count := 0
+		customOps, err := New(&Config{
+			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					count++
+
+					if count == 1 && didID == didKey {
+						k := key.New()
+
+						d, e := k.Read(didKey)
+						if e != nil {
+							return nil, e
+						}
+
+						return d, nil
+					}
+					return nil, fmt.Errorf("did not found")
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		req := &DeriveCredentialRequest{
+			Credential: json.RawMessage(requestVC),
+			Frame:      frameDoc,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, getHandler(t, customOps, deriveCredentialsEndpoint, http.MethodPost),
+			endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "failed to generate BBS selective disclosure")
 	})
 }
 
@@ -662,4 +934,80 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	require.NoError(t, err)
 
 	return k
+}
+
+// signVCWithBBS signs VC with bbs and returns did used for signing.
+func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
+	pubKey, privKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
+	require.NoError(t, err)
+	require.NotEmpty(t, privKey)
+
+	pubKeyBytes, err := pubKey.Marshal()
+	require.NoError(t, err)
+
+	methodID := fingerprint.KeyFingerprint(0xeb, pubKeyBytes)
+	didKey := fmt.Sprintf("did:key:%s", methodID)
+	keyID := fmt.Sprintf("%s#%s", didKey, methodID)
+
+	bbsSigner, err := newBBSSigner(privKey)
+	require.NoError(t, err)
+
+	sigSuite := bbsblssignature2020.New(
+		suite.WithSigner(bbsSigner),
+		suite.WithVerifier(bbsblssignature2020.NewG2PublicKeyVerifier()))
+
+	ldpContext := &verifiable.LinkedDataProofContext{
+		SignatureType:           "BbsBlsSignature2020",
+		SignatureRepresentation: verifiable.SignatureProofValue,
+		Suite:                   sigSuite,
+		VerificationMethod:      keyID,
+	}
+
+	err = vc.AddLinkedDataProof(ldpContext)
+	require.NoError(t, err)
+
+	vcSignedBytes, err := json.Marshal(vc)
+	require.NoError(t, err)
+	require.NotEmpty(t, vcSignedBytes)
+
+	vcVerified, err := verifiable.ParseCredential(vcSignedBytes,
+		verifiable.WithEmbeddedSignatureSuites(sigSuite),
+		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, vcVerified)
+
+	return didKey
+}
+
+type bbsSigner struct {
+	privKeyBytes []byte
+}
+
+func newBBSSigner(privKey *bbs12381g2pub.PrivateKey) (*bbsSigner, error) { //nolint:interfacer
+	privKeyBytes, err := privKey.Marshal()
+	if err != nil {
+		return nil, err
+	}
+
+	return &bbsSigner{privKeyBytes: privKeyBytes}, nil
+}
+
+func (s *bbsSigner) Sign(data []byte) ([]byte, error) {
+	msgs := s.textToLines(string(data))
+
+	return bbs12381g2pub.New().Sign(msgs, s.privKeyBytes)
+}
+
+func (s *bbsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
 }
