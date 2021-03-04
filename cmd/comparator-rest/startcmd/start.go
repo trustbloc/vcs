@@ -392,7 +392,10 @@ func startService(params *serviceParameters, srv server) error {
 		return err
 	}
 
-	trustblocVDR := trustbloc.New(nil, trustbloc.WithDomain(params.didDomain), trustbloc.WithTLSConfig(tlsConfig))
+	trustblocVDR, err := trustbloc.New(nil, trustbloc.WithDomain(params.didDomain), trustbloc.WithTLSConfig(tlsConfig))
+	if err != nil {
+		return err
+	}
 
 	router := mux.NewRouter()
 

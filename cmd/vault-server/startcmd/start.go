@@ -321,6 +321,15 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		MinVersion: tls.VersionTLS12,
 	}
 
+	vdrBloc, err := trustbloc.New(
+		nil,
+		trustbloc.WithDomain(params.didDomain),
+		trustbloc.WithTLSConfig(tCfg),
+	)
+	if err != nil {
+		return err
+	}
+
 	vaultClient, err := vault.NewClient(
 		params.remoteKMSURL,
 		params.edvURL,
@@ -329,11 +338,7 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		vault.WithRegistry(ariesvdr.New(
 			&kmsCtx{KeyManager: keyManager},
 			ariesvdr.WithVDR(vdrkey.New()),
-			ariesvdr.WithVDR(trustbloc.New(
-				nil,
-				trustbloc.WithDomain(params.didDomain),
-				trustbloc.WithTLSConfig(tCfg),
-			)),
+			ariesvdr.WithVDR(vdrBloc),
 		)),
 		vault.WithDidMethod(params.didMethod),
 		vault.WithHTTPClient(&http.Client{
