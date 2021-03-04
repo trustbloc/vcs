@@ -111,8 +111,11 @@ did-resolver-docker:
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
+.PHONY: docker
+docker: vc-server-docker did-resolver-docker comparator-rest-docker confidential-storage-hub-docker vault-server-docker
+
 .PHONY: bdd-test
-bdd-test: clean vc-server-docker did-resolver-docker comparator-rest-docker confidential-storage-hub-docker vault-server-docker generate-test-keys generate-test-config
+bdd-test: clean docker generate-test-keys generate-test-config
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test

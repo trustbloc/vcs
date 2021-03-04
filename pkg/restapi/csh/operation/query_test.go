@@ -21,6 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -30,6 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -38,6 +40,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
+	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
 )
 
 func TestOperation_ReadDocQuery(t *testing.T) {
@@ -409,8 +412,44 @@ func agentConfig(agent *context.Provider) *operation.Config {
 	return &operation.Config{
 		StoreProvider: mem.NewProvider(),
 		Aries: &operation.AriesConfig{
-			KMS:    agent.KMS(),
-			Crypto: agent.Crypto(),
+			KMS:          agent.KMS(),
+			Crypto:       agent.Crypto(),
+			DIDResolvers: []zcapld2.DIDResolver{key.New()},
+			PublicDIDCreator: func(kms.KeyManager) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: &did.Doc{
+						ID:      "did:example:123",
+						Context: []string{did.Context},
+						Authentication: []did.Verification{{
+							VerificationMethod: did.VerificationMethod{
+								ID:    uuid.New().String() + "#key1",
+								Type:  "JsonWebKey2020",
+								Value: []byte(uuid.New().String()),
+							},
+							Relationship: did.Authentication,
+							Embedded:     true,
+						}},
+						CapabilityDelegation: []did.Verification{{
+							VerificationMethod: did.VerificationMethod{
+								ID:    uuid.New().String() + "#key2",
+								Type:  "JsonWebKey2020",
+								Value: []byte(uuid.New().String()),
+							},
+							Relationship: did.CapabilityDelegation,
+							Embedded:     true,
+						}},
+						CapabilityInvocation: []did.Verification{{
+							VerificationMethod: did.VerificationMethod{
+								ID:    uuid.New().String() + "#key2",
+								Type:  "JsonWebKey2020",
+								Value: []byte(uuid.New().String()),
+							},
+							Relationship: did.CapabilityInvocation,
+							Embedded:     true,
+						}},
+					},
+				}, nil
+			},
 		},
 		HTTPClient: &http.Client{},
 	}

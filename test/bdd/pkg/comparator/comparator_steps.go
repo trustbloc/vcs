@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cucumber/godog"
@@ -48,7 +47,7 @@ const (
 type Steps struct {
 	bddContext     *context.BDDContext
 	client         *client.Comparator
-	cshDID         string
+	cshAuthKey     string
 	edvToken       string
 	kmsToken       string
 	authorizations map[string]*models.Authorization
@@ -249,18 +248,13 @@ func (e *Steps) createVaultAuthorization(duration string) error {
 		return err
 	}
 
-	cshDIDURL, err := toDidURL(e.cshDID)
-	if err != nil {
-		return err
-	}
-
 	result, err := vaultclient.New(vaultURL, vaultclient.WithHTTPClient(&http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: e.bddContext.TLSConfig,
 		},
 	})).CreateAuthorization(
 		e.bddContext.VaultID,
-		cshDIDURL,
+		e.cshAuthKey,
 		&vault.AuthorizationsScope{
 			Target:  e.bddContext.VaultID,
 			Actions: []string{"read"},
@@ -281,17 +275,6 @@ func (e *Steps) createVaultAuthorization(duration string) error {
 	return nil
 }
 
-func toDidURL(did string) (string, error) {
-	pub, err := fingerprint.PubKeyFromDIDKey(did)
-	if err != nil {
-		return "", err
-	}
-
-	_, didURL := fingerprint.CreateDIDKey(pub)
-
-	return didURL, nil
-}
-
 func (e *Steps) checkConfig() error {
 	cc, err := e.client.Operations.GetConfig(operations.NewGetConfigParams().
 		WithTimeout(requestTimeout))
@@ -303,7 +286,7 @@ func (e *Steps) checkConfig() error {
 		return fmt.Errorf("comparator config DID is empty")
 	}
 
-	e.cshDID = strings.Split(cc.Payload.AuthKeyURL, "#")[0]
+	e.cshAuthKey = cc.Payload.AuthKeyURL
 
 	return nil
 }

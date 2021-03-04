@@ -19,6 +19,7 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -28,15 +29,17 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
-	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/edvutils"
@@ -74,6 +77,11 @@ func newUser(cshBaseURL, edvURL, hubkmsBaseURL string, tlsConfig *tls.Config) (*
 		return nil, fmt.Errorf("failed to init keystore: %w", err)
 	}
 
+	err = user.initVDR(tlsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init vdr: %w", err)
+	}
+
 	err = user.initConfidentialStorage(edvURL, httpClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init confidential storage vault: %w", err)
@@ -96,6 +104,7 @@ type user struct {
 	edvVaultID       string
 	edvRootZCAP      string
 	edvClient        *edv.Client
+	vdr              vdrapi.Registry
 }
 
 func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error {
@@ -133,13 +142,11 @@ func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error 
 		u.controller,
 		u.keystoreRootZCAP,
 		operation.CapabilityInvocationAction,
-		&zcapld2.DIDSecrets{Secrets: map[string]httpsignatures.Secrets{
-			"key": &zcapld.AriesDIDKeySecrets{},
-		}},
-		&zcapld2.DIDSignatureHashAlgorithms{
-			KMS:       u.localkms,
-			Crypto:    u.localcrypto,
-			Resolvers: []zcapld2.DIDResolver{key.New()},
+		&zcapld.AriesDIDKeySecrets{},
+		&zcapld.AriesDIDKeySignatureHashAlgorithm{
+			KMS:      u.localkms,
+			Crypto:   u.localcrypto,
+			Resolver: u.vdr,
 		},
 	)
 
@@ -153,6 +160,30 @@ func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error 
 		u.keystoreURL,
 		httpClient,
 		webkms.WithHeaders(httpSigner),
+	)
+
+	return nil
+}
+
+func (u *user) initVDR(tlsConfig *tls.Config) error {
+	trustblocVDR, err := trustbloc.New(
+		nil,
+		trustbloc.WithDomain(trustblocDidDomain),
+		trustbloc.WithTLSConfig(tlsConfig),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to init trustbloc vdr: %w", err)
+	}
+
+	vdrProvider, err := context.New(context.WithKMS(u.localkms))
+	if err != nil {
+		return fmt.Errorf("failed to create new vdr provider: %w", err)
+	}
+
+	u.vdr = vdr.New(
+		vdrProvider,
+		vdr.WithVDR(key.New()),
+		vdr.WithVDR(trustblocVDR),
 	)
 
 	return nil
@@ -203,13 +234,11 @@ func (u *user) initConfidentialStorage(baseURL string, httpClient edv.HTTPClient
 
 				return action, nil
 			},
-			&zcapld2.DIDSecrets{Secrets: map[string]httpsignatures.Secrets{
-				"key": &zcapld.AriesDIDKeySecrets{},
-			}},
-			&zcapld2.DIDSignatureHashAlgorithms{
-				KMS:       u.localkms,
-				Crypto:    u.localcrypto,
-				Resolvers: []zcapld2.DIDResolver{key.New()},
+			&zcapld.AriesDIDKeySecrets{},
+			&zcapld.AriesDIDKeySignatureHashAlgorithm{
+				Crypto:   u.localcrypto,
+				KMS:      u.localkms,
+				Resolver: u.vdr,
 			},
 		)),
 	)

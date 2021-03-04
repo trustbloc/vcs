@@ -19,10 +19,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
+	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 	edv "github.com/trustbloc/edv/pkg/client"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/internal/mock/storage"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 )
@@ -206,9 +208,12 @@ func TestOperation_HandleEqOp(t *testing.T) {
 	t.Run("error InternalServerError if cannot fetch query object from store", func(t *testing.T) {
 		expected := errors.New("test error")
 		config := config(t)
-		config.StoreProvider = &mock.Provider{
-			OpenStoreReturn: &mock.Store{
-				ErrGet: expected,
+		config.StoreProvider = &storage.MockProvider{
+			Stores: map[string]spi.Store{
+				"config":  &mock.Store{GetReturn: marshal(t, &operation.Identity{})},
+				"profile": &mock.Store{},
+				"queries": &mock.Store{ErrGet: expected},
+				"zcap":    &mock.Store{},
 			},
 		}
 

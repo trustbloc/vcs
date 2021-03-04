@@ -222,9 +222,9 @@ func kmsKeyType(verMethod *did.VerificationMethod) (kms.KeyType, error) {
 
 func supportedJWKCurves(jwk *jose.JWK) (kms.KeyType, error) {
 	curves := map[string]kms.KeyType{
-		"P-256":   kms.ECDSAP256TypeDER,
-		"P-384":   kms.ECDSAP384TypeDER,
-		"P-521":   kms.ECDSAP521TypeDER,
+		"P-256":   kms.ECDSAP256TypeIEEEP1363,
+		"P-384":   kms.ECDSAP384TypeIEEEP1363,
+		"P-521":   kms.ECDSAP521TypeIEEEP1363,
 		"Ed25519": kms.ED25519Type,
 	}
 
