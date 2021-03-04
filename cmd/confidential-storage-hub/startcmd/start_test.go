@@ -74,7 +74,7 @@ func TestStartCmdWithInvalidArgs(t *testing.T) {
 		startCmd.SetArgs(args)
 		err := startCmd.Execute()
 		require.Error(t, err)
-		require.EqualError(t, err, "failed to init edge store: failed to init aries storage provider: failed to parse invalid: invalid dbURL invalid") // nolint:lll
+		require.EqualError(t, err, "failed to init provider: failed to parse invalid: invalid dbURL invalid")
 	})
 }
 

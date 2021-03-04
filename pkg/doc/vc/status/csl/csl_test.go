@@ -21,9 +21,8 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/storage"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -131,7 +130,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 	t.Run("test error from put latest id to store", func(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-			ErrGet: ariesstorage.ErrDataNotFound,
+			ErrGet: storage.ErrDataNotFound,
 			ErrPut: fmt.Errorf("put error"),
 		}}, "localhost:8080/status", 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
@@ -146,7 +145,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test error from store csl list in store", func(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{
 			getFunc: func(k string) (bytes []byte, err error) {
-				return nil, ariesstorage.ErrDataNotFound
+				return nil, storage.ErrDataNotFound
 			},
 			putFunc: func(k string, v []byte) error {
 				if k == "localhost:8080/status/1" {
@@ -168,7 +167,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test error from put latest id to store after store new list", func(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{
 			getFunc: func(k string) (bytes []byte, err error) {
-				return nil, ariesstorage.ErrDataNotFound
+				return nil, storage.ErrDataNotFound
 			},
 			putFunc: func(k string, v []byte) error {
 				if k == latestListID && string(v) == "2" {
@@ -487,22 +486,22 @@ type storeProvider struct {
 }
 
 // OpenStore opens and returns a store for given name space.
-func (p *storeProvider) OpenStore(name string) (ariesstorage.Store, error) {
+func (p *storeProvider) OpenStore(name string) (storage.Store, error) {
 	return p.store, nil
 }
 
 // GetOpenStores is not implemented.
-func (p *storeProvider) GetOpenStores() []ariesstorage.Store {
+func (p *storeProvider) GetOpenStores() []storage.Store {
 	panic("implement me")
 }
 
 // SetStoreConfig always return a nil error.
-func (p *storeProvider) SetStoreConfig(name string, config ariesstorage.StoreConfiguration) error {
+func (p *storeProvider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
 	return nil
 }
 
 // GetStoreConfig is not implemented.
-func (p *storeProvider) GetStoreConfig(name string) (ariesstorage.StoreConfiguration, error) {
+func (p *storeProvider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
 	panic("implement me")
 }
 
@@ -523,7 +522,7 @@ type mockStore struct {
 }
 
 // Put stores the key and the record
-func (s *mockStore) Put(k string, v []byte, tags ...ariesstorage.Tag) error {
+func (s *mockStore) Put(k string, v []byte, tags ...storage.Tag) error {
 	if s.putFunc != nil {
 		return s.putFunc(k, v)
 	}
@@ -532,12 +531,12 @@ func (s *mockStore) Put(k string, v []byte, tags ...ariesstorage.Tag) error {
 }
 
 // GetTags is not implemented.
-func (s *mockStore) GetTags(key string) ([]ariesstorage.Tag, error) {
+func (s *mockStore) GetTags(key string) ([]storage.Tag, error) {
 	panic("implement me")
 }
 
 // Batch is not implemented.
-func (s *mockStore) Batch(operations []ariesstorage.Operation) error {
+func (s *mockStore) Batch(operations []storage.Operation) error {
 	panic("implement me")
 }
 
@@ -549,21 +548,6 @@ func (s *mockStore) Flush() error {
 // Close is not implemented.
 func (s *mockStore) Close() error {
 	panic("implement me")
-}
-
-// GetALL get all
-func (s *mockStore) GetAll() (map[string][]byte, error) {
-	return nil, nil
-}
-
-// PutAll put all
-func (s *mockStore) PutAll(keys []string, values [][]byte) error {
-	return nil
-}
-
-// PutBulk put bulk
-func (s *mockStore) PutBulk(keys []string, values [][]byte) error {
-	return nil
 }
 
 // GetBulk get bulk
@@ -580,23 +564,14 @@ func (s *mockStore) Get(k string) ([]byte, error) {
 	return nil, nil
 }
 
-// CreateIndex creates an index in the store based on the provided CreateIndexRequest.
-func (s *mockStore) CreateIndex(createIndexRequest storage.CreateIndexRequest) error {
-	return nil
-}
-
 // Query queries the store for data based on the provided query string, the format of
 // which will be dependent on what the underlying store requires.
-func (s *mockStore) Query(expression string, _ ...ariesstorage.QueryOption) (ariesstorage.Iterator, error) {
+func (s *mockStore) Query(expression string, _ ...storage.QueryOption) (storage.Iterator, error) {
 	return nil, nil
 }
 
 func (s *mockStore) Delete(k string) error {
 	panic("implement me")
-}
-
-func (s *mockStore) Iterator(startKey, endKey string) ariesstorage.Iterator {
-	return nil
 }
 
 // nolint: unparam

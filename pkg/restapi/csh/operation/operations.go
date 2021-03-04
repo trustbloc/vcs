@@ -8,7 +8,6 @@ package operation
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 
@@ -23,8 +22,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
-	"github.com/trustbloc/edge-core/pkg/storage"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 
@@ -409,11 +408,6 @@ func initStores(p storage.Provider) (*struct {
 }
 
 func initStore(p storage.Provider, name string) (storage.Store, error) {
-	err := p.CreateStore(name)
-	if err != nil && !errors.Is(err, storage.ErrDuplicateStore) {
-		return nil, fmt.Errorf("failed to create profile store %s: %w", name, err)
-	}
-
 	return p.OpenStore(name)
 }
 

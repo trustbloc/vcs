@@ -7,37 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package storage
 
 import (
-	"github.com/trustbloc/edge-core/pkg/storage"
-	"github.com/trustbloc/edge-core/pkg/storage/mockstore"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // MockProvider is a mock edge storage provider that can hold several stores, not just one.
 type MockProvider struct {
-	Stores        map[string]storage.Store
-	CreateErr     error
-	OpenErr       error
-	CloseStoreErr error
-	CloseErr      error
-	CreateErrors  map[string]error
-}
-
-// CreateStore creates a store.
-func (m *MockProvider) CreateStore(name string) error {
-	if m.CreateErr != nil {
-		return m.CreateErr
-	}
-
-	if err, exists := m.CreateErrors[name]; exists {
-		return err
-	}
-
-	if _, exists := m.Stores[name]; exists {
-		return storage.ErrDuplicateStore
-	}
-
-	m.Stores[name] = &mockstore.MockStore{Store: make(map[string][]byte)}
-
-	return nil
+	Stores   map[string]storage.Store
+	OpenErr  error
+	CloseErr error
 }
 
 // OpenStore opens the store.
@@ -54,9 +31,19 @@ func (m *MockProvider) OpenStore(name string) (storage.Store, error) {
 	return s, nil
 }
 
-// CloseStore closes the store.
-func (m *MockProvider) CloseStore(_ string) error {
-	return m.CloseStoreErr
+// SetStoreConfig is not implemented.
+func (m *MockProvider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
+	panic("implement me")
+}
+
+// GetStoreConfig is not implemented.
+func (m *MockProvider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
+	panic("implement me")
+}
+
+// GetOpenStores is not implemented.
+func (m *MockProvider) GetOpenStores() []storage.Store {
+	panic("implement me")
 }
 
 // Close all stores.

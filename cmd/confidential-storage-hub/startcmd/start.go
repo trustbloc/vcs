@@ -196,9 +196,9 @@ func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
 func startService(params *serviceParameters, srv server) error { // nolint:funlen
 	router := mux.NewRouter()
 
-	edgeStorage, err := common.InitEdgeStore(params.dbParams, logger)
+	provider, err := common.InitStore(params.dbParams, logger)
 	if err != nil {
-		return fmt.Errorf("failed to init edge store: %w", err)
+		return fmt.Errorf("failed to init provider: %w", err)
 	}
 
 	ariesConfig, err := newAriesConfig(params.dbParams)
@@ -225,7 +225,7 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 	}
 
 	service, err := csh.New(&operation.Config{
-		StoreProvider: edgeStorage,
+		StoreProvider: provider,
 		Aries:         ariesConfig,
 		EDVClient:     adaptedEDVClientConstructor(),
 		HTTPClient: &http.Client{Transport: &http.Transport{
@@ -270,7 +270,7 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 
 // TODO make KMS and crypto configurable: https://github.com/trustbloc/edge-service/issues/578
 func newAriesConfig(params *common.DBParameters) (*operation.AriesConfig, error) {
-	store, err := common.InitAriesStore(params, logger)
+	store, err := common.InitStore(params, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init aries store: %w", err)
 	}

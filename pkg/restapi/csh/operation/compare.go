@@ -18,7 +18,7 @@ import (
 	"github.com/PaesslerAG/gval"
 	"github.com/PaesslerAG/jsonpath"
 	"github.com/go-openapi/runtime"
-	"github.com/trustbloc/edge-core/pkg/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
@@ -123,7 +123,7 @@ func (o *Operation) fetchDocument(query openapi.Query) (interface{}, error) {
 
 func (o *Operation) resolveRefQuery(w http.ResponseWriter, query *openapi.RefQuery) (interface{}, bool) {
 	raw, err := o.storage.queries.Get(*query.Ref)
-	if errors.Is(err, storage.ErrValueNotFound) {
+	if errors.Is(err, storage.ErrDataNotFound) {
 		respondErrorf(w, http.StatusBadRequest, "no such query: %s", *query.Ref)
 
 		return nil, false

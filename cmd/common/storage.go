@@ -13,16 +13,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	ariescouchdb "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
-	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
-	"github.com/trustbloc/edge-core/pkg/storage"
-	couchdbstore "github.com/trustbloc/edge-core/pkg/storage/couchdb"
-	"github.com/trustbloc/edge-core/pkg/storage/memstore"
-	"github.com/trustbloc/edge-core/pkg/storage/mysql"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 )
 
@@ -67,28 +63,15 @@ type DBParameters struct {
 }
 
 // nolint:gochecknoglobals
-var supportedEdgeStorageProviders = map[string]func(string, string) (interface{}, error){
-	"mysql": func(dbURL, prefix string) (interface{}, error) {
+var supportedAriesStorageProviders = map[string]func(string, string) (storage.Provider, error){
+	"mysql": func(dbURL, prefix string) (storage.Provider, error) {
 		return mysql.NewProvider(dbURL, mysql.WithDBPrefix(prefix))
 	},
-	"mem": func(_, _ string) (interface{}, error) { // nolint:unparam
-		return memstore.NewProvider(), nil
-	},
-	"couchdb": func(dbURL, prefix string) (interface{}, error) {
-		return couchdbstore.NewProvider(dbURL, couchdbstore.WithDBPrefix(prefix))
-	},
-}
-
-// nolint:gochecknoglobals
-var supportedAriesStorageProviders = map[string]func(string, string) (interface{}, error){
-	"mysql": func(dbURL, prefix string) (interface{}, error) {
-		return ariesmysql.NewProvider(dbURL, ariesmysql.WithDBPrefix(prefix))
-	},
-	"mem": func(_, _ string) (interface{}, error) { // nolint:unparam
+	"mem": func(_, _ string) (storage.Provider, error) { // nolint:unparam
 		return mem.NewProvider(), nil
 	},
-	"couchdb": func(dbURL, prefix string) (interface{}, error) {
-		return ariescouchdb.NewProvider(dbURL, ariescouchdb.WithDBPrefix(prefix))
+	"couchdb": func(dbURL, prefix string) (storage.Provider, error) {
+		return couchdb.NewProvider(dbURL, couchdb.WithDBPrefix(prefix))
 	},
 }
 
@@ -132,48 +115,24 @@ func DBParams(cmd *cobra.Command) (*DBParameters, error) {
 	return params, nil
 }
 
-// InitEdgeStore provider.
-func InitEdgeStore(params *DBParameters, logger log.Logger) (storage.Provider, error) {
-	provider, err := initStore(params, supportedEdgeStorageProviders, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init aries storage provider: %w", err)
-	}
-
-	edgeProvider := provider.(storage.Provider) // nolint:errcheck // the implementation is guaranteed to be correct
-
-	return edgeProvider, nil
-}
-
-// InitAriesStore provider.
-func InitAriesStore(params *DBParameters, logger log.Logger) (ariesstorage.Provider, error) {
-	provider, err := initStore(params, supportedAriesStorageProviders, logger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init aries storage provider: %w", err)
-	}
-
-	ariesProvider := provider.(ariesstorage.Provider) // nolint:errcheck // the implementation is guaranteed to be correct
-
-	return ariesProvider, nil
-}
-
-func initStore(params *DBParameters,
-	providers map[string]func(string, string) (interface{}, error), logger log.Logger) (interface{}, error) {
+// InitStore provider.
+func InitStore(params *DBParameters, logger log.Logger) (storage.Provider, error) {
 	driver, url, err := parseURL(params.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", params.URL, err)
 	}
 
-	providerFunc, supported := providers[driver]
+	providerFunc, supported := supportedAriesStorageProviders[driver]
 	if !supported {
 		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
 	}
 
-	var store interface{}
+	var provider storage.Provider
 
 	err = retry(
 		func() error {
 			var openErr error
-			store, openErr = providerFunc(url, params.Prefix)
+			provider, openErr = providerFunc(url, params.Prefix)
 			return openErr
 		},
 		params.Timeout,
@@ -183,7 +142,7 @@ func initStore(params *DBParameters,
 		return nil, fmt.Errorf("failed to init aries storage provider: %w", err)
 	}
 
-	return store, nil
+	return provider, nil
 }
 
 func parseURL(u string) (string, string, error) {
