@@ -4,6 +4,6 @@
   "policy": {
     "cache": {"maxAge": 300}
   },
-  "endpoints": ["https://sidetree-mock:48326/sidetree/0.0.1"],
+  "endpoints": ["https://sidetree-mock:48326/sidetree/v1"],
   "previous": ""
 }
