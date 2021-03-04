@@ -248,8 +248,11 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 		return nil, err
 	}
 
-	c := trustbloc.New(nil, trustbloc.WithTLSConfig(e.bddContext.TLSConfig),
+	c, err := trustbloc.New(nil, trustbloc.WithTLSConfig(e.bddContext.TLSConfig),
 		trustbloc.WithDomain("testnet.trustbloc.local"))
+	if err != nil {
+		return nil, err
+	}
 
 	_, ed25519RecoveryPubKey, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {

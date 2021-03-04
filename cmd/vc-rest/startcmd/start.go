@@ -772,8 +772,13 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManag
 			trustbloc.WithTLSConfig(tlsConfig))
 	}
 
+	blocVDR, err := trustbloc.New(nil, blocVDRIOpts...)
+	if err != nil {
+		return nil, err
+	}
+
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(trustbloc.New(nil, blocVDRIOpts...)), vdrpkg.WithVDR(key.New()))
+	opts = append(opts, vdrpkg.WithVDR(blocVDR), vdrpkg.WithVDR(key.New()))
 
 	vdriProvider, err := context.New(context.WithKMS(km))
 	if err != nil {

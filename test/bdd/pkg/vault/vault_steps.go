@@ -79,15 +79,20 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 		panic(err)
 	}
 
+	t, err := trustbloc.New(nil, trustbloc.WithDomain("testnet.trustbloc.local"),
+		trustbloc.WithTLSConfig(ctx.TLSConfig),
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	return &Steps{
 		crypto:         cryptoService,
 		kms:            keyManager,
 		variableMapper: map[string]string{},
 		authorizations: map[string]*vault.CreatedAuthorization{},
-		trustblocVDR: trustbloc.New(nil, trustbloc.WithDomain("testnet.trustbloc.local"),
-			trustbloc.WithTLSConfig(ctx.TLSConfig),
-		),
-		bddContext: ctx, client: &http.Client{
+		trustblocVDR:   t,
+		bddContext:     ctx, client: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: ctx.TLSConfig,
 			},
