@@ -46,12 +46,12 @@ const (
 
 // Steps is steps for BDD tests
 type Steps struct {
-	bddContext   *context.BDDContext
-	client       *client.Comparator
-	cshDID       string
-	edvToken     string
-	kmsToken     string
-	authzPayload *models.Authorization
+	bddContext     *context.BDDContext
+	client         *client.Comparator
+	cshDID         string
+	edvToken       string
+	kmsToken       string
+	authorizations map[string]*models.Authorization
 }
 
 // NewSteps returns new steps
@@ -69,15 +69,19 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 		httpClient,
 	)
 
-	return &Steps{bddContext: ctx, client: client.New(transport, strfmt.Default)}
+	return &Steps{
+		bddContext:     ctx,
+		client:         client.New(transport, strfmt.Default),
+		authorizations: make(map[string]*models.Authorization),
+	}
 }
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Create comparator authorization for doc "([^"]*)"$`, e.createAuthorization)
 	s.Step(`^Check comparator config is created`, e.checkConfig)
-	s.Step(`^Compare two docs with doc1 id "([^"]*)" and ref doc with compare result "([^"]*)"$`, e.compare)
-	s.Step(`^Extract doc from auth token received from comparator authorization and validate data equal "([^"]*)"$`, e.extract) //nolint: lll
+	s.Step(`^Compare two docs with doc1 id "([^"]*)" and ref for doc2 id "([^"]*)" with compare result "([^"]*)"$`, e.compare)                                                                                  // nolint:lll
+	s.Step(`^Extract docs from auth tokens received from comparator authorization for docIDs "([^"]*)", "([^"]*)", "([^"]*)" and validate data equal "([^"]*)", "([^"]*)", "([^"]*)" respectively$`, e.extract) // nolint:lll
 	s.Step(`^Create vault authorization with duration "([^"]*)"$`, e.createVaultAuthorization)
 }
 
@@ -132,17 +136,31 @@ func (e *Steps) createAuthorization(docID string) error {
 		return err
 	}
 
-	e.authzPayload = r.Payload
+	e.authorizations[docID] = r.Payload
 
 	return nil
 }
 
-func (e *Steps) extract(data string) error {
-	query := &models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken}
-	query.SetID(uuid.New().String())
+func (e *Steps) extract(doc1, doc2, doc3, data1, data2, data3 string) error {
+	docs := make(map[string]string)
+
+	doc1Query := &models.AuthorizedQuery{AuthToken: &e.authorizations[doc1].AuthToken}
+	doc1Query.SetID(uuid.New().String())
+
+	docs[doc1Query.ID()] = data1
+
+	doc2Query := &models.AuthorizedQuery{AuthToken: &e.authorizations[doc2].AuthToken}
+	doc2Query.SetID(uuid.New().String())
+
+	docs[doc2Query.ID()] = data2
+
+	doc3Query := &models.AuthorizedQuery{AuthToken: &e.authorizations[doc3].AuthToken}
+	doc3Query.SetID(uuid.New().String())
+
+	docs[doc3Query.ID()] = data3
 
 	request := &models.Extract{}
-	request.SetQueries([]models.Query{query})
+	request.SetQueries([]models.Query{doc1Query, doc2Query, doc3Query})
 
 	r, err := e.client.Operations.PostExtract(operations.NewPostExtractParams().
 		WithTimeout(requestTimeout).WithExtract(request))
@@ -154,25 +172,35 @@ func (e *Steps) extract(data string) error {
 		return errors.New("confidential storage hub failed to return extractions")
 	}
 
-	extraction := r.Payload.Documents[0]
+	for queryID, data := range docs {
+		var extraction *models.ExtractRespDocumentsItems0
 
-	respDoc, ok := extraction.Contents.(string)
-	if !ok {
-		return fmt.Errorf("doc is not string")
-	}
+		for j := range r.Payload.Documents {
+			if r.Payload.Documents[j].ID == queryID {
+				extraction = r.Payload.Documents[j]
 
-	if data != respDoc {
-		return fmt.Errorf("doc not equal to %s", data)
-	}
+				break
+			}
+		}
 
-	if extraction.ID != query.ID() {
-		return fmt.Errorf("id not equal to %s, got %s", query.ID(), extraction.ID)
+		if extraction == nil {
+			return fmt.Errorf("no result returned for queryID %s (data %s)", queryID, data)
+		}
+
+		respDoc, ok := extraction.Contents.(string)
+		if !ok {
+			return fmt.Errorf("doc is not string")
+		}
+
+		if data != respDoc {
+			return fmt.Errorf("doc not equal to %s", data)
+		}
 	}
 
 	return nil
 }
 
-func (e *Steps) compare(doc1, result string) error {
+func (e *Steps) compare(doc1, doc2, result string) error {
 	eq := &models.EqOp{}
 	query := make([]models.Query, 0)
 
@@ -189,7 +217,7 @@ func (e *Steps) compare(doc1, result string) error {
 				Edv: e.edvToken,
 			},
 		},
-		&models.AuthorizedQuery{AuthToken: &e.authzPayload.AuthToken},
+		&models.AuthorizedQuery{AuthToken: &e.authorizations[doc2].AuthToken},
 	)
 
 	eq.SetArgs(query)
