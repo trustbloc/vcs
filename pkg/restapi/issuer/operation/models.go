@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
@@ -96,6 +97,11 @@ type ComposeCredentialRequest struct {
 	ProofFormat             string          `json:"proofFormat,omitempty"`
 	CredentialFormatOptions json.RawMessage `json:"credentialFormatOptions,omitempty"`
 	ProofFormatOptions      json.RawMessage `json:"proofFormatOptions,omitempty"`
+}
+
+// GenerateKeyPairRequest is request for generating key pair
+type GenerateKeyPairRequest struct {
+	KeyType kms.KeyType `json:"keyType,omitempty"`
 }
 
 // GenerateKeyPairResponse contains response from KMS generate keypair API.

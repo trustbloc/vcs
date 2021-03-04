@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -77,6 +78,8 @@ const (
 	capabilityInvocation = "capabilityInvocation"
 
 	splitAssertionMethodLength = 2
+
+	defaultKeyType = kms.ED25519Type
 )
 
 var logger = log.New("edge-service-issuer-restapi")
@@ -978,7 +981,20 @@ func getIssuerSigningOpts(opts *IssueCredentialOptions) []crypto.SigningOpts {
 //    default: genericError
 //        200: generateKeypairResp
 func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Request) {
-	keyID, signKey, err := o.createKey(kms.ED25519Type)
+	var request GenerateKeyPairRequest
+
+	err := json.NewDecoder(req.Body).Decode(&request)
+
+	switch {
+	case err == io.EOF || request.KeyType == "":
+		request.KeyType = defaultKeyType
+	case err != nil:
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
+
+		return
+	}
+
+	keyID, signKey, err := o.createKey(request.KeyType)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError,
 			fmt.Sprintf("failed to create key pair: %s", err.Error()))

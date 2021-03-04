@@ -2569,7 +2569,7 @@ func TestGenerateKeypair(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	t.Run("generate key pair - success", func(t *testing.T) {
+	t.Run("generate key pair (default)- success", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto:             customCrypto,
 			StoreProvider:      ariesmemstorage.NewProvider(),
@@ -2581,6 +2581,35 @@ func TestGenerateKeypair(t *testing.T) {
 		generateKeypairHandler := getHandler(t, op, generateKeypairPath, http.MethodGet)
 
 		rr := serveHTTP(t, generateKeypairHandler.Handle(), http.MethodGet, generateKeypairPath, nil)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+
+		generateKeypairResp := make(map[string]interface{})
+
+		err = json.Unmarshal(rr.Body.Bytes(), &generateKeypairResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, generateKeypairResp["publicKey"])
+	})
+
+	t.Run("generate key pair - BBS", func(t *testing.T) {
+		op, err := New(&Config{
+			Crypto:             customCrypto,
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
+			KeyManager:         customKMS,
+		})
+		require.NoError(t, err)
+
+		generateKeypairHandler := getHandler(t, op, generateKeypairPath, http.MethodGet)
+
+		req := &GenerateKeyPairRequest{
+			KeyType: kms.BLS12381G2Type,
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTP(t, generateKeypairHandler.Handle(), http.MethodGet, generateKeypairPath, reqBytes)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
