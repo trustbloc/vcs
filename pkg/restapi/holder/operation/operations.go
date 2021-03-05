@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -290,6 +291,11 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 			fmt.Sprintf("failed to parse credential: %s", err.Error()))
 
 		return
+	}
+
+	// generates a random nonce if not provided
+	if deriveReq.Opts.Nonce == "" {
+		deriveReq.Opts.Nonce = uuid.New().String()
 	}
 
 	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, []byte(deriveReq.Opts.Nonce),

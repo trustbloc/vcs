@@ -383,7 +383,7 @@ func TestDeriveCredentials(t *testing.T) {
 		require.NotEmpty(t, derived)
 		require.Len(t, derived.Proofs, 1)
 		require.Equal(t, derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
-		require.Empty(t, derived.Proofs[0]["nonce"])
+		require.NotEmpty(t, derived.Proofs[0]["nonce"])
 		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
 	})
 
