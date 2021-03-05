@@ -23,6 +23,7 @@ import (
 const (
 	defVCContext                = "https://www.w3.org/2018/credentials/v1"
 	jsonWebSignature2020Context = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
+	bbsBlsSignature2020Context  = "https://w3id.org/security/bbs/v1"
 )
 
 // GetContextsFromJSONRaw reads contexts from raw JSON
@@ -128,6 +129,10 @@ func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerPr
 func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
 	if profile.SignatureType == crypto.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)
+	}
+
+	if profile.SignatureType == crypto.BbsBlsSignature2020 {
+		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
 }
 

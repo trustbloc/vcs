@@ -259,6 +259,24 @@ func TestCrypto_SignCredential(t *testing.T) {
 	})
 }
 
+func TestCrypto_SignCredentialBBS(t *testing.T) {
+	t.Run("test success", func(t *testing.T) {
+		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+		)
+
+		signedVC, err := c.SignCredential(
+			&vcprofile.DataProfile{
+				Name:          "test",
+				DID:           "did:trustbloc:abc",
+				SignatureType: "BbsBlsSignature2020",
+				Creator:       "did:trustbloc:abc#key1",
+			}, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+	})
+}
+
 func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - success", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},

@@ -232,6 +232,10 @@ func TestUpdateSignatureTypeContext(t *testing.T) {
 	profile.SignatureType = crypto.JSONWebSignature2020
 	UpdateSignatureTypeContext(vc, profile)
 	require.Len(t, vc.Context, 2)
+
+	profile.SignatureType = crypto.BbsBlsSignature2020
+	UpdateSignatureTypeContext(vc, profile)
+	require.Len(t, vc.Context, 3)
 }
 
 func TestGetDocIDFromURL(t *testing.T) {
