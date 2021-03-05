@@ -641,6 +641,8 @@ github.com/hyperledger/aries-framework-go v0.1.6-0.20210226235232-298aa129d822/g
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210304143139-eb97711ddc73/go.mod h1:uzv9LEnmNwl+3KDTns5H9hoa31dpKdZeEDijoRQQDpM=
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210304152953-16ffd16ca955 h1:ZE8rVMn/WQ0ZrZf5vtoziGnWD70/ieV8KhwFmTk/8cM=
 github.com/hyperledger/aries-framework-go v0.1.6-0.20210304152953-16ffd16ca955/go.mod h1:uzv9LEnmNwl+3KDTns5H9hoa31dpKdZeEDijoRQQDpM=
+github.com/hyperledger/aries-framework-go v0.1.6-0.20210305153131-b589754fe1e7 h1:KNWLygFG8M9ISbCPgvWr4wfJ84YIfi/moizWagfF01c=
+github.com/hyperledger/aries-framework-go v0.1.6-0.20210305153131-b589754fe1e7/go.mod h1:9y5nXHe7XLoyah/VdnC9hYqo3nDisnbGNq17CE69Az0=
 github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210227073053-5d4fd6ad6b43 h1:Aqs11Esl1E73337xbhLBcIo9KgVwoipka7CB4sb1Pik=
 github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210227073053-5d4fd6ad6b43/go.mod h1:dsFkir18bkgNh9Ch4MtNaWPrll4uf8Qy7Y9YHmk7FoM=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210226200741-0eb54a9fc74f h1:bS4o0oTnZNJqHlp7oOChXkz6TTBXntp/++8xuCQJcT8=
@@ -878,6 +880,8 @@ github.com/pierrec/lz4 v2.2.6+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi
 github.com/pierrec/lz4 v2.5.2+incompatible/go.mod h1:pdkljMzZIN41W+lC3N2tnIh5sFi+IEE17M5jbnwPHcY=
 github.com/piprate/json-gold v0.3.1-0.20201222165305-f4ce31c02ca3 h1:XZ5wU47zEb+01GyzcDuNFPAZMU8YNwcObKZ5wu/9DgE=
 github.com/piprate/json-gold v0.3.1-0.20201222165305-f4ce31c02ca3/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
+github.com/piprate/json-gold v0.4.0 h1:XQ6ZMLCjuXhtvqr60IrGl2uNYojl64B/dIUmI2iqThs=
+github.com/piprate/json-gold v0.4.0/go.mod h1:OK1z7UgtBZk06n2cDE2OSq1kffmjFFp5/2yhLLCz9UM=
 github.com/pkg/errors v0.8.0/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1-0.20171018195549-f15c970de5b7/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
@@ -1010,7 +1014,6 @@ github.com/trustbloc/edge-core v0.1.6-0.20210212172534-81ab3a5abf5b/go.mod h1:+S
 github.com/trustbloc/edge-core v0.1.6-0.20210304151911-954ad69796fc h1:0xCLKXFeuutcutiY+Ntd0qszw1OVoWPIbJLdzpcmctg=
 github.com/trustbloc/edge-core v0.1.6-0.20210304151911-954ad69796fc/go.mod h1:9EpMlnbEHaGEfHQnG46t0myIIl/V4IaZpp1gepH3V5s=
 github.com/trustbloc/edv v0.1.6-0.20210212224738-ec2041a015c9/go.mod h1:zgY2Rde9Pv0aRmjJTdRZkV7ImW3+r5/c6aRc87moynI=
-github.com/trustbloc/kms v0.1.6-0.20210304160751-17c6f16e42cb/go.mod h1:UMQWYlQAlNKxfrvgLfJUOAiTxqGL/w9GqBKn0xmnJk0=
 github.com/trustbloc/kms v0.1.6-0.20210304191421-0ebf2bf45b54/go.mod h1:UMQWYlQAlNKxfrvgLfJUOAiTxqGL/w9GqBKn0xmnJk0=
 github.com/trustbloc/sidetree-core-go v0.1.6-0.20201217192009-0d2b4436912f/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=
 github.com/trustbloc/sidetree-core-go v0.1.6-0.20210301232849-50c4792e1ca1/go.mod h1:prRWqxBavkSxgKtPmUriSxCemrvl47yStMbW4jMFuRs=

@@ -9,7 +9,7 @@ go 1.15
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.6-0.20210304152953-16ffd16ca955
+	github.com/hyperledger/aries-framework-go v0.1.6-0.20210305153131-b589754fe1e7
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210227073053-5d4fd6ad6b43
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210226200741-0eb54a9fc74f
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210303194824-a55a12f8d063

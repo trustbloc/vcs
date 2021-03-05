@@ -8,8 +8,8 @@ go 1.15
 
 require (
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.6-0.20210304152953-16ffd16ca955
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210303180208-4bb3ae8b32c9
+	github.com/hyperledger/aries-framework-go v0.1.6-0.20210305153131-b589754fe1e7
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210305153131-b589754fe1e7
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0
