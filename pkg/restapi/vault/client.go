@@ -8,7 +8,6 @@ package vault
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/ed25519"
 	"encoding/json"
 	"errors"
@@ -32,6 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	ariesvdr "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	vdrkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/igor-pavlenko/httpsignatures-go"
@@ -210,7 +210,7 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 
 // CreateVault creates a new vault and KMS store bases on generated DIDKey.
 func (c *Client) CreateVault() (*CreatedVault, error) {
-	didKey, didURL, kid, err := c.createDIDKey()
+	didKey, didURL, kid, err := c.createDIDKey(c.didMethod)
 	if err != nil {
 		return nil, fmt.Errorf("create DID key: %w", err)
 	}
@@ -568,8 +568,8 @@ func (c *Client) webCrypto(controller string, auth *Location) *webcrypto.RemoteC
 	)
 }
 
-func (c *Client) createDIDKey() (string, string, string, error) {
-	kid, didDoc, err := newDidDoc(c.kms)
+func (c *Client) createDIDKey(method string) (string, string, string, error) {
+	kid, didDoc, err := newDidDoc(c.kms, method)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -595,7 +595,7 @@ func (c *Client) createDIDKey() (string, string, string, error) {
 	return docResolution.DIDDocument.ID, docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, kid, nil
 }
 
-func newDidDoc(k kms.KeyManager) (string, *ariesdid.Doc, error) {
+func newDidDoc(k kms.KeyManager, method string) (string, *ariesdid.Doc, error) {
 	didDoc := &ariesdid.Doc{}
 
 	kid, publicKey, err := newKey(k)
@@ -608,7 +608,24 @@ func newDidDoc(k kms.KeyManager) (string, *ariesdid.Doc, error) {
 		return "", nil, err
 	}
 
-	vm, err := ariesdid.NewVerificationMethodFromJWK(uuid.New().String(), doc.JWSVerificationKey2020, "", jwk)
+	keyID := uuid.New().String()
+
+	if method == "key" {
+		jwk.KeyID = kid
+
+		_, keyID = fingerprint.CreateDIDKey(publicKey)
+
+		var mainVM *ariesdid.VerificationMethod
+
+		mainVM, err = ariesdid.NewVerificationMethodFromJWK(keyID, doc.Ed25519VerificationKey2018, "", jwk)
+		if err != nil {
+			return "", nil, err
+		}
+
+		didDoc.VerificationMethod = append([]ariesdid.VerificationMethod{}, *mainVM)
+	}
+
+	vm, err := ariesdid.NewVerificationMethodFromJWK(keyID, doc.JWSVerificationKey2020, "", jwk)
 	if err != nil {
 		return "", nil, err
 	}
@@ -623,13 +640,13 @@ func newDidDoc(k kms.KeyManager) (string, *ariesdid.Doc, error) {
 	return kid, didDoc, nil
 }
 
-func newKey(k kms.KeyManager) (string, crypto.PublicKey, error) {
+func newKey(k kms.KeyManager) (string, ed25519.PublicKey, error) {
 	keyID, bits, err := k.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create key : %w", err)
 	}
 
-	return keyID, ed25519.PublicKey(bits), nil
+	return keyID, bits, nil
 }
 
 func (c *Client) createDataVault(didKey string) (*Location, error) {
