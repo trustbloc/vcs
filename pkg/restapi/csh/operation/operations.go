@@ -8,6 +8,7 @@ package operation
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -16,20 +17,21 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
+	did2 "github.com/trustbloc/edge-service/pkg/did"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
+	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
 )
 
 const (
@@ -46,6 +48,9 @@ const (
 	profileStore = "profile"
 	zcapStore    = "zcap"
 	queryStore   = "queries"
+	configStore  = "config"
+
+	identityKey = "config"
 )
 
 var logger = log.New("confidential-storage-hub")
@@ -56,6 +61,7 @@ type Operation struct {
 		profiles storage.Store
 		zcaps    storage.Store
 		queries  storage.Store
+		config   storage.Store
 	}
 	aries      *AriesConfig
 	httpClient *http.Client
@@ -74,10 +80,12 @@ type Config struct {
 
 // AriesConfig holds all configurations for aries-framework-go dependencies.
 type AriesConfig struct {
-	KMS       kms.KeyManager
-	Crypto    crypto.Crypto
-	WebKMS    func(string, webkms.HTTPClient, ...webkms.Opt) kms.KeyManager
-	WebCrypto func(string, webcrypto.HTTPClient, ...webkms.Opt) crypto.Crypto
+	KMS              kms.KeyManager
+	Crypto           crypto.Crypto
+	WebKMS           func(string, webkms.HTTPClient, ...webkms.Opt) kms.KeyManager
+	WebCrypto        func(string, webcrypto.HTTPClient, ...webkms.Opt) crypto.Crypto
+	DIDResolvers     []zcapld2.DIDResolver
+	PublicDIDCreator func(kms.KeyManager) (*did.DocResolution, error)
 }
 
 // New returns operation instance.
@@ -89,11 +97,9 @@ func New(cfg *Config) (*Operation, error) {
 		baseURL:    cfg.BaseURL,
 	}
 
-	var err error
-
-	ops.storage, err = initStores(cfg.StoreProvider)
+	err := ops.configure(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("failed to init store: %w", err)
+		return nil, fmt.Errorf("failed to configure operations: %w", err)
 	}
 
 	return ops, nil
@@ -356,16 +362,24 @@ func (o *Operation) Extract(w http.ResponseWriter, r *http.Request) {
 // TODO add support for caveats in zcap: https://github.com/trustbloc/edge-core/issues/134
 // TODO make supported crypto curves configurable: https://github.com/trustbloc/edge-service/issues/577
 func (o *Operation) newProfileZCAP(profileID, controller string) (*zcapld.Capability, error) {
-	signer, err := signature.NewCryptoSigner(o.aries.Crypto, o.aries.KMS, kms.ED25519)
+	identity, err := o.identityConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a new signer: %w", err)
+		return nil, fmt.Errorf("failed to load identity: %w", err)
+	}
+
+	handle, err := o.aries.KMS.Get(identity.DelegationKeyID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch delegation key id [%s]: %w", identity.DelegationKeyID, err)
 	}
 
 	return zcapld.NewCapability(
 		&zcapld.Signer{
-			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
-			SuiteType:          ed25519signature2018.SignatureType,
-			VerificationMethod: didKeyURL(signer.PublicKeyBytes()),
+			SignatureSuite: jsonwebsignature2020.New(suite.WithSigner(&signer{
+				c:  o.aries.Crypto,
+				kh: handle,
+			})),
+			SuiteType:          "JsonWebSignature2020", // TODO this constant should be exposed in the framework
+			VerificationMethod: identity.DelegationKeyURL,
 		},
 		zcapld.WithInvocationTarget(profileID, "urn:confidentialstoragehub:profile"),
 		zcapld.WithID(profileID),
@@ -375,46 +389,117 @@ func (o *Operation) newProfileZCAP(profileID, controller string) (*zcapld.Capabi
 	)
 }
 
+func (o *Operation) configure(cfg *Config) error {
+	var err error
+
+	o.storage, err = initStores(cfg.StoreProvider)
+	if err != nil {
+		return fmt.Errorf("failed to init store: %w", err)
+	}
+
+	identity, err := o.identityConfig()
+	if errors.Is(err, storage.ErrDataNotFound) {
+		identity, err = o.newIdentity()
+		if err != nil {
+			return fmt.Errorf("failed to create new identity: %w", err)
+		}
+
+		logger.Infof("created new identity")
+
+		return save(o.storage.config, identityKey, identity)
+	}
+
+	logger.Infof("configured with identity: %+v", identity)
+
+	return err
+}
+
+// TODO - control concurrency in a cluster
+func (o *Operation) identityConfig() (*Identity, error) {
+	raw, err := o.storage.config.Get(identityKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup Identity from storage: %w", err)
+	}
+
+	config := &Identity{}
+
+	return config, json.Unmarshal(raw, config)
+}
+
+func (o *Operation) newIdentity() (*Identity, error) {
+	resolution, err := o.aries.PublicDIDCreator(o.aries.KMS)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create identity did: %w", err)
+	}
+
+	logger.Infof("new identity did: %s", resolution.DIDDocument.ID)
+
+	verificationMethods, err := did2.VerificationMethods(
+		resolution.DIDDocument,
+		did.Authentication, did.CapabilityDelegation, did.CapabilityInvocation,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("public DID %s is missing some verification methods: %w", resolution.DIDDocument.ID, err)
+	}
+
+	authentication := verificationMethods[0]
+	capabilityDelegation := verificationMethods[1]
+	capabilityInvocation := verificationMethods[2]
+
+	// TODO - note that at present the did-core spec does not mandate for these IDs to have fragments. I
+	//  believe this is a mistake - see https://github.com/w3c/did-core/issues/708.
+	keyIDs, err := did2.Fragments(authentication.ID, capabilityDelegation.ID, capabilityInvocation.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine identity keyIDs: %w", err)
+	}
+
+	authKeyID := keyIDs[0]
+	delegationKeyID := keyIDs[1]
+	invocationKeyID := keyIDs[2]
+
+	return &Identity{
+		DIDDoc:           resolution.DIDDocument,
+		AuthKeyID:        authKeyID,
+		DelegationKeyID:  delegationKeyID,
+		DelegationKeyURL: capabilityDelegation.ID,
+		InvocationKeyID:  invocationKeyID,
+	}, nil
+}
+
 func initStores(p storage.Provider) (*struct {
 	profiles storage.Store
 	zcaps    storage.Store
 	queries  storage.Store
+	config   storage.Store
 }, error) {
-	var (
-		err    error
-		stores = &struct {
-			profiles storage.Store
-			zcaps    storage.Store
-			queries  storage.Store
-		}{}
-	)
+	stores := &struct {
+		profiles storage.Store
+		zcaps    storage.Store
+		queries  storage.Store
+		config   storage.Store
+	}{}
 
-	stores.profiles, err = initStore(p, profileStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init %s: %w", profileStore, err)
+	s := [4]storage.Store{}
+
+	for i, name := range []string{profileStore, zcapStore, queryStore, configStore} {
+		var err error
+
+		s[i], err = initStore(p, name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to init %s: %w", name, err)
+		}
 	}
 
-	stores.zcaps, err = initStore(p, zcapStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init %s: %w", zcapStore, err)
-	}
-
-	stores.queries, err = initStore(p, queryStore)
-	if err != nil {
-		return nil, fmt.Errorf("failed to init %s: %w", queryStore, err)
-	}
+	stores.profiles = s[0]
+	stores.zcaps = s[1]
+	stores.queries = s[2]
+	stores.config = s[3]
 
 	return stores, nil
 }
 
 func initStore(p storage.Provider, name string) (storage.Store, error) {
 	return p.OpenStore(name)
-}
-
-func didKeyURL(pubKeyBytes []byte) string {
-	_, didKeyURL := fingerprint.CreateDIDKey(pubKeyBytes)
-
-	return didKeyURL
 }
 
 func respond(w http.ResponseWriter, statusCode int, headers map[string]string, payload interface{}) {
@@ -456,4 +541,13 @@ func save(s storage.Store, k string, v interface{}) error {
 	}
 
 	return s.Put(k, raw)
+}
+
+type signer struct {
+	c  crypto.Crypto
+	kh interface{}
+}
+
+func (s *signer) Sign(data []byte) ([]byte, error) {
+	return s.c.Sign(data, s.kh)
 }

@@ -132,7 +132,7 @@ type Client struct {
 	edvClient    *edv.Client
 	httpClient   HTTPClient
 	store        storage.Store
-	registry     *ariesvdr.Registry
+	registry     vdr.Registry
 }
 
 // Opt represents Client`s option.
@@ -153,7 +153,7 @@ func WithDidMethod(method string) Opt {
 }
 
 // WithRegistry allows providing registry.
-func WithRegistry(registry *ariesvdr.Registry) Opt {
+func WithRegistry(registry vdr.Registry) Opt {
 	return func(vault *Client) {
 		vault.registry = registry
 	}

@@ -29,6 +29,8 @@ const (
 	kmsNetworkBaseURL = "https://kms.example.com:8077"
 	edvBaseURL        = "http://localhost:8071/encrypted-data-vaults"
 	edvNetworkBaseURL = "http://edv.rest.example.com:8071/encrypted-data-vaults"
+
+	trustblocDidDomain = "testnet.trustbloc.local"
 )
 
 // NewSteps returns BDD test steps for the confidential storage hub.

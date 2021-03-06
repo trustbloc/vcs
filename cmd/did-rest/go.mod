@@ -6,7 +6,7 @@ module github.com/trustbloc/edge-service/cmd/did-rest
 
 require (
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.6-0.20210305153131-b589754fe1e7
+	github.com/hyperledger/aries-framework-go v0.1.6-0.20210305213256-1b30fec59b51
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.7.0

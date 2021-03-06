@@ -13,14 +13,18 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
@@ -32,8 +36,11 @@ import (
 
 	"github.com/trustbloc/edge-service/cmd/common"
 	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/did"
+	crypto2 "github.com/trustbloc/edge-service/pkg/key"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
+	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
 )
 
@@ -67,22 +74,35 @@ const (
 	tlsServeKeyPathFlagUsage = "Path to the private key to use when serving HTTPS." +
 		" Alternatively, this can be set with the following environment variable: " + tlsServeKeyPathFlagEnvKey
 	tlsServeKeyPathFlagEnvKey = "CHS_TLS_SERVE_KEY"
+
+	didDomainFlagName  = "trustbloc-did-domain"
+	didDomainFlagUsage = "Optional. URL to the did:trustbloc consortium's domain." +
+		" Alternatively, this can be set with the following environment variable: " + didDomainEnvKey
+	didDomainEnvKey = "TRUSTBLOC_DID_DOMAIN"
+
+	identityDIDMethodFlagName  = "identity-did-method"
+	identityDIDMethodFlagUsage = "DID method to use to create the CSH's identity. Valid values are [key, trustbloc]." +
+		" Defaults to 'key'." +
+		" Alternatively, this can be set with the following environment variable: " + identityDIDMethodEnvKey
+	identityDIDMethodEnvKey = "IDENTITY_DID_METHOD"
 )
 
 var logger = log.New("confidential-storage-hub/start")
 
 type serviceParameters struct {
-	host      string
-	baseURL   string
-	tlsParams *tlsParameters
-	dbParams  *common.DBParameters
+	host              string
+	baseURL           string
+	tlsParams         *tlsParameters
+	dbParams          *common.DBParameters
+	trustblocDomain   string
+	identityDIDMethod string
 }
 
 type tlsParameters struct {
 	systemCertPool bool
-	caCerts        []string
 	serveCertPath  string
 	serveKeyPath   string
+	tlsConfig      *tls.Config
 }
 
 type server interface {
@@ -146,11 +166,28 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	trustblocDomain, err := cmdutils.GetUserSetVarFromString(cmd, didDomainFlagName, didDomainEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	identityDIDMethod, err := cmdutils.GetUserSetVarFromString(
+		cmd, identityDIDMethodFlagName, identityDIDMethodEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	if identityDIDMethod == "" {
+		identityDIDMethod = "key"
+	}
+
 	return &serviceParameters{
-		host:      host,
-		tlsParams: tlsParams,
-		dbParams:  dbParams,
-		baseURL:   baseURL,
+		host:              host,
+		tlsParams:         tlsParams,
+		dbParams:          dbParams,
+		baseURL:           baseURL,
+		trustblocDomain:   trustblocDomain,
+		identityDIDMethod: identityDIDMethod,
 	}, err
 }
 
@@ -162,6 +199,8 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	cmd.Flags().StringP(tlsServeCertPathFlagName, "", "", tlsServeCertPathFlagUsage)
 	cmd.Flags().StringP(tlsServeKeyPathFlagName, "", "", tlsServeKeyPathFlagUsage)
+	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
+	cmd.Flags().StringP(identityDIDMethodFlagName, "", "", identityDIDMethodFlagUsage)
 }
 
 func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
@@ -181,15 +220,23 @@ func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
 
 	tlsCACerts := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
 
+	rootCAs, err := tlsutils.GetCertPool(true, tlsCACerts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tls cert pool: %w", err)
+	}
+
 	tlsServeCertPath := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsServeCertPathFlagName, tlsServeCertPathEnvKey)
 
 	tlsServeKeyPath := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsServeKeyPathFlagName, tlsServeKeyPathFlagEnvKey)
 
 	return &tlsParameters{
 		systemCertPool: tlsSystemCertPool,
-		caCerts:        tlsCACerts,
 		serveCertPath:  tlsServeCertPath,
 		serveKeyPath:   tlsServeKeyPath,
+		tlsConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    rootCAs,
+		},
 	}, nil
 }
 
@@ -201,7 +248,7 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		return fmt.Errorf("failed to init provider: %w", err)
 	}
 
-	ariesConfig, err := newAriesConfig(params.dbParams)
+	ariesConfig, err := newAriesConfig(params)
 	if err != nil {
 		return fmt.Errorf("failed to init aries config: %w", err)
 	}
@@ -214,11 +261,6 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	rootCAs, err := tlsutils.GetCertPool(true, params.tlsParams.caCerts)
-	if err != nil {
-		return fmt.Errorf("failed to get tls cert pool: %w", err)
-	}
-
 	baseURL := params.baseURL
 	if baseURL == "" {
 		baseURL = params.host
@@ -229,10 +271,7 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		Aries:         ariesConfig,
 		EDVClient:     adaptedEDVClientConstructor(),
 		HTTPClient: &http.Client{Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs:    rootCAs,
-				MinVersion: tls.VersionTLS12,
-			},
+			TLSClientConfig: params.tlsParams.tlsConfig,
 		}},
 		BaseURL: baseURL,
 	})
@@ -269,8 +308,8 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 }
 
 // TODO make KMS and crypto configurable: https://github.com/trustbloc/edge-service/issues/578
-func newAriesConfig(params *common.DBParameters) (*operation.AriesConfig, error) {
-	store, err := common.InitStore(params, logger)
+func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
+	store, err := common.InitStore(params.dbParams, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init aries store: %w", err)
 	}
@@ -291,6 +330,24 @@ func newAriesConfig(params *common.DBParameters) (*operation.AriesConfig, error)
 		return nil, fmt.Errorf("failed to init tink crypto: %w", err)
 	}
 
+	trustblocVDR, err := trustbloc.New(
+		nil,
+		trustbloc.WithDomain(params.trustblocDomain),
+		trustbloc.WithTLSConfig(params.tlsParams.tlsConfig),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to init trustbloc VDR: %w", err)
+	}
+
+	vdrProvider, err := context.New(context.WithKMS(k))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new vdr provider: %w", err)
+	}
+
+	// TODO make these configurable:
+	//  - DID resolvers
+	//  - Key types
+	//  - Verification method type
 	return &operation.AriesConfig{
 		KMS:    k,
 		Crypto: c,
@@ -300,6 +357,14 @@ func newAriesConfig(params *common.DBParameters) (*operation.AriesConfig, error)
 		WebCrypto: func(url string, client webcrypto.HTTPClient, opts ...webkms.Opt) crypto.Crypto {
 			return webcrypto.New(url, client, opts...)
 		},
+		DIDResolvers: []zcapld2.DIDResolver{key.New(), trustblocVDR},
+		PublicDIDCreator: did.PublicDID(&did.Config{
+			Method:                 params.identityDIDMethod,
+			VerificationMethodType: "JsonWebKey2020",
+			VDR:                    vdr.New(vdrProvider, vdr.WithVDR(key.New()), vdr.WithVDR(trustblocVDR)),
+			JWKKeyCreator:          crypto2.JWKKeyCreator(kms.ED25519Type),
+			CryptoKeyCreator:       crypto2.CryptoKeyCreator(kms.ED25519Type),
+		}),
 	}, nil
 }
 

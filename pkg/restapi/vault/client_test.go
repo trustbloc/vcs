@@ -9,16 +9,20 @@ package vault_test
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -76,7 +80,13 @@ func TestClient_CreateVault(t *testing.T) {
 		}))
 
 		store := mem.NewProvider()
-		client, err := NewClient(remoteKMS.URL, edv.URL, newLocalKms(t, store), store)
+		client, err := NewClient(
+			remoteKMS.URL,
+			edv.URL,
+			newLocalKms(t, store),
+			store,
+			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
+		)
 		require.NoError(t, err)
 
 		_, err = client.CreateVault()
@@ -86,7 +96,13 @@ func TestClient_CreateVault(t *testing.T) {
 
 	t.Run("KMS bad URL", func(t *testing.T) {
 		store := mem.NewProvider()
-		client, err := NewClient("http://user^foo.com", "", newLocalKms(t, store), store)
+		client, err := NewClient(
+			"http://user^foo.com",
+			"",
+			newLocalKms(t, store),
+			store,
+			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
+		)
 		require.NoError(t, err)
 
 		_, err = client.CreateVault()
@@ -99,6 +115,7 @@ func TestClient_CreateVault(t *testing.T) {
 		client, err := NewClient("", "",
 			newLocalKms(t, store), store,
 			WithHTTPClient(&http.Client{}),
+			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
 		require.NoError(t, err)
 
@@ -117,7 +134,13 @@ func TestClient_CreateVault(t *testing.T) {
 			w.WriteHeader(http.StatusBadRequest)
 		}))
 
-		client, err := NewClient(remoteKMS.URL, edv.URL, newLocalKms(t, store), store)
+		client, err := NewClient(
+			remoteKMS.URL,
+			edv.URL,
+			newLocalKms(t, store),
+			store,
+			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
+		)
 		require.NoError(t, err)
 
 		_, err = client.CreateVault()
@@ -142,9 +165,15 @@ func TestClient_CreateVault(t *testing.T) {
 		}))
 
 		store := mem.NewProvider()
-		client, err := NewClient(remoteKMS.URL, edv.URL, newLocalKms(t, store), &mockstorage.MockStoreProvider{
-			Store: &mockstorage.MockStore{ErrPut: errors.New("test")},
-		})
+		client, err := NewClient(
+			remoteKMS.URL,
+			edv.URL,
+			newLocalKms(t, store),
+			&mockstorage.MockStoreProvider{
+				Store: &mockstorage.MockStore{ErrPut: errors.New("test")},
+			},
+			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
+		)
 		require.NoError(t, err)
 
 		_, err = client.CreateVault()
@@ -169,7 +198,13 @@ func TestClient_CreateVault(t *testing.T) {
 		}))
 
 		store := mem.NewProvider()
-		client, err := NewClient(remoteKMS.URL, edv.URL, newLocalKms(t, store), store)
+		client, err := NewClient(
+			remoteKMS.URL,
+			edv.URL,
+			newLocalKms(t, store),
+			store,
+			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
+		)
 		require.NoError(t, err)
 
 		result, err := client.CreateVault()
@@ -827,4 +862,22 @@ func createVaultID(t *testing.T, k KeyManager) (string, string, string) {
 	didKey, didURL := fingerprint.CreateDIDKey(sig.PublicKeyBytes())
 
 	return didKey, didURL, cryptoSigner.KID()
+}
+
+func newDIDDoc() *did.Doc {
+	id := fmt.Sprintf("did:example:%s", uuid.New().String())
+
+	return &did.Doc{
+		ID: id,
+		CapabilityDelegation: []did.Verification{{
+			VerificationMethod: did.VerificationMethod{
+				ID:         id + "#key-1",
+				Type:       "JsonWebKey2020",
+				Controller: id,
+				Value:      []byte(uuid.New().String()),
+			},
+			Relationship: did.CapabilityDelegation,
+			Embedded:     true,
+		}},
+	}
 }

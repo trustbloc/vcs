@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
@@ -46,6 +47,72 @@ func TestNew(t *testing.T) {
 		o, err := operation.New(config(t))
 		require.NoError(t, err)
 		require.NotNil(t, o)
+	})
+
+	t.Run("error initializing stores", func(t *testing.T) {
+		expected := errors.New("test")
+		config := config(t)
+		config.StoreProvider = &storage.MockProvider{OpenErr: expected}
+		_, err := operation.New(config)
+		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("error if cannot create public DID", func(t *testing.T) {
+		expected := errors.New("test")
+		config := config(t)
+		config.Aries.PublicDIDCreator = func(kms.KeyManager) (*did.DocResolution, error) {
+			return nil, expected
+		}
+		_, err := operation.New(config)
+		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("error if public DID is missing a required verification method", func(t *testing.T) {
+		config := config(t)
+		config.Aries.PublicDIDCreator = func(kms.KeyManager) (*did.DocResolution, error) {
+			return &did.DocResolution{
+				DIDDocument: &did.Doc{},
+			}, nil
+		}
+		_, err := operation.New(config)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "missing some verification methods")
+	})
+
+	t.Run("error if public DID verMethod IDs do not have fragments", func(t *testing.T) {
+		config := config(t)
+		config.Aries.PublicDIDCreator = func(kms.KeyManager) (*did.DocResolution, error) {
+			return &did.DocResolution{
+				DIDDocument: &did.Doc{
+					ID:      "did:example:123",
+					Context: []string{did.Context},
+					Authentication: []did.Verification{{
+						VerificationMethod: did.VerificationMethod{
+							ID: uuid.New().String(),
+						},
+						Relationship: did.Authentication,
+						Embedded:     true,
+					}},
+					CapabilityDelegation: []did.Verification{{
+						VerificationMethod: did.VerificationMethod{
+							ID: uuid.New().String(),
+						},
+						Relationship: did.CapabilityDelegation,
+						Embedded:     true,
+					}},
+					CapabilityInvocation: []did.Verification{{
+						VerificationMethod: did.VerificationMethod{
+							ID: uuid.New().String(),
+						},
+						Relationship: did.CapabilityInvocation,
+						Embedded:     true,
+					}},
+				},
+			}, nil
+		}
+		_, err := operation.New(config)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "failed to determine identity keyIDs")
 	})
 }
 
@@ -77,6 +144,35 @@ func TestOperation_CreateProfile(t *testing.T) {
 		require.NotEmpty(t, response.Zcap)
 	})
 
+	t.Run("err InternalServerError if identity is not configured", func(t *testing.T) {
+		config := config(t)
+		config.StoreProvider = &storage.MockProvider{
+			Stores: map[string]spi.Store{
+				"profile": &mock.Store{
+					ErrPut: errors.New("test"),
+				},
+				"zcap":    &mock.Store{},
+				"queries": &mock.Store{},
+				"config": &mock.Store{
+					ErrGet: spi.ErrDataNotFound,
+				},
+			},
+		}
+		o := newOperation(t, config)
+		result := httptest.NewRecorder()
+
+		o.CreateProfile(result, newReq(t,
+			http.MethodPost,
+			"/profiles",
+			&openapi.Profile{
+				Controller: controller(),
+			},
+		))
+
+		require.Equal(t, http.StatusInternalServerError, result.Code)
+		require.Contains(t, result.Body.String(), "failed to load identity")
+	})
+
 	t.Run("err badrequest if controller is missing", func(t *testing.T) {
 		o := newOp(t)
 		result := httptest.NewRecorder()
@@ -93,7 +189,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 	t.Run("err internalservererror if failed to create zcap", func(t *testing.T) {
 		cfg := config(t)
 		cfg.Aries.KMS = &mockkms.KeyManager{
-			CreateKeyErr: errors.New("test"),
+			GetKeyErr: errors.New("test"),
 		}
 
 		o, err := operation.New(cfg)
@@ -119,6 +215,9 @@ func TestOperation_CreateProfile(t *testing.T) {
 				},
 				"zcap":    &mock.Store{},
 				"queries": &mock.Store{},
+				"config": &mock.Store{
+					GetReturn: marshal(t, &operation.Identity{}),
+				},
 			},
 		}
 
@@ -145,6 +244,9 @@ func TestOperation_CreateProfile(t *testing.T) {
 					ErrPut: errors.New("test"),
 				},
 				"queries": &mock.Store{},
+				"config": &mock.Store{
+					GetReturn: marshal(t, &operation.Identity{}),
+				},
 			},
 		}
 
@@ -287,9 +389,16 @@ func TestOperation_CreateQuery(t *testing.T) {
 		expected := errors.New("test error")
 
 		config := config(t)
-		config.StoreProvider = &mock.Provider{
-			OpenStoreReturn: &mock.Store{
-				ErrPut: expected,
+		config.StoreProvider = &storage.MockProvider{
+			Stores: map[string]spi.Store{
+				"queries": &mock.Store{
+					ErrPut: expected,
+				},
+				"config": &mock.Store{
+					GetReturn: marshal(t, &operation.Identity{}),
+				},
+				"profile": &mock.Store{},
+				"zcap":    &mock.Store{},
 			},
 		}
 		o := newOperation(t, config)
@@ -395,6 +504,9 @@ func TestOperation_Extract(t *testing.T) {
 				"profile": &mock.Store{},
 				"zcap":    &mock.Store{},
 				"queries": queriesStore,
+				"config": &mock.Store{
+					GetReturn: marshal(t, &operation.Identity{}),
+				},
 			},
 		}
 
@@ -498,6 +610,41 @@ func config(t *testing.T) *operation.Config {
 		Aries: &operation.AriesConfig{
 			KMS:    &mockkms.KeyManager{},
 			Crypto: &mockcrypto.Crypto{},
+			PublicDIDCreator: func(kms.KeyManager) (*did.DocResolution, error) {
+				return &did.DocResolution{
+					DIDDocument: &did.Doc{
+						ID:      "did:example:123",
+						Context: []string{did.Context},
+						Authentication: []did.Verification{{
+							VerificationMethod: did.VerificationMethod{
+								ID:    uuid.New().String() + "#key1",
+								Type:  "JsonWebKey2020",
+								Value: []byte(uuid.New().String()),
+							},
+							Relationship: did.Authentication,
+							Embedded:     true,
+						}},
+						CapabilityDelegation: []did.Verification{{
+							VerificationMethod: did.VerificationMethod{
+								ID:    uuid.New().String() + "#key2",
+								Type:  "JsonWebKey2020",
+								Value: []byte(uuid.New().String()),
+							},
+							Relationship: did.CapabilityDelegation,
+							Embedded:     true,
+						}},
+						CapabilityInvocation: []did.Verification{{
+							VerificationMethod: did.VerificationMethod{
+								ID:    uuid.New().String() + "#key3",
+								Type:  "JsonWebKey2020",
+								Value: []byte(uuid.New().String()),
+							},
+							Relationship: did.CapabilityInvocation,
+							Embedded:     true,
+						}},
+					},
+				}, nil
+			},
 		},
 	}
 }

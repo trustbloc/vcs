@@ -19,6 +19,8 @@ services:
       - DATABASE_URL=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
       - DATABASE_PREFIX=confidentialstoragehub
       - BASE_URL=https://hubstore.example.com
+      - TRUSTBLOC_DID_DOMAIN=testnet.trustbloc.local
+      - IDENTITY_DID_METHOD=trustbloc
     ports:
       - ${CHS_REST_PORT}:${CHS_REST_PORT}
     command: start

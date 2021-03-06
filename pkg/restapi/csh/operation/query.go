@@ -16,7 +16,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -63,7 +62,7 @@ func (o *Operation) edvOptions(query *openapi.DocQuery) ([]edv.Option, error) {
 		return opts, nil
 	}
 
-	verMethod, err := verificationMethod(query.UpstreamAuth.Edv.Zcap)
+	verMethod, err := invoker(query.UpstreamAuth.Edv.Zcap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine EDV verification method: %w", err)
 	}
@@ -101,7 +100,7 @@ func (o *Operation) documentReaderOptions(query *openapi.DocQuery) ([]vault.Read
 	kmsOptions := make([]webkms.Opt, 0)
 
 	if query.UpstreamAuth.Kms.Zcap != "" {
-		verMethod, err := verificationMethod(query.UpstreamAuth.Kms.Zcap)
+		verMethod, err := invoker(query.UpstreamAuth.Kms.Zcap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine KMS verification method: %w", err)
 		}
@@ -149,22 +148,18 @@ func (o *Operation) documentReaderOptions(query *openapi.DocQuery) ([]vault.Read
 
 // TODO make supported zcapld algorithms and secret stores configurable
 func (o *Operation) supportedSecrets() httpsignatures.Secrets {
-	return &zcapld2.DIDSecrets{
-		Secrets: map[string]httpsignatures.Secrets{
-			"key": &zcapld.AriesDIDKeySecrets{},
-		},
-	}
+	return &zcapld.AriesDIDKeySecrets{}
 }
 
 func (o *Operation) supportedSignatureHashAlgorithms() httpsignatures.SignatureHashAlgorithm {
 	return &zcapld2.DIDSignatureHashAlgorithms{
 		KMS:       o.aries.KMS,
 		Crypto:    o.aries.Crypto,
-		Resolvers: []zcapld2.DIDResolver{key.New()},
+		Resolvers: o.aries.DIDResolvers,
 	}
 }
 
-func verificationMethod(compressedZCAP string) (string, error) {
+func invoker(compressedZCAP string) (string, error) {
 	zcap, err := zcapld.DecompressZCAP(compressedZCAP)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse zcap: %w", err)

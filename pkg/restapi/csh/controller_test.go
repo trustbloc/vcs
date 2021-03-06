@@ -7,9 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package csh_test
 
 import (
+	"fmt"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	did2 "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/stretchr/testify/require"
@@ -36,10 +40,41 @@ func config(t *testing.T) *operation.Config {
 	t.Helper()
 
 	return &operation.Config{
-		StoreProvider: &mock.Provider{},
+		StoreProvider: mem.NewProvider(),
 		Aries: &operation.AriesConfig{
 			KMS:    &mockkms.KeyManager{},
 			Crypto: &mockcrypto.Crypto{},
+			PublicDIDCreator: func(kms.KeyManager) (*did2.DocResolution, error) {
+				id := fmt.Sprintf("did:example:%s", uuid.New().String())
+
+				return &did2.DocResolution{
+					DIDDocument: &did2.Doc{
+						ID:      id,
+						Context: []string{did2.Context},
+						Authentication: []did2.Verification{{
+							VerificationMethod: did2.VerificationMethod{
+								ID: id + "#key-1",
+							},
+							Relationship: did2.Authentication,
+							Embedded:     true,
+						}},
+						CapabilityDelegation: []did2.Verification{{
+							VerificationMethod: did2.VerificationMethod{
+								ID: id + "#key-2",
+							},
+							Relationship: did2.CapabilityDelegation,
+							Embedded:     true,
+						}},
+						CapabilityInvocation: []did2.Verification{{
+							VerificationMethod: did2.VerificationMethod{
+								ID: id + "#key-3",
+							},
+							Relationship: did2.CapabilityInvocation,
+							Embedded:     true,
+						}},
+					},
+				}, nil
+			},
 		},
 	}
 }
