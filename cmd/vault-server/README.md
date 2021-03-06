@@ -27,6 +27,13 @@ When a user stores a document in a vault in the Vault Server:
 * the encrypted artifacts are assembled into an _EncryptedDocument_ and stored in the Confidential Storage
   vault
 
+### Authorizations
+
+When a user authorizes a third party to access a document, the Vault Server creates two authorization tokens:
+
+* One token to use at the Confidential Storage Vault backend to retrieve the encrypted document
+* One token to use at the WebKMS keystore backend to unwrap the encryption key for the document
+
 ## Contributing
 
 Thank you for your interest in contributing. Please see our
