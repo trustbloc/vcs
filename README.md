@@ -24,6 +24,9 @@ To build from source see [here](docs/build.md).
 
 ## Documentation
 - [VC REST APIs](docs/vc-rest/api_overview.md)
+- [Vault Server](cmd/vault-server/README.md)
+- [Comparator](cmd/comparator-rest/README.md)
+- [Confidential Storage Hub](cmd/confidential-storage-hub/README.md)
 - [OpenAPI Spec](docs/vc-rest/openapi_spec.md)
 - [OpenAPI Demo](docs/vc-rest/openapi_demo.md)
 - [VC Interop API Implementation Status](docs/vc-rest/vc_interop_api_impl_status.md)
