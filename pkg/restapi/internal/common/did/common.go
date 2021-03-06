@@ -18,6 +18,7 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -105,7 +106,14 @@ func (o *CommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID, 
 		createdDIDID = docResolution.DIDDocument.ID
 
 		if privateKey != "" {
-			if err := o.importKey(keyID, kms.ED25519Type, base58.Decode(privateKey)); err != nil {
+			kmsKeyType := kms.ED25519Type
+
+			// TODO temporary fix, should be dynamic to support all key types
+			if keyType == kms.BLS12381G2 {
+				kmsKeyType = kms.BLS12381G2Type
+			}
+
+			if err := o.importKey(keyID, kmsKeyType, base58.Decode(privateKey)); err != nil {
 				return "", "", err
 			}
 		}
@@ -372,14 +380,21 @@ func (o *CommonDID) importKey(keyID string, keyType kms.KeyType, privateKeyBytes
 
 	var privKey interface{}
 
+	var err error
+
 	switch keyType { //nolint:exhaustive
 	case kms.ED25519Type:
 		privKey = ed25519.PrivateKey(privateKeyBytes)
+	case kms.BLS12381G2Type:
+		privKey, err = bbs12381g2pub.UnmarshalPrivateKey(privateKeyBytes)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal private key: %w", err)
+		}
 	default:
 		return fmt.Errorf("import key type not supported %s", keyType)
 	}
 
-	_, _, err := o.keyManager.ImportPrivateKey(privKey,
+	_, _, err = o.keyManager.ImportPrivateKey(privKey,
 		keyType, kms.WithKeyID(split[1]))
 	if err != nil {
 		return fmt.Errorf("failed to import private key: %v", err)

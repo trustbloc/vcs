@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -30,6 +31,8 @@ const (
 	Ed25519Signature2018 = "Ed25519Signature2018"
 	// JSONWebSignature2020 json web signature suite
 	JSONWebSignature2020 = "JsonWebSignature2020"
+	// BbsBlsSignature2020 signature suite
+	BbsBlsSignature2020 = "BbsBlsSignature2020"
 
 	// Ed25519VerificationKey2018 ed25119 verification key
 	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
@@ -61,17 +64,13 @@ const (
 	CapabilityInvocation = "capabilityInvocation"
 )
 
-type signer interface {
-	// Sign will sign document and return signature
-	Sign(data []byte) ([]byte, error)
-}
-
 type kmsSigner struct {
 	keyHandle interface{}
 	crypto    ariescrypto.Crypto
+	bbs       bool
 }
 
-func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string) (*kmsSigner, error) {
+func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator, signatureType string) (*kmsSigner, error) {
 	// creator will contain didID#keyID
 	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)
 	if err != nil {
@@ -83,16 +82,33 @@ func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator strin
 		return nil, err
 	}
 
-	return &kmsSigner{keyHandle: keyHandler, crypto: c}, nil
+	return &kmsSigner{keyHandle: keyHandler, crypto: c, bbs: signatureType == BbsBlsSignature2020}, nil
 }
 
 func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
+	if s.bbs {
+		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
+	}
+
 	v, err := s.crypto.Sign(data, s.keyHandle)
 	if err != nil {
 		return nil, err
 	}
 
 	return v, nil
+}
+
+func (s *kmsSigner) textToLines(txt string) [][]byte {
+	lines := strings.Split(txt, "\n")
+	linesBytes := make([][]byte, 0, len(lines))
+
+	for i := range lines {
+		if strings.TrimSpace(lines[i]) != "" {
+			linesBytes = append(linesBytes, []byte(lines[i]))
+		}
+	}
+
+	return linesBytes
 }
 
 // New return new instance of vc crypto
@@ -230,9 +246,10 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
+// nolint: gocyclo
 func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, method, err := c.getSigner(creator, opts)
+	s, method, err := c.getSigner(creator, opts, signatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -258,6 +275,8 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
 	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
+	case BbsBlsSignature2020:
+		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
 	default:
 		return nil, fmt.Errorf("signature type unsupported %s", signatureType)
 	}
@@ -299,13 +318,13 @@ func (c *Crypto) getAndResolveDID(verificationMethod string) (*did.Doc, error) {
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method
-func (c *Crypto) getSigner(creator string, opts *signingOpts) (signer, string, error) {
+func (c *Crypto) getSigner(creator string, opts *signingOpts, signatureType string) (*kmsSigner, string, error) {
 	verificationMethod := creator
 	if opts.VerificationMethod != "" {
 		verificationMethod = opts.VerificationMethod
 	}
 
-	s, err := newKMSSigner(c.keyManager, c.crypto, verificationMethod)
+	s, err := newKMSSigner(c.keyManager, c.crypto, verificationMethod, signatureType)
 
 	return s, verificationMethod, err
 }
