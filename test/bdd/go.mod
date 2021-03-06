@@ -15,17 +15,17 @@ require (
 	github.com/go-openapi/runtime v0.19.26
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/google/uuid v1.2.0
-	github.com/hyperledger/aries-framework-go v0.1.6-0.20210305213256-1b30fec59b51
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210303194824-a55a12f8d063
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210303194824-a55a12f8d063
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210304152953-16ffd16ca955
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210305153131-b589754fe1e7
-	github.com/igor-pavlenko/httpsignatures-go v0.0.21
+	github.com/hyperledger/aries-framework-go v0.1.6
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210306170115-156a24580a5c
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210306194409-6e4c5d622fbc
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210306162754-1a1e0c4a378e
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210306162754-1a1e0c4a378e
+	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/tidwall/gjson v1.6.7
-	github.com/trustbloc/edge-core v0.1.6-0.20210304151911-954ad69796fc
+	github.com/trustbloc/edge-core v0.1.6
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/edv v0.1.6-0.20210305063922-46a56abc40e6
-	github.com/trustbloc/kms v0.1.6-0.20210304191421-0ebf2bf45b54
+	github.com/trustbloc/edv v0.1.6
+	github.com/trustbloc/kms v0.1.6
 	gotest.tools/v3 v3.0.3 // indirect
 )
 
