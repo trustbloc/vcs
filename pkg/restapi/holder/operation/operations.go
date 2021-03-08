@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -292,7 +293,13 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 		return
 	}
 
-	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, []byte(deriveReq.Opts.Nonce),
+	// if nonce not provided generate one
+	if deriveReq.Opts.Nonce == nil {
+		nonce := uuid.New().String()
+		deriveReq.Opts.Nonce = &nonce
+	}
+
+	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, []byte(*deriveReq.Opts.Nonce),
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher()))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
