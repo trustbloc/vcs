@@ -383,6 +383,42 @@ func TestDeriveCredentials(t *testing.T) {
 		require.NotEmpty(t, derived)
 		require.Len(t, derived.Proofs, 1)
 		require.Equal(t, derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
+		require.NotEmpty(t, derived.Proofs[0]["nonce"])
+		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
+	})
+
+	t.Run("derive credentials - success with empty nonce", func(t *testing.T) {
+		nonce := ""
+		req := &DeriveCredentialRequest{
+			Credential: json.RawMessage(requestVC),
+			Frame:      frameDoc,
+			Opts:       DeriveCredentialOptions{Nonce: &nonce},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, handler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		var response DeriveCredentialResponse
+		err = json.Unmarshal(rr.Body.Bytes(), &response)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, response)
+		require.NotEmpty(t, response.VerifiableCredential)
+
+		// verify VC
+		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
+			verifiable.NewDIDKeyResolver(ops.vdr).PublicKeyFetcher(),
+		))
+
+		// check expected proof
+		require.NoError(t, err)
+		require.NotEmpty(t, derived)
+		require.Len(t, derived.Proofs, 1)
+		require.Equal(t, derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
 		require.Empty(t, derived.Proofs[0]["nonce"])
 		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
 	})
@@ -394,7 +430,7 @@ func TestDeriveCredentials(t *testing.T) {
 			Credential: json.RawMessage(requestVC),
 			Frame:      frameDoc,
 			Opts: DeriveCredentialOptions{
-				Nonce: nonce,
+				Nonce: &nonce,
 			},
 		}
 
