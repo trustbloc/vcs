@@ -26,8 +26,8 @@ import (
 const (
 	verifierHostURL = "http://localhost:8069"
 
-	verifyCredentialURLFormat   = verifierHostURL + "/%s" + "/verifier/credentials"
-	verifyPresentationURLFormat = verifierHostURL + "/%s" + "/verifier/presentations"
+	verifyCredentialURLFormat   = verifierHostURL + "/%s" + "/verifier/credentials/verify"
+	verifyPresentationURLFormat = verifierHostURL + "/%s" + "/verifier/presentations/verify"
 )
 
 // Steps is steps for VC BDD tests

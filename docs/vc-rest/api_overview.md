@@ -52,7 +52,7 @@ Mandatory fields:
 Status 200 OK
 ```
 
-### 4. Issue Verifiable Credential - POST /{profile}/credentials/issueCredential
+### 4. Issue Verifiable Credential - POST /{profile}/credentials/issue
 Path:
 - profile : name of the profile as created in section 1. 
 
@@ -60,7 +60,7 @@ Mandatory fields:
 - [Types](https://www.w3.org/TR/vc-data-model/#types)
 - [CredentialSubject](https://www.w3.org/TR/vc-data-model/#credential-subject)
 
-Refer W3C [Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/index.html#/internal/issueCredential) for more info.
+Refer W3C [Issue Credential API](https://w3c-ccg.github.io/vc-http-api/#operation/issueCredential) for more info.
 
 #### Request 
 ```
@@ -516,7 +516,7 @@ Mandatory fields:
 Status 200 OK
 ```
 
-### 4. Verify Credential  - POST {id}/verifier/credentials
+### 4. Verify Credential  - POST {id}/verifier/credentials/verify
 Path:
 - id : ID of the verifier profile as created in section 1. 
 
@@ -585,7 +585,7 @@ Refer W3C [Verify Credential API](https://w3c-ccg.github.io/vc-verifier-http-api
 }
 ```
 
-### 5. Verify Presentation - POST {id}/verifier/presentations
+### 5. Verify Presentation - POST {id}/verifier/presentations/verify
 Path:
 - id : ID of the verifier profile as created in section 1. 
 

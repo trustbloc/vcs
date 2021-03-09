@@ -42,10 +42,10 @@ const (
 	holderURL                  = "http://localhost:8067"
 
 	updateCredentialStatusURLFormat = issuerURL + "%s" + "/credentials/status"
-	issueCredentialURLFormat        = issuerURL + "%s" + "/credentials/issueCredential"
+	issueCredentialURLFormat        = issuerURL + "%s" + "/credentials/issue"
 	signPresentationURLFormat       = holderURL + "/%s" + "/prove/presentations"
-	verifyCredentialURLFormat       = verifierURL + "/%s" + "/verifier/credentials"
-	verifyPresentationURLFormat     = verifierURL + "/%s" + "/verifier/presentations"
+	verifyCredentialURLFormat       = verifierURL + "/%s" + "/verifier/credentials/verify"
+	verifyPresentationURLFormat     = verifierURL + "/%s" + "/verifier/presentations/verify"
 
 	domain = "example.com"
 )

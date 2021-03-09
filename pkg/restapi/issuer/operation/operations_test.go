@@ -1650,7 +1650,7 @@ func TestIssueCredential(t *testing.T) {
 	keyID, pubKey, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	require.NoError(t, err)
 
-	endpoint := "/test/credentials/issueCredential"
+	endpoint := "/test/credentials/issue"
 	issuerProfileDIDKey := "did:test:abc#" + keyID
 	profile := getTestProfile()
 	profile.Creator = issuerProfileDIDKey

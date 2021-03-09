@@ -62,7 +62,7 @@ const (
 	credentialStatusEndpoint       = credentialStatus + "/{id}"
 	credentialsBasePath            = "/" + "{" + profileIDPathParam + "}" + "/credentials"
 	updateCredentialStatusEndpoint = credentialsBasePath + credentialStatus
-	issueCredentialPath            = credentialsBasePath + "/issueCredential"
+	issueCredentialPath            = credentialsBasePath + "/issue"
 	composeAndIssueCredentialPath  = credentialsBasePath + "/composeAndIssueCredential"
 	kmsBasePath                    = "/kms"
 	generateKeypairPath            = kmsBasePath + "/generatekeypair"
@@ -699,7 +699,7 @@ func validateRequest(profileName, vcID string) error {
 	return nil
 }
 
-// IssueCredential swagger:route POST /{id}/credentials/issueCredential issuer issueCredentialReq
+// IssueCredential swagger:route POST /{id}/credentials/issue issuer issueCredentialReq
 //
 // Issues a credential.
 //

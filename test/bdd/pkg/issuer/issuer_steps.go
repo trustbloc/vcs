@@ -40,7 +40,7 @@ const (
 	holderURL = "http://localhost:8067"
 
 	signPresentationURLFormat          = holderURL + "/%s" + "/prove/presentations"
-	issueCredentialURLFormat           = issuerURL + "/%s" + "/credentials/issueCredential"
+	issueCredentialURLFormat           = issuerURL + "/%s" + "/credentials/issue"
 	composeAndIssueCredentialURLFormat = issuerURL + "/%s" + "/credentials/composeAndIssueCredential"
 )
 
