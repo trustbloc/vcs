@@ -39,8 +39,8 @@ const (
 	profileEndpoint                   = verifierBasePath + "/profile"
 	getProfileEndpoint                = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
 	deleteProfileEndpoint             = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
-	credentialsVerificationEndpoint   = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/credentials"
-	presentationsVerificationEndpoint = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/presentations"
+	credentialsVerificationEndpoint   = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/credentials/verify"
+	presentationsVerificationEndpoint = "/" + "{" + profileIDPathParam + "}" + verifierBasePath + "/presentations/verify"
 
 	invalidRequestErrMsg = "Invalid request"
 
@@ -205,7 +205,7 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 }
 
 //nolint:dupl,funlen,gocyclo
-// VerifyCredential swagger:route POST /{id}/verifier/credentials verifier verifyCredentialReq
+// VerifyCredential swagger:route POST /{id}/verifier/credentials/verify verifier verifyCredentialReq
 //
 // Verifies a credential.
 //
@@ -294,7 +294,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	}
 }
 
-// VerifyPresentation swagger:route POST /{id}/verifier/presentations verifier verifyPresentationReq
+// VerifyPresentation swagger:route POST /{id}/verifier/presentations/verify verifier verifyPresentationReq
 //
 // Verifies a presentation.
 //

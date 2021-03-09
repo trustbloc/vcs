@@ -5,7 +5,7 @@ The TrustBloc VC edge service supports multiple W3C CCG HTTP APIs. This page pro
 
 ## Issuer
 ### Issue Credential API
-The edge service implements [W3C Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/index.html#/internal/issueCredential) along 
+The edge service implements [W3C Issue Credential API](https://w3c-ccg.github.io/vc-http-api/#operation/issueCredential) along 
 with the following extra options defined by [Transmute Issue Credential API](https://transmute-industries.github.io/vc-http-api/#/Issuer/issueCredential).
 - verificationMethod 
 - proofPurpose

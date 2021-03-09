@@ -345,7 +345,7 @@ func TestVerifyCredential(t *testing.T) {
 	urlVars := make(map[string]string)
 	urlVars[profileIDPathParam] = vReq.ID
 
-	endpoint := "/test/verifier/credentials"
+	endpoint := "/test/verifier/credentials/verify"
 	didID := "did:test:EiBNfNRaz1Ll8BjVsbNv-fWc7K_KIoPuW8GFCh1_Tz_Iuw=="
 
 	verificationsHandler := getHandler(t, op, credentialsVerificationEndpoint, http.MethodPost)
@@ -955,7 +955,7 @@ func TestVerifyPresentation(t *testing.T) {
 	urlVars := make(map[string]string)
 	urlVars[profileIDPathParam] = vReq.ID
 
-	endpoint := "/test/verifier/presentations"
+	endpoint := "/test/verifier/presentations/verify"
 	verificationsHandler := getHandler(t, op, presentationsVerificationEndpoint, http.MethodPost)
 
 	t.Run("presentation verification - success", func(t *testing.T) {
