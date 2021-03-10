@@ -11,7 +11,6 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
@@ -423,8 +421,8 @@ func TestDeriveCredentials(t *testing.T) {
 		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
 	})
 
-	t.Run("derive credentials - success with opts nonce", func(t *testing.T) {
-		nonce := uuid.New().String()
+	t.Run("derive credentials - success with opts base64 nonce", func(t *testing.T) {
+		nonce := "lEixQKDQvRecCifKl789TQj+Ii6YWDLSwn3AxR0VpPJ1QV5htod/0VCchVf1zVM0y2E="
 
 		req := &DeriveCredentialRequest{
 			Credential: json.RawMessage(requestVC),
@@ -459,7 +457,7 @@ func TestDeriveCredentials(t *testing.T) {
 		require.Len(t, derived.Proofs, 1)
 		require.Equal(t, derived.Proofs[0]["type"], "BbsBlsSignatureProof2020")
 		require.NotEmpty(t, derived.Proofs[0]["nonce"])
-		require.EqualValues(t, derived.Proofs[0]["nonce"], base64.StdEncoding.EncodeToString([]byte(nonce)))
+		require.EqualValues(t, derived.Proofs[0]["nonce"], nonce)
 		require.NotEmpty(t, derived.Proofs[0]["proofValue"])
 	})
 

@@ -7,14 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -293,13 +294,12 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 		return
 	}
 
-	// if nonce not provided generate one
-	if deriveReq.Opts.Nonce == nil {
-		nonce := uuid.New().String()
-		deriveReq.Opts.Nonce = &nonce
+	nonceBytes, err := nonceFromDeriveRequestOpts(&deriveReq.Opts)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 	}
 
-	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, []byte(*deriveReq.Opts.Nonce),
+	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, nonceBytes,
 		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher()))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
@@ -320,6 +320,29 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 	commhttp.WriteResponse(rw, DeriveCredentialResponse{
 		VerifiableCredential: vcBytes,
 	})
+}
+
+func nonceFromDeriveRequestOpts(options *DeriveCredentialOptions) ([]byte, error) {
+	const defaultNonceSize = 50
+
+	// if nonce not provided generate one
+	if options.Nonce == nil {
+		nonceBytes := make([]byte, defaultNonceSize)
+
+		_, err := rand.Read(nonceBytes)
+		if err != nil {
+			return nil, fmt.Errorf("generating random failed: %w", err)
+		}
+
+		return nonceBytes, nil
+	}
+
+	nonceBytes, err := base64.StdEncoding.DecodeString(*options.Nonce)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode nonce: %w", err)
+	}
+
+	return nonceBytes, nil
 }
 
 func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningOpts {
