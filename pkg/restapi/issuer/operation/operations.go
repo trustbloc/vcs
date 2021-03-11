@@ -1187,6 +1187,8 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 			if len(idSplit) != splitAssertionMethodLength {
 				return fmt.Errorf("invalid assertion method : %s", idSplit)
 			}
+		case options.CredentialStatus.Type != "" && options.CredentialStatus.Type != cslstatus.RevocationList2020Status:
+			return fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type)
 		}
 	}
 

@@ -1712,6 +1712,9 @@ func TestIssueCredential(t *testing.T) {
 				Created:            &ct,
 				Challenge:          challenge,
 				Domain:             domain,
+				CredentialStatus: CredentialStatusOpt{
+					Type: cslstatus.RevocationList2020Status,
+				},
 			},
 		}
 
@@ -1877,6 +1880,43 @@ func TestIssueCredential(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "invalid proof option : customPurpose")
+	})
+
+	t.Run("issue credential with opts - invalid vc status", func(t *testing.T) {
+		ops, err := New(&Config{
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
+			KeyManager:         customKMS,
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
+				},
+			},
+			Crypto: customCrypto,
+		})
+		require.NoError(t, err)
+
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+
+		err = ops.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVC),
+			Opts: &IssueCredentialOptions{
+				CredentialStatus: CredentialStatusOpt{Type: "wrong"},
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "not supported credential status type")
 	})
 
 	t.Run("issue credential - invalid profile", func(t *testing.T) {
