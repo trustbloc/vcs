@@ -81,6 +81,13 @@ type IssueCredentialOptions struct {
 	Challenge string `json:"challenge,omitempty"`
 	// Domain is added to the proof
 	Domain string `json:"domain,omitempty"`
+	// The method of credential status to issue the credential including. If omitted credential status will be included.
+	CredentialStatus CredentialStatusOpt `json:"credentialStatus,omitempty"`
+}
+
+// CredentialStatusOpt credential status option
+type CredentialStatusOpt struct {
+	Type string `json:"type"`
 }
 
 // ComposeCredentialRequest for composing and issuing credential.
