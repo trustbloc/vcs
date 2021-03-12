@@ -18,6 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
@@ -40,6 +41,8 @@ const (
 	// DID methods supported by local implementations
 	didMethodKey = "key"
 
+	didMethodWeb = "web"
+
 	defaultTimeout = 240 * time.Second
 )
 
@@ -57,6 +60,7 @@ func New(config *Config) *Operation {
 	svc := &Operation{
 		ruleProvider: config.RuleProvider,
 		keyVDRI:      config.KeyVDRI,
+		webVDR:       web.New(),
 		httpClient: &http.Client{
 			Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
@@ -75,6 +79,7 @@ type Config struct {
 type Operation struct {
 	ruleProvider rules.Provider
 	keyVDRI      key.VDR
+	webVDR       *web.VDR
 	httpClient   httpClient
 }
 
@@ -121,6 +126,12 @@ func (o *Operation) resolveWithVDRI(rw http.ResponseWriter, didURI string) {
 	switch did.Method {
 	case didMethodKey:
 		docResolution, err = o.keyVDRI.Read(did.String())
+		if err != nil {
+			writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID: %s", err.Error()))
+			return
+		}
+	case didMethodWeb:
+		docResolution, err = o.webVDR.Read(did.String())
 		if err != nil {
 			writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID: %s", err.Error()))
 			return
