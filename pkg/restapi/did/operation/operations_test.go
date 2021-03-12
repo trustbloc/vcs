@@ -103,6 +103,27 @@ func TestResolve_vdr(t *testing.T) {
 		proxyHandler.Handle().ServeHTTP(rr, req)
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 	})
+
+	t.Run("error - failed to resolve DID did web", func(t *testing.T) {
+		op := New(&Config{
+			RuleProvider: &mockRuleProvider{},
+			KeyVDRI:      *key.New(),
+		})
+
+		proxyHandler := getHandler(t, op, resolveURL)
+
+		req, err := http.NewRequest(http.MethodGet, "", nil)
+		require.NoError(t, err)
+
+		req = mux.SetURLVars(req, map[string]string{
+			"did": "did:web:abc",
+		})
+
+		rr := httptest.NewRecorder()
+
+		proxyHandler.Handle().ServeHTTP(rr, req)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+	})
 }
 
 func TestResolve_proxy(t *testing.T) {
