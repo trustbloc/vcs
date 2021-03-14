@@ -259,7 +259,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		case statusCheck:
 			failureMessage := ""
 
-			ver, err := o.checkVCStatus(vc.Status)
+			ver, err := o.checkVCStatus(vc.Status, vc.Issuer.ID)
 
 			if err != nil {
 				failureMessage = fmt.Sprintf("failed to fetch the status : %s", err.Error())
@@ -495,7 +495,8 @@ func (o *Operation) validateVCStatus(vcStatus *verifiable.TypedID) error {
 	return nil
 }
 
-func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID) (*VerifyCredentialResponse, error) {
+//nolint: gocyclo
+func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (*VerifyCredentialResponse, error) {
 	vcResp := &VerifyCredentialResponse{
 		Verified: false, Message: "Revoked",
 	}
@@ -523,6 +524,10 @@ func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID) (*VerifyCredenti
 	revocationListVC, err := o.parseAndVerifyVC(resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse and verify status vc: %s", err.Error())
+	}
+
+	if revocationListVC.Issuer.ID != issuer {
+		return nil, fmt.Errorf("issuer of the credential do not match vc revocation list issuer")
 	}
 
 	credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
@@ -612,7 +617,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 				return nil, err
 			}
 
-			ver, err := o.checkVCStatus(vc.Status)
+			ver, err := o.checkVCStatus(vc.Status, vc.Issuer.ID)
 
 			if err != nil {
 				failureMessage = fmt.Sprintf("failed to fetch the status : %s", err.Error())

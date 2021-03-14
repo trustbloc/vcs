@@ -501,7 +501,7 @@ type mockVCStatusManager struct {
 	GetRevocationListVCErr   error
 }
 
-func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
+func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile, url string) (*verifiable.TypedID, error) {
 	return m.createStatusIDValue, m.createStatusIDErr
 }
 

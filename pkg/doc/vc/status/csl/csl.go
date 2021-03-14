@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	vcContext = "https://www.w3.org/2018/credentials/v1"
+	vcContext               = "https://www.w3.org/2018/credentials/v1"
+	jsonWebSignature2020Ctx = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 	// Context for Revocation List 2020
 	Context = "https://w3id.org/vc-revocation-list-2020/v1"
 	// CredentialStatusType credential status type
@@ -58,7 +59,6 @@ type crypto interface {
 // CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-status-rl-2020/
 type CredentialStatusManager struct {
 	store    ariesstorage.Store
-	url      string
 	listSize int
 	crypto   crypto
 }
@@ -79,18 +79,19 @@ type credentialSubject struct {
 }
 
 // New returns new Credential Status List
-func New(provider ariesstorage.Provider, url string, listSize int, c crypto) (*CredentialStatusManager, error) {
+func New(provider ariesstorage.Provider, listSize int, c crypto) (*CredentialStatusManager, error) {
 	store, err := provider.OpenStore(credentialStatusStore)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CredentialStatusManager{store: store, url: url, listSize: listSize, crypto: c}, nil
+	return &CredentialStatusManager{store: store, listSize: listSize, crypto: c}, nil
 }
 
 // CreateStatusID create status id
-func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
-	cslWrapper, err := c.getLatestCSL(profile)
+func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
+	url string) (*verifiable.TypedID, error) {
+	cslWrapper, err := c.getLatestCSL(profile, url)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +242,7 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 	return &w, nil
 }
 
-func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (*cslWrapper, error) {
+func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile, url string) (*cslWrapper, error) {
 	// get latest id
 	id, err := c.store.Get(latestListID)
 	if err != nil { //nolint: nestif
@@ -251,7 +252,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 			}
 
 			// create verifiable credential that encapsulates the revocation list
-			vc, errCreateVC := c.createVC(c.url+"/1", profile)
+			vc, errCreateVC := c.createVC(url+"/1", profile)
 			if errCreateVC != nil {
 				return nil, errCreateVC
 			}
@@ -267,7 +268,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	vcID := c.url + "/" + string(id)
+	vcID := url + "/" + string(id)
 
 	w, err := c.getCSLWrapper(vcID)
 	if err != nil { //nolint: nestif
@@ -296,6 +297,11 @@ func (c *CredentialStatusManager) createVC(vcID string,
 	profile *vcprofile.DataProfile) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 	credential.Context = []string{vcContext, Context}
+
+	if profile.SignatureType == vccrypto.JSONWebSignature2020 {
+		credential.Context = append(credential.Context, jsonWebSignature2020Ctx)
+	}
+
 	credential.ID = vcID
 	credential.Types = []string{vcType, revocationList2020VCType}
 	credential.Issuer = verifiable.Issuer{ID: profile.DID}

@@ -372,7 +372,7 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops.httpClient = &mockHTTPClient{doValue: &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits))),
+			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, didDoc.ID, encodeBits))),
 		}}
 
 		vc.Status = &verifiable.TypedID{
@@ -409,6 +409,63 @@ func TestVerifyCredential(t *testing.T) {
 		err = json.Unmarshal(rr.Body.Bytes(), &verificationResp)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(verificationResp.Checks))
+	})
+
+	t.Run("credential verification - vc issuer not equal vc list status", func(t *testing.T) {
+		pubKey, privKey, errGenerateKey := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, errGenerateKey)
+
+		didDoc := createDIDDoc(didID, pubKey)
+		verificationMethod := didDoc.VerificationMethod[0].ID
+		vc.Issuer.ID = didDoc.ID
+
+		ops, errNew := New(&Config{
+			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider: ariesmemstorage.NewProvider(),
+		})
+		require.NoError(t, errNew)
+
+		err = ops.profileStore.SaveProfile(vReq)
+		require.NoError(t, err)
+
+		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
+		require.NoError(t, errNew)
+
+		ops.httpClient = &mockHTTPClient{doValue: &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, "did:ex:12", encodeBits))),
+		}}
+
+		vc.Status = &verifiable.TypedID{
+			ID:   "http://example.com/status/100#1",
+			Type: cslstatus.RevocationList2020Status,
+			CustomFields: map[string]interface{}{
+				cslstatus.RevocationListIndex:      "1",
+				cslstatus.RevocationListCredential: "http://example.com/status/100",
+			},
+		}
+
+		vcBytes, errMarshal := vc.MarshalJSON()
+		require.NoError(t, errMarshal)
+
+		// verify credential
+		handler := getHandler(t, ops, credentialsVerificationEndpoint, http.MethodPost)
+
+		vReq := &CredentialsVerificationRequest{
+			Credential: getSignedVC(t, privKey, string(vcBytes), didID, verificationMethod, domain, challenge),
+			Opts: &CredentialsVerificationOptions{
+				Checks:    []string{proofCheck, statusCheck},
+				Challenge: challenge,
+				Domain:    domain,
+			},
+		}
+
+		vReqBytes, errMarshal := json.Marshal(vReq)
+		require.NoError(t, errMarshal)
+
+		rr := serveHTTPMux(t, handler, endpoint, vReqBytes, urlVars)
+		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Contains(t, rr.Body.String(), "issuer of the credential do not match vc revocation list issuer")
 	})
 
 	t.Run("credential verification - invalid profile", func(t *testing.T) {
@@ -682,7 +739,8 @@ func TestVerifyCredential(t *testing.T) {
 
 			op.httpClient = &mockHTTPClient{doValue: &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits))),
+				Body: ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC,
+					vc.Issuer.ID, encodeBits))),
 			}}
 
 			vc.Status = &verifiable.TypedID{
@@ -978,7 +1036,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op.httpClient = &mockHTTPClient{doValue: &http.Response{
 			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, encodeBits))),
+			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, didDoc.ID, encodeBits))),
 		}}
 
 		err = op.profileStore.SaveProfile(vReq)
@@ -1778,7 +1836,7 @@ const (
   ],
   "id": "https://example.com/credentials/status/3",
   "type": ["VerifiableCredential", "RevocationList2020Credential"],
-  "issuer": "did:example:12345",
+  "issuer": "%s",
   "issuanceDate": "2020-04-05T14:27:40Z",
   "credentialSubject": {
     "id": "https://example.com/status/3#list",

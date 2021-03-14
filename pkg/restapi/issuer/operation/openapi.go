@@ -153,6 +153,12 @@ type retrieveCredentialStatusReq struct { // nolint: unused,deadcode
 	// in: path
 	// required: true
 	ID string `json:"id"`
+
+	// StatusID
+	//
+	// in: path
+	// required: true
+	StatusID string `json:"statusID"`
 }
 
 // retrieveCredentialStatusResp model
