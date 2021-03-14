@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	vcContext               = "https://www.w3.org/2018/credentials/v1"
-	jsonWebSignature2020Ctx = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
+	vcContext                  = "https://www.w3.org/2018/credentials/v1"
+	jsonWebSignature2020Ctx    = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
+	bbsBlsSignature2020Context = "https://w3id.org/security/bbs/v1"
 	// Context for Revocation List 2020
 	Context = "https://w3id.org/vc-revocation-list-2020/v1"
 	// CredentialStatusType credential status type
@@ -300,6 +301,10 @@ func (c *CredentialStatusManager) createVC(vcID string,
 
 	if profile.SignatureType == vccrypto.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Ctx)
+	}
+
+	if profile.SignatureType == vccrypto.BbsBlsSignature2020 {
+		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
 
 	credential.ID = vcID
