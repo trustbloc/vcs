@@ -63,7 +63,7 @@ type commonDID interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
+	CreateStatusID(profile *vcprofile.DataProfile, url string) (*verifiable.TypedID, error)
 }
 
 // New returns governance operation instance
@@ -86,7 +86,7 @@ func New(config *Config) (*Operation, error) {
 
 	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI)
 
-	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
@@ -100,6 +100,7 @@ func New(config *Config) (*Operation, error) {
 		crypto:          c,
 		vcStatusManager: vcStatusManager,
 		claims:          data,
+		hostURL:         config.HostURL,
 	}
 
 	return svc, nil
@@ -128,6 +129,7 @@ type Operation struct {
 	crypto          *crypto.Crypto
 	vcStatusManager vcStatusManager
 	claims          []byte
+	hostURL         string
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -234,7 +236,8 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// set credential status
-	credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+	credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile,
+		o.hostURL+"/"+profileID+credentialStatus)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 			" %s", err.Error()))

@@ -63,7 +63,7 @@ func TestCredentialStatusList_New(t *testing.T) {
 	t.Run("test error from open store", func(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: fmt.Errorf("error open"),
-		}, "", 0, nil)
+		}, 0, nil)
 		require.Error(t, err)
 		require.Nil(t, s)
 		require.Contains(t, err.Error(), "error open")
@@ -71,7 +71,7 @@ func TestCredentialStatusList_New(t *testing.T) {
 }
 
 func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index int) {
-	status, err := s.CreateStatusID(getTestProfile())
+	status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 	require.NoError(t, err)
 	require.Equal(t, RevocationList2020Status, status.Type)
 	require.Equal(t, id+"#"+strconv.Itoa(index), status.ID)
@@ -105,7 +105,7 @@ func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index
 
 func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -118,11 +118,11 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test error from get latest id from store", func(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			ErrGet: fmt.Errorf("get error"),
-		}}, "localhost:8080/status", 1,
+		}}, 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -132,11 +132,11 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			ErrGet: storage.ErrDataNotFound,
 			ErrPut: fmt.Errorf("put error"),
-		}}, "localhost:8080/status", 1,
+		}}, 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -153,12 +153,12 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				}
 				return nil
 			},
-		}}, "localhost:8080/status", 1,
+		}}, 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store csl in store")
@@ -175,12 +175,12 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				}
 				return nil
 			},
-		}}, "localhost:8080/status", 1,
+		}}, 1,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -191,7 +191,7 @@ func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 	t.Run("test error getting csl from store", func(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
-		}}}, "localhost:8080/status", 2,
+		}}}, 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 		csl, err := s.GetRevocationListVC("1")
@@ -203,7 +203,7 @@ func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 
 func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status not exists", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status type not supported", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -234,7 +234,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status revocationListIndex not exists", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -250,7 +250,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status revocationListCredential not exists", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status revocationListCredential wrong value type", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -286,12 +286,12 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred))
@@ -321,7 +321,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test error get csl from store", func(t *testing.T) {
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
-		}}}, "localhost:8080/status", 2,
+		}}}, 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
@@ -341,12 +341,12 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
-		s, err := New(ariesmockstorage.NewMockStoreProvider(), "localhost:8080/status", 2,
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusID(getTestProfile())
+		_, err = s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})

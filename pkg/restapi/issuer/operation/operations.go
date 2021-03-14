@@ -59,7 +59,7 @@ const (
 	storeCredentialEndpoint        = "/store"
 	retrieveCredentialEndpoint     = "/retrieve"
 	credentialStatus               = "/status"
-	credentialStatusEndpoint       = credentialStatus + "/{id}"
+	credentialStatusEndpoint       = "/" + "{" + profileIDPathParam + "}" + credentialStatus + "/{id}"
 	credentialsBasePath            = "/" + "{" + profileIDPathParam + "}" + "/credentials"
 	updateCredentialStatusEndpoint = credentialsBasePath + credentialStatus
 	issueCredentialPath            = credentialsBasePath + "/issue"
@@ -101,7 +101,7 @@ type Handler interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
+	CreateStatusID(profile *vcprofile.DataProfile, url string) (*verifiable.TypedID, error)
 	UpdateVC(v *verifiable.Credential, profile *vcprofile.DataProfile, status bool) error
 	GetRevocationListVC(id string) ([]byte, error)
 }
@@ -132,7 +132,7 @@ type commonDID interface {
 func New(config *Config) (*Operation, error) {
 	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI)
 
-	vcStatusManager, err := cslstatus.New(config.StoreProvider, config.HostURL+credentialStatus, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
@@ -165,7 +165,7 @@ func New(config *Config) (*Operation, error) {
 		jweDecrypter:         jweDecrypter,
 		vcStatusManager:      vcStatusManager,
 		domain:               config.Domain,
-		HostURL:              config.HostURL,
+		hostURL:              config.HostURL,
 		macKeyHandle:         kh,
 		macCrypto:            config.Crypto,
 		vcIDIndexNameEncoded: vcIDIndexNameMACEncoded,
@@ -204,7 +204,7 @@ type Operation struct {
 	jweDecrypter         jose.Decrypter
 	vcStatusManager      vcStatusManager
 	domain               string
-	HostURL              string
+	hostURL              string
 	macKeyHandle         *keyset.Handle
 	macCrypto            ariescrypto.Crypto
 	vcIDIndexNameEncoded string
@@ -236,7 +236,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 	}
 }
 
-// RetrieveCredentialStatus swagger:route GET /status/{id} issuer retrieveCredentialStatusReq
+// RetrieveCredentialStatus swagger:route GET /{id}/status/{statusID} issuer retrieveCredentialStatusReq
 //
 // Retrieves the credential status.
 //
@@ -244,7 +244,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 //    default: genericError
 //        200: retrieveCredentialStatusResp
 func (o *Operation) retrieveCredentialStatus(rw http.ResponseWriter, req *http.Request) {
-	revocationListVCBytes, err := o.vcStatusManager.GetRevocationListVC(o.HostURL + req.RequestURI)
+	revocationListVCBytes, err := o.vcStatusManager.GetRevocationListVC(o.hostURL + req.RequestURI)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to get credential status list: %s", err.Error()))
@@ -746,7 +746,8 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile,
+			o.hostURL+"/"+profileID+credentialStatus)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
@@ -815,7 +816,8 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile,
+			o.hostURL+"/"+id+credentialStatus)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
