@@ -89,8 +89,9 @@ func New(provider ariesstorage.Provider, url string, listSize int, c crypto) (*C
 }
 
 // CreateStatusID create status id
-func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
-	cslWrapper, err := c.getLatestCSL(profile)
+func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
+	issuerSigningOpts []vccrypto.SigningOpts) (*verifiable.TypedID, error) {
+	cslWrapper, err := c.getLatestCSL(profile, issuerSigningOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +146,7 @@ func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
 		return err
 	}
 
-	signOpts, err := prepareSigningOpts(profile, cslWrapper.VC.Proofs)
+	signOpts, err := prepareSigningOpts(profile, cslWrapper.VC.Proofs, []vccrypto.SigningOpts{})
 	if err != nil {
 		return err
 	}
@@ -241,7 +242,7 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 	return &w, nil
 }
 
-func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (*cslWrapper, error) {
+func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile, issuerSigningOpts []vccrypto.SigningOpts) (*cslWrapper, error) {
 	// get latest id
 	id, err := c.store.Get(latestListID)
 	if err != nil { //nolint: nestif
@@ -251,7 +252,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 			}
 
 			// create verifiable credential that encapsulates the revocation list
-			vc, errCreateVC := c.createVC(c.url+"/1", profile)
+			vc, errCreateVC := c.createVC(c.url+"/1", profile, issuerSigningOpts)
 			if errCreateVC != nil {
 				return nil, errCreateVC
 			}
@@ -273,7 +274,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 	if err != nil { //nolint: nestif
 		if errors.Is(err, ariesstorage.ErrDataNotFound) {
 			// create verifiable credential that encapsulates the revocation list
-			vc, errCreateVC := c.createVC(vcID, profile)
+			vc, errCreateVC := c.createVC(vcID, profile, issuerSigningOpts)
 			if errCreateVC != nil {
 				return nil, errCreateVC
 			}
@@ -293,7 +294,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile) (
 }
 
 func (c *CredentialStatusManager) createVC(vcID string,
-	profile *vcprofile.DataProfile) (*verifiable.Credential, error) {
+	profile *vcprofile.DataProfile, issuerSigningOpts []vccrypto.SigningOpts) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 	credential.Context = []string{vcContext, Context}
 	credential.ID = vcID
@@ -317,7 +318,7 @@ func (c *CredentialStatusManager) createVC(vcID string,
 		EncodedList: encodeBits,
 	}
 
-	signOpts, err := prepareSigningOpts(profile, credential.Proofs)
+	signOpts, err := prepareSigningOpts(profile, credential.Proofs, issuerSigningOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -344,11 +345,12 @@ func (c *CredentialStatusManager) storeCSL(cslWrapper *cslWrapper) error {
 }
 
 // prepareSigningOpts prepares signing opts from recently issued proof of given credential
-func prepareSigningOpts(profile *vcprofile.DataProfile, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
+func prepareSigningOpts(profile *vcprofile.DataProfile, proofs []verifiable.Proof,
+	issuerSigningOpts []vccrypto.SigningOpts) ([]vccrypto.SigningOpts, error) {
 	var signingOpts []vccrypto.SigningOpts
 
 	if len(proofs) == 0 {
-		return signingOpts, nil
+		return issuerSigningOpts, nil
 	}
 
 	// pick latest proof if there are multiple

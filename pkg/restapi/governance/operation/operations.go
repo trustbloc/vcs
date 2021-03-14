@@ -63,7 +63,7 @@ type commonDID interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
+	CreateStatusID(profile *vcprofile.DataProfile, issuerSigningOpts []crypto.SigningOpts) (*verifiable.TypedID, error)
 }
 
 // New returns governance operation instance
@@ -234,7 +234,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// set credential status
-	credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+	credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile, []crypto.SigningOpts{})
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 			" %s", err.Error()))

@@ -71,7 +71,7 @@ func TestCredentialStatusList_New(t *testing.T) {
 }
 
 func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index int) {
-	status, err := s.CreateStatusID(getTestProfile())
+	status, err := s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 	require.NoError(t, err)
 	require.Equal(t, RevocationList2020Status, status.Type)
 	require.Equal(t, id+"#"+strconv.Itoa(index), status.ID)
@@ -122,7 +122,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -136,7 +136,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -158,7 +158,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store csl in store")
@@ -180,7 +180,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -291,7 +291,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(getTestProfile())
+		status, err := s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred))
@@ -346,7 +346,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}))
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusID(getTestProfile())
+		_, err = s.CreateStatusID(getTestProfile(), []vccrypto.SigningOpts{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})
@@ -452,7 +452,7 @@ func TestPrepareSigningOpts(t *testing.T) {
 				err := json.Unmarshal([]byte(tc.proof), &proof)
 				require.NoError(t, err)
 
-				opts, err := prepareSigningOpts(profile, []verifiable.Proof{proof})
+				opts, err := prepareSigningOpts(profile, []verifiable.Proof{proof}, []vccrypto.SigningOpts{})
 
 				if tc.err != "" {
 					require.Error(t, err)

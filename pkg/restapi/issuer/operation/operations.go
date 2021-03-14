@@ -101,7 +101,7 @@ type Handler interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error)
+	CreateStatusID(profile *vcprofile.DataProfile, issuerSigningOpts []crypto.SigningOpts) (*verifiable.TypedID, error)
 	UpdateVC(v *verifiable.Credential, profile *vcprofile.DataProfile, status bool) error
 	GetRevocationListVC(id string) ([]byte, error)
 }
@@ -744,9 +744,11 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
+	issuerSigningOpts := getIssuerSigningOpts(cred.Opts)
+
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile, issuerSigningOpts)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
@@ -764,7 +766,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	vcutil.UpdateIssuer(credential, profile)
 
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(profile.DataProfile, credential, getIssuerSigningOpts(cred.Opts)...)
+	signedVC, err := o.crypto.SignCredential(profile.DataProfile, credential, issuerSigningOpts...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -813,9 +815,18 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		return
 	}
 
+	// prepare signing options from request options
+	opts, err := getComposeSigningOpts(&composeCredReq)
+	if err != nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to prepare signing options:"+
+			" %s", err.Error()))
+
+		return
+	}
+
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile)
+		credential.Status, err = o.vcStatusManager.CreateStatusID(profile.DataProfile, opts)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
 				" %s", err.Error()))
@@ -831,15 +842,6 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 
 	// update credential issuer
 	vcutil.UpdateIssuer(credential, profile)
-
-	// prepare signing options from request options
-	opts, err := getComposeSigningOpts(&composeCredReq)
-	if err != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to prepare signing options:"+
-			" %s", err.Error()))
-
-		return
-	}
 
 	// sign the credential
 	signedVC, err := o.crypto.SignCredential(profile.DataProfile, credential, opts...)

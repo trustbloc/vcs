@@ -2923,7 +2923,8 @@ type mockVCStatusManager struct {
 	GetRevocationListVCErr   error
 }
 
-func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
+func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
+	issuerSigningOpts []vccrypto.SigningOpts) (*verifiable.TypedID, error) {
 	return m.createStatusIDValue, m.createStatusIDErr
 }
 
@@ -2939,7 +2940,8 @@ type mockCredentialStatusManager struct {
 	CreateErr error
 }
 
-func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile) (*verifiable.TypedID, error) {
+func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
+	issuerSigningOpts []vccrypto.SigningOpts) (*verifiable.TypedID, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
 	}
