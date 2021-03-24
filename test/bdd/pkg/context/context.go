@@ -14,7 +14,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
@@ -85,16 +84,11 @@ func createVDRI(didResolverURL string) (vdrapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
 	}
 
-	vdrProvider, err := context.New(context.WithKMS(nil))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new vdr provider: %w", err)
-	}
-
 	blocVDR, err := trustbloc.New(nil, trustbloc.WithResolverURL(didResolverURL),
 		trustbloc.WithDomain("testnet.trustbloc.local"))
 	if err != nil {
 		return nil, err
 	}
 
-	return vdrpkg.New(vdrProvider, vdrpkg.WithVDR(blocVDR), vdrpkg.WithVDR(didResolverVDRI)), nil
+	return vdrpkg.New(vdrpkg.WithVDR(blocVDR), vdrpkg.WithVDR(didResolverVDRI)), nil
 }

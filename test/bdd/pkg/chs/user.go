@@ -30,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -175,13 +174,7 @@ func (u *user) initVDR(tlsConfig *tls.Config) error {
 		return fmt.Errorf("failed to init trustbloc vdr: %w", err)
 	}
 
-	vdrProvider, err := context.New(context.WithKMS(u.localkms))
-	if err != nil {
-		return fmt.Errorf("failed to create new vdr provider: %w", err)
-	}
-
 	u.vdr = vdr.New(
-		vdrProvider,
 		vdr.WithVDR(key.New()),
 		vdr.WithVDR(trustblocVDR),
 	)
@@ -519,6 +512,7 @@ func encryptedJWE(msg []byte, km kms.KeyManager, c crypto.Crypto) (*jose.JSONWeb
 
 	jweEncrpt, err := jose.NewJWEEncrypt(
 		jose.A256GCM,
+		"",
 		"",
 		"",
 		nil,

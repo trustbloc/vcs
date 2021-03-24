@@ -282,7 +282,7 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 	didDoc.AssertionMethod = append(didDoc.AssertionMethod,
 		*docdid.NewReferencedVerification(vm, docdid.AssertionMethod))
 
-	docResolution, err := c.Create(nil, didDoc,
+	docResolution, err := c.Create(didDoc,
 		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, ed25519.PublicKey(ed25519RecoveryPubKey)),
 		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, ed25519.PublicKey(ed25519UpdatePubKey)))
 	if err != nil {

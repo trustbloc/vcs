@@ -366,12 +366,6 @@ func (e *Steps) edvSign(controller, authToken string) func(req *http.Request) (*
 	}
 }
 
-type kmsCtx struct{ kms.KeyManager }
-
-func (c *kmsCtx) KMS() kms.KeyManager {
-	return c.KeyManager
-}
-
 func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.Header, error) {
 	req.Header.Set(
 		zcapld.CapabilityInvocationHTTPHeader,
@@ -383,7 +377,6 @@ func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.
 		Crypto: e.crypto,
 		KMS:    e.kms,
 		Resolver: ariesvdr.New(
-			&kmsCtx{e.kms},
 			ariesvdr.WithVDR(vdrkey.New()),
 			ariesvdr.WithVDR(e.trustblocVDR),
 		),
@@ -424,7 +417,7 @@ func (e *Steps) createDIDTrustbloc() (string, error) {
 		return "", err
 	}
 
-	docResolution, err := e.trustblocVDR.Create(nil, didDoc,
+	docResolution, err := e.trustblocVDR.Create(didDoc,
 		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
 		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
 	)

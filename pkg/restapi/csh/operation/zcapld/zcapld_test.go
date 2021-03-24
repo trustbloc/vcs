@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package zcapld_test
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/http"
@@ -164,6 +166,15 @@ func TestDIDSecrets_Get(t *testing.T) {
 	})
 }
 
+func getSigningKey() did.VerificationMethod {
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	return did.VerificationMethod{Value: pub[:], Type: "Ed25519VerificationKey2018"}
+}
+
 func TestDIDSignatureHashAlgorithms_CommonTests(t *testing.T) {
 	t.Run("creates and verifies signatures", func(t *testing.T) {
 		t.Run("using Ed25519", func(t *testing.T) {
@@ -247,7 +258,7 @@ func TestDIDSignatureHashAlgorithms_CommonTests(t *testing.T) {
 		agent := newAgent(t)
 		method, err := peer.New(mem.NewProvider())
 		require.NoError(t, err)
-		resolution, err := method.Create(agent.KMS(), &did.Doc{})
+		resolution, err := method.Create(&did.Doc{VerificationMethod: []did.VerificationMethod{getSigningKey()}})
 		require.NoError(t, err)
 
 		a := &zcapld.DIDSignatureHashAlgorithms{

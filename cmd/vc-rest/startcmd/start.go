@@ -26,8 +26,6 @@ import (
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
@@ -628,7 +626,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	// Create VDRI
 	vdr, err := createVDRI(parameters.universalResolverURL,
-		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, localKMS, parameters.blocDomain)
+		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, parameters.blocDomain)
 	if err != nil {
 		return err
 	}
@@ -749,8 +747,7 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLockService
 }
 
-func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManager,
-	blocDomain string) (vdrapi.Registry, error) {
+func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain string) (vdrapi.Registry, error) {
 	var opts []vdrpkg.Option
 
 	var blocVDRIOpts []trustbloc.Option
@@ -780,12 +777,7 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, km kms.KeyManag
 	// add bloc vdr
 	opts = append(opts, vdrpkg.WithVDR(blocVDR), vdrpkg.WithVDR(key.New()))
 
-	vdriProvider, err := context.New(context.WithKMS(km))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new vdr provider: %w", err)
-	}
-
-	return vdrpkg.New(vdriProvider, opts...), nil
+	return vdrpkg.New(opts...), nil
 }
 
 func supportedMode(mode string) bool {

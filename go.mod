@@ -19,21 +19,21 @@ require (
 	github.com/google/tink/go v1.5.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210310014234-cfa8c6d6e2f4
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210324130905-701d7005a14e
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210306170115-156a24580a5c
-	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210306170115-156a24580a5c
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210306170115-156a24580a5c
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210306194409-6e4c5d622fbc
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210310014234-cfa8c6d6e2f4
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210310014234-cfa8c6d6e2f4
+	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210324103223-38104f9ff716
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210324103223-38104f9ff716
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210324103223-38104f9ff716
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210324130905-701d7005a14e
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210324130905-701d7005a14e
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/spf13/cobra v1.1.1
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.7.0
-	github.com/trustbloc/edge-core v0.1.7-0.20210310142750-7eb11997c4a9
+	github.com/trustbloc/edge-core v0.1.7-0.20210324113338-e0047bbbfdff
 	github.com/trustbloc/edv v0.1.7-0.20210310153759-93231203a6e5
-	github.com/trustbloc/kms v0.1.7-0.20210310174349-5d3ead9dd387
-	github.com/trustbloc/trustbloc-did-method v0.1.7-0.20210310190749-d2f1d7351047
+	github.com/trustbloc/kms v0.1.7-0.20210324144404-913aeecf3d7d
+	github.com/trustbloc/trustbloc-did-method v0.1.7-0.20210324105555-590b5d65ee88
 )
 
 replace github.com/kilic/bls12-381 => github.com/kilic/bls12-381 v0.0.0-20201104083100-a288617c07f1
