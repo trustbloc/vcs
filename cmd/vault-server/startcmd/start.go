@@ -20,7 +20,6 @@ import (
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
@@ -291,12 +290,6 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLock
 }
 
-type kmsCtx struct{ kms.KeyManager }
-
-func (c *kmsCtx) KMS() kms.KeyManager {
-	return c.KeyManager
-}
-
 func startService(params *serviceParameters, srv server) error { // nolint: funlen
 	rootCAs, err := tlsutils.GetCertPool(params.tlsParams.systemCertPool, params.tlsParams.caCerts)
 	if err != nil {
@@ -336,7 +329,6 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		keyManager,
 		storeProvider,
 		vault.WithRegistry(ariesvdr.New(
-			&kmsCtx{KeyManager: keyManager},
 			ariesvdr.WithVDR(vdrkey.New()),
 			ariesvdr.WithVDR(vdrBloc),
 		)),

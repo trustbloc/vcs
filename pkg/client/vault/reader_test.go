@@ -207,6 +207,7 @@ func encryptedJWE(t *testing.T, agent *context.Provider, msg []byte) *jose.JSONW
 		jose.A256GCM,
 		"",
 		"",
+		"",
 		nil,
 		[]*crypto.PublicKey{recipientKey},
 		agent.Crypto(),

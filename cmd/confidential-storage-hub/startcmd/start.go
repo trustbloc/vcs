@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
@@ -339,11 +338,6 @@ func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
 		return nil, fmt.Errorf("failed to init trustbloc VDR: %w", err)
 	}
 
-	vdrProvider, err := context.New(context.WithKMS(k))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new vdr provider: %w", err)
-	}
-
 	// TODO make these configurable:
 	//  - DID resolvers
 	//  - Key types
@@ -361,7 +355,7 @@ func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
 		PublicDIDCreator: did.PublicDID(&did.Config{
 			Method:                 params.identityDIDMethod,
 			VerificationMethodType: "JsonWebKey2020",
-			VDR:                    vdr.New(vdrProvider, vdr.WithVDR(key.New()), vdr.WithVDR(trustblocVDR)),
+			VDR:                    vdr.New(vdr.WithVDR(key.New()), vdr.WithVDR(trustblocVDR)),
 			JWKKeyCreator:          crypto2.JWKKeyCreator(kms.ED25519Type),
 			CryptoKeyCreator:       crypto2.CryptoKeyCreator(kms.ED25519Type),
 		}),

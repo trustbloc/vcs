@@ -15,6 +15,7 @@ import (
 	"github.com/google/tink/go/mac"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	kmsservice "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -52,7 +53,7 @@ func Test_createJWEEncrypter(t *testing.T) {
 		testMACValue := []byte("testValue")
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
 
-		jweEncrypter, err := createJWEEncrypter("", keyHandle, jose.A256GCM, jose.DIDCommEncType,
+		jweEncrypter, err := createJWEEncrypter("", keyHandle, jose.A256GCM, packer.EnvelopeEncodingTypeV2,
 			func(_ []byte, _ interface{}) error {
 				return errTest
 			}, nil, &mockCrypto)
@@ -66,8 +67,8 @@ func Test_createJWEEncrypter(t *testing.T) {
 		testMACValue := []byte("testValue")
 		mockCrypto := crypto.Crypto{ComputeMACValue: testMACValue}
 
-		jweEncrypter, err := createJWEEncrypter("", keyHandle, jose.A256GCM, jose.DIDCommEncType, json.Unmarshal,
-			func(alg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
+		jweEncrypter, err := createJWEEncrypter("", keyHandle, jose.A256GCM, packer.EnvelopeEncodingTypeV2, json.Unmarshal,
+			func(alg jose.EncAlg, encType, ctx, senderKID string, senderKH *keyset.Handle,
 				keys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error) {
 				return nil, errTest
 			}, &mockCrypto)

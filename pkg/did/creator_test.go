@@ -94,7 +94,7 @@ func TestPublicDID(t *testing.T) {
 			result, err := did2.PublicDID(&did2.Config{
 				Method:                 keymethod.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020", // TODO the verification method type is probably ignored by did:key
-				VDR:                    vdr.New(&vdrProvider{}, vdr.WithVDR(keymethod.New())),
+				VDR:                    vdr.New(vdr.WithVDR(keymethod.New())),
 				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
 				CryptoKeyCreator:       key.CryptoKeyCreator(kms.ED25519Type),
 			})(newKMS(t))
@@ -141,11 +141,4 @@ func newVDR(t *testing.T, d *did.Doc, err error) vdrapi.Registry {
 		CreateValue: d,
 		CreateErr:   err,
 	}
-}
-
-type vdrProvider struct {
-}
-
-func (v *vdrProvider) KMS() kms.KeyManager {
-	return nil
 }

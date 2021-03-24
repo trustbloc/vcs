@@ -15,6 +15,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/keyio"
+	"github.com/hyperledger/aries-framework-go/pkg/didcomm/packer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
@@ -31,7 +32,7 @@ var errKeySetHandleAssertionFailure = errors.New("unable to assert key handle as
 
 type (
 	unmarshalFunc     func([]byte, interface{}) error
-	newJWEEncryptFunc func(encAlg jose.EncAlg, encType, senderKID string, senderKH *keyset.Handle,
+	newJWEEncryptFunc func(encAlg jose.EncAlg, encType, cty, senderKID string, senderKH *keyset.Handle,
 		recipientsPubKeys []*cryptoapi.PublicKey, crypto cryptoapi.Crypto) (*jose.JWEEncrypt, error)
 )
 
@@ -45,7 +46,7 @@ func PrepareJWECrypto(keyManager kms.KeyManager, storeProvider ariesstorage.Prov
 
 	// passing encryption type is hard coded to `composite.DIDCommEncType` since the encrypter only supports
 	// Anoncrypt (ECDHES key types)
-	jweEncrypter, err := createJWEEncrypter(kid, keyHandle, encAlg, jose.DIDCommEncType,
+	jweEncrypter, err := createJWEEncrypter(kid, keyHandle, encAlg, packer.ContentEncodingTypeV2,
 		json.Unmarshal, jose.NewJWEEncrypt, c)
 	if err != nil {
 		return nil, nil, err
@@ -81,7 +82,7 @@ func createJWEEncrypter(kid string, keyHandle *keyset.Handle, encAlg jose.EncAlg
 	}
 
 	// since this is anoncrypt, sender key is not set here
-	jweEncrypter, err := newJWEEncrypt(encAlg, encType, "", nil, []*cryptoapi.PublicKey{ecPubKey},
+	jweEncrypter, err := newJWEEncrypt(encAlg, encType, "", "", nil, []*cryptoapi.PublicKey{ecPubKey},
 		crypto)
 	if err != nil {
 		return nil, err

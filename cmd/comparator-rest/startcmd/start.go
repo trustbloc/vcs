@@ -20,7 +20,6 @@ import (
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
@@ -407,13 +406,8 @@ func startService(params *serviceParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	vdrProvider, err := context.New(context.WithKMS(keyManager))
-	if err != nil {
-		return fmt.Errorf("failed to create new vdr provider: %w", err)
-	}
-
 	service, err := comparator.New(&operation.Config{
-		VDR:           vdr.New(vdrProvider, vdr.WithVDR(trustblocVDR)),
+		VDR:           vdr.New(vdr.WithVDR(trustblocVDR)),
 		KeyManager:    keyManager,
 		TLSConfig:     tlsConfig,
 		DIDMethod:     trustbloc.DIDMethod,

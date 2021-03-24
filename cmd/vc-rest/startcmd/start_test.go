@@ -13,10 +13,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
@@ -353,21 +350,9 @@ func TestCreateKMS(t *testing.T) {
 	})
 }
 
-func createTestKMS(t *testing.T) *localkms.LocalKMS {
-	t.Helper()
-
-	p := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
-
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
-	require.NoError(t, err)
-
-	return k
-}
-
 func TestCreateVDRI(t *testing.T) {
-	testKMS := createTestKMS(t)
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
-		v, err := createVDRI("wrong", &tls.Config{}, testKMS, "")
+		v, err := createVDRI("wrong", &tls.Config{}, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 		require.Nil(t, v)
@@ -383,8 +368,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		testKMS := createTestKMS(t)
-		v, err := createVDRI("localhost:8083", &tls.Config{}, testKMS, "")
+		v, err := createVDRI("localhost:8083", &tls.Config{}, "")
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})

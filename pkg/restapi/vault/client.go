@@ -159,12 +159,6 @@ func WithRegistry(registry vdr.Registry) Opt {
 	}
 }
 
-type kmsCtx struct{ kms.KeyManager }
-
-func (c *kmsCtx) KMS() kms.KeyManager {
-	return c.KeyManager
-}
-
 // NewClient creates a new vault client.
 func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provider, opts ...Opt) (*Client, error) {
 	cryptoService, err := tinkcrypto.New()
@@ -194,7 +188,6 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 		},
 		didMethod: "key",
 		registry: ariesvdr.New(
-			&kmsCtx{KeyManager: kmsClient},
 			ariesvdr.WithVDR(vdrkey.New()),
 		),
 	}
@@ -758,7 +751,7 @@ func encryptContent(wKMS KeyManager, wCrypto ariescrypto.Crypto, content interfa
 		return "", "", fmt.Errorf("unmarshal: %w", err)
 	}
 
-	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, jose.A256GCMALG, "", nil,
+	encrypter, err := jose.NewJWEEncrypt(jose.A256GCM, jose.A256GCMALG, "", "", nil,
 		[]*ariescrypto.PublicKey{ecPubKey}, wCrypto)
 	if err != nil {
 		return "", "", fmt.Errorf("new JWE encrypt: %w", err)
