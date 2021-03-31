@@ -286,7 +286,7 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 	}
 
 	credential, err := verifiable.ParseCredential(deriveReq.Credential,
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher()))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to parse credential: %s", err.Error()))
@@ -300,7 +300,7 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 	}
 
 	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, nonceBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher()))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to generate BBS selective disclosure: %s", err.Error()))

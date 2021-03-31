@@ -15,7 +15,7 @@ import (
 // DIDResolver resolves DIDs.
 type DIDResolver interface {
 	Accept(method string) bool
-	Read(did string, options ...vdr.ResolveOption) (*did.DocResolution, error)
+	Read(did string, options ...vdr.DIDMethodOption) (*did.DocResolution, error)
 }
 
 // KMS key manager.

@@ -1029,7 +1029,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
 	if err != nil {

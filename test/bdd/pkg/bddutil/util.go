@@ -204,7 +204,7 @@ func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 	ldpContext *verifiable.LinkedDataProofContext) ([]byte, error) {
 	// parse vc
 	vc, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdr).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()))
 	if err != nil {
 		return nil, err
 	}

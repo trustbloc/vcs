@@ -557,7 +557,7 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 		verifiable.WithStrictValidation(),
 	)
@@ -579,7 +579,7 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 		vp, err = verifiable.ParsePresentation(
 			vpBytes,
 			verifiable.WithPresPublicKeyFetcher(
-				verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
+				verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 			),
 		)
 		if err != nil {
@@ -638,7 +638,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	vc, err := verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(o.vdr).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 	)
 	if err != nil {

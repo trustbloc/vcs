@@ -1661,7 +1661,7 @@ func TestIssueCredential(t *testing.T) {
 		KeyManager:         customKMS,
 		Crypto:             customCrypto,
 		VDRI: &vdrmock.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+			ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 			},
 		},
@@ -1682,7 +1682,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
@@ -1798,7 +1798,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
@@ -1851,7 +1851,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
@@ -1888,7 +1888,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
@@ -2017,7 +2017,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
@@ -2212,7 +2212,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
 				},
 			},
@@ -2472,7 +2472,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
 				},
 			},

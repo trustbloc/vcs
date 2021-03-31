@@ -327,7 +327,7 @@ func TestDeriveCredentials(t *testing.T) {
 	ops, err := New(&Config{
 		StoreProvider: ariesmemstorage.NewProvider(),
 		VDRI: &vdrmock.MockVDRegistry{
-			ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+			ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 				if didID == didKey {
 					k := key.New()
 
@@ -373,7 +373,7 @@ func TestDeriveCredentials(t *testing.T) {
 
 		// verify VC
 		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(ops.vdr).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
 		))
 
 		// check expected proof
@@ -409,7 +409,7 @@ func TestDeriveCredentials(t *testing.T) {
 
 		// verify VC
 		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(ops.vdr).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
 		))
 
 		// check expected proof
@@ -448,7 +448,7 @@ func TestDeriveCredentials(t *testing.T) {
 
 		// verify VC
 		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
-			verifiable.NewDIDKeyResolver(ops.vdr).PublicKeyFetcher(),
+			verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
 		))
 
 		// check expected proof
@@ -514,7 +514,7 @@ func TestDeriveCredentials(t *testing.T) {
 		customOps, err := New(&Config{
 			StoreProvider: ariesmemstorage.NewProvider(),
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					count++
 
 					if count == 1 && didID == didKey {
@@ -596,7 +596,7 @@ func TestSignPresentation(t *testing.T) {
 			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
@@ -683,7 +683,7 @@ func TestSignPresentation(t *testing.T) {
 			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS2,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
