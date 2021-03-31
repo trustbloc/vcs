@@ -453,7 +453,7 @@ func (m *mockDIDResolver) Accept(method string) bool {
 	return m.method == method
 }
 
-func (m *mockDIDResolver) Read(string, ...vdr.ResolveOption) (*did.DocResolution, error) {
+func (m *mockDIDResolver) Read(string, ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 	return m.readValue, m.readErr
 }
 

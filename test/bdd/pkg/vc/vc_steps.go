@@ -100,7 +100,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 //nolint: funlen
 func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
 	vc, err := verifiable.ParseCredential(e.bddContext.CreatedCredential,
-		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
 	if err != nil {
 		return err
 	}

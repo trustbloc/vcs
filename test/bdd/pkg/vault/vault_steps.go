@@ -61,7 +61,7 @@ type Steps struct {
 	kms            kms.KeyManager
 	kmsURI         string
 	crypto         ariescrypto.Crypto
-	trustblocVDR   *trustbloc.VDRI
+	trustblocVDR   *trustbloc.VDR
 }
 
 // NewSteps returns new vault steps.

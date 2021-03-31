@@ -250,7 +250,7 @@ func TestIssueCredential(t *testing.T) {
 			StoreProvider: ariesmemstorage.NewProvider(),
 			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
-				ResolveFunc: func(didID string, opts ...vdr.ResolveOption) (*did.DocResolution, error) {
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
