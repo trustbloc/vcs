@@ -65,8 +65,7 @@ func runBDDTests(tags, format string) int {
 		composeFiles := []string{
 			"./fixtures/couchdb", "./fixtures/mysql", "./fixtures/vc-rest",
 			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
-			"./fixtures/did-method-rest", "./fixtures/universal-registrar", "./fixtures/discovery-server",
-			"./fixtures/stakeholder-server", "./fixtures/confidential-storage-hub", "./fixtures/comparator-rest",
+			"./fixtures/universal-registrar", "./fixtures/confidential-storage-hub", "./fixtures/comparator-rest",
 			"./fixtures/vault-server", "./fixtures/hub-kms",
 		}
 

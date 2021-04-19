@@ -21,8 +21,8 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -87,6 +87,7 @@ type Operation struct {
 	vaultClient      vaultClient
 	cshProfile       *cshclientmodels.Profile
 	comparatorConfig *models.Config
+	didDomain        string
 }
 
 // Config defines configuration for comparator operations.
@@ -98,6 +99,7 @@ type Config struct {
 	StoreProvider storage.Provider
 	CSHBaseURL    string
 	VaultBaseURL  string
+	DIDDomain     string
 }
 
 // New returns operation instance.
@@ -123,8 +125,8 @@ func New(cfg *Config) (*Operation, error) {
 	)
 
 	op := &Operation{
-		vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod,
-		store: store, cshClient: client.New(transport, strfmt.Default).Operations,
+		didDomain: cfg.DIDDomain, vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig,
+		didMethod: cfg.DIDMethod, store: store, cshClient: client.New(transport, strfmt.Default).Operations,
 		vaultClient: vaultclient.New(cfg.VaultBaseURL, vaultclient.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: cfg.TLSConfig,
@@ -307,15 +309,18 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 	}
 
 	docResolution, err := o.vdr.Create(o.didMethod, didDoc,
-		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
-		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
+		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.AnchorOriginOpt, "todo"),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create DID : %w", err)
 	}
 
 	request := &cshclientmodels.Profile{}
-	request.Controller = &docResolution.DIDDocument.ID
+	didID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
+		fmt.Sprintf("did:%s:%s", orb.DIDMethod, o.didDomain))
+	request.Controller = &didID
 
 	cshProfile, err := o.cshClient.PostHubstoreProfiles(
 		operations.NewPostHubstoreProfilesParams().WithTimeout(requestTimeout).WithRequest(request))

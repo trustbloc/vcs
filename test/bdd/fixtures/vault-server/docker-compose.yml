@@ -20,8 +20,8 @@ services:
       - VAULT_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - VAULT_TLS_SERVE_KEY=/etc/tls/ec-key.pem
       - VAULT_DSN=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - VAULT_DID_DOMAIN=testnet.trustbloc.local
-      - VAULT_DID_METHOD=trustbloc
+      - VAULT_DID_DOMAIN=testnet.orb.local
+      - VAULT_DID_METHOD=orb
     ports:
       - ${VAULT_SERVER_PORT}:${VAULT_SERVER_PORT}
     entrypoint: ""
@@ -46,7 +46,7 @@ services:
       - KMS_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - KMS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
-      - KMS_DID_DOMAIN=testnet.trustbloc.local
+      - KMS_DID_DOMAIN=testnet.orb.local
       - KMS_LOG_LEVEL=debug
     ports:
       - ${KMS_PORT}:${KMS_PORT}

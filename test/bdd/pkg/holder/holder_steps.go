@@ -71,7 +71,7 @@ const (
 		`H7d6YSx3KnqXwzVRNbD4Jn_S2l-iThsTkc-SPQvnsjXmpaHCf4EO5j7gMCYN0nKPfHk2ny_ikH4xqIjIyVwaBA",
 			  "proofPurpose":"assertionMethod",
 			  "type":"Ed25519Signature2018",
-			  "verificationMethod":"did:trustbloc:testnet.trustbloc.local:EiDfx1g3LUn8QeQlD4ny84XjsUSqx_9UC6cyPj` +
+			  "verificationMethod":"did:orb:testnet.orb.local:EiDfx1g3LUn8QeQlD4ny84XjsUSqx_9UC6cyPj` +
 		`963CIetw#bG9jYWwtbG9jazovL2N1c3RvbS9tYXN0ZXIva2V5L0JBV2otbFdaUVJhQ2hJckZGMlhTaDJSRVJoVWtZOEt5Z0xualZYTllYZjg9"
 		   },
 		   "type":[

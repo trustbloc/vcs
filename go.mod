@@ -20,19 +20,19 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210330153939-7ec3a2c4697c
-	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210306170115-156a24580a5c
-	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210324103223-38104f9ff716
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210330163233-9482b4291d8e
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc v0.0.0-20210331105523-60637a465684
+	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210326155331-14f4ca7d75cb
+	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210326155331-14f4ca7d75cb
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210415184514-aa162c522bc1
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210413155718-eeb5b3c708be
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210330153939-7ec3a2c4697c
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210330153939-7ec3a2c4697c
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
-	github.com/spf13/cobra v1.1.1
+	github.com/spf13/cobra v1.1.3
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.7.0
 	github.com/trustbloc/edge-core v0.1.7-0.20210331113925-b13dedfe75eb
-	github.com/trustbloc/edv v0.1.7-0.20210310153759-93231203a6e5
-	github.com/trustbloc/kms v0.1.7-0.20210331122255-0fc8b8988221
+	github.com/trustbloc/edv v0.1.7-0.20210420141323-971877b36098
+	github.com/trustbloc/kms v0.1.7-0.20210420100919-6aeea555441f
 	github.com/trustbloc/trustbloc-did-method v0.1.7-0.20210331120333-aacd187d2f94
 )
 

@@ -19,7 +19,7 @@ import (
 	httptransport "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -165,10 +165,10 @@ func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error 
 }
 
 func (u *user) initVDR(tlsConfig *tls.Config) error {
-	trustblocVDR, err := trustbloc.New(
+	trustblocVDR, err := orb.New(
 		nil,
-		trustbloc.WithDomain(trustblocDidDomain),
-		trustbloc.WithTLSConfig(tlsConfig),
+		orb.WithDomain(trustblocDidDomain),
+		orb.WithTLSConfig(tlsConfig),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to init trustbloc vdr: %w", err)

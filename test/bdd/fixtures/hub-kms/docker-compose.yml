@@ -31,7 +31,7 @@ services:
       - KMS_ZCAP_ENABLE=true
       - KMS_CACHE_EXPIRATION=10m
       - KMS_LOG_LEVEL=debug
-      - KMS_DID_DOMAIN=testnet.trustbloc.local
+      - KMS_DID_DOMAIN=testnet.orb.local
     ports:
       - 8077:8077
     entrypoint: ""

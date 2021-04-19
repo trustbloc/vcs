@@ -883,7 +883,7 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 }
 
 func (e *Steps) createBasicIssuerProfile(profileName, signatureType, keyType string) error {
-	return e.createProfile(profileName, "", "", "", "JWS", "", "did:trustbloc", signatureType, keyType)
+	return e.createProfile(profileName, "", "", "", "JWS", "", "did:orb", signatureType, keyType)
 }
 
 func (e *Steps) createBasicHolderProfile(profileName, signatureType, keyType string) error {

@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -391,7 +391,7 @@ func startService(params *serviceParameters, srv server) error {
 		return err
 	}
 
-	trustblocVDR, err := trustbloc.New(nil, trustbloc.WithDomain(params.didDomain), trustbloc.WithTLSConfig(tlsConfig))
+	trustblocVDR, err := orb.New(nil, orb.WithDomain(params.didDomain), orb.WithTLSConfig(tlsConfig))
 	if err != nil {
 		return err
 	}
@@ -410,10 +410,11 @@ func startService(params *serviceParameters, srv server) error {
 		VDR:           vdr.New(vdr.WithVDR(trustblocVDR)),
 		KeyManager:    keyManager,
 		TLSConfig:     tlsConfig,
-		DIDMethod:     trustbloc.DIDMethod,
+		DIDMethod:     orb.DIDMethod,
 		StoreProvider: storeProvider,
 		CSHBaseURL:    params.cshURL,
 		VaultBaseURL:  params.vaultURL,
+		DIDDomain:     params.didDomain,
 	})
 	if err != nil {
 		return err

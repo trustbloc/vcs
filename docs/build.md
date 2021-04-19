@@ -33,7 +33,5 @@ make bdd-test
 
 To run BDD tests (`make bdd-test`) you need to modify your hosts file (`/etc/hosts` on \*NIX) to add the following lines, to allow few of the bdd test containers to be connected to externally. 
 
-    127.0.0.1 testnet.trustbloc.local
-    127.0.0.1 stakeholder.one
-    127.0.0.1 sidetree-mock
+    127.0.0.1 testnet.orb.local
     127.0.0.1 vault.kms.example.com

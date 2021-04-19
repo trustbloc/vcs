@@ -30,7 +30,7 @@ const (
 	edvBaseURL        = "http://localhost:8071/encrypted-data-vaults"
 	edvNetworkBaseURL = "http://edv.rest.example.com:8071/encrypted-data-vaults"
 
-	trustblocDidDomain = "testnet.trustbloc.local"
+	trustblocDidDomain = "testnet.orb.local"
 )
 
 // NewSteps returns BDD test steps for the confidential storage hub.

@@ -9,7 +9,7 @@ package did
 import (
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -30,8 +30,8 @@ type Config struct {
 func PublicDID(config *Config) func(kms.KeyManager) (*did.DocResolution, error) {
 	return func(km kms.KeyManager) (*did.DocResolution, error) {
 		methods := map[string]func(kms.KeyManager, *Config) (*did.DocResolution, error){
-			key.DIDMethod:       keyDID,
-			trustbloc.DIDMethod: trustblocDID,
+			key.DIDMethod: keyDID,
+			orb.DIDMethod: createDID,
 		}
 
 		method, supported := methods[config.Method]
@@ -43,7 +43,7 @@ func PublicDID(config *Config) func(kms.KeyManager) (*did.DocResolution, error) 
 	}
 }
 
-func trustblocDID(km kms.KeyManager, config *Config) (*did.DocResolution, error) {
+func createDID(km kms.KeyManager, config *Config) (*did.DocResolution, error) {
 	methods, err := newVerMethods(3, km, config.VerificationMethodType, config.JWKKeyCreator) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:trustbloc: failed to create verification methods: %w", err)
@@ -86,10 +86,11 @@ func trustblocDID(km kms.KeyManager, config *Config) (*did.DocResolution, error)
 
 	// TODO what to do with updateKey and recoveryKey... ?
 	return config.VDR.Create(
-		trustbloc.DIDMethod,
+		orb.DIDMethod,
 		doc,
-		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoveryKey),
+		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdr.WithOption(orb.AnchorOriginOpt, "todo"),
 	)
 }
 

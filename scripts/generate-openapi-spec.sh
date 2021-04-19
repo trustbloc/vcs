@@ -15,7 +15,7 @@ IMAGE_VERSION="${DOCKER_IMAGE_VERSION:-latest}"
 cd $SPEC_META
 
 # generate and validate commands
-GENERATE_COMMAND="generate spec main.go -o $OUTPUT"
+GENERATE_COMMAND="generate spec main.go -x github.com/trustbloc/orb -o $OUTPUT"
 VALIDATE_COMMAND="validate $OUTPUT"
 
 echo "Generating Open API spec"

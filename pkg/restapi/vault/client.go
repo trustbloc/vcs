@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
@@ -127,6 +127,7 @@ type Client struct {
 	edvHost      string
 	edvScheme    string
 	didMethod    string
+	didDomain    string
 	kms          KeyManager
 	crypto       ariescrypto.Crypto
 	edvClient    *edv.Client
@@ -149,6 +150,13 @@ func WithHTTPClient(client HTTPClient) Opt {
 func WithDidMethod(method string) Opt {
 	return func(vault *Client) {
 		vault.didMethod = method
+	}
+}
+
+// WithDidDomain allows providing did domain.
+func WithDidDomain(domain string) Opt {
+	return func(vault *Client) {
+		vault.didDomain = domain
 	}
 }
 
@@ -578,14 +586,21 @@ func (c *Client) createDIDKey(method string) (string, string, string, error) {
 	}
 
 	docResolution, err := c.registry.Create(c.didMethod, didDoc,
-		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
-		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
+		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.AnchorOriginOpt, "todo"),
 	)
 	if err != nil {
 		return "", "", "", err
 	}
 
-	return docResolution.DIDDocument.ID, docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, kid, nil
+	docID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
+		fmt.Sprintf("did:%s:%s", orb.DIDMethod, c.didDomain))
+
+	capabilityVMID := strings.ReplaceAll(docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID,
+		fmt.Sprintf("did:%s", orb.DIDMethod), fmt.Sprintf("did:%s:%s", orb.DIDMethod, c.didDomain))
+
+	return docID, capabilityVMID, kid, nil
 }
 
 func newDidDoc(k kms.KeyManager, method string) (string, *ariesdid.Doc, error) {

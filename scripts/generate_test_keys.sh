@@ -20,13 +20,12 @@ keyUsage = Digital Signature, Key Encipherment
 subjectAltName = @alt_names
 [alt_names]
 DNS.1 = localhost
-DNS.2 = testnet.trustbloc.local
+DNS.2 = testnet.orb.local
 DNS.3 = stakeholder.one
-DNS.4 = sidetree-mock
-DNS.5 = vault.kms.example.com
-DNS.6 = hubstore.example.com
-DNS.7 = vault.server.example.com
-DNS.8 = kms.example.com
+DNS.4 = vault.kms.example.com
+DNS.5 = hubstore.example.com
+DNS.6 = vault.server.example.com
+DNS.7 = kms.example.com
 " >> "$tmp"
 
 #create CA

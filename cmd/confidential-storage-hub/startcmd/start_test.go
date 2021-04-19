@@ -68,7 +68,7 @@ func TestStartCmdWithInvalidArgs(t *testing.T) {
 			"--" + hostURLFlagName, "localhost:8080",
 			"--" + common.DatabaseURLFlagName, "invalid",
 			"--" + common.DatabasePrefixFlagName, "test",
-			"--" + didDomainFlagName, "testnet.trustbloc.local",
+			"--" + didDomainFlagName, "testnet.orb.local",
 		}
 		startCmd := GetStartCmd(&mockServer{})
 
@@ -99,7 +99,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + hostURLFlagName, "localhost:8080",
 		"--" + common.DatabaseURLFlagName, "mem://test",
 		"--" + common.DatabasePrefixFlagName, "test",
-		"--" + didDomainFlagName, "testnet.trustbloc.local",
+		"--" + didDomainFlagName, "testnet.orb.local",
 	}
 	startCmd.SetArgs(args)
 

@@ -20,8 +20,8 @@ import (
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -114,9 +114,9 @@ func (e *Steps) createDID(user string) error {
 		return err
 	}
 
-	split := strings.Split(didDoc.ID, ":")
+	didID := strings.ReplaceAll(didDoc.ID, "did:orb", "did:orb:testnet.orb.local")
 
-	didDoc, err = bddutil.ResolveDID(e.bddContext.VDRI, split[0]+":"+split[1]+":testnet.trustbloc.local:"+split[3], 10)
+	didDoc, err = bddutil.ResolveDID(e.bddContext.VDRI, didID, 10)
 	if err != nil {
 		return err
 	}
@@ -248,8 +248,8 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 		return nil, err
 	}
 
-	c, err := trustbloc.New(nil, trustbloc.WithTLSConfig(e.bddContext.TLSConfig),
-		trustbloc.WithDomain("testnet.trustbloc.local"))
+	c, err := orb.New(nil, orb.WithTLSConfig(e.bddContext.TLSConfig),
+		orb.WithDomain("testnet.orb.local"))
 	if err != nil {
 		return nil, err
 	}
@@ -283,8 +283,9 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 		*docdid.NewReferencedVerification(vm, docdid.AssertionMethod))
 
 	docResolution, err := c.Create(didDoc,
-		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, ed25519.PublicKey(ed25519RecoveryPubKey)),
-		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, ed25519.PublicKey(ed25519UpdatePubKey)))
+		vdr.WithOption(orb.RecoveryPublicKeyOpt, ed25519.PublicKey(ed25519RecoveryPubKey)),
+		vdr.WithOption(orb.UpdatePublicKeyOpt, ed25519.PublicKey(ed25519UpdatePubKey)),
+		vdr.WithOption(orb.AnchorOriginOpt, "origin"))
 	if err != nil {
 		return nil, err
 	}

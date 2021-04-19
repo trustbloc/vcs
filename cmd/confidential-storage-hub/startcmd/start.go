@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
@@ -272,7 +272,8 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		HTTPClient: &http.Client{Transport: &http.Transport{
 			TLSClientConfig: params.tlsParams.tlsConfig,
 		}},
-		BaseURL: baseURL,
+		BaseURL:   baseURL,
+		DIDDomain: params.trustblocDomain,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize confidential storage hub operations: %w", err)
@@ -329,10 +330,10 @@ func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
 		return nil, fmt.Errorf("failed to init tink crypto: %w", err)
 	}
 
-	trustblocVDR, err := trustbloc.New(
+	didVDR, err := orb.New(
 		nil,
-		trustbloc.WithDomain(params.trustblocDomain),
-		trustbloc.WithTLSConfig(params.tlsParams.tlsConfig),
+		orb.WithDomain(params.trustblocDomain),
+		orb.WithTLSConfig(params.tlsParams.tlsConfig),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init trustbloc VDR: %w", err)
@@ -351,11 +352,11 @@ func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
 		WebCrypto: func(url string, client webcrypto.HTTPClient, opts ...webkms.Opt) crypto.Crypto {
 			return webcrypto.New(url, client, opts...)
 		},
-		DIDResolvers: []zcapld2.DIDResolver{key.New(), trustblocVDR},
+		DIDResolvers: []zcapld2.DIDResolver{key.New(), didVDR},
 		PublicDIDCreator: did.PublicDID(&did.Config{
 			Method:                 params.identityDIDMethod,
 			VerificationMethodType: "JsonWebKey2020",
-			VDR:                    vdr.New(vdr.WithVDR(key.New()), vdr.WithVDR(trustblocVDR)),
+			VDR:                    vdr.New(vdr.WithVDR(key.New()), vdr.WithVDR(didVDR)),
 			JWKKeyCreator:          crypto2.JWKKeyCreator(kms.ED25519Type),
 			CryptoKeyCreator:       crypto2.CryptoKeyCreator(kms.ED25519Type),
 		}),

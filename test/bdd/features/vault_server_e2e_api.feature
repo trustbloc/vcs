@@ -38,7 +38,7 @@ Feature: Vault server API
     When Create a new vault using the vault server "https://localhost:9099"
     Then Save a document with the following id "M3aS9xwj8ybCwHkEiCJJR1" with data "data1"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is stored
-    Then Create a new "trustbloc" authorization with duration "100" and save the result as "auth"
+    Then Create a new "orb" authorization with duration "100" and save the result as "auth"
     And Check that a document with id "M3aS9xwj8ybCwHkEiCJJR1" is available for "auth"
 
   @vault_server_check_expired_authorization
