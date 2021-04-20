@@ -12,7 +12,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
@@ -44,7 +44,9 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 		return nil, err
 	}
 
-	vdr, err := createVDRI(didResolverURL)
+	tlsConf := &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}
+
+	vdr, err := createVDRI(didResolverURL, tlsConf)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +68,7 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 	instance := BDDContext{
 		Args:      make(map[string]string),
 		VDRI:      vdr,
-		TLSConfig: &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
+		TLSConfig: tlsConf,
 		TestData:  testData,
 		Data:      make(map[string]interface{}),
 	}
@@ -74,7 +76,7 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 	return &instance, nil
 }
 
-func createVDRI(didResolverURL string) (vdrapi.Registry, error) {
+func createVDRI(didResolverURL string, tlsConf *tls.Config) (vdrapi.Registry, error) {
 	didResolverVDRI, err := httpbinding.New(didResolverURL,
 		httpbinding.WithAccept(func(method string) bool {
 			return method == "v1" || method == "elem" || method == "sov" ||
@@ -84,8 +86,8 @@ func createVDRI(didResolverURL string) (vdrapi.Registry, error) {
 		return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
 	}
 
-	blocVDR, err := trustbloc.New(nil, trustbloc.WithResolverURL(didResolverURL),
-		trustbloc.WithDomain("testnet.trustbloc.local"))
+	blocVDR, err := orb.New(nil, orb.WithTLSConfig(tlsConf),
+		orb.WithDomain("testnet.orb.local"))
 	if err != nil {
 		return nil, err
 	}

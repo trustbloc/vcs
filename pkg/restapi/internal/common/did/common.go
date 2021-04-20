@@ -16,8 +16,8 @@ import (
 	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -245,15 +245,19 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 	}
 
 	opts = append(opts,
-		vdrapi.WithOption(trustbloc.RecoveryPublicKeyOpt, ed25519.PublicKey(recoveryPubKey)),
-		vdrapi.WithOption(trustbloc.UpdatePublicKeyOpt, ed25519.PublicKey(updatePubKey)))
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, ed25519.PublicKey(recoveryPubKey)),
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, ed25519.PublicKey(updatePubKey)),
+		vdrapi.WithOption(orb.AnchorOriginOpt, "todo"))
 
-	docResolution, err := o.vdr.Create(trustbloc.DIDMethod, didDoc, opts...)
+	docResolution, err := o.vdr.Create(orb.DIDMethod, didDoc, opts...)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create did doc: %v", err)
 	}
 
-	return docResolution.DIDDocument.ID, docResolution.DIDDocument.ID + "#" + selectedKeyID, nil
+	docID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
+		fmt.Sprintf("did:%s:%s", orb.DIDMethod, o.domain))
+
+	return docID, docID + "#" + selectedKeyID, nil
 }
 
 // nolint:funlen,gocyclo

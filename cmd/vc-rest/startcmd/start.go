@@ -22,7 +22,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -750,10 +750,6 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain string) (vdrapi.Registry, error) {
 	var opts []vdrpkg.Option
 
-	var blocVDRIOpts []trustbloc.Option
-
-	blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithDomain(blocDomain))
-
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
 			httpbinding.WithAccept(acceptsDID), httpbinding.WithTLSConfig(tlsConfig))
@@ -763,19 +759,15 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain stri
 
 		// add universal resolver vdr
 		opts = append(opts, vdrpkg.WithVDR(universalResolverVDRI))
-
-		// add universal resolver to bloc vdr
-		blocVDRIOpts = append(blocVDRIOpts, trustbloc.WithResolverURL(universalResolver),
-			trustbloc.WithTLSConfig(tlsConfig))
 	}
 
-	blocVDR, err := trustbloc.New(nil, blocVDRIOpts...)
+	vdr, err := orb.New(nil, orb.WithDomain(blocDomain), orb.WithTLSConfig(tlsConfig))
 	if err != nil {
 		return nil, err
 	}
 
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(blocVDR), vdrpkg.WithVDR(key.New()))
+	opts = append(opts, vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))
 
 	return vdrpkg.New(opts...), nil
 }

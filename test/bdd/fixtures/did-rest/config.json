@@ -1,10 +1,6 @@
 {
   "rules": [
     {
-      "pattern": "^(did:trustbloc:.+)$",
-      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
-    },
-    {
       "pattern": "^(did:factom:.+)$",
       "url": "https://uniresolver.io/1.0/identifiers/$1"
     },

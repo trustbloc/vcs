@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -314,10 +314,10 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		MinVersion: tls.VersionTLS12,
 	}
 
-	vdrBloc, err := trustbloc.New(
+	vdrBloc, err := orb.New(
 		nil,
-		trustbloc.WithDomain(params.didDomain),
-		trustbloc.WithTLSConfig(tCfg),
+		orb.WithDomain(params.didDomain),
+		orb.WithTLSConfig(tCfg),
 	)
 	if err != nil {
 		return err
@@ -332,6 +332,7 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 			ariesvdr.WithVDR(vdrkey.New()),
 			ariesvdr.WithVDR(vdrBloc),
 		)),
+		vault.WithDidDomain(params.didDomain),
 		vault.WithDidMethod(params.didMethod),
 		vault.WithHTTPClient(&http.Client{
 			Timeout: time.Minute,

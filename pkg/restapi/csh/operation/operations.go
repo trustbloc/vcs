@@ -11,10 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-openapi/runtime"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -67,6 +69,7 @@ type Operation struct {
 	httpClient *http.Client
 	edvClient  func(string, ...edv.Option) vault.ConfidentialStorageDocReader
 	baseURL    string
+	didDomain  string
 }
 
 // Config defines configuration for vault operations.
@@ -76,6 +79,7 @@ type Config struct {
 	HTTPClient    *http.Client
 	EDVClient     func(string, ...edv.Option) vault.ConfidentialStorageDocReader
 	BaseURL       string
+	DIDDomain     string
 }
 
 // AriesConfig holds all configurations for aries-framework-go dependencies.
@@ -95,6 +99,7 @@ func New(cfg *Config) (*Operation, error) {
 		httpClient: cfg.HTTPClient,
 		edvClient:  cfg.EDVClient,
 		baseURL:    cfg.BaseURL,
+		didDomain:  cfg.DIDDomain,
 	}
 
 	err := ops.configure(cfg)
@@ -457,11 +462,14 @@ func (o *Operation) newIdentity() (*Identity, error) {
 	delegationKeyID := keyIDs[1]
 	invocationKeyID := keyIDs[2]
 
+	capabilityDelegationURL := strings.ReplaceAll(capabilityDelegation.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
+		fmt.Sprintf("did:%s:%s", orb.DIDMethod, o.didDomain))
+
 	return &Identity{
 		DIDDoc:           resolution.DIDDocument,
 		AuthKeyID:        authKeyID,
 		DelegationKeyID:  delegationKeyID,
-		DelegationKeyURL: capabilityDelegation.ID,
+		DelegationKeyURL: capabilityDelegationURL,
 		InvocationKeyID:  invocationKeyID,
 	}, nil
 }

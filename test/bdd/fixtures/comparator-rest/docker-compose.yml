@@ -18,7 +18,7 @@ services:
       - COMPARATOR_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - COMPARATOR_TLS_SERVE_KEY=/etc/tls/ec-key.pem
       - COMPARATOR_DSN=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - COMPARATOR_DID_DOMAIN=testnet.trustbloc.local
+      - COMPARATOR_DID_DOMAIN=testnet.orb.local
       - COMPARATOR_CSH_URL=https://hubstore.example.com:8095
       - COMPARATOR_VAULT_URL=https://vault.server.example.com:9099
     ports:

@@ -18,8 +18,8 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -61,7 +61,7 @@ type Steps struct {
 	kms            kms.KeyManager
 	kmsURI         string
 	crypto         ariescrypto.Crypto
-	trustblocVDR   *trustbloc.VDR
+	orbVDR         *orb.VDR
 }
 
 // NewSteps returns new vault steps.
@@ -79,8 +79,8 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 		panic(err)
 	}
 
-	t, err := trustbloc.New(nil, trustbloc.WithDomain("testnet.trustbloc.local"),
-		trustbloc.WithTLSConfig(ctx.TLSConfig),
+	t, err := orb.New(nil, orb.WithDomain("testnet.orb.local"),
+		orb.WithTLSConfig(ctx.TLSConfig),
 	)
 	if err != nil {
 		panic(err)
@@ -91,7 +91,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 		kms:            keyManager,
 		variableMapper: map[string]string{},
 		authorizations: map[string]*vault.CreatedAuthorization{},
-		trustblocVDR:   t,
+		orbVDR:         t,
 		bddContext:     ctx, client: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: ctx.TLSConfig,
@@ -210,8 +210,8 @@ func (e *Steps) createAuthorization(method, duration, name string) error {
 		}
 	}
 
-	if method == "trustbloc" {
-		requestingParty, err = e.createDIDTrustbloc()
+	if method == "orb" {
+		requestingParty, err = e.createDIDORB()
 		if err != nil {
 			return err
 		}
@@ -378,7 +378,7 @@ func (e *Steps) sign(req *http.Request, controller, action, zcap string) (*http.
 		KMS:    e.kms,
 		Resolver: ariesvdr.New(
 			ariesvdr.WithVDR(vdrkey.New()),
-			ariesvdr.WithVDR(e.trustblocVDR),
+			ariesvdr.WithVDR(e.orbVDR),
 		),
 	})
 
@@ -401,7 +401,7 @@ func (e *Steps) createDIDKey() (string, error) {
 	return didURL, nil
 }
 
-func (e *Steps) createDIDTrustbloc() (string, error) {
+func (e *Steps) createDIDORB() (string, error) {
 	didDoc, err := newDidDoc(e.kms)
 	if err != nil {
 		return "", err
@@ -417,20 +417,23 @@ func (e *Steps) createDIDTrustbloc() (string, error) {
 		return "", err
 	}
 
-	docResolution, err := e.trustblocVDR.Create(didDoc,
-		vdr.WithOption(trustbloc.RecoveryPublicKeyOpt, recoverKey),
-		vdr.WithOption(trustbloc.UpdatePublicKeyOpt, updateKey),
+	docResolution, err := e.orbVDR.Create(didDoc,
+		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
+		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.AnchorOriginOpt, "origin"),
 	)
 	if err != nil {
 		return "", err
 	}
 
-	_, err = bddutil.ResolveDID(e.bddContext.VDRI, docResolution.DIDDocument.ID, 10)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, strings.ReplaceAll(docResolution.DIDDocument.ID, "did:orb",
+		"did:orb:testnet.orb.local"), 10)
 	if err != nil {
 		return "", err
 	}
 
-	return docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, nil
+	return strings.ReplaceAll(docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, "did:orb",
+		"did:orb:testnet.orb.local"), nil
 }
 
 func newDidDoc(k kms.KeyManager) (*did.Doc, error) {

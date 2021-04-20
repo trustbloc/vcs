@@ -7,10 +7,6 @@
       "tag": "latest"
     },
     {
-      "pattern": "^(did:trustbloc:.+)$",
-      "url": "http://trustbloc.did.method.example.com:8060/resolveDID?did=$1"
-    },
-    {
       "pattern": "^(did:elem:.+$)",
       "url": "https://element-did.com/api/v1/sidetree/$1"
     },

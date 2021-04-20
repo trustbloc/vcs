@@ -13,7 +13,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/trustbloc"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -40,7 +40,7 @@ func TestPublicDID(t *testing.T) {
 		t.Run("creates DID", func(t *testing.T) {
 			expected := newDIDDoc()
 			result, err := did2.PublicDID(&did2.Config{
-				Method:                 trustbloc.DIDMethod,
+				Method:                 orb.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020",
 				VDR:                    &vdr2.MockVDRegistry{CreateValue: expected},
 				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
@@ -53,7 +53,7 @@ func TestPublicDID(t *testing.T) {
 		t.Run("fails if JWKKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
 			_, err := did2.PublicDID(&did2.Config{
-				Method:                 trustbloc.DIDMethod,
+				Method:                 orb.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020",
 				JWKKeyCreator: func(kms.KeyManager) (string, *jose.JWK, error) {
 					return "", nil, expected
@@ -65,7 +65,7 @@ func TestPublicDID(t *testing.T) {
 		t.Run("fails if CryptoKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
 			_, err := did2.PublicDID(&did2.Config{
-				Method:                 trustbloc.DIDMethod,
+				Method:                 orb.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020",
 				VDR:                    newVDR(t, newDIDDoc(), nil),
 				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
@@ -79,7 +79,7 @@ func TestPublicDID(t *testing.T) {
 		t.Run("fails if VDR cannot create DID", func(t *testing.T) {
 			expected := errors.New("test")
 			_, err := did2.PublicDID(&did2.Config{
-				Method:                 trustbloc.DIDMethod,
+				Method:                 orb.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020",
 				VDR:                    &vdr2.MockVDRegistry{CreateErr: expected},
 				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),

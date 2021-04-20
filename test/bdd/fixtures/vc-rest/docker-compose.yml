@@ -15,7 +15,7 @@ services:
       - VC_REST_HOST_URL=${ISSUER_VC_HOST}:${ISSUER_VC_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://issuer.vc.rest.example.com:${ISSUER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
-      - BLOC_DOMAIN=testnet.trustbloc.local
+      - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
@@ -43,7 +43,7 @@ services:
       - VC_REST_HOST_URL=${VERIFIER_VC_HOST}:${VERIFIER_VC_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://verifier.vc.rest.example.com:${VERIFIER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
-      - BLOC_DOMAIN=testnet.trustbloc.local
+      - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
@@ -71,7 +71,7 @@ services:
       - VC_REST_HOST_URL=${HOLDER_VC_HOST}:${HOLDER_VC_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://holder.vc.rest.example.com:${HOLDER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
-      - BLOC_DOMAIN=testnet.trustbloc.local
+      - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=couchdb
       - DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
@@ -99,7 +99,7 @@ services:
       - VC_REST_HOST_URL=${GOVERNANCE_VC_HOST}:${GOVERNANCE_VC_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://governance.vc.rest.example.com:${GOVERNANCE_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
-      - BLOC_DOMAIN=testnet.trustbloc.local
+      - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mysql
       - DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/
@@ -127,7 +127,7 @@ services:
       - VC_REST_HOST_URL=${VC_REST_HOST}:${VC_REST_PORT}
       - VC_REST_HOST_URL_EXTERNAL=http://vc.rest.example.com:${VC_REST_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
-      - BLOC_DOMAIN=testnet.trustbloc.local
+      - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mem
       - KMSSECRETS_DATABASE_TYPE=mem
