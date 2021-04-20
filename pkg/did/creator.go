@@ -24,6 +24,7 @@ type Config struct {
 	VDR                    vdr.Registry
 	JWKKeyCreator          func(kms.KeyManager) (string, *jose.JWK, error)
 	CryptoKeyCreator       func(kms.KeyManager) (string, interface{}, error)
+	DIDAnchorOrigin        string
 }
 
 // PublicDID creates a new public DID given a Config and a key manager.
@@ -90,7 +91,7 @@ func createDID(km kms.KeyManager, config *Config) (*did.DocResolution, error) {
 		doc,
 		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
-		vdr.WithOption(orb.AnchorOriginOpt, "todo"),
+		vdr.WithOption(orb.AnchorOriginOpt, config.DIDAnchorOrigin),
 	)
 }
 

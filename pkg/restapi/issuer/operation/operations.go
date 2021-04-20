@@ -172,6 +172,7 @@ func New(config *Config) (*Operation, error) {
 		commonDID: commondid.New(&commondid.Config{
 			VDRI: config.VDRI, KeyManager: config.KeyManager,
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
+			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
 		retryParameters: config.RetryParameters,
 	}
@@ -191,6 +192,7 @@ type Config struct {
 	TLSConfig          *tls.Config
 	Crypto             ariescrypto.Crypto
 	RetryParameters    *retry.Params
+	DIDAnchorOrigin    string
 }
 
 // Operation defines handlers for Edge service

@@ -96,6 +96,7 @@ func New(config *Config) (*Operation, error) {
 		commonDID: commondid.New(&commondid.Config{
 			VDRI: config.VDRI, KeyManager: config.KeyManager,
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
+			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
 		crypto:          c,
 		vcStatusManager: vcStatusManager,
@@ -108,14 +109,15 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for vcs operations
 type Config struct {
-	StoreProvider ariesstorage.Provider
-	KeyManager    keyManager
-	VDRI          vdrapi.Registry
-	Domain        string
-	TLSConfig     *tls.Config
-	Crypto        ariescrypto.Crypto
-	HostURL       string
-	ClaimsFile    string
+	StoreProvider   ariesstorage.Provider
+	KeyManager      keyManager
+	VDRI            vdrapi.Registry
+	Domain          string
+	TLSConfig       *tls.Config
+	Crypto          ariescrypto.Crypto
+	HostURL         string
+	ClaimsFile      string
+	DIDAnchorOrigin string
 }
 
 type keyManager interface {

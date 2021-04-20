@@ -101,18 +101,24 @@ const (
 	didMethodFlagUsage = "DID method for the vault ID." +
 		" Alternatively, this can be set with the following environment variable: " + didMethodEnvKey
 	didMethodEnvKey = "VAULT_DID_METHOD"
+
+	didAnchorOriginFlagName  = "did-anchor-origin"
+	didAnchorOriginEnvKey    = "VAULT_DID_ANCHOR_ORIGIN"
+	didAnchorOriginFlagUsage = "DID anchor origin." +
+		" Alternatively, this can be set with the following environment variable: " + didAnchorOriginEnvKey
 )
 
 var logger = log.New("vault-server")
 
 type serviceParameters struct {
-	host         string
-	remoteKMSURL string
-	edvURL       string
-	didDomain    string
-	didMethod    string
-	tlsParams    *tlsParameters
-	dsnParams    *dsnParams
+	host            string
+	remoteKMSURL    string
+	edvURL          string
+	didDomain       string
+	didMethod       string
+	tlsParams       *tlsParameters
+	dsnParams       *dsnParams
+	didAnchorOrigin string
 }
 
 type dsnParams struct {
@@ -217,14 +223,17 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
+
 	return &serviceParameters{
-		host:         host,
-		remoteKMSURL: remoteKMSURL,
-		didDomain:    didDomain,
-		didMethod:    didMethod,
-		edvURL:       edvURL,
-		dsnParams:    dsn,
-		tlsParams:    tlsParams,
+		host:            host,
+		remoteKMSURL:    remoteKMSURL,
+		didDomain:       didDomain,
+		didMethod:       didMethod,
+		edvURL:          edvURL,
+		dsnParams:       dsn,
+		tlsParams:       tlsParams,
+		didAnchorOrigin: didAnchorOrigin,
 	}, err
 }
 
@@ -270,6 +279,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 	cmd.Flags().StringP(didMethodFlagName, "", "key", didMethodFlagUsage)
+	cmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 }
 
 const (
@@ -332,6 +342,7 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 			ariesvdr.WithVDR(vdrkey.New()),
 			ariesvdr.WithVDR(vdrBloc),
 		)),
+		vault.WithDidAnchorOrigin(params.didAnchorOrigin),
 		vault.WithDidDomain(params.didDomain),
 		vault.WithDidMethod(params.didMethod),
 		vault.WithHTTPClient(&http.Client{

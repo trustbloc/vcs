@@ -170,6 +170,10 @@ const (
 	governanceClaimsEnvKey    = "VC_REST_GOVERNANCE_CLAIMS_FILE"
 	governanceClaimsFlagUsage = "Path to governance claims" + commonEnvVarUsageText + governanceClaimsEnvKey
 
+	didAnchorOriginFlagName  = "did-anchor-origin"
+	didAnchorOriginEnvKey    = "VC_REST_DID_ANCHOR_ORIGIN"
+	didAnchorOriginFlagUsage = "DID anchor origin" + commonEnvVarUsageText + didAnchorOriginEnvKey
+
 	databaseTypeMemOption     = "mem"
 	databaseTypeCouchDBOption = "couchdb"
 	databaseTypeMYSQLDBOption = "mysql"
@@ -221,6 +225,7 @@ type vcRestParameters struct {
 	requestTokens        map[string]string
 	logLevel             string
 	governanceClaimsFile string
+	didAnchorOrigin      string
 }
 
 type dbParameters struct {
@@ -345,6 +350,8 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -360,6 +367,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		requestTokens:        requestTokens,
 		logLevel:             loggingLevel,
 		governanceClaimsFile: governanceClaimsFile,
+		didAnchorOrigin:      didAnchorOrigin,
 	}, nil
 }
 
@@ -601,6 +609,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringP(governanceClaimsFlagName, "", "", governanceClaimsFlagUsage)
+	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 }
 
 // nolint: gocyclo,funlen,gocognit
@@ -661,6 +670,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		Domain:          parameters.blocDomain,
 		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
 		RetryParameters: parameters.retryParameters,
+		DIDAnchorOrigin: parameters.didAnchorOrigin,
 	})
 	if err != nil {
 		return err
@@ -673,6 +683,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		},
 		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
 		VDRI: vdr, Domain: parameters.blocDomain,
+		DIDAnchorOrigin: parameters.didAnchorOrigin,
 	})
 	if err != nil {
 		return err
@@ -693,6 +704,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 			MinVersion: tls.VersionTLS12,
 		}, StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
 		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile,
+		DIDAnchorOrigin: parameters.didAnchorOrigin,
 	})
 	if err != nil {
 		return err
