@@ -84,6 +84,11 @@ const (
 		" Defaults to 'key'." +
 		" Alternatively, this can be set with the following environment variable: " + identityDIDMethodEnvKey
 	identityDIDMethodEnvKey = "IDENTITY_DID_METHOD"
+
+	didAnchorOriginFlagName  = "did-anchor-origin"
+	didAnchorOriginEnvKey    = "CHS_DID_ANCHOR_ORIGIN"
+	didAnchorOriginFlagUsage = "DID anchor origin." +
+		" Alternatively, this can be set with the following environment variable: " + didAnchorOriginEnvKey
 )
 
 var logger = log.New("confidential-storage-hub/start")
@@ -95,6 +100,7 @@ type serviceParameters struct {
 	dbParams          *common.DBParameters
 	trustblocDomain   string
 	identityDIDMethod string
+	didAnchorOrigin   string
 }
 
 type tlsParameters struct {
@@ -176,6 +182,8 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
+
 	if identityDIDMethod == "" {
 		identityDIDMethod = "key"
 	}
@@ -187,6 +195,7 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		baseURL:           baseURL,
 		trustblocDomain:   trustblocDomain,
 		identityDIDMethod: identityDIDMethod,
+		didAnchorOrigin:   didAnchorOrigin,
 	}, err
 }
 
@@ -200,6 +209,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(tlsServeKeyPathFlagName, "", "", tlsServeKeyPathFlagUsage)
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 	cmd.Flags().StringP(identityDIDMethodFlagName, "", "", identityDIDMethodFlagUsage)
+	cmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 }
 
 func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
@@ -359,6 +369,7 @@ func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
 			VDR:                    vdr.New(vdr.WithVDR(key.New()), vdr.WithVDR(didVDR)),
 			JWKKeyCreator:          crypto2.JWKKeyCreator(kms.ED25519Type),
 			CryptoKeyCreator:       crypto2.CryptoKeyCreator(kms.ED25519Type),
+			DIDAnchorOrigin:        params.didAnchorOrigin,
 		}),
 	}, nil
 }

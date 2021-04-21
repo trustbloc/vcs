@@ -123,17 +123,18 @@ type DocumentMetadata struct {
 
 // Client vault`s client.
 type Client struct {
-	remoteKMSURL string
-	edvHost      string
-	edvScheme    string
-	didMethod    string
-	didDomain    string
-	kms          KeyManager
-	crypto       ariescrypto.Crypto
-	edvClient    *edv.Client
-	httpClient   HTTPClient
-	store        storage.Store
-	registry     vdr.Registry
+	remoteKMSURL    string
+	edvHost         string
+	edvScheme       string
+	didMethod       string
+	didDomain       string
+	didAnchorOrigin string
+	kms             KeyManager
+	crypto          ariescrypto.Crypto
+	edvClient       *edv.Client
+	httpClient      HTTPClient
+	store           storage.Store
+	registry        vdr.Registry
 }
 
 // Opt represents Client`s option.
@@ -157,6 +158,13 @@ func WithDidMethod(method string) Opt {
 func WithDidDomain(domain string) Opt {
 	return func(vault *Client) {
 		vault.didDomain = domain
+	}
+}
+
+// WithDidAnchorOrigin allows providing did anchor origin.
+func WithDidAnchorOrigin(anchorOrigin string) Opt {
+	return func(vault *Client) {
+		vault.didAnchorOrigin = anchorOrigin
 	}
 }
 
@@ -588,7 +596,7 @@ func (c *Client) createDIDKey(method string) (string, string, string, error) {
 	docResolution, err := c.registry.Create(c.didMethod, didDoc,
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
 		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.AnchorOriginOpt, "todo"),
+		vdr.WithOption(orb.AnchorOriginOpt, c.didAnchorOrigin),
 	)
 	if err != nil {
 		return "", "", "", err

@@ -27,6 +27,7 @@ services:
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
+      - VC_REST_DID_ANCHOR_ORIGIN=origin
     ports:
       - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
     entrypoint: ""
@@ -55,6 +56,7 @@ services:
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token
+      - VC_REST_DID_ANCHOR_ORIGIN=origin
     ports:
       - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
     entrypoint: ""
@@ -83,6 +85,7 @@ services:
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
+      - VC_REST_DID_ANCHOR_ORIGIN=origin
     ports:
       - ${HOLDER_VC_PORT}:${HOLDER_VC_PORT}
     entrypoint: ""
@@ -110,6 +113,7 @@ services:
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_GOVERNANCE_CLAIMS_FILE=/etc/governance_claims.json
+      - VC_REST_DID_ANCHOR_ORIGIN=origin
     ports:
       - ${GOVERNANCE_VC_PORT}:${GOVERNANCE_VC_PORT}
     entrypoint: ""
@@ -132,6 +136,7 @@ services:
       - DATABASE_TYPE=mem
       - KMSSECRETS_DATABASE_TYPE=mem
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_DID_ANCHOR_ORIGIN=origin
     ports:
       - ${VC_REST_PORT}:${VC_REST_PORT}
     command:  start

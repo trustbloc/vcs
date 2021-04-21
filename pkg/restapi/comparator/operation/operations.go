@@ -88,18 +88,20 @@ type Operation struct {
 	cshProfile       *cshclientmodels.Profile
 	comparatorConfig *models.Config
 	didDomain        string
+	didAnchorOrigin  string
 }
 
 // Config defines configuration for comparator operations.
 type Config struct {
-	VDR           vdr.Registry
-	KeyManager    kms.KeyManager
-	TLSConfig     *tls.Config
-	DIDMethod     string
-	StoreProvider storage.Provider
-	CSHBaseURL    string
-	VaultBaseURL  string
-	DIDDomain     string
+	VDR             vdr.Registry
+	KeyManager      kms.KeyManager
+	TLSConfig       *tls.Config
+	DIDMethod       string
+	StoreProvider   storage.Provider
+	CSHBaseURL      string
+	VaultBaseURL    string
+	DIDDomain       string
+	DIDAnchorOrigin string
 }
 
 // New returns operation instance.
@@ -125,8 +127,9 @@ func New(cfg *Config) (*Operation, error) {
 	)
 
 	op := &Operation{
-		didDomain: cfg.DIDDomain, vdr: cfg.VDR, keyManager: cfg.KeyManager, tlsConfig: cfg.TLSConfig,
-		didMethod: cfg.DIDMethod, store: store, cshClient: client.New(transport, strfmt.Default).Operations,
+		didAnchorOrigin: cfg.DIDAnchorOrigin, didDomain: cfg.DIDDomain, vdr: cfg.VDR, keyManager: cfg.KeyManager,
+		tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod, store: store,
+		cshClient: client.New(transport, strfmt.Default).Operations,
 		vaultClient: vaultclient.New(cfg.VaultBaseURL, vaultclient.WithHTTPClient(&http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: cfg.TLSConfig,
@@ -311,7 +314,7 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 	docResolution, err := o.vdr.Create(o.didMethod, didDoc,
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
 		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.AnchorOriginOpt, "todo"),
+		vdr.WithOption(orb.AnchorOriginOpt, o.didAnchorOrigin),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create DID : %w", err)

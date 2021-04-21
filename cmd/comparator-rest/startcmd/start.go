@@ -97,6 +97,11 @@ const (
 	vaultURLFlagUsage = "URL for vault server." +
 		" Alternatively, this can be set with the following environment variable: " + vaultURLEnvKey
 	vaultURLEnvKey = "COMPARATOR_VAULT_URL"
+
+	didAnchorOriginFlagName  = "did-anchor-origin"
+	didAnchorOriginEnvKey    = "COMPARATOR_DID_ANCHOR_ORIGIN"
+	didAnchorOriginFlagUsage = "DID anchor origin." +
+		" Alternatively, this can be set with the following environment variable: " + didAnchorOriginEnvKey
 )
 
 const (
@@ -146,12 +151,13 @@ type dsnParams struct {
 }
 
 type serviceParameters struct {
-	host      string
-	tlsParams *tlsParameters
-	dsnParams *dsnParams
-	didDomain string
-	cshURL    string
-	vaultURL  string
+	host            string
+	tlsParams       *tlsParameters
+	dsnParams       *dsnParams
+	didDomain       string
+	cshURL          string
+	vaultURL        string
+	didAnchorOrigin string
 }
 
 type server interface {
@@ -254,13 +260,16 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		return nil, err
 	}
 
+	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
+
 	return &serviceParameters{
-		host:      host,
-		tlsParams: tlsParams,
-		dsnParams: dsnParams,
-		didDomain: didDomain,
-		cshURL:    cshURL,
-		vaultURL:  vaultURL,
+		host:            host,
+		tlsParams:       tlsParams,
+		dsnParams:       dsnParams,
+		didDomain:       didDomain,
+		cshURL:          cshURL,
+		vaultURL:        vaultURL,
+		didAnchorOrigin: didAnchorOrigin,
 	}, err
 }
 
@@ -367,6 +376,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 	cmd.Flags().StringP(cshURLFlagName, "", "", cshURLFlagUsage)
 	cmd.Flags().StringP(vaultURLFlagName, "", "", vaultURLFlagUsage)
+	cmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 }
 
 //nolint: funlen
@@ -407,14 +417,15 @@ func startService(params *serviceParameters, srv server) error {
 	}
 
 	service, err := comparator.New(&operation.Config{
-		VDR:           vdr.New(vdr.WithVDR(trustblocVDR)),
-		KeyManager:    keyManager,
-		TLSConfig:     tlsConfig,
-		DIDMethod:     orb.DIDMethod,
-		StoreProvider: storeProvider,
-		CSHBaseURL:    params.cshURL,
-		VaultBaseURL:  params.vaultURL,
-		DIDDomain:     params.didDomain,
+		VDR:             vdr.New(vdr.WithVDR(trustblocVDR)),
+		KeyManager:      keyManager,
+		TLSConfig:       tlsConfig,
+		DIDMethod:       orb.DIDMethod,
+		StoreProvider:   storeProvider,
+		CSHBaseURL:      params.cshURL,
+		VaultBaseURL:    params.vaultURL,
+		DIDDomain:       params.didDomain,
+		DIDAnchorOrigin: params.didAnchorOrigin,
 	})
 	if err != nil {
 		return err

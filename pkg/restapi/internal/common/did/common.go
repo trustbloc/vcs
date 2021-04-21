@@ -45,14 +45,16 @@ type CommonDID struct {
 	vdr                vdrapi.Registry
 	domain             string
 	createKey          func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error)
+	didAnchorOrigin    string
 }
 
 // Config defines configuration for vcs operations
 type Config struct {
-	KeyManager keyManager
-	VDRI       vdrapi.Registry
-	Domain     string
-	TLSConfig  *tls.Config
+	KeyManager      keyManager
+	VDRI            vdrapi.Registry
+	Domain          string
+	TLSConfig       *tls.Config
+	DIDAnchorOrigin string
 }
 
 type uniRegistrarClient interface {
@@ -66,10 +68,11 @@ type keyManager interface {
 // New return new instance of common DID
 func New(config *Config) *CommonDID {
 	return &CommonDID{uniRegistrarClient: uniregistrar.New(uniregistrar.WithTLSConfig(config.TLSConfig)),
-		keyManager: config.KeyManager,
-		domain:     config.Domain,
-		vdr:        config.VDRI,
-		createKey:  createKey,
+		keyManager:      config.KeyManager,
+		domain:          config.Domain,
+		vdr:             config.VDRI,
+		createKey:       createKey,
+		didAnchorOrigin: config.DIDAnchorOrigin,
 	}
 }
 
@@ -247,7 +250,7 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 	opts = append(opts,
 		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, ed25519.PublicKey(recoveryPubKey)),
 		vdrapi.WithOption(orb.UpdatePublicKeyOpt, ed25519.PublicKey(updatePubKey)),
-		vdrapi.WithOption(orb.AnchorOriginOpt, "todo"))
+		vdrapi.WithOption(orb.AnchorOriginOpt, o.didAnchorOrigin))
 
 	docResolution, err := o.vdr.Create(orb.DIDMethod, didDoc, opts...)
 	if err != nil {

@@ -22,6 +22,7 @@ services:
       - VAULT_DSN=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
       - VAULT_DID_DOMAIN=testnet.orb.local
       - VAULT_DID_METHOD=orb
+      - VAULT_DID_ANCHOR_ORIGIN=origin
     ports:
       - ${VAULT_SERVER_PORT}:${VAULT_SERVER_PORT}
     entrypoint: ""
