@@ -185,10 +185,14 @@ func startDidService(parameters *didRestParameters, srv server) error {
 		return err
 	}
 
-	didService := did.New(&operation.Config{
+	didService, err := did.New(&operation.Config{
 		RuleProvider: ruleProvider,
 		KeyVDRI:      *key.New(),
 		TLSConfig:    &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}})
+
+	if err != nil {
+		return err
+	}
 
 	handlers := didService.GetOperations()
 	router := mux.NewRouter()

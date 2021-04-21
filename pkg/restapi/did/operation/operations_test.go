@@ -20,10 +20,11 @@ import (
 
 func TestResolve_vdr(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{},
 			KeyVDRI:      *key.New(),
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -44,9 +45,10 @@ func TestResolve_vdr(t *testing.T) {
 	})
 
 	t.Run("error - invalid DID", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -64,9 +66,10 @@ func TestResolve_vdr(t *testing.T) {
 	})
 
 	t.Run("error - unsupported DID method", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -84,10 +87,11 @@ func TestResolve_vdr(t *testing.T) {
 	})
 
 	t.Run("error - failed to resolve DID", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{},
 			KeyVDRI:      *key.New(),
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -105,10 +109,11 @@ func TestResolve_vdr(t *testing.T) {
 	})
 
 	t.Run("error - failed to resolve DID did web", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{},
 			KeyVDRI:      *key.New(),
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -133,9 +138,10 @@ func TestResolve_proxy(t *testing.T) {
 		}))
 		defer dest.Close()
 
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: dest.URL + "/identifiers/did:method:abc"},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -152,9 +158,10 @@ func TestResolve_proxy(t *testing.T) {
 	})
 
 	t.Run("error - rule provider error", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{Err: errors.New("rule provider error")},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -173,9 +180,10 @@ func TestResolve_proxy(t *testing.T) {
 		}))
 		defer dest.Close()
 
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: dest.URL + "/identifiers/did:method:abc"},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -189,9 +197,10 @@ func TestResolve_proxy(t *testing.T) {
 	})
 
 	t.Run("error - destination server not available", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: "https://213abfg8989.com/identifiers/did:method:abc"},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
@@ -205,9 +214,10 @@ func TestResolve_proxy(t *testing.T) {
 	})
 
 	t.Run("error - invalid destination URL", func(t *testing.T) {
-		op := New(&Config{
+		op, err := New(&Config{
 			RuleProvider: &mockRuleProvider{URL: "not a good one"},
 		})
+		require.NoError(t, err)
 
 		proxyHandler := getHandler(t, op, resolveURL)
 
