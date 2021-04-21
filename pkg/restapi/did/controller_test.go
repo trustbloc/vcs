@@ -16,17 +16,19 @@ import (
 
 func TestProxy_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		controller := New(&operation.Config{
+		controller, err := New(&operation.Config{
 			RuleProvider: &mockRuleProvider{}})
+		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 }
 
 func TestProxy_GetOperations(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		controller := New(&operation.Config{
+		controller, err := New(&operation.Config{
 			RuleProvider: &mockRuleProvider{}})
 		require.NotNil(t, controller)
+		require.NoError(t, err)
 
 		ops := controller.GetOperations()
 

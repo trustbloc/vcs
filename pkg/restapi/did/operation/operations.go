@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	diddoc "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
@@ -43,6 +44,8 @@ const (
 
 	didMethodWeb = "web"
 
+	didMethodOrb = "orb"
+
 	defaultTimeout = 240 * time.Second
 )
 
@@ -56,16 +59,22 @@ type Handler interface {
 }
 
 // New returns new did proxy instance
-func New(config *Config) *Operation {
+func New(config *Config) (*Operation, error) {
+	orbVDR, err := orb.New(nil, orb.WithTLSConfig(config.TLSConfig))
+	if err != nil {
+		return nil, err
+	}
+
 	svc := &Operation{
 		ruleProvider: config.RuleProvider,
 		keyVDRI:      config.KeyVDRI,
 		webVDR:       web.New(),
+		orbVDR:       orbVDR,
 		httpClient: &http.Client{
 			Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
 
-	return svc
+	return svc, nil
 }
 
 // Config defines configuration for vcs operations
@@ -80,6 +89,7 @@ type Operation struct {
 	ruleProvider rules.Provider
 	keyVDRI      key.VDR
 	webVDR       *web.VDR
+	orbVDR       *orb.VDR
 	httpClient   httpClient
 }
 
@@ -132,6 +142,12 @@ func (o *Operation) resolveWithVDRI(rw http.ResponseWriter, didURI string) {
 		}
 	case didMethodWeb:
 		docResolution, err = o.webVDR.Read(did.String())
+		if err != nil {
+			writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID: %s", err.Error()))
+			return
+		}
+	case didMethodOrb:
+		docResolution, err = o.orbVDR.Read(did.String())
 		if err != nil {
 			writeErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to resolve DID: %s", err.Error()))
 			return
