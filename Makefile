@@ -24,7 +24,7 @@ OPENAPI_DOCKER_IMG_VERSION=v0.26.0
 
 # Tool commands (overridable)
 ALPINE_VER ?= 3.12
-GO_VER ?= 1.15
+GO_VER ?= 1.16
 
 .PHONY: all
 all: checks unit-test bdd-test

@@ -365,6 +365,8 @@ func TestDeleteAuthorization(t *testing.T) {
 
 // sendRequestToHandler reads response from given http handle func.
 func sendRequestToHandler(t *testing.T, h support.Handler, reqBody io.Reader, path string) (*bytes.Buffer, int) {
+	t.Helper()
+
 	// prepare request
 	req, err := http.NewRequest(h.Method(), path, reqBody)
 	require.NoError(t, err)

@@ -61,7 +61,7 @@ func (e *Steps) httpGet(url string) error {
 
 	payload, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("reading response body failed: %s", err)
+		return fmt.Errorf("reading response body failed: %w", err)
 	}
 
 	e.queryValue = string(payload)

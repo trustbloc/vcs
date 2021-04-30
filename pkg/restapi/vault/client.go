@@ -256,7 +256,7 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 }
 
 // CreateAuthorization creates a new authorization.
-// nolint: funlen,gocyclo
+// nolint: funlen
 func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 	scope *AuthorizationsScope) (*CreatedAuthorization, error) {
 	info, err := c.getVaultInfo(vaultID)
@@ -619,7 +619,7 @@ func newDidDoc(k kms.KeyManager, method string) (string, *ariesdid.Doc, error) {
 		return "", nil, err
 	}
 
-	jwk, err := jose.JWKFromPublicKey(publicKey)
+	jwk, err := jose.JWKFromKey(publicKey)
 	if err != nil {
 		return "", nil, err
 	}

@@ -157,7 +157,7 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, verifierProfileID)
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", "rw_token",
-		bytes.NewBuffer(reqBytes)) //nolint:bodyclose
+		bytes.NewBuffer(reqBytes))
 
 	if err != nil {
 		return err
@@ -286,7 +286,7 @@ func (e *Steps) createCredential(credential, profileName string) error {
 
 	profileResponse, err := e.getProfileData(profileName)
 	if err != nil {
-		return fmt.Errorf("unable to fetch profile - %s", err)
+		return fmt.Errorf("unable to fetch profile - %w", err)
 	}
 
 	cred.ID = profileResponse.URI + "/" + uuid.New().String()
@@ -496,7 +496,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 
 	b, err := bddutil.AreEqualJSON([]byte(e.bddContext.Args[profileName]), respBytes)
 	if err != nil {
-		return fmt.Errorf("failed to validate of retrieved VC : %s", err.Error())
+		return fmt.Errorf("failed to validate of retrieved VC : %w", err)
 	}
 
 	if !b {
@@ -531,7 +531,7 @@ func (e *Steps) verifyCredential(checksList, result, respMessage string) error {
 	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifierProfileID)
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
-		"rw_token", bytes.NewBuffer(reqBytes)) //nolint:bodyclose
+		"rw_token", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return err
 	}
@@ -750,7 +750,7 @@ func (e *Steps) signPresentation(profileName string, vp []byte, domain, challeng
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
+		return nil, fmt.Errorf("failed to read response : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -1013,7 +1013,7 @@ func (e *Steps) callSignPresentation(profileName string, req *holderops.SignPres
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
+		return nil, fmt.Errorf("failed to read response : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -1065,7 +1065,7 @@ func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
 
 	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, issuer)
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint:bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
 		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {
@@ -1169,7 +1169,7 @@ func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) e
 
 	endpointURL := fmt.Sprintf(verifyPresentationURLFormat, verifierID)
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", //nolint:bodyclose
+	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
 		"rw_token", bytes.NewBuffer(reqBytes))
 
 	if err != nil {

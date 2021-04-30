@@ -463,10 +463,6 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	})
 }
 
-func TestCreateProfileHandler(t *testing.T) {
-	testCreateProfileHandler(t)
-}
-
 type mockCommonDID struct {
 	createDIDValue string
 	createDIDKeyID string
@@ -501,7 +497,7 @@ func (m *mockAuthService) SignHeader(req *http.Request, capability []byte,
 	return nil, nil
 }
 
-func testCreateProfileHandler(t *testing.T) {
+func TestCreateProfileHandler(t *testing.T) {
 	client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 	customKMS := createKMS(t)
 
@@ -883,6 +879,8 @@ func TestDeleteProfileHandler(t *testing.T) {
 }
 
 func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.IssuerProfile {
+	t.Helper()
+
 	req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
 	require.NoError(t, err)
 
@@ -2681,6 +2679,8 @@ func TestGenerateKeypair(t *testing.T) {
 }
 
 func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
+	t.Helper()
+
 	httpReq, err := http.NewRequest(
 		method,
 		path,
@@ -2697,6 +2697,8 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 
 func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byte,
 	urlVars map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	r, err := http.NewRequest(handler.Method(), endpoint, bytes.NewBuffer(reqBytes))
 	require.NoError(t, err)
 
@@ -2718,14 +2720,20 @@ func getProfileRequest() *ProfileRequest {
 }
 
 func getHandler(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	t.Helper()
+
 	return getHandlerWithError(t, op, pathToLookup, methodToLookup)
 }
 
 func getHandlerWithError(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	t.Helper()
+
 	return handlerLookup(t, op, pathToLookup, methodToLookup)
 }
 
 func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -2765,6 +2773,8 @@ func getIssuerProfile() *vcprofile.IssuerProfile {
 }
 
 func saveTestProfile(t *testing.T, op *Operation, profile *vcprofile.IssuerProfile) {
+	t.Helper()
+
 	err := op.profileStore.SaveProfile(profile)
 	require.NoError(t, err)
 }
@@ -2847,6 +2857,8 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 
 func setMockEDVClientReadDocumentReturnValue(t *testing.T, client *edv.Client, op *Operation,
 	structuredDocForFirstCall, structuredDocForSubsequentCalls string) {
+	t.Helper()
+
 	firstEncryptedDocToReturn := prepareEncryptedDocument(t, op, structuredDocForFirstCall)
 	subsequentEncryptedDocToReturn := prepareEncryptedDocument(t, op, structuredDocForSubsequentCalls)
 
@@ -2855,6 +2867,8 @@ func setMockEDVClientReadDocumentReturnValue(t *testing.T, client *edv.Client, o
 }
 
 func prepareEncryptedDocument(t *testing.T, op *Operation, structuredDoc string) models.EncryptedDocument {
+	t.Helper()
+
 	jwe, err := op.jweEncrypter.Encrypt([]byte(structuredDoc))
 	require.NoError(t, err)
 

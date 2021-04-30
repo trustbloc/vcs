@@ -172,6 +172,8 @@ func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 }
 
 func setEnvVars(t *testing.T) {
+	t.Helper()
+
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
 	require.NoError(t, err)
 
@@ -180,6 +182,8 @@ func setEnvVars(t *testing.T) {
 }
 
 func unsetEnvVars(t *testing.T) {
+	t.Helper()
+
 	err := os.Unsetenv(hostURLEnvKey)
 	require.NoError(t, err)
 
@@ -188,6 +192,8 @@ func unsetEnvVars(t *testing.T) {
 }
 
 func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
+	t.Helper()
+
 	flag := cmd.Flag(flagName)
 
 	require.NotNil(t, flag)

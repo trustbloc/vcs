@@ -204,7 +204,7 @@ func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Reque
 	}
 }
 
-//nolint:dupl,funlen,gocyclo
+//nolint:funlen,gocyclo
 // VerifyCredential swagger:route POST /{id}/verifier/credentials/verify verifier verifyCredentialReq
 //
 // Verifies a credential.
@@ -523,7 +523,7 @@ func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (
 
 	revocationListVC, err := o.parseAndVerifyVC(resp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse and verify status vc: %s", err.Error())
+		return nil, fmt.Errorf("failed to parse and verify status vc: %w", err)
 	}
 
 	if revocationListVC.Issuer.ID != issuer {
@@ -537,7 +537,7 @@ func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (
 
 	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode bits: %s", err.Error())
+		return nil, fmt.Errorf("failed to decode bits: %w", err)
 	}
 
 	bitSet, err := bitString.Get(revocationListIndex)
@@ -756,7 +756,7 @@ func getDIDDocFromProof(verificationMethod string, vdr vdrapi.Registry) (*did.Do
 	return docResolution.DIDDocument, nil
 }
 
-func validateProfileRequest(pr *verifier.ProfileData) error { // nolint: gocyclo
+func validateProfileRequest(pr *verifier.ProfileData) error {
 	switch {
 	case pr.ID == "":
 		return errors.New("missing profile id")

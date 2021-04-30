@@ -71,6 +71,8 @@ func TestCredentialStatusList_New(t *testing.T) {
 }
 
 func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index int) {
+	t.Helper()
+
 	status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 	require.NoError(t, err)
 	require.Equal(t, RevocationList2020Status, status.Type)

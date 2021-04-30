@@ -196,6 +196,8 @@ func plaintextJWE(msg []byte) *jose.JSONWebEncryption {
 }
 
 func encryptedJWE(t *testing.T, agent *context.Provider, msg []byte) *jose.JSONWebEncryption {
+	t.Helper()
+
 	_, rawPubKey, err := agent.KMS().CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 	require.NoError(t, err)
 

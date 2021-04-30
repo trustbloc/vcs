@@ -246,7 +246,6 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 	return vp, nil
 }
 
-// nolint: gocyclo
 func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
 	s, method, err := c.getSigner(creator, opts, signatureType)
@@ -337,7 +336,7 @@ func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
 		return nil
 	}
 
-	vmMatched := false
+	var vmMatched bool
 
 	switch proofPurpose {
 	case AssertionMethod:

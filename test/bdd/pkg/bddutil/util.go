@@ -140,12 +140,12 @@ func AreEqualJSON(b1, b2 []byte) (bool, error) {
 
 	err := json.Unmarshal(b1, &o1)
 	if err != nil {
-		return false, fmt.Errorf("error mashalling bytes 1 : %s", err.Error())
+		return false, fmt.Errorf("error mashalling bytes 1 : %w", err)
 	}
 
 	err = json.Unmarshal(b2, &o2)
 	if err != nil {
-		return false, fmt.Errorf("error mashalling bytes 2 : %s", err.Error())
+		return false, fmt.Errorf("error mashalling bytes 2 : %w", err)
 	}
 
 	return reflect.DeepEqual(o1, o2), nil

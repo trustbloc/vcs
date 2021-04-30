@@ -231,15 +231,21 @@ func TestResolve_proxy(t *testing.T) {
 	})
 }
 
-func getHandler(t *testing.T, op *Operation, lookup string) Handler {
+func getHandler(t *testing.T, op *Operation, lookup string) Handler { // nolint:unparam
+	t.Helper()
+
 	return getHandlerWithError(t, op, lookup)
 }
 
 func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
+	t.Helper()
+
 	return handlerLookup(t, op, lookup)
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 
 	for _, h := range handlers {

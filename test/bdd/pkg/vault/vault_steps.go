@@ -170,7 +170,7 @@ func (e *Steps) checkNotAvailable(docID, auth string) error {
 		return errors.New("no authorization")
 	}
 
-	time.Sleep(time.Duration(authorization.Scope.Caveats[0].Duration+1) * time.Second)
+	time.Sleep(time.Duration(authorization.Scope.Caveats[0].Duration+1) * time.Second) // nolint:durationcheck
 
 	docMeta, err := e.getDoc(docID)
 	if err != nil {
@@ -444,7 +444,7 @@ func newDidDoc(k kms.KeyManager) (*did.Doc, error) {
 		return nil, err
 	}
 
-	jwk, err := ariesjoes.JWKFromPublicKey(publicKey)
+	jwk, err := ariesjoes.JWKFromKey(publicKey)
 	if err != nil {
 		return nil, err
 	}

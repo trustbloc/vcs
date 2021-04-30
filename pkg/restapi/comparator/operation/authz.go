@@ -139,12 +139,12 @@ func getKey(comparatorConfig *models.Config) (string, ed25519.PrivateKey, error)
 
 	keyBytes, err := json.Marshal(keys[0])
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to marshal key: %s", err)
+		return "", nil, fmt.Errorf("failed to marshal key: %w", err)
 	}
 
 	jwk := jose.JSONWebKey{}
 	if errUnmarshalJSON := jwk.UnmarshalJSON(keyBytes); errUnmarshalJSON != nil {
-		return "", nil, fmt.Errorf("failed to unmarshal key to jwk: %s", errUnmarshalJSON)
+		return "", nil, fmt.Errorf("failed to unmarshal key to jwk: %w", errUnmarshalJSON)
 	}
 
 	k, ok := jwk.Key.(ed25519.PrivateKey)

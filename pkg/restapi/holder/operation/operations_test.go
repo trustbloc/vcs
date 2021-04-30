@@ -811,14 +811,20 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 }
 
 func getHandler(t *testing.T, op *Operation, lookupPath, methodToLookup string) Handler {
+	t.Helper()
+
 	return getHandlerWithError(t, op, lookupPath, methodToLookup)
 }
 
 func getHandlerWithError(t *testing.T, op *Operation, lookupPath, methodToLookup string) Handler {
+	t.Helper()
+
 	return handlerLookup(t, op, lookupPath, methodToLookup)
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookupPath, methodToLookup string) Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -835,6 +841,8 @@ func handlerLookup(t *testing.T, op *Operation, lookupPath, methodToLookup strin
 
 func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byte,
 	urlVars map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	r, err := http.NewRequest(handler.Method(), endpoint, bytes.NewBuffer(reqBytes))
 	require.NoError(t, err)
 
@@ -849,6 +857,8 @@ func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byt
 
 //nolint:unparam
 func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
+	t.Helper()
+
 	httpReq, err := http.NewRequest(
 		method,
 		path,
@@ -864,6 +874,8 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 }
 
 func saveTestProfile(t *testing.T, op *Operation) {
+	t.Helper()
+
 	vReq := &vcprofile.HolderProfile{
 		DataProfile: &vcprofile.DataProfile{
 			Name: testProfileID,
@@ -972,6 +984,8 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 
 // signVCWithBBS signs VC with bbs and returns did used for signing.
 func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
+	t.Helper()
+
 	pubKey, privKey, err := bbs12381g2pub.GenerateKeyPair(sha256.New, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, privKey)

@@ -149,7 +149,6 @@ func (e *Steps) verifyCredential(signedVCByte []byte, signatureType, purpose str
 	return nil
 }
 
-//nolint:funlen
 func (e *Steps) createGovernanceProfile(profileName, did, privateKey, keyID, signatureRep, uniRegistrar,
 	didMethod, signatureType, keyType string) error {
 	profileRequest := governanceops.GovernanceProfileRequest{}

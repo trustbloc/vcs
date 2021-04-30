@@ -306,7 +306,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 	if err != nil {
 		// The case where no docs match the given query is handled in o.retrieveCredential.
 		// Any other error is unexpected and is handled here.
-		if err != errNoDocsMatchQuery {
+		if !errors.Is(err, errNoDocsMatchQuery) {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -595,7 +595,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	if err != nil {
 		// The case where no docs match the given query is handled in o.retrieveCredential.
 		// Any other error is unexpected and is handled here.
-		if err != errNoDocsMatchQuery {
+		if !errors.Is(err, errNoDocsMatchQuery) {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -683,7 +683,7 @@ func validateProfileRequest(pr *ProfileRequest) error {
 
 	_, err := url.Parse(pr.URI)
 	if err != nil {
-		return fmt.Errorf("invalid uri: %s", err.Error())
+		return fmt.Errorf("invalid uri: %w", err)
 	}
 
 	return nil
@@ -990,7 +990,7 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 	err := json.NewDecoder(req.Body).Decode(&request)
 
 	switch {
-	case err == io.EOF || request.KeyType == "":
+	case errors.Is(err, io.EOF) || request.KeyType == "":
 		request.KeyType = defaultKeyType
 	case err != nil:
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
@@ -1147,7 +1147,7 @@ func (o *Operation) retrieveVC(edvVaultID, docID, contextErrText string, capabil
 			return nil, nil
 		}))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read document while %s: %s", contextErrText, err)
+		return nil, fmt.Errorf("failed to read document while %s: %w", contextErrText, err)
 	}
 
 	encryptedJWE, err := jose.Deserialize(string(document.JWE))

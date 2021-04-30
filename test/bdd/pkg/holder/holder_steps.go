@@ -105,7 +105,6 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.signAndValidatePresentation)
 }
 
-//nolint:funlen
 func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatureRep, uniRegistrar,
 	didMethod, signatureType, keyType string) error {
 	profileRequest := holderops.HolderProfileRequest{}
@@ -287,7 +286,7 @@ func (e *Steps) signPresentation(profileName string) ([]byte, error) {
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
+		return nil, fmt.Errorf("failed to read response : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
