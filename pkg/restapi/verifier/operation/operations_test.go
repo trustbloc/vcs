@@ -1568,6 +1568,8 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod, domain, challenge string) []byte {
+	t.Helper()
+
 	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithDisabledProofCheck())
 	require.NoError(t, err)
 
@@ -1600,6 +1602,8 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod
 }
 
 func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerificationMethod, issuerDID, vcVerificationMethod, domain, challenge string) []byte { // nolint
+	t.Helper()
+
 	signedVC := getSignedVC(t, privKey, vcJSON, issuerDID, vcVerificationMethod, "", "")
 
 	vc, err := verifiable.ParseCredential(signedVC, verifiable.WithDisabledProofCheck())
@@ -1651,14 +1655,20 @@ func getEd25519TestSigner(privKey []byte) *ed25519TestSigner {
 }
 
 func getHandler(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	t.Helper()
+
 	return getHandlerWithError(t, op, pathToLookup, methodToLookup)
 }
 
 func getHandlerWithError(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	t.Helper()
+
 	return handlerLookup(t, op, pathToLookup, methodToLookup)
 }
 
 func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup string) Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -1674,6 +1684,8 @@ func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup str
 }
 
 func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder { // nolint: unparam,lll
+	t.Helper()
+
 	httpReq, err := http.NewRequest(
 		method,
 		path,
@@ -1690,6 +1702,8 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 
 func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byte,
 	urlVars map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	r, err := http.NewRequest(handler.Method(), endpoint, bytes.NewBuffer(reqBytes))
 	require.NoError(t, err)
 
@@ -1703,6 +1717,8 @@ func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byt
 }
 
 func saveTestProfile(t *testing.T, op *Operation) {
+	t.Helper()
+
 	vReq := &verifier.ProfileData{
 		ID: testProfileID,
 	}

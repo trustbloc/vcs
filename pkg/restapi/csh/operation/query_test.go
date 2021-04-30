@@ -456,6 +456,8 @@ func agentConfig(agent *context.Provider) *operation.Config {
 }
 
 func newOperation(t *testing.T, cfg *operation.Config) *operation.Operation {
+	t.Helper()
+
 	op, err := operation.New(cfg)
 	require.NoError(t, err)
 
@@ -463,6 +465,8 @@ func newOperation(t *testing.T, cfg *operation.Config) *operation.Operation {
 }
 
 func newDocQuery(t *testing.T) *openapi.DocQuery {
+	t.Helper()
+
 	docID := uuid.New().String()
 	vaultID := uuid.New().String()
 
@@ -510,6 +514,8 @@ func refQuery(ref string) *openapi.RefQuery {
 }
 
 func encryptedJWE(t *testing.T, agent *context.Provider, msg []byte) *jose.JSONWebEncryption {
+	t.Helper()
+
 	_, rawPubKey, err := agent.KMS().CreateAndExportPubKeyBytes(kms.NISTP256ECDHKWType)
 	require.NoError(t, err)
 
@@ -559,6 +565,8 @@ func newAgent(t *testing.T) *context.Provider {
 }
 
 func newVerMethod(t *testing.T, k kms.KeyManager) string {
+	t.Helper()
+
 	_, pubKeyBytes, err := k.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	require.NoError(t, err)
 
@@ -568,6 +576,8 @@ func newVerMethod(t *testing.T, k kms.KeyManager) string {
 }
 
 func newMockEDVClient(t *testing.T, err error, docs ...*jose.JSONWebEncryption) *mockEDVClient {
+	t.Helper()
+
 	edvDocs := make([]*models.EncryptedDocument, len(docs))
 
 	for i := range docs {
@@ -694,6 +704,8 @@ type publicKey struct {
 }
 
 func unwrapKey(t *testing.T, keyID string, km kms.KeyManager, c crypto.Crypto, request *unwrapRequest) []byte {
+	t.Helper()
+
 	kid, err := base64.URLEncoding.DecodeString(request.WrappedKey.KID)
 	require.NoError(t, err)
 
@@ -730,6 +742,8 @@ func unwrapKey(t *testing.T, keyID string, km kms.KeyManager, c crypto.Crypto, r
 }
 
 func unmarshalPublicKey(t *testing.T, k *publicKey) *crypto.PublicKey {
+	t.Helper()
+
 	kid, err := base64.URLEncoding.DecodeString(k.KID)
 	require.NoError(t, err)
 
@@ -762,6 +776,8 @@ func keyID(path string) string {
 }
 
 func checkZCAPHeaders(t *testing.T, r *http.Request) {
+	t.Helper()
+
 	require.NotEmpty(t, r.Header.Get("capability-invocation"))
 	require.NotEmpty(t, r.Header.Get("signature"))
 }

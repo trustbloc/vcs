@@ -266,7 +266,7 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 
 	didDoc := &docdid.Doc{}
 
-	jwk, err := jose.JWKFromPublicKey(ed25519.PublicKey(base58.Decode(base58PubKey)))
+	jwk, err := jose.JWKFromKey(ed25519.PublicKey(base58.Decode(base58PubKey)))
 	if err != nil {
 		return nil, err
 	}
@@ -372,7 +372,7 @@ func (e *Steps) issueCredential(user, did, cred, domain, challenge, keyID string
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
+		return nil, fmt.Errorf("failed to read response : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -438,7 +438,7 @@ func (e *Steps) composeIssueAndVerifyCredential(user string) error {
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed to read response : %s", err)
+		return fmt.Errorf("failed to read response : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -527,7 +527,7 @@ func (e *Steps) createPresentation(user, cred, domain, challenge string) ([]byte
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response : %s", err)
+		return nil, fmt.Errorf("failed to read response : %w", err)
 	}
 
 	if resp.StatusCode != http.StatusCreated {
@@ -635,11 +635,11 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 		//nolint: errcheck
 		if len(vp.Proofs) > 0 {
 			if c, ok := vp.Proofs[0]["challenge"]; ok {
-				e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = c.(string)
+				e.bddContext.Args[bddutil.GetProofChallengeKey(user)] = c.(string) // nolint:forcetypeassert
 			}
 
 			if d, ok := vp.Proofs[0]["domain"]; ok {
-				e.bddContext.Args[bddutil.GetProofDomainKey(user)] = d.(string)
+				e.bddContext.Args[bddutil.GetProofDomainKey(user)] = d.(string) // nolint:forcetypeassert
 			}
 		}
 

@@ -413,6 +413,8 @@ func TestDIDSignatureHashAlgorithms_Verify(t *testing.T) {
 }
 
 func newVerMethod(t *testing.T, k kms.KeyManager) string {
+	t.Helper()
+
 	_, pubKeyBytes, err := k.CreateAndExportPubKeyBytes(kms.ED25519Type)
 	require.NoError(t, err)
 
@@ -422,6 +424,8 @@ func newVerMethod(t *testing.T, k kms.KeyManager) string {
 }
 
 func newAgent(t *testing.T) *context.Provider {
+	t.Helper()
+
 	a, err := aries.New(
 		aries.WithStoreProvider(mem.NewProvider()),
 		aries.WithProtocolStateStoreProvider(mem.NewProvider()),

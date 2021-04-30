@@ -403,14 +403,20 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 }
 
 func getHandler(t *testing.T, op *Operation, lookup string) Handler {
+	t.Helper()
+
 	return getHandlerWithError(t, op, lookup)
 }
 
 func getHandlerWithError(t *testing.T, op *Operation, lookup string) Handler {
+	t.Helper()
+
 	return handlerLookup(t, op, lookup)
 }
 
 func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
+	t.Helper()
+
 	handlers := op.GetRESTHandlers()
 	require.NotEmpty(t, handlers)
 
@@ -427,6 +433,8 @@ func handlerLookup(t *testing.T, op *Operation, lookup string) Handler {
 
 func serveHTTPMux(t *testing.T, handler Handler, reqBytes []byte,
 	urlVars map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+
 	r, err := http.NewRequest(handler.Method(), "", bytes.NewBuffer(reqBytes))
 	require.NoError(t, err)
 
@@ -441,6 +449,8 @@ func serveHTTPMux(t *testing.T, handler Handler, reqBytes []byte,
 
 //nolint:unparam
 func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req []byte) *httptest.ResponseRecorder {
+	t.Helper()
+
 	httpReq, err := http.NewRequest(
 		method,
 		path,

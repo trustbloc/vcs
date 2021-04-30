@@ -384,7 +384,7 @@ func (o *Operation) newPublicKeys() (*did.Doc, []json.RawMessage, error) {
 
 	m = append(m, jwkBytes)
 
-	jwk, err := ariesjoes.JWKFromPublicKey(publicKey)
+	jwk, err := ariesjoes.JWKFromKey(publicKey)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -33,7 +33,7 @@ type Composition struct {
 // NewComposition create a new Composition specifying the project name (for isolation) and the compose files.
 func NewComposition(projectName, composeFilesYaml, dir string) (composition *Composition, err error) {
 	errRetFunc := func() error {
-		return fmt.Errorf("error creating new composition '%s' using compose yaml '%s':  %s",
+		return fmt.Errorf("error creating new composition '%s' using compose yaml '%s':  %w",
 			projectName, composeFilesYaml, err)
 	}
 
@@ -73,7 +73,7 @@ func (c *Composition) GetContainerIDs(dir string) (containerIDs []string, err er
 	var cmdOutput []byte
 
 	if cmdOutput, err = c.issueCommand([]string{"ps", "-q"}, dir); err != nil {
-		return nil, fmt.Errorf("error getting container IDs for project '%s':  %s", c.ProjectName, err)
+		return nil, fmt.Errorf("error getting container IDs for project '%s':  %w", c.ProjectName, err)
 	}
 
 	containerIDs = splitDockerCommandResults(string(cmdOutput))
@@ -88,7 +88,7 @@ func (c *Composition) refreshContainerList() (err error) {
 		docker.ListContainersOptions{
 			All:     true,
 			Filters: map[string][]string{"name": {c.ProjectName}}}); err != nil {
-		return fmt.Errorf("error refreshing container list for project '%s':  %s", c.ProjectName, err)
+		return fmt.Errorf("error refreshing container list for project '%s':  %w", c.ProjectName, err)
 	}
 
 	c.APIContainers = make([]*docker.APIContainers, len(thisProjectsContainers))
@@ -103,7 +103,7 @@ func (c *Composition) issueCommand(args []string, dir string) (_ []byte, err err
 	var cmdOut []byte
 
 	errRetFunc := func() error {
-		return fmt.Errorf("error issuing command to docker-compose with args '%s':  %s (%s)", args, err, string(cmdOut))
+		return fmt.Errorf("error issuing command to docker-compose with args '%s':  %w (%s)", args, err, string(cmdOut))
 	}
 
 	var cmdArgs []string
@@ -187,7 +187,7 @@ func (c *Composition) GetAPIContainerForComposeService(
 // GetIPAddressForComposeService returns the IPAddress of the container with the supplied composeService name.
 func (c *Composition) GetIPAddressForComposeService(composeService string) (ipAddress string, err error) {
 	errRetFunc := func() error {
-		return fmt.Errorf("error getting IPAddress for compose service '%s':  %s", composeService, err)
+		return fmt.Errorf("error getting IPAddress for compose service '%s':  %w", composeService, err)
 	}
 
 	var apiContainer *docker.APIContainers

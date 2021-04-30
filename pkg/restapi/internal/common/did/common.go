@@ -103,7 +103,7 @@ func (o *CommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID, 
 	case didID != "":
 		docResolution, err := o.vdr.Resolve(didID)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to resolve did: %v", err)
+			return "", "", fmt.Errorf("failed to resolve did: %w", err)
 		}
 
 		createdDIDID = docResolution.DIDDocument.ID
@@ -147,7 +147,7 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 	registrar model.UNIRegistrar) (string, string, error) {
 	_, pks, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create did public key: %v", err)
+		return "", "", fmt.Errorf("failed to create did public key: %w", err)
 	}
 
 	_, recoveryPubKey, err := o.createKey(kms.ED25519Type, o.keyManager)
@@ -164,7 +164,7 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 
 	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create did doc from uni-registrar: %v", err)
+		return "", "", fmt.Errorf("failed to create did doc from uni-registrar: %w", err)
 	}
 
 	// TODO https://github.com/trustbloc/edge-service/issues/415 remove check when vendors supporting addKeys feature
@@ -234,7 +234,7 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 
 	didDoc, _, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create did public key: %v", err)
+		return "", "", fmt.Errorf("failed to create did public key: %w", err)
 	}
 
 	_, recoveryPubKey, err := o.createKey(kms.ED25519Type, o.keyManager)
@@ -254,7 +254,7 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 
 	docResolution, err := o.vdr.Create(orb.DIDMethod, didDoc, opts...)
 	if err != nil {
-		return "", "", fmt.Errorf("failed to create did doc: %v", err)
+		return "", "", fmt.Errorf("failed to create did doc: %w", err)
 	}
 
 	docID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
@@ -275,7 +275,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	jwk, err := jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyBytes))
+	jwk, err := jose.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -301,7 +301,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	jwk, err = jose.JWKFromPublicKey(ed25519.PublicKey(pubKeyBytes))
+	jwk, err = jose.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -329,7 +329,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 
 	x, y := elliptic.Unmarshal(elliptic.P256(), pubKeyBytes)
 
-	jwk, err = jose.JWKFromPublicKey(&ecdsa.PublicKey{X: x, Y: y, Curve: elliptic.P256()})
+	jwk, err = jose.JWKFromKey(&ecdsa.PublicKey{X: x, Y: y, Curve: elliptic.P256()})
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -404,7 +404,7 @@ func (o *CommonDID) importKey(keyID string, keyType kms.KeyType, privateKeyBytes
 	_, _, err = o.keyManager.ImportPrivateKey(privKey,
 		keyType, kms.WithKeyID(split[1]))
 	if err != nil {
-		return fmt.Errorf("failed to import private key: %v", err)
+		return fmt.Errorf("failed to import private key: %w", err)
 	}
 
 	return nil

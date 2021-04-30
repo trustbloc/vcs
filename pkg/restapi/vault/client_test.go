@@ -260,7 +260,7 @@ func TestClient_GetAuthorization(t *testing.T) {
 	})
 }
 
-func TestClient_SaveDoc(t *testing.T) { // nolint: gocyclo
+func TestClient_SaveDoc(t *testing.T) {
 	const (
 		docID   = "id"
 		vaultID = "v_id"

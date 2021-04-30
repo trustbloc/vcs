@@ -76,7 +76,7 @@ type GovernanceProfile struct {
 func (c *Profile) SaveProfile(data *IssuerProfile) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("save profile marshalling error: %s", err.Error())
+		return fmt.Errorf("save profile marshalling error: %w", err)
 	}
 
 	return c.store.Put(getDBKey(issuerMode, data.Name), bytes)
@@ -108,7 +108,7 @@ func (c *Profile) DeleteProfile(name string) error {
 func (c *Profile) SaveHolderProfile(data *HolderProfile) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("save holder profile : %s", err.Error())
+		return fmt.Errorf("save holder profile : %w", err)
 	}
 
 	return c.store.Put(getDBKey(holderMode, data.Name), bytes)
@@ -140,7 +140,7 @@ func (c *Profile) DeleteHolderProfile(name string) error {
 func (c *Profile) SaveGovernanceProfile(data *GovernanceProfile) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("save governance profile : %s", err.Error())
+		return fmt.Errorf("save governance profile : %w", err)
 	}
 
 	return c.store.Put(getDBKey(governanceMode, data.Name), bytes)

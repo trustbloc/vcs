@@ -352,7 +352,7 @@ func TestCreateKMS(t *testing.T) {
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
-		v, err := createVDRI("wrong", &tls.Config{}, "")
+		v, err := createVDRI("wrong", &tls.Config{MinVersion: tls.VersionTLS12}, "")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 		require.Nil(t, v)
@@ -368,7 +368,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createVDRI("localhost:8083", &tls.Config{}, "")
+		v, err := createVDRI("localhost:8083", &tls.Config{MinVersion: tls.VersionTLS12}, "")
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
@@ -471,6 +471,8 @@ func TestValidateAuthorizationBearerToken(t *testing.T) {
 }
 
 func setEnvVars(t *testing.T, databaseType string) {
+	t.Helper()
+
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
 	require.NoError(t, err)
 
@@ -488,6 +490,8 @@ func setEnvVars(t *testing.T, databaseType string) {
 }
 
 func unsetEnvVars(t *testing.T) {
+	t.Helper()
+
 	err := os.Unsetenv(hostURLEnvKey)
 	require.NoError(t, err)
 
@@ -505,6 +509,8 @@ func unsetEnvVars(t *testing.T) {
 }
 
 func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
+	t.Helper()
+
 	flag := cmd.Flag(flagName)
 
 	require.NotNil(t, flag)
