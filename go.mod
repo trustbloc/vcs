@@ -19,12 +19,12 @@ require (
 	github.com/google/tink/go v1.5.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210421205521-3974f6708723
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210429205242-c5e97865879c
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210326155331-14f4ca7d75cb
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210326155331-14f4ca7d75cb
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210415184514-aa162c522bc1
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.1.0
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210423164427-96362080a25e
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210427144858-06fb8b7d2d30
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210429205242-c5e97865879c
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/spf13/cobra v1.1.3
