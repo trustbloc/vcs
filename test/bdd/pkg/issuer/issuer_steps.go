@@ -486,7 +486,13 @@ func (e *Steps) createPresentation(user, cred, domain, challenge string) ([]byte
 		return nil, er
 	}
 
-	vc, err := verifiable.ParseCredential([]byte(cred), verifiable.WithDisabledProofCheck())
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return nil, fmt.Errorf("create document loader: %w", err)
+	}
+
+	vc, err := verifiable.ParseCredential([]byte(cred), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -623,7 +629,13 @@ func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
 			return fmt.Errorf("unable to find verifiable presentation '%s'", vpres)
 		}
 
-		vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
+		loader, err := bddutil.DocumentLoader()
+		if err != nil {
+			return fmt.Errorf("create document loader: %w", err)
+		}
+
+		vp, err := verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresJSONLDDocumentLoader(loader))
 		if err != nil {
 			return err
 		}

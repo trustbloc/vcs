@@ -31,6 +31,7 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
+	"github.com/trustbloc/edge-service/pkg/jsonld"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
@@ -416,6 +417,11 @@ func startService(params *serviceParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
+	loader, err := jsonld.DocumentLoader(storeProvider)
+	if err != nil {
+		return err
+	}
+
 	service, err := comparator.New(&operation.Config{
 		VDR:             vdr.New(vdr.WithVDR(trustblocVDR)),
 		KeyManager:      keyManager,
@@ -426,6 +432,7 @@ func startService(params *serviceParameters, srv server) error {
 		VaultBaseURL:    params.vaultURL,
 		DIDDomain:       params.didDomain,
 		DIDAnchorOrigin: params.didAnchorOrigin,
+		DocumentLoader:  loader,
 	})
 	if err != nil {
 		return err

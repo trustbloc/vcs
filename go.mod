@@ -19,19 +19,20 @@ require (
 	github.com/google/tink/go v1.5.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210421205521-3974f6708723
-	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210326155331-14f4ca7d75cb
-	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210326155331-14f4ca7d75cb
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210415184514-aa162c522bc1
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210423164427-96362080a25e
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210427144858-06fb8b7d2d30
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210429205242-c5e97865879c
+	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210426192704-553740e279e5
+	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210505173234-006b2f4723fd
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.1.0
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210505173234-006b2f4723fd
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210510053848-903ac6748b72
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210510053848-903ac6748b72
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
+	github.com/piprate/json-gold v0.4.0
 	github.com/spf13/cobra v1.1.3
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.7.0
-	github.com/trustbloc/edge-core v0.1.7-0.20210426154540-f9c761ec6943
-	github.com/trustbloc/edv v0.1.7-0.20210420141323-971877b36098
-	github.com/trustbloc/kms v0.1.7-0.20210420100919-6aeea555441f
+	github.com/trustbloc/edge-core v0.1.7-0.20210429222332-96b987820e63
+	github.com/trustbloc/edv v0.1.7-0.20210510134838-bdb20956d60b
+	github.com/trustbloc/kms v0.1.7-0.20210510144722-4d909760f6bf
 	github.com/trustbloc/trustbloc-did-method v0.1.7-0.20210430130101-b8e5fc60fb6d
 )

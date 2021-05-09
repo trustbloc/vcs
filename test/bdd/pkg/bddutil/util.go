@@ -9,6 +9,7 @@ package bddutil
 import (
 	"crypto/ed25519"
 	"crypto/tls"
+	_ "embed" //nolint:gci // required for go:embed
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,7 +19,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -202,9 +206,15 @@ func GetDIDDocKey(user string) string {
 // CreateCustomPresentation creates verifiable presentation from custom linked data proof context
 func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 	ldpContext *verifiable.LinkedDataProofContext) ([]byte, error) {
+	loader, err := DocumentLoader()
+	if err != nil {
+		return nil, fmt.Errorf("create document loader: %w", err)
+	}
+
 	// parse vc
 	vc, err := verifiable.ParseCredential(vcBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(vdr).PublicKeyFetcher()),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +226,7 @@ func CreateCustomPresentation(vcBytes []byte, vdr vdrapi.Registry,
 	}
 
 	// add linked data proof
-	err = vp.AddLinkedDataProof(ldpContext)
+	err = vp.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(loader))
 	if err != nil {
 		return nil, err
 	}
@@ -234,4 +244,58 @@ func GetSignatureRepresentation(holder string) verifiable.SignatureRepresentatio
 	default:
 		return verifiable.SignatureJWS
 	}
+}
+
+// nolint:gochecknoglobals //embedded test contexts
+var (
+	//go:embed contexts/lds-jws2020-v1.jsonld
+	jws2020V1Vocab []byte
+	//go:embed contexts/governance.jsonld
+	governanceVocab []byte
+	//go:embed contexts/citizenship-v1.jsonld
+	citizenshipVocab []byte
+	//go:embed contexts/examples-v1.jsonld
+	examplesVocab []byte
+	//go:embed contexts/examples-ext-v1.jsonld
+	examplesExtVocab []byte
+	//go:embed contexts/examples-crude-product-v1.jsonld
+	examplesCrudeProductVocab []byte
+)
+
+var embedContexts = []jld.ContextDocument{ //nolint:gochecknoglobals
+	{
+		URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		Content: jws2020V1Vocab,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/governance/context.jsonld",
+		Content: governanceVocab,
+	},
+	{
+		URL:         "https://w3id.org/citizenship/v1",
+		DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
+		Content:     citizenshipVocab,
+	},
+	{
+		URL:     "https://www.w3.org/2018/credentials/examples/v1",
+		Content: examplesVocab,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld",
+		Content: examplesExtVocab,
+	},
+	{
+		URL:     "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld",
+		Content: examplesCrudeProductVocab,
+	},
+}
+
+// DocumentLoader returns a JSON-LD document loader with preloaded test contexts.
+func DocumentLoader() (*jld.DocumentLoader, error) {
+	loader, err := jld.NewDocumentLoader(mem.NewProvider(), jld.WithExtraContexts(embedContexts...))
+	if err != nil {
+		return nil, fmt.Errorf("create document loader: %w", err)
+	}
+
+	return loader, nil
 }

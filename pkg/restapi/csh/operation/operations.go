@@ -20,11 +20,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -65,21 +67,23 @@ type Operation struct {
 		queries  storage.Store
 		config   storage.Store
 	}
-	aries      *AriesConfig
-	httpClient *http.Client
-	edvClient  func(string, ...edv.Option) vault.ConfidentialStorageDocReader
-	baseURL    string
-	didDomain  string
+	aries          *AriesConfig
+	httpClient     *http.Client
+	edvClient      func(string, ...edv.Option) vault.ConfidentialStorageDocReader
+	baseURL        string
+	didDomain      string
+	documentLoader ld.DocumentLoader
 }
 
 // Config defines configuration for vault operations.
 type Config struct {
-	StoreProvider storage.Provider
-	Aries         *AriesConfig
-	HTTPClient    *http.Client
-	EDVClient     func(string, ...edv.Option) vault.ConfidentialStorageDocReader
-	BaseURL       string
-	DIDDomain     string
+	StoreProvider  storage.Provider
+	Aries          *AriesConfig
+	HTTPClient     *http.Client
+	EDVClient      func(string, ...edv.Option) vault.ConfidentialStorageDocReader
+	BaseURL        string
+	DIDDomain      string
+	DocumentLoader ld.DocumentLoader
 }
 
 // AriesConfig holds all configurations for aries-framework-go dependencies.
@@ -95,11 +99,12 @@ type AriesConfig struct {
 // New returns operation instance.
 func New(cfg *Config) (*Operation, error) {
 	ops := &Operation{
-		aries:      cfg.Aries,
-		httpClient: cfg.HTTPClient,
-		edvClient:  cfg.EDVClient,
-		baseURL:    cfg.BaseURL,
-		didDomain:  cfg.DIDDomain,
+		aries:          cfg.Aries,
+		httpClient:     cfg.HTTPClient,
+		edvClient:      cfg.EDVClient,
+		baseURL:        cfg.BaseURL,
+		didDomain:      cfg.DIDDomain,
+		documentLoader: cfg.DocumentLoader,
 	}
 
 	err := ops.configure(cfg)
@@ -385,6 +390,7 @@ func (o *Operation) newProfileZCAP(profileID, controller string) (*zcapld.Capabi
 			})),
 			SuiteType:          "JsonWebSignature2020", // TODO this constant should be exposed in the framework
 			VerificationMethod: identity.DelegationKeyURL,
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(o.documentLoader)},
 		},
 		zcapld.WithInvocationTarget(profileID, "urn:confidentialstoragehub:profile"),
 		zcapld.WithID(profileID),

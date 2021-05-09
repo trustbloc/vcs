@@ -36,6 +36,7 @@ import (
 	"github.com/trustbloc/edge-service/cmd/common"
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/did"
+	"github.com/trustbloc/edge-service/pkg/jsonld"
 	crypto2 "github.com/trustbloc/edge-service/pkg/key"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
@@ -275,6 +276,11 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		baseURL = params.host
 	}
 
+	loader, err := jsonld.DocumentLoader(provider)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
 	service, err := csh.New(&operation.Config{
 		StoreProvider: provider,
 		Aries:         ariesConfig,
@@ -282,8 +288,9 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		HTTPClient: &http.Client{Transport: &http.Transport{
 			TLSClientConfig: params.tlsParams.tlsConfig,
 		}},
-		BaseURL:   baseURL,
-		DIDDomain: params.trustblocDomain,
+		BaseURL:        baseURL,
+		DIDDomain:      params.trustblocDomain,
+		DocumentLoader: loader,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize confidential storage hub operations: %w", err)

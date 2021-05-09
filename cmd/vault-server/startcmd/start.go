@@ -32,6 +32,7 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
+	"github.com/trustbloc/edge-service/pkg/jsonld"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
@@ -333,11 +334,17 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		return err
 	}
 
+	loader, err := jsonld.DocumentLoader(storeProvider)
+	if err != nil {
+		return err
+	}
+
 	vaultClient, err := vault.NewClient(
 		params.remoteKMSURL,
 		params.edvURL,
 		keyManager,
 		storeProvider,
+		loader,
 		vault.WithRegistry(ariesvdr.New(
 			ariesvdr.WithVDR(vdrkey.New()),
 			ariesvdr.WithVDR(vdrBloc),

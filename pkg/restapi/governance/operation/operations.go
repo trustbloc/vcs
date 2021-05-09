@@ -23,6 +23,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -84,9 +85,9 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
-	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI)
+	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI, config.DocumentLoader)
 
-	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c, config.DocumentLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
@@ -118,6 +119,7 @@ type Config struct {
 	HostURL         string
 	ClaimsFile      string
 	DIDAnchorOrigin string
+	DocumentLoader  ld.DocumentLoader
 }
 
 type keyManager interface {

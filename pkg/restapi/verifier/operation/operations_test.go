@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +25,8 @@ import (
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -322,13 +325,17 @@ func TestDeleteProfileHandler(t *testing.T) {
 }
 
 func TestVerifyCredential(t *testing.T) {
-	vc, err := verifiable.ParseCredential([]byte(prCardVC), verifiable.WithDisabledProofCheck())
+	loader := createTestDocumentLoader(t)
+
+	vc, err := verifiable.ParseCredential([]byte(prCardVC), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		VDRI:          &vdrmock.MockVDRegistry{},
-		StoreProvider: ariesmemstorage.NewProvider(),
-		RequestTokens: map[string]string{cslRequestTokenName: "tk1"},
+		VDRI:           &vdrmock.MockVDRegistry{},
+		StoreProvider:  ariesmemstorage.NewProvider(),
+		RequestTokens:  map[string]string{cslRequestTokenName: "tk1"},
+		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
@@ -359,8 +366,9 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, errNew := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, errNew)
 
@@ -420,8 +428,9 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, errNew := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, errNew)
 
@@ -817,8 +826,9 @@ func TestVerifyCredential(t *testing.T) {
 		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -904,8 +914,9 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -960,8 +971,9 @@ func TestVerifyCredential(t *testing.T) {
 		vc.Issuer.ID = didDoc.ID
 
 		ops, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -994,9 +1006,12 @@ func TestVerifyCredential(t *testing.T) {
 }
 
 func TestVerifyPresentation(t *testing.T) {
+	loader := createTestDocumentLoader(t)
+
 	op, err := New(&Config{
-		VDRI:          &vdrmock.MockVDRegistry{},
-		StoreProvider: ariesmemstorage.NewProvider(),
+		VDRI:           &vdrmock.MockVDRegistry{},
+		StoreProvider:  ariesmemstorage.NewProvider(),
+		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
@@ -1026,8 +1041,9 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1072,8 +1088,9 @@ func TestVerifyPresentation(t *testing.T) {
 
 	t.Run("presentation verification - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1087,8 +1104,9 @@ func TestVerifyPresentation(t *testing.T) {
 
 	t.Run("presentation verification - invalid vp", func(t *testing.T) {
 		ops, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1229,8 +1247,9 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1320,8 +1339,9 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1362,8 +1382,9 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1403,8 +1424,9 @@ func TestVerifyPresentation(t *testing.T) {
 		verificationMethod := didDoc.VerificationMethod[0].ID
 
 		op, err := New(&Config{
-			VDRI:          &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1570,7 +1592,10 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod, domain, challenge string) []byte {
 	t.Helper()
 
-	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithDisabledProofCheck())
+	loader := createTestDocumentLoader(t)
+
+	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	vc.Issuer.ID = didID
@@ -1590,7 +1615,7 @@ func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod
 		Domain:                  domain,
 		Challenge:               challenge,
 		Purpose:                 vccrypto.AssertionMethod,
-	})
+	}, jsonld.WithDocumentLoader(loader))
 	require.NoError(t, err)
 
 	require.Len(t, vc.Proofs, 1)
@@ -1606,7 +1631,10 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerification
 
 	signedVC := getSignedVC(t, privKey, vcJSON, issuerDID, vcVerificationMethod, "", "")
 
-	vc, err := verifiable.ParseCredential(signedVC, verifiable.WithDisabledProofCheck())
+	loader := createTestDocumentLoader(t)
+
+	vc, err := verifiable.ParseCredential(signedVC, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
@@ -1629,7 +1657,7 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerification
 		Domain:                  domain,
 		Challenge:               challenge,
 		Purpose:                 vccrypto.Authentication,
-	})
+	}, jsonld.WithDocumentLoader(loader))
 	require.NoError(t, err)
 
 	signedVP, err := vp.MarshalJSON()
@@ -1763,6 +1791,26 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
+}
+
+//go:embed testdata/citizenship-v1.jsonld
+var citizenshipVocab []byte //nolint:gochecknoglobals // embedded test context
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
+		jld.WithExtraContexts(
+			jld.ContextDocument{
+				URL:         "https://w3id.org/citizenship/v1",
+				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
+				Content:     citizenshipVocab,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	return loader
 }
 
 const (

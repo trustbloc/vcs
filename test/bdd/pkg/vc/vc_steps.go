@@ -99,8 +99,14 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 
 //nolint: funlen
 func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, result, respMessage string) error {
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
 	vc, err := verifiable.ParseCredential(e.bddContext.CreatedCredential,
-		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(e.bddContext.VDRI).PublicKeyFetcher()),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
 	}
@@ -279,7 +285,13 @@ func (e *Steps) createCredential(credential, profileName string) error {
 		return fmt.Errorf("unable to find credential '%s' request template", credential)
 	}
 
-	cred, err := verifiable.ParseCredential(template, verifiable.WithDisabledProofCheck())
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	cred, err := verifiable.ParseCredential(template, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
 	}
@@ -578,7 +590,13 @@ func verify(resp *http.Response, checks []string, result, respMessage string) er
 func (e *Steps) revokePresentationCred(user string) error {
 	vpBytes := e.bddContext.Args[user]
 
-	vp, err := verifiable.ParsePresentation([]byte(vpBytes), verifiable.WithPresDisabledProofCheck())
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	vp, err := verifiable.ParsePresentation([]byte(vpBytes), verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
 	}
@@ -589,7 +607,8 @@ func (e *Steps) revokePresentationCred(user string) error {
 			return err
 		}
 
-		vc, err := verifiable.ParseCredential(credBytes, verifiable.WithDisabledProofCheck())
+		vc, err := verifiable.ParseCredential(credBytes, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
 		if err != nil {
 			return err
 		}
@@ -607,7 +626,13 @@ func (e *Steps) revokePresentationCred(user string) error {
 }
 
 func (e *Steps) revokeCredential() error {
-	vc, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck())
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	vc, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
 	}
@@ -1117,10 +1142,16 @@ func (e *Steps) createBasicVerifierProfile(profileID string) error {
 	return nil
 }
 
-func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) error {
+func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) error { //nolint:funlen
 	cred := e.bddContext.Args[bddutil.GetCredentialKey(holder)]
 
-	vc, err := verifiable.ParseCredential([]byte(cred), verifiable.WithDisabledProofCheck())
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	vc, err := verifiable.ParseCredential([]byte(cred), verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
 	}

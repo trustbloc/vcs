@@ -22,6 +22,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
@@ -430,7 +432,8 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		s.Store["csh_config"] = mockstorage.DBEntry{Value: chsProfileBytes}
 		op, err := operation.New(&operation.Config{
 			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s},
+			StoreProvider:  &mockstorage.MockStoreProvider{Store: s},
+			DocumentLoader: createTestDocumentLoader(t),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
@@ -903,6 +906,7 @@ func newZCAP(t *testing.T, server, rp *context.Provider) *zcapld.Capability {
 			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
 			SuiteType:          ed25519signature2018.SignatureType,
 			VerificationMethod: verificationMethod,
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(createTestDocumentLoader(t))},
 		},
 		zcapld.WithID(uuid.New().URN()),
 		zcapld.WithInvoker(invoker),
@@ -960,4 +964,13 @@ func marshal(t *testing.T, v interface{}) []byte {
 	require.NoError(t, err)
 
 	return bits
+}
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jld.NewDocumentLoader(mockstorage.NewMockStoreProvider())
+	require.NoError(t, err)
+
+	return loader
 }

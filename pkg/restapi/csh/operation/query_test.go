@@ -23,6 +23,7 @@ import (
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
@@ -419,7 +420,7 @@ func agentConfig(agent *context.Provider) *operation.Config {
 				return &did.DocResolution{
 					DIDDocument: &did.Doc{
 						ID:      "did:example:123",
-						Context: []string{did.Context},
+						Context: []string{did.ContextV1},
 						Authentication: []did.Verification{{
 							VerificationMethod: did.VerificationMethod{
 								ID:    uuid.New().String() + "#key1",
@@ -628,6 +629,7 @@ func newZCAP(t *testing.T, server, rp *context.Provider) *zcapld.Capability {
 			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
 			SuiteType:          ed25519signature2018.SignatureType,
 			VerificationMethod: verificationMethod,
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(createTestDocumentLoader(t))},
 		},
 		zcapld.WithID(uuid.New().String()),
 		zcapld.WithInvoker(invoker),

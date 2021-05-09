@@ -25,6 +25,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	remotecrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
@@ -49,6 +50,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
 	"github.com/trustbloc/edge-service/pkg/client/csh/models"
 	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
+	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 )
 
 const requestTimeout = 5 * time.Second
@@ -339,6 +341,11 @@ func (u *user) newVC(msg string) (*verifiable.Credential, error) {
 		return nil, fmt.Errorf("failed to create a new signer: %w", err)
 	}
 
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return nil, fmt.Errorf("create document loader: %w", err)
+	}
+
 	err = vc.AddLinkedDataProof(
 		&verifiable.LinkedDataProofContext{
 			SignatureType:           ed25519signature2018.SignatureType,
@@ -347,6 +354,7 @@ func (u *user) newVC(msg string) (*verifiable.Credential, error) {
 			Purpose:                 "assertionMethod",
 			VerificationMethod:      didKeyURL(signer.PublicKeyBytes()),
 		},
+		jsonld.WithDocumentLoader(loader),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add linked data proof to the vc: %w", err)
@@ -367,11 +375,17 @@ func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nol
 	chain = append(chain, capabilityChain(rootEdvZCAP)...)
 	chain = append(chain, rootEdvZCAP.ID)
 
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return "", "", fmt.Errorf("create document loader: %w", err)
+	}
+
 	authorizedEDVZcap, err := zcapld.NewCapability(
 		&zcapld.Signer{
 			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(u.signer)),
 			SuiteType:          ed25519signature2018.SignatureType,
 			VerificationMethod: u.controller,
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(loader)},
 		},
 		zcapld.WithInvoker(invoker),
 		zcapld.WithAllowedActions("read"),
@@ -410,6 +424,7 @@ func (u *user) authorizeRead(invoker, _ string) (string, string, error) { // nol
 			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(u.signer)),
 			SuiteType:          ed25519signature2018.SignatureType,
 			VerificationMethod: u.controller,
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(loader)},
 		},
 		zcapld.WithInvoker(invoker),
 		zcapld.WithAllowedActions("unwrap"),

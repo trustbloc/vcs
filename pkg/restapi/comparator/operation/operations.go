@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 	"github.com/square/go-jose/v3"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
@@ -89,6 +90,7 @@ type Operation struct {
 	comparatorConfig *models.Config
 	didDomain        string
 	didAnchorOrigin  string
+	documentLoader   ld.DocumentLoader
 }
 
 // Config defines configuration for comparator operations.
@@ -102,6 +104,7 @@ type Config struct {
 	VaultBaseURL    string
 	DIDDomain       string
 	DIDAnchorOrigin string
+	DocumentLoader  ld.DocumentLoader
 }
 
 // New returns operation instance.
@@ -135,6 +138,7 @@ func New(cfg *Config) (*Operation, error) {
 				TLSClientConfig: cfg.TLSConfig,
 			},
 		})),
+		documentLoader: cfg.DocumentLoader,
 	}
 
 	if _, err := op.getConfig(); err != nil { //nolint: nestif

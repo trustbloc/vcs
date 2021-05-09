@@ -25,6 +25,7 @@ import (
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -35,6 +36,7 @@ import (
 	vdrkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/igor-pavlenko/httpsignatures-go"
+	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/edvutils"
@@ -135,6 +137,7 @@ type Client struct {
 	httpClient      HTTPClient
 	store           storage.Store
 	registry        vdr.Registry
+	documentLoader  ld.DocumentLoader
 }
 
 // Opt represents Client`s option.
@@ -176,7 +179,8 @@ func WithRegistry(registry vdr.Registry) Opt {
 }
 
 // NewClient creates a new vault client.
-func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provider, opts ...Opt) (*Client, error) {
+func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provider, loader ld.DocumentLoader,
+	opts ...Opt) (*Client, error) {
 	cryptoService, err := tinkcrypto.New()
 	if err != nil {
 		return nil, fmt.Errorf("tinkcrypto new: %w", err)
@@ -206,6 +210,7 @@ func NewClient(kmsURL, edvURL string, kmsClient kms.KeyManager, db storage.Provi
 		registry: ariesvdr.New(
 			ariesvdr.WithVDR(vdrkey.New()),
 		),
+		documentLoader: loader,
 	}
 
 	for _, fn := range opts {
@@ -278,6 +283,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
 		VerificationMethod: info.DidURL,
+		ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(c.documentLoader)},
 	}, zcapld.WithParent(c.buildKMSURL(kmsCapability.ID)), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions("unwrap"),
 		zcapld.WithInvocationTarget(c.buildKMSURL(kmsCapability.InvocationTarget.ID), kmsCapability.InvocationTarget.Type),
@@ -301,6 +307,7 @@ func (c *Client) CreateAuthorization(vaultID, requestingParty string,
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(newSigner(c.crypto, kh))),
 		SuiteType:          ed25519signature2018.SignatureType,
 		VerificationMethod: info.DidURL,
+		ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(c.documentLoader)},
 	}, zcapld.WithParent(edvCapability.ID), zcapld.WithInvoker(requestingParty),
 		zcapld.WithAllowedActions(scope.Actions...),
 		zcapld.WithInvocationTarget(edvCapability.InvocationTarget.ID, edvCapability.InvocationTarget.Type),

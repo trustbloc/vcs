@@ -23,12 +23,15 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
@@ -85,7 +88,7 @@ func TestNew(t *testing.T) {
 			return &did.DocResolution{
 				DIDDocument: &did.Doc{
 					ID:      "did:example:123",
-					Context: []string{did.Context},
+					Context: []string{did.ContextV1},
 					Authentication: []did.Verification{{
 						VerificationMethod: did.VerificationMethod{
 							ID: uuid.New().String(),
@@ -292,6 +295,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 				SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
 				SuiteType:          ed25519signature2018.SignatureType,
 				VerificationMethod: didKeyURL(signer.PublicKeyBytes()),
+				ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(createTestDocumentLoader(t))},
 			},
 			zcapld.WithParent(rootZCAP.ID),
 			zcapld.WithInvoker("did:example:abc#123"),
@@ -614,7 +618,7 @@ func config(t *testing.T) *operation.Config {
 				return &did.DocResolution{
 					DIDDocument: &did.Doc{
 						ID:      "did:example:123",
-						Context: []string{did.Context},
+						Context: []string{did.ContextV1},
 						Authentication: []did.Verification{{
 							VerificationMethod: did.VerificationMethod{
 								ID:    uuid.New().String() + "#key1",
@@ -646,6 +650,7 @@ func config(t *testing.T) *operation.Config {
 				}, nil
 			},
 		},
+		DocumentLoader: createTestDocumentLoader(t),
 	}
 }
 
@@ -695,4 +700,13 @@ func decompressZCAP(t *testing.T, encoded string) *zcapld.Capability {
 	require.NoError(t, err)
 
 	return zcap
+}
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jld.NewDocumentLoader(mockstore.NewMockStoreProvider())
+	require.NoError(t, err)
+
+	return loader
 }

@@ -13,6 +13,7 @@ import (
 
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
@@ -21,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/piprate/json-gold/ld"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
@@ -112,8 +114,8 @@ func (s *kmsSigner) textToLines(txt string) [][]byte {
 }
 
 // New return new instance of vc crypto
-func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdr vdrapi.Registry) *Crypto {
-	return &Crypto{keyManager: keyManager, crypto: c, vdr: vdr}
+func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdr vdrapi.Registry, loader ld.DocumentLoader) *Crypto {
+	return &Crypto{keyManager: keyManager, crypto: c, vdr: vdr, documentLoader: loader}
 }
 
 // signingOpts holds options for the signing credential
@@ -181,9 +183,10 @@ func WithDomain(domain string) SigningOpts {
 
 // Crypto to sign credential
 type Crypto struct {
-	keyManager kms.KeyManager
-	crypto     ariescrypto.Crypto
-	vdr        vdrapi.Registry
+	keyManager     kms.KeyManager
+	crypto         ariescrypto.Crypto
+	vdr            vdrapi.Registry
+	documentLoader ld.DocumentLoader
 }
 
 // SignCredential sign vc
@@ -206,7 +209,7 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 		return nil, err
 	}
 
-	err = vc.AddLinkedDataProof(signingCtx)
+	err = vc.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}
@@ -238,7 +241,7 @@ func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiab
 		signingCtx.Purpose = Authentication
 	}
 
-	err = vp.AddLinkedDataProof(signingCtx)
+	err = vp.AddLinkedDataProof(signingCtx, jsonld.WithDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}

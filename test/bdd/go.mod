@@ -6,7 +6,7 @@ module github.com/trustbloc/edge-service/test/bdd
 
 replace github.com/trustbloc/edge-service => ../..
 
-go 1.15
+go 1.16
 
 require (
 	github.com/btcsuite/btcutil v1.0.2
@@ -15,17 +15,17 @@ require (
 	github.com/go-openapi/runtime v0.19.26
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/google/uuid v1.2.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210421205521-3974f6708723
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210415184514-aa162c522bc1
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210423164427-96362080a25e
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210427144858-06fb8b7d2d30
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210422133815-2ef2d99cb692
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210429205242-c5e97865879c
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.1.0
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210505173234-006b2f4723fd
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210510053848-903ac6748b72
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210510053848-903ac6748b72
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/tidwall/gjson v1.6.7
-	github.com/trustbloc/edge-core v0.1.7-0.20210426154540-f9c761ec6943
+	github.com/trustbloc/edge-core v0.1.7-0.20210429222332-96b987820e63
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/edv v0.1.7-0.20210420141323-971877b36098
-	github.com/trustbloc/kms v0.1.7-0.20210420100919-6aeea555441f
+	github.com/trustbloc/edv v0.1.7-0.20210510134838-bdb20956d60b
+	github.com/trustbloc/kms v0.1.7-0.20210510144722-4d909760f6bf
 	gotest.tools/v3 v3.0.3 // indirect
 )
 

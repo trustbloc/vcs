@@ -31,6 +31,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	"github.com/trustbloc/edv/pkg/client"
@@ -130,9 +131,9 @@ type commonDID interface {
 
 // New returns CreateCredential instance
 func New(config *Config) (*Operation, error) {
-	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI)
+	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI, config.DocumentLoader)
 
-	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c)
+	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c, config.DocumentLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
@@ -175,6 +176,7 @@ func New(config *Config) (*Operation, error) {
 			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
 		retryParameters: config.RetryParameters,
+		documentLoader:  config.DocumentLoader,
 	}
 
 	return svc, nil
@@ -193,6 +195,7 @@ type Config struct {
 	Crypto             ariescrypto.Crypto
 	RetryParameters    *retry.Params
 	DIDAnchorOrigin    string
+	DocumentLoader     ld.DocumentLoader
 }
 
 // Operation defines handlers for Edge service
@@ -213,6 +216,7 @@ type Operation struct {
 	commonDID            commonDID
 	retryParameters      *retry.Params
 	authService          authService
+	documentLoader       ld.DocumentLoader
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -320,7 +324,8 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck())
+	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to parse credential: %s", err.Error()))
@@ -739,7 +744,8 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// validate the VC (ignore the proof)
-	credential, err := verifiable.ParseCredential(cred.Credential, verifiable.WithDisabledProofCheck())
+	credential, err := verifiable.ParseCredential(cred.Credential, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))
 
@@ -1033,6 +1039,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
 	)
 	if err != nil {
 		return nil, err
