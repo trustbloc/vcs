@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,6 +29,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -260,11 +262,14 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	op, err := New(&Config{
 		StoreProvider: &ariesmockstorage.MockStoreProvider{
 			Store: &ariesmockstorage.MockStore{Store: s},
-		}, KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager: customKMS,
-		Crypto:     customCrypto,
-		VDRI:       &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
-		RetryParameters: &retry.Params{},
+		},
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
+		KeyManager:         customKMS,
+		Crypto:             customCrypto,
+		VDRI:               &vdrmock.MockVDRegistry{},
+		HostURL:            "localhost:8080",
+		RetryParameters:    &retry.Params{},
+		DocumentLoader:     createTestDocumentLoader(t),
 	})
 	require.NoError(t, err)
 
@@ -973,6 +978,8 @@ func TestStoreVCHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
+	loader := createTestDocumentLoader(t)
+
 	t.Run("store vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
@@ -984,6 +991,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1008,6 +1016,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1037,6 +1046,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
@@ -1063,6 +1073,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
@@ -1090,6 +1101,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 
 		op.macCrypto = failingCrypto{}
@@ -1117,6 +1129,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 
 		testError := errors.New("test encryption failure")
@@ -1147,6 +1160,7 @@ func TestStoreVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 
 		op.jweEncrypter = &failingJWEEncrypt{encryptReturnValue: &jose.JSONWebEncryption{}}
@@ -1172,6 +1186,8 @@ func TestRetrieveVCHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
+	loader := createTestDocumentLoader(t)
+
 	t.Run("retrieve vc success", func(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
 		// operation object in order to create a decryptable EncryptedDocument to be returned from the mock EDV client.
@@ -1187,6 +1203,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1224,6 +1241,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1261,6 +1279,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1303,6 +1322,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1339,6 +1359,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1362,6 +1383,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -1388,6 +1410,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1420,6 +1443,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1451,6 +1475,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1491,6 +1516,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
 			RetryParameters:    &retry.Params{},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1522,6 +1548,8 @@ func TestVCStatus(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
+	loader := createTestDocumentLoader(t)
+
 	t.Run("test error from get CSL", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
 
@@ -1533,6 +1561,7 @@ func TestVCStatus(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1560,6 +1589,7 @@ func TestVCStatus(t *testing.T) {
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{},
 			HostURL:            "localhost:8080",
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1628,9 +1658,10 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 		Crypto:             customCrypto,
 		EDVClient: edv.NewMockEDVClient("test",
 			nil, nil, []string{"testID"}, nil),
-		KeyManager: customKMS,
-		VDRI:       &vdrmock.MockVDRegistry{},
-		HostURL:    "localhost:8080",
+		KeyManager:     customKMS,
+		VDRI:           &vdrmock.MockVDRegistry{},
+		HostURL:        "localhost:8080",
+		DocumentLoader: createTestDocumentLoader(t),
 	})
 
 	require.NoError(t, err)
@@ -1653,6 +1684,8 @@ func TestIssueCredential(t *testing.T) {
 	profile := getTestProfile()
 	profile.Creator = issuerProfileDIDKey
 
+	loader := createTestDocumentLoader(t)
+
 	op, err := New(&Config{
 		StoreProvider:      ariesmemstorage.NewProvider(),
 		KMSSecretsProvider: ariesmemstorage.NewProvider(),
@@ -1663,6 +1696,7 @@ func TestIssueCredential(t *testing.T) {
 				return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 			},
 		},
+		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
@@ -1684,7 +1718,8 @@ func TestIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1800,7 +1835,8 @@ func TestIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1853,7 +1889,8 @@ func TestIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1890,7 +1927,8 @@ func TestIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1923,6 +1961,7 @@ func TestIssueCredential(t *testing.T) {
 			Crypto:             customCrypto,
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -1970,7 +2009,8 @@ func TestIssueCredential(t *testing.T) {
 	})
 
 	t.Run("issue credential - issuer ID validation", func(t *testing.T) {
-		vc, err := verifiable.ParseCredential([]byte(validVC), verifiable.WithDisabledProofCheck())
+		vc, err := verifiable.ParseCredential([]byte(validVC), verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
 		vc.Issuer.ID = "invalid did"
@@ -2019,6 +2059,7 @@ func TestIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
 				},
 			},
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -2047,6 +2088,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -2079,6 +2121,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -2110,6 +2153,7 @@ func TestIssueCredential(t *testing.T) {
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
 			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -2180,12 +2224,15 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	evidence["verifier"] = evidenceVerifier
 	evidence[customField] = customFieldVal
 
+	loader := createTestDocumentLoader(t)
+
 	op, err := New(&Config{
 		StoreProvider:      ariesmemstorage.NewProvider(),
 		KMSSecretsProvider: ariesmemstorage.NewProvider(),
 		KeyManager:         customKMS,
 		VDRI:               &vdrmock.MockVDRegistry{},
 		Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
+		DocumentLoader:     loader,
 	})
 	require.NoError(t, err)
 
@@ -2214,7 +2261,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -2265,7 +2313,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
-		vcResp, err := verifiable.ParseCredential(rr.Body.Bytes(), verifiable.WithDisabledProofCheck())
+		vcResp, err := verifiable.ParseCredential(rr.Body.Bytes(), verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
 		// top level values
@@ -2308,7 +2357,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, http.StatusCreated, rr.Code)
 
 		// validate the response
-		vcResp, err = verifiable.ParseCredential(rr.Body.Bytes(), verifiable.WithDisabledProofCheck())
+		vcResp, err = verifiable.ParseCredential(rr.Body.Bytes(), verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(vcResp.Types))
 		require.Equal(t, "VerifiableCredential", vcResp.Types[0])
@@ -2357,6 +2407,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			StoreProvider:      ariesmemstorage.NewProvider(),
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -2381,6 +2432,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			StoreProvider:      ariesmemstorage.NewProvider(),
 			KMSSecretsProvider: ariesmemstorage.NewProvider(),
 			KeyManager:         customKMS,
+			DocumentLoader:     loader,
 		})
 		require.NoError(t, err)
 
@@ -2474,6 +2526,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
 				},
 			},
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -2980,4 +3033,23 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	require.NoError(t, err)
 
 	return k
+}
+
+//go:embed testdata/lds-jws2020-v1.jsonld
+var jws2020Vocab []byte //nolint:gochecknoglobals // embedded test context
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
+		jld.WithExtraContexts(
+			jld.ContextDocument{
+				URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+				Content: jws2020Vocab,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	return loader
 }

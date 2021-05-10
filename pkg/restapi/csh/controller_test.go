@@ -50,7 +50,7 @@ func config(t *testing.T) *operation.Config {
 				return &did2.DocResolution{
 					DIDDocument: &did2.Doc{
 						ID:      id,
-						Context: []string{did2.Context},
+						Context: []string{did2.ContextV1},
 						Authentication: []did2.Verification{{
 							VerificationMethod: did2.VerificationMethod{
 								ID: id + "#key-1",

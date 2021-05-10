@@ -105,7 +105,7 @@ services:
       - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mysql
-      - DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/
+      - DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/?interpolateParams=true&multiStatements=true
       - KMSSECRETS_DATABASE_TYPE=mysql
       - KMSSECRETS_DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/
       - VC_REST_MODE=governance

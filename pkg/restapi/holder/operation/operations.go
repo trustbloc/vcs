@@ -22,6 +22,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -71,7 +72,8 @@ func New(config *Config) (*Operation, error) {
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
 			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
-		crypto: crypto.New(config.KeyManager, config.Crypto, config.VDRI),
+		crypto:         crypto.New(config.KeyManager, config.Crypto, config.VDRI, config.DocumentLoader),
+		documentLoader: config.DocumentLoader,
 	}
 
 	return svc, nil
@@ -86,6 +88,7 @@ type Config struct {
 	TLSConfig       *tls.Config
 	Crypto          ariescrypto.Crypto
 	DIDAnchorOrigin string
+	DocumentLoader  ld.DocumentLoader
 }
 
 type keyManager interface {
@@ -94,10 +97,11 @@ type keyManager interface {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	commonDID    commonDID
-	profileStore *vcprofile.Profile
-	crypto       *crypto.Crypto
-	vdr          vdrapi.Registry
+	commonDID      commonDID
+	profileStore   *vcprofile.Profile
+	crypto         *crypto.Crypto
+	vdr            vdrapi.Registry
+	documentLoader ld.DocumentLoader
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -234,7 +238,8 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	presentation, err := verifiable.ParsePresentation(presReq.Presentation, verifiable.WithPresDisabledProofCheck())
+	presentation, err := verifiable.ParsePresentation(presReq.Presentation, verifiable.WithPresDisabledProofCheck(),
+		verifiable.WithPresJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -264,7 +269,7 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 // Responses:
 //    default: genericError
 //        201: deriveCredentialRes
-func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.Request) { //nolint:funlen
 	// get the request
 	deriveReq := DeriveCredentialRequest{}
 
@@ -288,7 +293,9 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 	}
 
 	credential, err := verifiable.ParseCredential(deriveReq.Credential,
-		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher()),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
+	)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to parse credential: %s", err.Error()))
@@ -302,7 +309,9 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 	}
 
 	derived, err := credential.GenerateBBSSelectiveDisclosure(deriveReq.Frame, nonceBytes,
-		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher()))
+		verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher()),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
+	)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to generate BBS selective disclosure: %s", err.Error()))

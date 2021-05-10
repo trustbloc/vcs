@@ -11,6 +11,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -313,7 +316,9 @@ func TestDeriveCredentials(t *testing.T) {
 	urlVars := make(map[string]string)
 	urlVars[profileIDPathParam] = "profile"
 
-	vc, err := verifiable.ParseCredential([]byte(vcForDerive))
+	loader := createTestDocumentLoader(t)
+
+	vc, err := verifiable.ParseCredential([]byte(vcForDerive), verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	require.Len(t, vc.Proofs, 0)
@@ -342,6 +347,7 @@ func TestDeriveCredentials(t *testing.T) {
 				return nil, fmt.Errorf("did not found")
 			},
 		},
+		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
@@ -372,9 +378,12 @@ func TestDeriveCredentials(t *testing.T) {
 		require.NotEmpty(t, response.VerifiableCredential)
 
 		// verify VC
-		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
-		))
+		derived, err := verifiable.ParseCredential(response.VerifiableCredential,
+			verifiable.WithPublicKeyFetcher(
+				verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
+			),
+			verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+		)
 
 		// check expected proof
 		require.NoError(t, err)
@@ -408,9 +417,12 @@ func TestDeriveCredentials(t *testing.T) {
 		require.NotEmpty(t, response.VerifiableCredential)
 
 		// verify VC
-		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
-		))
+		derived, err := verifiable.ParseCredential(response.VerifiableCredential,
+			verifiable.WithPublicKeyFetcher(
+				verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
+			),
+			verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+		)
 
 		// check expected proof
 		require.NoError(t, err)
@@ -447,9 +459,12 @@ func TestDeriveCredentials(t *testing.T) {
 		require.NotEmpty(t, response.VerifiableCredential)
 
 		// verify VC
-		derived, err := verifiable.ParseCredential(response.VerifiableCredential, verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
-		))
+		derived, err := verifiable.ParseCredential(response.VerifiableCredential,
+			verifiable.WithPublicKeyFetcher(
+				verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
+			),
+			verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+		)
 
 		// check expected proof
 		require.NoError(t, err)
@@ -530,6 +545,7 @@ func TestDeriveCredentials(t *testing.T) {
 					return nil, fmt.Errorf("did not found")
 				},
 			},
+			DocumentLoader: createTestDocumentLoader(t),
 		})
 		require.NoError(t, err)
 
@@ -566,10 +582,13 @@ func TestSignPresentation(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
+	loader := createTestDocumentLoader(t)
+
 	op, err := New(&Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
-		KeyManager:    customKMS,
-		Crypto:        customCrypto,
+		StoreProvider:  ariesmemstorage.NewProvider(),
+		KeyManager:     customKMS,
+		Crypto:         customCrypto,
+		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
@@ -600,7 +619,8 @@ func TestSignPresentation(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -687,7 +707,8 @@ func TestSignPresentation(t *testing.T) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, signingKey)}, nil
 				},
 			},
-			Crypto: customCrypto,
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -734,9 +755,10 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
-			Crypto:        customCrypto,
-			KeyManager:    customKMS,
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -771,10 +793,11 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - signing error", func(t *testing.T) {
 		op, err := New(&Config{
-			Crypto:        customCrypto,
-			StoreProvider: ariesmemstorage.NewProvider(),
-			KeyManager:    customKMS,
-			VDRI:          &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")},
+			Crypto:         customCrypto,
+			StoreProvider:  ariesmemstorage.NewProvider(),
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")},
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -982,6 +1005,35 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	return k
 }
 
+// nolint:gochecknoglobals // embedded test contexts
+var (
+	//go:embed testdata/citizenship-v1.jsonld
+	citizenshipVocab []byte
+	//go:embed testdata/examples-v1.jsonld
+	examplesV1Vocab []byte
+)
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
+		jld.WithExtraContexts(
+			jld.ContextDocument{
+				URL:         "https://w3id.org/citizenship/v1",
+				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
+				Content:     citizenshipVocab,
+			},
+			jld.ContextDocument{
+				URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
+				Content: examplesV1Vocab,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	return loader
+}
+
 // signVCWithBBS signs VC with bbs and returns did used for signing.
 func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
 	t.Helper()
@@ -1011,7 +1063,9 @@ func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
 		VerificationMethod:      keyID,
 	}
 
-	err = vc.AddLinkedDataProof(ldpContext)
+	loader := createTestDocumentLoader(t)
+
+	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(loader))
 	require.NoError(t, err)
 
 	vcSignedBytes, err := json.Marshal(vc)
@@ -1021,6 +1075,7 @@ func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
 	vcVerified, err := verifiable.ParseCredential(vcSignedBytes,
 		verifiable.WithEmbeddedSignatureSuites(sigSuite),
 		verifiable.WithPublicKeyFetcher(verifiable.SingleKey(pubKeyBytes, "Bls12381G2Key2020")),
+		verifiable.WithJSONLDDocumentLoader(loader),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, vcVerified)

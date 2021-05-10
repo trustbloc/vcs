@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -51,7 +52,7 @@ const kmsResponse = `
 
 func TestNewClient(t *testing.T) {
 	t.Run("URL parse error", func(t *testing.T) {
-		client, err := NewClient("", "http://user^foo.com", nil, nil)
+		client, err := NewClient("", "http://user^foo.com", nil, nil, createTestDocumentLoader(t))
 		require.Error(t, err)
 		require.Nil(t, client)
 		require.Contains(t, err.Error(), "url parse: parse")
@@ -59,7 +60,7 @@ func TestNewClient(t *testing.T) {
 	t.Run("URL parse error", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: errors.New("test"),
-		})
+		}, createTestDocumentLoader(t))
 		require.Error(t, err)
 		require.Nil(t, client)
 		require.EqualError(t, err, "open store: test")
@@ -67,6 +68,8 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClient_CreateVault(t *testing.T) {
+	loader := createTestDocumentLoader(t)
+
 	t.Run("Error parse zcap", func(t *testing.T) {
 		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusCreated)
@@ -85,6 +88,7 @@ func TestClient_CreateVault(t *testing.T) {
 			edv.URL,
 			newLocalKms(t, store),
 			store,
+			loader,
 			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
 		require.NoError(t, err)
@@ -101,6 +105,7 @@ func TestClient_CreateVault(t *testing.T) {
 			"",
 			newLocalKms(t, store),
 			store,
+			loader,
 			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
 		require.NoError(t, err)
@@ -113,7 +118,7 @@ func TestClient_CreateVault(t *testing.T) {
 	t.Run("KMS create key store error", func(t *testing.T) {
 		store := mem.NewProvider()
 		client, err := NewClient("", "",
-			newLocalKms(t, store), store,
+			newLocalKms(t, store), store, loader,
 			WithHTTPClient(&http.Client{}),
 			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
@@ -139,6 +144,7 @@ func TestClient_CreateVault(t *testing.T) {
 			edv.URL,
 			newLocalKms(t, store),
 			store,
+			loader,
 			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
 		require.NoError(t, err)
@@ -172,6 +178,7 @@ func TestClient_CreateVault(t *testing.T) {
 			&mockstorage.MockStoreProvider{
 				Store: &mockstorage.MockStore{ErrPut: errors.New("test")},
 			},
+			loader,
 			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
 		require.NoError(t, err)
@@ -203,6 +210,7 @@ func TestClient_CreateVault(t *testing.T) {
 			edv.URL,
 			newLocalKms(t, store),
 			store,
+			loader,
 			WithRegistry(&vdr.MockVDRegistry{CreateValue: newDIDDoc()}),
 		)
 		require.NoError(t, err)
@@ -218,10 +226,12 @@ func TestClient_CreateVault(t *testing.T) {
 }
 
 func TestClient_GetAuthorization(t *testing.T) {
+	loader := createTestDocumentLoader(t)
+
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.GetAuthorization("", "")
@@ -236,7 +246,7 @@ func TestClient_GetAuthorization(t *testing.T) {
 					"authorization_vid_id": {Value: []byte(`{`)},
 				},
 			},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.GetAuthorization("vid", "id")
@@ -251,7 +261,7 @@ func TestClient_GetAuthorization(t *testing.T) {
 					"authorization_vid_id": {Value: []byte(`{}`)},
 				},
 			},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		res, err := client.GetAuthorization("vid", "id")
@@ -266,6 +276,8 @@ func TestClient_SaveDoc(t *testing.T) {
 		vaultID = "v_id"
 	)
 
+	loader := createTestDocumentLoader(t)
+
 	t.Run("Unmarshal authorization error", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{
@@ -273,7 +285,7 @@ func TestClient_SaveDoc(t *testing.T) {
 					"info_v_id": {Value: []byte(`{`)},
 				},
 			},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.SaveDoc(vaultID, docID, nil)
@@ -283,7 +295,7 @@ func TestClient_SaveDoc(t *testing.T) {
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.SaveDoc(vaultID, docID, nil)
@@ -338,7 +350,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		}))
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient(remoteKMS.URL, "", lKMS, store)
+		client, err := NewClient(remoteKMS.URL, "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, _ := createVaultID(t, lKMS)
@@ -359,7 +371,7 @@ func TestClient_SaveDoc(t *testing.T) {
 					"info_v_id": {Value: []byte(`{"auth":{"edv":{},"kms":{}}}`)},
 				},
 			},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.SaveDoc(vaultID, docID, []byte(`{"auth":{"edv":{},"kms":{}}}`))
@@ -414,7 +426,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		}))
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient(remoteKMS.URL, "", lKMS, store)
+		client, err := NewClient(remoteKMS.URL, "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, _ := createVaultID(t, lKMS)
@@ -435,7 +447,7 @@ func TestClient_SaveDoc(t *testing.T) {
 					"info_v_id": {Value: []byte(`{"auth":{"edv":{},"kms":{}}}`)},
 				},
 			},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.SaveDoc(vaultID, docID, []byte(`{"auth":{"edv":{},"kms":{}}}`))
@@ -496,7 +508,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		}
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient(remoteKMS.URL, edv.URL, lKMS, store)
+		client, err := NewClient(remoteKMS.URL, edv.URL, lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, _ := createVaultID(t, lKMS)
@@ -582,7 +594,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		}
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient(remoteKMS.URL, edv.URL, lKMS, store)
+		client, err := NewClient(remoteKMS.URL, edv.URL, lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, _ := createVaultID(t, lKMS)
@@ -604,7 +616,7 @@ func TestClient_SaveDoc(t *testing.T) {
 					"info_v_id": {Value: []byte(`{"auth":{"edv":{},"kms":{"uri":"/"}}}`)},
 				},
 			},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.SaveDoc(vaultID, docID, []byte("}"))
@@ -614,10 +626,12 @@ func TestClient_SaveDoc(t *testing.T) {
 }
 
 func TestClient_CreateAuthorization(t *testing.T) {
+	loader := createTestDocumentLoader(t)
+
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.CreateAuthorization("", "", &AuthorizationsScope{})
@@ -633,7 +647,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 
 		lKMS := newLocalKms(t, store)
 
-		client, err := NewClient("", "", lKMS, store)
+		client, err := NewClient("", "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		data["info_vid"] = mockstorage.DBEntry{
@@ -653,7 +667,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 
 		lKMS := newLocalKms(t, store)
 
-		client, err := NewClient("", "", lKMS, store)
+		client, err := NewClient("", "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, kid := createVaultID(t, lKMS)
@@ -674,7 +688,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 
 		lKMS := newLocalKms(t, store)
 
-		client, err := NewClient("", "", lKMS, store)
+		client, err := NewClient("", "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, kid := createVaultID(t, lKMS)
@@ -694,7 +708,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 		}
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient("", "", lKMS, store)
+		client, err := NewClient("", "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, kid := createVaultID(t, lKMS)
@@ -714,10 +728,12 @@ func TestClient_CreateAuthorization(t *testing.T) {
 }
 
 func TestClient_GetDocMetadata(t *testing.T) {
+	loader := createTestDocumentLoader(t)
+
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			Store: &mockstorage.MockStore{},
-		})
+		}, loader)
 		require.NoError(t, err)
 
 		_, err = client.GetDocMetadata("vID", "docID")
@@ -733,7 +749,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		}
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient("", "", lKMS, store)
+		client, err := NewClient("", "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, _, _ := createVaultID(t, lKMS)
@@ -755,7 +771,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		}
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient("", "", lKMS, store)
+		client, err := NewClient("", "", lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, _, _ := createVaultID(t, lKMS)
@@ -800,7 +816,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 		}
 
 		lKMS := newLocalKms(t, store)
-		client, err := NewClient("", edv.URL, lKMS, store)
+		client, err := NewClient("", edv.URL, lKMS, store, loader)
 		require.NoError(t, err)
 
 		vID, dURL, _ := createVaultID(t, lKMS)
@@ -880,4 +896,13 @@ func newDIDDoc() *did.Doc {
 			Embedded:     true,
 		}},
 	}
+}
+
+func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
+	t.Helper()
+
+	loader, err := jld.NewDocumentLoader(mockstorage.NewMockStoreProvider())
+	require.NoError(t, err)
+
+	return loader
 }

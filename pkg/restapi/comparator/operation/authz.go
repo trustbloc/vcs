@@ -17,7 +17,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/square/go-jose/v3"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 
@@ -122,7 +121,7 @@ func (o *Operation) driveZCAPForCSH(invokerDID, queryIDPath string,
 		SignatureSuite:     ed25519signature2018.New(suite.WithSigner(&ed25519Signer{key: key})),
 		SuiteType:          ed25519signature2018.SignatureType,
 		VerificationMethod: fmt.Sprintf("%s#%s", *o.comparatorConfig.Did, keyID),
-		ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(verifiable.CachingJSONLDLoader())},
+		ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(o.documentLoader)},
 	}, zcapld.WithParent(cshZCAP.ID), zcapld.WithInvoker(invokerDID),
 		zcapld.WithAllowedActions("reference"),
 		zcapld.WithCaveats(toZCaveats(caveats)...),

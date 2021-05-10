@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -80,10 +81,11 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
-		profileStore:  p,
-		vdr:           config.VDRI,
-		httpClient:    &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
-		requestTokens: config.RequestTokens,
+		profileStore:   p,
+		vdr:            config.VDRI,
+		httpClient:     &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		requestTokens:  config.RequestTokens,
+		documentLoader: config.DocumentLoader,
 	}
 
 	return svc, nil
@@ -91,18 +93,20 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for verifier operations
 type Config struct {
-	StoreProvider ariesstorage.Provider
-	VDRI          vdrapi.Registry
-	TLSConfig     *tls.Config
-	RequestTokens map[string]string
+	StoreProvider  ariesstorage.Provider
+	VDRI           vdrapi.Registry
+	TLSConfig      *tls.Config
+	RequestTokens  map[string]string
+	DocumentLoader ld.DocumentLoader
 }
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore  *verifier.Profile
-	vdr           vdrapi.Registry
-	httpClient    httpClient
-	requestTokens map[string]string
+	profileStore   *verifier.Profile
+	vdr            vdrapi.Registry
+	httpClient     httpClient
+	requestTokens  map[string]string
+	documentLoader ld.DocumentLoader
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -560,6 +564,7 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
 		verifiable.WithStrictValidation(),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
 	)
 	if err != nil {
 		return nil, err
@@ -581,12 +586,14 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 			verifiable.WithPresPublicKeyFetcher(
 				verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 			),
+			verifiable.WithPresJSONLDDocumentLoader(o.documentLoader),
 		)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		vp, err = verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck())
+		vp, err = verifiable.ParsePresentation(vpBytes, verifiable.WithPresDisabledProofCheck(),
+			verifiable.WithPresJSONLDDocumentLoader(o.documentLoader))
 		if err != nil {
 			return nil, err
 		}
@@ -612,7 +619,8 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 		if validateCredentialStatus {
 			failureMessage := ""
 
-			vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck())
+			vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 			if err != nil {
 				return nil, err
 			}
@@ -640,6 +648,7 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
 		),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
 	)
 	if err != nil {
 		return nil, err

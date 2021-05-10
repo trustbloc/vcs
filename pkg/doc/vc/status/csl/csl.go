@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	"github.com/piprate/json-gold/ld"
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -59,9 +60,10 @@ type crypto interface {
 
 // CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-status-rl-2020/
 type CredentialStatusManager struct {
-	store    ariesstorage.Store
-	listSize int
-	crypto   crypto
+	store          ariesstorage.Store
+	listSize       int
+	crypto         crypto
+	documentLoader ld.DocumentLoader
 }
 
 // cslWrapper contain csl and metadata
@@ -80,13 +82,14 @@ type credentialSubject struct {
 }
 
 // New returns new Credential Status List
-func New(provider ariesstorage.Provider, listSize int, c crypto) (*CredentialStatusManager, error) {
+func New(provider ariesstorage.Provider, listSize int, c crypto,
+	loader ld.DocumentLoader) (*CredentialStatusManager, error) {
 	store, err := provider.OpenStore(credentialStatusStore)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CredentialStatusManager{store: store, listSize: listSize, crypto: c}, nil
+	return &CredentialStatusManager{store: store, listSize: listSize, crypto: c, documentLoader: loader}, nil
 }
 
 // CreateStatusID create status id
@@ -235,7 +238,8 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 		return nil, fmt.Errorf("failed to unmarshal csl bytes: %w", errUnmarshal)
 	}
 
-	w.VC, err = verifiable.ParseCredential(w.VCByte, verifiable.WithDisabledProofCheck())
+	w.VC, err = verifiable.ParseCredential(w.VCByte, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
 	if err != nil {
 		return nil, err
 	}

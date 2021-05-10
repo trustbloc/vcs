@@ -43,6 +43,7 @@ import (
 	"github.com/trustbloc/edv/pkg/client"
 
 	"github.com/trustbloc/edge-service/cmd/common"
+	"github.com/trustbloc/edge-service/pkg/jsonld"
 	restgovernance "github.com/trustbloc/edge-service/pkg/restapi/governance"
 	governanceops "github.com/trustbloc/edge-service/pkg/restapi/governance/operation"
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
@@ -656,6 +657,11 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		router.Use(authorizationMiddleware(parameters.token))
 	}
 
+	loader, err := jsonld.DocumentLoader(edgeServiceProvs.provider)
+	if err != nil {
+		return err
+	}
+
 	issuerService, err := restissuer.New(&issuerops.Config{
 		StoreProvider:      edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
@@ -671,6 +677,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
 		RetryParameters: parameters.retryParameters,
 		DIDAnchorOrigin: parameters.didAnchorOrigin,
+		DocumentLoader:  loader,
 	})
 	if err != nil {
 		return err
@@ -684,6 +691,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
 		VDRI: vdr, Domain: parameters.blocDomain,
 		DIDAnchorOrigin: parameters.didAnchorOrigin,
+		DocumentLoader:  loader,
 	})
 	if err != nil {
 		return err
@@ -692,7 +700,8 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	verifierService, err := restverifier.New(&verifierops.Config{
 		StoreProvider: edgeServiceProvs.provider,
 		TLSConfig:     &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, VDRI: vdr,
-		RequestTokens: parameters.requestTokens,
+		RequestTokens:  parameters.requestTokens,
+		DocumentLoader: loader,
 	})
 	if err != nil {
 		return err
@@ -704,7 +713,7 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 			MinVersion: tls.VersionTLS12,
 		}, StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
 		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile,
-		DIDAnchorOrigin: parameters.didAnchorOrigin,
+		DIDAnchorOrigin: parameters.didAnchorOrigin, DocumentLoader: loader,
 	})
 	if err != nil {
 		return err
