@@ -1,0 +1,31 @@
+{
+    "@context": {
+        "@version": 1.1,
+        "id": "@id",
+        "type": "@type",
+        "xsd": "http://www.w3.org/2001/XMLSchema#",
+        "ex": "https://example.org/examples#",
+
+        "name": "http://schema.org/name",
+        "description": "http://schema.org/description",
+
+        "referenceNumber": {
+            "@id": "ex:referenceNumber",
+            "@type": "xsd:string"
+        },
+        "issuedBy": {
+            "@id": "ex:issuedBy",
+            "@type": "xsd:string"
+        },
+
+        "BookingReferenceCredential": {
+            "@id": "ex:BookingReferenceCredential",
+            "@context": {
+                "@version": 1.1,
+                "@protected": true,
+                "id": "@id",
+                "type": "@type"
+            }
+        }
+    }
+}
