@@ -7,7 +7,7 @@ module github.com/trustbloc/edge-service/cmd/vc-rest
 require (
 	github.com/google/tink/go v1.5.0
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210429205242-c5e97865879c
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210512223230-d4aa62b079bc
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210426192704-553740e279e5
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210505173234-006b2f4723fd
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.1.0
@@ -16,7 +16,7 @@ require (
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
-	github.com/trustbloc/edge-core v0.1.7-0.20210429222332-96b987820e63
+	github.com/trustbloc/edge-core v0.1.7-0.20210514182200-47eb0f3a6b95
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/edv v0.1.7-0.20210510134838-bdb20956d60b
 )
