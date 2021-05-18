@@ -49,6 +49,11 @@ const (
 	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." +
 		" Alternatively, this can be set with the following environment variable: " + tlsCACertsEnvKey
 	tlsCACertsEnvKey = "DID_REST_TLS_CACERTS"
+
+	didDomainFlagName  = "did-domain"
+	didDomainFlagUsage = "URL to the did consortium's domain." +
+		" Alternatively, this can be set with the following environment variable: " + didDomainEnvKey
+	didDomainEnvKey = "DID_REST_DID_DOMAIN"
 )
 
 const (
@@ -65,6 +70,7 @@ type didRestParameters struct {
 	tlsSystemCertPool bool
 	tlsCACerts        []string
 	logLevel          string
+	didDomain         string
 }
 
 type healthCheckResp struct {
@@ -130,12 +136,18 @@ func getDIDRestParameters(cmd *cobra.Command) (*didRestParameters, error) {
 		return nil, err
 	}
 
+	didDomain, err := cmdutils.GetUserSetVarFromString(cmd, didDomainFlagName, didDomainEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &didRestParameters{
 		hostURL:           hostURL,
 		configFile:        configFile,
 		tlsSystemCertPool: tlsSystemCertPool,
 		tlsCACerts:        tlsCACerts,
 		logLevel:          loggingLevel,
+		didDomain:         didDomain,
 	}, nil
 }
 
@@ -168,6 +180,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(configFlagName, configFlagShorthand, "", configFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
+	startCmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 }
 
 func startDidService(parameters *didRestParameters, srv server) error {
@@ -187,6 +200,7 @@ func startDidService(parameters *didRestParameters, srv server) error {
 
 	didService, err := did.New(&operation.Config{
 		RuleProvider: ruleProvider,
+		Domain:       parameters.didDomain,
 		KeyVDRI:      *key.New(),
 		TLSConfig:    &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}})
 
