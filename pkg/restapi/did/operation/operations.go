@@ -60,7 +60,7 @@ type Handler interface {
 
 // New returns new did proxy instance
 func New(config *Config) (*Operation, error) {
-	orbVDR, err := orb.New(nil, orb.WithTLSConfig(config.TLSConfig))
+	orbVDR, err := orb.New(nil, orb.WithDomain(config.Domain), orb.WithTLSConfig(config.TLSConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -82,6 +82,7 @@ type Config struct {
 	RuleProvider rules.Provider
 	KeyVDRI      key.VDR
 	TLSConfig    *tls.Config
+	Domain       string
 }
 
 // Operation defines handlers for DID REST service
