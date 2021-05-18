@@ -609,11 +609,9 @@ func (c *Client) createDIDKey(method string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	docID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
-		fmt.Sprintf("did:%s:%s", orb.DIDMethod, c.didDomain))
+	docID := docResolution.DIDDocument.ID
 
-	capabilityVMID := strings.ReplaceAll(docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID,
-		fmt.Sprintf("did:%s", orb.DIDMethod), fmt.Sprintf("did:%s:%s", orb.DIDMethod, c.didDomain))
+	capabilityVMID := docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID
 
 	return docID, capabilityVMID, kid, nil
 }

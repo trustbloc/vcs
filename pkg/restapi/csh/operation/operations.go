@@ -11,12 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/go-openapi/runtime"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -468,8 +466,7 @@ func (o *Operation) newIdentity() (*Identity, error) {
 	delegationKeyID := keyIDs[1]
 	invocationKeyID := keyIDs[2]
 
-	capabilityDelegationURL := strings.ReplaceAll(capabilityDelegation.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
-		fmt.Sprintf("did:%s:%s", orb.DIDMethod, o.didDomain))
+	capabilityDelegationURL := capabilityDelegation.ID
 
 	return &Identity{
 		DIDDoc:           resolution.DIDDocument,

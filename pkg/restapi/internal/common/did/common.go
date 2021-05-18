@@ -257,8 +257,7 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 		return "", "", fmt.Errorf("failed to create did doc: %w", err)
 	}
 
-	docID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
-		fmt.Sprintf("did:%s:%s", orb.DIDMethod, o.domain))
+	docID := docResolution.DIDDocument.ID
 
 	return docID, docID + "#" + selectedKeyID, nil
 }
