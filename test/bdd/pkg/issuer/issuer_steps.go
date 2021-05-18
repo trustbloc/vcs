@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
@@ -114,7 +113,7 @@ func (e *Steps) createDID(user string) error {
 		return err
 	}
 
-	didID := strings.ReplaceAll(didDoc.ID, "did:orb", "did:orb:testnet.orb.local")
+	didID := didDoc.ID
 
 	didDoc, err = bddutil.ResolveDID(e.bddContext.VDRI, didID, 10)
 	if err != nil {

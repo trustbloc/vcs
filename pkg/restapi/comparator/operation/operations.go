@@ -325,8 +325,7 @@ func (o *Operation) createConfig() error { //nolint: funlen,gocyclo
 	}
 
 	request := &cshclientmodels.Profile{}
-	didID := strings.ReplaceAll(docResolution.DIDDocument.ID, fmt.Sprintf("did:%s", orb.DIDMethod),
-		fmt.Sprintf("did:%s:%s", orb.DIDMethod, o.didDomain))
+	didID := docResolution.DIDDocument.ID
 	request.Controller = &didID
 
 	cshProfile, err := o.cshClient.PostHubstoreProfiles(

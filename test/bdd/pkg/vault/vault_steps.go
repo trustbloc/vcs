@@ -426,14 +426,12 @@ func (e *Steps) createDIDORB() (string, error) {
 		return "", err
 	}
 
-	_, err = bddutil.ResolveDID(e.bddContext.VDRI, strings.ReplaceAll(docResolution.DIDDocument.ID, "did:orb",
-		"did:orb:testnet.orb.local"), 10)
+	_, err = bddutil.ResolveDID(e.bddContext.VDRI, docResolution.DIDDocument.ID, 10)
 	if err != nil {
 		return "", err
 	}
 
-	return strings.ReplaceAll(docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, "did:orb",
-		"did:orb:testnet.orb.local"), nil
+	return docResolution.DIDDocument.CapabilityDelegation[0].VerificationMethod.ID, nil
 }
 
 func newDidDoc(k kms.KeyManager) (*did.Doc, error) {
