@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -29,6 +28,7 @@ import (
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 )
 
 const (
@@ -88,7 +88,7 @@ func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index
 	revocationListVCBytes, err := s.GetRevocationListVC(id)
 	require.NoError(t, err)
 	revocationListVC, err := verifiable.ParseCredential(revocationListVCBytes, verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)))
+		verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 	require.NoError(t, err)
 
 	require.NoError(t, json.Unmarshal(revocationListVCBytes, &revocationListVC))
@@ -110,7 +110,7 @@ func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index
 
 func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -122,7 +122,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	})
 
 	t.Run("test error from get latest id from store", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			ErrGet: fmt.Errorf("get error"),
 		}}, 1,
@@ -137,7 +137,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	})
 
 	t.Run("test error from put latest id to store", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			ErrGet: storage.ErrDataNotFound,
 			ErrPut: fmt.Errorf("put error"),
@@ -153,7 +153,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	})
 
 	t.Run("test error from store csl list in store", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&storeProvider{store: &mockStore{
 			getFunc: func(k string) (bytes []byte, err error) {
 				return nil, storage.ErrDataNotFound
@@ -176,7 +176,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	})
 
 	t.Run("test error from put latest id to store after store new list", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&storeProvider{store: &mockStore{
 			getFunc: func(k string) (bytes []byte, err error) {
 				return nil, storage.ErrDataNotFound
@@ -201,7 +201,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 	t.Run("test error getting csl from store", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, 2,
@@ -217,7 +217,7 @@ func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 
 func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status not exists", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -234,7 +234,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status type not supported", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -252,7 +252,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status revocationListIndex not exists", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -270,7 +270,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status revocationListCredential not exists", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -290,7 +290,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test vc status revocationListCredential wrong value type", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -310,7 +310,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -346,7 +346,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test error get csl from store", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
 			return nil, fmt.Errorf("get error")
 		}}}, 2,
@@ -369,7 +369,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
-		loader := createTestDocumentLoader(t)
+		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
@@ -645,23 +645,4 @@ func createDIDDoc(didID string) *did.Doc {
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
-}
-
-//go:embed testdata/examples-v1.jsonld
-var vcExamples []byte //nolint:gochecknoglobals // embedded test context
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
-		jld.WithExtraContexts(
-			jld.ContextDocument{
-				URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
-				Content: vcExamples,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return loader
 }

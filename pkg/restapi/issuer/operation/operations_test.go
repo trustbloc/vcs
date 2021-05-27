@@ -29,7 +29,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -50,6 +49,7 @@ import (
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -269,7 +269,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 		VDRI:               &vdrmock.MockVDRegistry{},
 		HostURL:            "localhost:8080",
 		RetryParameters:    &retry.Params{},
-		DocumentLoader:     createTestDocumentLoader(t),
+		DocumentLoader:     testutil.DocumentLoader(t),
 	})
 	require.NoError(t, err)
 
@@ -978,7 +978,7 @@ func TestStoreVCHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("store vc success", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
@@ -1186,7 +1186,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("retrieve vc success", func(t *testing.T) {
 		// The mock client needs to be passed into operation.New, but we need the packer and key from the
@@ -1548,7 +1548,7 @@ func TestVCStatus(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("test error from get CSL", func(t *testing.T) {
 		client := edv.NewMockEDVClient("test", nil, nil, []string{"testID"}, nil)
@@ -1661,7 +1661,7 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 		KeyManager:     customKMS,
 		VDRI:           &vdrmock.MockVDRegistry{},
 		HostURL:        "localhost:8080",
-		DocumentLoader: createTestDocumentLoader(t),
+		DocumentLoader: testutil.DocumentLoader(t),
 	})
 
 	require.NoError(t, err)
@@ -1684,7 +1684,7 @@ func TestIssueCredential(t *testing.T) {
 	profile := getTestProfile()
 	profile.Creator = issuerProfileDIDKey
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
 		StoreProvider:      ariesmemstorage.NewProvider(),
@@ -2224,7 +2224,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	evidence["verifier"] = evidenceVerifier
 	evidence[customField] = customFieldVal
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
 		StoreProvider:      ariesmemstorage.NewProvider(),
@@ -3033,23 +3033,4 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	require.NoError(t, err)
 
 	return k
-}
-
-//go:embed testdata/lds-jws2020-v1.jsonld
-var jws2020Vocab []byte //nolint:gochecknoglobals // embedded test context
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
-		jld.WithExtraContexts(
-			jld.ContextDocument{
-				URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
-				Content: jws2020Vocab,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return loader
 }

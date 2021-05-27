@@ -24,7 +24,6 @@ import (
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -37,6 +36,7 @@ import (
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -258,7 +258,7 @@ func TestIssueCredential(t *testing.T) {
 			},
 			Crypto:         customCrypto,
 			ClaimsFile:     file.Name(),
-			DocumentLoader: createTestDocumentLoader(t),
+			DocumentLoader: testutil.DocumentLoader(t),
 		})
 		require.NoError(t, err)
 
@@ -535,23 +535,4 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	require.NoError(t, err)
 
 	return k
-}
-
-//go:embed testdata/governance.jsonld
-var governanceVocab []byte //nolint:gochecknoglobals // embedded test context
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
-		jld.WithExtraContexts(
-			jld.ContextDocument{
-				URL:     "https://trustbloc.github.io/context/governance/context.jsonld",
-				Content: governanceVocab,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return loader
 }

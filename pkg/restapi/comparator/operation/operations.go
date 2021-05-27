@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
+	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -79,18 +80,19 @@ var logger = log.New("comparator-ops")
 
 // Operation defines handlers for comparator service.
 type Operation struct {
-	vdr              vdr.Registry
-	keyManager       kms.KeyManager
-	tlsConfig        *tls.Config
-	didMethod        string
-	store            storage.Store
-	cshClient        cshClient
-	vaultClient      vaultClient
-	cshProfile       *cshclientmodels.Profile
-	comparatorConfig *models.Config
-	didDomain        string
-	didAnchorOrigin  string
-	documentLoader   ld.DocumentLoader
+	vdr                     vdr.Registry
+	keyManager              kms.KeyManager
+	tlsConfig               *tls.Config
+	didMethod               string
+	store                   storage.Store
+	cshClient               cshClient
+	vaultClient             vaultClient
+	cshProfile              *cshclientmodels.Profile
+	comparatorConfig        *models.Config
+	didDomain               string
+	didAnchorOrigin         string
+	documentLoader          ld.DocumentLoader
+	addJSONLDContextHandler http.HandlerFunc
 }
 
 // Config defines configuration for comparator operations.
@@ -108,7 +110,7 @@ type Config struct {
 }
 
 // New returns operation instance.
-func New(cfg *Config) (*Operation, error) {
+func New(cfg *Config) (*Operation, error) { //nolint:funlen
 	store, err := cfg.StoreProvider.OpenStore(storeName)
 	if err != nil {
 		return nil, err
@@ -129,6 +131,11 @@ func New(cfg *Config) (*Operation, error) {
 		httpClient,
 	)
 
+	contextOp, err := jsonldcontextrest.New(&storeProvider{cfg.StoreProvider})
+	if err != nil {
+		return nil, fmt.Errorf("create jsonld context operation: %w", err)
+	}
+
 	op := &Operation{
 		didAnchorOrigin: cfg.DIDAnchorOrigin, didDomain: cfg.DIDDomain, vdr: cfg.VDR, keyManager: cfg.KeyManager,
 		tlsConfig: cfg.TLSConfig, didMethod: cfg.DIDMethod, store: store,
@@ -138,7 +145,8 @@ func New(cfg *Config) (*Operation, error) {
 				TLSClientConfig: cfg.TLSConfig,
 			},
 		})),
-		documentLoader: cfg.DocumentLoader,
+		documentLoader:          cfg.DocumentLoader,
+		addJSONLDContextHandler: contextOp.Add,
 	}
 
 	if _, err := op.getConfig(); err != nil { //nolint: nestif
@@ -175,6 +183,8 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 		support.NewHTTPHandler(comparePath, http.MethodPost, o.Compare),
 		support.NewHTTPHandler(extractPath, http.MethodPost, o.Extract),
 		support.NewHTTPHandler(getConfigPath, http.MethodGet, o.GetConfig),
+		// JSON-LD context API
+		support.NewHTTPHandler(jsonldcontextrest.AddContextPath, http.MethodPost, o.addJSONLDContextHandler),
 	}
 }
 
@@ -466,4 +476,12 @@ func (o *Operation) setConfigs() error {
 	o.comparatorConfig = config
 
 	return nil
+}
+
+type storeProvider struct {
+	storage.Provider
+}
+
+func (p *storeProvider) StorageProvider() storage.Provider {
+	return p
 }

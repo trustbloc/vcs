@@ -39,6 +39,7 @@ import (
 	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
@@ -629,7 +630,7 @@ func newZCAP(t *testing.T, server, rp *context.Provider) *zcapld.Capability {
 			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
 			SuiteType:          ed25519signature2018.SignatureType,
 			VerificationMethod: verificationMethod,
-			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(createTestDocumentLoader(t))},
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(testutil.DocumentLoader(t))},
 		},
 		zcapld.WithID(uuid.New().String()),
 		zcapld.WithInvoker(invoker),

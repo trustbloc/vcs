@@ -40,6 +40,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 
 	cshclientmodels "github.com/trustbloc/edge-service/pkg/client/csh/models"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
@@ -72,7 +73,7 @@ func Test_New(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, op)
 
-		require.Equal(t, 4, len(op.GetRESTHandlers()))
+		require.Equal(t, 5, len(op.GetRESTHandlers()))
 	})
 
 	t.Run("test failed to create profile from csh", func(t *testing.T) {
@@ -121,6 +122,16 @@ func Test_New(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get config")
+	})
+
+	t.Run("test failed to create jsonld context operation", func(t *testing.T) {
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		_, err := operation.New(&operation.Config{
+			CSHBaseURL:    "https://localhost",
+			StoreProvider: &mockstorage.MockStoreProvider{Store: s, FailNamespace: jld.ContextsDBName},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create jsonld context operation")
 	})
 }
 
@@ -433,7 +444,7 @@ func TestOperation_CreateAuthorization(t *testing.T) {
 		op, err := operation.New(&operation.Config{
 			CSHBaseURL: cshServ.URL, VaultBaseURL: serv.URL,
 			StoreProvider:  &mockstorage.MockStoreProvider{Store: s},
-			DocumentLoader: createTestDocumentLoader(t),
+			DocumentLoader: testutil.DocumentLoader(t),
 		})
 		require.NoError(t, err)
 		require.NotNil(t, op)
@@ -906,7 +917,7 @@ func newZCAP(t *testing.T, server, rp *context.Provider) *zcapld.Capability {
 			SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
 			SuiteType:          ed25519signature2018.SignatureType,
 			VerificationMethod: verificationMethod,
-			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(createTestDocumentLoader(t))},
+			ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(testutil.DocumentLoader(t))},
 		},
 		zcapld.WithID(uuid.New().URN()),
 		zcapld.WithInvoker(invoker),
@@ -964,13 +975,4 @@ func marshal(t *testing.T, v interface{}) []byte {
 	require.NoError(t, err)
 
 	return bits
-}
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(mockstorage.NewMockStoreProvider())
-	require.NoError(t, err)
-
-	return loader
 }

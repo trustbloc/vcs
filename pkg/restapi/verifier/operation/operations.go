@@ -16,6 +16,7 @@ import (
 	"strconv"
 
 	"github.com/gorilla/mux"
+	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -80,12 +81,18 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
+	contextOp, err := jsonldcontextrest.New(&storeProvider{config.StoreProvider})
+	if err != nil {
+		return nil, fmt.Errorf("create jsonld context operation: %w", err)
+	}
+
 	svc := &Operation{
-		profileStore:   p,
-		vdr:            config.VDRI,
-		httpClient:     &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
-		requestTokens:  config.RequestTokens,
-		documentLoader: config.DocumentLoader,
+		profileStore:            p,
+		vdr:                     config.VDRI,
+		httpClient:              &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		requestTokens:           config.RequestTokens,
+		documentLoader:          config.DocumentLoader,
+		addJSONLDContextHandler: contextOp.Add,
 	}
 
 	return svc, nil
@@ -102,11 +109,12 @@ type Config struct {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore   *verifier.Profile
-	vdr            vdrapi.Registry
-	httpClient     httpClient
-	requestTokens  map[string]string
-	documentLoader ld.DocumentLoader
+	profileStore            *verifier.Profile
+	vdr                     vdrapi.Registry
+	httpClient              httpClient
+	requestTokens           map[string]string
+	documentLoader          ld.DocumentLoader
+	addJSONLDContextHandler http.HandlerFunc
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -120,6 +128,9 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		// verification
 		support.NewHTTPHandler(credentialsVerificationEndpoint, http.MethodPost, o.verifyCredentialHandler),
 		support.NewHTTPHandler(presentationsVerificationEndpoint, http.MethodPost, o.verifyPresentationHandler),
+
+		// JSON-LD context API
+		support.NewHTTPHandler(jsonldcontextrest.AddContextPath, http.MethodPost, o.addJSONLDContextHandler),
 	}
 }
 
@@ -790,4 +801,12 @@ func validateProfileRequest(pr *verifier.ProfileData) error {
 	}
 
 	return nil
+}
+
+type storeProvider struct {
+	ariesstorage.Provider
+}
+
+func (p *storeProvider) StorageProvider() ariesstorage.Provider {
+	return p
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 	edv "github.com/trustbloc/edv/pkg/client"
@@ -210,10 +211,11 @@ func TestOperation_HandleEqOp(t *testing.T) {
 		config := config(t)
 		config.StoreProvider = &storage.MockProvider{
 			Stores: map[string]spi.Store{
-				"config":  &mock.Store{GetReturn: marshal(t, &operation.Identity{})},
-				"profile": &mock.Store{},
-				"queries": &mock.Store{ErrGet: expected},
-				"zcap":    &mock.Store{},
+				"config":              &mock.Store{GetReturn: marshal(t, &operation.Identity{})},
+				"profile":             &mock.Store{},
+				"queries":             &mock.Store{ErrGet: expected},
+				"zcap":                &mock.Store{},
+				jsonld.ContextsDBName: &mock.Store{},
 			},
 		}
 
