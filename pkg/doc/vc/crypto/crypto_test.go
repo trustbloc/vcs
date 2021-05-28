@@ -14,22 +14,21 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 )
 
 func TestCrypto_SignCredential(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 
 		signedVC, err := c.SignCredential(
@@ -151,7 +150,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-					createTestDocumentLoader(t),
+					testutil.DocumentLoader(t),
 				)
 
 				profile := getTestIssuerProfile()
@@ -201,7 +200,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 	t.Run("test error from creator", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 		p := getTestIssuerProfile()
 		p.Creator = "wrongValue"
@@ -215,7 +214,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 	t.Run("test error from sign credential", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 		signedVC, err := c.SignCredential(
 			getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
@@ -226,7 +225,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 	t.Run("sign vc - invalid proof purpose", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, createTestDocumentLoader(t))
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
 		p := getTestIssuerProfile()
 
@@ -240,7 +239,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 	t.Run("sign vc - capability invocation proof purpose", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, createTestDocumentLoader(t))
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
 		p := getTestIssuerProfile()
 
@@ -253,7 +252,7 @@ func TestCrypto_SignCredential(t *testing.T) {
 
 	t.Run("sign vc - capability delegation proof purpose", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, createTestDocumentLoader(t))
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
 		p := getTestIssuerProfile()
 
@@ -269,7 +268,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 
 		signedVC, err := c.SignCredential(
@@ -288,7 +287,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - success", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 
 		signedVP, err := c.SignPresentation(getTestHolderProfile(),
@@ -301,7 +300,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - signature type opts", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 
 		signedVP, err := c.SignPresentation(getTestHolderProfile(),
@@ -315,7 +314,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - fail", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			createTestDocumentLoader(t),
+			testutil.DocumentLoader(t),
 		)
 
 		signedVP, err := c.SignPresentation(getTestHolderProfile(),
@@ -393,13 +392,4 @@ func createDIDDoc(didID string) *did.Doc {
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
-}
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(mockstore.NewMockStoreProvider())
-	require.NoError(t, err)
-
-	return loader
 }

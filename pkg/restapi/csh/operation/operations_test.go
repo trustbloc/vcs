@@ -31,7 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mockstore "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
@@ -41,6 +41,7 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/internal/mock/storage"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 )
@@ -58,6 +59,15 @@ func TestNew(t *testing.T) {
 		config.StoreProvider = &storage.MockProvider{OpenErr: expected}
 		_, err := operation.New(config)
 		require.ErrorIs(t, err, expected)
+	})
+
+	t.Run("error creating jsonld context operation", func(t *testing.T) {
+		config := config(t)
+		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
+		config.StoreProvider = &mockstorage.MockStoreProvider{Store: s, FailNamespace: jld.ContextsDBName}
+		_, err := operation.New(config)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create jsonld context operation")
 	})
 
 	t.Run("error if cannot create public DID", func(t *testing.T) {
@@ -159,6 +169,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 				"config": &mock.Store{
 					ErrGet: spi.ErrDataNotFound,
 				},
+				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 		o := newOperation(t, config)
@@ -221,6 +232,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
+				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 
@@ -250,6 +262,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
+				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 
@@ -295,7 +308,7 @@ func TestOperation_CreateProfile(t *testing.T) {
 				SignatureSuite:     ed25519signature2018.New(suite.WithSigner(signer)),
 				SuiteType:          ed25519signature2018.SignatureType,
 				VerificationMethod: didKeyURL(signer.PublicKeyBytes()),
-				ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(createTestDocumentLoader(t))},
+				ProcessorOpts:      []jsonld.ProcessorOpts{jsonld.WithDocumentLoader(testutil.DocumentLoader(t))},
 			},
 			zcapld.WithParent(rootZCAP.ID),
 			zcapld.WithInvoker("did:example:abc#123"),
@@ -401,8 +414,9 @@ func TestOperation_CreateQuery(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
-				"profile": &mock.Store{},
-				"zcap":    &mock.Store{},
+				"profile":          &mock.Store{},
+				"zcap":             &mock.Store{},
+				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 		o := newOperation(t, config)
@@ -511,6 +525,7 @@ func TestOperation_Extract(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
+				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 
@@ -650,7 +665,7 @@ func config(t *testing.T) *operation.Config {
 				}, nil
 			},
 		},
-		DocumentLoader: createTestDocumentLoader(t),
+		DocumentLoader: testutil.DocumentLoader(t),
 	}
 }
 
@@ -700,13 +715,4 @@ func decompressZCAP(t *testing.T, encoded string) *zcapld.Capability {
 	require.NoError(t, err)
 
 	return zcap
-}
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(mockstore.NewMockStoreProvider())
-	require.NoError(t, err)
-
-	return loader
 }

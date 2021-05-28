@@ -24,6 +24,7 @@ import (
 	"github.com/google/tink/go/keyset"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -155,6 +156,11 @@ func New(config *Config) (*Operation, error) {
 		return nil, err
 	}
 
+	contextOp, err := jsonldcontextrest.New(&storeProvider{config.StoreProvider})
+	if err != nil {
+		return nil, fmt.Errorf("create jsonld context operation: %w", err)
+	}
+
 	svc := &Operation{
 		authService:          zcapsvc.New(config.KeyManager, config.Crypto),
 		profileStore:         p,
@@ -175,8 +181,9 @@ func New(config *Config) (*Operation, error) {
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
 			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
-		retryParameters: config.RetryParameters,
-		documentLoader:  config.DocumentLoader,
+		retryParameters:         config.RetryParameters,
+		documentLoader:          config.DocumentLoader,
+		addJSONLDContextHandler: contextOp.Add,
 	}
 
 	return svc, nil
@@ -200,23 +207,24 @@ type Config struct {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore         *vcprofile.Profile
-	edvClient            EDVClient
-	kms                  keyManager
-	vdr                  vdrapi.Registry
-	crypto               *crypto.Crypto
-	jweEncrypter         jose.Encrypter
-	jweDecrypter         jose.Decrypter
-	vcStatusManager      vcStatusManager
-	domain               string
-	hostURL              string
-	macKeyHandle         *keyset.Handle
-	macCrypto            ariescrypto.Crypto
-	vcIDIndexNameEncoded string
-	commonDID            commonDID
-	retryParameters      *retry.Params
-	authService          authService
-	documentLoader       ld.DocumentLoader
+	profileStore            *vcprofile.Profile
+	edvClient               EDVClient
+	kms                     keyManager
+	vdr                     vdrapi.Registry
+	crypto                  *crypto.Crypto
+	jweEncrypter            jose.Encrypter
+	jweDecrypter            jose.Decrypter
+	vcStatusManager         vcStatusManager
+	domain                  string
+	hostURL                 string
+	macKeyHandle            *keyset.Handle
+	macCrypto               ariescrypto.Crypto
+	vcIDIndexNameEncoded    string
+	commonDID               commonDID
+	retryParameters         *retry.Params
+	authService             authService
+	documentLoader          ld.DocumentLoader
+	addJSONLDContextHandler http.HandlerFunc
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -239,6 +247,9 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		support.NewHTTPHandler(generateKeypairPath, http.MethodGet, o.generateKeypairHandler),
 		support.NewHTTPHandler(issueCredentialPath, http.MethodPost, o.issueCredentialHandler),
 		support.NewHTTPHandler(composeAndIssueCredentialPath, http.MethodPost, o.composeAndIssueCredentialHandler),
+
+		// JSON-LD contexts API
+		support.NewHTTPHandler(jsonldcontextrest.AddContextPath, http.MethodPost, o.addJSONLDContextHandler),
 	}
 }
 
@@ -1204,4 +1215,12 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 	}
 
 	return nil
+}
+
+type storeProvider struct {
+	ariesstorage.Provider
+}
+
+func (p *storeProvider) StorageProvider() ariesstorage.Provider {
+	return p
 }

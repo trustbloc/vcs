@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -92,6 +93,11 @@ func New(config *Config) (*Operation, error) {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
+	contextOp, err := jsonldcontextrest.New(&storeProvider{config.StoreProvider})
+	if err != nil {
+		return nil, fmt.Errorf("create jsonld context operation: %w", err)
+	}
+
 	svc := &Operation{
 		profileStore: p,
 		commonDID: commondid.New(&commondid.Config{
@@ -99,10 +105,11 @@ func New(config *Config) (*Operation, error) {
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
 			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
-		crypto:          c,
-		vcStatusManager: vcStatusManager,
-		claims:          data,
-		hostURL:         config.HostURL,
+		crypto:                  c,
+		vcStatusManager:         vcStatusManager,
+		claims:                  data,
+		hostURL:                 config.HostURL,
+		addJSONLDContextHandler: contextOp.Add,
 	}
 
 	return svc, nil
@@ -128,12 +135,13 @@ type keyManager interface {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	commonDID       commonDID
-	profileStore    *vcprofile.Profile
-	crypto          *crypto.Crypto
-	vcStatusManager vcStatusManager
-	claims          []byte
-	hostURL         string
+	commonDID               commonDID
+	profileStore            *vcprofile.Profile
+	crypto                  *crypto.Crypto
+	vcStatusManager         vcStatusManager
+	claims                  []byte
+	hostURL                 string
+	addJSONLDContextHandler http.HandlerFunc
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -142,6 +150,8 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		// governance profile
 		support.NewHTTPHandler(governanceProfileEndpoint, http.MethodPost, o.createGovernanceProfileHandler),
 		support.NewHTTPHandler(issueCredentialHandler, http.MethodPost, o.issueCredentialHandler),
+		// JSON-LD context API
+		support.NewHTTPHandler(jsonldcontextrest.AddContextPath, http.MethodPost, o.addJSONLDContextHandler),
 	}
 }
 
@@ -337,4 +347,12 @@ func buildCredential(signatureType, did string, claims []byte) (*verifiable.Cred
 	}
 
 	return credential, nil
+}
+
+type storeProvider struct {
+	ariesstorage.Provider
+}
+
+func (p *storeProvider) StorageProvider() ariesstorage.Provider {
+	return p
 }

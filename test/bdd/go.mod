@@ -15,17 +15,17 @@ require (
 	github.com/go-openapi/runtime v0.19.26
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/google/uuid v1.2.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210517160459-a72f856f36b8
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210526123422-eec182deab9a
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210517231016-de60084e8513
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v0.0.0-20210514172744-92d9a7ecd44d
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210510053848-903ac6748b72
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210510053848-903ac6748b72
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210520055214-ae429bb89bf7
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210520055214-ae429bb89bf7
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/tidwall/gjson v1.6.7
-	github.com/trustbloc/edge-core v0.1.7-0.20210514182200-47eb0f3a6b95
+	github.com/trustbloc/edge-core v0.1.7-0.20210527163745-994ae929f957
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/edv v0.1.7-0.20210510134838-bdb20956d60b
-	github.com/trustbloc/kms v0.1.7-0.20210510144722-4d909760f6bf
+	github.com/trustbloc/edv v0.1.7-0.20210527173439-3b17690a0345
+	github.com/trustbloc/kms v0.1.7-0.20210527174658-019e1bcabd9c
 	gotest.tools/v3 v3.0.3 // indirect
 )
 

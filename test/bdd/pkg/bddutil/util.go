@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bddutil
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/tls"
 	_ "embed" //nolint:gci // required for go:embed
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	jsonldcontext "github.com/hyperledger/aries-framework-go/pkg/client/jsonld/context"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -260,9 +262,11 @@ var (
 	examplesExtVocab []byte
 	//go:embed contexts/examples-crude-product-v1.jsonld
 	examplesCrudeProductVocab []byte
+	//go:embed contexts/odrl.jsonld
+	odrl []byte
 )
 
-var embedContexts = []jld.ContextDocument{ //nolint:gochecknoglobals
+var extraContexts = []jld.ContextDocument{ //nolint:gochecknoglobals
 	{
 		URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 		Content: jws2020V1Vocab,
@@ -288,14 +292,37 @@ var embedContexts = []jld.ContextDocument{ //nolint:gochecknoglobals
 		URL:     "https://trustbloc.github.io/context/vc/examples-crude-product-v1.jsonld",
 		Content: examplesCrudeProductVocab,
 	},
+	{
+		URL:     "https://www.w3.org/ns/odrl.jsonld",
+		Content: odrl,
+	},
 }
 
 // DocumentLoader returns a JSON-LD document loader with preloaded test contexts.
 func DocumentLoader() (*jld.DocumentLoader, error) {
-	loader, err := jld.NewDocumentLoader(mem.NewProvider(), jld.WithExtraContexts(embedContexts...))
+	loader, err := jld.NewDocumentLoader(mem.NewProvider(), jld.WithExtraContexts(extraContexts...))
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
 
 	return loader, nil
+}
+
+type httpClient struct {
+}
+
+func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
+	return HTTPDo(req.Method, req.URL.String(), "", "rw_token", req.Body)
+}
+
+// AddJSONLDContexts imports extra contexts for the service instance.
+func AddJSONLDContexts(serviceURL string) error {
+	const timeout = 5 * time.Second
+
+	client := jsonldcontext.NewClient(serviceURL, jsonldcontext.WithHTTPClient(&httpClient{}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return client.Add(ctx, extraContexts...)
 }

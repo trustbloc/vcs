@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -32,6 +31,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	. "github.com/trustbloc/edge-service/pkg/restapi/vault"
 )
 
@@ -52,7 +52,7 @@ const kmsResponse = `
 
 func TestNewClient(t *testing.T) {
 	t.Run("URL parse error", func(t *testing.T) {
-		client, err := NewClient("", "http://user^foo.com", nil, nil, createTestDocumentLoader(t))
+		client, err := NewClient("", "http://user^foo.com", nil, nil, testutil.DocumentLoader(t))
 		require.Error(t, err)
 		require.Nil(t, client)
 		require.Contains(t, err.Error(), "url parse: parse")
@@ -60,7 +60,7 @@ func TestNewClient(t *testing.T) {
 	t.Run("URL parse error", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
 			ErrOpenStoreHandle: errors.New("test"),
-		}, createTestDocumentLoader(t))
+		}, testutil.DocumentLoader(t))
 		require.Error(t, err)
 		require.Nil(t, client)
 		require.EqualError(t, err, "open store: test")
@@ -68,7 +68,7 @@ func TestNewClient(t *testing.T) {
 }
 
 func TestClient_CreateVault(t *testing.T) {
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("Error parse zcap", func(t *testing.T) {
 		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -226,7 +226,7 @@ func TestClient_CreateVault(t *testing.T) {
 }
 
 func TestClient_GetAuthorization(t *testing.T) {
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
@@ -276,7 +276,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		vaultID = "v_id"
 	)
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("Unmarshal authorization error", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
@@ -626,7 +626,7 @@ func TestClient_SaveDoc(t *testing.T) {
 }
 
 func TestClient_CreateAuthorization(t *testing.T) {
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
@@ -728,7 +728,7 @@ func TestClient_CreateAuthorization(t *testing.T) {
 }
 
 func TestClient_GetDocMetadata(t *testing.T) {
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	t.Run("No authorization", func(t *testing.T) {
 		client, err := NewClient("", "", nil, &mockstorage.MockStoreProvider{
@@ -896,13 +896,4 @@ func newDIDDoc() *did.Doc {
 			Embedded:     true,
 		}},
 	}
-}
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(mockstorage.NewMockStoreProvider())
-	require.NoError(t, err)
-
-	return loader
 }

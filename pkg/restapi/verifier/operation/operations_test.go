@@ -38,6 +38,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
 	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 )
 
 const (
@@ -64,6 +65,18 @@ func Test_New(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the store")
+		require.Nil(t, controller)
+	})
+
+	t.Run("fail to create jsonld context operation", func(t *testing.T) {
+		controller, err := New(&Config{
+			StoreProvider: &ariesmockstorage.MockStoreProvider{
+				FailNamespace: jld.ContextsDBName,
+			},
+			VDRI: &vdrmock.MockVDRegistry{},
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "create jsonld context operation")
 		require.Nil(t, controller)
 	})
 }
@@ -325,7 +338,7 @@ func TestDeleteProfileHandler(t *testing.T) {
 }
 
 func TestVerifyCredential(t *testing.T) {
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	vc, err := verifiable.ParseCredential([]byte(prCardVC), verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
@@ -1006,7 +1019,7 @@ func TestVerifyCredential(t *testing.T) {
 }
 
 func TestVerifyPresentation(t *testing.T) {
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
 		VDRI:           &vdrmock.MockVDRegistry{},
@@ -1592,7 +1605,7 @@ func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 func getSignedVC(t *testing.T, privKey []byte, vcJSON, didID, verificationMethod, domain, challenge string) []byte {
 	t.Helper()
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	vc, err := verifiable.ParseCredential([]byte(vcJSON), verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
@@ -1631,7 +1644,7 @@ func getSignedVP(t *testing.T, privKey []byte, vcJSON, holderDID, vpVerification
 
 	signedVC := getSignedVC(t, privKey, vcJSON, issuerDID, vcVerificationMethod, "", "")
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	vc, err := verifiable.ParseCredential(signedVC, verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
@@ -1791,26 +1804,6 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
 	}
-}
-
-//go:embed testdata/citizenship-v1.jsonld
-var citizenshipVocab []byte //nolint:gochecknoglobals // embedded test context
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
-		jld.WithExtraContexts(
-			jld.ContextDocument{
-				URL:         "https://w3id.org/citizenship/v1",
-				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
-				Content:     citizenshipVocab,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return loader
 }
 
 const (

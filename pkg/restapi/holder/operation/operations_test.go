@@ -26,7 +26,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
@@ -44,6 +43,7 @@ import (
 
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/edge-service/pkg/internal/testutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
@@ -316,7 +316,7 @@ func TestDeriveCredentials(t *testing.T) {
 	urlVars := make(map[string]string)
 	urlVars[profileIDPathParam] = "profile"
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	vc, err := verifiable.ParseCredential([]byte(vcForDerive), verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestDeriveCredentials(t *testing.T) {
 			verifiable.WithPublicKeyFetcher(
 				verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
 			),
-			verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 		)
 
 		// check expected proof
@@ -421,7 +421,7 @@ func TestDeriveCredentials(t *testing.T) {
 			verifiable.WithPublicKeyFetcher(
 				verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
 			),
-			verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 		)
 
 		// check expected proof
@@ -463,7 +463,7 @@ func TestDeriveCredentials(t *testing.T) {
 			verifiable.WithPublicKeyFetcher(
 				verifiable.NewVDRKeyResolver(ops.vdr).PublicKeyFetcher(),
 			),
-			verifiable.WithJSONLDDocumentLoader(createTestDocumentLoader(t)),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 		)
 
 		// check expected proof
@@ -545,7 +545,7 @@ func TestDeriveCredentials(t *testing.T) {
 					return nil, fmt.Errorf("did not found")
 				},
 			},
-			DocumentLoader: createTestDocumentLoader(t),
+			DocumentLoader: testutil.DocumentLoader(t),
 		})
 		require.NoError(t, err)
 
@@ -582,7 +582,7 @@ func TestSignPresentation(t *testing.T) {
 	customCrypto, err := tinkcrypto.New()
 	require.NoError(t, err)
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
 		StoreProvider:  ariesmemstorage.NewProvider(),
@@ -1005,35 +1005,6 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	return k
 }
 
-// nolint:gochecknoglobals // embedded test contexts
-var (
-	//go:embed testdata/citizenship-v1.jsonld
-	citizenshipVocab []byte
-	//go:embed testdata/examples-v1.jsonld
-	examplesV1Vocab []byte
-)
-
-func createTestDocumentLoader(t *testing.T) *jld.DocumentLoader {
-	t.Helper()
-
-	loader, err := jld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
-		jld.WithExtraContexts(
-			jld.ContextDocument{
-				URL:         "https://w3id.org/citizenship/v1",
-				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
-				Content:     citizenshipVocab,
-			},
-			jld.ContextDocument{
-				URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
-				Content: examplesV1Vocab,
-			},
-		),
-	)
-	require.NoError(t, err)
-
-	return loader
-}
-
 // signVCWithBBS signs VC with bbs and returns did used for signing.
 func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
 	t.Helper()
@@ -1063,7 +1034,7 @@ func signVCWithBBS(t *testing.T, vc *verifiable.Credential) string {
 		VerificationMethod:      keyID,
 	}
 
-	loader := createTestDocumentLoader(t)
+	loader := testutil.DocumentLoader(t)
 
 	err = vc.AddLinkedDataProof(ldpContext, jsonld.WithDocumentLoader(loader))
 	require.NoError(t, err)
