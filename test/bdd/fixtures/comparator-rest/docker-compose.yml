@@ -22,6 +22,7 @@ services:
       - COMPARATOR_CSH_URL=https://hubstore.example.com:8095
       - COMPARATOR_VAULT_URL=https://vault.server.example.com:9099
       - COMPARATOR_DID_ANCHOR_ORIGIN=origin
+      - COMPARATOR_REQUEST_TOKENS=sidetreeToken=tk1
     ports:
       - ${COMPARATOR_REST_PORT}:${COMPARATOR_REST_PORT}
     command:  start

@@ -23,6 +23,7 @@ services:
       - VAULT_DID_DOMAIN=testnet.orb.local
       - VAULT_DID_METHOD=orb
       - VAULT_DID_ANCHOR_ORIGIN=origin
+      - VAULT_REQUEST_TOKENS=sidetreeToken=tk1
     ports:
       - ${VAULT_SERVER_PORT}:${VAULT_SERVER_PORT}
     entrypoint: ""

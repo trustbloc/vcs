@@ -100,6 +100,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + common.DatabaseURLFlagName, "mem://test",
 		"--" + common.DatabasePrefixFlagName, "test",
 		"--" + didDomainFlagName, "testnet.orb.local",
+		"--" + requestTokensFlagName, "token2=tk2=1",
 	}
 	startCmd.SetArgs(args)
 

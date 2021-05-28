@@ -103,6 +103,13 @@ const (
 	didAnchorOriginEnvKey    = "COMPARATOR_DID_ANCHOR_ORIGIN"
 	didAnchorOriginFlagUsage = "DID anchor origin." +
 		" Alternatively, this can be set with the following environment variable: " + didAnchorOriginEnvKey
+
+	requestTokensFlagName  = "request-tokens"
+	requestTokensEnvKey    = "COMPARATOR_REQUEST_TOKENS" //nolint: gosec
+	requestTokensFlagUsage = "Tokens used for http request " +
+		" Alternatively, this can be set with the following environment variable: " + requestTokensEnvKey
+
+	splitRequestTokenLength = 2
 )
 
 const (
@@ -159,6 +166,7 @@ type serviceParameters struct {
 	cshURL          string
 	vaultURL        string
 	didAnchorOrigin string
+	requestTokens   map[string]string
 }
 
 type server interface {
@@ -263,6 +271,8 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 
 	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
 
+	requestTokens := getRequestTokens(cmd)
+
 	return &serviceParameters{
 		host:            host,
 		tlsParams:       tlsParams,
@@ -271,6 +281,7 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		cshURL:          cshURL,
 		vaultURL:        vaultURL,
 		didAnchorOrigin: didAnchorOrigin,
+		requestTokens:   requestTokens,
 	}, err
 }
 
@@ -300,6 +311,25 @@ func getDsnParams(cmd *cobra.Command) (*dsnParams, error) {
 	params.dbPrefix = cmdutils.GetUserSetOptionalVarFromString(cmd, databasePrefixFlagName, databasePrefixEnvKey)
 
 	return params, nil
+}
+
+func getRequestTokens(cmd *cobra.Command) map[string]string {
+	requestTokens := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, requestTokensFlagName,
+		requestTokensEnvKey)
+
+	tokens := make(map[string]string)
+
+	for _, token := range requestTokens {
+		split := strings.Split(token, "=")
+		switch len(split) {
+		case splitRequestTokenLength:
+			tokens[split[0]] = split[1]
+		default:
+			logger.Warnf("invalid token '%s'", token)
+		}
+	}
+
+	return tokens
 }
 
 func initStore(dbURL string, timeout uint64, prefix string) (storage.Provider, error) {
@@ -378,6 +408,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(cshURLFlagName, "", "", cshURLFlagUsage)
 	cmd.Flags().StringP(vaultURLFlagName, "", "", vaultURLFlagUsage)
 	cmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
+	cmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 }
 
 //nolint: funlen
@@ -402,7 +433,8 @@ func startService(params *serviceParameters, srv server) error {
 		return err
 	}
 
-	trustblocVDR, err := orb.New(nil, orb.WithDomain(params.didDomain), orb.WithTLSConfig(tlsConfig))
+	trustblocVDR, err := orb.New(nil, orb.WithDomain(params.didDomain), orb.WithTLSConfig(tlsConfig),
+		orb.WithAuthToken(params.requestTokens["sidetreeToken"]))
 	if err != nil {
 		return err
 	}

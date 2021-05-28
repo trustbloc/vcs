@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -90,6 +91,13 @@ const (
 	didAnchorOriginEnvKey    = "CHS_DID_ANCHOR_ORIGIN"
 	didAnchorOriginFlagUsage = "DID anchor origin." +
 		" Alternatively, this can be set with the following environment variable: " + didAnchorOriginEnvKey
+
+	requestTokensFlagName  = "request-tokens"
+	requestTokensEnvKey    = "CHS_REQUEST_TOKENS" //nolint: gosec
+	requestTokensFlagUsage = "Tokens used for http request " +
+		" Alternatively, this can be set with the following environment variable: " + requestTokensEnvKey
+
+	splitRequestTokenLength = 2
 )
 
 var logger = log.New("confidential-storage-hub/start")
@@ -102,6 +110,7 @@ type serviceParameters struct {
 	trustblocDomain   string
 	identityDIDMethod string
 	didAnchorOrigin   string
+	requestTokens     map[string]string
 }
 
 type tlsParameters struct {
@@ -189,6 +198,8 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		identityDIDMethod = "key"
 	}
 
+	requestTokens := getRequestTokens(cmd)
+
 	return &serviceParameters{
 		host:              host,
 		tlsParams:         tlsParams,
@@ -197,6 +208,7 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		trustblocDomain:   trustblocDomain,
 		identityDIDMethod: identityDIDMethod,
 		didAnchorOrigin:   didAnchorOrigin,
+		requestTokens:     requestTokens,
 	}, err
 }
 
@@ -211,6 +223,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 	cmd.Flags().StringP(identityDIDMethodFlagName, "", "", identityDIDMethodFlagUsage)
 	cmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
+	cmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 }
 
 func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
@@ -248,6 +261,25 @@ func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
 			RootCAs:    rootCAs,
 		},
 	}, nil
+}
+
+func getRequestTokens(cmd *cobra.Command) map[string]string {
+	requestTokens := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, requestTokensFlagName,
+		requestTokensEnvKey)
+
+	tokens := make(map[string]string)
+
+	for _, token := range requestTokens {
+		split := strings.Split(token, "=")
+		switch len(split) {
+		case splitRequestTokenLength:
+			tokens[split[0]] = split[1]
+		default:
+			logger.Warnf("invalid token '%s'", token)
+		}
+	}
+
+	return tokens
 }
 
 func startService(params *serviceParameters, srv server) error { // nolint:funlen
@@ -351,6 +383,7 @@ func newAriesConfig(params *serviceParameters) (*operation.AriesConfig, error) {
 		nil,
 		orb.WithDomain(params.trustblocDomain),
 		orb.WithTLSConfig(params.tlsParams.tlsConfig),
+		orb.WithAuthToken(params.requestTokens["sidetreeToken"]),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to init trustbloc VDR: %w", err)

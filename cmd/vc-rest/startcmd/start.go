@@ -636,7 +636,8 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	// Create VDRI
 	vdr, err := createVDRI(parameters.universalResolverURL,
-		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, parameters.blocDomain)
+		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, parameters.blocDomain,
+		parameters.requestTokens["sidetreeToken"])
 	if err != nil {
 		return err
 	}
@@ -768,7 +769,8 @@ func (k kmsProvider) SecretLock() secretlock.Service {
 	return k.secretLockService
 }
 
-func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain string) (vdrapi.Registry, error) {
+func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
+	sidetreeAuthToken string) (vdrapi.Registry, error) {
 	var opts []vdrpkg.Option
 
 	if universalResolver != "" {
@@ -782,7 +784,8 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain stri
 		opts = append(opts, vdrpkg.WithVDR(universalResolverVDRI))
 	}
 
-	vdr, err := orb.New(nil, orb.WithDomain(blocDomain), orb.WithTLSConfig(tlsConfig))
+	vdr, err := orb.New(nil, orb.WithDomain(blocDomain), orb.WithTLSConfig(tlsConfig),
+		orb.WithAuthToken(sidetreeAuthToken))
 	if err != nil {
 		return nil, err
 	}

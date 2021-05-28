@@ -107,6 +107,13 @@ const (
 	didAnchorOriginEnvKey    = "VAULT_DID_ANCHOR_ORIGIN"
 	didAnchorOriginFlagUsage = "DID anchor origin." +
 		" Alternatively, this can be set with the following environment variable: " + didAnchorOriginEnvKey
+
+	requestTokensFlagName  = "request-tokens"
+	requestTokensEnvKey    = "VAULT_REQUEST_TOKENS"
+	requestTokensFlagUsage = "Tokens used for http request " +
+		" Alternatively, this can be set with the following environment variable: " + requestTokensEnvKey
+
+	splitRequestTokenLength = 2
 )
 
 var logger = log.New("vault-server")
@@ -120,6 +127,7 @@ type serviceParameters struct {
 	tlsParams       *tlsParameters
 	dsnParams       *dsnParams
 	didAnchorOrigin string
+	requestTokens   map[string]string
 }
 
 type dsnParams struct {
@@ -226,6 +234,8 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 
 	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
 
+	requestTokens := getRequestTokens(cmd)
+
 	return &serviceParameters{
 		host:            host,
 		remoteKMSURL:    remoteKMSURL,
@@ -235,6 +245,7 @@ func getParameters(cmd *cobra.Command) (*serviceParameters, error) {
 		dsnParams:       dsn,
 		tlsParams:       tlsParams,
 		didAnchorOrigin: didAnchorOrigin,
+		requestTokens:   requestTokens,
 	}, err
 }
 
@@ -267,6 +278,25 @@ func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
 	}, nil
 }
 
+func getRequestTokens(cmd *cobra.Command) map[string]string {
+	requestTokens := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, requestTokensFlagName,
+		requestTokensEnvKey)
+
+	tokens := make(map[string]string)
+
+	for _, token := range requestTokens {
+		split := strings.Split(token, "=")
+		switch len(split) {
+		case splitRequestTokenLength:
+			tokens[split[0]] = split[1]
+		default:
+			logger.Warnf("invalid token '%s'", token)
+		}
+	}
+
+	return tokens
+}
+
 func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	cmd.Flags().StringP(remoteKMSURLFlagName, "", "", remoteKMSURLFlagUsage)
@@ -281,6 +311,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringP(didDomainFlagName, "", "", didDomainFlagUsage)
 	cmd.Flags().StringP(didMethodFlagName, "", "key", didMethodFlagUsage)
 	cmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
+	cmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 }
 
 const (
@@ -329,6 +360,7 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		nil,
 		orb.WithDomain(params.didDomain),
 		orb.WithTLSConfig(tCfg),
+		orb.WithAuthToken(params.requestTokens["sidetreeToken"]),
 	)
 	if err != nil {
 		return err
