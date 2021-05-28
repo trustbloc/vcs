@@ -12,7 +12,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.7-0.20210526123422-eec182deab9a
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210426192704-553740e279e5
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210505173234-006b2f4723fd
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210517231016-de60084e8513
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.1.1
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210520055214-ae429bb89bf7
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210520055214-ae429bb89bf7
 	github.com/rs/cors v1.7.0
