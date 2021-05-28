@@ -131,6 +131,7 @@ func TestNotSupportedDSN(t *testing.T) {
 		"--" + didDomainFlagName, "did",
 		"--" + cshURLFlagName, "localhost:8081",
 		"--" + vaultURLFlagName, "localhost:8081",
+		"--" + requestTokensFlagName, "token2=tk2=1",
 	}
 	startCmd.SetArgs(args)
 

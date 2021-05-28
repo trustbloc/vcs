@@ -68,6 +68,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + remoteKMSURLFlagName, "localhost:8081",
 		"--" + edvURLFlagName, "localhost:8082",
 		"--" + datasourceNameFlagName, "mem://test",
+		"--" + requestTokensFlagName, "token2=tk2=1",
 	}
 	startCmd.SetArgs(args)
 
