@@ -43,6 +43,8 @@ import (
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 	"github.com/trustbloc/edv/pkg/restapi/models"
 	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
+
+	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 )
 
 const (
@@ -646,7 +648,7 @@ func newDidDoc(k kms.KeyManager, method string) (string, *ariesdid.Doc, error) {
 		didDoc.VerificationMethod = append([]ariesdid.VerificationMethod{}, *mainVM)
 	}
 
-	vm, err := ariesdid.NewVerificationMethodFromJWK(keyID, doc.JWSVerificationKey2020, "", jwk)
+	vm, err := ariesdid.NewVerificationMethodFromJWK(keyID, crypto.JSONWebKey2020, "", jwk)
 	if err != nil {
 		return "", nil, err
 	}

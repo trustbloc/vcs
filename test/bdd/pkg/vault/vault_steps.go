@@ -19,7 +19,6 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -43,6 +42,7 @@ import (
 	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
+	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
@@ -447,7 +447,7 @@ func newDidDoc(k kms.KeyManager) (*did.Doc, error) {
 		return nil, err
 	}
 
-	vm, err := did.NewVerificationMethodFromJWK(uuid.New().String(), doc.JWSVerificationKey2020, "", jwk)
+	vm, err := did.NewVerificationMethodFromJWK(uuid.New().String(), vccrypto.JSONWebKey2020, "", jwk)
 	if err != nil {
 		return nil, err
 	}
