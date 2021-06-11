@@ -20,13 +20,13 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
 
+	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
@@ -270,7 +270,7 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 		return nil, err
 	}
 
-	vm, err := docdid.NewVerificationMethodFromJWK(keyID, doc.JWSVerificationKey2020, "", jwk)
+	vm, err := docdid.NewVerificationMethodFromJWK(keyID, crypto.JSONWebKey2020, "", jwk)
 	if err != nil {
 		return nil, err
 	}

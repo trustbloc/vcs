@@ -22,7 +22,6 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
@@ -38,6 +37,7 @@ import (
 	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
 	cshclientmodels "github.com/trustbloc/edge-service/pkg/client/csh/models"
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
+	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation/models"
 	"github.com/trustbloc/edge-service/pkg/restapi/model"
@@ -402,7 +402,7 @@ func (o *Operation) newPublicKeys() (*did.Doc, []json.RawMessage, error) {
 		return nil, nil, err
 	}
 
-	vm, err := did.NewVerificationMethodFromJWK(keyID, doc.JWSVerificationKey2020, "", jwk)
+	vm, err := did.NewVerificationMethodFromJWK(keyID, vccrypto.JSONWebKey2020, "", jwk)
 	if err != nil {
 		return nil, nil, err
 	}

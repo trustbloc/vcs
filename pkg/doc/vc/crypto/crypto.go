@@ -38,8 +38,8 @@ const (
 
 	// Ed25519VerificationKey2018 ed25119 verification key
 	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
-	// JwsVerificationKey2020 jws verification key
-	JwsVerificationKey2020 = "JwsVerificationKey2020"
+	// JSONWebKey2020 type
+	JSONWebKey2020 = "JsonWebKey2020"
 )
 
 const (

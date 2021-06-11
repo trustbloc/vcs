@@ -35,7 +35,7 @@ const splitDidIDLength = 4
 // nolint: gochecknoglobals
 var signatureKeyTypeMap = map[string]string{
 	crypto.Ed25519Signature2018: crypto.Ed25519VerificationKey2018,
-	crypto.JSONWebSignature2020: crypto.JwsVerificationKey2020,
+	crypto.JSONWebSignature2020: crypto.JSONWebKey2020,
 }
 
 // CommonDID common did operation
@@ -305,7 +305,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	vm, err = did.NewVerificationMethodFromJWK(key2ID, doc.JWSVerificationKey2020, "", jwk)
+	vm, err = did.NewVerificationMethodFromJWK(key2ID, crypto.JSONWebKey2020, "", jwk)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -333,7 +333,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	vm, err = did.NewVerificationMethodFromJWK(key3ID, doc.JWSVerificationKey2020, "", jwk)
+	vm, err = did.NewVerificationMethodFromJWK(key3ID, crypto.JSONWebKey2020, "", jwk)
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -354,12 +354,12 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 	}
 
 	if keyType == crypto.Ed25519KeyType &&
-		doc.JWSVerificationKey2020 == signatureKeyTypeMap[signatureType] {
+		crypto.JSONWebKey2020 == signatureKeyTypeMap[signatureType] {
 		return didDoc, pks, key2ID, nil
 	}
 
 	if keyType == crypto.P256KeyType &&
-		doc.JWSVerificationKey2020 == signatureKeyTypeMap[signatureType] {
+		crypto.JSONWebKey2020 == signatureKeyTypeMap[signatureType] {
 		return didDoc, pks, key3ID, nil
 	}
 
