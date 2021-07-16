@@ -1,0 +1,282 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+name: "edge service ci"
+
+env:
+  GO_VERSION: 1.16
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  Checks:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run checks
+        run: |
+          echo $PATH
+          go env
+          echo ${{ github.workspace }}
+          make checks
+
+  UnitTest:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run unit test
+        run: make unit-test
+      - name: Upload coverage to Codecov
+        run: |
+          bash <(curl https://codecov.io/bash)
+        env:
+          CODECOV_UPLOAD_TOKEN: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
+
+  BDDTestGovernance:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: governance_rest
+
+  BDDTestHolder:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: holder_rest
+
+  BDDTestIssuer:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: issuer_rest
+
+  BDDTestVerifier:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: verifier_rest
+
+  BDDTestVCGeneric:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: vc_rest
+
+  BDDTestCHAPIWorkflow:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: w3c_workflow
+
+  BDDTestComparator:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: comparator_rest
+
+  BDDTestConfidentialStorageHub:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: confidential-storage-hub
+
+  BDDTestVault:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run RP Adapter BDD test
+        run: |
+          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
+          echo '127.0.0.1 vault.kms.example.com' | sudo tee -a /etc/hosts
+          make bdd-test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAGS: vault_server
+
+  Publish:
+    needs: [Checks, UnitTest, BDDTestGovernance, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow, BDDTestComparator, BDDTestConfidentialStorageHub, BDDTestVault]
+    if: github.event_name == 'push' && (github.repository == 'trustbloc/edge-service' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - run: |
+          function logout {
+            docker logout
+          }
+          trap logout EXIT
+          git lfs install
+          git lfs pull
+          source ci/version_var.sh
+          echo $DOCKER_PASSWORD | docker login ghcr.io --username $DOCKER_USER --password-stdin
+          make vc-server-docker
+          docker tag ghcr.io/trustbloc/vc-server:latest ${VC_SERVER_PKG}:${VC_SERVER_TAG}
+          docker push ${VC_SERVER_PKG}:${VC_SERVER_TAG}
+          make did-resolver-docker
+          docker tag ghcr.io/trustbloc/did-resolver:latest ${DID_RESOLVER_PKG}:${DID_RESOLVER_TAG}
+          docker push ${DID_RESOLVER_PKG}:${DID_RESOLVER_TAG}
+          make comparator-rest-docker
+          docker tag ghcr.io/trustbloc/comparator-server:latest ${COMPARATOR_SERVER_PKG}:${COMPARATOR_SERVER_TAG}
+          docker push ${COMPARATOR_SERVER_PKG}:${COMPARATOR_SERVER_TAG}
+          make confidential-storage-hub-docker
+          docker tag ghcr.io/trustbloc/hub-confidential-storage:latest ${CONFIDENTIAL_STORAGE_HUB_PKG}:${CONFIDENTIAL_STORAGE_HUB_TAG}
+          docker push ${CONFIDENTIAL_STORAGE_HUB_PKG}:${CONFIDENTIAL_STORAGE_HUB_TAG}
+          make vault-server-docker
+          docker tag ghcr.io/trustbloc/vault-server:latest ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
+          docker push ${VAULT_SERVER_PKG}:${VAULT_SERVER_TAG}
+        env:
+          DOCKER_USER: ${{ secrets.CR_USER }}
+          DOCKER_PASSWORD: ${{ secrets.CR_PAT }}
+          NPM_WALLET_PKG_TAG: $(NPM_WALLET_PKG_TAG)
+          NPM_WALLET_PKG_NAME: $(NPM_WALLET_PKG_NAME)
+          NPM_WALLET_PKG_REPO: $(NPM_WALLET_PKG_REPO)
+
+  Interop:
+    needs: [Checks, UnitTest, BDDTestGovernance, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow, BDDTestComparator, BDDTestConfidentialStorageHub, BDDTestVault]
+    if: github.event_name == 'push' && (github.repository == 'trustbloc/edge-service' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Run checks
+        run: |
+          echo $PATH
+          go env
+          echo ${{ github.workspace }}
+          make bdd-interop-test
