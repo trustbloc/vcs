@@ -58,14 +58,14 @@ Feature: Verifier VC REST API
       | pr_vp_trustbloc                     | permanent_resident_card.json    |                        |                         |
       | crude_vp_trustbloc                  | crude_product.json              |                        |                         |
       | cmtr_vp_trustbloc                   | certified_mill_test_report.json |                        |                         |
-      | ud_vc_transmute_vp_trustbloc        | university_degree.json          | transmute_vc1.json     |                         |
-      | pr_vc_transmute_vp_trustbloc        | permanent_resident_card.json    | transmute_vc2.json     |                         |
-      | cmtr_vc_transmute_vp_trustbloc      | certified_mill_test_report.json | transmute_vc3.json     |                         |
-      | crude_vc_transmute_vp_trustbloc     | crude_product.json              | transmute_vc4.json     |                         |
-      | ud_vp_transmute                     | university_degree.json          | transmute_vc1.json     | transmute_vp1.json      |
-      | pr_vp_transmute                     | permanent_resident_card.json    | transmute_vc2.json     | transmute_vp2.json      |
-      | cmtr_vp_transmute                   | certified_mill_test_report.json | transmute_vc3.json     | transmute_vp3.json      |
-      | crude_vp_transmute                  | crude_product.json              | transmute_vc4.json     | transmute_vp4.json      |
+#      | ud_vc_transmute_vp_trustbloc        | university_degree.json          | transmute_vc1.json     |                         |
+#      | pr_vc_transmute_vp_trustbloc        | permanent_resident_card.json    | transmute_vc2.json     |                         |
+#      | cmtr_vc_transmute_vp_trustbloc      | certified_mill_test_report.json | transmute_vc3.json     |                         |
+#      | crude_vc_transmute_vp_trustbloc     | crude_product.json              | transmute_vc4.json     |                         |
+#      | ud_vp_transmute                     | university_degree.json          | transmute_vc1.json     | transmute_vp1.json      |
+#      | pr_vp_transmute                     | permanent_resident_card.json    | transmute_vc2.json     | transmute_vp2.json      |
+#      | cmtr_vp_transmute                   | certified_mill_test_report.json | transmute_vc3.json     | transmute_vp3.json      |
+#      | crude_vp_transmute                  | crude_product.json              | transmute_vc4.json     | transmute_vp4.json      |
       | ud_vc_mavennet_vp_trustbloc         | university_degree.json          | mavennet_vc1.json      |                         |
       | pr_vc_mavennet_vp_trustbloc         | permanent_resident_card.json    | mavennet_vc2.json      |                         |
       | cmtr_vc_mavennet_vp_trustbloc       | certified_mill_test_report.json | mavennet_vc3.json      |                         |
