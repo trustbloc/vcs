@@ -2,7 +2,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/trustbloc/edge-service/main/LICENSE)
 [![Godocs](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/trustbloc/edge-service)
 
-[![Build Status](https://dev.azure.com/trustbloc/edge/_apis/build/status/trustbloc.edge-service?branchName=main)](https://dev.azure.com/trustbloc/edge/_build/latest?definitionId=27&branchName=main)
+[![Build Status](https://github.com/trustbloc/edge-service/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/trustbloc/edge-service/actions/workflows/build.yml)
 [![codecov](https://codecov.io/gh/trustbloc/edge-service/branch/main/graph/badge.svg)](https://codecov.io/gh/trustbloc/edge-service)
 [![Go Report Card](https://goreportcard.com/badge/github.com/trustbloc/edge-service)](https://goreportcard.com/report/github.com/trustbloc/edge-service)
 
