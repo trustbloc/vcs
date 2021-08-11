@@ -1,0 +1,1048 @@
+info:
+  license:
+    name: 'SPDX-License-Identifier: Apache-2.0'
+    title: Issuer, Holder and Verifier APIs.
+  version: 0.1.0
+consumes:
+- application/json
+schemes:
+- http
+- https
+swagger: "2.0"
+definitions:
+  Code:
+    format: int32
+    title: Code is the error code of command errors.
+    type: integer
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/controller/command
+  ComposeCredentialRequest:
+    properties:
+      claims:
+        type: object
+        x-go-name: Claims
+      credentialFormat:
+        type: string
+        x-go-name: CredentialFormat
+      credentialFormatOptions:
+        type: object
+        x-go-name: CredentialFormatOptions
+      evidence:
+        type: object
+        x-go-name: Evidence
+      expirationDate:
+        format: date-time
+        type: string
+        x-go-name: ExpirationDate
+      issuanceDate:
+        format: date-time
+        type: string
+        x-go-name: IssuanceDate
+      issuer:
+        type: string
+        x-go-name: Issuer
+      proofFormat:
+        type: string
+        x-go-name: ProofFormat
+      proofFormatOptions:
+        type: object
+        x-go-name: ProofFormatOptions
+      subject:
+        type: string
+        x-go-name: Subject
+      termsOfUse:
+        type: object
+        x-go-name: TermsOfUse
+      types:
+        items:
+          type: string
+        type: array
+        x-go-name: Types
+    title: ComposeCredentialRequest for composing and issuing credential.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  ContextDocument:
+    properties:
+      content:
+        type: object
+        x-go-name: Content
+      documentURL:
+        type: string
+        x-go-name: DocumentURL
+      url:
+        type: string
+        x-go-name: URL
+    title: ContextDocument is a JSON-LD context document with associated metadata.
+    type: object
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/doc/jsonld
+  CredentialStatus:
+    description: CredentialStatus credential status
+    properties:
+      status:
+        type: string
+        x-go-name: Status
+      type:
+        type: string
+        x-go-name: Type
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  CredentialStatusOpt:
+    description: CredentialStatusOpt credential status option
+    properties:
+      type:
+        type: string
+        x-go-name: Type
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  CredentialsVerificationCheckResult:
+    properties:
+      check:
+        type: string
+        x-go-name: Check
+      error:
+        type: string
+        x-go-name: Error
+      verificationMethod:
+        type: string
+        x-go-name: VerificationMethod
+    title: CredentialsVerificationCheckResult resp containing failure check details.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+  CredentialsVerificationOptions:
+    properties:
+      challenge:
+        type: string
+        x-go-name: Challenge
+      checks:
+        items:
+          type: string
+        type: array
+        x-go-name: Checks
+      domain:
+        type: string
+        x-go-name: Domain
+    title: CredentialsVerificationOptions options for credential verifications.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+  CredentialsVerificationRequest:
+    properties:
+      options:
+        $ref: '#/definitions/CredentialsVerificationOptions'
+      verifiableCredential:
+        type: object
+        x-go-name: Credential
+    title: CredentialsVerificationRequest request for verifying credential.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+  DeriveCredentialOptions:
+    properties:
+      nonce:
+        description: Nonce to prove uniqueness or freshness of the proof.
+        type: string
+        x-go-name: Nonce
+    title: DeriveCredentialOptions options for derive credential.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  DeriveCredentialRequest:
+    properties:
+      frame:
+        additionalProperties:
+          type: object
+        description: Frame is JSON-LD frame used for selective disclosure.
+        type: object
+        x-go-name: Frame
+      options:
+        $ref: '#/definitions/DeriveCredentialOptions'
+      verifiableCredential:
+        description: Raw Credential from which a new credential will be derived
+        type: object
+        x-go-name: Credential
+    title: DeriveCredentialRequest is request for deriving credential.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  DeriveCredentialResponse:
+    properties:
+      verifiableCredential:
+        type: object
+        x-go-name: VerifiableCredential
+    title: DeriveCredentialResponse is model for derive credential response.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  GovernanceProfileRequest:
+    description: GovernanceProfileRequest governance mode profile request
+    properties:
+      did:
+        type: string
+        x-go-name: DID
+      didKeyID:
+        type: string
+        x-go-name: DIDKeyID
+      didKeyType:
+        type: string
+        x-go-name: DIDKeyType
+      didPrivateKey:
+        type: string
+        x-go-name: DIDPrivateKey
+      name:
+        type: string
+        x-go-name: Name
+      signatureRepresentation:
+        $ref: '#/definitions/SignatureRepresentation'
+      signatureType:
+        type: string
+        x-go-name: SignatureType
+      uniRegistrar:
+        $ref: '#/definitions/UNIRegistrar'
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/governance/operation
+  HolderProfileRequest:
+    description: HolderProfileRequest holder mode profile request
+    properties:
+      did:
+        type: string
+        x-go-name: DID
+      didKeyID:
+        type: string
+        x-go-name: DIDKeyID
+      didKeyType:
+        type: string
+        x-go-name: DIDKeyType
+      didPrivateKey:
+        type: string
+        x-go-name: DIDPrivateKey
+      name:
+        type: string
+        x-go-name: Name
+      overwriteHolder:
+        type: boolean
+        x-go-name: OverwriteHolder
+      signatureRepresentation:
+        $ref: '#/definitions/SignatureRepresentation'
+      signatureType:
+        type: string
+        x-go-name: SignatureType
+      uniRegistrar:
+        $ref: '#/definitions/UNIRegistrar'
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  IssueCredentialOptions:
+    properties:
+      assertionMethod:
+        description: |-
+          AssertionMethod is verification method to be used for credential proof.
+          When provided along with 'VerificationMethod' property, 'VerificationMethod' takes precedence.
+          deprecated : to be removed in future, 'VerificationMethod' field will be used to pass verification method.
+        type: string
+        x-go-name: AssertionMethod
+      challenge:
+        description: Challenge is added to the proof
+        type: string
+        x-go-name: Challenge
+      created:
+        description: Created date of the proof. If omitted system time will be used.
+        format: date-time
+        type: string
+        x-go-name: Created
+      credentialStatus:
+        $ref: '#/definitions/CredentialStatusOpt'
+      domain:
+        description: Domain is added to the proof
+        type: string
+        x-go-name: Domain
+      proofPurpose:
+        description: ProofPurpose is purpose of the proof. If omitted "assertionMethod"
+          will be used.
+        type: string
+        x-go-name: ProofPurpose
+      verificationMethod:
+        description: |-
+          VerificationMethod is the URI of the verificationMethod used for the proof.
+          If omitted first ed25519 public key of DID (Issuer or Profile DID) will be used.
+        type: string
+        x-go-name: VerificationMethod
+    title: IssueCredentialOptions options for issuing credential.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  IssueCredentialRequest:
+    properties:
+      did:
+        type: string
+        x-go-name: DID
+    title: IssueCredentialRequest request for issuing credential.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/governance/operation
+  ProfileRequest:
+    description: ProfileRequest issuer profile request params
+    properties:
+      did:
+        description: DID to be imported - if empty, the issuer will create a new DID
+        type: string
+        x-go-name: DID
+      didKeyID:
+        description: DID key id to be used for signing
+        type: string
+        x-go-name: DIDKeyID
+      didKeyType:
+        description: type of key to create inside default DID Document by the system
+          - Ed25519 or P256
+        type: string
+        x-go-name: DIDKeyType
+      didPrivateKey:
+        description: private key associated with DID to be imported
+        type: string
+        x-go-name: DIDPrivateKey
+      disableVCStatus:
+        description: config to disable VC status in during credential issuance
+        type: boolean
+        x-go-name: DisableVCStatus
+      name:
+        description: profile id - avoid using special characters or whitespaces
+        type: string
+        x-go-name: Name
+      overwriteIssuer:
+        description: overwrite issuer id in VC - if true, then override the issuer
+          id with profile DID
+        type: boolean
+        x-go-name: OverwriteIssuer
+      signatureRepresentation:
+        $ref: '#/definitions/SignatureRepresentation'
+      signatureType:
+        description: signature type - suppored Ed25519Signature2018, JSONWebSignature2020,
+          BbsBlsSignature2020
+        type: string
+        x-go-name: SignatureType
+      uniRegistrar:
+        $ref: '#/definitions/UNIRegistrar'
+      uri:
+        description: uri of the issuer
+        type: string
+        x-go-name: URI
+    required:
+    - name
+    - uri
+    - signatureType
+    - didKeyType
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  SignPresentationOptions:
+    properties:
+      assertionMethod:
+        type: string
+        x-go-name: AssertionMethod
+      challenge:
+        type: string
+        x-go-name: Challenge
+      created:
+        format: date-time
+        type: string
+        x-go-name: Created
+      domain:
+        type: string
+        x-go-name: Domain
+      proofPurpose:
+        type: string
+        x-go-name: ProofPurpose
+      verificationMethod:
+        type: string
+        x-go-name: VerificationMethod
+    title: SignPresentationOptions options for signing a presentation.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  SignPresentationRequest:
+    properties:
+      options:
+        $ref: '#/definitions/SignPresentationOptions'
+      presentation:
+        type: object
+        x-go-name: Presentation
+    title: SignPresentationRequest request for signing a presentation.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  SignatureRepresentation:
+    format: int64
+    title: SignatureRepresentation is a signature value holder type (e.g. "proofValue"
+      or "jws").
+    type: integer
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/doc/verifiable
+  StoreVCRequest:
+    description: StoreVCRequest stores the credential with profile name
+    properties:
+      credential:
+        description: credential
+        type: string
+        x-go-name: Credential
+      profile:
+        description: profile id
+        type: string
+        x-go-name: Profile
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  UNIRegistrar:
+    description: UNIRegistrar uni-registrar
+    properties:
+      driverURL:
+        type: string
+        x-go-name: DriverURL
+      options:
+        additionalProperties:
+          type: string
+        type: object
+        x-go-name: Options
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/model
+  UpdateCredentialStatusRequest:
+    description: UpdateCredentialStatusRequest request struct for updating vc status
+    properties:
+      credentialId:
+        type: string
+        x-go-name: CredentialID
+      credentialStatus:
+        $ref: '#/definitions/CredentialStatus'
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  VerifyPresentationCheckResult:
+    properties:
+      check:
+        type: string
+        x-go-name: Check
+      error:
+        type: string
+        x-go-name: Error
+      verificationMethod:
+        type: string
+        x-go-name: VerificationMethod
+    title: VerifyPresentationCheckResult resp containing failure check details.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+  VerifyPresentationOptions:
+    properties:
+      challenge:
+        type: string
+        x-go-name: Challenge
+      checks:
+        items:
+          type: string
+        type: array
+        x-go-name: Checks
+      domain:
+        type: string
+        x-go-name: Domain
+    title: VerifyPresentationOptions options for presentation verifications.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+  VerifyPresentationRequest:
+    properties:
+      options:
+        $ref: '#/definitions/VerifyPresentationOptions'
+      verifiablePresentation:
+        type: object
+        x-go-name: Presentation
+    title: VerifyPresentationRequest request for verifying presentation.
+    type: object
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+  genericErrorBody:
+    properties:
+      code:
+        $ref: '#/definitions/Code'
+      message:
+        type: string
+        x-go-name: Message
+    type: object
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/controller/rest
+paths:
+  /{id}/credentials/composeAndIssueCredential:
+    post:
+      operationId: composeCredentialReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/ComposeCredentialRequest'
+      responses:
+        "201":
+          $ref: '#/responses/verifiableCredentialRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Composes and Issues a credential.
+      tags:
+      - issuer
+  /{id}/credentials/derive:
+    post:
+      operationId: deriveCredentialReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Body
+        schema:
+          $ref: '#/definitions/DeriveCredentialRequest'
+      responses:
+        "201":
+          $ref: '#/responses/deriveCredentialRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: derive Credentials.
+      tags:
+      - holder
+  /{id}/credentials/issue:
+    post:
+      operationId: issueCredentialReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/IssueCredentialRequest'
+      responses:
+        "201":
+          $ref: '#/responses/verifiableCredentialRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Issues a credential.
+      tags:
+      - issuer
+  /{id}/credentials/status:
+    post:
+      operationId: updateCredentialStatusReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/UpdateCredentialStatusRequest'
+      responses:
+        "200":
+          $ref: '#/responses/emptyRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Updates credential status.
+      tags:
+      - issuer
+  /{id}/issueCredential:
+    post:
+      operationId: issueGovernanceCredentialReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/IssueCredentialRequest'
+      responses:
+        "201":
+          $ref: '#/responses/verifiableCredentialRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Issues a credential.
+      tags:
+      - governance
+  /{id}/prove/presentations:
+    post:
+      operationId: signPresentationReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/SignPresentationRequest'
+      responses:
+        "201":
+          $ref: '#/responses/signPresentationRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Signs a presentation.
+      tags:
+      - holder
+  /{id}/status/{statusID}:
+    get:
+      operationId: retrieveCredentialStatusReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - description: StatusID
+        in: path
+        name: statusID
+        required: true
+        type: string
+        x-go-name: StatusID
+      responses:
+        "200":
+          $ref: '#/responses/retrieveCredentialStatusResp'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Retrieves the credential status.
+      tags:
+      - issuer
+  /{id}/verifier/credentials/verify:
+    post:
+      operationId: verifyCredentialReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/CredentialsVerificationRequest'
+      responses:
+        "200":
+          $ref: '#/responses/verifyCredentialSuccessResp'
+        "400":
+          $ref: '#/responses/verifyCredentialFailureResp'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Verifies a credential.
+      tags:
+      - verifier
+  /{id}/verifier/presentations/verify:
+    post:
+      operationId: verifyPresentationReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/VerifyPresentationRequest'
+      responses:
+        "200":
+          $ref: '#/responses/verifyPresentationSuccessResp'
+        "400":
+          $ref: '#/responses/verifyPresentationFailureResp'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Verifies a presentation.
+      tags:
+      - verifier
+  /context/add:
+    post:
+      operationId: addContextReq
+      parameters:
+      - in: body
+        name: documents
+        schema:
+          items:
+            $ref: '#/definitions/ContextDocument'
+          type: array
+        x-go-name: Documents
+      responses:
+        default:
+          $ref: '#/responses/genericError'
+      summary: Adds JSON-LD context documents to the underlying storage.
+      tags:
+      - context
+  /governance/profile:
+    post:
+      operationId: governanceProfileReq
+      parameters:
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/GovernanceProfileRequest'
+      responses:
+        "201":
+          $ref: '#/responses/governanceProfileRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Creates governance profile.
+      tags:
+      - governance
+  /holder/profile:
+    post:
+      operationId: holderProfileReq
+      parameters:
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/HolderProfileRequest'
+      responses:
+        "201":
+          $ref: '#/responses/holderProfileRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Creates holder profile.
+      tags:
+      - holder
+  /holder/profile/{id}:
+    delete:
+      operationId: deleteHolderProfileReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Deletes holder profile.
+      tags:
+      - holder
+    get:
+      operationId: retrieveHolderProfileReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/holderProfileRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Retrieves holder profile.
+      tags:
+      - holder
+  /kms/generatekeypair:
+    get:
+      operationId: req
+      responses:
+        "200":
+          $ref: '#/responses/generateKeypairResp'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Generates a keypair, stores it in the KMS and returns the public key.
+      tags:
+      - issuer
+  /logspec:
+    get:
+      description: 'Format: ModuleName1=Level1:ModuleName2=Level2:ModuleNameN=LevelN:AllOtherModuleDefaultLevel'
+      operationId: getLogSpecReq
+      responses:
+        "200":
+          $ref: '#/responses/getLogSpecRes'
+        default:
+          $ref: '#/responses/emptyRes'
+      summary: Gets the current log specification.
+  /profile:
+    post:
+      operationId: issuerProfileReq
+      parameters:
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/ProfileRequest'
+      responses:
+        "201":
+          $ref: '#/responses/issuerProfileRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Creates issuer profile.
+      tags:
+      - issuer
+  /profile/{id}:
+    delete:
+      operationId: deleteIssuerProfileReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Deletes issuer profile.
+      tags:
+      - issuer
+    get:
+      operationId: retrieveProfileReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/issuerProfileRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Retrieves issuer profile.
+      tags:
+      - issuer
+  /retrieve:
+    post:
+      operationId: retrieveCredentialReq
+      parameters:
+      - description: credential id
+        in: query
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      - description: profile
+        in: query
+        name: profile
+        required: true
+        type: string
+        x-go-name: Profile
+      responses:
+        "200":
+          $ref: '#/responses/emptyRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Retrieves a stored credential.
+      tags:
+      - issuer
+  /store:
+    post:
+      operationId: storeCredentialReq
+      parameters:
+      - in: body
+        name: Params
+        schema:
+          $ref: '#/definitions/StoreVCRequest'
+      responses:
+        "200":
+          $ref: '#/responses/emptyRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Stores a credential.
+      tags:
+      - issuer
+  /verifier/profile:
+    post:
+      operationId: profileData
+      responses:
+        "201":
+          $ref: '#/responses/profileData'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Creates verifier profile.
+      tags:
+      - verifier
+  /verifier/profile/{id}:
+    delete:
+      operationId: deleteProfileReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/emptyRes'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Deletes verifier profile.
+      tags:
+      - verifier
+    get:
+      operationId: getProfileReq
+      parameters:
+      - description: profile
+        in: path
+        name: id
+        required: true
+        type: string
+        x-go-name: ID
+      responses:
+        "200":
+          $ref: '#/responses/profileData'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Retrieves verifier profile.
+      tags:
+      - verifier
+produces:
+- application/json
+responses:
+  deriveCredentialRes:
+    description: |-
+      deriveCredentialRes model
+
+      This is used for returning the derive credential response.
+    schema:
+      $ref: '#/definitions/DeriveCredentialResponse'
+  emptyRes:
+    description: emptyRes model
+  generateKeypairResp:
+    description: generateKeypairResp model
+    headers:
+      keyID:
+        type: string
+      publicKey:
+        type: string
+  genericError:
+    description: genericError model
+    headers:
+      errMessage:
+        description: error message
+        type: string
+    schema:
+      $ref: '#/definitions/genericErrorBody'
+  getLogSpecRes:
+    description: getLogSpecRes model
+    headers:
+      spec:
+        type: string
+  governanceProfileRes:
+    description: governanceProfileRes model
+    headers:
+      created:
+        format: date-time
+        type: string
+      creator:
+        type: string
+      did:
+        type: string
+      didPrivateKey:
+        type: string
+      name:
+        type: string
+      signatureRepresentation:
+        format: int64
+        type: integer
+      signatureType:
+        type: string
+      uri:
+        type: string
+  holderProfileRes:
+    description: holderProfileRes model
+    headers:
+      created:
+        format: date-time
+        type: string
+      creator:
+        type: string
+      did:
+        type: string
+      didPrivateKey:
+        type: string
+      name:
+        type: string
+      signatureRepresentation:
+        format: int64
+        type: integer
+      signatureType:
+        type: string
+      uri:
+        type: string
+  issuerProfileRes:
+    description: issuerProfileRes model
+    headers:
+      created:
+        format: date-time
+        type: string
+      creator:
+        type: string
+      did:
+        type: string
+      didPrivateKey:
+        type: string
+      name:
+        type: string
+      signatureRepresentation:
+        format: int64
+        type: integer
+      signatureType:
+        type: string
+      uri:
+        type: string
+  profileData:
+    description: profileData model
+    headers:
+      credentialChecks:
+        description: 'credential verification checks - supported options : proof and
+          status'
+        items:
+          type: string
+        type: array
+      id:
+        description: |-
+          profile id - avoid using special characters or whitespaces
+          required: true
+        type: string
+      name:
+        description: |-
+          verifier name
+          required: true
+        type: string
+      presentationChecks:
+        description: 'presentation verification checks - supported options : proof'
+        items:
+          type: string
+        type: array
+  retrieveCredentialStatusResp:
+    description: retrieveCredentialStatusResp model
+  signPresentationRes:
+    description: signPresentationRes model
+  verifiableCredentialRes:
+    description: verifiableCredentialRes model contains the verifiable credential
+  verifyCredentialFailureResp:
+    description: verifyCredentialFailureResp model
+    schema:
+      items:
+        $ref: '#/definitions/CredentialsVerificationCheckResult'
+      type: array
+  verifyCredentialSuccessResp:
+    description: verifyCredentialSuccessResp model
+    headers:
+      checks:
+        items:
+          type: string
+        type: array
+  verifyPresentationFailureResp:
+    description: verifyPresentationFailureResp model
+    schema:
+      items:
+        $ref: '#/definitions/VerifyPresentationCheckResult'
+      type: array
+  verifyPresentationSuccessResp:
+    description: verifyPresentationSuccessResp model
+    headers:
+      checks:
+        items:
+          type: string
+        type: array

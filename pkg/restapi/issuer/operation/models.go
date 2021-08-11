@@ -39,23 +39,40 @@ type CredentialStatus struct {
 
 // StoreVCRequest stores the credential with profile name
 type StoreVCRequest struct {
-	Profile    string `json:"profile"`
+	// profile id
+	Profile string `json:"profile"`
+	// credential
 	Credential string `json:"credential"`
 }
 
-// ProfileRequest struct the input for creating profile
+// ProfileRequest issuer profile request params
 type ProfileRequest struct {
-	Name                    string                             `json:"name"`
-	URI                     string                             `json:"uri"`
-	SignatureType           string                             `json:"signatureType"`
+	// profile id - avoid using special characters or whitespaces
+	// required: true
+	Name string `json:"name"`
+	// uri of the issuer
+	// required: true
+	URI string `json:"uri"`
+	// signature type - suppored Ed25519Signature2018, JSONWebSignature2020, BbsBlsSignature2020
+	// required: true
+	SignatureType string `json:"signatureType"`
+	// type of key to create inside default DID Document by the system - Ed25519 or P256
+	// required: true
+	DIDKeyType string `json:"didKeyType"`
+	// signature representation
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation"`
-	DID                     string                             `json:"did"`
-	DIDPrivateKey           string                             `json:"didPrivateKey"`
-	DIDKeyType              string                             `json:"didKeyType"`
-	DIDKeyID                string                             `json:"didKeyID"`
-	UNIRegistrar            model.UNIRegistrar                 `json:"uniRegistrar,omitempty"`
-	DisableVCStatus         bool                               `json:"disableVCStatus"`
-	OverwriteIssuer         bool                               `json:"overwriteIssuer,omitempty"`
+	// DID to be imported - if empty, the issuer will create a new DID
+	DID string `json:"did"`
+	// private key associated with DID to be imported
+	DIDPrivateKey string `json:"didPrivateKey"`
+	// DID key id to be used for signing
+	DIDKeyID string `json:"didKeyID"`
+	// universal registration configuration
+	UNIRegistrar model.UNIRegistrar `json:"uniRegistrar,omitempty"`
+	// config to disable VC status in during credential issuance
+	DisableVCStatus bool `json:"disableVCStatus"`
+	// overwrite issuer id in VC - if true, then override the issuer id with profile DID
+	OverwriteIssuer bool `json:"overwriteIssuer,omitempty"`
 }
 
 // IssueCredentialRequest request for issuing credential.
@@ -106,8 +123,10 @@ type ComposeCredentialRequest struct {
 	ProofFormatOptions      json.RawMessage `json:"proofFormatOptions,omitempty"`
 }
 
-// GenerateKeyPairRequest is request for generating key pair
+// GenerateKeyPairRequest generating key pair request
 type GenerateKeyPairRequest struct {
+	// nolint: lll
+	// key type - refer for https://github.com/hyperledger/aries-framework-go/blob/badfb20d82bec3e0154d49f2cf6072b8fcd72a21/pkg/kms/api.go#L80-L123 supported options.
 	KeyType kms.KeyType `json:"keyType,omitempty"`
 }
 

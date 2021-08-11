@@ -25,11 +25,17 @@ type Profile struct {
 	store ariesstorage.Store
 }
 
-// ProfileData struct for profile
+// ProfileData verifier profile data
 type ProfileData struct {
-	ID                 string   `json:"id,omitempty"`
-	Name               string   `json:"name"`
-	CredentialChecks   []string `json:"credentialChecks,omitempty"`
+	// profile id - avoid using special characters or whitespaces
+	// required: true
+	ID string `json:"id,omitempty"`
+	// verifier name
+	// required: true
+	Name string `json:"name"`
+	// credential verification checks - supported options : proof and status
+	CredentialChecks []string `json:"credentialChecks,omitempty"`
+	// presentation verification checks - supported options : proof
 	PresentationChecks []string `json:"presentationChecks,omitempty"`
 }
 
