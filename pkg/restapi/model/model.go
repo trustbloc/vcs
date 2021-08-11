@@ -16,6 +16,7 @@ type UNIRegistrar struct {
 
 // ErrorResponse to send error message in the response
 type ErrorResponse struct {
+	// error message
 	Message string `json:"errMessage,omitempty"`
 }
 
