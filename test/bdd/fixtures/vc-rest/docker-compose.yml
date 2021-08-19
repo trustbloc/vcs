@@ -29,6 +29,7 @@ services:
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
       - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
     entrypoint: ""
@@ -58,6 +59,7 @@ services:
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
       - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
     entrypoint: ""
@@ -88,6 +90,7 @@ services:
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
       - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${HOLDER_VC_PORT}:${HOLDER_VC_PORT}
     entrypoint: ""
@@ -117,6 +120,7 @@ services:
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
       - VC_REST_GOVERNANCE_CLAIMS_FILE=/etc/governance_claims.json
       - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${GOVERNANCE_VC_PORT}:${GOVERNANCE_VC_PORT}
     entrypoint: ""
@@ -144,6 +148,22 @@ services:
       - ${VC_REST_PORT}:${VC_REST_PORT}
     command:  start
     volumes:
+      - ../keys/tls:/etc/tls
+    networks:
+      - couchdb_bdd_net
+
+  file-server.example.com: # file server for hosting static resources (e.g. JSON-LD contexts)
+    container_name: file-server.example.com
+    image: halverneus/static-file-server:latest
+    environment:
+      - PORT=10096
+      - FOLDER=/data
+      - TLS_CERT=/etc/tls/ec-pubCert.pem
+      - TLS_KEY=/etc/tls/ec-key.pem
+    ports:
+      - "10096:10096"
+    volumes:
+      - ./data:/data
       - ../keys/tls:/etc/tls
     networks:
       - couchdb_bdd_net

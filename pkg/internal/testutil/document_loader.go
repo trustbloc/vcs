@@ -10,8 +10,10 @@ import (
 	_ "embed" //nolint:gci // required for go:embed
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
+	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
+	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/stretchr/testify/require"
 )
 
@@ -31,34 +33,52 @@ var (
 	jws2020 []byte
 )
 
+type mockLDStoreProvider struct {
+	ContextStore        ldstore.ContextStore
+	RemoteProviderStore ldstore.RemoteProviderStore
+}
+
+func (p *mockLDStoreProvider) JSONLDContextStore() ldstore.ContextStore {
+	return p.ContextStore
+}
+
+func (p *mockLDStoreProvider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
+	return p.RemoteProviderStore
+}
+
 // DocumentLoader returns a document loader with preloaded test contexts.
-func DocumentLoader(t *testing.T) *jsonld.DocumentLoader {
+func DocumentLoader(t *testing.T) *ld.DocumentLoader {
 	t.Helper()
 
-	loader, err := jsonld.NewDocumentLoader(ariesmockstorage.NewMockStoreProvider(),
-		jsonld.WithExtraContexts(
-			jsonld.ContextDocument{
+	ldStore := &mockLDStoreProvider{
+		ContextStore:        mockldstore.NewMockContextStore(),
+		RemoteProviderStore: mockldstore.NewMockRemoteProviderStore(),
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore,
+		ld.WithExtraContexts(
+			ldcontext.Document{
 				URL:     "https://www.w3.org/2018/credentials/examples/v1",
 				Content: credentialExamples,
 			},
-			jsonld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://trustbloc.github.io/context/vc/examples-v1.jsonld",
 				Content: vcExamples,
 			},
-			jsonld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://www.w3.org/ns/odrl.jsonld",
 				Content: odrl,
 			},
-			jsonld.ContextDocument{
+			ldcontext.Document{
 				URL:         "https://w3id.org/citizenship/v1",
 				DocumentURL: "https://w3c-ccg.github.io/citizenship-vocab/contexts/citizenship-v1.jsonld",
 				Content:     citizenship,
 			},
-			jsonld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://trustbloc.github.io/context/governance/context.jsonld",
 				Content: governance,
 			},
-			jsonld.ContextDocument{
+			ldcontext.Document{
 				URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 				Content: jws2020,
 			},

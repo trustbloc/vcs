@@ -21,7 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -265,7 +265,7 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 
 	didDoc := &docdid.Doc{}
 
-	jwk, err := jose.JWKFromKey(ed25519.PublicKey(base58.Decode(base58PubKey)))
+	jwk, err := jwksupport.JWKFromKey(ed25519.PublicKey(base58.Decode(base58PubKey)))
 	if err != nil {
 		return nil, err
 	}

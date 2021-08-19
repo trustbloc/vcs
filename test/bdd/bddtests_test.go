@@ -18,7 +18,6 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/chs"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/common"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/comparator"
@@ -59,7 +58,7 @@ func TestMain(m *testing.M) {
 	os.Exit(status)
 }
 
-//nolint:gocognit,gocyclo
+//nolint:gocognit
 func runBDDTests(tags, format string) int {
 	return godog.RunWithOptions("godogs", func(s *godog.Suite) {
 		var composition []*dockerutil.Composition
@@ -70,15 +69,8 @@ func runBDDTests(tags, format string) int {
 			"./fixtures/vault-server", "./fixtures/hub-kms",
 		}
 
-		services := []string{
-			"http://localhost:8066", // governance
-			"http://localhost:8067", // holder
-			"http://localhost:8070", // issuer
-			"http://localhost:8069", // verifier
-		}
-
 		s.BeforeSuite(func() {
-			if os.Getenv("DISABLE_COMPOSITION") != "true" { //nolint:nestif
+			if os.Getenv("DISABLE_COMPOSITION") != "true" {
 				// Need a unique name, but docker does not allow '-' in names
 				composeProjectName := strings.ReplaceAll(generateUUID(), "-", "")
 
@@ -102,15 +94,6 @@ func runBDDTests(tags, format string) int {
 				fmt.Printf("*** testSleep=%d", testSleep)
 				println()
 				time.Sleep(time.Second * time.Duration(testSleep))
-
-				for _, svc := range services {
-					fmt.Printf("importing JSON-LD contexts for service %q ... ", svc)
-					if err := bddutil.AddJSONLDContexts(svc); err != nil {
-						panic(fmt.Sprintf("Add JSON-LD contexts for '%s': %s", svc, err))
-					}
-					fmt.Println("done")
-				}
-				println()
 			}
 		})
 		s.AfterSuite(func() {

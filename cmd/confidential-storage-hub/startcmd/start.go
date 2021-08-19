@@ -15,12 +15,14 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
+	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
@@ -37,8 +39,8 @@ import (
 	"github.com/trustbloc/edge-service/cmd/common"
 	"github.com/trustbloc/edge-service/pkg/client/vault"
 	"github.com/trustbloc/edge-service/pkg/did"
-	"github.com/trustbloc/edge-service/pkg/jsonld"
 	crypto2 "github.com/trustbloc/edge-service/pkg/key"
+	"github.com/trustbloc/edge-service/pkg/ld"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation"
 	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
@@ -308,9 +310,14 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 		baseURL = params.host
 	}
 
-	loader, err := jsonld.DocumentLoader(provider)
+	ldStore, err := ld.NewStoreProvider(provider)
 	if err != nil {
-		return fmt.Errorf("create document loader: %w", err)
+		return err
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore)
+	if err != nil {
+		return err
 	}
 
 	service, err := csh.New(&operation.Config{
@@ -329,6 +336,10 @@ func startService(params *serviceParameters, srv server) error { // nolint:funle
 	}
 
 	for _, handler := range service.GetOperations() {
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	}
+
+	for _, handler := range ldrest.New(ldsvc.New(ldStore)).GetRESTHandlers() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 

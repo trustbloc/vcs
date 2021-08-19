@@ -20,7 +20,9 @@ import (
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	ariesvdr "github.com/hyperledger/aries-framework-go/pkg/vdr"
@@ -32,7 +34,7 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
-	"github.com/trustbloc/edge-service/pkg/jsonld"
+	"github.com/trustbloc/edge-service/pkg/ld"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault"
 	"github.com/trustbloc/edge-service/pkg/restapi/vault/operation"
@@ -366,7 +368,12 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 		return err
 	}
 
-	loader, err := jsonld.DocumentLoader(storeProvider)
+	ldStore, err := ld.NewStoreProvider(storeProvider)
+	if err != nil {
+		return err
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore)
 	if err != nil {
 		return err
 	}
@@ -405,6 +412,10 @@ func startService(params *serviceParameters, srv server) error { // nolint: funl
 	router := mux.NewRouter()
 
 	for _, handler := range handlers {
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	}
+
+	for _, handler := range ldrest.New(ldsvc.New(ldStore)).GetRESTHandlers() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 

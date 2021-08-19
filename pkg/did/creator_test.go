@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -55,7 +55,7 @@ func TestPublicDID(t *testing.T) {
 			_, err := did2.PublicDID(&did2.Config{
 				Method:                 orb.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020",
-				JWKKeyCreator: func(kms.KeyManager) (string, *jose.JWK, error) {
+				JWKKeyCreator: func(kms.KeyManager) (string, *jwk.JWK, error) {
 					return "", nil, expected
 				},
 			})(newKMS(t))
@@ -107,7 +107,7 @@ func TestPublicDID(t *testing.T) {
 			_, err := did2.PublicDID(&did2.Config{
 				Method:                 keymethod.DIDMethod,
 				VerificationMethodType: "JsonWebKey2020",
-				JWKKeyCreator: func(kms.KeyManager) (string, *jose.JWK, error) {
+				JWKKeyCreator: func(kms.KeyManager) (string, *jwk.JWK, error) {
 					return "", nil, expected
 				},
 			})(newKMS(t))

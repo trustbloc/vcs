@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -24,15 +25,20 @@ import (
 	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -43,7 +49,7 @@ import (
 	"github.com/trustbloc/edv/pkg/client"
 
 	"github.com/trustbloc/edge-service/cmd/common"
-	"github.com/trustbloc/edge-service/pkg/jsonld"
+	"github.com/trustbloc/edge-service/pkg/ld"
 	restgovernance "github.com/trustbloc/edge-service/pkg/restapi/governance"
 	governanceops "github.com/trustbloc/edge-service/pkg/restapi/governance/operation"
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
@@ -124,6 +130,14 @@ const (
 	kmsSecretsDatabasePrefixEnvKey    = "KMSSECRETS_DATABASE_PREFIX"  //nolint: gosec
 	kmsSecretsDatabasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving " +
 		"the underlying KMS secrets database. " + commonEnvVarUsageText + kmsSecretsDatabasePrefixEnvKey
+
+	// remote JSON-LD context provider url flag.
+	contextProviderFlagName  = "context-provider-url"
+	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
+	contextProviderFlagUsage = "Remote context provider URL to get JSON-LD contexts from." +
+		" This flag can be repeated, allowing setting up multiple context providers." +
+		" Alternatively, this can be set with the following environment variable (in CSV format): " +
+		contextProviderEnvKey
 
 	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
 	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
@@ -227,6 +241,7 @@ type vcRestParameters struct {
 	logLevel             string
 	governanceClaimsFile string
 	didAnchorOrigin      string
+	contextProviderURLs  []string
 }
 
 type dbParameters struct {
@@ -353,6 +368,12 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 
 	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
 
+	contextProviderURLs, err := cmdutils.GetUserSetVarFromArrayString(cmd, contextProviderFlagName,
+		contextProviderEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -369,6 +390,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		logLevel:             loggingLevel,
 		governanceClaimsFile: governanceClaimsFile,
 		didAnchorOrigin:      didAnchorOrigin,
+		contextProviderURLs:  contextProviderURLs,
 	}, nil
 }
 
@@ -611,6 +633,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringP(governanceClaimsFlagName, "", "", governanceClaimsFlagUsage)
 	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
+	startCmd.Flags().StringArrayP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
 }
 
 // nolint: gocyclo,funlen,gocognit
@@ -658,7 +681,12 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		router.Use(authorizationMiddleware(parameters.token))
 	}
 
-	loader, err := jsonld.DocumentLoader(edgeServiceProvs.provider)
+	ldStore, err := ld.NewStoreProvider(edgeServiceProvs.provider)
+	if err != nil {
+		return err
+	}
+
+	loader, err := createJSONLDDocumentLoader(ldStore, rootCAs, parameters.contextProviderURLs)
 	if err != nil {
 		return err
 	}
@@ -745,6 +773,11 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	for _, handler := range restlogspec.New().GetOperations() {
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	}
+
+	// handlers for JSON-LD context operations
+	for _, handler := range ldrest.New(ldsvc.New(ldStore)).GetRESTHandlers() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
@@ -928,6 +961,32 @@ func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 	masterKeyReader := bytes.NewReader(masterKey)
 
 	return masterKeyReader, nil
+}
+
+func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPool,
+	providerURLs []string) (jsonld.DocumentLoader, error) {
+	var loaderOpts []ariesld.DocumentLoaderOpts
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
+		},
+	}
+
+	for _, url := range providerURLs {
+		loaderOpts = append(loaderOpts,
+			ariesld.WithRemoteProvider(
+				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
+			),
+		)
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return loader, nil
 }
 
 func constructCORSHandler(handler http.Handler) http.Handler {

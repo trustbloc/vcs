@@ -25,7 +25,6 @@ import (
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -65,18 +64,6 @@ func Test_New(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error creating the store")
-		require.Nil(t, controller)
-	})
-
-	t.Run("fail to create jsonld context operation", func(t *testing.T) {
-		controller, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
-				FailNamespace: jld.ContextsDBName,
-			},
-			VDRI: &vdrmock.MockVDRegistry{},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create jsonld context operation")
 		require.Nil(t, controller)
 	})
 }

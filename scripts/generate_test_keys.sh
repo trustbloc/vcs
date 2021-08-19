@@ -26,6 +26,7 @@ DNS.4 = vault.kms.example.com
 DNS.5 = hubstore.example.com
 DNS.6 = vault.server.example.com
 DNS.7 = kms.example.com
+DNS.8 = file-server.example.com
 " >> "$tmp"
 
 #create CA

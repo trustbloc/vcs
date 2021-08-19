@@ -1,15 +1,26 @@
 info:
   license:
     name: 'SPDX-License-Identifier: Apache-2.0'
-    title: Issuer, Holder and Verifier APIs.
+  title: Issuer, Holder and Verifier APIs.
   version: 0.1.0
-consumes:
-- application/json
 schemes:
-- http
-- https
+  - http
+  - https
 swagger: "2.0"
+produces:
+  - application/json
+consumes:
+  - application/json
 definitions:
+  AddRemoteProviderRequest:
+    properties:
+      endpoint:
+        type: string
+        x-go-name: Endpoint
+    title: AddRemoteProviderRequest is a request model for adding a new remote context
+      provider.
+    type: object
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/controller/command/ld
   Code:
     format: int32
     title: Code is the error code of command errors.
@@ -60,20 +71,6 @@ definitions:
     title: ComposeCredentialRequest for composing and issuing credential.
     type: object
     x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
-  ContextDocument:
-    properties:
-      content:
-        type: object
-        x-go-name: Content
-      documentURL:
-        type: string
-        x-go-name: DocumentURL
-      url:
-        type: string
-        x-go-name: URL
-    title: ContextDocument is a JSON-LD context document with associated metadata.
-    type: object
-    x-go-package: github.com/hyperledger/aries-framework-go/pkg/doc/jsonld
   CredentialStatus:
     description: CredentialStatus credential status
     properties:
@@ -167,6 +164,31 @@ definitions:
     title: DeriveCredentialResponse is model for derive credential response.
     type: object
     x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+  Document:
+    properties:
+      content:
+        type: object
+        x-go-name: Content
+      documentURL:
+        type: string
+        x-go-name: DocumentURL
+      url:
+        type: string
+        x-go-name: URL
+    title: Document is a JSON-LD context document with associated metadata.
+    type: object
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext
+  GetAllRemoteProvidersResponse:
+    properties:
+      providers:
+        items:
+          $ref: '#/definitions/RemoteProviderRecord'
+        type: array
+        x-go-name: Providers
+    title: GetAllRemoteProvidersResponse is a response model for listing all remote
+      providers.
+    type: object
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/controller/command/ld
   GovernanceProfileRequest:
     description: GovernanceProfileRequest governance mode profile request
     properties:
@@ -264,12 +286,14 @@ definitions:
     x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
   IssueCredentialRequest:
     properties:
-      did:
-        type: string
-        x-go-name: DID
+      credential:
+        type: object
+        x-go-name: Credential
+      options:
+        $ref: '#/definitions/IssueCredentialOptions'
     title: IssueCredentialRequest request for issuing credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/governance/operation
+    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
   ProfileRequest:
     description: ProfileRequest issuer profile request params
     properties:
@@ -317,12 +341,23 @@ definitions:
         type: string
         x-go-name: URI
     required:
-    - name
-    - uri
-    - signatureType
-    - didKeyType
+      - name
+      - uri
+      - signatureType
+      - didKeyType
     type: object
     x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+  RemoteProviderRecord:
+    properties:
+      endpoint:
+        type: string
+        x-go-name: Endpoint
+      id:
+        type: string
+        x-go-name: ID
+    title: RemoteProviderRecord is a record in store with remote provider info.
+    type: object
+    x-go-package: github.com/hyperledger/aries-framework-go/pkg/store/ld
   SignPresentationOptions:
     properties:
       assertionMethod:
@@ -453,16 +488,16 @@ paths:
     post:
       operationId: composeCredentialReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/ComposeCredentialRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/ComposeCredentialRequest'
       responses:
         "201":
           $ref: '#/responses/verifiableCredentialRes'
@@ -470,21 +505,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: Composes and Issues a credential.
       tags:
-      - issuer
+        - issuer
   /{id}/credentials/derive:
     post:
       operationId: deriveCredentialReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Body
-        schema:
-          $ref: '#/definitions/DeriveCredentialRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Body
+          schema:
+            $ref: '#/definitions/DeriveCredentialRequest'
       responses:
         "201":
           $ref: '#/responses/deriveCredentialRes'
@@ -492,21 +527,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: derive Credentials.
       tags:
-      - holder
+        - holder
   /{id}/credentials/issue:
     post:
       operationId: issueCredentialReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/IssueCredentialRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/IssueCredentialRequest'
       responses:
         "201":
           $ref: '#/responses/verifiableCredentialRes'
@@ -514,21 +549,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: Issues a credential.
       tags:
-      - issuer
+        - issuer
   /{id}/credentials/status:
     post:
       operationId: updateCredentialStatusReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/UpdateCredentialStatusRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/UpdateCredentialStatusRequest'
       responses:
         "200":
           $ref: '#/responses/emptyRes'
@@ -536,21 +571,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: Updates credential status.
       tags:
-      - issuer
+        - issuer
   /{id}/issueCredential:
     post:
       operationId: issueGovernanceCredentialReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/IssueCredentialRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/IssueCredentialRequest'
       responses:
         "201":
           $ref: '#/responses/verifiableCredentialRes'
@@ -558,21 +593,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: Issues a credential.
       tags:
-      - governance
+        - governance
   /{id}/prove/presentations:
     post:
       operationId: signPresentationReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/SignPresentationRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/SignPresentationRequest'
       responses:
         "201":
           $ref: '#/responses/signPresentationRes'
@@ -580,23 +615,23 @@ paths:
           $ref: '#/responses/genericError'
       summary: Signs a presentation.
       tags:
-      - holder
+        - holder
   /{id}/status/{statusID}:
     get:
       operationId: retrieveCredentialStatusReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - description: StatusID
-        in: path
-        name: statusID
-        required: true
-        type: string
-        x-go-name: StatusID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - description: StatusID
+          in: path
+          name: statusID
+          required: true
+          type: string
+          x-go-name: StatusID
       responses:
         "200":
           $ref: '#/responses/retrieveCredentialStatusResp'
@@ -604,21 +639,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: Retrieves the credential status.
       tags:
-      - issuer
+        - issuer
   /{id}/verifier/credentials/verify:
     post:
       operationId: verifyCredentialReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/CredentialsVerificationRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/CredentialsVerificationRequest'
       responses:
         "200":
           $ref: '#/responses/verifyCredentialSuccessResp'
@@ -628,21 +663,21 @@ paths:
           $ref: '#/responses/genericError'
       summary: Verifies a credential.
       tags:
-      - verifier
+        - verifier
   /{id}/verifier/presentations/verify:
     post:
       operationId: verifyPresentationReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/VerifyPresentationRequest'
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/VerifyPresentationRequest'
       responses:
         "200":
           $ref: '#/responses/verifyPresentationSuccessResp'
@@ -652,32 +687,15 @@ paths:
           $ref: '#/responses/genericError'
       summary: Verifies a presentation.
       tags:
-      - verifier
-  /context/add:
-    post:
-      operationId: addContextReq
-      parameters:
-      - in: body
-        name: documents
-        schema:
-          items:
-            $ref: '#/definitions/ContextDocument'
-          type: array
-        x-go-name: Documents
-      responses:
-        default:
-          $ref: '#/responses/genericError'
-      summary: Adds JSON-LD context documents to the underlying storage.
-      tags:
-      - context
+        - verifier
   /governance/profile:
     post:
       operationId: governanceProfileReq
       parameters:
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/GovernanceProfileRequest'
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/GovernanceProfileRequest'
       responses:
         "201":
           $ref: '#/responses/governanceProfileRes'
@@ -685,15 +703,15 @@ paths:
           $ref: '#/responses/genericError'
       summary: Creates governance profile.
       tags:
-      - governance
+        - governance
   /holder/profile:
     post:
       operationId: holderProfileReq
       parameters:
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/HolderProfileRequest'
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/HolderProfileRequest'
       responses:
         "201":
           $ref: '#/responses/holderProfileRes'
@@ -701,17 +719,17 @@ paths:
           $ref: '#/responses/genericError'
       summary: Creates holder profile.
       tags:
-      - holder
+        - holder
   /holder/profile/{id}:
     delete:
       operationId: deleteHolderProfileReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
       responses:
         "200":
           $ref: '#/responses/emptyRes'
@@ -719,16 +737,16 @@ paths:
           $ref: '#/responses/genericError'
       summary: Deletes holder profile.
       tags:
-      - holder
+        - holder
     get:
       operationId: retrieveHolderProfileReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
       responses:
         "200":
           $ref: '#/responses/holderProfileRes'
@@ -736,7 +754,7 @@ paths:
           $ref: '#/responses/genericError'
       summary: Retrieves holder profile.
       tags:
-      - holder
+        - holder
   /kms/generatekeypair:
     get:
       operationId: req
@@ -747,7 +765,100 @@ paths:
           $ref: '#/responses/genericError'
       summary: Generates a keypair, stores it in the KMS and returns the public key.
       tags:
-      - issuer
+        - issuer
+  /ld/context:
+    post:
+      operationId: addContextsReq
+      parameters:
+        - in: body
+          name: documents
+          schema:
+            items:
+              $ref: '#/definitions/Document'
+            type: array
+          x-go-name: Documents
+      responses:
+        default:
+          $ref: '#/responses/genericError'
+      summary: Adds JSON-LD contexts to the underlying storage.
+      tags:
+        - ld
+  /ld/remote-provider:
+    post:
+      operationId: addRemoteProviderReq
+      parameters:
+        - in: body
+          name: Body
+          schema:
+            $ref: '#/definitions/AddRemoteProviderRequest'
+      responses:
+        default:
+          $ref: '#/responses/genericError'
+      summary: Adds remote provider and JSON-LD contexts from that provider to the
+        underlying storage.
+      tags:
+        - ld
+  /ld/remote-provider/{id}:
+    delete:
+      operationId: deleteRemoteProviderReq
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+      responses:
+        default:
+          $ref: '#/responses/genericError'
+      summary: Deletes remote provider and JSON-LD contexts from that provider from
+        the underlying storage.
+      tags:
+        - ld
+  /ld/remote-provider/{id}/refresh:
+    post:
+      operationId: refreshRemoteProviderReq
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+      responses:
+        default:
+          $ref: '#/responses/genericError'
+      summary: Updates contexts from the remote provider.
+      tags:
+        - ld
+  /ld/remote-providers:
+    get:
+      operationId: getAllRemoteProvidersReq
+      parameters:
+        - in: body
+          name: Body
+          schema:
+            type: object
+      responses:
+        "200":
+          $ref: '#/responses/getAllRemoteProvidersResp'
+        default:
+          $ref: '#/responses/genericError'
+      summary: Gets all remote providers from the underlying storage.
+      tags:
+        - ld
+  /ld/remote-providers/refresh:
+    post:
+      operationId: refreshAllRemoteProvidersReq
+      parameters:
+        - in: body
+          name: Body
+          schema:
+            type: object
+      responses:
+        default:
+          $ref: '#/responses/genericError'
+      summary: Updates contexts from all remote providers in the underlying storage.
+      tags:
+        - ld
   /logspec:
     get:
       description: 'Format: ModuleName1=Level1:ModuleName2=Level2:ModuleNameN=LevelN:AllOtherModuleDefaultLevel'
@@ -762,10 +873,10 @@ paths:
     post:
       operationId: issuerProfileReq
       parameters:
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/ProfileRequest'
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/ProfileRequest'
       responses:
         "201":
           $ref: '#/responses/issuerProfileRes'
@@ -773,17 +884,17 @@ paths:
           $ref: '#/responses/genericError'
       summary: Creates issuer profile.
       tags:
-      - issuer
+        - issuer
   /profile/{id}:
     delete:
       operationId: deleteIssuerProfileReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
       responses:
         "200":
           $ref: '#/responses/emptyRes'
@@ -791,16 +902,16 @@ paths:
           $ref: '#/responses/genericError'
       summary: Deletes issuer profile.
       tags:
-      - issuer
+        - issuer
     get:
       operationId: retrieveProfileReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
       responses:
         "200":
           $ref: '#/responses/issuerProfileRes'
@@ -808,23 +919,23 @@ paths:
           $ref: '#/responses/genericError'
       summary: Retrieves issuer profile.
       tags:
-      - issuer
+        - issuer
   /retrieve:
     post:
       operationId: retrieveCredentialReq
       parameters:
-      - description: credential id
-        in: query
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
-      - description: profile
-        in: query
-        name: profile
-        required: true
-        type: string
-        x-go-name: Profile
+        - description: credential id
+          in: query
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
+        - description: profile
+          in: query
+          name: profile
+          required: true
+          type: string
+          x-go-name: Profile
       responses:
         "200":
           $ref: '#/responses/emptyRes'
@@ -832,15 +943,15 @@ paths:
           $ref: '#/responses/genericError'
       summary: Retrieves a stored credential.
       tags:
-      - issuer
+        - issuer
   /store:
     post:
       operationId: storeCredentialReq
       parameters:
-      - in: body
-        name: Params
-        schema:
-          $ref: '#/definitions/StoreVCRequest'
+        - in: body
+          name: Params
+          schema:
+            $ref: '#/definitions/StoreVCRequest'
       responses:
         "200":
           $ref: '#/responses/emptyRes'
@@ -848,7 +959,7 @@ paths:
           $ref: '#/responses/genericError'
       summary: Stores a credential.
       tags:
-      - issuer
+        - issuer
   /verifier/profile:
     post:
       operationId: profileData
@@ -859,17 +970,17 @@ paths:
           $ref: '#/responses/genericError'
       summary: Creates verifier profile.
       tags:
-      - verifier
+        - verifier
   /verifier/profile/{id}:
     delete:
       operationId: deleteProfileReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
       responses:
         "200":
           $ref: '#/responses/emptyRes'
@@ -877,16 +988,16 @@ paths:
           $ref: '#/responses/genericError'
       summary: Deletes verifier profile.
       tags:
-      - verifier
+        - verifier
     get:
       operationId: getProfileReq
       parameters:
-      - description: profile
-        in: path
-        name: id
-        required: true
-        type: string
-        x-go-name: ID
+        - description: profile
+          in: path
+          name: id
+          required: true
+          type: string
+          x-go-name: ID
       responses:
         "200":
           $ref: '#/responses/profileData'
@@ -894,9 +1005,7 @@ paths:
           $ref: '#/responses/genericError'
       summary: Retrieves verifier profile.
       tags:
-      - verifier
-produces:
-- application/json
+        - verifier
 responses:
   deriveCredentialRes:
     description: |-
@@ -915,13 +1024,14 @@ responses:
       publicKey:
         type: string
   genericError:
-    description: genericError model
-    headers:
-      errMessage:
-        description: error message
-        type: string
+    description: genericError is aries rest api error response
     schema:
       $ref: '#/definitions/genericErrorBody'
+  getAllRemoteProvidersResp:
+    description: getAllRemoteProvidersResp model for getting list of all remote context
+      providers from the underlying storage.
+    schema:
+      $ref: '#/definitions/GetAllRemoteProvidersResponse'
   getLogSpecRes:
     description: getLogSpecRes model
     headers:

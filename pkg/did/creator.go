@@ -11,7 +11,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -22,7 +22,7 @@ type Config struct {
 	Method                 string
 	VerificationMethodType string
 	VDR                    vdr.Registry
-	JWKKeyCreator          func(kms.KeyManager) (string, *jose.JWK, error)
+	JWKKeyCreator          func(kms.KeyManager) (string, *jwk.JWK, error)
 	CryptoKeyCreator       func(kms.KeyManager) (string, interface{}, error)
 	DIDAnchorOrigin        string
 }
@@ -111,11 +111,11 @@ func keyDID(km kms.KeyManager, config *Config) (*did.DocResolution, error) {
 
 func newVerMethods(
 	count int, km kms.KeyManager, verMethodType string,
-	keyCreator func(kms.KeyManager) (string, *jose.JWK, error)) ([]*did.VerificationMethod, error) {
+	keyCreator func(kms.KeyManager) (string, *jwk.JWK, error)) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 
 	for i := 0; i < count; i++ {
-		keyID, jwk, err := keyCreator(km)
+		keyID, j, err := keyCreator(km)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create key: %w", err)
 		}
@@ -125,7 +125,7 @@ func newVerMethods(
 			keyID,
 			verMethodType,
 			"",
-			jwk,
+			j,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create verification method: %w", err)
