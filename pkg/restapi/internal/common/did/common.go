@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree/doc"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
@@ -274,7 +274,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	jwk, err := jose.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
+	jwk, err := jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -300,7 +300,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	jwk, err = jose.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
+	jwk, err = jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 	if err != nil {
 		return nil, nil, "", err
 	}
@@ -328,7 +328,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 
 	x, y := elliptic.Unmarshal(elliptic.P256(), pubKeyBytes)
 
-	jwk, err = jose.JWKFromKey(&ecdsa.PublicKey{X: x, Y: y, Curve: elliptic.P256()})
+	jwk, err = jwksupport.JWKFromKey(&ecdsa.PublicKey{X: x, Y: y, Curve: elliptic.P256()})
 	if err != nil {
 		return nil, nil, "", err
 	}

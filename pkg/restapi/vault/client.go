@@ -25,6 +25,7 @@ import (
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -626,7 +627,7 @@ func newDidDoc(k kms.KeyManager, method string) (string, *ariesdid.Doc, error) {
 		return "", nil, err
 	}
 
-	jwk, err := jose.JWKFromKey(publicKey)
+	jwk, err := jwksupport.JWKFromKey(publicKey)
 	if err != nil {
 		return "", nil, err
 	}

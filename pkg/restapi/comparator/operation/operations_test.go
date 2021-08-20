@@ -22,7 +22,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -73,7 +72,7 @@ func Test_New(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, op)
 
-		require.Equal(t, 5, len(op.GetRESTHandlers()))
+		require.Equal(t, 4, len(op.GetRESTHandlers()))
 	})
 
 	t.Run("test failed to create profile from csh", func(t *testing.T) {
@@ -122,16 +121,6 @@ func Test_New(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get config")
-	})
-
-	t.Run("test failed to create jsonld context operation", func(t *testing.T) {
-		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
-		_, err := operation.New(&operation.Config{
-			CSHBaseURL:    "https://localhost",
-			StoreProvider: &mockstorage.MockStoreProvider{Store: s, FailNamespace: jld.ContextsDBName},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create jsonld context operation")
 	})
 }
 

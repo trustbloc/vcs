@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/igor-pavlenko/httpsignatures-go"
@@ -220,7 +220,7 @@ func kmsKeyType(verMethod *did.VerificationMethod) (kms.KeyType, error) {
 	return keyType(verMethod)
 }
 
-func supportedJWKCurves(jwk *jose.JWK) (kms.KeyType, error) {
+func supportedJWKCurves(j *jwk.JWK) (kms.KeyType, error) {
 	curves := map[string]kms.KeyType{
 		"P-256":   kms.ECDSAP256TypeIEEEP1363,
 		"P-384":   kms.ECDSAP384TypeIEEEP1363,
@@ -228,9 +228,9 @@ func supportedJWKCurves(jwk *jose.JWK) (kms.KeyType, error) {
 		"Ed25519": kms.ED25519Type,
 	}
 
-	keyType, supported := curves[jwk.Crv]
+	keyType, supported := curves[j.Crv]
 	if !supported {
-		return "", fmt.Errorf("unsupported JsonWebKey2020 crv: %s", jwk.Crv)
+		return "", fmt.Errorf("unsupported JsonWebKey2020 crv: %s", j.Crv)
 	}
 
 	return keyType, nil

@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package bddutil
 
 import (
-	"context"
 	"crypto/ed25519"
 	"crypto/tls"
 	_ "embed" //nolint:gci // required for go:embed
@@ -21,12 +20,13 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	jsonldcontext "github.com/hyperledger/aries-framework-go/pkg/client/jsonld/context"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
 )
 
@@ -266,7 +266,7 @@ var (
 	odrl []byte
 )
 
-var extraContexts = []jld.ContextDocument{ //nolint:gochecknoglobals
+var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	{
 		URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 		Content: jws2020V1Vocab,
@@ -298,31 +298,40 @@ var extraContexts = []jld.ContextDocument{ //nolint:gochecknoglobals
 	},
 }
 
+type ldStoreProvider struct {
+	ContextStore        ldstore.ContextStore
+	RemoteProviderStore ldstore.RemoteProviderStore
+}
+
+func (p *ldStoreProvider) JSONLDContextStore() ldstore.ContextStore {
+	return p.ContextStore
+}
+
+func (p *ldStoreProvider) JSONLDRemoteProviderStore() ldstore.RemoteProviderStore {
+	return p.RemoteProviderStore
+}
+
 // DocumentLoader returns a JSON-LD document loader with preloaded test contexts.
-func DocumentLoader() (*jld.DocumentLoader, error) {
-	loader, err := jld.NewDocumentLoader(mem.NewProvider(), jld.WithExtraContexts(extraContexts...))
+func DocumentLoader() (*ld.DocumentLoader, error) {
+	contextStore, err := ldstore.NewContextStore(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
+	}
+
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mem.NewProvider())
+	if err != nil {
+		return nil, fmt.Errorf("create remote provider store: %w", err)
+	}
+
+	ldStore := &ldStoreProvider{
+		ContextStore:        contextStore,
+		RemoteProviderStore: remoteProviderStore,
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore, ld.WithExtraContexts(extraContexts...))
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
 
 	return loader, nil
-}
-
-type httpClient struct {
-}
-
-func (c *httpClient) Do(req *http.Request) (*http.Response, error) {
-	return HTTPDo(req.Method, req.URL.String(), "", "rw_token", req.Body)
-}
-
-// AddJSONLDContexts imports extra contexts for the service instance.
-func AddJSONLDContexts(serviceURL string) error {
-	const timeout = 5 * time.Second
-
-	client := jsonldcontext.NewClient(serviceURL, jsonldcontext.WithHTTPClient(&httpClient{}))
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	return client.Add(ctx, extraContexts...)
 }

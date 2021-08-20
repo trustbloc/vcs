@@ -9,16 +9,16 @@ go 1.16
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7-0.20210611082655-3b07e0fdc340
-	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210426192704-553740e279e5
-	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210505173234-006b2f4723fd
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.1.1
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210520055214-ae429bb89bf7
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210520055214-ae429bb89bf7
+	github.com/hyperledger/aries-framework-go v0.1.7-0.20210819214613-1554e98c6f85
+	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20210817223403-9fb48da0a4b9
+	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20210817223403-9fb48da0a4b9
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210816155124-45ab1ecd4762
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210807121559-b41545a4f1e8
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210816113201-26c0665ef2b9
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
-	github.com/trustbloc/edge-core v0.1.7-0.20210527163745-994ae929f957
+	github.com/trustbloc/edge-core v0.1.7-0.20210816120552-ed93662ac716
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
 )
 

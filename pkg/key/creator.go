@@ -13,7 +13,7 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	jose2 "github.com/square/go-jose/v3"
@@ -21,18 +21,18 @@ import (
 
 // JWKKeyCreator creates a new key of the given type using a given key manager, returning the key's ID
 // and public key in JWK format.
-func JWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jose.JWK, error) {
-	return func(km kms.KeyManager) (string, *jose.JWK, error) {
+func JWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error) {
+	return func(km kms.KeyManager) (string, *jwk.JWK, error) {
 		keyID, keyBytes, err := km.CreateAndExportPubKeyBytes(kt)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to create new JWK key: %w", err)
 		}
 
-		var jwk *jose.JWK
+		var j *jwk.JWK
 
 		switch kt { // nolint:exhaustive // deferring all other key types to BuildJWK().
 		case kms.ED25519Type:
-			jwk = &jose.JWK{
+			j = &jwk.JWK{
 				JSONWebKey: jose2.JSONWebKey{
 					Key:   ed25519.PublicKey(keyBytes),
 					KeyID: keyID,
@@ -43,13 +43,13 @@ func JWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jose.JWK, erro
 		default:
 			var err error
 
-			jwk, err = jwkkid.BuildJWK(keyBytes, kt)
+			j, err = jwkkid.BuildJWK(keyBytes, kt)
 			if err != nil {
 				return "", nil, fmt.Errorf("failed to convert key to JWK: %w", err)
 			}
 		}
 
-		return keyID, jwk, nil
+		return keyID, j, nil
 	}
 }
 

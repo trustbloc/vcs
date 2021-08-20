@@ -24,7 +24,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	ariesjoes "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	ariesjose "github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/kid/resolver"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/signature"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -140,8 +142,8 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 		return fmt.Errorf("failed to open mem store: %w", err)
 	}
 
-	decrypter := ariesjoes.NewJWEDecrypt(
-		store,
+	decrypter := ariesjose.NewJWEDecrypt(
+		[]resolver.KIDResolver{&resolver.StoreResolver{Store: store}},
 		webcrypto.New(
 			e.kmsURI,
 			e.client,
@@ -154,7 +156,7 @@ func (e *Steps) checkAccessibility(docID, auth string) error {
 		),
 	)
 
-	JWE, err := ariesjoes.Deserialize(string(eDoc.JWE))
+	JWE, err := ariesjose.Deserialize(string(eDoc.JWE))
 	if err != nil {
 		return fmt.Errorf("failed to decrypt JWE: %w", err)
 	}
@@ -442,7 +444,7 @@ func newDidDoc(k kms.KeyManager) (*did.Doc, error) {
 		return nil, err
 	}
 
-	jwk, err := ariesjoes.JWKFromKey(publicKey)
+	jwk, err := jwksupport.JWKFromKey(publicKey)
 	if err != nil {
 		return nil, err
 	}

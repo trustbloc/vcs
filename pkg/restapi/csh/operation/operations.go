@@ -15,7 +15,6 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	jsonldcontextrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/jsonld/context"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -66,13 +65,12 @@ type Operation struct {
 		queries  storage.Store
 		config   storage.Store
 	}
-	aries                   *AriesConfig
-	httpClient              *http.Client
-	edvClient               func(string, ...edv.Option) vault.ConfidentialStorageDocReader
-	baseURL                 string
-	didDomain               string
-	documentLoader          ld.DocumentLoader
-	addJSONLDContextHandler http.HandlerFunc
+	aries          *AriesConfig
+	httpClient     *http.Client
+	edvClient      func(string, ...edv.Option) vault.ConfidentialStorageDocReader
+	baseURL        string
+	didDomain      string
+	documentLoader ld.DocumentLoader
 }
 
 // Config defines configuration for vault operations.
@@ -98,22 +96,16 @@ type AriesConfig struct {
 
 // New returns operation instance.
 func New(cfg *Config) (*Operation, error) {
-	contextOp, err := jsonldcontextrest.New(&storeProvider{cfg.StoreProvider})
-	if err != nil {
-		return nil, fmt.Errorf("create jsonld context operation: %w", err)
-	}
-
 	ops := &Operation{
-		aries:                   cfg.Aries,
-		httpClient:              cfg.HTTPClient,
-		edvClient:               cfg.EDVClient,
-		baseURL:                 cfg.BaseURL,
-		didDomain:               cfg.DIDDomain,
-		documentLoader:          cfg.DocumentLoader,
-		addJSONLDContextHandler: contextOp.Add,
+		aries:          cfg.Aries,
+		httpClient:     cfg.HTTPClient,
+		edvClient:      cfg.EDVClient,
+		baseURL:        cfg.BaseURL,
+		didDomain:      cfg.DIDDomain,
+		documentLoader: cfg.DocumentLoader,
 	}
 
-	err = ops.configure(cfg)
+	err := ops.configure(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure operations: %w", err)
 	}
@@ -129,8 +121,6 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 		support.NewHTTPHandler(createAuthzPath, http.MethodPost, o.CreateAuthorization),
 		support.NewHTTPHandler(comparePath, http.MethodPost, o.Compare),
 		support.NewHTTPHandler(extractPath, http.MethodPost, o.Extract),
-		// JSON-LD context API
-		support.NewHTTPHandler(jsonldcontextrest.AddContextPath, http.MethodPost, o.addJSONLDContextHandler),
 	}
 }
 
@@ -571,12 +561,4 @@ type signer struct {
 
 func (s *signer) Sign(data []byte) ([]byte, error) {
 	return s.c.Sign(data, s.kh)
-}
-
-type storeProvider struct {
-	storage.Provider
-}
-
-func (p *storeProvider) StorageProvider() storage.Provider {
-	return p
 }

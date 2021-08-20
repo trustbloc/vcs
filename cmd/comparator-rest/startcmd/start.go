@@ -20,7 +20,9 @@ import (
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr"
@@ -31,7 +33,7 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
-	"github.com/trustbloc/edge-service/pkg/jsonld"
+	"github.com/trustbloc/edge-service/pkg/ld"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator"
 	"github.com/trustbloc/edge-service/pkg/restapi/comparator/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck"
@@ -411,7 +413,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 }
 
-//nolint: funlen
+//nolint:funlen,gocyclo
 func startService(params *serviceParameters, srv server) error {
 	rootCAs, err := tlsutils.GetCertPool(params.tlsParams.systemCertPool, params.tlsParams.caCerts)
 	if err != nil {
@@ -449,7 +451,12 @@ func startService(params *serviceParameters, srv server) error {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
-	loader, err := jsonld.DocumentLoader(storeProvider)
+	ldStore, err := ld.NewStoreProvider(storeProvider)
+	if err != nil {
+		return err
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore)
 	if err != nil {
 		return err
 	}
@@ -471,6 +478,10 @@ func startService(params *serviceParameters, srv server) error {
 	}
 
 	for _, handler := range service.GetOperations() {
+		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
+	}
+
+	for _, handler := range ldrest.New(ldsvc.New(ldStore)).GetRESTHandlers() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 

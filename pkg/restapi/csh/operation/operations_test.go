@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	jld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
@@ -31,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	spi "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
@@ -59,15 +57,6 @@ func TestNew(t *testing.T) {
 		config.StoreProvider = &storage.MockProvider{OpenErr: expected}
 		_, err := operation.New(config)
 		require.ErrorIs(t, err, expected)
-	})
-
-	t.Run("error creating jsonld context operation", func(t *testing.T) {
-		config := config(t)
-		s := &mockstorage.MockStore{Store: make(map[string]mockstorage.DBEntry)}
-		config.StoreProvider = &mockstorage.MockStoreProvider{Store: s, FailNamespace: jld.ContextsDBName}
-		_, err := operation.New(config)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "create jsonld context operation")
 	})
 
 	t.Run("error if cannot create public DID", func(t *testing.T) {
@@ -169,7 +158,6 @@ func TestOperation_CreateProfile(t *testing.T) {
 				"config": &mock.Store{
 					ErrGet: spi.ErrDataNotFound,
 				},
-				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 		o := newOperation(t, config)
@@ -232,7 +220,6 @@ func TestOperation_CreateProfile(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
-				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 
@@ -262,7 +249,6 @@ func TestOperation_CreateProfile(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
-				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 
@@ -414,9 +400,8 @@ func TestOperation_CreateQuery(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
-				"profile":          &mock.Store{},
-				"zcap":             &mock.Store{},
-				jld.ContextsDBName: &mock.Store{},
+				"profile": &mock.Store{},
+				"zcap":    &mock.Store{},
 			},
 		}
 		o := newOperation(t, config)
@@ -525,7 +510,6 @@ func TestOperation_Extract(t *testing.T) {
 				"config": &mock.Store{
 					GetReturn: marshal(t, &operation.Identity{}),
 				},
-				jld.ContextsDBName: &mock.Store{},
 			},
 		}
 
