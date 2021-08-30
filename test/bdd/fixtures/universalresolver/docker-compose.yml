@@ -17,7 +17,7 @@ services:
       - ./config.json:/opt/uni-resolver-java/uni-resolver-web/config.json
       - ./run-uni-resolver-web.sh:/opt/uni-resolver-java/uni-resolver-web/docker/run-uni-resolver-web.sh
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   driver-did-sov:
     image: universalresolver/driver-did-sov:latest
@@ -29,29 +29,29 @@ services:
     ports:
       - "8082:8080"
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   uni-resolver-driver-did-uport:
     image: uport/uni-resolver-driver-did-uport:1.3.1
     ports:
       - "8083:8081"
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   uni-resolver-did-v1-driver:
     image: veresone/uni-resolver-did-v1-driver:latest
     ports:
       - "8085:8080"
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   driver-did-factom:
     image: sphereon/driver-did-factom:latest
     ports:
       - "8097:8080"
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

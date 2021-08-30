@@ -19,7 +19,7 @@ services:
       - VAULT_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VAULT_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - VAULT_TLS_SERVE_KEY=/etc/tls/ec-key.pem
-      - VAULT_DSN=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
+      - VAULT_DSN=mongodb://mongodb.example.com:27017
       - VAULT_DID_DOMAIN=testnet.orb.local
       - VAULT_DID_METHOD=orb
       - VAULT_DID_ANCHOR_ORIGIN=origin
@@ -31,7 +31,7 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   vault.kms.example.com:
     container_name: vault.kms.example.com
@@ -57,8 +57,8 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

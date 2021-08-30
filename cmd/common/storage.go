@@ -14,6 +14,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
@@ -28,8 +29,9 @@ const (
 	// DatabaseURLFlagUsage describes the usage.
 	DatabaseURLFlagUsage = "Database URL with credentials if required." +
 		" Format must be <driver>:[//]<driver-specific-dsn>." +
-		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'." +
-		" Supported drivers are [mem, mysql, couchdb]." +
+		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'," +
+		" 'mongodb://mongodb.example.com:27017'." +
+		" Supported drivers are [mem, mysql, couchdb, mongodb]." +
 		" Alternatively, this can be set with the following environment variable: " + DatabaseURLEnvKey
 	// DatabaseURLEnvKey is the databaes url.
 	DatabaseURLEnvKey = "DATABASE_URL"
@@ -72,6 +74,9 @@ var supportedAriesStorageProviders = map[string]func(string, string) (storage.Pr
 	},
 	"couchdb": func(dbURL, prefix string) (storage.Provider, error) {
 		return couchdb.NewProvider(dbURL, couchdb.WithDBPrefix(prefix))
+	},
+	"mongodb": func(dbURL, prefix string) (storage.Provider, error) {
+		return mongodb.NewProvider(dbURL, mongodb.WithDBPrefix(prefix))
 	},
 }
 
@@ -155,6 +160,12 @@ func parseURL(u string) (string, string, error) {
 	}
 
 	driver := parsed[0]
+
+	if driver == "mongodb" {
+		// The MongoDB storage provider needs the full connection string (including the driver as part of it).
+		return driver, u, nil
+	}
+
 	dsn := strings.TrimPrefix(parsed[1], "//")
 
 	return driver, dsn, nil

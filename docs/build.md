@@ -31,7 +31,8 @@ make bdd-test
 
 ## BDD Test Prerequisites
 
-To run BDD tests (`make bdd-test`) you need to modify your hosts file (`/etc/hosts` on \*NIX) to add the following lines, to allow few of the bdd test containers to be connected to externally. 
+To run BDD tests (`make bdd-test`) you need to modify your hosts file (`/etc/hosts` on \*NIX) to add the following lines, to allow a few of the bdd test containers to be connected to externally. 
 
     127.0.0.1 testnet.orb.local
     127.0.0.1 vault.kms.example.com
+    127.0.0.1 edv.rest.example.com

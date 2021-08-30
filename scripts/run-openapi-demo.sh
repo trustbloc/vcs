@@ -11,7 +11,7 @@ DEMO_COMPOSE_OP="${DEMO_COMPOSE_OP:-up --force-recreate}"
 FIXTURES_ABS_PATH="$PWD/$FIXTURES_PATH"
 
 declare -a features=(
-                "couchdb"
+                "mongodb"
                 "vc-rest"
                 "edv-rest"
                 "sidetree-mock"

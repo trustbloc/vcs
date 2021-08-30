@@ -13,13 +13,13 @@ services:
     image: ${EDV_REST_IMAGE}:${EDV_REST_IMAGE_TAG}
     environment:
       - EDV_HOST_URL=${EDV_HOST}:${EDV_PORT}
-      - EDV_DATABASE_TYPE=${EDV_DATABASE_TYPE}
-      - EDV_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@${EDV_DATABASE_URL}
+      - EDV_DATABASE_TYPE=mongodb
+      - EDV_DATABASE_URL=${EDV_DATABASE_URL}
       - EDV_DATABASE_PREFIX=${EDV_DATABASE_PREFIX}
       - EDV_AUTH_ENABLE=true
       - EDV_LOCALKMS_SECRETS_DATABASE_TYPE=${EDV_DATABASE_TYPE}
-      - EDV_LOCALKMS_SECRETS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@${EDV_DATABASE_URL}
-      - EDV_LOCALKMS_SECRETS_DATABASE_PREFIX=${EDV_DATABASE_PREFIX}_kms
+      - EDV_LOCALKMS_SECRETS_DATABASE_URL=${EDV_DATABASE_URL}
+      - EDV_LOCALKMS_SECRETS_DATABASE_PREFIX=${EDV_DATABASE_PREFIX}_kms_
       - EDV_TLS_SYSTEMCERTPOOL=true
       - EDV_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - EDV_DID_DOMAIN=testnet.orb.local
@@ -29,8 +29,8 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

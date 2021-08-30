@@ -24,8 +24,8 @@ services:
       - ../keys/tls:/etc/tls
       - ./config.json:/opt/did-rest/config.json
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

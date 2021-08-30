@@ -175,6 +175,12 @@ func TestTLSInvalidArgs(t *testing.T) {
 	})
 }
 
+func TestInitStore(t *testing.T) {
+	provider, err := initStore("mongodb://dsn", 1, "prefix")
+	require.NoError(t, err)
+	require.NotNil(t, provider)
+}
+
 type mockServer struct{}
 
 func (s *mockServer) ListenAndServe(host, certPath, keyPath string, handler http.Handler) error {

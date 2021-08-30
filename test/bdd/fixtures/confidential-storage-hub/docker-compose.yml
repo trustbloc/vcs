@@ -16,7 +16,7 @@ services:
       - CHS_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - CHS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - CHS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
-      - DATABASE_URL=couchdb://${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=confidentialstoragehub
       - BASE_URL=https://hubstore.example.com
       - TRUSTBLOC_DID_DOMAIN=testnet.orb.local
@@ -29,8 +29,8 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true
