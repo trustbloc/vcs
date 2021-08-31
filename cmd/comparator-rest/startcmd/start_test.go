@@ -176,6 +176,24 @@ func TestFailedToConnectToDB(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to connect to storage at url")
 	})
+
+	t.Run("test mongodb", func(t *testing.T) {
+		startCmd := GetStartCmd(&mockServer{})
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + datasourceNameFlagName, "mongodb://",
+			"--" + didDomainFlagName, "did",
+			"--" + datasourceTimeoutFlagName, "1",
+			"--" + cshURLFlagName, "localhost:8081",
+			"--" + vaultURLFlagName, "localhost:8081",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.EqualError(t, err, "store init - failed to connect to storage at mongodb:// : failed to "+
+			"create a new MongoDB client: error parsing uri: must have at least 1 host")
+	})
 }
 
 func TestStartCmdWithBlankEnvVar(t *testing.T) {

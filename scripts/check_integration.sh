@@ -23,7 +23,16 @@ TAGS=${TAGS:-all}
 PWD=`pwd`
 cd test/bdd
 
+echo "---
+Important: for these test to run correctly, you must ensure that your hosts file has the following entries:
+127.0.0.1 testnet.orb.local
+127.0.0.1 vault.kms.example.com
+127.0.0.1 edv.rest.example.com
+---
+"
 echo "Running adapter integration tests with tag=$TAGS"
+
+
 go test -count=1 -v -cover . -p 1 -timeout=40m $TAGS
 
 cd $PWD

@@ -12,7 +12,7 @@ services:
     ports:
       - "9083:9080"
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   uni-registrar-web:
     image: honeyblock/uni-registrar-web:custom_v1.0
@@ -21,8 +21,8 @@ services:
     ports:
       - "9080:9080"
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

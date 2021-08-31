@@ -94,13 +94,24 @@ func TestDBParams(t *testing.T) {
 func TestInitStore(t *testing.T) {
 	t.Run("store", func(t *testing.T) {
 		t.Run("inits ok", func(t *testing.T) {
-			s, err := InitStore(&DBParameters{
-				URL:     "mem://test",
-				Prefix:  "test",
-				Timeout: 30,
-			}, log.New("test"))
-			require.NoError(t, err)
-			require.NotNil(t, s)
+			t.Run("mem", func(t *testing.T) {
+				s, err := InitStore(&DBParameters{
+					URL:     "mem://test",
+					Prefix:  "test",
+					Timeout: 30,
+				}, log.New("test"))
+				require.NoError(t, err)
+				require.NotNil(t, s)
+			})
+			t.Run("MongoDB", func(t *testing.T) {
+				s, err := InitStore(&DBParameters{
+					URL:     "mongodb://test",
+					Prefix:  "test",
+					Timeout: 30,
+				}, log.New("test"))
+				require.NoError(t, err)
+				require.NotNil(t, s)
+			})
 		})
 
 		t.Run("error if url format is invalid", func(t *testing.T) {

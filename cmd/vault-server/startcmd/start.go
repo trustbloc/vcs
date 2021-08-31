@@ -17,6 +17,7 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	ariesmysql "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
@@ -78,8 +79,9 @@ const (
 	datasourceNameFlagName  = "dsn"
 	datasourceNameFlagUsage = "Datasource Name with credentials if required." +
 		" Format must be <driver>:[//]<driver-specific-dsn>." +
-		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'." +
-		" Supported drivers are [mem, couchdb, mysql]." +
+		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'," +
+		" 'mongodb://mongodb.example.com:27017'." +
+		" Supported drivers are [mem, couchdb, mysql, mongodb]." +
 		" Alternatively, this can be set with the following environment variable: " + datasourceNameEnvKey
 	datasourceNameEnvKey = "VAULT_DSN"
 
@@ -155,6 +157,9 @@ var supportedStorageProviders = map[string]func(string, string) (storage.Provide
 	},
 	"mem": func(_, _ string) (storage.Provider, error) { // nolint:unparam
 		return mem.NewProvider(), nil
+	},
+	"mongodb": func(dbURL, prefix string) (storage.Provider, error) {
+		return mongodb.NewProvider(dbURL, mongodb.WithDBPrefix(prefix))
 	},
 }
 
@@ -487,6 +492,12 @@ func getDBParams(dbURL string) (driver, dsn string, err error) {
 	}
 
 	driver = parsed[0]
+
+	if driver == "mongodb" {
+		// The MongoDB storage provider needs the full connection string (including the driver as part of it).
+		return driver, dbURL, nil
+	}
+
 	dsn = strings.TrimPrefix(parsed[1], "//")
 
 	return driver, dsn, nil

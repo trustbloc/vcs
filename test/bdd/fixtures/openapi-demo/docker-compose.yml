@@ -18,8 +18,8 @@ services:
     volumes:
       - ./specs:/specs
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

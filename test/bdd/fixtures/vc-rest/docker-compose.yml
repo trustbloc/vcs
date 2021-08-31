@@ -17,12 +17,12 @@ services:
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
-      - DATABASE_TYPE=couchdb
-      - DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - DATABASE_PREFIX=issuer
-      - KMSSECRETS_DATABASE_TYPE=couchdb
-      - KMSSECRETS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMSSECRETS_DATABASE_PREFIX=issuer
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=issuer_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=issuer_
       - VC_REST_MODE=issuer
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
@@ -37,7 +37,7 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   verifier.vc.rest.example.com:
     container_name: verifier.vc.rest.example.com
@@ -48,12 +48,12 @@ services:
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
-      - DATABASE_TYPE=couchdb
-      - DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - DATABASE_PREFIX=verifier
-      - KMSSECRETS_DATABASE_TYPE=couchdb
-      - KMSSECRETS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMSSECRETS_DATABASE_PREFIX=verifier
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=verifier_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=verifier_
       - VC_REST_MODE=verifier
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_API_TOKEN=rw_token
@@ -67,7 +67,7 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   holder.vc.rest.example.com:
     container_name: holder.vc.rest.example.com
@@ -78,12 +78,12 @@ services:
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
       - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
-      - DATABASE_TYPE=couchdb
-      - DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - DATABASE_PREFIX=holder
-      - KMSSECRETS_DATABASE_TYPE=couchdb
-      - KMSSECRETS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMSSECRETS_DATABASE_PREFIX=holder
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=holder_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=holder_
       - VC_REST_MODE=holder
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
@@ -98,7 +98,7 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   governance.vc.rest.example.com:
     container_name: governance.vc.rest.example.com
@@ -129,7 +129,7 @@ services:
       - ../keys/tls:/etc/tls
       - ./governance_claims.json:/etc/governance_claims.json
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   vc.rest.example.com:
     container_name: vc.rest.example.com
@@ -150,7 +150,7 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
   file-server.example.com: # file server for hosting static resources (e.g. JSON-LD contexts)
     container_name: file-server.example.com
@@ -166,8 +166,8 @@ services:
       - ./data:/data
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true

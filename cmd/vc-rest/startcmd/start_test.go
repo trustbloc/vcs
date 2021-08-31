@@ -292,6 +292,11 @@ func TestCreateProviders(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
 	})
+	t.Run("test error from create new mongodb", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeMongoDBOption}}, nil)
+		require.EqualError(t, err, "failed to create a new MongoDB client: error parsing uri: scheme must "+
+			`be "mongodb" or "mongodb+srv"`)
+	})
 	t.Run("test error from create new kms secrets couchdb", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{
 			dbParameters: &dbParameters{
@@ -312,10 +317,20 @@ func TestCreateProviders(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
 	})
+	t.Run("test error from create new kms secrets mongodb", func(t *testing.T) {
+		err := startEdgeService(&vcRestParameters{
+			dbParameters: &dbParameters{
+				databaseType:           databaseTypeMemOption,
+				kmsSecretsDatabaseType: databaseTypeMongoDBOption,
+			},
+		}, nil)
+		require.EqualError(t, err, "failed to create a new MongoDB client: error parsing uri: scheme must "+
+			`be "mongodb" or "mongodb+srv"`)
+	})
 	t.Run("test invalid database type", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: "data1"}}, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "database type not set to a valid type")
+		require.EqualError(t, err, "data1 is not a valid database type. "+
+			"run start --help to see the available options")
 	})
 	t.Run("test invalid kms secrets database type", func(t *testing.T) {
 		err := startEdgeService(&vcRestParameters{
@@ -324,8 +339,8 @@ func TestCreateProviders(t *testing.T) {
 				kmsSecretsDatabaseType: "data1",
 			},
 		}, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "database type not set to a valid type")
+		require.EqualError(t, err, "data1 is not a valid KMS secrets database type. "+
+			"run start --help to see the available options")
 	})
 }
 

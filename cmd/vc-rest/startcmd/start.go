@@ -22,6 +22,7 @@ import (
 	"github.com/google/tink/go/subtle/random"
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
+	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
@@ -99,7 +100,7 @@ const (
 	databaseTypeEnvKey        = "DATABASE_TYPE"
 	databaseTypeFlagShorthand = "t"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb, mysql. " + commonEnvVarUsageText + databaseTypeEnvKey
+		"Supported options: mem, couchdb, mysql, mongodb. " + commonEnvVarUsageText + databaseTypeEnvKey
 
 	databaseURLFlagName      = "database-url"
 	databaseURLEnvKey        = "DATABASE_URL"
@@ -117,7 +118,7 @@ const (
 	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
 	kmsSecretsDatabaseTypeFlagShorthand = "k"
 	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
-		"Supported options: mem, couchdb, mysql. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
+		"Supported options: mem, couchdb, mysql, mongodb. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
 
 	kmsSecretsDatabaseURLFlagName      = "kms-secrets-database-url" //nolint: gosec
 	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
@@ -192,6 +193,7 @@ const (
 	databaseTypeMemOption     = "mem"
 	databaseTypeCouchDBOption = "couchdb"
 	databaseTypeMYSQLDBOption = "mysql"
+	databaseTypeMongoDBOption = "mongodb"
 
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
@@ -849,63 +851,60 @@ type edgeServiceProviders struct {
 	kmsSecretsProvider ariesstorage.Provider
 }
 
-//nolint: gocyclo
 func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, error) {
 	var edgeServiceProvs edgeServiceProviders
 
-	switch { //nolint: dupl
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
-		edgeServiceProvs.provider = ariesmemstorage.NewProvider()
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
-		var err error
+	var err error
 
-		edgeServiceProvs.provider, err =
-			ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
-				ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return &edgeServiceProviders{}, err
-		}
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMYSQLDBOption):
-		var err error
-
-		edgeServiceProvs.provider, err =
-			ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
-				ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return &edgeServiceProviders{}, err
-		}
-	default:
-		return &edgeServiceProviders{}, fmt.Errorf("database type not set to a valid type." +
-			" run start --help to see the available options")
+	edgeServiceProvs.provider, err = createMainStoreProvider(parameters)
+	if err != nil {
+		return nil, err
 	}
 
-	switch { //nolint: dupl
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
-		edgeServiceProvs.kmsSecretsProvider = ariesmemstorage.NewProvider()
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
-		var err error
-
-		edgeServiceProvs.kmsSecretsProvider, err =
-			ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-				ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return &edgeServiceProviders{}, err
-		}
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMYSQLDBOption):
-		var err error
-
-		edgeServiceProvs.kmsSecretsProvider, err =
-			ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-				ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return &edgeServiceProviders{}, err
-		}
-	default:
-		return &edgeServiceProviders{}, fmt.Errorf("key database type not set to a valid type." +
-			" run start --help to see the available options")
+	edgeServiceProvs.kmsSecretsProvider, err = createKMSSecretsProvider(parameters)
+	if err != nil {
+		return nil, err
 	}
 
 	return &edgeServiceProvs, nil
+}
+
+func createMainStoreProvider(parameters *vcRestParameters) (ariesstorage.Provider, error) { //nolint: dupl
+	switch {
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
+		return ariesmemstorage.NewProvider(), nil
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
+		return ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
+			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMYSQLDBOption):
+		return ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
+			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
+	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMongoDBOption):
+		return ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
+			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
+	default:
+		return nil, fmt.Errorf("%s is not a valid database type."+
+			" run start --help to see the available options", parameters.dbParameters.databaseType)
+	}
+}
+
+func createKMSSecretsProvider(parameters *vcRestParameters) (ariesstorage.Provider, error) { //nolint: dupl
+	switch {
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
+		return ariesmemstorage.NewProvider(), nil
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
+		return ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMYSQLDBOption):
+		return ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMongoDBOption):
+		return ariesmongodbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+	default:
+		return nil, fmt.Errorf("%s is not a valid KMS secrets database type."+
+			" run start --help to see the available options", parameters.dbParameters.kmsSecretsDatabaseType)
+	}
 }
 
 func createKMS(kmsSecretsProvider ariesstorage.Provider) (*localkms.LocalKMS, error) {

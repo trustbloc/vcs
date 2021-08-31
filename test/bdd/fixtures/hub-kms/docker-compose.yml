@@ -16,18 +16,18 @@ services:
       - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - KMS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
       - KMS_DATABASE_TYPE=${KMS_DATABASE_TYPE}
-      - KMS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMS_DATABASE_PREFIX=authzkeystore
+      - KMS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMS_DATABASE_PREFIX=authzkeystore_
       - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - KMS_PRIMARY_KEY_DATABASE_TYPE=${KMS_DATABASE_TYPE}
-      - KMS_PRIMARY_KEY_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMS_PRIMARY_KEY_DATABASE_PREFIX=authzkmspk
+      - KMS_PRIMARY_KEY_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMS_PRIMARY_KEY_DATABASE_PREFIX=authzkmspk_
       - KMS_LOCAL_KMS_DATABASE_TYPE=${KMS_DATABASE_TYPE}
-      - KMS_LOCAL_KMS_DATABASE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMS_LOCAL_KMS_DATABASE_PREFIX=authzkmslocal
+      - KMS_LOCAL_KMS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMS_LOCAL_KMS_DATABASE_PREFIX=authzkmslocal_
       - KMS_KEY_MANAGER_STORAGE_TYPE=${KMS_DATABASE_TYPE}
-      - KMS_KEY_MANAGER_STORAGE_URL=${COUCHDB_USERNAME}:${COUCHDB_PASSWORD}@couchdb.example.com:5984
-      - KMS_KEY_MANAGER_STORAGE_PREFIX=authzkmskm
+      - KMS_KEY_MANAGER_STORAGE_URL=mongodb://mongodb.example.com:27017
+      - KMS_KEY_MANAGER_STORAGE_PREFIX=authzkmskm_
       - KMS_ZCAP_ENABLE=true
       - KMS_CACHE_EXPIRATION=10m
       - KMS_LOG_LEVEL=debug
@@ -39,8 +39,8 @@ services:
     volumes:
       - ../keys/tls:/etc/tls
     networks:
-      - couchdb_bdd_net
+      - mongodb_bdd_net
 
 networks:
-  couchdb_bdd_net:
+  mongodb_bdd_net:
     external: true
