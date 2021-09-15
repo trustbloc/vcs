@@ -28,7 +28,7 @@ services:
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
-      - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
@@ -58,7 +58,7 @@ services:
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
-      - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
@@ -89,7 +89,7 @@ services:
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
-      - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${HOLDER_VC_PORT}:${HOLDER_VC_PORT}
@@ -119,7 +119,7 @@ services:
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
       - VC_REST_GOVERNANCE_CLAIMS_FILE=/etc/governance_claims.json
-      - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - ${GOVERNANCE_VC_PORT}:${GOVERNANCE_VC_PORT}
@@ -143,7 +143,7 @@ services:
       - DATABASE_TYPE=mem
       - KMSSECRETS_DATABASE_TYPE=mem
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
-      - VC_REST_DID_ANCHOR_ORIGIN=origin
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
     ports:
       - ${VC_REST_PORT}:${VC_REST_PORT}
     command:  start

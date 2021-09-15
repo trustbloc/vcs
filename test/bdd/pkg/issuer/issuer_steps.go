@@ -284,7 +284,7 @@ func (e *Steps) createSidetreeDID() (*docdid.Doc, error) {
 	docResolution, err := c.Create(didDoc,
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, ed25519.PublicKey(ed25519RecoveryPubKey)),
 		vdr.WithOption(orb.UpdatePublicKeyOpt, ed25519.PublicKey(ed25519UpdatePubKey)),
-		vdr.WithOption(orb.AnchorOriginOpt, "origin"))
+		vdr.WithOption(orb.AnchorOriginOpt, "https://testnet.orb.local"))
 	if err != nil {
 		return nil, err
 	}

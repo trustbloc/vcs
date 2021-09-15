@@ -422,7 +422,7 @@ func (e *Steps) createDIDORB() (string, error) {
 	docResolution, err := e.orbVDR.Create(didDoc,
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
 		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
-		vdr.WithOption(orb.AnchorOriginOpt, "origin"),
+		vdr.WithOption(orb.AnchorOriginOpt, "https://testnet.orb.local"),
 	)
 	if err != nil {
 		return "", err
