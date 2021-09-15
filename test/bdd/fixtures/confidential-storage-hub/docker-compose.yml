@@ -21,7 +21,7 @@ services:
       - BASE_URL=https://hubstore.example.com
       - TRUSTBLOC_DID_DOMAIN=testnet.orb.local
       - IDENTITY_DID_METHOD=orb
-      - CHS_DID_ANCHOR_ORIGIN=origin
+      - CHS_DID_ANCHOR_ORIGIN=https://testnet.orb.local
       - CHS_REQUEST_TOKENS=sidetreeToken=tk1
     ports:
       - ${CHS_REST_PORT}:${CHS_REST_PORT}
