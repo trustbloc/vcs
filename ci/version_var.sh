@@ -6,8 +6,8 @@
 
 
 # Release Parameters
-BASE_VERSION=0.1.7
-IS_RELEASE=true
+BASE_VERSION=0.1.8
+IS_RELEASE=false
 
 # Project Parameters
 BASE_VC_PKG_NAME=vc-server
