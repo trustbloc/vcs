@@ -23,8 +23,7 @@ root_dir=$(pwd)
 internal_root_dir="."
 # internal_root_dir="trustbloc/edge-service"
 
-shopt -s globstar
-for i in **/*.mod; do
+for i in $(find . -name "go.mod"); do
   mod_dir=$(dirname ${i})
 
   echo "linting ${mod_dir}"
