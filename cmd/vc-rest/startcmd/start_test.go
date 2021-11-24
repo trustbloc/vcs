@@ -254,6 +254,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
+		"--" + contextEnableRemoteFlagName, "true",
 	}
 	startCmd.SetArgs(args)
 
@@ -483,6 +484,19 @@ func TestValidateAuthorizationBearerToken(t *testing.T) {
 		require.True(t, validateAuthorizationBearerToken(&httptest.ResponseRecorder{},
 			&http.Request{Header: header}, "tk1"))
 	})
+}
+
+func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
+	startCmd := GetStartCmd(&mockServer{})
+
+	setEnvVars(t, databaseTypeMemOption)
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(contextEnableRemoteEnvKey, "not bool"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
 }
 
 func setEnvVars(t *testing.T, databaseType string) {

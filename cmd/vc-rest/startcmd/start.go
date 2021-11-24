@@ -137,8 +137,13 @@ const (
 	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
 	contextProviderFlagUsage = "Remote context provider URL to get JSON-LD contexts from." +
 		" This flag can be repeated, allowing setting up multiple context providers." +
-		" Alternatively, this can be set with the following environment variable (in CSV format): " +
-		contextProviderEnvKey
+		commonEnvVarUsageText + contextProviderEnvKey
+
+	// enable fetching JSON-LD contexts from the network.
+	contextEnableRemoteFlagName  = "context-enable-remote"
+	contextEnableRemoteEnvKey    = "VC_REST_CONTEXT_ENABLE_REMOTE"
+	contextEnableRemoteFlagUsage = "Enables remote JSON-LD contexts fetching. Defaults to false." +
+		commonEnvVarUsageText + contextEnableRemoteEnvKey
 
 	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
 	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
@@ -244,6 +249,7 @@ type vcRestParameters struct {
 	governanceClaimsFile string
 	didAnchorOrigin      string
 	contextProviderURLs  []string
+	contextEnableRemote  bool
 }
 
 type dbParameters struct {
@@ -376,6 +382,21 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
+	contextEnableRemoteConfig, err := cmdutils.GetUserSetVarFromString(cmd, contextEnableRemoteFlagName,
+		contextEnableRemoteEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
+	contextEnableRemote := false
+
+	if contextEnableRemoteConfig != "" {
+		contextEnableRemote, err = strconv.ParseBool(contextEnableRemoteConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &vcRestParameters{
 		hostURL:              hostURL,
 		edvURL:               edvURL,
@@ -393,6 +414,7 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		governanceClaimsFile: governanceClaimsFile,
 		didAnchorOrigin:      didAnchorOrigin,
 		contextProviderURLs:  contextProviderURLs,
+		contextEnableRemote:  contextEnableRemote,
 	}, nil
 }
 
@@ -636,6 +658,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(governanceClaimsFlagName, "", "", governanceClaimsFlagUsage)
 	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 	startCmd.Flags().StringArrayP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
+	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
 }
 
 // nolint: gocyclo,funlen,gocognit
@@ -688,7 +711,8 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	loader, err := createJSONLDDocumentLoader(ldStore, rootCAs, parameters.contextProviderURLs)
+	loader, err := createJSONLDDocumentLoader(ldStore, rootCAs, parameters.contextProviderURLs,
+		parameters.contextEnableRemote)
 	if err != nil {
 		return err
 	}
@@ -963,7 +987,7 @@ func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*byt
 }
 
 func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPool,
-	providerURLs []string) (jsonld.DocumentLoader, error) {
+	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
 	var loaderOpts []ariesld.DocumentLoaderOpts
 
 	httpClient := &http.Client{
@@ -978,6 +1002,11 @@ func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPoo
 				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
 			),
 		)
+	}
+
+	if contextEnableRemote {
+		loaderOpts = append(loaderOpts,
+			ariesld.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
 	}
 
 	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)
