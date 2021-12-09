@@ -8,10 +8,12 @@ package chs
 
 import (
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -44,7 +46,6 @@ import (
 	edv "github.com/trustbloc/edv/pkg/client"
 	"github.com/trustbloc/edv/pkg/edvutils"
 	models2 "github.com/trustbloc/edv/pkg/restapi/models"
-	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/csh/client"
 	"github.com/trustbloc/edge-service/pkg/client/csh/client/operations"
@@ -108,7 +109,7 @@ type user struct {
 	vdr              vdrapi.Registry
 }
 
-func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error {
+func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error { //nolint:funlen
 	var err error
 
 	u.localkms, err = localkms.New(
@@ -134,15 +135,35 @@ func (u *user) initKeystore(baseURL string, httpClient webkms.HTTPClient) error 
 
 	u.controller = didKeyURL(u.signer.PublicKeyBytes())
 
-	u.keystoreURL, u.keystoreRootZCAP, err = webkms.CreateKeyStore(httpClient, baseURL, u.controller, "")
+	keystoreURL, zcaps, err := webkms.CreateKeyStore(httpClient, baseURL, u.controller, "", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create remote keystore: %w", err)
 	}
 
+	u.keystoreURL = keystoreURL
+	u.keystoreRootZCAP = base64.URLEncoding.EncodeToString(zcaps)
+
 	httpSigner := zcapld2.NewHTTPSigner(
 		u.controller,
 		u.keystoreRootZCAP,
-		operation.CapabilityInvocationAction,
+		func(request *http.Request) (string, error) {
+			var action string
+
+			switch strings.ToLower(path.Base(request.URL.Path)) {
+			case "sign":
+				action = "sign"
+			case "wrap":
+				action = "wrap"
+			case "unwrap":
+				action = "unwrap"
+			case "export":
+				action = "exportKey"
+			default:
+				action = "createKey"
+			}
+
+			return action, nil
+		},
 		&zcapld.AriesDIDKeySecrets{},
 		&zcapld.AriesDIDKeySignatureHashAlgorithm{
 			KMS:      u.localkms,

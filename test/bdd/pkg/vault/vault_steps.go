@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +42,6 @@ import (
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
-	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
 	vaultclient "github.com/trustbloc/edge-service/pkg/client/vault"
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -330,9 +330,13 @@ func (e *Steps) checkAuthorization(auth string) error {
 
 func (e *Steps) kmsSign(controller, authToken string) func(req *http.Request) (*http.Header, error) {
 	return func(req *http.Request) (*http.Header, error) {
-		action, err := operation.CapabilityInvocationAction(req)
-		if err != nil {
-			return nil, fmt.Errorf("capability invocation action: %w", err)
+		var action string
+
+		switch strings.ToLower(path.Base(req.URL.Path)) {
+		case "unwrap":
+			action = "unwrap"
+		default:
+			action = "createKey"
 		}
 
 		return e.sign(req, controller, action, authToken)

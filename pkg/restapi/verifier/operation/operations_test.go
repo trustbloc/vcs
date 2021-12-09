@@ -567,7 +567,7 @@ func TestVerifyCredential(t *testing.T) {
 		rr = serveHTTPMux(t, verificationsHandler, endpoint, reqBytes, urlVars)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
-		require.Contains(t, rr.Body.String(), "DID not found")
+		require.Contains(t, rr.Body.String(), "DID does not exist")
 	})
 
 	t.Run("credential verification - status check failure", func(t *testing.T) {
