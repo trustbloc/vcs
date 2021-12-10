@@ -38,22 +38,20 @@ services:
     image: ${KMS_IMAGE}:${KMS_IMAGE_TAG}
     environment:
       - KMS_BASE_URL=https://vault.kms.example.com:${KMS_PORT}
-      - KMS_HOST_URL=0.0.0.0:${KMS_PORT}
-      - KMS_DATABASE_TYPE=mem
-      - KMS_PRIMARY_KEY_DATABASE_TYPE=mem
-      - KMS_LOCAL_KMS_DATABASE_TYPE=mem
-      - KMS_KEY_MANAGER_STORAGE_TYPE=mem
-      - KMS_ZCAP_ENABLE=true
+      - KMS_HOST=0.0.0.0:${KMS_PORT}
       - KMS_TLS_SYSTEMCERTPOOL=true
       - KMS_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
       - KMS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
+      - KMS_DATABASE_TYPE=mem
+      - KMS_SECRET_LOCK_TYPE=local
+      - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
+      - KMS_ZCAP_ENABLE=true
       - KMS_DID_DOMAIN=testnet.orb.local
       - KMS_LOG_LEVEL=debug
     ports:
       - ${KMS_PORT}:${KMS_PORT}
-    entrypoint: ""
-    command: /bin/sh -c "kms-rest start"
+    command: start
     volumes:
       - ../keys/tls:/etc/tls
     networks:

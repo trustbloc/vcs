@@ -20,7 +20,7 @@ require (
 	github.com/go-openapi/strfmt v0.20.0
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/uuid v1.2.0
-	github.com/hyperledger/aries-framework-go v0.1.7
+	github.com/hyperledger/aries-framework-go v0.1.8-0.20211209134627-db62fc73a302
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210915134807-3e19121646a4
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20210910143505-343c246c837c
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210910143505-343c246c837c
@@ -31,6 +31,5 @@ require (
 	github.com/trustbloc/edge-core v0.1.7
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/edv v0.1.7
-	github.com/trustbloc/kms v0.1.7
 	golang.org/x/sys v0.0.0-20210823070655-63515b42dcdf // indirect
 )

@@ -19,9 +19,9 @@ import (
 	"github.com/igor-pavlenko/httpsignatures-go"
 	"github.com/trustbloc/edge-core/pkg/zcapld"
 	edv "github.com/trustbloc/edv/pkg/client"
-	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/vault"
+	"github.com/trustbloc/edge-service/pkg/internal/zcapldutil"
 	"github.com/trustbloc/edge-service/pkg/restapi/csh/operation/openapi"
 	zcapld2 "github.com/trustbloc/edge-service/pkg/restapi/csh/operation/zcapld"
 )
@@ -109,7 +109,7 @@ func (o *Operation) documentReaderOptions(query *openapi.DocQuery) ([]vault.Read
 			webkms.WithHeaders(zcapld2.NewHTTPSigner(
 				verMethod,
 				query.UpstreamAuth.Kms.Zcap,
-				operation.CapabilityInvocationAction,
+				zcapldutil.CapabilityInvocationAction,
 				o.supportedSecrets(),
 				o.supportedSignatureHashAlgorithms(),
 			),

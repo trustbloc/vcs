@@ -8,7 +8,7 @@ go 1.16
 
 require (
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.7
+	github.com/hyperledger/aries-framework-go v0.1.8-0.20211209134627-db62fc73a302
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v0.0.0-20210915134807-3e19121646a4
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20210910143505-343c246c837c
 	github.com/rs/cors v1.7.0

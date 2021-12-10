@@ -37,17 +37,17 @@ import (
 
 const kmsResponse = `
 {
-   "wrappedKey":{
-      "kid":"R0tzelREUWNXckZsTVMtQk83LWFzZk5nYUZmTVo5NnQ2ZWVUaklfX1kxYw==",
-      "encryptedCEK":"5es-1SkzIwvKnM1suaYLrNnXzzUTMG28Ow5cDKCsK_yUBiCqlvtDmw==",
-      "epk":{
-         "x":"f9ccLKPnZcFwW1BroF56M1XTUG5GSYrXLAPLsi-OFsI=",
-         "y":"aqdkBFWEUZ0RWa9p4W66gPd37oe2s26gypmHZ_P0eUU=",
-         "curve":"UC0yNTY=",
-         "type":"RUM="
-      },
-      "alg":"RUNESC1FUytBMjU2S1c="
-   }
+  "kid": "Y61VJzsZCwH99LG86cjUiyL1-odvkzTWs7U9OJNsUW4",
+  "encryptedcek": "oHcZ9odHY4DLZWDP64E7U3XQ4C1PUvqh3cHIgmKpT+DL1mnrXmNxaQ==",
+  "epk": {
+    "x": "eeDx0kYKDQSVy2FQSTyOreiye/jzfbF63RjFECueIEo=",
+    "y": "WeAjqF33uxcJwa3N/d7w/eTmRXwgVwvTjPR6i7QDq5A=",
+    "curve": "P-256",
+    "type": "EC"
+  },
+  "alg": "ECDH-ES+A256KW",
+  "apu": "c2VuZGVy",
+  "apv": "cmVjaXBpZW50"
 }`
 
 func TestNewClient(t *testing.T) {
@@ -72,7 +72,10 @@ func TestClient_CreateVault(t *testing.T) {
 
 	t.Run("Error parse zcap", func(t *testing.T) {
 		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write([]byte("{}"))
+			require.NoError(t, err)
 		}))
 
 		edv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +135,10 @@ func TestClient_CreateVault(t *testing.T) {
 	t.Run("EDV error", func(t *testing.T) {
 		store := mem.NewProvider()
 		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
+
+			_, err := w.Write([]byte("{}"))
+			require.NoError(t, err)
 		}))
 
 		edv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -156,10 +162,10 @@ func TestClient_CreateVault(t *testing.T) {
 
 	t.Run("Save authorization error", func(t *testing.T) {
 		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0b9em5ioud57602s7og")
-			w.Header().Set("X-ROOTCAPABILITY", "H4sIAAAAAAAA_5SSS3OjOBSF_8vt5ZAY8AOs1fiBE-LYhEDHga4ul4wULF4ikrAhqfz3KcdxL2bVWfFRdW4d3XPuO_yb8ErRVgGCvVK1RL3esc_INRdpT9KkEUx1vYMJGjACCHp5KXs57aTigspeou_GtBwy3pChNdJNafH0JK0OPKcCEBBGUE479DZa5a951ZGsiukofn1e3ziHLAof2mP5822SvwWGdT-5C5tIrnzZiR_fHQANcFHwIyWTRDFeAfoFiaBY0SXtQAPa1lyoM0uWVqDBgQr2cvo_ClyDBk31BQkv60bR1WT2R3VmWiWiqxVoQOiFmppgRZ350wzXeMcKpj7tsLx8vJqe3CTFxSf-PueT4NMzQyxSqgC9gzv_63jDrqaAoBEVykuJLnr40KAWnL8A-vX-tfypM1M3jSvduOobodFHAwMZ5rU1tAf20DTMf3QT6TpokB0lIKDd3X53kzCP3S1i5zH0A1e6pWuuZ-4oLhcyMX9Kt1x3-NlnXiFZlEW6Wxjj62ujHOZr7Ja7m2c7nT4MNvOGL5WzXSuRkg2RwTLbhtvcC3dzj-I9JtvNON0_tYNVvFkEzzOGsXf3ZlnjdExuX9vofvCoT3zQoOJVclr3celOR0VQzLb2yH1alF5nK8uyjiz37JSNkix4HQ-UT62t8l8qZ8mUzGpxu7ufBk5ylbrjjdVv4sWSvFQ0cpxFNDpOxQS-MntoRM3lySf50-OcFjT9rAk0UOfQHWIOh8Y4YGmFVSOoqRv25UrYudMVVXtO_nf8h9u970dtsG-btj9VEZkZ94_TDV-bmd1ZflyZ093DNMOxPaA_vjsAH78__gsAAP__CIjUdMsDAAA=") // nolint: lll
+			w.WriteHeader(http.StatusOK)
 
-			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"key_store_url":"/v1/keystores/c0b9em5ioud57602s7og","capability":"H4sIAAAAAAAA/6xTTXOjOBD9Lz1XYgP+5rSOwQQ7jklsJ2OmprZk0cYyAmFJmJBU/vsW4ziztbep2gPFa6m7pfde6x3+oiLX+KrBgYPWhXLa7arD4paQSVshLSXTdftsgwEs/ldOmqmWlqXSOy5oiwtKuDM0B/322WqnWCstJKo27Re9Hs1GnX5MBx16FKlImk75WaQowYGYxU6KtfPWX6SqO/MGkb+uXqZjz5Oh/z2tD52T1pvbcL2fZfOqrwdyPvHnefHtTwvAAMK5qDAeU81EDs4PoBKJxjnWYAC+FkLqC2bZb6xYkoMBZ5Rs38RUZEWpcTGefK1eMOZU1oUGA2K8IiSq/vwtC2z6KCT8ClmSL0qu2e9Gn1GMkp0xlELsv/auUSVJw6XMr6CIiUbPfZ6QguwYZ7qGnxeFKWmIrolMUIPzDoH7f/m3rgsEB0qZO2mmnGs+fBhAyRmJVuDkJecGFL+u7fx4/xS7GSHbtK0by74xR2tr5Ji2Y5mtvm0Nm28UgQHHSoEDWM8OO5+yJZtNI+9p/bgKVJAF9sMk6EfZVFF7o4LsoSbfH9mSK7Y9bs2AW6NWi5uH8Vrpp9dFHi7nZHm6Rzfi7qpTrZ729/KePIxva3/zMhiedLx07WBPnoNwWC5PfTN7q7Lu7VMYdzfVZlWZwl5l4yKcjsdgQC5y2hC/G95Z3Ve3x9fVXRZNKY8S82ZKN9UunQ3+LqvNdFJa1mjUqYuN1pPq6KdLi8Xe9hC9RP629N9yv9YZz+vDyh+697PuPLMe4VOusJSFUM059MtTFzkmv/wEA/RFfi+2ez1rtGJJTnQp0Tat4XVe2MX8BeqDiP/zzpLnF3zcrdicHQ/arbGbJhNPlNrDU76t3AQfdP8U7vRpEYtvf1oAHz8//gkAAP//g9t+P1UEAAA="}`)) //nolint: lll
+			require.NoError(t, err)
 		}))
 
 		edv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -190,10 +196,10 @@ func TestClient_CreateVault(t *testing.T) {
 
 	t.Run("Create vault", func(t *testing.T) {
 		remoteKMS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0b9em5ioud57602s7og")
-			w.Header().Set("X-ROOTCAPABILITY", "H4sIAAAAAAAA_5SSS3OjOBSF_8vt5ZAY8AOs1fiBE-LYhEDHga4ul4wULF4ikrAhqfz3KcdxL2bVWfFRdW4d3XPuO_yb8ErRVgGCvVK1RL3esc_INRdpT9KkEUx1vYMJGjACCHp5KXs57aTigspeou_GtBwy3pChNdJNafH0JK0OPKcCEBBGUE479DZa5a951ZGsiukofn1e3ziHLAof2mP5822SvwWGdT-5C5tIrnzZiR_fHQANcFHwIyWTRDFeAfoFiaBY0SXtQAPa1lyoM0uWVqDBgQr2cvo_ClyDBk31BQkv60bR1WT2R3VmWiWiqxVoQOiFmppgRZ350wzXeMcKpj7tsLx8vJqe3CTFxSf-PueT4NMzQyxSqgC9gzv_63jDrqaAoBEVykuJLnr40KAWnL8A-vX-tfypM1M3jSvduOobodFHAwMZ5rU1tAf20DTMf3QT6TpokB0lIKDd3X53kzCP3S1i5zH0A1e6pWuuZ-4oLhcyMX9Kt1x3-NlnXiFZlEW6Wxjj62ujHOZr7Ja7m2c7nT4MNvOGL5WzXSuRkg2RwTLbhtvcC3dzj-I9JtvNON0_tYNVvFkEzzOGsXf3ZlnjdExuX9vofvCoT3zQoOJVclr3celOR0VQzLb2yH1alF5nK8uyjiz37JSNkix4HQ-UT62t8l8qZ8mUzGpxu7ufBk5ylbrjjdVv4sWSvFQ0cpxFNDpOxQS-MntoRM3lySf50-OcFjT9rAk0UOfQHWIOh8Y4YGmFVSOoqRv25UrYudMVVXtO_nf8h9u970dtsG-btj9VEZkZ94_TDV-bmd1ZflyZ093DNMOxPaA_vjsAH78__gsAAP__CIjUdMsDAAA=") // nolint: lll
+			w.WriteHeader(http.StatusOK)
 
-			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"key_store_url":"/v1/keystores/c0b9em5ioud57602s7og","capability":"H4sIAAAAAAAA/6xTTXOjOBD9Lz1XYgP+5rSOwQQ7jklsJ2OmprZk0cYyAmFJmJBU/vsW4ziztbep2gPFa6m7pfde6x3+oiLX+KrBgYPWhXLa7arD4paQSVshLSXTdftsgwEs/ldOmqmWlqXSOy5oiwtKuDM0B/322WqnWCstJKo27Re9Hs1GnX5MBx16FKlImk75WaQowYGYxU6KtfPWX6SqO/MGkb+uXqZjz5Oh/z2tD52T1pvbcL2fZfOqrwdyPvHnefHtTwvAAMK5qDAeU81EDs4PoBKJxjnWYAC+FkLqC2bZb6xYkoMBZ5Rs38RUZEWpcTGefK1eMOZU1oUGA2K8IiSq/vwtC2z6KCT8ClmSL0qu2e9Gn1GMkp0xlELsv/auUSVJw6XMr6CIiUbPfZ6QguwYZ7qGnxeFKWmIrolMUIPzDoH7f/m3rgsEB0qZO2mmnGs+fBhAyRmJVuDkJecGFL+u7fx4/xS7GSHbtK0by74xR2tr5Ji2Y5mtvm0Nm28UgQHHSoEDWM8OO5+yJZtNI+9p/bgKVJAF9sMk6EfZVFF7o4LsoSbfH9mSK7Y9bs2AW6NWi5uH8Vrpp9dFHi7nZHm6Rzfi7qpTrZ729/KePIxva3/zMhiedLx07WBPnoNwWC5PfTN7q7Lu7VMYdzfVZlWZwl5l4yKcjsdgQC5y2hC/G95Z3Ve3x9fVXRZNKY8S82ZKN9UunQ3+LqvNdFJa1mjUqYuN1pPq6KdLi8Xe9hC9RP629N9yv9YZz+vDyh+697PuPLMe4VOusJSFUM059MtTFzkmv/wEA/RFfi+2ez1rtGJJTnQp0Tat4XVe2MX8BeqDiP/zzpLnF3zcrdicHQ/arbGbJhNPlNrDU76t3AQfdP8U7vRpEYtvf1oAHz8//gkAAP//g9t+P1UEAAA="}`)) //nolint: lll
+			require.NoError(t, err)
 		}))
 
 		edv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -312,17 +318,17 @@ func TestClient_SaveDoc(t *testing.T) {
 
 		kmsHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 3)
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c")
+			w.WriteHeader(http.StatusOK)
 
-			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"key_url":"/v1/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c"}`)) //nolint:lll
+			require.NoError(t, err)
 		}
 
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			payload, err := json.Marshal(map[string][]byte{"publicKey": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
+			payload, err := json.Marshal(map[string][]byte{"public_key": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
 			require.NoError(t, err)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err = w.Write(payload)
 			require.NoError(t, err)
@@ -331,8 +337,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
 			payload := []byte(kmsResponse)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err := w.Write(payload)
 			require.NoError(t, err)
@@ -356,7 +361,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		vID, dURL, _ := createVaultID(t, lKMS)
 
 		data["info_"+vID] = mockstorage.DBEntry{
-			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/"}}}`),
+			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/v1/keystores/c0ekinlioud42c84qs7g"}}}`),
 		}
 
 		_, err = client.SaveDoc(vID, docID, data["info_"+vID].Value)
@@ -388,17 +393,17 @@ func TestClient_SaveDoc(t *testing.T) {
 
 		kmsHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 3)
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c")
+			w.WriteHeader(http.StatusOK)
 
-			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"key_url":"/v1/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c"}`)) //nolint:lll
+			require.NoError(t, err)
 		}
 
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			payload, err := json.Marshal(map[string][]byte{"publicKey": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
+			payload, err := json.Marshal(map[string][]byte{"public_key": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
 			require.NoError(t, err)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err = w.Write(payload)
 			require.NoError(t, err)
@@ -407,8 +412,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
 			payload := []byte(kmsResponse)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err := w.Write(payload)
 			require.NoError(t, err)
@@ -432,7 +436,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		vID, dURL, _ := createVaultID(t, lKMS)
 
 		data["info_"+vID] = mockstorage.DBEntry{
-			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/"}}}`),
+			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/v1/keystores/c0ekinlioud42c84qs7g"}}}`),
 		}
 
 		_, err = client.SaveDoc(vID, docID, data["info_"+vID].Value)
@@ -458,17 +462,17 @@ func TestClient_SaveDoc(t *testing.T) {
 	t.Run("Success save", func(t *testing.T) {
 		kmsHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 3)
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c")
+			w.WriteHeader(http.StatusOK)
 
-			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"key_url":"/v1/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c"}`)) //nolint:lll
+			require.NoError(t, err)
 		}
 
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			payload, err := json.Marshal(map[string][]byte{"publicKey": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
+			payload, err := json.Marshal(map[string][]byte{"public_key": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
 			require.NoError(t, err)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err = w.Write(payload)
 			require.NoError(t, err)
@@ -477,8 +481,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
 			payload := []byte(kmsResponse)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err := w.Write(payload)
 			require.NoError(t, err)
@@ -514,7 +517,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		vID, dURL, _ := createVaultID(t, lKMS)
 
 		data["info_"+vID] = mockstorage.DBEntry{
-			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/"}}}`),
+			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/v1/keystores/c0ekinlioud42c84qs7g"}}}`),
 		}
 
 		docMeta, err := client.SaveDoc(vID, docID, data["info_"+vID].Value)
@@ -526,17 +529,17 @@ func TestClient_SaveDoc(t *testing.T) {
 	t.Run("Success (update)", func(t *testing.T) {
 		kmsHandlers := make(chan func(w http.ResponseWriter, r *http.Request), 3)
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			w.Header().Set("Location", "/kms/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c")
+			w.WriteHeader(http.StatusOK)
 
-			w.WriteHeader(http.StatusCreated)
+			_, err := w.Write([]byte(`{"key_url":"/v1/keystores/c0ekinlioud42c84qs7g/keys/GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c"}`)) //nolint:lll
+			require.NoError(t, err)
 		}
 
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
-			payload, err := json.Marshal(map[string][]byte{"publicKey": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
+			payload, err := json.Marshal(map[string][]byte{"public_key": []byte(`{"kid":"GKszTDQcWrFlMS-BO7-asfNgaFfMZ96t6eeTjI__Y1c","x":"IM1/HfveJ4rbqAYzBOmVOnpys4h3J0yA3I238AjYzZc=","y":"S+h2S7IbWCZiQjOaNIhSvyqNcRnRKavdiC1BU8F2UU4=","curve":"NIST_P256","type":"EC"}`)}) // nolint: lll
 			require.NoError(t, err)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err = w.Write(payload)
 			require.NoError(t, err)
@@ -545,8 +548,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		kmsHandlers <- func(w http.ResponseWriter, _ *http.Request) {
 			payload := []byte(kmsResponse)
 
-			w.Header().Set("Location", "localhost:7777/encrypted-data-vaults/DWPPbEVn1afJY4We3kpQmq")
-			w.WriteHeader(http.StatusCreated)
+			w.WriteHeader(http.StatusOK)
 
 			_, err := w.Write(payload)
 			require.NoError(t, err)
@@ -600,7 +602,7 @@ func TestClient_SaveDoc(t *testing.T) {
 		vID, dURL, _ := createVaultID(t, lKMS)
 
 		data["info_"+vID] = mockstorage.DBEntry{
-			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/"}}}`),
+			Value: []byte(`{"did_url":"` + dURL + `", "auth":{"edv":{},"kms":{"uri":"/v1/keystores/c0ekinlioud42c84qs7g"}}}`),
 		}
 
 		docMeta, err := client.SaveDoc(vID, docID, data["info_"+vID].Value)
@@ -836,7 +838,7 @@ func TestClient_GetDocMetadata(t *testing.T) {
 	})
 }
 
-const keystorePrimaryKeyURI = "local-lock://keystorekms"
+const keystorePrimaryKeyURI = "local-lock://kms"
 
 func newLocalKms(t *testing.T, db storage.Provider) KeyManager {
 	t.Helper()

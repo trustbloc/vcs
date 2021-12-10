@@ -70,7 +70,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 				cek := unwrapKey(t, keyID(r.URL.Path), agent.KMS(), agent.Crypto(), request)
 
-				err = json.NewEncoder(w).Encode(&unwrapResp{Key: base64.URLEncoding.EncodeToString(cek)})
+				err = json.NewEncoder(w).Encode(&unwrapResponse{Key: cek})
 				require.NoError(t, err)
 			})
 
@@ -158,7 +158,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 					cek := unwrapKey(t, keyID(r.URL.Path), chs.KMS(), chs.Crypto(), request)
 
-					err = json.NewEncoder(w).Encode(&unwrapResp{Key: base64.URLEncoding.EncodeToString(cek)})
+					err = json.NewEncoder(w).Encode(&unwrapResponse{Key: cek})
 					require.NoError(t, err)
 
 					return
@@ -222,7 +222,7 @@ func TestOperation_ReadDocQuery(t *testing.T) {
 
 					cek := unwrapKey(t, keyID(r.URL.Path), chs.KMS(), chs.Crypto(), request)
 
-					err = json.NewEncoder(w).Encode(&unwrapResp{Key: base64.URLEncoding.EncodeToString(cek)})
+					err = json.NewEncoder(w).Encode(&unwrapResponse{Key: cek})
 					require.NoError(t, err)
 
 					return
@@ -683,92 +683,25 @@ func compress(t *testing.T, msg []byte) string {
 }
 
 type unwrapRequest struct {
-	WrappedKey struct {
-		KID          string    `json:"kid,omitempty"`
-		EncryptedCEK string    `json:"encryptedCEK,omitempty"`
-		EPK          publicKey `json:"epk,omitempty"`
-		Alg          string    `json:"alg,omitempty"`
-		APU          string    `json:"apu,omitempty"`
-		APV          string    `json:"apv,omitempty"`
-	} `json:"wrappedKey,omitempty"`
-	SenderKID string `json:"senderKID,omitempty"`
+	WrappedKey   crypto.RecipientWrappedKey `json:"wrapped_key"`
+	SenderPubKey *crypto.PublicKey          `json:"sender_pub_key,omitempty"`
+	Tag          []byte                     `json:"tag,omitempty"`
 }
 
-type unwrapResp struct {
-	Key string `json:"key,omitempty"`
-}
-
-type publicKey struct {
-	KID   string `json:"kid,omitempty"`
-	X     string `json:"x,omitempty"`
-	Y     string `json:"y,omitempty"`
-	Curve string `json:"curve,omitempty"`
-	Type  string `json:"type,omitempty"`
+type unwrapResponse struct {
+	Key []byte `json:"key"`
 }
 
 func unwrapKey(t *testing.T, keyID string, km kms.KeyManager, c crypto.Crypto, request *unwrapRequest) []byte {
 	t.Helper()
 
-	kid, err := base64.URLEncoding.DecodeString(request.WrappedKey.KID)
-	require.NoError(t, err)
-
-	enc, err := base64.URLEncoding.DecodeString(request.WrappedKey.EncryptedCEK)
-	require.NoError(t, err)
-
-	epk := unmarshalPublicKey(t, &request.WrappedKey.EPK)
-
-	alg, err := base64.URLEncoding.DecodeString(request.WrappedKey.Alg)
-	require.NoError(t, err)
-
-	apu, err := base64.URLEncoding.DecodeString(request.WrappedKey.APU)
-	require.NoError(t, err)
-
-	apv, err := base64.URLEncoding.DecodeString(request.WrappedKey.APV)
-	require.NoError(t, err)
-
-	recipientWK := &crypto.RecipientWrappedKey{
-		KID:          string(kid),
-		EncryptedCEK: enc,
-		EPK:          *epk,
-		Alg:          string(alg),
-		APU:          apu,
-		APV:          apv,
-	}
-
 	kh, err := km.Get(keyID)
 	require.NoError(t, err)
 
-	cek, err := c.UnwrapKey(recipientWK, kh)
+	cek, err := c.UnwrapKey(&request.WrappedKey, kh)
 	require.NoError(t, err)
 
 	return cek
-}
-
-func unmarshalPublicKey(t *testing.T, k *publicKey) *crypto.PublicKey {
-	t.Helper()
-
-	kid, err := base64.URLEncoding.DecodeString(k.KID)
-	require.NoError(t, err)
-
-	x, err := base64.URLEncoding.DecodeString(k.X)
-	require.NoError(t, err)
-
-	y, err := base64.URLEncoding.DecodeString(k.Y)
-	require.NoError(t, err)
-
-	curve, err := base64.URLEncoding.DecodeString(k.Curve)
-	require.NoError(t, err)
-
-	typ, err := base64.URLEncoding.DecodeString(k.Type)
-	require.NoError(t, err)
-
-	return &crypto.PublicKey{
-		KID:   string(kid),
-		X:     x,
-		Y:     y,
-		Curve: string(curve),
-		Type:  string(typ),
-	}
 }
 
 func keyID(path string) string {

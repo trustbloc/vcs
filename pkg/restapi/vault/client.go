@@ -9,6 +9,7 @@ package vault
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,9 +44,9 @@ import (
 	"github.com/trustbloc/edv/pkg/edvutils"
 	"github.com/trustbloc/edv/pkg/restapi/messages"
 	"github.com/trustbloc/edv/pkg/restapi/models"
-	"github.com/trustbloc/kms/pkg/restapi/kms/operation"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+	"github.com/trustbloc/edge-service/pkg/internal/zcapldutil"
 )
 
 const (
@@ -232,7 +233,7 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 		return nil, fmt.Errorf("create DID key: %w", err)
 	}
 
-	kmsURI, kmsZCAP, err := webkms.CreateKeyStore(c.httpClient, c.remoteKMSURL, didURL, "")
+	kmsURI, kmsZCAP, err := webkms.CreateKeyStore(c.httpClient, c.remoteKMSURL, didURL, "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("create key store: %w", err)
 	}
@@ -247,7 +248,7 @@ func (c *Client) CreateVault() (*CreatedVault, error) {
 	auth := &Authorization{
 		KMS: &Location{
 			URI:       c.buildKMSURL(kmsURI),
-			AuthToken: kmsZCAP,
+			AuthToken: base64.URLEncoding.EncodeToString(kmsZCAP),
 		},
 		EDV: edvLoc,
 	}
@@ -710,7 +711,7 @@ func (c *Client) edvSign(controller string, auth *Location) func(req *http.Reque
 
 func (c *Client) kmsSign(controller string, auth *Location) func(req *http.Request) (*http.Header, error) {
 	return func(req *http.Request) (*http.Header, error) {
-		action, err := operation.CapabilityInvocationAction(req)
+		action, err := zcapldutil.CapabilityInvocationAction(req)
 		if err != nil {
 			return nil, fmt.Errorf("capability invocation action: %w", err)
 		}
