@@ -59,42 +59,46 @@ curl --location --request POST 'https://holder-vcs.sandbox.trustbloc.dev/<profil
 --data-raw '{
     "presentation": {
         "@context": [
-            "https://www.w3.org/2018/credentials/v1",
-            "https://www.w3.org/2018/credentials/examples/v1"
+            "https://www.w3.org/2018/credentials/v1"
         ],
         "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
         "type": "VerifiablePresentation",
-        "verifiableCredential": [{
-            "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                "https://www.w3.org/2018/credentials/examples/v1",
-                "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-            ],
-            "id": "http://example.edu/credentials/1872",
-            "type": "VerifiableCredential",
-            "credentialSubject": {
-                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-            },
-            "issuer": {
-                "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-                "name": "Example University"
-            },
-            "issuanceDate": "2010-01-01T19:23:24Z",
-            "credentialStatus": {
-                "id": "https://example.gov/status/24#94567",
-                "type": "RevocationList2020Status",
-                "revocationListIndex": "94567",
-                "revocationListCredential": "https://example.gov/status/24"
+        "verifiableCredential": [
+            {
+                "@context": [
+                    "https://www.w3.org/2018/credentials/v1",
+                    "https://www.w3.org/2018/credentials/examples/v1",
+                    "https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld"
+                ],
+                "credentialSubject": {
+                    "degree": {
+                        "degree": "Bachelor of Science and Arts",
+                        "type": "BachelorDegree"
+                    },
+                    "id": "did:trustbloc:4vSjd:EiAQcxO7cXUge_EV54by9ehz6KsDXmsRG59fLSsZiUPOJw",
+                    "name": "Jayden Doe"
+                },
+                "description": "University Degree Credential for Mr.Jayden Doe",
+                "id": "http://example.com/678e0dfd-99db-418f-9fc3-6582f8b18bd0",
+                "issuanceDate": "2021-08-10T14:06:39.829544433Z",
+                "issuer": {
+                    "id": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+                    "name": "vc-issuer-interop-key"
+                },
+                "name": "University Degree Credential",
+                "proof": {
+                    "created": "2022-03-04T18:25:06.570834906Z",
+                    "jws": "eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MB9eO_6ybmsqZeMjUHNvzPI8zHB3TFcJJPjGXjM4XCXFX3XScM05s37-x9R92wSj7NxKfEEr18aYJXBnL7EpDg",
+                    "proofPurpose": "assertionMethod",
+                    "type": "Ed25519Signature2018",
+                    "verificationMethod": "did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"
+                },
+                "type": [
+                    "VerifiableCredential",
+                    "UniversityDegreeCredential"
+                ]
             }
-        }],
-        "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-        "refreshService": {
-            "id": "https://example.edu/refresh/3732",
-            "type": "ManualRefreshService2018"
-        }
-    },
-    "options": {
-        "authentication": "did:trustbloc:2M5ym:EiBGUoTI02fSsIGkPbwNLfoOjW9JmQkT0XYTdCEwq_r57w#key1"
+        ]
     }
 }'
 ```
@@ -104,48 +108,54 @@ Note: replace `<profileID>` in the path param with actual profileID
 #### Response
 ```
 {
-    "@context": [
-        "https://www.w3.org/2018/credentials/v1",
-        "https://www.w3.org/2018/credentials/examples/v1"
-    ],
-    "holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
-    "proof": {
-        "created": "2020-11-19T02:03:12.285365946Z",
-        "proofPurpose": "authentication",
-        "proofValue": "gfdc5gpUNNgYCfaCDlf8-8BeJzDK2mGdbkmozjQ4N5JfghVG7ZDFQKUYhudBoy7x--RVLzywXBZe05_hBptXDA",
-        "type": "Ed25519Signature2018",
-        "verificationMethod": "did:trustbloc:testnet.trustbloc.local:EiBGUoTI02fSsIGkPbwNLfoOjW9JmQkT0XYTdCEwq_r57w#key1"
-    },
-    "refreshService": {
-        "id": "https://example.edu/refresh/3732",
-        "type": "ManualRefreshService2018"
-    },
-    "type": "VerifiablePresentation",
-    "verifiableCredential": [
-        {
-            "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                "https://www.w3.org/2018/credentials/examples/v1",
-                "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-            ],
-            "credentialStatus": {
-                "id": "https://example.gov/status/24#94567",
-                "type": "RevocationList2020Status",
-                 "revocationListIndex": "94567",
-                "revocationListCredential": "https://example.gov/status/24"
+   "@context":[
+      "https://www.w3.org/2018/credentials/v1"
+   ],
+   "holder":"did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+   "id":"urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",
+   "type":"VerifiablePresentation",
+   "verifiableCredential":[
+      {
+         "@context":[
+            "https://www.w3.org/2018/credentials/v1",
+            "https://www.w3.org/2018/credentials/examples/v1",
+            "https://trustbloc.github.io/context/vc/examples-ext-v1.jsonld"
+         ],
+         "credentialSubject":{
+            "degree":{
+               "degree":"Bachelor of Science and Arts",
+               "type":"BachelorDegree"
             },
-            "credentialSubject": {
-                "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
-            },
-            "id": "http://example.edu/credentials/1872",
-            "issuanceDate": "2010-01-01T19:23:24Z",
-            "issuer": {
-                "id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
-                "name": "Example University"
-            },
-            "type": "VerifiableCredential"
-        }
-    ]
+            "id":"did:trustbloc:4vSjd:EiAQcxO7cXUge_EV54by9ehz6KsDXmsRG59fLSsZiUPOJw",
+            "name":"Jayden Doe"
+         },
+         "description":"University Degree Credential for Mr.Jayden Doe",
+         "id":"http://example.com/678e0dfd-99db-418f-9fc3-6582f8b18bd0",
+         "issuanceDate":"2021-08-10T14:06:39.829544433Z",
+         "issuer":{
+            "id":"did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd",
+            "name":"vc-issuer-interop-key"
+         },
+         "name":"University Degree Credential",
+         "proof":{
+            "created":"2022-03-04T18:25:06.570834906Z",
+            "jws":"eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..MB9eO_6ybmsqZeMjUHNvzPI8zHB3TFcJJPjGXjM4XCXFX3XScM05s37-x9R92wSj7NxKfEEr18aYJXBnL7EpDg",
+            "proofPurpose":"assertionMethod",
+            "type":"Ed25519Signature2018",
+            "verificationMethod":"did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"
+         },
+         "type":[
+            "VerifiableCredential",
+            "UniversityDegreeCredential"
+         ]
+      }
+   ],
+   "proof":{
+      "created":"2022-03-04T18:34:44.076655752Z",
+      "jws":"eyJhbGciOiJFZERTQSIsImI2NCI6ZmFsc2UsImNyaXQiOlsiYjY0Il19..hmnFU1F757asx0mU6gMiyOp8Q7UCVzi7Lcb2GMBnc0Br5KA73EwOS6n3GrBVe-UTnVgFGnr9IfPrJIp5Qz98AQ",
+      "proofPurpose":"authentication",
+      "type":"Ed25519Signature2018",
+      "verificationMethod":"did:key:z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd#z6MkjRagNiMu91DduvCvgEsqLZDVzrJzFrwahc4tXLt9DoHd"
+   }
 }
 ```

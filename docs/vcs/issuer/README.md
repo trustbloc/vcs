@@ -67,7 +67,7 @@ Note: replace `<profileID>` in the path param with actual profileID
 ### Issue Credential
 #### Request
 ```
-curl --location --request POST 'https://issuer-vcs.sandbox.trustbloc.dev/vc-issuer-test-2/credentials/issue' \
+curl --location --request POST 'https://issuer-vcs.sandbox.trustbloc.dev/<profileID>/credentials/issue' \
 --header 'Authorization: Bearer vcs_issuer_rw_token' \
 --header 'Content-Type: application/json' \
 --data-raw '{
@@ -100,6 +100,8 @@ curl --location --request POST 'https://issuer-vcs.sandbox.trustbloc.dev/vc-issu
     }
 }'
 ```
+
+Note: replace `<profileID>` in the path param with actual profileID
 
 #### Response
 ```
