@@ -608,7 +608,7 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, kid, keyID)
 
-		signingKey, err := customKMS.ExportPubKeyBytes(kid)
+		signingKey, _, err := customKMS.ExportPubKeyBytes(kid)
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
@@ -696,7 +696,7 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, kid, keyID)
 
-		signingKey, err := customKMS2.ExportPubKeyBytes(kid)
+		signingKey, _, err := customKMS2.ExportPubKeyBytes(kid)
 		require.NoError(t, err)
 
 		ops, err := New(&Config{

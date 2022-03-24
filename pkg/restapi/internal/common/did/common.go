@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -58,7 +57,7 @@ type Config struct {
 }
 
 type uniRegistrarClient interface {
-	CreateDID(driverURL string, opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error)
+	CreateDID(driverURL string, opts ...uniregistrar.CreateDIDOption) (string, []uniregistrar.Key, error)
 }
 
 type keyManager interface {
@@ -206,22 +205,22 @@ func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string
 	return identifier, keys[0].ID, nil
 }
 
-func (o *CommonDID) createCreateDIDOptions(pks []*didmethodoperation.PublicKey, recoveryPubKey []byte,
+func (o *CommonDID) createCreateDIDOptions(pks []*uniregistrar.PublicKey, recoveryPubKey []byte,
 	updatePubKey []byte, registrar model.UNIRegistrar) []uniregistrar.CreateDIDOption {
 	var opts []uniregistrar.CreateDIDOption
 
 	for _, v := range pks {
-		opts = append(opts, uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+		opts = append(opts, uniregistrar.WithPublicKey(&uniregistrar.PublicKey{
 			ID: v.ID, Type: v.Type,
 			Value:   v.Value,
 			KeyType: v.KeyType, Purposes: v.Purposes}))
 	}
 
 	opts = append(opts,
-		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+		uniregistrar.WithPublicKey(&uniregistrar.PublicKey{
 			KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(recoveryPubKey),
 			Recovery: true}),
-		uniregistrar.WithPublicKey(&didmethodoperation.PublicKey{
+		uniregistrar.WithPublicKey(&uniregistrar.PublicKey{
 			KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(updatePubKey),
 			Update: true}),
 		uniregistrar.WithOptions(registrar.Options))
@@ -264,9 +263,9 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 
 // nolint:funlen,gocyclo
 func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
-	[]*didmethodoperation.PublicKey, string, error) {
+	[]*uniregistrar.PublicKey, string, error) {
 	didDoc := &did.Doc{}
-	pks := make([]*didmethodoperation.PublicKey, 0)
+	pks := make([]*uniregistrar.PublicKey, 0)
 
 	// Add key1
 	key1ID, pubKeyBytes, err := o.createKey(kms.ED25519Type, o.keyManager)
@@ -284,7 +283,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	pks = append(pks, &didmethodoperation.PublicKey{ID: vm.ID, Type: vm.Type,
+	pks = append(pks, &uniregistrar.PublicKey{ID: vm.ID, Type: vm.Type,
 		KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(vm.Value),
 		Purposes: []string{
 			doc.KeyPurposeAssertionMethod,
@@ -310,7 +309,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	pks = append(pks, &didmethodoperation.PublicKey{ID: vm.ID, Type: vm.Type,
+	pks = append(pks, &uniregistrar.PublicKey{ID: vm.ID, Type: vm.Type,
 		KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(vm.Value),
 		Purposes: []string{
 			doc.KeyPurposeAssertionMethod,
@@ -338,7 +337,7 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 		return nil, nil, "", err
 	}
 
-	pks = append(pks, &didmethodoperation.PublicKey{ID: vm.ID, Type: vm.Type,
+	pks = append(pks, &uniregistrar.PublicKey{ID: vm.ID, Type: vm.Type,
 		KeyType: crypto.P256KeyType, Value: base64.StdEncoding.EncodeToString(vm.Value),
 		Purposes: []string{
 			doc.KeyPurposeAssertionMethod,
@@ -373,7 +372,7 @@ func createKey(keyType kms.KeyType, keyManager keyManager) (string, []byte, erro
 		return "", nil, err
 	}
 
-	pubKeyBytes, err := keyManager.ExportPubKeyBytes(keyID)
+	pubKeyBytes, _, err := keyManager.ExportPubKeyBytes(keyID)
 	if err != nil {
 		return "", nil, err
 	}

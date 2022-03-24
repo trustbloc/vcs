@@ -771,7 +771,7 @@ func encryptContent(wKMS KeyManager, wCrypto ariescrypto.Crypto, content interfa
 		return "", "", fmt.Errorf("kidURL is not a string")
 	}
 
-	pubKeyBytes, err := wKMS.ExportPubKeyBytes(lastElm(kidURLStr, "/"))
+	pubKeyBytes, _, err := wKMS.ExportPubKeyBytes(lastElm(kidURLStr, "/"))
 	if err != nil {
 		return "", "", fmt.Errorf("export pubKey bytes: %w", err)
 	}

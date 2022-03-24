@@ -1025,7 +1025,7 @@ func (o *Operation) createKey(keyType kms.KeyType) (string, []byte, error) {
 		return "", nil, err
 	}
 
-	pubKeyBytes, err := o.kms.ExportPubKeyBytes(keyID)
+	pubKeyBytes, _, err := o.kms.ExportPubKeyBytes(keyID)
 	if err != nil {
 		return "", nil, err
 	}
