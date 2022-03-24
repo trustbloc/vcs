@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/trustbloc/edge-core/pkg/log"
-	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 )
 
 var logger = log.New("uniregistrar-client")
@@ -37,7 +36,7 @@ func New(opts ...Option) *Client {
 }
 
 // CreateDID create did
-func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, []didmethodoperation.Key, error) {
+func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, []Key, error) {
 	createDIDOpts := &CreateDIDOpts{}
 
 	// Apply options
@@ -47,8 +46,8 @@ func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, [
 
 	jobID := uuid.New().String()
 
-	reqBytes, err := json.Marshal(didmethodoperation.RegisterDIDRequest{JobID: jobID,
-		DIDDocument: didmethodoperation.DIDDocument{PublicKey: createDIDOpts.publicKeys,
+	reqBytes, err := json.Marshal(RegisterDIDRequest{JobID: jobID,
+		DIDDocument: DIDDocument{PublicKey: createDIDOpts.publicKeys,
 			Service: createDIDOpts.services}, Options: createDIDOpts.options})
 	if err != nil {
 		return "", nil, err
@@ -64,7 +63,7 @@ func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, [
 		return "", nil, err
 	}
 
-	var registerResponse didmethodoperation.RegisterResponse
+	var registerResponse RegisterResponse
 	if err := json.Unmarshal(resp, &registerResponse); err != nil {
 		return "", nil, fmt.Errorf("failed to unmarshal resp to register response: %w", err)
 	}
@@ -73,11 +72,11 @@ func (c *Client) CreateDID(driverURL string, opts ...CreateDIDOption) (string, [
 		return "", nil, fmt.Errorf("register response jobID=%s not equal %s", registerResponse.JobID, jobID)
 	}
 
-	if registerResponse.DIDState.State == didmethodoperation.RegistrationStateFailure {
+	if registerResponse.DIDState.State == RegistrationStateFailure {
 		return "", nil, fmt.Errorf("failure from uniregistrar %s", registerResponse.DIDState.Reason)
 	}
 
-	if registerResponse.DIDState.State != didmethodoperation.RegistrationStateFinished {
+	if registerResponse.DIDState.State != RegistrationStateFinished {
 		return "", nil, fmt.Errorf("uniregistrar return unknown state %s", registerResponse.DIDState.State)
 	}
 
@@ -121,8 +120,8 @@ func WithTLSConfig(tlsConfig *tls.Config) Option {
 
 // CreateDIDOpts create did opts
 type CreateDIDOpts struct {
-	publicKeys []*didmethodoperation.PublicKey
-	services   []*didmethodoperation.Service
+	publicKeys []*PublicKey
+	services   []*Service
 	options    map[string]string
 }
 
@@ -130,14 +129,14 @@ type CreateDIDOpts struct {
 type CreateDIDOption func(opts *CreateDIDOpts)
 
 // WithPublicKey add DID public key
-func WithPublicKey(publicKey *didmethodoperation.PublicKey) CreateDIDOption {
+func WithPublicKey(publicKey *PublicKey) CreateDIDOption {
 	return func(opts *CreateDIDOpts) {
 		opts.publicKeys = append(opts.publicKeys, publicKey)
 	}
 }
 
 // WithService add service
-func WithService(service *didmethodoperation.Service) CreateDIDOption {
+func WithService(service *Service) CreateDIDOption {
 	return func(opts *CreateDIDOpts) {
 		opts.services = append(opts.services, service)
 	}

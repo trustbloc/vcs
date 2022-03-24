@@ -202,8 +202,8 @@ func (m mockKeyManager) Rotate(kt kmsservice.KeyType, keyID string) (string, int
 	panic("implement me")
 }
 
-func (m mockKeyManager) ExportPubKeyBytes(keyID string) ([]byte, error) {
-	return nil, nil
+func (m mockKeyManager) ExportPubKeyBytes(keyID string) ([]byte, kmsservice.KeyType, error) {
+	return nil, "", nil
 }
 
 func (m mockKeyManager) CreateAndExportPubKeyBytes(keyType kmsservice.KeyType) (string, []byte, error) {

@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 )
 
 func TestClient_CreateDID(t *testing.T) {
@@ -60,7 +59,7 @@ func TestClient_CreateDID(t *testing.T) {
 	t.Run("test server return wrong jod id", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			bytes, err := json.Marshal(didmethodoperation.RegisterResponse{JobID: "wrongValue"})
+			bytes, err := json.Marshal(RegisterResponse{JobID: "wrongValue"})
 			require.NoError(t, err)
 			_, err = fmt.Fprint(w, string(bytes))
 			require.NoError(t, err)
@@ -78,9 +77,9 @@ func TestClient_CreateDID(t *testing.T) {
 	t.Run("test server return state failure", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			bytes, err := json.Marshal(didmethodoperation.RegisterResponse{JobID: "",
-				DIDState: didmethodoperation.DIDState{Reason: "server error",
-					State: didmethodoperation.RegistrationStateFailure}})
+			bytes, err := json.Marshal(RegisterResponse{JobID: "",
+				DIDState: DIDState{Reason: "server error",
+					State: RegistrationStateFailure}})
 			require.NoError(t, err)
 			_, err = fmt.Fprint(w, string(bytes))
 			require.NoError(t, err)
@@ -98,8 +97,8 @@ func TestClient_CreateDID(t *testing.T) {
 	t.Run("test server return unknown state", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			bytes, err := json.Marshal(didmethodoperation.RegisterResponse{JobID: "",
-				DIDState: didmethodoperation.DIDState{State: "not available"}})
+			bytes, err := json.Marshal(RegisterResponse{JobID: "",
+				DIDState: DIDState{State: "not available"}})
 			require.NoError(t, err)
 			_, err = fmt.Fprint(w, string(bytes))
 			require.NoError(t, err)
@@ -116,7 +115,7 @@ func TestClient_CreateDID(t *testing.T) {
 
 	t.Run("test success", func(t *testing.T) {
 		serv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var req didmethodoperation.RegisterDIDRequest
+			var req RegisterDIDRequest
 
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&req))
 			require.Equal(t, 1, len(req.Options))
@@ -129,8 +128,8 @@ func TestClient_CreateDID(t *testing.T) {
 			require.Equal(t, "service", req.DIDDocument.Service[0].ID)
 
 			w.WriteHeader(http.StatusOK)
-			bytes, err := json.Marshal(didmethodoperation.RegisterResponse{JobID: "",
-				DIDState: didmethodoperation.DIDState{State: didmethodoperation.RegistrationStateFinished,
+			bytes, err := json.Marshal(RegisterResponse{JobID: "",
+				DIDState: DIDState{State: RegistrationStateFinished,
 					Identifier: "did1"}})
 			require.NoError(t, err)
 			_, err = fmt.Fprint(w, string(bytes))
@@ -145,8 +144,8 @@ func TestClient_CreateDID(t *testing.T) {
 		opts["k1"] = "v1"
 
 		didID, _, err := v.CreateDID(serv.URL, WithOptions(opts), WithPublicKey(
-			&didmethodoperation.PublicKey{ID: "key1", Type: "type1", Value: "value1"}),
-			WithService(&didmethodoperation.Service{ID: "service"}))
+			&PublicKey{ID: "key1", Type: "type1", Value: "value1"}),
+			WithService(&Service{ID: "service"}))
 		require.NoError(t, err)
 		require.Equal(t, "did1", didID)
 	})

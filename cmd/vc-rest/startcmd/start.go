@@ -834,7 +834,11 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
 
 	if universalResolver != "" {
 		universalResolverVDRI, err := httpbinding.New(universalResolver,
-			httpbinding.WithAccept(acceptsDID), httpbinding.WithTLSConfig(tlsConfig))
+			httpbinding.WithAccept(acceptsDID), httpbinding.WithHTTPClient(&http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: tlsConfig,
+				},
+			}))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
 		}

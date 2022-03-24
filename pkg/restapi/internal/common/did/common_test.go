@@ -21,7 +21,6 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
-	didmethodoperation "github.com/trustbloc/trustbloc-did-method/pkg/restapi/didmethod/operation"
 
 	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
@@ -198,7 +197,7 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:trustbloc:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:trustbloc:123#key-1"}, {ID: "did:trustbloc:123#key2"}}}
+			CreateDIDKeys: []uniregistrar.Key{{ID: "did:trustbloc:123#key-1"}, {ID: "did:trustbloc:123#key2"}}}
 
 		did, keyID, err := c.CreateDID(crypto.P256KeyType, crypto.JSONWebSignature2020, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{DriverURL: "url"})
@@ -228,7 +227,7 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:trustbloc:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:trustbloc:123#key-1"}, {ID: "did:trustbloc:123#key2"}}}
+			CreateDIDKeys: []uniregistrar.Key{{ID: "did:trustbloc:123#key-1"}, {ID: "did:trustbloc:123#key2"}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.JSONWebSignature2020, "", "",
 			"", crypto.Authentication, model.UNIRegistrar{DriverURL: "url"})
@@ -263,7 +262,7 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:v1:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
+			CreateDIDKeys: []uniregistrar.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
 				{ID: "did:v1:123#key2", Purposes: []string{crypto.Authentication}}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.JSONWebSignature2020, "", "",
@@ -294,7 +293,7 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:v1:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
+			CreateDIDKeys: []uniregistrar.Key{{ID: "did:v1:123#key-1", Purposes: []string{crypto.AssertionMethod}},
 				{ID: "did:v1:123#key2", Purposes: []string{crypto.AssertionMethod}}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.JSONWebSignature2020, "", "",
@@ -326,7 +325,7 @@ func TestCommonDID_CreateDIDUniRegistrar(t *testing.T) {
 		}
 
 		c.uniRegistrarClient = &mockUNIRegistrarClient{CreateDIDValue: "did:test:123",
-			CreateDIDKeys: []didmethodoperation.Key{{ID: "did:test:123#key-1", Purposes: []string{crypto.AssertionMethod}},
+			CreateDIDKeys: []uniregistrar.Key{{ID: "did:test:123#key-1", Purposes: []string{crypto.AssertionMethod}},
 				{ID: "did:test:123#key2", Purposes: []string{crypto.Authentication}}}}
 
 		did, keyID, err := c.CreateDID(crypto.Ed25519KeyType, crypto.Ed25519Signature2018, "", "",
@@ -400,11 +399,11 @@ func TestCommonDID_ImportKey(t *testing.T) {
 
 type mockUNIRegistrarClient struct {
 	CreateDIDValue string
-	CreateDIDKeys  []didmethodoperation.Key
+	CreateDIDKeys  []uniregistrar.Key
 	CreateDIDErr   error
 }
 
 func (m *mockUNIRegistrarClient) CreateDID(driverURL string,
-	opts ...uniregistrar.CreateDIDOption) (string, []didmethodoperation.Key, error) {
+	opts ...uniregistrar.CreateDIDOption) (string, []uniregistrar.Key, error) {
 	return m.CreateDIDValue, m.CreateDIDKeys, m.CreateDIDErr
 }

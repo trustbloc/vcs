@@ -245,7 +245,7 @@ func TestIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, keyID, kid)
 
-		signingKey, err := customKMS.ExportPubKeyBytes(keyID)
+		signingKey, _, err := customKMS.ExportPubKeyBytes(keyID)
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
