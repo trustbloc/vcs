@@ -222,7 +222,7 @@ jobs:
 
   Publish:
     needs: [Checks, UnitTest, BDDTestGovernance, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow, BDDTestComparator, BDDTestConfidentialStorageHub, BDDTestVault]
-    if: github.event_name == 'push' && (github.repository == 'trustbloc/edge-service' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'push' && (github.repository == 'trustbloc/vcs' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     steps:
