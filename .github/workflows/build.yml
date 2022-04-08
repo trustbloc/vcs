@@ -244,9 +244,6 @@ jobs:
           make vc-server-docker
           docker tag ghcr.io/trustbloc/vc-server:latest ${VC_SERVER_PKG}:${VC_SERVER_TAG}
           docker push ${VC_SERVER_PKG}:${VC_SERVER_TAG}
-          make did-resolver-docker
-          docker tag ghcr.io/trustbloc/did-resolver:latest ${DID_RESOLVER_PKG}:${DID_RESOLVER_TAG}
-          docker push ${DID_RESOLVER_PKG}:${DID_RESOLVER_TAG}
           make comparator-rest-docker
           docker tag ghcr.io/trustbloc/comparator-server:latest ${COMPARATOR_SERVER_PKG}:${COMPARATOR_SERVER_TAG}
           docker push ${COMPARATOR_SERVER_PKG}:${COMPARATOR_SERVER_TAG}
