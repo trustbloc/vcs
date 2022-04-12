@@ -16,7 +16,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://issuer.vc.rest.example.com:${ISSUER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=issuer_
@@ -47,7 +47,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://verifier.vc.rest.example.com:${VERIFIER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=verifier_
@@ -77,7 +77,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://holder.vc.rest.example.com:${HOLDER_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=holder_
@@ -108,7 +108,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://governance.vc.rest.example.com:${GOVERNANCE_VC_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mysql
       - DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/?interpolateParams=true&multiStatements=true
       - KMSSECRETS_DATABASE_TYPE=mysql
@@ -139,7 +139,7 @@ services:
       - VC_REST_HOST_URL_EXTERNAL=http://vc.rest.example.com:${VC_REST_PORT}
       - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
       - BLOC_DOMAIN=testnet.orb.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did.rest.example.com:8072/1.0/identifiers
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.rest.example.com:8072/1.0/identifiers
       - DATABASE_TYPE=mem
       - KMSSECRETS_DATABASE_TYPE=mem
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
