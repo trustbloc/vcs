@@ -64,7 +64,7 @@ func runBDDTests(tags, format string) int {
 		var composition []*dockerutil.Composition
 		composeFiles := []string{
 			"./fixtures/mongodb", "./fixtures/mysql", "./fixtures/vc-rest",
-			"./fixtures/did-rest", "./fixtures/edv-rest", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
+			"./fixtures/did-resolver", "./fixtures/edv", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
 			"./fixtures/universal-registrar", "./fixtures/confidential-storage-hub", "./fixtures/comparator-rest",
 			"./fixtures/vault-server", "./fixtures/kms",
 		}
