@@ -6,35 +6,24 @@
 [![codecov](https://codecov.io/gh/trustbloc/edge-service/branch/main/graph/badge.svg)](https://codecov.io/gh/trustbloc/edge-service)
 [![Go Report Card](https://goreportcard.com/badge/github.com/trustbloc/edge-service)](https://goreportcard.com/report/github.com/trustbloc/edge-service)
 
-# edge-service
+# TrustBloc VCS
 
-Edge Service is a reference implementation that demonstrates the following story:
+TrustBloc Verifiable Credential Service (VCS) project provides following services for [W3C Verifiable Credentials (VC)](https://www.w3.org/TR/vc-data-model/) based on [W3C-CCG VC API](https://w3c-ccg.github.io/vc-api/).
+- [Issuer](https://w3c-ccg.github.io/vc-api/#issuing)
+- [Verifier](https://w3c-ccg.github.io/vc-api/#verifying) 
+- [Holder](https://w3c-ccg.github.io/vc-api/#presenting)
 
-Issuer presents the data fetched from CMS, [edge-sandbox](https://github.com/trustbloc/edge-sandbox) for the following
-operations: 
-
-- Create issuer profile
-- Create verifiable Credential by using [aries-framework-go](https://github.com/hyperledger/aries-framework-go/tree/main/pkg/doc/verifiable) VC parser
-- Store verifiable credential in [EDV](https://github.com/trustbloc/edv)
-- Retrieve verifiable credential from [EDV](https://github.com/trustbloc/edv)
-- Verify verifiable credential 
+The VCS uses golang packages from [Hyperledger Aries Framework Go]([aries-framework-go](https://github.com/hyperledger/aries-framework-go/tree/main/pkg/doc/verifiable)) for KMS, VC and DID operations.
 
 ## Build
 To build from source see [here](docs/build.md).
 
 ## Documentation
 - [VC Services](docs/vcs/README.md)
-- [Vault Server](cmd/vault-server/README.md)
-- [Comparator](cmd/comparator-rest/README.md)
-- [Confidential Storage Hub](cmd/confidential-storage-hub/README.md)
 - [OpenAPI Spec](docs/vc-rest/openapi_spec.md)
 - [OpenAPI Demo](docs/vc-rest/openapi_demo.md)
 - [VC Interop API Implementation Status](docs/vc-rest/vc_interop_api_impl_status.md)
 
-## Services
-
-- [vault-server](./cmd/vault-server/README.md)
-- [comparator](./cmd/comparator-rest/README.md)
 
 ## Contributing
 Thank you for your interest in contributing. Please see our [community contribution guidelines](https://github.com/trustbloc/community/blob/main/CONTRIBUTING.md) for more information.
