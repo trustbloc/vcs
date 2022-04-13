@@ -24,7 +24,7 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220330140627-07042d78580c
 	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/moby/sys/mount v0.2.0 // indirect
-	github.com/tidwall/gjson v1.6.7
+	github.com/tidwall/gjson v1.9.3
 	github.com/trustbloc/edge-core v0.1.8
 	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/edv v0.1.8
