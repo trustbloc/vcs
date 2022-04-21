@@ -33,14 +33,6 @@ go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeou
 amend_coverage_file
 cd "$pwd"
 
-# Running comparator-rest unit tests
-cd cmd/comparator-rest
-PKGS=`go list github.com/trustbloc/edge-service/cmd/comparator-rest/... 2> /dev/null | \
-                                                 grep -v /mocks`
-go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
-amend_coverage_file
-cd "$pwd" || exit
-
 # Running confidential-storage-hub unit tests
 cd cmd/confidential-storage-hub
 PKGS=`go list github.com/trustbloc/edge-service/cmd/confidential-storage-hub/... 2> /dev/null | \

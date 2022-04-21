@@ -4,13 +4,11 @@
 
 VC_REST_PATH=cmd/vc-rest
 VAULT_REST_PATH=cmd/vault-server
-COMPARATOR_REST_PATH=cmd/comparator-rest
 CONFIDENTIAL_STORAGE_HUB_PATH=cmd/confidential-storage-hub
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
-COMPARATOR_REST_IMAGE_NAME          ?= trustbloc/comparator-server
 CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME ?= trustbloc/hub-confidential-storage
 VAULT_SERVER_IMAGE_NAME				?= trustbloc/vault-server
 DID_ELEMENT_SIDETREE_REQUEST_URL    ?= https://element-did.com/api/v1/sidetree/requests
@@ -43,13 +41,6 @@ vc-rest:
 	@echo "Building vc-rest"
 	@mkdir -p ./.build/bin
 	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
-
-
-.PHONY: comparator-rest
-comparator-rest:
-	@echo "Building comparator-rest"
-	@mkdir -p ./.build/bin
-	@cd ${COMPARATOR_REST_PATH} && go build -o ../../.build/bin/comparator-rest main.go
 
 .PHONY: vault-server
 vault-server:
@@ -84,23 +75,15 @@ vc-server-docker:
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
-
-.PHONY: comparator-rest-docker
-comparator-rest-docker:
-	@echo "Building comparator rest docker image"
-	@docker build -f ./images/comparator-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(COMPARATOR_REST_IMAGE_NAME):latest \
-	--build-arg GO_VER=$(GO_VER) \
-	--build-arg ALPINE_VER=$(ALPINE_VER) .
-
 .PHONY: docker
-docker: vc-server-docker comparator-rest-docker confidential-storage-hub-docker vault-server-docker
+docker: vc-server-docker confidential-storage-hub-docker vault-server-docker
 
 .PHONY: bdd-test
 bdd-test: clean docker generate-test-keys
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean vc-server-docker comparator-rest-docker confidential-storage-hub-docker vault-server-docker generate-test-keys
+bdd-interop-test:clean vc-server-docker confidential-storage-hub-docker vault-server-docker generate-test-keys
 	@scripts/check_integration_interop.sh
 
 unit-test:
@@ -126,7 +109,7 @@ prepare-test-verifiables: clean
 	@scripts/prepare_test_verifiables.sh
 
 .PHONY: check-openapi-specs
-check-openapi-specs: generate-openapi-spec generate-openapi-spec-vault generate-openapi-spec-confidential-storage-hub generate-openapi-spec-comparator
+check-openapi-specs: generate-openapi-spec generate-openapi-spec-vault generate-openapi-spec-confidential-storage-hub
 
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean
@@ -151,23 +134,6 @@ generate-openapi-spec-confidential-storage-hub: clean
 	@SPEC_META=$(CONFIDENTIAL_STORAGE_HUB_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/confidential-storage-hub  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
-
-
-.PHONY: generate-openapi-spec-comparator
-generate-openapi-spec-comparator: clean
-	@echo "Generating and validating comparator API OpenAPI specifications"
-	@mkdir -p ${OPENAPI_SPEC_PATH}/comparator
-	@SPEC_META=$(COMPARATOR_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/comparator  \
-	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
-	scripts/generate-openapi-spec.sh
-
-
-.PHONY: generate-models-client-comparator
-generate-models-client-comparator:
-	@echo "Generating comparator models and client"
-	@MODELS_PATH=pkg/restapi/comparator/operation CLIENT_PATH=pkg/client/comparator SPEC_LOC=${COMPARATOR_REST_PATH}/docs/openapi.yaml  \
-	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
-	scripts/generate-models-client.sh
 
 
 .PHONY: generate-openapi-demo-specs
