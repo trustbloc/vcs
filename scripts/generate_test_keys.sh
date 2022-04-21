@@ -22,11 +22,9 @@ subjectAltName = @alt_names
 DNS.1 = localhost
 DNS.2 = testnet.orb.local
 DNS.3 = stakeholder.one
-DNS.4 = vault.kms.example.com
-DNS.5 = hubstore.example.com
-DNS.6 = vault.server.example.com
-DNS.7 = kms.example.com
-DNS.8 = file-server.example.com
+DNS.4 = hubstore.example.com
+DNS.5 = kms.example.com
+DNS.6 = file-server.example.com
 " >> "$tmp"
 
 #create CA

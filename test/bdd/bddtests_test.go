@@ -18,13 +18,11 @@ import (
 	"github.com/cucumber/godog"
 
 	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/chs"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/governance"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/holder"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/issuer"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/vault"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/vc"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/verifier"
 )
@@ -64,8 +62,7 @@ func runBDDTests(tags, format string) int {
 		composeFiles := []string{
 			"./fixtures/mongodb", "./fixtures/mysql", "./fixtures/vc-rest",
 			"./fixtures/did-resolver", "./fixtures/edv", "./fixtures/sidetree-mock", "./fixtures/universalresolver",
-			"./fixtures/universal-registrar", "./fixtures/confidential-storage-hub", "./fixtures/vault-server",
-			"./fixtures/kms",
+			"./fixtures/universal-registrar", "./fixtures/kms",
 		}
 
 		s.BeforeSuite(func() {
@@ -150,8 +147,4 @@ func FeatureContext(s *godog.Suite) {
 	holder.NewSteps(bddContext).RegisterSteps(s)
 
 	governance.NewSteps(bddContext).RegisterSteps(s)
-
-	vault.NewSteps(bddContext).RegisterSteps(s)
-
-	chs.NewSteps(bddContext).RegisterSteps(s)
 }
