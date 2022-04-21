@@ -13,8 +13,6 @@ declare -a tests=(
    "verifier_rest"
    "vc_rest"
    "w3c_workflow"
-   "confidential-storage-hub"
-   "vault_server"
 )
 
 TAGS=${TAGS:-all}
@@ -25,7 +23,6 @@ cd test/bdd
 echo "---
 Important: for these test to run correctly, you must ensure that your hosts file has the following entries:
 127.0.0.1 testnet.orb.local
-127.0.0.1 vault.kms.example.com
 127.0.0.1 edv.rest.example.com
 ---
 "

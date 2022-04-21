@@ -3,14 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 VC_REST_PATH=cmd/vc-rest
-VAULT_REST_PATH=cmd/vault-server
-CONFIDENTIAL_STORAGE_HUB_PATH=cmd/confidential-storage-hub
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
-CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME ?= trustbloc/hub-confidential-storage
-VAULT_SERVER_IMAGE_NAME				?= trustbloc/vault-server
 DID_ELEMENT_SIDETREE_REQUEST_URL    ?= https://element-did.com/api/v1/sidetree/requests
 
 # OpenAPI spec
@@ -42,32 +38,6 @@ vc-rest:
 	@mkdir -p ./.build/bin
 	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
 
-.PHONY: vault-server
-vault-server:
-	@echo "Building vault-server"
-	@mkdir -p ./.build/bin
-	@cd ${VAULT_REST_PATH} && go build -o ../../.build/bin/vault-server main.go
-
-.PHONY: confidential-storage-hub
-confidential-storage-hub:
-	@echo "Building confidential-storage-hub"
-	@mkdir -p .build/bin
-	@cd ${CONFIDENTIAL_STORAGE_HUB_PATH} && go build -o ../../.build/bin/confidential-storage-hub main.go
-
-.PHONY: confidential-storage-hub-docker
-confidential-storage-hub-docker:
-	@echo "Building confidential-storage-hub docker image"
-	@docker build -f ./images/confidential-storage-hub/Dockerfile --no-cache -t ${DOCKER_OUTPUT_NS}/${CONFIDENTIAL_STORAGE_HUB_IMAGE_NAME}:latest \
-		--build-arg GO_VER=${GO_VER} \
-		--build-arg ALPINE_VER=${ALPINE_VER} .
-
-.PHONY: vault-server-docker
-vault-server-docker:
-	@echo "Building vault-server docker image"
-	@docker build -f ./images/vault-server/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VAULT_SERVER_IMAGE_NAME):latest \
-	--build-arg GO_VER=$(GO_VER) \
-	--build-arg ALPINE_VER=$(ALPINE_VER) .
-
 .PHONY: vc-server-docker
 vc-server-docker:
 	@echo "Building vc rest docker image"
@@ -76,14 +46,14 @@ vc-server-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: docker
-docker: vc-server-docker confidential-storage-hub-docker vault-server-docker
+docker: vc-server-docker
 
 .PHONY: bdd-test
 bdd-test: clean docker generate-test-keys
 	@scripts/check_integration.sh
 
 .PHONY: bdd-interop-test
-bdd-interop-test:clean vc-server-docker confidential-storage-hub-docker vault-server-docker generate-test-keys
+bdd-interop-test:clean vc-server-docker generate-test-keys
 	@scripts/check_integration_interop.sh
 
 unit-test:
@@ -109,7 +79,7 @@ prepare-test-verifiables: clean
 	@scripts/prepare_test_verifiables.sh
 
 .PHONY: check-openapi-specs
-check-openapi-specs: generate-openapi-spec generate-openapi-spec-vault generate-openapi-spec-confidential-storage-hub
+check-openapi-specs: generate-openapi-spec
 
 .PHONY: generate-openapi-spec
 generate-openapi-spec: clean
@@ -118,23 +88,6 @@ generate-openapi-spec: clean
 	@SPEC_META=$(VC_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}  \
 	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
 	scripts/generate-openapi-spec.sh
-
-.PHONY: generate-openapi-spec-vault
-generate-openapi-spec-vault: clean
-	@echo "Generating and validating controller API specifications using Open API"
-	@mkdir -p ${OPENAPI_SPEC_PATH}/vault
-	@SPEC_META=$(VAULT_REST_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/vault  \
-	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
-	scripts/generate-openapi-spec.sh
-
-.PHONY: generate-openapi-spec-confidential-storage-hub
-generate-openapi-spec-confidential-storage-hub: clean
-	@echo "Generating and validating confidential-storage-hub API OpenAPI specifications"
-	@mkdir -p ${OPENAPI_SPEC_PATH}/confidential-storage-hub
-	@SPEC_META=$(CONFIDENTIAL_STORAGE_HUB_PATH) SPEC_LOC=${OPENAPI_SPEC_PATH}/confidential-storage-hub  \
-	DOCKER_IMAGE=$(OPENAPI_DOCKER_IMG) DOCKER_IMAGE_VERSION=$(OPENAPI_DOCKER_IMG_VERSION)  \
-	scripts/generate-openapi-spec.sh
-
 
 .PHONY: generate-openapi-demo-specs
 generate-openapi-demo-specs: clean generate-openapi-spec vc-server-docker
