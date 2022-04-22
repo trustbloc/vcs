@@ -484,16 +484,20 @@ func (o *Operation) validateVCStatus(vcStatus *verifiable.TypedID) error {
 		return fmt.Errorf("vc status not exist")
 	}
 
-	if vcStatus.Type != csl.RevocationList2020Status {
+	if vcStatus.Type != csl.StatusList2021Entry {
 		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
 	}
 
-	if vcStatus.CustomFields[csl.RevocationListIndex] == nil {
-		return fmt.Errorf("revocationListIndex field not exist in vc status")
+	if vcStatus.CustomFields[csl.StatusListIndex] == nil {
+		return fmt.Errorf("statusListIndex field not exist in vc status")
 	}
 
-	if vcStatus.CustomFields[csl.RevocationListCredential] == nil {
-		return fmt.Errorf("revocationListCredential field not exist in vc status")
+	if vcStatus.CustomFields[csl.StatusListCredential] == nil {
+		return fmt.Errorf("statusListCredential field not exist in vc status")
+	}
+
+	if vcStatus.CustomFields[csl.StatusPurpose] == nil {
+		return fmt.Errorf("statusPurpose field not exist in vc status")
 	}
 
 	return nil
@@ -510,12 +514,12 @@ func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (
 		return nil, err
 	}
 
-	revocationListIndex, err := strconv.Atoi(vcStatus.CustomFields[csl.RevocationListIndex].(string))
+	statusListIndex, err := strconv.Atoi(vcStatus.CustomFields[csl.StatusListIndex].(string))
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, vcStatus.CustomFields[csl.RevocationListCredential].(string), nil)
+	req, err := http.NewRequest(http.MethodGet, vcStatus.CustomFields[csl.StatusListCredential].(string), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -539,12 +543,16 @@ func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (
 		return nil, fmt.Errorf("")
 	}
 
+	if credSubject[0].CustomFields["statusPurpose"].(string) != vcStatus.CustomFields[csl.StatusPurpose].(string) {
+		return nil, fmt.Errorf("vc statusPurpose not matching statusListCredential statusPurpose")
+	}
+
 	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode bits: %w", err)
 	}
 
-	bitSet, err := bitString.Get(revocationListIndex)
+	bitSet, err := bitString.Get(statusListIndex)
 	if err != nil {
 		return nil, err
 	}

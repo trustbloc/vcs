@@ -644,7 +644,7 @@ func (e *Steps) updateCredentialStatus(credID, profileName string) error {
 	storeRequest := operation.UpdateCredentialStatusRequest{}
 
 	storeRequest.CredentialID = credID
-	storeRequest.CredentialStatus.Type = csl.RevocationList2020Status
+	storeRequest.CredentialStatus.Type = csl.StatusList2021Entry
 	storeRequest.CredentialStatus.Status = "1"
 
 	requestBytes, err := json.Marshal(storeRequest)
@@ -792,7 +792,7 @@ func (e *Steps) checkVC(vcBytes []byte, profileName string) error {
 		return err
 	}
 
-	err = checkCredentialStatusType(vcMap, csl.RevocationList2020Status)
+	err = checkCredentialStatusType(vcMap, csl.StatusList2021Entry)
 	if err != nil {
 		return err
 	}
@@ -841,7 +841,7 @@ func checkCredentialStatusType(vcMap map[string]interface{}, expected string) er
 	}
 
 	if credentialStatusType != expected {
-		return bddutil.ExpectedStringError(csl.RevocationList2020Status, credentialStatusType)
+		return bddutil.ExpectedStringError(csl.StatusList2021Entry, credentialStatusType)
 	}
 
 	return nil

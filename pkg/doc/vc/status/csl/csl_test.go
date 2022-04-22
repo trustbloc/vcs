@@ -77,13 +77,13 @@ func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index
 
 	status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 	require.NoError(t, err)
-	require.Equal(t, RevocationList2020Status, status.Type)
-	require.Equal(t, id+"#"+strconv.Itoa(index), status.ID)
+	require.Equal(t, StatusList2021Entry, status.Type)
+	require.Equal(t, "revocation", status.CustomFields[StatusPurpose].(string))
 
-	revocationListIndex, err := strconv.Atoi(status.CustomFields[RevocationListIndex].(string))
+	revocationListIndex, err := strconv.Atoi(status.CustomFields[StatusListIndex].(string))
 	require.NoError(t, err)
 	require.Equal(t, index, revocationListIndex)
-	require.Equal(t, id, status.CustomFields[RevocationListCredential].(string))
+	require.Equal(t, id, status.CustomFields[StatusListCredential].(string))
 
 	revocationListVCBytes, err := s.GetRevocationListVC(id)
 	require.NoError(t, err)
@@ -99,7 +99,8 @@ func validateVCStatus(t *testing.T, s *CredentialStatusManager, id string, index
 	credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
 	require.True(t, ok)
 	require.Equal(t, id+"#list", credSubject[0].ID)
-	require.Equal(t, revocationList2020Type, credSubject[0].CustomFields["type"].(string))
+	require.Equal(t, revocationList2021Type, credSubject[0].CustomFields["type"].(string))
+	require.Equal(t, "revocation", credSubject[0].CustomFields["statusPurpose"].(string))
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
 	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	require.NoError(t, err)
@@ -251,7 +252,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.Contains(t, err.Error(), "vc status noMatch not supported")
 	})
 
-	t.Run("test vc status revocationListIndex not exists", func(t *testing.T) {
+	t.Run("test vc status statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
@@ -263,13 +264,13 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.NoError(t, err)
 
 		cred.ID = credID
-		cred.Status = &verifiable.TypedID{Type: RevocationList2020Status}
+		cred.Status = &verifiable.TypedID{Type: StatusList2021Entry}
 		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "revocationListIndex field not exist in vc status")
+		require.Contains(t, err.Error(), "statusListIndex field not exist in vc status")
 	})
 
-	t.Run("test vc status revocationListCredential not exists", func(t *testing.T) {
+	t.Run("test vc status statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
@@ -282,14 +283,14 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = &verifiable.TypedID{
-			Type: RevocationList2020Status, CustomFields: map[string]interface{}{RevocationListIndex: "1"},
+			Type: StatusList2021Entry, CustomFields: map[string]interface{}{StatusListIndex: "1"},
 		}
 		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "revocationListCredential field not exist in vc status")
+		require.Contains(t, err.Error(), "statusListCredential field not exist in vc status")
 	})
 
-	t.Run("test vc status revocationListCredential wrong value type", func(t *testing.T) {
+	t.Run("test vc status statusListCredential wrong value type", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
@@ -301,12 +302,32 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.NoError(t, err)
 
 		cred.ID = credID
-		cred.Status = &verifiable.TypedID{Type: RevocationList2020Status, CustomFields: map[string]interface{}{
-			RevocationListIndex: "1", RevocationListCredential: 1,
+		cred.Status = &verifiable.TypedID{Type: StatusList2021Entry, CustomFields: map[string]interface{}{
+			StatusListIndex: "1", StatusListCredential: 1, StatusPurpose: "test",
 		}}
 		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to cast status revocationListCredential")
+		require.Contains(t, err.Error(), "failed to cast status statusListCredential")
+	})
+
+	t.Run("test statusPurpose not exist", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		s, err := New(ariesmockstorage.NewMockStoreProvider(), 2,
+			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
+		require.NoError(t, err)
+
+		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+
+		cred.ID = credID
+		cred.Status = &verifiable.TypedID{Type: StatusList2021Entry, CustomFields: map[string]interface{}{
+			StatusListIndex: "1", StatusListCredential: 1,
+		}}
+		err = s.UpdateVC(cred, getTestProfile(), true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "statusPurpose field not exist in vc status")
 	})
 
 	t.Run("test success", func(t *testing.T) {
@@ -327,9 +348,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		cred.Status = status
 		require.NoError(t, s.UpdateVC(cred, getTestProfile(), true))
 
-		revocationListVCBytes, err := s.GetRevocationListVC(status.CustomFields["revocationListCredential"].(string))
+		revocationListVCBytes, err := s.GetRevocationListVC(status.CustomFields[StatusListCredential].(string))
 		require.NoError(t, err)
-		revocationListIndex, err := strconv.Atoi(status.CustomFields[RevocationListIndex].(string))
+		revocationListIndex, err := strconv.Atoi(status.CustomFields[StatusListIndex].(string))
 		require.NoError(t, err)
 
 		revocationListVC, err := verifiable.ParseCredential(revocationListVCBytes, verifiable.WithDisabledProofCheck(),
@@ -357,10 +378,11 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		err = s.UpdateVC(&verifiable.Credential{
 			ID: credID,
 			Status: &verifiable.TypedID{
-				ID: "test", Type: RevocationList2020Status,
+				ID: "test", Type: StatusList2021Entry,
 				CustomFields: map[string]interface{}{
-					RevocationListCredential: "test",
-					RevocationListIndex:      "1",
+					StatusListCredential: "test",
+					StatusListIndex:      "1",
+					StatusPurpose:        "test",
 				},
 			},
 		}, getTestProfile(), true)

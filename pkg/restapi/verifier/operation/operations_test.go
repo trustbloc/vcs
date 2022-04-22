@@ -384,11 +384,12 @@ func TestVerifyCredential(t *testing.T) {
 		}}
 
 		vc.Status = &verifiable.TypedID{
-			ID:   "http://example.com/status/100#1",
-			Type: cslstatus.RevocationList2020Status,
+			ID:   uuid.New().URN(),
+			Type: cslstatus.StatusList2021Entry,
 			CustomFields: map[string]interface{}{
-				cslstatus.RevocationListIndex:      "1",
-				cslstatus.RevocationListCredential: "http://example.com/status/100",
+				cslstatus.StatusListIndex:      "1",
+				cslstatus.StatusListCredential: "http://example.com/status/100",
+				cslstatus.StatusPurpose:        "revocation",
 			},
 		}
 
@@ -446,11 +447,12 @@ func TestVerifyCredential(t *testing.T) {
 		}}
 
 		vc.Status = &verifiable.TypedID{
-			ID:   "http://example.com/status/100#1",
-			Type: cslstatus.RevocationList2020Status,
+			ID:   uuid.New().URN(),
+			Type: cslstatus.StatusList2021Entry,
 			CustomFields: map[string]interface{}{
-				cslstatus.RevocationListIndex:      "1",
-				cslstatus.RevocationListCredential: "http://example.com/status/100",
+				cslstatus.StatusListIndex:      "1",
+				cslstatus.StatusListCredential: "http://example.com/status/100",
+				cslstatus.StatusPurpose:        "revocation",
 			},
 		}
 
@@ -603,8 +605,9 @@ func TestVerifyCredential(t *testing.T) {
 				ID:   "http://example.com/status/100#1",
 				Type: "NotMatch",
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListIndex:      "1",
-					cslstatus.RevocationListCredential: "http://example.com/status/100",
+					cslstatus.StatusListIndex:      "1",
+					cslstatus.StatusListCredential: "http://example.com/status/100",
+					cslstatus.StatusPurpose:        "revocation",
 				},
 			}
 
@@ -633,12 +636,12 @@ func TestVerifyCredential(t *testing.T) {
 			require.Contains(t, verificationResp.Checks[0].Error, "vc status NotMatch not supported")
 		})
 
-		t.Run("status check failure - revocationListIndex not exist", func(t *testing.T) {
+		t.Run("status check failure - statusListIndex not exist", func(t *testing.T) {
 			vc.Status = &verifiable.TypedID{
-				ID:   "http://example.com/status/100#1",
-				Type: cslstatus.RevocationList2020Status,
+				ID:   uuid.New().URN(),
+				Type: cslstatus.StatusList2021Entry,
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListCredential: "http://example.com/status/100",
+					cslstatus.StatusListCredential: "http://example.com/status/100",
 				},
 			}
 
@@ -664,15 +667,15 @@ func TestVerifyCredential(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(verificationResp.Checks))
 			require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
-			require.Contains(t, verificationResp.Checks[0].Error, "revocationListIndex field not exist in vc status")
+			require.Contains(t, verificationResp.Checks[0].Error, "statusListIndex field not exist in vc status")
 		})
 
-		t.Run("status check failure - revocationListCredential not exist", func(t *testing.T) {
+		t.Run("status check failure - statusListCredential not exist", func(t *testing.T) {
 			vc.Status = &verifiable.TypedID{
-				ID:   "http://example.com/status/100#1",
-				Type: cslstatus.RevocationList2020Status,
+				ID:   uuid.New().URN(),
+				Type: cslstatus.StatusList2021Entry,
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListIndex: "1",
+					cslstatus.StatusListIndex: "1",
 				},
 			}
 
@@ -698,16 +701,16 @@ func TestVerifyCredential(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(verificationResp.Checks))
 			require.Equal(t, statusCheck, verificationResp.Checks[0].Check)
-			require.Contains(t, verificationResp.Checks[0].Error, "revocationListCredential field not exist in vc status")
+			require.Contains(t, verificationResp.Checks[0].Error, "statusListCredential field not exist in vc status")
 		})
 
 		t.Run("status check failure - error fetching status", func(t *testing.T) {
 			vc.Status = &verifiable.TypedID{
-				ID:   "http://example.com/status/100#1",
-				Type: cslstatus.RevocationList2020Status,
+				ID:   uuid.New().URN(),
+				Type: cslstatus.StatusList2021Entry,
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListIndex:      "1",
-					cslstatus.RevocationListCredential: "http://example.com/status/100",
+					cslstatus.StatusListIndex:      "1",
+					cslstatus.StatusListCredential: "http://example.com/status/100",
 				},
 			}
 
@@ -753,11 +756,12 @@ func TestVerifyCredential(t *testing.T) {
 			}}
 
 			vc.Status = &verifiable.TypedID{
-				ID:   "http://example.com/status/100#1",
-				Type: cslstatus.RevocationList2020Status,
+				ID:   uuid.New().URN(),
+				Type: cslstatus.StatusList2021Entry,
 				CustomFields: map[string]interface{}{
-					cslstatus.RevocationListIndex:      "1",
-					cslstatus.RevocationListCredential: "http://example.com/status/100",
+					cslstatus.StatusListIndex:      "1",
+					cslstatus.StatusListCredential: "http://example.com/status/100",
+					cslstatus.StatusPurpose:        "revocation",
 				},
 			}
 
@@ -929,11 +933,12 @@ func TestVerifyCredential(t *testing.T) {
 		}}
 
 		vc.Status = &verifiable.TypedID{
-			ID:   "http://example.com/status/100#94567",
-			Type: cslstatus.RevocationList2020Status,
+			ID:   uuid.New().URN(),
+			Type: cslstatus.StatusList2021Entry,
 			CustomFields: map[string]interface{}{
-				cslstatus.RevocationListIndex:      "94567",
-				cslstatus.RevocationListCredential: "http://example.com/status/100",
+				cslstatus.StatusListIndex:      "94567",
+				cslstatus.StatusListCredential: "http://example.com/status/100",
+				cslstatus.StatusPurpose:        "revocation",
 			},
 		}
 
@@ -1798,7 +1803,7 @@ const (
 	  "@context": [
 		"https://www.w3.org/2018/credentials/v1",
 		"https://w3id.org/citizenship/v1",
-        "https://w3id.org/vc-revocation-list-2020/v1"
+        "https://w3id.org/vc/status-list/2021/v1"
 	  ],
 	  "id": "https://issuer.oidp.uscis.gov/credentials/83627465",
 	  "type": [
@@ -1811,10 +1816,11 @@ const (
 	  "issuanceDate": "2019-12-03T12:19:52Z",
 	  "expirationDate": "2029-12-03T12:19:52Z",
 	   "credentialStatus": {
-          "id": "https://dmv.example.gov/credentials/status/3#94567",
-          "type": "RevocationList2020Status",
-          "revocationListIndex": "1",
-          "revocationListCredential": "https://example.com/credentials/status/3"
+          "id": "https://example.com",
+          "type": "StatusList2021Entry",
+          "statusPurpose": "revocation",
+          "statusListIndex": "1",
+          "statusListCredential": "https://example.com/credentials/status/3"
        },
 	  "credentialSubject": {
 		"id": "did:example:b34ca6cd37bbf23",
@@ -1843,15 +1849,16 @@ const (
 	validVCWithProof = `{	
 	   "@context":[	
 		  "https://www.w3.org/2018/credentials/v1",
-          "https://w3id.org/vc-revocation-list-2020/v1"
+          "https://w3id.org/vc/status-list/2021/v1"
 	   ],	
 	   "credentialSchema":[	
 	   ],	
 	   "credentialStatus": {
-          "id": "https://dmv.example.gov/credentials/status/3#94567",
-          "type": "RevocationList2020Status",
-          "revocationListIndex": "94567",
-          "revocationListCredential": "https://example.com/credentials/status/3"
+          "id": "https://example.com",
+          "type": "StatusList2021Entry",
+          "statusPurpose": "revocation",
+          "statusListIndex": "94567",
+          "statusListCredential": "https://example.com/credentials/status/3"
        },	
 	   "credentialSubject":{	
 		  "id":"did:example:ebfeb1f712ebc6f1c276e12ec21"	
@@ -1876,7 +1883,7 @@ const (
 	revocationListVC = `{
   "@context": [
     "https://www.w3.org/2018/credentials/v1",
-    "https://w3id.org/vc-revocation-list-2020/v1"
+    "https://w3id.org/vc/status-list/2021/v1"
   ],
   "id": "https://example.com/credentials/status/3",
   "type": ["VerifiableCredential", "RevocationList2020Credential"],
@@ -1884,7 +1891,8 @@ const (
   "issuanceDate": "2020-04-05T14:27:40Z",
   "credentialSubject": {
     "id": "https://example.com/status/3#list",
-    "type": "RevocationList2020",
+    "type": "StatusList2021",
+    "statusPurpose": "revocation",
     "encodedList": "%s"
   		}
 	}`
@@ -1893,7 +1901,7 @@ const (
 		"@context": [	
 			"https://www.w3.org/2018/credentials/v1",	
 			"https://www.w3.org/2018/credentials/examples/v1",
-            "https://w3id.org/vc-revocation-list-2020/v1"
+            "https://w3id.org/vc/status-list/2021/v1"
 		],	
 		"id": "urn:uuid:3978344f-8596-4c3a-a978-8fcaba3903c5",	
 		"type": "VerifiablePresentation",	
@@ -1913,10 +1921,11 @@ const (
 			},	
 			"issuanceDate": "2010-01-01T19:23:24Z",	
 			"credentialStatus": {
-          	  "id": "https://dmv.example.gov/credentials/status/3#94567",
-          	  "type": "RevocationList2020Status",
-              "revocationListIndex": "94567",
-              "revocationListCredential": "https://example.com/credentials/status/3"
+              "id": "https://example.com",
+              "type": "StatusList2021Entry",
+          	  "statusPurpose": "revocation",
+              "statusListIndex": "94567",
+              "statusListCredential": "https://example.com/credentials/status/3"
             }	
 		}],	
 		"holder": "did:example:ebfeb1f712ebc6f1c276e12ec21",	

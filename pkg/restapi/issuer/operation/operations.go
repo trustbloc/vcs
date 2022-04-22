@@ -299,7 +299,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	if data.CredentialStatus.Type != cslstatus.RevocationList2020Status {
+	if data.CredentialStatus.Type != cslstatus.StatusList2021Entry {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("credential status %s not supported", data.CredentialStatus.Type))
 
@@ -1198,7 +1198,7 @@ func validateIssueCredOptions(options *IssueCredentialOptions) error {
 			if len(idSplit) != splitAssertionMethodLength {
 				return fmt.Errorf("invalid assertion method : %s", idSplit)
 			}
-		case options.CredentialStatus.Type != "" && options.CredentialStatus.Type != cslstatus.RevocationList2020Status:
+		case options.CredentialStatus.Type != "" && options.CredentialStatus.Type != cslstatus.StatusList2021Entry:
 			return fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type)
 		}
 	}
