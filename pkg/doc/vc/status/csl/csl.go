@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
@@ -27,22 +28,25 @@ const (
 	vcContext                  = "https://www.w3.org/2018/credentials/v1"
 	jsonWebSignature2020Ctx    = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 	bbsBlsSignature2020Context = "https://w3id.org/security/bbs/v1"
-	// Context for Revocation List 2020
-	Context = "https://w3id.org/vc-revocation-list-2020/v1"
+	// Context for Revocation List 2021
+	Context = "https://w3id.org/vc/status-list/2021/v1"
 	// CredentialStatusType credential status type
 	credentialStatusStore = "credentialstatus"
 	latestListID          = "latestListID"
 	defaultRepresentation = "jws"
 
 	vcType                   = "VerifiableCredential"
-	revocationList2020VCType = "RevocationList2020Credential"
-	revocationList2020Type   = "RevocationList2020"
-	// RevocationList2020Status for RevocationList2020 Status
-	RevocationList2020Status = "RevocationList2020Status"
-	// RevocationListIndex for RevocationList2020 index
-	RevocationListIndex = "revocationListIndex"
-	// RevocationListCredential for RevocationList2020 credential
-	RevocationListCredential = "revocationListCredential"
+	revocationList2021VCType = "StatusList2021Credential"
+	revocationList2021Type   = "StatusList2021"
+
+	// StatusListIndex for RevocationList2021
+	StatusListIndex = "statusListIndex"
+	// StatusListCredential for RevocationList2021
+	StatusListCredential = "statusListCredential"
+	// StatusPurpose for RevocationList2021
+	StatusPurpose = "statusPurpose"
+	// StatusList2021Entry for RevocationList2021
+	StatusList2021Entry = "StatusList2021Entry"
 
 	// proof json keys
 	jsonKeyProofValue         = "proofValue"
@@ -76,9 +80,10 @@ type cslWrapper struct {
 }
 
 type credentialSubject struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	EncodedList string `json:"encodedList"`
+	ID            string `json:"id"`
+	Type          string `json:"type"`
+	StatusPurpose string `json:"statusPurpose"`
+	EncodedList   string `json:"encodedList"`
 }
 
 // New returns new Credential Status List
@@ -123,10 +128,11 @@ func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
 	}
 
 	return &verifiable.TypedID{
-		ID:   cslWrapper.VC.ID + "#" + revocationListIndex,
-		Type: RevocationList2020Status, CustomFields: verifiable.CustomFields{
-			RevocationListIndex:      revocationListIndex,
-			RevocationListCredential: cslWrapper.VC.ID,
+		ID:   uuid.New().URN(),
+		Type: StatusList2021Entry, CustomFields: verifiable.CustomFields{
+			StatusPurpose:        "revocation",
+			StatusListIndex:      revocationListIndex,
+			StatusListCredential: cslWrapper.VC.ID,
 		},
 	}, nil
 }
@@ -140,9 +146,9 @@ func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
 		return err
 	}
 
-	revocationListCredential, ok := v.Status.CustomFields[RevocationListCredential].(string)
+	revocationListCredential, ok := v.Status.CustomFields[StatusListCredential].(string)
 	if !ok {
-		return fmt.Errorf("failed to cast status revocationListCredential")
+		return fmt.Errorf("failed to cast status statusListCredential")
 	}
 
 	cslWrapper, err := c.getCSLWrapper(revocationListCredential)
@@ -165,7 +171,7 @@ func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
 		return err
 	}
 
-	revocationListIndex, err := strconv.Atoi(v.Status.CustomFields[RevocationListIndex].(string))
+	revocationListIndex, err := strconv.Atoi(v.Status.CustomFields[StatusListIndex].(string))
 	if err != nil {
 		return err
 	}
@@ -202,16 +208,20 @@ func (c *CredentialStatusManager) validateVCStatus(vcStatus *verifiable.TypedID)
 		return fmt.Errorf("vc status not exist")
 	}
 
-	if vcStatus.Type != RevocationList2020Status {
+	if vcStatus.Type != StatusList2021Entry {
 		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
 	}
 
-	if vcStatus.CustomFields[RevocationListIndex] == nil {
-		return fmt.Errorf("revocationListIndex field not exist in vc status")
+	if vcStatus.CustomFields[StatusListIndex] == nil {
+		return fmt.Errorf("statusListIndex field not exist in vc status")
 	}
 
-	if vcStatus.CustomFields[RevocationListCredential] == nil {
-		return fmt.Errorf("revocationListCredential field not exist in vc status")
+	if vcStatus.CustomFields[StatusListCredential] == nil {
+		return fmt.Errorf("statusListCredential field not exist in vc status")
+	}
+
+	if vcStatus.CustomFields[StatusPurpose] == nil {
+		return fmt.Errorf("statusPurpose field not exist in vc status")
 	}
 
 	return nil
@@ -312,7 +322,7 @@ func (c *CredentialStatusManager) createVC(vcID string,
 	}
 
 	credential.ID = vcID
-	credential.Types = []string{vcType, revocationList2020VCType}
+	credential.Types = []string{vcType, revocationList2021VCType}
 	credential.Issuer = verifiable.Issuer{ID: profile.DID}
 	credential.Issued = util.NewTime(time.Now().UTC())
 
@@ -328,8 +338,10 @@ func (c *CredentialStatusManager) createVC(vcID string,
 	}
 
 	credential.Subject = &credentialSubject{
-		ID: credential.ID + "#list", Type: revocationList2020Type,
-		EncodedList: encodeBits,
+		ID:            credential.ID + "#list",
+		Type:          revocationList2021Type,
+		StatusPurpose: "revocation",
+		EncodedList:   encodeBits,
 	}
 
 	signOpts, err := prepareSigningOpts(profile, credential.Proofs)

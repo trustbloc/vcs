@@ -87,7 +87,7 @@ func (e *Steps) verifyCredential(signedVCByte []byte, signatureType, purpose str
 		return err
 	}
 
-	err = checkCredentialStatusType(signedVCResp, csl.RevocationList2020Status)
+	err = checkCredentialStatusType(signedVCResp, csl.StatusList2021Entry)
 	if err != nil {
 		return err
 	}
@@ -242,7 +242,7 @@ func checkCredentialStatusType(vcMap map[string]interface{}, expected string) er
 	}
 
 	if credentialStatusType != expected {
-		return bddutil.ExpectedStringError(csl.RevocationList2020Status, credentialStatusType)
+		return bddutil.ExpectedStringError(csl.StatusList2021Entry, credentialStatusType)
 	}
 
 	return nil

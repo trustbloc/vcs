@@ -127,10 +127,11 @@ const (
 	  },
 	  "issuanceDate": "2010-01-01T19:23:24Z",
 	  "credentialStatus": {
-          "id": "https://example.gov/status/24#94567",
-          "type": "RevocationList2020Status",
-          "revocationListIndex": "94567",
-          "revocationListCredential": "https://example.gov/status/24"
+            "id": "https://example.com",
+            "type": "StatusList2021Entry",
+    		"statusPurpose": "revocation",
+    		"statusListIndex": "94567",
+    		"statusListCredential": "https://example.com/credentials/status/3"
       }
 	}`
 
@@ -284,7 +285,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 
 		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
 			CredentialStatus: CredentialStatus{
-				Type:   cslstatus.RevocationList2020Status,
+				Type:   cslstatus.StatusList2021Entry,
 				Status: "1",
 			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -308,7 +309,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 
 		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
 			CredentialStatus: CredentialStatus{
-				Type:   cslstatus.RevocationList2020Status,
+				Type:   cslstatus.StatusListCredential,
 				Status: "1",
 			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -345,7 +346,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 
 		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
 			CredentialStatus: CredentialStatus{
-				Type:   cslstatus.RevocationList2020Status,
+				Type:   cslstatus.StatusList2021Entry,
 				Status: "1",
 			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -383,7 +384,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 
 		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
 			CredentialStatus: CredentialStatus{
-				Type:   cslstatus.RevocationList2020Status,
+				Type:   cslstatus.StatusList2021Entry,
 				Status: "1",
 			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -428,7 +429,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 
 		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
 			CredentialStatus: CredentialStatus{
-				Type:   cslstatus.RevocationList2020Status,
+				Type:   cslstatus.StatusList2021Entry,
 				Status: "1",
 			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -452,7 +453,7 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 
 		ucsReq := UpdateCredentialStatusRequest{CredentialID: "http://example.edu/credentials/1872",
 			CredentialStatus: CredentialStatus{
-				Type:   cslstatus.RevocationList2020Status,
+				Type:   cslstatus.StatusList2021Entry,
 				Status: "wrong",
 			}}
 		ucsReqBytes, err := json.Marshal(ucsReq)
@@ -1746,7 +1747,7 @@ func TestIssueCredential(t *testing.T) {
 				Challenge:          challenge,
 				Domain:             domain,
 				CredentialStatus: CredentialStatusOpt{
-					Type: cslstatus.RevocationList2020Status,
+					Type: cslstatus.StatusList2021Entry,
 				},
 			},
 		}
@@ -2268,9 +2269,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 		op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{
 			ID:   uuid.New().URN(),
-			Type: "RevocationList2020Status", CustomFields: verifiable.CustomFields{
-				"revocationListIndex":      "94567",
-				"revocationListCredential": "https://example.com/credentials/status/3",
+			Type: "StatusList2021Entry", CustomFields: verifiable.CustomFields{
+				"statusListIndex":      "94567",
+				"statusPurpose":        "revocation",
+				"statusListCredential": "https://example.com/credentials/status/3",
 			},
 		}}
 
