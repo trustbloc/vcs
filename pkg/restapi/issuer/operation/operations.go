@@ -743,8 +743,11 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	// validate the VC (ignore the proof)
+	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
+
+	// validate the VC (ignore the proof and issuanceDate)
 	credential, err := verifiable.ParseCredential(cred.Credential, verifiable.WithDisabledProofCheck(),
+		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("failed to validate credential: %s", err.Error()))

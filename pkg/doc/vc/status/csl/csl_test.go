@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
@@ -642,7 +643,7 @@ func createDIDDoc(didID string) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: "https://agent.example.com/",
+		ServiceEndpoint: model.Endpoint{URI: "https://agent.example.com/"},
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}

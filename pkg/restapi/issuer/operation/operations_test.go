@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	ariesmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	cryptoapi "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -126,6 +127,26 @@ const (
 		"name": "Example University"
 	  },
 	  "issuanceDate": "2010-01-01T19:23:24Z",
+	  "credentialStatus": {
+            "id": "https://example.com",
+            "type": "StatusList2021Entry",
+    		"statusPurpose": "revocation",
+    		"statusListIndex": "94567",
+    		"statusListCredential": "https://example.com/credentials/status/3"
+      }
+	}`
+
+	validVCWithoutIssuanceDate = `{` +
+		validContext + `,
+	  "id": "http://example.edu/credentials/1872",
+	  "type": "VerifiableCredential",
+	  "credentialSubject": {
+		"id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+	  },
+	  "issuer": {
+		"id": "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		"name": "Example University"
+	  },	  
 	  "credentialStatus": {
             "id": "https://example.com",
             "type": "StatusList2021Entry",
@@ -1878,6 +1899,75 @@ func TestIssueCredential(t *testing.T) {
 		require.Equal(t, assertionMethod, proof["proofPurpose"])
 	})
 
+	t.Run("issue credential without issuanceDate - success", func(t *testing.T) {
+		ops, err := New(&Config{
+			StoreProvider:      ariesmemstorage.NewProvider(),
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
+			KeyManager:         customKMS,
+			VDRI: &vdrmock.MockVDRegistry{
+				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
+					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
+				},
+			},
+			Crypto:         customCrypto,
+			DocumentLoader: loader,
+		})
+		require.NoError(t, err)
+
+		ops.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
+
+		profile.SignatureRepresentation = verifiable.SignatureJWS
+		profile.SignatureType = vccrypto.JSONWebSignature2020
+
+		err = ops.profileStore.SaveProfile(profile)
+		require.NoError(t, err)
+
+		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
+
+		const createdTime = "2011-04-16T18:11:09-04:00"
+		ct, err := time.Parse(time.RFC3339, createdTime)
+		require.NoError(t, err)
+
+		req := &IssueCredentialRequest{
+			Credential: []byte(validVCWithoutIssuanceDate),
+			Opts: &IssueCredentialOptions{
+				AssertionMethod:    "did:local:abc#" + keyID,
+				VerificationMethod: "did:local:abc#" + keyID,
+				Created:            &ct,
+				Challenge:          challenge,
+				Domain:             domain,
+				CredentialStatus: CredentialStatusOpt{
+					Type: cslstatus.StatusList2021Entry,
+				},
+			},
+		}
+
+		reqBytes, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		rr := serveHTTPMux(t, issueCredentialHandler, endpoint, reqBytes, urlVars)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+
+		signedVCResp := make(map[string]interface{})
+		err = json.Unmarshal(rr.Body.Bytes(), &signedVCResp)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedVCResp["proof"])
+
+		proof, ok := signedVCResp["proof"].(map[string]interface{})
+		require.True(t, ok)
+		require.Equal(t, cslstatus.Context, signedVCResp["@context"].([]interface{})[1])
+		require.Equal(t, "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+			signedVCResp["@context"].([]interface{})[2])
+		require.Equal(t, vccrypto.JSONWebSignature2020, proof["type"])
+		require.NotEmpty(t, proof["jws"])
+		require.Equal(t, "did:local:abc#"+keyID, proof["verificationMethod"])
+		require.Equal(t, "assertionMethod", proof["proofPurpose"])
+		require.Equal(t, createdTime, proof["created"])
+		require.Equal(t, challenge, proof[challenge])
+		require.Equal(t, domain, proof[domain])
+	})
+
 	t.Run("issue credential with opts - invalid proof purpose", func(t *testing.T) {
 		customPurpose := "customPurpose"
 
@@ -2845,7 +2935,7 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: "https://agent.example.com/",
+		ServiceEndpoint: ariesmodel.Endpoint{URI: "https://agent.example.com/"},
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
@@ -2883,7 +2973,7 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: "https://agent.example.com/",
+		ServiceEndpoint: ariesmodel.Endpoint{URI: "https://agent.example.com/"},
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
