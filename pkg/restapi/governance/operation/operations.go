@@ -194,8 +194,7 @@ func (o *Operation) createGovernanceProfileHandler(rw http.ResponseWriter, req *
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, profile)
+	commhttp.WriteResponse(rw, http.StatusCreated, profile)
 }
 
 // IssueCredential swagger:route POST /{id}/issueCredential governance issueGovernanceCredentialReq
@@ -261,8 +260,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// response
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, signedVC)
+	commhttp.WriteResponse(rw, http.StatusCreated, signedVC)
 }
 
 func (o *Operation) createGovernanceProfile(pr *GovernanceProfileRequest) (*vcprofile.GovernanceProfile, error) {

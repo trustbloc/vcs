@@ -165,8 +165,7 @@ func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, profile)
+	commhttp.WriteResponse(rw, http.StatusCreated, profile)
 }
 
 // RetrieveHolderProfile swagger:route GET /holder/profile/{id} holder retrieveHolderProfileReq
@@ -188,7 +187,7 @@ func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	commhttp.WriteResponse(rw, profile)
+	commhttp.WriteResponse(rw, http.StatusOK, profile)
 }
 
 // DeleteHolderProfile swagger:route DELETE /holder/profile/{id} holder deleteHolderProfileReq
@@ -207,6 +206,8 @@ func (o *Operation) deleteHolderProfileHandler(rw http.ResponseWriter, req *http
 
 		return
 	}
+
+	commhttp.WriteResponse(rw, http.StatusOK, nil)
 }
 
 // SignPresentation swagger:route POST /{id}/prove/presentations holder signPresentationReq
@@ -258,8 +259,7 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, signedVP)
+	commhttp.WriteResponse(rw, http.StatusCreated, signedVP)
 }
 
 // DeriveCredentials swagger:route POST /{id}/credentials/derive holder deriveCredentialReq
@@ -269,7 +269,7 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 // Responses:
 //    default: genericError
 //        201: deriveCredentialRes
-func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.Request) { //nolint:funlen
+func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the request
 	deriveReq := DeriveCredentialRequest{}
 
@@ -327,8 +327,7 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, DeriveCredentialResponse{
+	commhttp.WriteResponse(rw, http.StatusCreated, DeriveCredentialResponse{
 		VerifiableCredential: vcBytes,
 	})
 }

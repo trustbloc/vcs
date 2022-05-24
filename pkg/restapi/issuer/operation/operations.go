@@ -399,8 +399,7 @@ func (o *Operation) createIssuerProfileHandler(rw http.ResponseWriter, req *http
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, profile)
+	commhttp.WriteResponse(rw, http.StatusCreated, profile)
 }
 
 // RetrieveIssuerProfile swagger:route GET /profile/{id} issuer retrieveProfileReq
@@ -426,7 +425,7 @@ func (o *Operation) getIssuerProfileHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	commhttp.WriteResponse(rw, profileResponseJSON)
+	commhttp.WriteResponse(rw, http.StatusOK, profileResponseJSON)
 }
 
 // DeleteIssuerProfile swagger:route DELETE /profile/{id} issuer deleteIssuerProfileReq
@@ -447,6 +446,8 @@ func (o *Operation) deleteIssuerProfileHandler(rw http.ResponseWriter, req *http
 
 		return
 	}
+
+	commhttp.WriteResponse(rw, http.StatusOK, nil)
 }
 
 // StoreVerifiableCredential swagger:route POST /store issuer storeCredentialReq
@@ -482,6 +483,8 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	o.storeVC(data, vc, rw)
+
+	commhttp.WriteResponse(rw, http.StatusOK, nil)
 }
 
 // ToDo: data.Credential and vc seem to contain the same data... do they both need to be passed in?
@@ -521,6 +524,8 @@ func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw 
 
 		return
 	}
+
+	commhttp.WriteResponse(rw, http.StatusOK, nil)
 }
 
 func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
@@ -614,13 +619,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		return
 	}
 
-	_, err = rw.Write(retrievedVC)
-	if err != nil {
-		logger.Errorf("Failed to write response for document retrieval success: %s",
-			err.Error())
-
-		return
-	}
+	commhttp.WriteResponseBytes(rw, http.StatusOK, retrievedVC)
 }
 
 func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.IssuerProfile, error) {
@@ -784,8 +783,7 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, signedVC)
+	commhttp.WriteResponse(rw, http.StatusCreated, signedVC)
 }
 
 //nolint:funlen
@@ -864,8 +862,7 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	}
 
 	// response
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, signedVC)
+	commhttp.WriteResponse(rw, http.StatusCreated, signedVC)
 }
 
 // nolint: funlen
@@ -1015,8 +1012,7 @@ func (o *Operation) generateKeypairHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	rw.WriteHeader(http.StatusOK)
-	commhttp.WriteResponse(rw, &GenerateKeyPairResponse{
+	commhttp.WriteResponse(rw, http.StatusOK, &GenerateKeyPairResponse{
 		PublicKey: base58.Encode(signKey),
 		KeyID:     keyID,
 	})

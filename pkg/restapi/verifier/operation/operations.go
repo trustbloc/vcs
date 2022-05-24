@@ -166,8 +166,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	rw.WriteHeader(http.StatusCreated)
-	commhttp.WriteResponse(rw, request)
+	commhttp.WriteResponse(rw, http.StatusCreated, request)
 }
 
 // RetrieveProfile swagger:route GET /verifier/profile/{id} verifier getProfileReq
@@ -187,7 +186,7 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	commhttp.WriteResponse(rw, profile)
+	commhttp.WriteResponse(rw, http.StatusOK, profile)
 }
 
 // DeleteVerifierProfile swagger:route DELETE /verifier/profile/{id} verifier deleteProfileReq
@@ -286,13 +285,11 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	}
 
 	if len(result) == 0 {
-		rw.WriteHeader(http.StatusOK)
-		commhttp.WriteResponse(rw, &CredentialsVerificationSuccessResponse{
+		commhttp.WriteResponse(rw, http.StatusOK, &CredentialsVerificationSuccessResponse{
 			Checks: checks,
 		})
 	} else {
-		rw.WriteHeader(http.StatusBadRequest)
-		commhttp.WriteResponse(rw, &CredentialsVerificationFailResponse{
+		commhttp.WriteResponse(rw, http.StatusBadRequest, &CredentialsVerificationFailResponse{
 			Checks: result,
 		})
 	}
@@ -306,7 +303,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 //    default: genericError
 //        200: verifyPresentationSuccessResp
 //        400: verifyPresentationFailureResp
-func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) { //nolint: funlen
+func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the profile
 	profileID := mux.Vars(req)[profileIDPathParam]
 
@@ -359,13 +356,11 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 	}
 
 	if len(result) == 0 {
-		rw.WriteHeader(http.StatusOK)
-		commhttp.WriteResponse(rw, &VerifyPresentationSuccessResponse{
+		commhttp.WriteResponse(rw, http.StatusOK, &VerifyPresentationSuccessResponse{
 			Checks: checks,
 		})
 	} else {
-		rw.WriteHeader(http.StatusBadRequest)
-		commhttp.WriteResponse(rw, &VerifyPresentationFailureResponse{
+		commhttp.WriteResponse(rw, http.StatusBadRequest, &VerifyPresentationFailureResponse{
 			Checks: result,
 		})
 	}
