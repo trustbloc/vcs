@@ -22,6 +22,7 @@ import (
 
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	ariesmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -479,7 +480,7 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: "https://agent.example.com/",
+		ServiceEndpoint: ariesmodel.Endpoint{URI: "https://agent.example.com/"},
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
