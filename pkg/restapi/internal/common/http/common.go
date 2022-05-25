@@ -8,7 +8,6 @@ package http
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/trustbloc/edge-core/pkg/log"
@@ -23,6 +22,8 @@ type ErrorResponse struct {
 
 // WriteErrorResponse write error resp
 func WriteErrorResponse(rw http.ResponseWriter, status int, msg string) {
+	rw.Header().Add("Content-Type", "application/json")
+
 	rw.WriteHeader(status)
 
 	err := json.NewEncoder(rw).Encode(ErrorResponse{
@@ -35,9 +36,31 @@ func WriteErrorResponse(rw http.ResponseWriter, status int, msg string) {
 }
 
 // WriteResponse writes interface value to response
-func WriteResponse(rw io.Writer, v interface{}) {
-	err := json.NewEncoder(rw).Encode(v)
-	if err != nil {
-		logger.Errorf("Unable to send error response, %s", err)
+func WriteResponse(rw http.ResponseWriter, statusCode int, v interface{}) {
+	if v != nil {
+		rw.Header().Add("Content-Type", "application/json")
+	}
+
+	rw.WriteHeader(statusCode)
+
+	if v != nil {
+		err := json.NewEncoder(rw).Encode(v)
+		if err != nil {
+			logger.Errorf("Unable to send response, %s", err)
+		}
+	}
+}
+
+// WriteResponseBytes writes data bytes to response
+func WriteResponseBytes(rw http.ResponseWriter, statusCode int, data []byte) {
+	rw.Header().Add("Content-Type", "application/json")
+
+	rw.WriteHeader(statusCode)
+
+	if data != nil {
+		_, err := rw.Write(data)
+		if err != nil {
+			logger.Errorf("Unable to send response, %s", err)
+		}
 	}
 }

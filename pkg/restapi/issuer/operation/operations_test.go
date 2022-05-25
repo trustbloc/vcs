@@ -1487,7 +1487,7 @@ func TestRetrieveVCHandler(t *testing.T) {
 		rw := mockResponseWriter{}
 		retrieveVCHandler.Handle().ServeHTTP(rw, req)
 		require.Contains(t, mockLoggerProvider.MockLogger.AllLogContents,
-			"Failed to write response for document retrieval success: response writer failed")
+			"response writer failed")
 	})
 	t.Run("fail to compute MAC when querying vault", func(t *testing.T) {
 		op, err := New(&Config{
@@ -3030,10 +3030,15 @@ func prepareEncryptedDocument(t *testing.T, op *Operation, structuredDoc string)
 }
 
 type mockResponseWriter struct {
+	headers http.Header
 }
 
 func (b mockResponseWriter) Header() http.Header {
-	panic("implement me")
+	if b.headers == nil {
+		b.headers = http.Header{}
+	}
+
+	return b.headers
 }
 
 func (b mockResponseWriter) Write([]byte) (int, error) {

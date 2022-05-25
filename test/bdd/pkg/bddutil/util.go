@@ -89,7 +89,16 @@ func HTTPDo(method, url, contentType, token string, body io.Reader) (*http.Respo
 		req.Header.Add("Authorization", "Bearer "+token)
 	}
 
-	return http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if respContentType := resp.Header.Get("Content-Type"); respContentType != "application/json" && respContentType != "" {
+		return nil, fmt.Errorf("expected content type is application/json, but got :%s", respContentType)
+	}
+
+	return resp, nil
 }
 
 // HTTPSDo send https request

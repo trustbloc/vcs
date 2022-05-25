@@ -6,16 +6,12 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
-	"github.com/trustbloc/edge-core/pkg/log"
-
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
+	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 )
-
-var logger = log.New("healthcheck")
 
 // API endpoints.
 const (
@@ -44,13 +40,10 @@ func (o *Operation) GetRESTHandlers() []support.Handler {
 }
 
 func (o *Operation) healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
-	rw.WriteHeader(http.StatusOK)
-
-	err := json.NewEncoder(rw).Encode(&healthCheckResp{
+	resp := &healthCheckResp{
 		Status:      "success",
 		CurrentTime: time.Now(),
-	})
-	if err != nil {
-		logger.Errorf("healthcheck response failure, %s", err)
 	}
+
+	commhttp.WriteResponse(rw, http.StatusOK, resp)
 }
