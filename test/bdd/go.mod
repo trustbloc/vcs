@@ -13,7 +13,7 @@ require (
 	github.com/cucumber/godog v0.9.0
 	github.com/fsouza/go-dockerclient v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220516154446-0ba34929e05b
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220524181534-2d8ae9d24ae0
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc.1
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220330140627-07042d78580c
 	github.com/tidwall/gjson v1.9.3
