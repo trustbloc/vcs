@@ -7,7 +7,7 @@ module github.com/trustbloc/edge-service/cmd/vc-rest
 require (
 	github.com/google/tink/go v1.6.1
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220516154446-0ba34929e05b
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220524181534-2d8ae9d24ae0
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220330151152-6bbd64bde42e
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220330151152-6bbd64bde42e
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e
