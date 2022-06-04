@@ -368,7 +368,7 @@ func createDIDDoc(didID string) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: model.Endpoint{URI: "https://agent.example.com/"},
+		ServiceEndpoint: model.NewDIDCommV1Endpoint("https://agent.example.com/"),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
