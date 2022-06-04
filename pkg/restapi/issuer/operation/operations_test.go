@@ -2935,7 +2935,7 @@ func createDIDDoc(didID string, pubKey []byte) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: ariesmodel.Endpoint{URI: "https://agent.example.com/"},
+		ServiceEndpoint: ariesmodel.NewDIDCommV1Endpoint("https://agent.example.com/"),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
@@ -2973,7 +2973,7 @@ func createDIDDocWithKeyID(didID, keyID string, pubKey []byte) *did.Doc {
 	service := did.Service{
 		ID:              "did:example:123456789abcdefghi#did-communication",
 		Type:            "did-communication",
-		ServiceEndpoint: ariesmodel.Endpoint{URI: "https://agent.example.com/"},
+		ServiceEndpoint: ariesmodel.NewDIDCommV1Endpoint("https://agent.example.com/"),
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
