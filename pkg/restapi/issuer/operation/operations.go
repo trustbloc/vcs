@@ -111,8 +111,7 @@ type vcStatusManager interface {
 type EDVClient interface {
 	CreateDataVault(config *models.DataVaultConfiguration, opts ...client.ReqOption) (string, []byte, error)
 	CreateDocument(vaultID string, document *models.EncryptedDocument, opts ...client.ReqOption) (string, error)
-	ReadDocument(vaultID, docID string, opts ...client.ReqOption) (*models.EncryptedDocument, error)
-	QueryVault(vaultID, name, value string, opts ...client.ReqOption) ([]string, error)
+	QueryVault(vaultID string, query *models.Query, opts ...client.ReqOption) ([]string, []models.EncryptedDocument, error)
 }
 
 type authService interface {
@@ -156,20 +155,20 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
-		authService:          zcapsvc.New(config.KeyManager, config.Crypto),
-		profileStore:         p,
-		edvClient:            config.EDVClient,
-		kms:                  config.KeyManager,
-		vdr:                  config.VDRI,
-		crypto:               c,
-		jweEncrypter:         jweEncrypter,
-		jweDecrypter:         jweDecrypter,
-		vcStatusManager:      vcStatusManager,
-		domain:               config.Domain,
-		hostURL:              config.HostURL,
-		macKeyHandle:         kh,
-		macCrypto:            config.Crypto,
-		vcIDIndexNameEncoded: vcIDIndexNameMACEncoded,
+		authService:              zcapsvc.New(config.KeyManager, config.Crypto),
+		profileStore:             p,
+		edvClient:                config.EDVClient,
+		kms:                      config.KeyManager,
+		vdr:                      config.VDRI,
+		crypto:                   c,
+		jweEncrypter:             jweEncrypter,
+		jweDecrypter:             jweDecrypter,
+		vcStatusManager:          vcStatusManager,
+		domain:                   config.Domain,
+		hostURL:                  config.HostURL,
+		macKeyHandle:             kh,
+		macCrypto:                config.Crypto,
+		vcIDAttributeNameEncoded: vcIDIndexNameMACEncoded,
 		commonDID: commondid.New(&commondid.Config{
 			VDRI: config.VDRI, KeyManager: config.KeyManager,
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
@@ -200,23 +199,23 @@ type Config struct {
 
 // Operation defines handlers for Edge service
 type Operation struct {
-	profileStore         *vcprofile.Profile
-	edvClient            EDVClient
-	kms                  keyManager
-	vdr                  vdrapi.Registry
-	crypto               *crypto.Crypto
-	jweEncrypter         jose.Encrypter
-	jweDecrypter         jose.Decrypter
-	vcStatusManager      vcStatusManager
-	domain               string
-	hostURL              string
-	macKeyHandle         *keyset.Handle
-	macCrypto            ariescrypto.Crypto
-	vcIDIndexNameEncoded string
-	commonDID            commonDID
-	retryParameters      *retry.Params
-	authService          authService
-	documentLoader       ld.DocumentLoader
+	profileStore             *vcprofile.Profile
+	edvClient                EDVClient
+	kms                      keyManager
+	vdr                      vdrapi.Registry
+	crypto                   *crypto.Crypto
+	jweEncrypter             jose.Encrypter
+	jweDecrypter             jose.Decrypter
+	vcStatusManager          vcStatusManager
+	domain                   string
+	hostURL                  string
+	macKeyHandle             *keyset.Handle
+	macCrypto                ariescrypto.Crypto
+	vcIDAttributeNameEncoded string
+	commonDID                commonDID
+	retryParameters          *retry.Params
+	authService              authService
+	documentLoader           ld.DocumentLoader
 }
 
 // GetRESTHandlers get all controller API handler available for this service
@@ -306,9 +305,10 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	docURLs, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController, data.CredentialID)
+	encryptedDocuments, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController,
+		data.CredentialID)
 	if err != nil {
-		// The case where no docs match the given query is handled in o.retrieveCredential.
+		// The case where no docs match the given query is handled in o.getCredentialFromEDVQueryResults.
 		// Any other error is unexpected and is handled here.
 		if !errors.Is(err, errNoDocsMatchQuery) {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
@@ -316,8 +316,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		}
 	}
 
-	vcBytes, status, err := o.retrieveCredential(profileID, profile.EDVVaultID, docURLs,
-		profile.EDVCapability, profile.EDVController)
+	vcBytes, status, err := o.getCredentialFromEDVQueryResults(profileID, encryptedDocuments)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, status, err.Error())
 
@@ -553,7 +552,7 @@ func (o *Operation) buildEncryptedDoc(structuredDoc *models.StructuredDocument,
 	vcIDIndexValueEncoded := base64.URLEncoding.EncodeToString(vcIDMAC)
 
 	indexedAttribute := models.IndexedAttribute{
-		Name:   o.vcIDIndexNameEncoded,
+		Name:   o.vcIDAttributeNameEncoded,
 		Value:  vcIDIndexValueEncoded,
 		Unique: true,
 	}
@@ -601,9 +600,9 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 	}
 
 	// TODO (#545): Use TrustBloc EDV server optimization to get full document directly from Query call.
-	docURLs, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController, id)
+	encryptedDocuments, err := o.queryVault(profile.EDVVaultID, profile.EDVCapability, profile.EDVController, id)
 	if err != nil {
-		// The case where no docs match the given query is handled in o.retrieveCredential.
+		// The case where no docs match the given query is handled in o.getCredentialFromEDVQueryResults.
 		// Any other error is unexpected and is handled here.
 		if !errors.Is(err, errNoDocsMatchQuery) {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
@@ -611,8 +610,7 @@ func (o *Operation) retrieveCredentialHandler(rw http.ResponseWriter, req *http.
 		}
 	}
 
-	retrievedVC, status, err := o.retrieveCredential(profileName, profile.EDVVaultID, docURLs,
-		profile.EDVCapability, profile.EDVController)
+	retrievedVC, status, err := o.getCredentialFromEDVQueryResults(profileName, encryptedDocuments)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, status, err.Error())
 
@@ -1047,20 +1045,25 @@ func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, er
 	return vc, nil
 }
 
-func (o *Operation) queryVault(vaultID string, capability []byte, vm, vcID string) ([]string, error) {
+func (o *Operation) queryVault(vaultID string, capability []byte, vm, vcID string) ([]models.EncryptedDocument, error) {
 	vcIDMAC, err := o.macCrypto.ComputeMAC([]byte(vcID), o.macKeyHandle)
 	if err != nil {
 		return nil, err
 	}
 
-	vcIDIndexValueEncoded := base64.URLEncoding.EncodeToString(vcIDMAC)
+	vcIDAttributeValueEncoded := base64.URLEncoding.EncodeToString(vcIDMAC)
 
-	var docURLs []string
+	var encryptedDocuments []models.EncryptedDocument
 
 	err = retry.Retry(func() error {
 		var errQueryVault error
 
-		docURLs, errQueryVault = o.edvClient.QueryVault(vaultID, o.vcIDIndexNameEncoded, vcIDIndexValueEncoded,
+		query := models.Query{
+			Equals:              []map[string]string{{o.vcIDAttributeNameEncoded: vcIDAttributeValueEncoded}},
+			ReturnFullDocuments: true,
+		}
+
+		_, encryptedDocuments, errQueryVault = o.edvClient.QueryVault(vaultID, &query,
 			client.WithRequestHeader(func(req *http.Request) (*http.Header, error) {
 				if len(capability) != 0 {
 					return o.authService.SignHeader(req, capability, vm)
@@ -1072,43 +1075,42 @@ func (o *Operation) queryVault(vaultID string, capability []byte, vm, vcID strin
 			return errQueryVault
 		}
 
-		if len(docURLs) == 0 {
+		if len(encryptedDocuments) == 0 {
 			return errNoDocsMatchQuery
 		}
 
 		return nil
 	}, o.retryParameters)
 
-	return docURLs, err
+	return encryptedDocuments, err
 }
 
-func (o *Operation) retrieveCredential(profileName, edvVaultID string, docURLs []string,
-	capability []byte, vm string) ([]byte, int, error) {
+func (o *Operation) getCredentialFromEDVQueryResults(profileName string,
+	encryptedDocuments []models.EncryptedDocument) ([]byte,
+	int, error) {
 	var retrievedVC []byte
 
-	switch len(docURLs) {
+	switch len(encryptedDocuments) {
 	case 0:
 		return nil, http.StatusBadRequest, fmt.Errorf(`no VC under profile "%s" was found with the given id`, profileName)
 	case 1:
-		docID := vcutil.GetDocIDFromURL(docURLs[0])
-
 		var err error
 
-		retrievedVC, err = o.retrieveVC(edvVaultID, docID, "retrieving VC", capability, vm)
+		retrievedVC, err = o.getVCFromEncryptedDocument(encryptedDocuments[0], "retrieving VC")
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
 	default:
-		// Multiple VCs were found with the same id. This is technically possible under the right circumstances
-		// when storing the same VC multiples times in a store provider that follows an "eventually consistent"
-		// consistency model. If they are all the same, then just return the first one arbitrarily.
-		// ToDo: If the multiple VCs with the same ID all are identical then delete the extras and leave only one.
-		// https://github.com/trustbloc/edge-service/issues/262
+		// Multiple VCs were found with the same id. This is possible if you're using an EDV server that doesn't
+		// enforce the "unique" flag on a document attribute. Currently, the TrustBloc EDV implementation that we're
+		// testing against doesn't support unique attribute enforcement. If multiple VCs are found and they're all
+		// identical, then we just return the first one arbitrarily.
+		// TODO (#262): Find a better solution. See https://github.com/trustbloc/vcs/issues/262 for more info.
 		var err error
 
 		var statusCode int
 
-		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(edvVaultID, docURLs, capability, vm)
+		retrievedVC, statusCode, err = o.verifyMultipleMatchingVCsAreIdentical(encryptedDocuments)
 		if err != nil {
 			return nil, statusCode, err
 		}
@@ -1117,15 +1119,13 @@ func (o *Operation) retrieveCredential(profileName, edvVaultID string, docURLs [
 	return retrievedVC, http.StatusOK, nil
 }
 
-func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, docURLs []string,
-	capability []byte, vm string) ([]byte, int, error) {
+func (o *Operation) verifyMultipleMatchingVCsAreIdentical(encryptedDocuments []models.EncryptedDocument) ([]byte,
+	int, error) {
 	var retrievedVCs [][]byte
 
-	for _, docURL := range docURLs {
-		docID := vcutil.GetDocIDFromURL(docURL)
-
-		retrievedVC, err := o.retrieveVC(edvVaultID, docID, "determining if the multiple VCs "+
-			"matching the given ID are the same", capability, vm)
+	for _, encryptedDocument := range encryptedDocuments {
+		retrievedVC, err := o.getVCFromEncryptedDocument(encryptedDocument,
+			"determining if the multiple VCs matching the given ID are the same")
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
@@ -1142,21 +1142,9 @@ func (o *Operation) verifyMultipleMatchingVCsAreIdentical(edvVaultID string, doc
 	return retrievedVCs[0], http.StatusOK, nil
 }
 
-func (o *Operation) retrieveVC(edvVaultID, docID, contextErrText string, capability []byte,
-	vm string) ([]byte, error) {
-	document, err := o.edvClient.ReadDocument(edvVaultID, docID, client.WithRequestHeader(
-		func(req *http.Request) (*http.Header, error) {
-			if len(capability) != 0 {
-				return o.authService.SignHeader(req, capability, vm)
-			}
-
-			return nil, nil
-		}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read document while %s: %w", contextErrText, err)
-	}
-
-	encryptedJWE, err := jose.Deserialize(string(document.JWE))
+func (o *Operation) getVCFromEncryptedDocument(encryptedDocument models.EncryptedDocument,
+	contextErrText string) ([]byte, error) {
+	encryptedJWE, err := jose.Deserialize(string(encryptedDocument.JWE))
 	if err != nil {
 		return nil, err
 	}
