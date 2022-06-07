@@ -15,23 +15,19 @@ import (
 
 // Client is the mock edv client
 type Client struct {
-	edvServerURL                      string
-	ReadDocumentError                 error
-	ReadDocumentFirstReturnValue      *models.EncryptedDocument
-	ReadDocumentSubsequentReturnValue *models.EncryptedDocument
-	readDocumentCalledAtLeastOnce     bool
-	QueryVaultReturnValue             []string
-	CreateVaultError                  error
+	edvServerURL                   string
+	QueryVaultDocumentsReturnValue []models.EncryptedDocument
+	CreateVaultError               error
 }
 
 // NewMockEDVClient is the mock version of edv client
-func NewMockEDVClient(edvServerURL string, readDocumentFirstReturnValue,
-	readDocumentSubsequentReturnValue *models.EncryptedDocument, queryVaultReturnValue []string,
+func NewMockEDVClient(edvServerURL string, queryVaultDocumentsReturnValue []models.EncryptedDocument,
 	createVaultError error) *Client {
-	return &Client{edvServerURL: edvServerURL, ReadDocumentSubsequentReturnValue: readDocumentSubsequentReturnValue,
-		ReadDocumentFirstReturnValue: readDocumentFirstReturnValue,
-		QueryVaultReturnValue:        queryVaultReturnValue,
-		CreateVaultError:             createVaultError}
+	return &Client{
+		edvServerURL:                   edvServerURL,
+		QueryVaultDocumentsReturnValue: queryVaultDocumentsReturnValue,
+		CreateVaultError:               createVaultError,
+	}
 }
 
 // CreateDataVault creates a new data vault.
@@ -51,18 +47,8 @@ func (c *Client) CreateDocument(vaultID string, document *models.EncryptedDocume
 	return "", nil
 }
 
-// ReadDocument mocks a ReadDocument call. It never returns an error.
-func (c *Client) ReadDocument(vaultID, docID string, opts ...client.ReqOption) (*models.EncryptedDocument, error) {
-	if !c.readDocumentCalledAtLeastOnce {
-		c.readDocumentCalledAtLeastOnce = true
-
-		return c.ReadDocumentFirstReturnValue, c.ReadDocumentError
-	}
-
-	return c.ReadDocumentSubsequentReturnValue, c.ReadDocumentError
-}
-
 // QueryVault mocks a vault query call. It never returns an error.
-func (c *Client) QueryVault(vaultID, name, value string, opts ...client.ReqOption) ([]string, error) {
-	return c.QueryVaultReturnValue, nil
+func (c *Client) QueryVault(vaultID string, query *models.Query, opts ...client.ReqOption) ([]string,
+	[]models.EncryptedDocument, error) {
+	return nil, c.QueryVaultDocumentsReturnValue, nil
 }
