@@ -12,8 +12,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 // CreateCredentialRequest input data for edge service issuer rest api
@@ -67,8 +65,6 @@ type ProfileRequest struct {
 	DIDPrivateKey string `json:"didPrivateKey"`
 	// DID key id to be used for signing
 	DIDKeyID string `json:"didKeyID"`
-	// universal registration configuration
-	UNIRegistrar model.UNIRegistrar `json:"uniRegistrar,omitempty"`
 	// config to disable VC status in during credential issuance
 	DisableVCStatus bool `json:"disableVCStatus"`
 	// overwrite issuer id in VC - if true, then override the issuer id with profile DID

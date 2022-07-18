@@ -51,8 +51,6 @@ import (
 
 	"github.com/trustbloc/edge-service/cmd/common"
 	"github.com/trustbloc/edge-service/pkg/ld"
-	restgovernance "github.com/trustbloc/edge-service/pkg/restapi/governance"
-	governanceops "github.com/trustbloc/edge-service/pkg/restapi/governance/operation"
 	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
@@ -762,18 +760,6 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 		return err
 	}
 
-	governanceService, err := restgovernance.New(&governanceops.Config{
-		TLSConfig: &tls.Config{
-			RootCAs:    rootCAs,
-			MinVersion: tls.VersionTLS12,
-		}, StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
-		VDRI: vdr, Domain: parameters.blocDomain, HostURL: externalHostURL, ClaimsFile: parameters.governanceClaimsFile,
-		DIDAnchorOrigin: parameters.didAnchorOrigin, DocumentLoader: loader,
-	})
-	if err != nil {
-		return err
-	}
-
 	if parameters.mode == string(issuer) || parameters.mode == string(combined) {
 		for _, handler := range issuerService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
@@ -788,12 +774,6 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 
 	if parameters.mode == string(holder) || parameters.mode == string(combined) {
 		for _, handler := range holderService.GetOperations() {
-			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-		}
-	}
-
-	if parameters.mode == string(governance) || parameters.mode == string(combined) {
-		for _, handler := range governanceService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
 	}
