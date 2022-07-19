@@ -45,7 +45,6 @@ import (
 	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	"github.com/trustbloc/edge-service/pkg/internal/testutil"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 const (
@@ -829,8 +828,7 @@ type mockCommonDID struct {
 	createDIDErr   error
 }
 
-func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID, purpose string,
-	registrar model.UNIRegistrar) (string, string, error) {
+func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID string) (string, string, error) {
 	return m.createDIDValue, m.createDIDKeyID, m.createDIDErr
 }
 

@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 // HolderProfileRequest holder mode profile request
@@ -24,7 +22,6 @@ type HolderProfileRequest struct {
 	DIDPrivateKey           string                             `json:"didPrivateKey"`
 	DIDKeyType              string                             `json:"didKeyType"`
 	DIDKeyID                string                             `json:"didKeyID"`
-	UNIRegistrar            model.UNIRegistrar                 `json:"uniRegistrar,omitempty"`
 	OverwriteHolder         bool                               `json:"overwriteHolder,omitempty"`
 }
 

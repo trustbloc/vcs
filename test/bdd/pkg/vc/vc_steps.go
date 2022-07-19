@@ -29,7 +29,6 @@ import (
 	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
 	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
@@ -62,7 +61,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.Suite) {
-	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
+	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)"$`, e.getProfile)
 	s.Step(`^New verifiable credential is created from "([^"]*)" under "([^"]*)" profile$`, e.createCredential)
@@ -172,8 +171,8 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 	return verify(resp, checks, result, respMessage)
 }
 
-func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nolint:gocyclo,funlen
-	uniRegistrar, didMethod, signatureType, keyType string) error {
+func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, didMethod, signatureType,
+	keyType string) error {
 	template, ok := e.bddContext.TestData["profile_request_template.json"]
 	if !ok {
 		return fmt.Errorf("unable to find profile request template")
@@ -185,19 +184,10 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, //nol
 		return err
 	}
 
-	var u model.UNIRegistrar
-
-	if uniRegistrar != "" {
-		if err := json.Unmarshal([]byte(uniRegistrar), &u); err != nil {
-			return err
-		}
-	}
-
 	profileRequest.Name = profileName
 	profileRequest.DID = did
 	profileRequest.DIDPrivateKey = privateKey
 	profileRequest.SignatureRepresentation = bddutil.GetSignatureRepresentation(holder)
-	profileRequest.UNIRegistrar = u
 	profileRequest.OverwriteIssuer = true
 	profileRequest.SignatureType = signatureType
 	profileRequest.DIDKeyType = keyType
@@ -348,8 +338,7 @@ func (e *Steps) createProfileAndCredential(user, credential, did, privateKey, ke
 	if !ok {
 		profileName = fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-		err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
-			signatureType, keyType)
+		err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", signatureType, keyType)
 		if err != nil {
 			return fmt.Errorf("failed to create profile: %w", err)
 		}
@@ -374,8 +363,7 @@ func (e *Steps) createProfileAndPresentation(user, credential, did, privateKey, 
 	if !ok {
 		profileName = fmt.Sprintf("%s_%s", strings.ToLower(user), uuid.New().String())
 
-		err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", "",
-			signatureType, keyType)
+		err := e.createProfile(profileName, did, privateKey, keyID, "JWS", "", signatureType, keyType)
 		if err != nil {
 			return fmt.Errorf("failed to create profile: %w", err)
 		}
@@ -426,8 +414,7 @@ func (e *Steps) storeCreatedCredential(profileName string) error {
 }
 
 func (e *Steps) createProfileAndStoreCredentialFromFile(vcFile, profileName string) error {
-	err := e.createProfile(profileName, "", "", "", "", "", "",
-		"Ed25519Signature2018", "Ed25519")
+	err := e.createProfile(profileName, "", "", "", "", "", "Ed25519Signature2018", "Ed25519")
 	if err != nil {
 		return err
 	}
@@ -908,7 +895,7 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 }
 
 func (e *Steps) createBasicIssuerProfile(profileName, signatureType, keyType string) error {
-	return e.createProfile(profileName, "", "", "", "JWS", "", "did:orb", signatureType, keyType)
+	return e.createProfile(profileName, "", "", "", "JWS", "did:orb", signatureType, keyType)
 }
 
 func (e *Steps) createBasicHolderProfile(profileName, signatureType, keyType string) error {

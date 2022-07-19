@@ -11,7 +11,6 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -24,9 +23,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
-	"github.com/trustbloc/edge-service/pkg/client/uniregistrar"
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 const splitDidIDLength = 4
@@ -39,12 +36,11 @@ var signatureKeyTypeMap = map[string]string{
 
 // CommonDID common did operation
 type CommonDID struct {
-	uniRegistrarClient uniRegistrarClient
-	keyManager         keyManager
-	vdr                vdrapi.Registry
-	domain             string
-	createKey          func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error)
-	didAnchorOrigin    string
+	keyManager      keyManager
+	vdr             vdrapi.Registry
+	domain          string
+	createKey       func(keyType kms.KeyType, keyManager keyManager) (string, []byte, error)
+	didAnchorOrigin string
 }
 
 // Config defines configuration for vcs operations
@@ -56,17 +52,13 @@ type Config struct {
 	DIDAnchorOrigin string
 }
 
-type uniRegistrarClient interface {
-	CreateDID(driverURL string, opts ...uniregistrar.CreateDIDOption) (string, []uniregistrar.Key, error)
-}
-
 type keyManager interface {
 	kms.KeyManager
 }
 
 // New return new instance of common DID
 func New(config *Config) *CommonDID {
-	return &CommonDID{uniRegistrarClient: uniregistrar.New(uniregistrar.WithTLSConfig(config.TLSConfig)),
+	return &CommonDID{
 		keyManager:      config.KeyManager,
 		domain:          config.Domain,
 		vdr:             config.VDRI,
@@ -76,21 +68,12 @@ func New(config *Config) *CommonDID {
 }
 
 // CreateDID create did
-func (o *CommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID, purpose string,
-	registrar model.UNIRegistrar) (string, string, error) {
+func (o *CommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID string) (string, string, error) {
 	var createdDIDID string
 
 	var publicKeyID string
 
 	switch {
-	case registrar.DriverURL != "":
-		var err error
-		createdDIDID, publicKeyID, err = o.createDIDUniRegistrar(keyType, signatureType, purpose, registrar)
-
-		if err != nil {
-			return "", "", err
-		}
-
 	case didID == "":
 		var err error
 		createdDIDID, publicKeyID, err = o.createDID(keyType, signatureType)
@@ -141,97 +124,10 @@ func (o *CommonDID) replaceCanonicalDIDWithDomainDID(didID, publicKeyID string) 
 	return didID, publicKeyID
 }
 
-//nolint:gocyclo
-func (o *CommonDID) createDIDUniRegistrar(keyType, signatureType, purpose string,
-	registrar model.UNIRegistrar) (string, string, error) {
-	_, pks, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create did public key: %w", err)
-	}
-
-	_, recoveryPubKey, err := o.createKey(kms.ED25519Type, o.keyManager)
-	if err != nil {
-		return "", "", err
-	}
-
-	_, updatePubKey, err := o.createKey(kms.ED25519Type, o.keyManager)
-	if err != nil {
-		return "", "", err
-	}
-
-	opts := o.createCreateDIDOptions(pks, recoveryPubKey, updatePubKey, registrar)
-
-	identifier, keys, err := o.uniRegistrarClient.CreateDID(registrar.DriverURL, opts...)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to create did doc from uni-registrar: %w", err)
-	}
-
-	// TODO https://github.com/trustbloc/edge-service/issues/415 remove check when vendors supporting addKeys feature
-	if strings.Contains(identifier, "did:trustbloc") {
-		for _, v := range keys {
-			if strings.Contains(v.ID, "#"+selectedKeyID) {
-				return identifier, v.ID, nil
-			}
-		}
-
-		return "", "", fmt.Errorf("selected key not found %s", selectedKeyID)
-	}
-
-	if strings.Contains(identifier, "did:v1") {
-		for _, v := range keys {
-			for _, p := range v.Purposes {
-				if purpose == p {
-					err = o.importKey(v.ID, kms.ED25519Type, base58.Decode(v.PrivateKeyBase58))
-					if err != nil {
-						return "", "", err
-					}
-
-					return identifier, v.ID, nil
-				}
-			}
-		}
-
-		return "", "", fmt.Errorf("did:v1 - not able to find key with purpose %s", purpose)
-	}
-
-	// vendors not supporting addKeys feature.
-	// return first key public and private
-	// TODO https://github.com/trustbloc/edge-service/issues/415 remove when vendors supporting addKeys feature
-	err = o.importKey(keys[0].ID, kms.ED25519Type, base58.Decode(keys[0].PrivateKeyBase58))
-	if err != nil {
-		return "", "", err
-	}
-
-	return identifier, keys[0].ID, nil
-}
-
-func (o *CommonDID) createCreateDIDOptions(pks []*uniregistrar.PublicKey, recoveryPubKey []byte,
-	updatePubKey []byte, registrar model.UNIRegistrar) []uniregistrar.CreateDIDOption {
-	var opts []uniregistrar.CreateDIDOption
-
-	for _, v := range pks {
-		opts = append(opts, uniregistrar.WithPublicKey(&uniregistrar.PublicKey{
-			ID: v.ID, Type: v.Type,
-			Value:   v.Value,
-			KeyType: v.KeyType, Purposes: v.Purposes}))
-	}
-
-	opts = append(opts,
-		uniregistrar.WithPublicKey(&uniregistrar.PublicKey{
-			KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(recoveryPubKey),
-			Recovery: true}),
-		uniregistrar.WithPublicKey(&uniregistrar.PublicKey{
-			KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(updatePubKey),
-			Update: true}),
-		uniregistrar.WithOptions(registrar.Options))
-
-	return opts
-}
-
 func (o *CommonDID) createDID(keyType, signatureType string) (string, string, error) {
 	var opts []vdrapi.DIDMethodOption
 
-	didDoc, _, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
+	didDoc, selectedKeyID, err := o.createPublicKeys(keyType, signatureType)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create did public key: %w", err)
 	}
@@ -262,33 +158,24 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 }
 
 // nolint:funlen,gocyclo
-func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
-	[]*uniregistrar.PublicKey, string, error) {
+func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc, string, error) {
 	didDoc := &did.Doc{}
-	pks := make([]*uniregistrar.PublicKey, 0)
 
 	// Add key1
 	key1ID, pubKeyBytes, err := o.createKey(kms.ED25519Type, o.keyManager)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
 	jwk, err := jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
 	vm, err := did.NewVerificationMethodFromJWK(key1ID, doc.Ed25519VerificationKey2018, "", jwk)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
-
-	pks = append(pks, &uniregistrar.PublicKey{ID: vm.ID, Type: vm.Type,
-		KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(vm.Value),
-		Purposes: []string{
-			doc.KeyPurposeAssertionMethod,
-			doc.KeyPurposeAuthentication,
-		}})
 
 	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
 	didDoc.AssertionMethod = append(didDoc.AssertionMethod, *did.NewReferencedVerification(vm, did.AssertionMethod))
@@ -296,25 +183,18 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 	// Add key2
 	key2ID, pubKeyBytes, err := o.createKey(kms.ED25519Type, o.keyManager)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
 	jwk, err = jwksupport.JWKFromKey(ed25519.PublicKey(pubKeyBytes))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
 	vm, err = did.NewVerificationMethodFromJWK(key2ID, crypto.JSONWebKey2020, "", jwk)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
-
-	pks = append(pks, &uniregistrar.PublicKey{ID: vm.ID, Type: vm.Type,
-		KeyType: crypto.Ed25519KeyType, Value: base64.StdEncoding.EncodeToString(vm.Value),
-		Purposes: []string{
-			doc.KeyPurposeAssertionMethod,
-			doc.KeyPurposeAuthentication,
-		}})
 
 	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
 	didDoc.AssertionMethod = append(didDoc.AssertionMethod, *did.NewReferencedVerification(vm, did.AssertionMethod))
@@ -322,47 +202,40 @@ func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc,
 	// Add key3
 	key3ID, pubKeyBytes, err := o.createKey(kms.ECDSAP256IEEEP1363, o.keyManager)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
 	x, y := elliptic.Unmarshal(elliptic.P256(), pubKeyBytes)
 
 	jwk, err = jwksupport.JWKFromKey(&ecdsa.PublicKey{X: x, Y: y, Curve: elliptic.P256()})
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
 
 	vm, err = did.NewVerificationMethodFromJWK(key3ID, crypto.JSONWebKey2020, "", jwk)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, "", err
 	}
-
-	pks = append(pks, &uniregistrar.PublicKey{ID: vm.ID, Type: vm.Type,
-		KeyType: crypto.P256KeyType, Value: base64.StdEncoding.EncodeToString(vm.Value),
-		Purposes: []string{
-			doc.KeyPurposeAssertionMethod,
-			doc.KeyPurposeAuthentication,
-		}})
 
 	didDoc.Authentication = append(didDoc.Authentication, *did.NewReferencedVerification(vm, did.Authentication))
 	didDoc.AssertionMethod = append(didDoc.AssertionMethod, *did.NewReferencedVerification(vm, did.AssertionMethod))
 
 	if keyType == crypto.Ed25519KeyType &&
 		doc.Ed25519VerificationKey2018 == signatureKeyTypeMap[signatureType] {
-		return didDoc, pks, key1ID, nil
+		return didDoc, key1ID, nil
 	}
 
 	if keyType == crypto.Ed25519KeyType &&
 		crypto.JSONWebKey2020 == signatureKeyTypeMap[signatureType] {
-		return didDoc, pks, key2ID, nil
+		return didDoc, key2ID, nil
 	}
 
 	if keyType == crypto.P256KeyType &&
 		crypto.JSONWebKey2020 == signatureKeyTypeMap[signatureType] {
-		return didDoc, pks, key3ID, nil
+		return didDoc, key3ID, nil
 	}
 
-	return nil, nil, "",
+	return nil, "",
 		fmt.Errorf("no key found to match key type:%s and signature type:%s", keyType, signatureType)
 }
 

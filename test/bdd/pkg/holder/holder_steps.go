@@ -19,7 +19,6 @@ import (
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
 )
@@ -97,7 +96,7 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 	s.Step(`^Client sends request to create a holder profile with ID "([^"]*)"$`, e.createBasicHolderProfile)
 	s.Step(`^Client deletes the holder profile with ID "([^"]*)"$`, e.deleteHolderProfile)
 	s.Step(`^Client can recreate the holder profile with ID "([^"]*)"$`, e.createBasicHolderProfile)
-	s.Step(`^Holder Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", uniRegistrar '([^']*)', didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, // nolint
+	s.Step(`^Holder Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, // nolint
 		e.createHolderProfile)
 	s.Step(`^Holder profile "([^"]*)" can be retrieved with DID "([^"]*)" and signatureType "([^"]*)"$`,
 		e.getProfile)
@@ -105,23 +104,14 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 		e.signAndValidatePresentation)
 }
 
-func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatureRep, uniRegistrar,
-	didMethod, signatureType, keyType string) error {
+func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatureRep, didMethod, signatureType,
+	keyType string) error {
 	profileRequest := holderops.HolderProfileRequest{}
-
-	var u model.UNIRegistrar
-
-	if uniRegistrar != "" {
-		if err := json.Unmarshal([]byte(uniRegistrar), &u); err != nil {
-			return err
-		}
-	}
 
 	profileRequest.Name = profileName
 	profileRequest.DID = did
 	profileRequest.DIDPrivateKey = privateKey
 	profileRequest.SignatureRepresentation = bddutil.GetSignatureRepresentation(signatureRep)
-	profileRequest.UNIRegistrar = u
 	profileRequest.SignatureType = signatureType
 	profileRequest.DIDKeyType = keyType
 	profileRequest.DIDKeyID = keyID

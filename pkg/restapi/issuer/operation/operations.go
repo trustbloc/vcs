@@ -46,7 +46,6 @@ import (
 	commondid "github.com/trustbloc/edge-service/pkg/restapi/internal/common/did"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
 	"github.com/trustbloc/edge-service/pkg/restapi/internal/common/vcutil"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 const (
@@ -124,8 +123,7 @@ type keyManager interface {
 }
 
 type commonDID interface {
-	CreateDID(keyType, signatureType, did, privateKey, keyID, purpose string,
-		registrar model.UNIRegistrar) (string, string, error)
+	CreateDID(keyType, signatureType, did, privateKey, keyID string) (string, string, error)
 }
 
 // New returns CreateCredential instance
@@ -624,7 +622,7 @@ func (o *Operation) createIssuerProfile(pr *ProfileRequest) (*vcprofile.IssuerPr
 	var didID, publicKeyID string
 
 	didID, publicKeyID, err := o.commonDID.CreateDID(pr.DIDKeyType, pr.SignatureType,
-		pr.DID, pr.DIDPrivateKey, pr.DIDKeyID, crypto.AssertionMethod, pr.UNIRegistrar)
+		pr.DID, pr.DIDPrivateKey, pr.DIDKeyID)
 	if err != nil {
 		return nil, err
 	}

@@ -29,7 +29,6 @@ import (
 	"github.com/trustbloc/edge-service/pkg/internal/common/support"
 	commondid "github.com/trustbloc/edge-service/pkg/restapi/internal/common/did"
 	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
 )
 
 const (
@@ -53,8 +52,7 @@ type Handler interface {
 }
 
 type commonDID interface {
-	CreateDID(keyType, signatureType, did, privateKey, keyID, purpose string,
-		registrar model.UNIRegistrar) (string, string, error)
+	CreateDID(keyType, signatureType, did, privateKey, keyID string) (string, string, error)
 }
 
 // New returns CreateCredential instance
@@ -389,7 +387,7 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 	var didID, publicKeyID string
 
 	didID, publicKeyID, err := o.commonDID.CreateDID(pr.DIDKeyType, pr.SignatureType, pr.DID,
-		pr.DIDPrivateKey, pr.DIDKeyID, crypto.Authentication, pr.UNIRegistrar)
+		pr.DIDPrivateKey, pr.DIDKeyID)
 	if err != nil {
 		return nil, err
 	}
