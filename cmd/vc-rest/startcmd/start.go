@@ -185,10 +185,6 @@ const (
 	requestTokensFlagUsage = "Tokens used for http request " +
 		commonEnvVarUsageText + requestTokensEnvKey
 
-	governanceClaimsFlagName  = "governance-claims-file"
-	governanceClaimsEnvKey    = "VC_REST_GOVERNANCE_CLAIMS_FILE"
-	governanceClaimsFlagUsage = "Path to governance claims" + commonEnvVarUsageText + governanceClaimsEnvKey
-
 	didAnchorOriginFlagName  = "did-anchor-origin"
 	didAnchorOriginEnvKey    = "VC_REST_DID_ANCHOR_ORIGIN"
 	didAnchorOriginFlagUsage = "DID anchor origin" + commonEnvVarUsageText + didAnchorOriginEnvKey
@@ -220,11 +216,10 @@ var errNegativeBackoffFactor = errors.New("the backoff factor cannot be negative
 type mode string
 
 const (
-	verifier   mode = "verifier"
-	issuer     mode = "issuer"
-	holder     mode = "holder"
-	governance mode = "governance"
-	combined   mode = "combined"
+	verifier mode = "verifier"
+	issuer   mode = "issuer"
+	holder   mode = "holder"
+	combined mode = "combined"
 
 	// api
 	healthCheckEndpoint = "/healthcheck"
@@ -244,7 +239,6 @@ type vcRestParameters struct {
 	token                string
 	requestTokens        map[string]string
 	logLevel             string
-	governanceClaimsFile string
 	didAnchorOrigin      string
 	contextProviderURLs  []string
 	contextEnableRemote  bool
@@ -366,12 +360,6 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	governanceClaimsFile, err := cmdutils.GetUserSetVarFromString(cmd, governanceClaimsFlagName, governanceClaimsEnvKey,
-		true)
-	if err != nil {
-		return nil, err
-	}
-
 	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
 
 	contextProviderURLs, err := cmdutils.GetUserSetVarFromArrayString(cmd, contextProviderFlagName,
@@ -409,7 +397,6 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		token:                token,
 		requestTokens:        requestTokens,
 		logLevel:             loggingLevel,
-		governanceClaimsFile: governanceClaimsFile,
 		didAnchorOrigin:      didAnchorOrigin,
 		contextProviderURLs:  contextProviderURLs,
 		contextEnableRemote:  contextEnableRemote,
@@ -653,7 +640,6 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
-	startCmd.Flags().StringP(governanceClaimsFlagName, "", "", governanceClaimsFlagUsage)
 	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 	startCmd.Flags().StringArrayP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
 	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
@@ -840,8 +826,7 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
 }
 
 func supportedMode(mode string) bool {
-	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) && mode != string(holder) &&
-		mode != string(governance) {
+	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) && mode != string(holder) {
 		return false
 	}
 

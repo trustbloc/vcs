@@ -49,24 +49,6 @@ jobs:
         env:
           CODECOV_UPLOAD_TOKEN: ${{ secrets.CODECOV_UPLOAD_TOKEN }}
 
-  BDDTestGovernance:
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Run RP Adapter BDD test
-        run: |
-          echo '127.0.0.1 testnet.orb.local' | sudo tee -a /etc/hosts
-          echo '127.0.0.1 edv.rest.example.com' | sudo tee -a /etc/hosts
-          make bdd-test
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAGS: governance_rest
-
   BDDTestHolder:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
@@ -158,7 +140,7 @@ jobs:
           TAGS: w3c_workflow
 
   Publish:
-    needs: [Checks, UnitTest, BDDTestGovernance, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow]
+    needs: [Checks, UnitTest, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow]
     if: github.event_name == 'push' && (github.repository == 'trustbloc/vcs' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-20.04
     timeout-minutes: 30
@@ -189,7 +171,7 @@ jobs:
           NPM_WALLET_PKG_REPO: $(NPM_WALLET_PKG_REPO)
 
   Interop:
-    needs: [Checks, UnitTest, BDDTestGovernance, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow]
+    needs: [Checks, UnitTest, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow]
     if: github.event_name == 'push' && (github.repository == 'trustbloc/edge-service' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-20.04
     timeout-minutes: 30

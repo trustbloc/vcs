@@ -20,18 +20,12 @@ import (
 var (
 	//go:embed contexts/lds-jws2020-v1.jsonld
 	jws2020V1Vocab []byte
-	//go:embed contexts/governance.jsonld
-	governanceVocab []byte
 )
 
 var embedContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	{
 		URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 		Content: jws2020V1Vocab,
-	},
-	{
-		URL:     "https://trustbloc.github.io/context/governance/context.jsonld",
-		Content: governanceVocab,
 	},
 }
 

@@ -1,9 +1,0 @@
-{
-  "drivers": [
-    {
-      "image": "universalregistrar/driver-did-v1",
-      "imageProperties": "true",
-      "tag": "latest"
-    }
-  ]
-}

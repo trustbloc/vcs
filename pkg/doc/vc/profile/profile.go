@@ -20,9 +20,8 @@ const (
 
 	credentialStoreName = "credential"
 
-	issuerMode     = "issuer"
-	holderMode     = "holder"
-	governanceMode = "governance"
+	issuerMode = "issuer"
+	holderMode = "holder"
 )
 
 // New returns new credential recorder instance
@@ -64,11 +63,6 @@ type IssuerProfile struct {
 // HolderProfile struct for holder profile
 type HolderProfile struct {
 	OverwriteHolder bool `json:"overwriteHolder,omitempty"`
-	*DataProfile
-}
-
-// GovernanceProfile struct for governance profile
-type GovernanceProfile struct {
 	*DataProfile
 }
 
@@ -134,33 +128,6 @@ func (c *Profile) GetHolderProfile(name string) (*HolderProfile, error) {
 // DeleteHolderProfile deletes the holder profile from the underlying store.
 func (c *Profile) DeleteHolderProfile(name string) error {
 	return c.store.Delete(getDBKey(holderMode, name))
-}
-
-// SaveGovernanceProfile saves governance profile to the underlying store.
-func (c *Profile) SaveGovernanceProfile(data *GovernanceProfile) error {
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("save governance profile : %w", err)
-	}
-
-	return c.store.Put(getDBKey(governanceMode, data.Name), bytes)
-}
-
-// GetGovernanceProfile retrieves the governance profile based on name.
-func (c *Profile) GetGovernanceProfile(name string) (*GovernanceProfile, error) {
-	bytes, err := c.store.Get(getDBKey(governanceMode, name))
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GovernanceProfile{}
-
-	err = json.Unmarshal(bytes, response)
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
 }
 
 func getDBKey(mode, name string) string {
