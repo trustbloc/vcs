@@ -45,9 +45,7 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	restlogspec "github.com/trustbloc/edge-core/pkg/restapi/logspec"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
-	"github.com/trustbloc/edge-core/pkg/utils/retry"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
-	"github.com/trustbloc/edv/pkg/client"
 
 	"github.com/trustbloc/edge-service/cmd/common"
 	"github.com/trustbloc/edge-service/pkg/ld"
@@ -66,11 +64,6 @@ const (
 	hostURLFlagShorthand = "u"
 	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
 	hostURLEnvKey        = "VC_REST_HOST_URL"
-
-	edvURLFlagName      = "edv-url"
-	edvURLFlagShorthand = "e"
-	edvURLFlagUsage     = "URL EDV instance is running on. Format: HostName:Port."
-	edvURLEnvKey        = "EDV_REST_HOST_URL"
 
 	blocDomainFlagName      = "bloc-domain"
 	blocDomainFlagShorthand = "b"
@@ -152,29 +145,6 @@ const (
 	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." + commonEnvVarUsageText + tlsCACertsEnvKey
 	tlsCACertsEnvKey    = "VC_REST_TLS_CACERTS"
 
-	maxRetriesFlagName      = "max-retries"
-	maxRetriesEnvKey        = "MAX-RETRIES"
-	maxRetriesFlagShorthand = "a"
-	maxRetriesFlagUsage     = "If no VC is found when attempting to retrieve a VC from the EDV, this is the maximum " +
-		"number of times to retry retrieval. Defaults to 5 if not set. " + commonEnvVarUsageText + maxRetriesEnvKey
-	maxRetriesDefault = 5
-
-	initialBackoffMillisecFlagName      = "initial-backoff-millisec"
-	initialBackoffMillisecEnvKey        = "INITIAL_BACKOFF_MILLISEC"
-	initialBackoffMillisecFlagShorthand = "i"
-	initialBackoffMillisecFlagUsage     = "If no VC is found when attempting to retrieve a VC from the EDV, " +
-		"this is the time to wait (in milliseconds) before the first retry attempt. " +
-		commonEnvVarUsageText + initialBackoffMillisecEnvKey
-	initialBackoffMillisecDefault = 250
-
-	backoffFactorFlagName      = "backoff-factor"
-	backoffFactorEnvKey        = "BACKOFF-FACTOR"
-	backoffFactorFlagShorthand = "f"
-	backoffFactorFlagUsage     = "If no VC is found when attempting to retrieve a VC from the EDV, this is the " +
-		"factor to increase the time to wait for subsequent retries after the first. " +
-		commonEnvVarUsageText + backoffFactorEnvKey
-	backoffFactorDefault = 1.5
-
 	tokenFlagName  = "api-token"
 	tokenEnvKey    = "VC_REST_API_TOKEN" //nolint: gosec
 	tokenFlagUsage = "Check for bearer token in the authorization header (optional). " +
@@ -210,8 +180,6 @@ const (
 
 var logger = log.New("vc-rest")
 
-var errNegativeBackoffFactor = errors.New("the backoff factor cannot be negative")
-
 // mode in which to run the vc-rest service
 type mode string
 
@@ -227,13 +195,11 @@ const (
 
 type vcRestParameters struct {
 	hostURL              string
-	edvURL               string
 	blocDomain           string
 	hostURLExternal      string
 	universalResolverURL string
 	mode                 string
 	dbParameters         *dbParameters
-	retryParameters      *retry.Params
 	tlsSystemCertPool    bool
 	tlsCACerts           []string
 	token                string
@@ -302,11 +268,6 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	edvURL, err := cmdutils.GetUserSetVarFromString(cmd, edvURLFlagName, edvURLEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
 	blocDomain, err := cmdutils.GetUserSetVarFromString(cmd, blocDomainFlagName, blocDomainEnvKey, false)
 	if err != nil {
 		return nil, err
@@ -339,21 +300,13 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 		return nil, err
 	}
 
-	retryParams, err := getRetryParameters(cmd)
-	if err != nil {
-		return nil, err
-	}
-
 	token, err := cmdutils.GetUserSetVarFromString(cmd, tokenFlagName,
 		tokenEnvKey, true)
 	if err != nil {
 		return nil, err
 	}
 
-	requestTokens, err := getRequestTokens(cmd)
-	if err != nil {
-		return nil, err
-	}
+	requestTokens := getRequestTokens(cmd)
 
 	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, common.LogLevelFlagName, common.LogLevelEnvKey, true)
 	if err != nil {
@@ -362,11 +315,8 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 
 	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
 
-	contextProviderURLs, err := cmdutils.GetUserSetVarFromArrayString(cmd, contextProviderFlagName,
-		contextProviderEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
+	contextProviderURLs := cmdutils.GetUserSetOptionalCSVVar(cmd, contextProviderFlagName,
+		contextProviderEnvKey)
 
 	contextEnableRemoteConfig, err := cmdutils.GetUserSetVarFromString(cmd, contextEnableRemoteFlagName,
 		contextEnableRemoteEnvKey, true)
@@ -384,14 +334,13 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 	}
 
 	return &vcRestParameters{
-		hostURL:              hostURL,
-		edvURL:               edvURL,
+		hostURL: hostURL,
+
 		blocDomain:           blocDomain,
 		hostURLExternal:      hostURLExternal,
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
 		dbParameters:         dbParams,
-		retryParameters:      retryParams,
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
 		token:                token,
@@ -403,12 +352,9 @@ func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
 	}, nil
 }
 
-func getRequestTokens(cmd *cobra.Command) (map[string]string, error) {
-	requestTokens, err := cmdutils.GetUserSetVarFromArrayString(cmd, requestTokensFlagName,
-		requestTokensEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
+func getRequestTokens(cmd *cobra.Command) map[string]string {
+	requestTokens := cmdutils.GetUserSetOptionalCSVVar(cmd, requestTokensFlagName,
+		requestTokensEnvKey)
 
 	tokens := make(map[string]string)
 
@@ -422,7 +368,7 @@ func getRequestTokens(cmd *cobra.Command) (map[string]string, error) {
 		}
 	}
 
-	return tokens, nil
+	return tokens
 }
 
 func getMode(cmd *cobra.Command) (string, error) {
@@ -457,11 +403,7 @@ func getTLS(cmd *cobra.Command) (bool, []string, error) {
 		}
 	}
 
-	tlsCACerts, err := cmdutils.GetUserSetVarFromArrayString(cmd, tlsCACertsFlagName,
-		tlsCACertsEnvKey, true)
-	if err != nil {
-		return false, nil, err
-	}
+	tlsCACerts := cmdutils.GetUserSetOptionalCSVVar(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
 
 	return tlsSystemCertPool, tlsCACerts, nil
 }
@@ -513,110 +455,8 @@ func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
 	}, nil
 }
 
-func getRetryParameters(cmd *cobra.Command) (*retry.Params, error) {
-	maxRetries, err := getMaxRetries(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	initialBackoff, err := getInitialBackoff(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	backoffFactor, err := getBackoffFactor(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	return &retry.Params{
-		MaxRetries:     uint(maxRetries),
-		InitialBackoff: initialBackoff,
-		BackoffFactor:  backoffFactor,
-	}, nil
-}
-
-func getMaxRetries(cmd *cobra.Command) (uint64, error) {
-	maxRetriesString, err := cmdutils.GetUserSetVarFromString(cmd, maxRetriesFlagName,
-		maxRetriesEnvKey, true)
-	if err != nil {
-		return 0, err
-	}
-
-	var maxRetries uint64
-
-	if maxRetriesString == "" {
-		maxRetries = maxRetriesDefault
-		logger.Infof("Max retries value not specified. The default value of " +
-			strconv.Itoa(maxRetriesDefault) + " will be used.")
-	} else {
-		maxRetries, err = strconv.ParseUint(maxRetriesString, 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf(`the given max retries value "%s" is not a valid non-negative integer: %w`,
-				maxRetriesString, err)
-		}
-	}
-
-	return maxRetries, nil
-}
-
-func getInitialBackoff(cmd *cobra.Command) (time.Duration, error) {
-	initialBackoffMillisecString, err := cmdutils.GetUserSetVarFromString(cmd, initialBackoffMillisecFlagName,
-		initialBackoffMillisecEnvKey, true)
-	if err != nil {
-		return 0, err
-	}
-
-	var initialBackoffMillisec uint64
-
-	if initialBackoffMillisecString == "" {
-		initialBackoffMillisec = initialBackoffMillisecDefault
-		logger.Infof("Initial backoff value not specified. The default value of " +
-			strconv.Itoa(initialBackoffMillisecDefault) + " will be used.")
-	} else {
-		initialBackoffMillisec, err = strconv.ParseUint(initialBackoffMillisecString, 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf(`the given initial backoff value "%s" is not a valid non-negative integer: %w`,
-				initialBackoffMillisecString, err)
-		}
-	}
-
-	initialBackoff := time.Duration(initialBackoffMillisec) * time.Millisecond
-
-	return initialBackoff, nil
-}
-
-func getBackoffFactor(cmd *cobra.Command) (float64, error) {
-	backoffFactorString, err := cmdutils.GetUserSetVarFromString(cmd, backoffFactorFlagName,
-		backoffFactorEnvKey, true)
-	if err != nil {
-		return 0, err
-	}
-
-	var backoffFactor float64
-
-	if backoffFactorString == "" {
-		backoffFactor = backoffFactorDefault
-		logger.Infof("Backoff factor value not specified. The default value of " +
-			fmt.Sprintf("%.1f", backoffFactorDefault) + " will be used.")
-	} else {
-		backoffFactor, err = strconv.ParseFloat(backoffFactorString, 64)
-		if err != nil {
-			return 0, fmt.Errorf(`the given backoff factor "%s" is not a valid floating point number: %w`,
-				backoffFactorString, err)
-		}
-
-		if backoffFactor < 0 {
-			return 0, errNegativeBackoffFactor
-		}
-	}
-
-	return backoffFactor, nil
-}
-
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
-	startCmd.Flags().StringP(edvURLFlagName, edvURLFlagShorthand, "", edvURLFlagUsage)
 	startCmd.Flags().StringP(blocDomainFlagName, blocDomainFlagShorthand, "", blocDomainFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
@@ -632,16 +472,12 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(kmsSecretsDatabasePrefixFlagName, "", "", kmsSecretsDatabasePrefixFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "",
 		tlsSystemCertPoolFlagUsage)
-	startCmd.Flags().StringArrayP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
-	startCmd.Flags().StringP(maxRetriesFlagName, maxRetriesFlagShorthand, "", maxRetriesFlagUsage)
-	startCmd.Flags().StringP(initialBackoffMillisecFlagName, initialBackoffMillisecFlagShorthand, "",
-		initialBackoffMillisecFlagUsage)
-	startCmd.Flags().StringP(backoffFactorFlagName, backoffFactorFlagShorthand, "", backoffFactorFlagUsage)
+	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
-	startCmd.Flags().StringArrayP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
+	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
-	startCmd.Flags().StringArrayP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
+	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
 	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
 }
 
@@ -704,19 +540,14 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	issuerService, err := restissuer.New(&issuerops.Config{
 		StoreProvider:      edgeServiceProvs.provider,
 		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
-		EDVClient: client.New(parameters.edvURL, client.WithTLSConfig(&tls.Config{
-			RootCAs:    rootCAs,
-			MinVersion: tls.VersionTLS12,
-		})),
-		KeyManager:      localKMS,
-		Crypto:          crypto,
-		VDRI:            vdr,
-		HostURL:         externalHostURL,
-		Domain:          parameters.blocDomain,
-		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
-		RetryParameters: parameters.retryParameters,
-		DIDAnchorOrigin: parameters.didAnchorOrigin,
-		DocumentLoader:  loader,
+		KeyManager:         localKMS,
+		Crypto:             crypto,
+		VDRI:               vdr,
+		HostURL:            externalHostURL,
+		Domain:             parameters.blocDomain,
+		TLSConfig:          &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
+		DIDAnchorOrigin:    parameters.didAnchorOrigin,
+		DocumentLoader:     loader,
 	})
 	if err != nil {
 		return err

@@ -19,34 +19,30 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/internal/mock/edv"
 	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
 )
 
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil)
-
 		kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 		require.NoError(t, err)
 
 		controller, err := New(&operation.Config{
 			StoreProvider:      ariesmemstorage.NewProvider(),
 			Crypto:             &cryptomock.Crypto{},
-			KMSSecretsProvider: ariesmemstorage.NewProvider(), EDVClient: client,
-			KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-			VDRI:       &vdrmock.MockVDRegistry{}, HostURL: "",
+			KMSSecretsProvider: ariesmemstorage.NewProvider(),
+			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+			VDRI:               &vdrmock.MockVDRegistry{}, HostURL: "",
 		})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
 	})
 
 	t.Run("test error", func(t *testing.T) {
-		client := edv.NewMockEDVClient("test", nil, nil)
 		controller, err := New(&operation.Config{
 			StoreProvider: &ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("error open store"),
-			}, EDVClient: client,
+			},
 			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "",
 		})
 		require.Error(t, err)
@@ -56,17 +52,15 @@ func TestController_New(t *testing.T) {
 }
 
 func TestController_GetOperations(t *testing.T) {
-	client := edv.NewMockEDVClient("test", nil, nil)
-
 	kh, err := keyset.NewHandle(ecdh.NISTP256ECDHKWKeyTemplate())
 	require.NoError(t, err)
 
 	controller, err := New(&operation.Config{
 		StoreProvider:      ariesmemstorage.NewProvider(),
 		Crypto:             &cryptomock.Crypto{},
-		KMSSecretsProvider: ariesmemstorage.NewProvider(), EDVClient: client,
-		KeyManager: &mockkms.KeyManager{CreateKeyValue: kh},
-		VDRI:       &vdrmock.MockVDRegistry{}, HostURL: "",
+		KMSSecretsProvider: ariesmemstorage.NewProvider(),
+		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
+		VDRI:               &vdrmock.MockVDRegistry{}, HostURL: "",
 	})
 
 	require.NoError(t, err)

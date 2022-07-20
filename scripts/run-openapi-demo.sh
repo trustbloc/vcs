@@ -13,7 +13,6 @@ FIXTURES_ABS_PATH="$PWD/$FIXTURES_PATH"
 declare -a features=(
                 "mongodb"
                 "vc-rest"
-                "edv"
                 "sidetree-mock"
                 "universalresolver"
                 "did-method-rest"

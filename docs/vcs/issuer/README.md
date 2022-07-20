@@ -27,7 +27,6 @@ Note: replace `profileID` in the request data  with actual profileID
 ```
 {
     "uri": "http://example.com",
-    "edvVaultID": "AEPdaFysGdBeQPxwg7SFgp",
     "disableVCStatus": false,
     "overwriteIssuer": false,
     "name": "<profileID>",
@@ -51,7 +50,6 @@ Note: replace `<profileID>` in the path param with actual profileID
 ```
 {
     "uri": "http://example.com",
-    "edvVaultID": "AEPdaFysGdBeQPxwg7SFgp",
     "disableVCStatus": false,
     "overwriteIssuer": false,
     "name": "<profileID>",
