@@ -261,8 +261,6 @@ func GetSignatureRepresentation(holder string) verifiable.SignatureRepresentatio
 var (
 	//go:embed contexts/lds-jws2020-v1.jsonld
 	jws2020V1Vocab []byte
-	//go:embed contexts/governance.jsonld
-	governanceVocab []byte
 	//go:embed contexts/citizenship-v1.jsonld
 	citizenshipVocab []byte
 	//go:embed contexts/examples-v1.jsonld
@@ -279,10 +277,6 @@ var extraContexts = []ldcontext.Document{ //nolint:gochecknoglobals
 	{
 		URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 		Content: jws2020V1Vocab,
-	},
-	{
-		URL:     "https://trustbloc.github.io/context/governance/context.jsonld",
-		Content: governanceVocab,
 	},
 	{
 		URL:         "https://w3id.org/citizenship/v1",

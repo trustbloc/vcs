@@ -100,37 +100,6 @@ services:
     networks:
       - mongodb_bdd_net
 
-  governance.vc.rest.example.com:
-    container_name: governance.vc.rest.example.com
-    image: ${VC_REST_IMAGE}:latest
-    environment:
-      - VC_REST_HOST_URL=${GOVERNANCE_VC_HOST}:${GOVERNANCE_VC_PORT}
-      - VC_REST_HOST_URL_EXTERNAL=http://governance.vc.rest.example.com:${GOVERNANCE_VC_PORT}
-      - EDV_REST_HOST_URL=${EDV_HOST}:${EDV_PORT}${EDV_ROOT_ENDPOINT}
-      - BLOC_DOMAIN=testnet.orb.local
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.rest.example.com:8072/1.0/identifiers
-      - DATABASE_TYPE=mysql
-      - DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/?interpolateParams=true&multiStatements=true
-      - KMSSECRETS_DATABASE_TYPE=mysql
-      - KMSSECRETS_DATABASE_URL=vcs:vcs-secret-pw@tcp(mysql:3306)/
-      - VC_REST_MODE=governance
-      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
-      - VC_REST_TLS_SYSTEMCERTPOOL=true
-      - VC_REST_API_TOKEN=rw_token
-      - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
-      - VC_REST_GOVERNANCE_CLAIMS_FILE=/etc/governance_claims.json
-      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
-      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
-    ports:
-      - ${GOVERNANCE_VC_PORT}:${GOVERNANCE_VC_PORT}
-    entrypoint: ""
-    command:  /bin/sh -c "sleep 20;vc-rest start"
-    volumes:
-      - ../keys/tls:/etc/tls
-      - ./governance_claims.json:/etc/governance_claims.json
-    networks:
-      - mongodb_bdd_net
-
   vc.rest.example.com:
     container_name: vc.rest.example.com
     image: ${VC_REST_IMAGE}:latest
