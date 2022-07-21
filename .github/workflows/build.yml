@@ -16,6 +16,15 @@ on:
     branches: [ main ]
 
 jobs:
+  SemanticPullRequest:
+    name: Semantic Pull Request Check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   Checks:
     runs-on: ubuntu-20.04
     timeout-minutes: 30
