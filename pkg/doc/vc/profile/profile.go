@@ -51,12 +51,9 @@ type DataProfile struct {
 
 // IssuerProfile struct for issuer profile
 type IssuerProfile struct {
-	URI             string          `json:"uri"`
-	EDVVaultID      string          `json:"edvVaultID"`
-	DisableVCStatus bool            `json:"disableVCStatus"`
-	OverwriteIssuer bool            `json:"overwriteIssuer"`
-	EDVCapability   json.RawMessage `json:"edvCapability,omitempty"`
-	EDVController   string          `json:"edvController"`
+	URI             string `json:"uri"`
+	DisableVCStatus bool   `json:"disableVCStatus"`
+	OverwriteIssuer bool   `json:"overwriteIssuer"`
 	*DataProfile
 }
 

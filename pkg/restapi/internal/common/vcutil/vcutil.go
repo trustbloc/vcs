@@ -13,8 +13,6 @@ import (
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/edv/pkg/edvutils"
-	"github.com/trustbloc/edv/pkg/restapi/models"
 
 	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
@@ -95,33 +93,15 @@ func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedI
 	return nil, err
 }
 
-// BuildStructuredDocForStorage builds structured data for storage from given VC
-func BuildStructuredDocForStorage(vcData []byte) (*models.StructuredDocument, error) {
-	edvDocID, err := edvutils.GenerateEDVCompatibleID()
-	if err != nil {
-		return nil, err
-	}
-
-	doc := models.StructuredDocument{}
-	doc.ID = edvDocID
-	doc.Content = make(map[string]interface{})
-
-	credentialBytes := vcData
-
-	var credentialJSONRawMessage json.RawMessage = credentialBytes
-
-	doc.Content["message"] = credentialJSONRawMessage
-
-	return &doc, nil
-}
-
 // UpdateIssuer overrides credential issuer form profile if
 // 'profile.OverwriteIssuer=true' or credential issuer is missing
 // credential issue will always be DID
 func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
 	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
-		credential.Issuer = verifiable.Issuer{ID: profile.DID,
-			CustomFields: verifiable.CustomFields{"name": profile.Name}}
+		credential.Issuer = verifiable.Issuer{
+			ID:           profile.DID,
+			CustomFields: verifiable.CustomFields{"name": profile.Name},
+		}
 	}
 }
 

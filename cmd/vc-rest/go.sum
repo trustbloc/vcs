@@ -1461,7 +1461,8 @@ github.com/transparency-dev/merkle v0.0.0-20220208131541-728dc2de1344/go.mod h1:
 github.com/trustbloc/edge-core v0.1.7/go.mod h1:nQnH3CcEHTRXsWZe/vgj+J0JxxjwFK9IvY3u0Sr/2XY=
 github.com/trustbloc/edge-core v0.1.8 h1:m4X5XNDwiHJjGf8gHnpo6aLkBYuqDyNRq+npjxLc5cY=
 github.com/trustbloc/edge-core v0.1.8/go.mod h1:gfoyG/xquRXyHkww0ldM2jwOTuKKZpHYn+87f+TBQ8M=
-github.com/trustbloc/edv v0.1.9-0.20220601135731-894c500fd71e h1:vSrGpmzoxcmwz3rWb7wS/hzHgecxvaIqjopVmHMom20=
+github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372 h1:PTB/ByN68LsylV60znULxcz9RMSYqv1fWDIGsry5HxY=
+github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372/go.mod h1:gfoyG/xquRXyHkww0ldM2jwOTuKKZpHYn+87f+TBQ8M=
 github.com/trustbloc/edv v0.1.9-0.20220601135731-894c500fd71e/go.mod h1:3i8xMcrWURCSDXqY3kAbUAGnRSwixXv0e/zCV3kZdJM=
 github.com/trustbloc/kms v0.1.9-0.20220526151939-d46e46e8f7e1/go.mod h1:a6XvGLZgwVqBAt47550cQeRKm04X2Nn1M8DE0PVb0XA=
 github.com/trustbloc/orb v1.0.0-rc1.0.20220531195220-8fc19d247843 h1:rGsGO0RQd2Hp5uE8P9m5JL9wq3KNYl5JwCiSWlR6G8U=

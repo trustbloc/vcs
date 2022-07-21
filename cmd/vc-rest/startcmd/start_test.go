@@ -42,7 +42,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 	t.Run("test blank host url arg", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
-		args := []string{"--" + hostURLFlagName, "", "--" + edvURLFlagName, ""}
+		args := []string{"--" + hostURLFlagName, ""}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
@@ -50,21 +50,10 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Equal(t, "host-url value is empty", err.Error())
 	})
 
-	t.Run("test blank edv url arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, ""}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Error(t, err)
-		require.Equal(t, "edv-url value is empty", err.Error())
-	})
-
 	t.Run("test blank bloc domain arg", func(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
-		args := []string{"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test", "--" + blocDomainFlagName, ""}
+		args := []string{"--" + hostURLFlagName, "test", "--" + blocDomainFlagName, ""}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
@@ -76,7 +65,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
 		args := []string{
-			"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + hostURLFlagName, "test",
 			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, "",
 		}
 		startCmd.SetArgs(args)
@@ -90,7 +79,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
 		args := []string{
-			"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + hostURLFlagName, "test",
 			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
 			"--" + modeFlagName, "",
 		}
@@ -105,7 +94,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		startCmd := GetStartCmd(&mockServer{})
 
 		args := []string{
-			"--" + hostURLFlagName, "test", "--" + edvURLFlagName, "test",
+			"--" + hostURLFlagName, "test",
 			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
 			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + modeFlagName, "invalid",
 		}
@@ -128,19 +117,6 @@ func TestStartCmdWithMissingArg(t *testing.T) {
 			"Neither host-url (command line flag) nor VC_REST_HOST_URL (environment variable) have been set.",
 			err.Error())
 	})
-	t.Run("test missing edv url arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		args := []string{"--" + hostURLFlagName, "localhost:8080"}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-
-		require.Error(t, err)
-		require.Equal(t,
-			"Neither edv-url (command line flag) nor EDV_REST_HOST_URL (environment variable) have been set.",
-			err.Error())
-	})
 }
 
 func TestStartCmdWithBlankEnvVar(t *testing.T) {
@@ -154,28 +130,14 @@ func TestStartCmdWithBlankEnvVar(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "VC_REST_HOST_URL value is empty", err.Error())
 	})
-
-	t.Run("test blank edv url env var", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
-
-		err := os.Setenv(hostURLEnvKey, "localhost:8080")
-		require.NoError(t, err)
-
-		err = os.Setenv(edvURLEnvKey, "")
-		require.NoError(t, err)
-
-		err = startCmd.Execute()
-		require.Error(t, err)
-		require.Equal(t, "EDV_REST_HOST_URL value is empty", err.Error())
-	})
 }
 
 func TestStartCmdCreateKMSFailure(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
 	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
+		"--" + databaseTypeFlagName, databaseTypeMemOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeCouchDBOption, "--" + kmsSecretsDatabaseURLFlagName,
 		"badURL",
 	}
@@ -186,71 +148,12 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to ping couchDB")
 }
 
-func TestStartCmdWithNegativeMaxRetries(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
-
-	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + maxRetriesFlagName, "-5",
-	}
-	startCmd.SetArgs(args)
-
-	err := startCmd.Execute()
-	require.EqualError(t, err, `the given max retries value "-5" is not a valid non-negative integer: `+
-		`strconv.ParseUint: parsing "-5": invalid syntax`)
-}
-
-func TestStartCmdWithNegativeInitialBackoff(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
-
-	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + initialBackoffMillisecFlagName, "-500",
-	}
-	startCmd.SetArgs(args)
-
-	err := startCmd.Execute()
-	require.EqualError(t, err, `the given initial backoff value "-500" is not a valid non-negative integer: `+
-		`strconv.ParseUint: parsing "-500": invalid syntax`)
-}
-
-func TestStartCmdWithInvalidFloatingPointBackoffFactor(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
-
-	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "1.1.1",
-	}
-	startCmd.SetArgs(args)
-
-	err := startCmd.Execute()
-	require.EqualError(t, err, `the given backoff factor "1.1.1" is not a valid floating point number: `+
-		`strconv.ParseFloat: parsing "1.1.1": invalid syntax`)
-}
-
-func TestStartCmdWithNegativeBackoffFactor(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
-
-	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + backoffFactorFlagName, "-2",
-	}
-	startCmd.SetArgs(args)
-
-	err := startCmd.Execute()
-	require.Equal(t, errNegativeBackoffFactor, err)
-}
-
 func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(&mockServer{})
 
 	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + edvURLFlagName,
-		"localhost:8081", "--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
+		"--" + databaseTypeFlagName, databaseTypeMemOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
@@ -505,9 +408,6 @@ func setEnvVars(t *testing.T, databaseType string) {
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
 	require.NoError(t, err)
 
-	err = os.Setenv(edvURLEnvKey, "localhost:8081")
-	require.NoError(t, err)
-
 	err = os.Setenv(blocDomainEnvKey, "domain")
 	require.NoError(t, err)
 
@@ -522,9 +422,6 @@ func unsetEnvVars(t *testing.T) {
 	t.Helper()
 
 	err := os.Unsetenv(hostURLEnvKey)
-	require.NoError(t, err)
-
-	err = os.Unsetenv(edvURLEnvKey)
 	require.NoError(t, err)
 
 	err = os.Unsetenv(blocDomainEnvKey)

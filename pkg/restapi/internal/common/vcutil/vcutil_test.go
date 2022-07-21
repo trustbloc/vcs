@@ -17,12 +17,6 @@ import (
 	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
 )
 
-const testVC = `{
-  "@context": "https://www.w3.org/2018/credentials/v1",
-  "type": "VerifiableCredential",
-  "id": "http://example.gov/credentials/3732",
-}`
-
 func TestGetContextsFromJSONRaw(t *testing.T) {
 	t.Run("get context from raw JSON", func(t *testing.T) {
 		tests := []struct {
@@ -172,15 +166,6 @@ func TestDecodeTypedIDFromJSONRaw(t *testing.T) {
 			})
 		}
 	})
-}
-
-func TestBuildStructuredDocForStorage(t *testing.T) {
-	sdoc, err := BuildStructuredDocForStorage([]byte(testVC))
-
-	require.NoError(t, err)
-	require.NotEmpty(t, sdoc)
-	require.NotEmpty(t, sdoc.Content["message"])
-	require.Equal(t, sdoc.Content["message"].(json.RawMessage), stringToRaw(testVC))
 }
 
 func TestUpdateIssuer(t *testing.T) {
