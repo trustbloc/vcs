@@ -14,8 +14,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 	bbsBlsSignature2020Context  = "https://w3id.org/security/bbs/v1"
 )
 
-// GetContextsFromJSONRaw reads contexts from raw JSON
+// GetContextsFromJSONRaw reads contexts from raw JSON.
 func GetContextsFromJSONRaw(raw json.RawMessage) ([]string, error) {
 	if len(raw) == 0 {
 		return []string{defVCContext}, nil
@@ -70,7 +70,7 @@ func decodeContext(c interface{}) ([]string, error) {
 	}
 }
 
-// DecodeTypedIDFromJSONRaw decodes verifiable type ID from JSON raw
+// DecodeTypedIDFromJSONRaw decodes verifiable type ID from JSON raw.
 func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedID, error) {
 	if len(typedIDBytes) == 0 {
 		return nil, nil
@@ -93,9 +93,8 @@ func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedI
 	return nil, err
 }
 
-// UpdateIssuer overrides credential issuer form profile if
-// 'profile.OverwriteIssuer=true' or credential issuer is missing
-// credential issue will always be DID
+// UpdateIssuer overrides credential issuer for profile if profile.OverwriteIssuer=true or credential issuer is missing.
+// Credential issuer will always be DID.
 func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
 	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
 		credential.Issuer = verifiable.Issuer{
@@ -105,7 +104,7 @@ func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerPr
 	}
 }
 
-// UpdateSignatureTypeContext updates context for JSONWebSignature2020
+// UpdateSignatureTypeContext updates context for JSONWebSignature2020.
 func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
 	if profile.SignatureType == crypto.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)
@@ -116,7 +115,7 @@ func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcpr
 	}
 }
 
-// GetDocIDFromURL Given an EDV document URL, returns just the document ID
+// GetDocIDFromURL Given an EDV document URL, returns just the document ID.
 func GetDocIDFromURL(docURL string) string {
 	splitBySlashes := strings.Split(docURL, `/`)
 	docIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
@@ -124,7 +123,7 @@ func GetDocIDFromURL(docURL string) string {
 	return docIDToRetrieve
 }
 
-// GetVaultIDFromURL Given an EDV vault location URL, returns just the vaultID
+// GetVaultIDFromURL Given an EDV vault location URL, returns just the vaultID.
 func GetVaultIDFromURL(vaultLocationURL string) string {
 	vaultLocationURLSplitUp := strings.Split(vaultLocationURL, "/")
 

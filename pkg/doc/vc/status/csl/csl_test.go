@@ -26,10 +26,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 
-	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
-	"github.com/trustbloc/edge-service/pkg/internal/testutil"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/internal/common/utils"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
 const (
@@ -157,7 +157,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test error from store csl list in store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&storeProvider{store: &mockStore{
-			getFunc: func(k string) (bytes []byte, err error) {
+			getFunc: func(k string) ([]byte, error) {
 				return nil, storage.ErrDataNotFound
 			},
 			putFunc: func(k string, v []byte) error {
@@ -180,7 +180,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test error from put latest id to store after store new list", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&storeProvider{store: &mockStore{
-			getFunc: func(k string) (bytes []byte, err error) {
+			getFunc: func(k string) ([]byte, error) {
 				return nil, storage.ErrDataNotFound
 			},
 			putFunc: func(k string, v []byte) error {
@@ -204,7 +204,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 	t.Run("test error getting csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
+		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) ([]byte, error) {
 			return nil, fmt.Errorf("get error")
 		}}}, 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{},
@@ -369,7 +369,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test error get csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) (bytes []byte, err error) {
+		s, err := New(&storeProvider{store: &mockStore{getFunc: func(k string) ([]byte, error) {
 			return nil, fmt.Errorf("get error")
 		}}}, 2,
 			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
@@ -405,6 +405,8 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 }
 
 func TestPrepareSigningOpts(t *testing.T) {
+	t.Parallel()
+
 	t.Run("prepare signing opts", func(t *testing.T) {
 		profile := &vcprofile.DataProfile{
 			Creator: "did:creator#key-1",
@@ -557,12 +559,12 @@ func (p *storeProvider) GetStoreConfig(name string) (storage.StoreConfiguration,
 	panic("implement me")
 }
 
-// Close closes all stores created under this store provider
+// Close closes all stores created under this store provider.
 func (p *storeProvider) CloseStore(name string) error {
 	return nil
 }
 
-// Close closes all stores created under this store provider
+// Close closes all stores created under this store provider.
 func (p *storeProvider) Close() error {
 	return nil
 }
@@ -573,7 +575,7 @@ type mockStore struct {
 	getFunc func(k string) ([]byte, error)
 }
 
-// Put stores the key and the record
+// Put stores the key and the record.
 func (s *mockStore) Put(k string, v []byte, tags ...storage.Tag) error {
 	if s.putFunc != nil {
 		return s.putFunc(k, v)
@@ -602,12 +604,12 @@ func (s *mockStore) Close() error {
 	panic("implement me")
 }
 
-// GetBulk get bulk
+// GetBulk gets bulk.
 func (s *mockStore) GetBulk(k ...string) ([][]byte, error) {
 	return nil, nil
 }
 
-// Get fetches the record based on key
+// Get fetches the record based on key.
 func (s *mockStore) Get(k string) ([]byte, error) {
 	if s.getFunc != nil {
 		return s.getFunc(k)
@@ -626,8 +628,7 @@ func (s *mockStore) Delete(k string) error {
 	panic("implement me")
 }
 
-// nolint: unparam
-func createDIDDoc(didID string) *did.Doc {
+func createDIDDoc(didID string) *did.Doc { //nolint:unparam
 	const (
 		didContext = "https://w3id.org/did/v1"
 		keyType    = "Ed25519VerificationKey2018"

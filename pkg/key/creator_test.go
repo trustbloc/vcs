@@ -18,7 +18,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/key"
+	"github.com/trustbloc/vcs/pkg/key"
 )
 
 func TestJWKKeyCreator(t *testing.T) {

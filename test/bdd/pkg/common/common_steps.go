@@ -14,7 +14,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 var logger = log.New("common-steps")

@@ -1,6 +1,6 @@
 # VC Interop API Implementation Status
 
-The TrustBloc VC edge service supports multiple W3C CCG HTTP APIs. This page provides the status of the implementation. For detailed API documentation, refer [TrustBloc VC Service Open API Spec](openapi_demo.md) and also extensions defined by [Transmute API](https://transmute-industries.github.io/vc-http-api).
+The TrustBloc VC services support multiple W3C CCG HTTP APIs. This page provides the status of the implementation. For detailed API documentation, refer [TrustBloc VC Service Open API Spec](openapi_demo.md) and also extensions defined by [Transmute API](https://transmute-industries.github.io/vc-http-api).
 
 
 ## Issuer
@@ -15,7 +15,7 @@ with the following extra options defined by [Transmute Issue Credential API](htt
 
 ### Compose And Issue Credential API
 Currently, the edge service implements [W3C Compose And Issue Credential API](https://w3c-ccg.github.io/vc-issuer-http-api/index.html#/internal/composeAndIssueCredential) 
-without the [support for templateReference and subjectReference](https://github.com/trustbloc/edge-service/issues/144) query parameters.
+without the [support for templateReference and subjectReference](https://github.com/trustbloc/vcs/issues/144) query parameters.
 
 
 ## Verifier

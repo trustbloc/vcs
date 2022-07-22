@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
-	"os"
 	"strconv"
 	"testing"
 
@@ -24,7 +23,6 @@ func TestDBParams(t *testing.T) {
 			Timeout: 30,
 		}
 		setEnv(t, expected)
-		defer unsetEnv(t)
 		cmd := &cobra.Command{}
 		Flags(cmd)
 		result, err := DBParams(cmd)
@@ -39,9 +37,7 @@ func TestDBParams(t *testing.T) {
 			Timeout: DatabaseTimeoutDefault,
 		}
 		setEnv(t, expected)
-		defer unsetEnv(t)
-		err := os.Setenv(DatabaseTimeoutEnvKey, "")
-		require.NoError(t, err)
+		t.Setenv(DatabaseTimeoutEnvKey, "")
 		cmd := &cobra.Command{}
 		Flags(cmd)
 		result, err := DBParams(cmd)
@@ -55,7 +51,6 @@ func TestDBParams(t *testing.T) {
 			Timeout: 30,
 		}
 		setEnv(t, expected)
-		defer unsetEnv(t)
 		cmd := &cobra.Command{}
 		Flags(cmd)
 		_, err := DBParams(cmd)
@@ -68,7 +63,6 @@ func TestDBParams(t *testing.T) {
 			Timeout: 30,
 		}
 		setEnv(t, expected)
-		defer unsetEnv(t)
 		cmd := &cobra.Command{}
 		Flags(cmd)
 		_, err := DBParams(cmd)
@@ -81,12 +75,10 @@ func TestDBParams(t *testing.T) {
 			Prefix: "prefix",
 		}
 		setEnv(t, expected)
-		defer unsetEnv(t)
-		err := os.Setenv(DatabaseTimeoutEnvKey, "invalid")
-		require.NoError(t, err)
+		t.Setenv(DatabaseTimeoutEnvKey, "invalid")
 		cmd := &cobra.Command{}
 		Flags(cmd)
-		_, err = DBParams(cmd)
+		_, err := DBParams(cmd)
 		require.Error(t, err)
 	})
 }
@@ -153,25 +145,7 @@ func TestInitStore(t *testing.T) {
 func setEnv(t *testing.T, values *DBParameters) {
 	t.Helper()
 
-	err := os.Setenv(DatabaseURLEnvKey, values.URL)
-	require.NoError(t, err)
-
-	err = os.Setenv(DatabasePrefixEnvKey, values.Prefix)
-	require.NoError(t, err)
-
-	err = os.Setenv(DatabaseTimeoutEnvKey, strconv.FormatUint(values.Timeout, 10))
-	require.NoError(t, err)
-}
-
-func unsetEnv(t *testing.T) {
-	t.Helper()
-
-	err := os.Unsetenv(DatabaseURLEnvKey)
-	require.NoError(t, err)
-
-	err = os.Unsetenv(DatabasePrefixEnvKey)
-	require.NoError(t, err)
-
-	err = os.Unsetenv(DatabaseTimeoutEnvKey)
-	require.NoError(t, err)
+	t.Setenv(DatabaseURLEnvKey, values.URL)
+	t.Setenv(DatabasePrefixEnvKey, values.Prefix)
+	t.Setenv(DatabaseTimeoutEnvKey, strconv.FormatUint(values.Timeout, 10))
 }

@@ -18,19 +18,19 @@ const (
 	one         = 0x1
 )
 
-// BitString struct
+// BitString struct.
 type BitString struct {
 	bits    []byte
 	numBits int
 }
 
-// NewBitString return bitstring
+// NewBitString return bitstring.
 func NewBitString(length int) *BitString {
 	size := 1 + ((length - 1) / bitsPerByte)
 	return &BitString{bits: make([]byte, size), numBits: length}
 }
 
-// DecodeBits decode bits
+// DecodeBits decode bits.
 func DecodeBits(encodedBits string) (*BitString, error) {
 	decodedBits, err := base64.RawURLEncoding.DecodeString(encodedBits)
 	if err != nil {
@@ -52,7 +52,7 @@ func DecodeBits(encodedBits string) (*BitString, error) {
 	return &BitString{bits: buf.Bytes()}, nil
 }
 
-// Set bit
+// Set bit.
 func (b *BitString) Set(position int, bitSet bool) error {
 	nByte := position / bitsPerByte
 	nBit := position % bitsPerByte
@@ -72,7 +72,7 @@ func (b *BitString) Set(position int, bitSet bool) error {
 	return nil
 }
 
-// Get bit
+// Get bit.
 func (b *BitString) Get(position int) (bool, error) {
 	nByte := position / bitsPerByte
 	nBit := position % bitsPerByte
@@ -86,7 +86,7 @@ func (b *BitString) Get(position int) (bool, error) {
 	return bitValue, nil
 }
 
-// EncodeBits encode bits
+// EncodeBits encode bits.
 func (b *BitString) EncodeBits() (string, error) {
 	var buf bytes.Buffer
 

@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/stretchr/testify/require"
 
-	did2 "github.com/trustbloc/edge-service/pkg/did"
+	did2 "github.com/trustbloc/vcs/pkg/did"
 )
 
 func TestVerificationMethods(t *testing.T) {

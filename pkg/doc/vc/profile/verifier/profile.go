@@ -20,12 +20,12 @@ const (
 	storeName = "verifier"
 )
 
-// Profile db operation
+// Profile db operation.
 type Profile struct {
 	store ariesstorage.Store
 }
 
-// ProfileData verifier profile data
+// ProfileData verifier profile data.
 type ProfileData struct {
 	// profile id - avoid using special characters or whitespaces
 	// required: true
@@ -39,7 +39,7 @@ type ProfileData struct {
 	PresentationChecks []string `json:"presentationChecks,omitempty"`
 }
 
-// New returns new credential recorder instance
+// New returns new credential recorder instance.
 func New(provider ariesstorage.Provider) (*Profile, error) {
 	store, err := provider.OpenStore(storeName)
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *Profile) GetProfile(id string) (*ProfileData, error) {
 	return response, nil
 }
 
-// DeleteProfile deletes the verifier profile from underlying store
+// DeleteProfile deletes the verifier profile from underlying store.
 func (c *Profile) DeleteProfile(name string) error {
 	return c.store.Delete(getDBKey(name))
 }

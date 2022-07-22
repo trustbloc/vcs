@@ -23,7 +23,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 )
 
 const splitDidIDLength = 4
@@ -34,7 +34,7 @@ var signatureKeyTypeMap = map[string]string{
 	crypto.JSONWebSignature2020: crypto.JSONWebKey2020,
 }
 
-// CommonDID common did operation
+// CommonDID common did operation.
 type CommonDID struct {
 	keyManager      keyManager
 	vdr             vdrapi.Registry
@@ -43,7 +43,7 @@ type CommonDID struct {
 	didAnchorOrigin string
 }
 
-// Config defines configuration for vcs operations
+// Config defines configuration for vcs operations.
 type Config struct {
 	KeyManager      keyManager
 	VDRI            vdrapi.Registry
@@ -56,7 +56,7 @@ type keyManager interface {
 	kms.KeyManager
 }
 
-// New return new instance of common DID
+// New return new instance of common DID.
 func New(config *Config) *CommonDID {
 	return &CommonDID{
 		keyManager:      config.KeyManager,
@@ -67,7 +67,7 @@ func New(config *Config) *CommonDID {
 	}
 }
 
-// CreateDID create did
+// CreateDID creates DID.
 func (o *CommonDID) CreateDID(keyType, signatureType, didID, privateKey, keyID string) (string, string, error) {
 	var createdDIDID string
 
@@ -157,7 +157,7 @@ func (o *CommonDID) createDID(keyType, signatureType string) (string, string, er
 	return docID, docID + "#" + selectedKeyID, nil
 }
 
-// nolint:funlen,gocyclo
+//nolint:funlen,gocyclo,gocognit
 func (o *CommonDID) createPublicKeys(keyType, signatureType string) (*did.Doc, string, error) {
 	didDoc := &did.Doc{}
 

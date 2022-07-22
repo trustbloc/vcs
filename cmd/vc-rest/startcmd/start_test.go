@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	"github.com/trustbloc/edge-service/cmd/common"
+	"github.com/trustbloc/vcs/cmd/common"
 )
 
 type mockServer struct{}
@@ -33,7 +33,7 @@ func TestStartCmdContents(t *testing.T) {
 
 	require.Equal(t, "start", startCmd.Use)
 	require.Equal(t, "Start vc-rest", startCmd.Short)
-	require.Equal(t, "Start vc-rest inside the edge-service", startCmd.Long)
+	require.Equal(t, "Start vc-rest inside the vcs", startCmd.Long)
 
 	checkFlagPropertiesCorrect(t, startCmd, hostURLFlagName, hostURLFlagShorthand, hostURLFlagUsage)
 }

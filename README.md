@@ -1,10 +1,10 @@
-[![Release](https://img.shields.io/github/release/trustbloc/edge-service.svg?style=flat-square)](https://github.com/trustbloc/edge-service/releases/latest)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/trustbloc/edge-service/main/LICENSE)
-[![Godocs](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/trustbloc/edge-service)
+[![Release](https://img.shields.io/github/release/trustbloc/vcs.svg?style=flat-square)](https://github.com/trustbloc/vcs/releases/latest)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://raw.githubusercontent.com/trustbloc/vcs/main/LICENSE)
+[![Godocs](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/trustbloc/vcs)
 
-[![Build Status](https://github.com/trustbloc/edge-service/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/trustbloc/edge-service/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/trustbloc/edge-service/branch/main/graph/badge.svg)](https://codecov.io/gh/trustbloc/edge-service)
-[![Go Report Card](https://goreportcard.com/badge/github.com/trustbloc/edge-service)](https://goreportcard.com/report/github.com/trustbloc/edge-service)
+[![Build Status](https://github.com/trustbloc/vcs/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/trustbloc/vcs/actions/workflows/build.yml)
+[![codecov](https://codecov.io/gh/trustbloc/vcs/branch/main/graph/badge.svg)](https://codecov.io/gh/trustbloc/vcs)
+[![Go Report Card](https://goreportcard.com/badge/github.com/trustbloc/vcs)](https://goreportcard.com/report/github.com/trustbloc/vcs)
 
 # TrustBloc VCS
 

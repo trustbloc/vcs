@@ -34,11 +34,11 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
-	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
-	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
-	"github.com/trustbloc/edge-service/pkg/internal/testutil"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
+	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/vcs/pkg/internal/common/utils"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
 const (

@@ -24,14 +24,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
-	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
-	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
+	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
+	verifierops "github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
+	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 const (

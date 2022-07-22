@@ -13,14 +13,14 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 )
 
-var logger = log.New("edge-service-restapi-common-http")
+var logger = log.New("vcs-restapi-common-http")
 
-// ErrorResponse to send error message in the response
+// ErrorResponse to send error message in the response.
 type ErrorResponse struct {
 	Message string `json:"errMessage,omitempty"`
 }
 
-// WriteErrorResponse write error resp
+// WriteErrorResponse write error resp.
 func WriteErrorResponse(rw http.ResponseWriter, status int, msg string) {
 	rw.Header().Add("Content-Type", "application/json")
 
@@ -35,7 +35,7 @@ func WriteErrorResponse(rw http.ResponseWriter, status int, msg string) {
 	}
 }
 
-// WriteResponse writes interface value to response
+// WriteResponse writes interface value to response.
 func WriteResponse(rw http.ResponseWriter, statusCode int, v interface{}) {
 	if v != nil {
 		rw.Header().Add("Content-Type", "application/json")
@@ -51,7 +51,7 @@ func WriteResponse(rw http.ResponseWriter, statusCode int, v interface{}) {
 	}
 }
 
-// WriteResponseBytes writes data bytes to response
+// WriteResponseBytes writes data bytes to response.
 func WriteResponseBytes(rw http.ResponseWriter, statusCode int, data []byte) {
 	rw.Header().Add("Content-Type", "application/json")
 

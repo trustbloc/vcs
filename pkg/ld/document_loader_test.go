@@ -14,7 +14,7 @@ import (
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/ld"
+	"github.com/trustbloc/vcs/pkg/ld"
 )
 
 func TestNewDocumentLoader(t *testing.T) {

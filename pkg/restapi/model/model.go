@@ -8,13 +8,13 @@ package model
 
 import "time"
 
-// ErrorResponse to send error message in the response
+// ErrorResponse to send error message in the response.
 type ErrorResponse struct {
 	// error message
 	Message string `json:"errMessage,omitempty"`
 }
 
-// DataProfile struct for profile
+// DataProfile struct for profile.
 type DataProfile struct {
 	Name                    string     `json:"name,omitempty"`
 	DID                     string     `json:"did,omitempty"`

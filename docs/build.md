@@ -1,7 +1,7 @@
-# Edge service - Build
+# VC services - Build
 
 ## Prerequisites
-- Go 1.16
+- Go 1.18
 
 ## Prerequisites for Tests 
 - Make

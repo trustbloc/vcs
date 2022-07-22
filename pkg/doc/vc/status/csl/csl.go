@@ -19,18 +19,18 @@ import (
 	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/piprate/json-gold/ld"
 
-	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 )
 
 const (
 	vcContext                  = "https://www.w3.org/2018/credentials/v1"
 	jsonWebSignature2020Ctx    = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 	bbsBlsSignature2020Context = "https://w3id.org/security/bbs/v1"
-	// Context for Revocation List 2021
+	// Context for Revocation List 2021.
 	Context = "https://w3id.org/vc/status-list/2021/v1"
-	// CredentialStatusType credential status type
+	// CredentialStatusType credential status type.
 	credentialStatusStore = "credentialstatus"
 	latestListID          = "latestListID"
 	defaultRepresentation = "jws"
@@ -39,16 +39,15 @@ const (
 	revocationList2021VCType = "StatusList2021Credential"
 	revocationList2021Type   = "StatusList2021"
 
-	// StatusListIndex for RevocationList2021
+	// StatusListIndex for RevocationList2021.
 	StatusListIndex = "statusListIndex"
-	// StatusListCredential for RevocationList2021
+	// StatusListCredential for RevocationList2021.
 	StatusListCredential = "statusListCredential"
-	// StatusPurpose for RevocationList2021
+	// StatusPurpose for RevocationList2021.
 	StatusPurpose = "statusPurpose"
-	// StatusList2021Entry for RevocationList2021
+	// StatusList2021Entry for RevocationList2021.
 	StatusList2021Entry = "StatusList2021Entry"
 
-	// proof json keys
 	jsonKeyProofValue         = "proofValue"
 	jsonKeyProofPurpose       = "proofPurpose"
 	jsonKeyVerificationMethod = "verificationMethod"
@@ -62,7 +61,7 @@ type crypto interface {
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
-// CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-status-rl-2020/
+// CredentialStatusManager implement spec https://w3c-ccg.github.io/vc-status-rl-2020/.
 type CredentialStatusManager struct {
 	store          ariesstorage.Store
 	listSize       int
@@ -70,7 +69,7 @@ type CredentialStatusManager struct {
 	documentLoader ld.DocumentLoader
 }
 
-// cslWrapper contain csl and metadata
+// cslWrapper contain csl and metadata.
 type cslWrapper struct {
 	VCByte              json.RawMessage        `json:"vc"`
 	Size                int                    `json:"size"`
@@ -86,7 +85,7 @@ type credentialSubject struct {
 	EncodedList   string `json:"encodedList"`
 }
 
-// New returns new Credential Status List
+// New returns new Credential Status List.
 func New(provider ariesstorage.Provider, listSize int, c crypto,
 	loader ld.DocumentLoader) (*CredentialStatusManager, error) {
 	store, err := provider.OpenStore(credentialStatusStore)
@@ -97,7 +96,7 @@ func New(provider ariesstorage.Provider, listSize int, c crypto,
 	return &CredentialStatusManager{store: store, listSize: listSize, crypto: c, documentLoader: loader}, nil
 }
 
-// CreateStatusID create status id
+// CreateStatusID creates status ID.
 func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
 	url string) (*verifiable.TypedID, error) {
 	cslWrapper, err := c.getLatestCSL(profile, url)
@@ -137,7 +136,7 @@ func (c *CredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
 	}, nil
 }
 
-// UpdateVC update vc
+// UpdateVC updates vc.
 //nolint: gocyclo, funlen
 func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
 	profile *vcprofile.DataProfile, status bool) error {
@@ -227,7 +226,7 @@ func (c *CredentialStatusManager) validateVCStatus(vcStatus *verifiable.TypedID)
 	return nil
 }
 
-// GetRevocationListVC get revocation list vc
+// GetRevocationListVC get revocation list vc.
 func (c *CredentialStatusManager) GetRevocationListVC(id string) ([]byte, error) {
 	cslWrapper, err := c.getCSLWrapper(id)
 	if err != nil {
@@ -257,6 +256,7 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*cslWrapper, error) 
 	return &w, nil
 }
 
+//nolint:gocognit
 func (c *CredentialStatusManager) getLatestCSL(profile *vcprofile.DataProfile, url string) (*cslWrapper, error) {
 	// get latest id
 	id, err := c.store.Get(latestListID)
@@ -370,7 +370,7 @@ func (c *CredentialStatusManager) storeCSL(cslWrapper *cslWrapper) error {
 	return nil
 }
 
-// prepareSigningOpts prepares signing opts from recently issued proof of given credential
+// prepareSigningOpts prepares signing opts from recently issued proof of given credential.
 func prepareSigningOpts(profile *vcprofile.DataProfile, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
 	var signingOpts []vccrypto.SigningOpts
 

@@ -41,18 +41,18 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	"github.com/trustbloc/edge-core/pkg/log/mocklogger"
 
-	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
-	"github.com/trustbloc/edge-service/pkg/internal/testutil"
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/restapi/model"
 )
 
 const (
 	challenge = "challenge"
 	domain    = "domain"
 
-	// json keys for compose issue credential options
+	// JSON keys for compose issue credential options.
 	keyID   = "kid"
 	purpose = "proofPurpose"
 	created = "created"
@@ -150,7 +150,7 @@ const (
       }
 	}`
 
-	// VC without issuer
+	// VC without issuer.
 	invalidVC = `{` +
 		validContext + `,
 	  "id": "http://example.edu/credentials/1872",
@@ -433,29 +433,6 @@ func (m *mockCommonDID) CreateDID(keyType, signatureType, didID, privateKey, key
 	return m.createDIDValue, m.createDIDKeyID, m.createDIDErr
 }
 
-type mockAuthService struct {
-	createDIDKeyFunc func() (string, error)
-	signHeaderFunc   func(req *http.Request, capability []byte,
-		verificationMethod string) (*http.Header, error)
-}
-
-func (m *mockAuthService) CreateDIDKey() (string, error) {
-	if m.createDIDKeyFunc != nil {
-		return m.createDIDKeyFunc()
-	}
-
-	return "", nil
-}
-
-func (m *mockAuthService) SignHeader(req *http.Request, capability []byte,
-	verificationMethod string) (*http.Header, error) {
-	if m.signHeaderFunc != nil {
-		return m.signHeaderFunc(req, capability, verificationMethod)
-	}
-
-	return nil, nil
-}
-
 func TestCreateProfileHandler(t *testing.T) {
 	customKMS := createKMS(t)
 
@@ -473,13 +450,10 @@ func TestCreateProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op.commonDID = &mockCommonDID{}
-	op.authService = &mockAuthService{}
 
 	createProfileHandler := getHandler(t, op, createProfileEndpoint, http.MethodPost)
 
 	t.Run("create profile success", func(t *testing.T) {
-		op.authService = &mockAuthService{}
-
 		req, err := http.NewRequest(http.MethodPost, createProfileEndpoint,
 			bytes.NewBuffer([]byte(testIssuerProfile)))
 		require.NoError(t, err)
@@ -498,7 +472,6 @@ func TestCreateProfileHandler(t *testing.T) {
 	})
 
 	t.Run("create profile - profile already exists", func(t *testing.T) {
-		op.authService = &mockAuthService{}
 		vReqBytes, err := json.Marshal(getTestProfile())
 		require.NoError(t, err)
 
@@ -2126,6 +2099,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 }
 
 func TestGetComposeSigningOpts(t *testing.T) {
+	t.Parallel()
+
 	t.Run("get signing opts", func(t *testing.T) {
 		tests := []struct {
 			name               string
@@ -2498,7 +2473,7 @@ func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProf
 		return nil, m.CreateErr
 	}
 
-	return nil, nil
+	return &verifiable.TypedID{}, nil
 }
 
 func (m *mockCredentialStatusManager) UpdateVC(v *verifiable.Credential,

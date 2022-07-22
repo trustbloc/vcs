@@ -14,7 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
-// CreateCredentialRequest input data for edge service issuer rest api
+// CreateCredentialRequest input data for issuer rest api.
 type CreateCredentialRequest struct {
 	Context []string           `json:"@context,omitempty"`
 	Subject verifiable.Subject `json:"credentialSubject"`
@@ -23,19 +23,19 @@ type CreateCredentialRequest struct {
 	Profile string             `json:"profile,omitempty"`
 }
 
-// UpdateCredentialStatusRequest request struct for updating vc status
+// UpdateCredentialStatusRequest request struct for updating vc status.
 type UpdateCredentialStatusRequest struct {
 	CredentialID     string           `json:"credentialId"`
 	CredentialStatus CredentialStatus `json:"credentialStatus"`
 }
 
-// CredentialStatus credential status
+// CredentialStatus credential status.
 type CredentialStatus struct {
 	Type   string `json:"type"`
 	Status string `json:"status"`
 }
 
-// StoreVCRequest stores the credential with profile name
+// StoreVCRequest stores the credential with profile name.
 type StoreVCRequest struct {
 	// profile id
 	Profile string `json:"profile"`
@@ -43,7 +43,7 @@ type StoreVCRequest struct {
 	Credential string `json:"credential"`
 }
 
-// ProfileRequest issuer profile request params
+// ProfileRequest issuer profile request params.
 type ProfileRequest struct {
 	// profile id - avoid using special characters or whitespaces
 	// required: true
@@ -98,7 +98,7 @@ type IssueCredentialOptions struct {
 	CredentialStatus CredentialStatusOpt `json:"credentialStatus,omitempty"`
 }
 
-// CredentialStatusOpt credential status option
+// CredentialStatusOpt credential status option.
 type CredentialStatusOpt struct {
 	Type string `json:"type"`
 }
@@ -119,7 +119,7 @@ type ComposeCredentialRequest struct {
 	ProofFormatOptions      json.RawMessage `json:"proofFormatOptions,omitempty"`
 }
 
-// GenerateKeyPairRequest generating key pair request
+// GenerateKeyPairRequest generating key pair request.
 type GenerateKeyPairRequest struct {
 	// nolint: lll
 	// key type - refer for https://github.com/hyperledger/aries-framework-go/blob/badfb20d82bec3e0154d49f2cf6072b8fcd72a21/pkg/kms/api.go#L80-L123 supported options.

@@ -26,12 +26,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
+	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 const (
