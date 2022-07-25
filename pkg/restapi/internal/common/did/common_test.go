@@ -22,7 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 )
 
 const (

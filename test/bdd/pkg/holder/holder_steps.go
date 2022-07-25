@@ -17,10 +17,10 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
+	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 const (

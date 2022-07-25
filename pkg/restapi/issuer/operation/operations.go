@@ -29,21 +29,20 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	zcapsvc "github.com/trustbloc/edge-service/pkg/auth/zcapld"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	cslstatus "github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
-	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	commondid "github.com/trustbloc/edge-service/pkg/restapi/internal/common/did"
-	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
-	"github.com/trustbloc/edge-service/pkg/restapi/internal/common/vcutil"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/vcs/pkg/internal/common/support"
+	commondid "github.com/trustbloc/vcs/pkg/restapi/internal/common/did"
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/vcs/pkg/restapi/internal/common/vcutil"
 )
 
 const (
-	logModuleName      = "edge-service-issuer-restapi"
+	logModuleName      = "vcs-issuer-restapi"
 	profileIDPathParam = "profileID"
 
-	// issuer endpoints
+	// Issuer endpoints.
 	createProfileEndpoint          = "/profile"
 	getProfileEndpoint             = createProfileEndpoint + "/{id}"
 	deleteProfileEndpoint          = createProfileEndpoint + "/{id}"
@@ -62,7 +61,7 @@ const (
 
 	invalidRequestErrMsg = "Invalid request"
 
-	// supported proof purpose
+	// Supported proof purpose.
 	assertionMethod      = "assertionMethod"
 	authentication       = "authentication"
 	capabilityDelegation = "capabilityDelegation"
@@ -72,14 +71,14 @@ const (
 
 	defaultKeyType = kms.ED25519Type
 
-	verifiableCredentialsStoreName = "VerifiableCredentials"
+	verifiableCredentialsStoreName = "VerifiableCredentials" //nolint:gosec
 )
 
-var logger = log.New("edge-service-issuer-restapi")
+var logger = log.New("vcs-issuer-restapi")
 
 var errProfileNotFound = errors.New("specified profile ID does not exist")
 
-// Handler http handler for each controller API endpoint
+// Handler http handler for each controller API endpoint.
 type Handler interface {
 	Path() string
 	Method() string
@@ -92,11 +91,6 @@ type vcStatusManager interface {
 	GetRevocationListVC(id string) ([]byte, error)
 }
 
-type authService interface {
-	CreateDIDKey() (string, error)
-	SignHeader(req *http.Request, capabilityBytes []byte, verificationMethod string) (*http.Header, error)
-}
-
 type keyManager interface {
 	kms.KeyManager
 }
@@ -105,7 +99,7 @@ type commonDID interface {
 	CreateDID(keyType, signatureType, did, privateKey, keyID string) (string, string, error)
 }
 
-// New returns CreateCredential instance
+// New returns CreateCredential instance.
 func New(config *Config) (*Operation, error) {
 	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI, config.DocumentLoader)
 
@@ -120,7 +114,6 @@ func New(config *Config) (*Operation, error) {
 	}
 
 	svc := &Operation{
-		authService:     zcapsvc.New(config.KeyManager, config.Crypto),
 		profileStore:    p,
 		kms:             config.KeyManager,
 		vdr:             config.VDRI,
@@ -140,7 +133,7 @@ func New(config *Config) (*Operation, error) {
 	return svc, nil
 }
 
-// Config defines configuration for vcs operations
+// Config defines configuration for vcs operations.
 type Config struct {
 	StoreProvider      ariesstorage.Provider
 	KMSSecretsProvider ariesstorage.Provider
@@ -154,7 +147,7 @@ type Config struct {
 	DocumentLoader     ld.DocumentLoader
 }
 
-// Operation defines handlers for Edge service
+// Operation defines handlers for issuer service.
 type Operation struct {
 	profileStore    *vcprofile.Profile
 	kms             keyManager
@@ -164,12 +157,11 @@ type Operation struct {
 	domain          string
 	hostURL         string
 	commonDID       commonDID
-	authService     authService
 	documentLoader  ld.DocumentLoader
 	storeProvider   ariesstorage.Provider
 }
 
-// GetRESTHandlers get all controller API handler available for this service
+// GetRESTHandlers get all controller API handler available for this service.
 func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
 		// issuer profile
@@ -418,7 +410,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	// TODO https://github.com/trustbloc/edge-service/issues/208 credential is bundled into string type - update
+	// TODO https://github.com/trustbloc/vcs/issues/208 credential is bundled into string type - update
 	//  this to json.RawMessage
 	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
@@ -426,7 +418,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
 		return
 	}
-	// TODO https://github.com/trustbloc/edge-service/issues/417 add profileID to the path param rather than the body
+	// TODO https://github.com/trustbloc/vcs/issues/417 add profileID to the path param rather than the body
 	if err = validateRequest(data.Profile, vc.ID); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -437,7 +429,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 }
 
 // ToDo: data.Credential and vc seem to contain the same data... do they both need to be passed in?
-// https://github.com/trustbloc/edge-service/issues/265
+// https://github.com/trustbloc/vcs/issues/265
 func (o *Operation) storeVC(data *StoreVCRequest, vc *verifiable.Credential, rw http.ResponseWriter) {
 	profile, err := o.profileStore.GetProfile(data.Profile)
 	if err != nil {

@@ -24,7 +24,7 @@ const (
 	holderMode = "holder"
 )
 
-// New returns new credential recorder instance
+// New returns new credential recorder instance.
 func New(provider ariesstorage.Provider) (*Profile, error) {
 	store, err := provider.OpenStore(credentialStoreName)
 	if err != nil {
@@ -34,12 +34,12 @@ func New(provider ariesstorage.Provider) (*Profile, error) {
 	return &Profile{store: store}, nil
 }
 
-// Profile takes care of features to be persisted for credentials
+// Profile takes care of features to be persisted for credentials.
 type Profile struct {
 	store ariesstorage.Store
 }
 
-// DataProfile base profile
+// DataProfile base profile.
 type DataProfile struct {
 	Name                    string                             `json:"name"`
 	DID                     string                             `json:"did"`
@@ -49,7 +49,7 @@ type DataProfile struct {
 	Created                 *time.Time                         `json:"created"`
 }
 
-// IssuerProfile struct for issuer profile
+// IssuerProfile struct for issuer profile.
 type IssuerProfile struct {
 	URI             string `json:"uri"`
 	DisableVCStatus bool   `json:"disableVCStatus"`
@@ -57,13 +57,13 @@ type IssuerProfile struct {
 	*DataProfile
 }
 
-// HolderProfile struct for holder profile
+// HolderProfile struct for holder profile.
 type HolderProfile struct {
 	OverwriteHolder bool `json:"overwriteHolder,omitempty"`
 	*DataProfile
 }
 
-// SaveProfile saves issuer profile to underlying store
+// SaveProfile saves issuer profile to underlying store.
 func (c *Profile) SaveProfile(data *IssuerProfile) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
@@ -73,7 +73,7 @@ func (c *Profile) SaveProfile(data *IssuerProfile) error {
 	return c.store.Put(getDBKey(issuerMode, data.Name), bytes)
 }
 
-// GetProfile returns profile information for given profile name from underlying store
+// GetProfile returns profile information for given profile name from underlying store.
 func (c *Profile) GetProfile(name string) (*IssuerProfile, error) {
 	bytes, err := c.store.Get(getDBKey(issuerMode, name))
 	if err != nil {

@@ -17,13 +17,13 @@ import (
 
 	"github.com/cucumber/godog"
 
-	"github.com/trustbloc/edge-service/test/bdd/dockerutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/common"
-	bddctx "github.com/trustbloc/edge-service/test/bdd/pkg/context"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/holder"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/issuer"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/vc"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/verifier"
+	"github.com/trustbloc/vcs/test/bdd/dockerutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/common"
+	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/bdd/pkg/holder"
+	"github.com/trustbloc/vcs/test/bdd/pkg/issuer"
+	"github.com/trustbloc/vcs/test/bdd/pkg/vc"
+	"github.com/trustbloc/vcs/test/bdd/pkg/verifier"
 )
 
 func TestMain(m *testing.M) {

@@ -13,11 +13,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 )
 
 func TestGetContextsFromJSONRaw(t *testing.T) {
+	t.Parallel()
+
 	t.Run("get context from raw JSON", func(t *testing.T) {
 		tests := []struct {
 			name                    string
@@ -111,6 +113,8 @@ func TestGetContextsFromJSONRaw(t *testing.T) {
 }
 
 func TestDecodeTypedIDFromJSONRaw(t *testing.T) {
+	t.Parallel()
+
 	t.Run("decode typed ID from raw JSON", func(t *testing.T) {
 		tests := []struct {
 			name   string

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package issuer
 
 import (
-	"github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
 )
 
 // New returns new controller instance.
@@ -26,12 +26,12 @@ func New(config *operation.Config) (*Controller, error) {
 	return &Controller{handlers: allHandlers}, nil
 }
 
-// Controller contains handlers for controller
+// Controller contains handlers for controller.
 type Controller struct {
 	handlers []operation.Handler
 }
 
-// GetOperations returns all controller endpoints
+// GetOperations returns all controller endpoints.
 func (c *Controller) GetOperations() []operation.Handler {
 	return c.handlers
 }

@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-name: "edge service ci"
+name: "vcs ci"
 
 env:
-  GO_VERSION: 1.16
+  GO_VERSION: 1.18
 
 on:
   push:
@@ -176,7 +176,7 @@ jobs:
 
   Interop:
     needs: [Checks, UnitTest, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow]
-    if: github.event_name == 'push' && (github.repository == 'trustbloc/edge-service' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'push' && (github.repository == 'trustbloc/vcs' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-20.04
     timeout-minutes: 30
     steps:

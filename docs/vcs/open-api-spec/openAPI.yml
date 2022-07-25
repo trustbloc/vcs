@@ -70,7 +70,7 @@ definitions:
         x-go-name: Types
     title: ComposeCredentialRequest for composing and issuing credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   CredentialStatus:
     description: CredentialStatus credential status
     properties:
@@ -81,7 +81,7 @@ definitions:
         type: string
         x-go-name: Type
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   CredentialStatusOpt:
     description: CredentialStatusOpt credential status option
     properties:
@@ -89,7 +89,7 @@ definitions:
         type: string
         x-go-name: Type
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   CredentialsVerificationCheckResult:
     properties:
       check:
@@ -103,7 +103,7 @@ definitions:
         x-go-name: VerificationMethod
     title: CredentialsVerificationCheckResult resp containing failure check details.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/verifier/operation
   CredentialsVerificationOptions:
     properties:
       challenge:
@@ -119,7 +119,7 @@ definitions:
         x-go-name: Domain
     title: CredentialsVerificationOptions options for credential verifications.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/verifier/operation
   CredentialsVerificationRequest:
     properties:
       options:
@@ -129,7 +129,7 @@ definitions:
         x-go-name: Credential
     title: CredentialsVerificationRequest request for verifying credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/verifier/operation
   DeriveCredentialOptions:
     properties:
       nonce:
@@ -138,7 +138,7 @@ definitions:
         x-go-name: Nonce
     title: DeriveCredentialOptions options for derive credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/holder/operation
   DeriveCredentialRequest:
     properties:
       frame:
@@ -155,7 +155,7 @@ definitions:
         x-go-name: Credential
     title: DeriveCredentialRequest is request for deriving credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/holder/operation
   DeriveCredentialResponse:
     properties:
       verifiableCredential:
@@ -163,7 +163,7 @@ definitions:
         x-go-name: VerifiableCredential
     title: DeriveCredentialResponse is model for derive credential response.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/holder/operation
   Document:
     properties:
       content:
@@ -216,7 +216,7 @@ definitions:
         type: string
         x-go-name: SignatureType
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/holder/operation
   IssueCredentialOptions:
     properties:
       assertionMethod:
@@ -254,7 +254,7 @@ definitions:
         x-go-name: VerificationMethod
     title: IssueCredentialOptions options for issuing credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   IssueCredentialRequest:
     properties:
       credential:
@@ -264,7 +264,7 @@ definitions:
         $ref: '#/definitions/IssueCredentialOptions'
     title: IssueCredentialRequest request for issuing credential.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   ProfileRequest:
     description: ProfileRequest issuer profile request params
     properties:
@@ -315,7 +315,7 @@ definitions:
       - signatureType
       - didKeyType
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   RemoteProviderRecord:
     properties:
       endpoint:
@@ -350,7 +350,7 @@ definitions:
         x-go-name: VerificationMethod
     title: SignPresentationOptions options for signing a presentation.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/holder/operation
   SignPresentationRequest:
     properties:
       options:
@@ -360,7 +360,7 @@ definitions:
         x-go-name: Presentation
     title: SignPresentationRequest request for signing a presentation.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/holder/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/holder/operation
   SignatureRepresentation:
     format: int64
     title: SignatureRepresentation is a signature value holder type (e.g. "proofValue"
@@ -379,7 +379,7 @@ definitions:
         type: string
         x-go-name: Profile
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   UpdateCredentialStatusRequest:
     description: UpdateCredentialStatusRequest request struct for updating vc status
     properties:
@@ -389,7 +389,7 @@ definitions:
       credentialStatus:
         $ref: '#/definitions/CredentialStatus'
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/issuer/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/issuer/operation
   VerifyPresentationCheckResult:
     properties:
       check:
@@ -403,7 +403,7 @@ definitions:
         x-go-name: VerificationMethod
     title: VerifyPresentationCheckResult resp containing failure check details.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/verifier/operation
   VerifyPresentationOptions:
     properties:
       challenge:
@@ -419,7 +419,7 @@ definitions:
         x-go-name: Domain
     title: VerifyPresentationOptions options for presentation verifications.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/verifier/operation
   VerifyPresentationRequest:
     properties:
       options:
@@ -429,7 +429,7 @@ definitions:
         x-go-name: Presentation
     title: VerifyPresentationRequest request for verifying presentation.
     type: object
-    x-go-package: github.com/trustbloc/edge-service/pkg/restapi/verifier/operation
+    x-go-package: github.com/trustbloc/vcs/pkg/restapi/verifier/operation
   genericErrorBody:
     properties:
       code:

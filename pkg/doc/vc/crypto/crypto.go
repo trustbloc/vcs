@@ -24,45 +24,43 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/piprate/json-gold/ld"
 
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
 
 const (
-	// Ed25519Signature2018 ed25519 signature suite
+	// Ed25519Signature2018 ed25519 signature suite.
 	Ed25519Signature2018 = "Ed25519Signature2018"
-	// JSONWebSignature2020 json web signature suite
+	// JSONWebSignature2020 json web signature suite.
 	JSONWebSignature2020 = "JsonWebSignature2020"
-	// BbsBlsSignature2020 signature suite
+	// BbsBlsSignature2020 signature suite.
 	BbsBlsSignature2020 = "BbsBlsSignature2020"
 
-	// Ed25519VerificationKey2018 ed25119 verification key
+	// Ed25519VerificationKey2018 ed25119 verification key.
 	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
-	// JSONWebKey2020 type
+	// JSONWebKey2020 type.
 	JSONWebKey2020 = "JsonWebKey2020"
 )
 
 const (
-	// Ed25519KeyType ed25519 key type
+	// Ed25519KeyType ed25519 key type.
 	Ed25519KeyType = "Ed25519"
 
-	// P256KeyType EC P-256 key type
+	// P256KeyType EC P-256 key type.
 	P256KeyType = "P256"
 )
 
 const (
-	// supported proof purpose
-
-	// AssertionMethod assertionMethod
+	// AssertionMethod assertionMethod.
 	AssertionMethod = "assertionMethod"
 
-	// Authentication authentication
+	// Authentication authentication.
 	Authentication = "authentication"
 
-	// CapabilityDelegation capabilityDelegation
+	// CapabilityDelegation capabilityDelegation.
 	CapabilityDelegation = "capabilityDelegation"
 
-	// CapabilityInvocation capabilityInvocation
+	// CapabilityInvocation capabilityInvocation.
 	CapabilityInvocation = "capabilityInvocation"
 )
 
@@ -113,12 +111,12 @@ func (s *kmsSigner) textToLines(txt string) [][]byte {
 	return linesBytes
 }
 
-// New return new instance of vc crypto
+// New return new instance of vc crypto.
 func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdr vdrapi.Registry, loader ld.DocumentLoader) *Crypto {
 	return &Crypto{keyManager: keyManager, crypto: c, vdr: vdr, documentLoader: loader}
 }
 
-// signingOpts holds options for the signing credential
+// signingOpts holds options for the signing credential.
 type signingOpts struct {
 	VerificationMethod string
 	Purpose            string
@@ -129,59 +127,59 @@ type signingOpts struct {
 	Domain             string
 }
 
-// SigningOpts is signing credential option
+// SigningOpts is signing credential option.
 type SigningOpts func(opts *signingOpts)
 
-// WithVerificationMethod is an option to pass verification method for signing
+// WithVerificationMethod is an option to pass verification method for signing.
 func WithVerificationMethod(verificationMethod string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.VerificationMethod = verificationMethod
 	}
 }
 
-// WithPurpose is an option to pass proof purpose option for signing
+// WithPurpose is an option to pass proof purpose option for signing.
 func WithPurpose(purpose string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.Purpose = purpose
 	}
 }
 
-// WithSigningRepresentation is an option to pass representation for signing
+// WithSigningRepresentation is an option to pass representation for signing.
 func WithSigningRepresentation(representation string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.Representation = representation
 	}
 }
 
-// WithSignatureType is an option to pass signature type for signing
+// WithSignatureType is an option to pass signature type for signing.
 func WithSignatureType(signatureType string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.SignatureType = signatureType
 	}
 }
 
-// WithCreated is an option to pass created time option for signing
+// WithCreated is an option to pass created time option for signing.
 func WithCreated(created *time.Time) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.Created = created
 	}
 }
 
-// WithChallenge proof challenge
+// WithChallenge proof challenge.
 func WithChallenge(challenge string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.Challenge = challenge
 	}
 }
 
-// WithDomain proof domain
+// WithDomain proof domain.
 func WithDomain(domain string) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.Domain = domain
 	}
 }
 
-// Crypto to sign credential
+// Crypto to sign credential.
 type Crypto struct {
 	keyManager     kms.KeyManager
 	crypto         ariescrypto.Crypto
@@ -189,7 +187,7 @@ type Crypto struct {
 	documentLoader ld.DocumentLoader
 }
 
-// SignCredential sign vc
+// SignCredential signs vc.
 func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential,
 	opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
@@ -217,7 +215,7 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 	return vc, nil
 }
 
-// SignPresentation signs a presentation
+// SignPresentation signs a presentation.
 func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiable.Presentation,
 	opts ...SigningOpts) (*verifiable.Presentation, error) {
 	signOpts := &signingOpts{}
@@ -319,7 +317,7 @@ func (c *Crypto) getAndResolveDID(verificationMethod string) (*did.Doc, error) {
 }
 
 // getSigner returns signer and verification method based on profile and signing opts
-// verificationMethod from opts takes priority to create signer and verification method
+// verificationMethod from opts takes priority to create signer and verification method.
 func (c *Crypto) getSigner(creator string, opts *signingOpts, signatureType string) (*kmsSigner, string, error) {
 	verificationMethod := creator
 	if opts.VerificationMethod != "" {
@@ -331,9 +329,9 @@ func (c *Crypto) getSigner(creator string, opts *signingOpts, signatureType stri
 	return s, verificationMethod, err
 }
 
-// ValidateProofPurpose validates the proof purpose
+// ValidateProofPurpose validates the proof purpose.
 func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
-	// TODO https://github.com/trustbloc/edge-service/issues/368 remove check once did:sov returns both
+	// TODO https://github.com/trustbloc/vcs/issues/368 remove check once did:sov returns both
 	//  assertionMethod and authentication
 	if strings.Contains(method, "did:sov") {
 		return nil
@@ -380,7 +378,7 @@ func isValidVerificationMethod(method string, vms []did.Verification) bool {
 	return false
 }
 
-// getSignatureRepresentation returns signing repsentation for given representation key
+// getSignatureRepresentation returns signing repsentation for given representation key.
 func getSignatureRepresentation(signRep string) (verifiable.SignatureRepresentation, error) {
 	var signatureRepresentation verifiable.SignatureRepresentation
 

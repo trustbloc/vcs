@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -23,19 +24,19 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
-	"github.com/trustbloc/edge-service/pkg/doc/vc/status/csl"
-	"github.com/trustbloc/edge-service/pkg/internal/common/diddoc"
-	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	"github.com/trustbloc/edge-service/pkg/internal/common/utils"
-	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
+	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
+	"github.com/trustbloc/vcs/pkg/internal/common/support"
+	"github.com/trustbloc/vcs/pkg/internal/common/utils"
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
 )
 
 const (
 	profileIDPathParam = "id"
 
-	// verifier endpoints
+	// Verifier endpoints.
 	verifierBasePath                  = "/verifier"
 	profileEndpoint                   = verifierBasePath + "/profile"
 	getProfileEndpoint                = profileEndpoint + "/" + "{" + profileIDPathParam + "}"
@@ -47,11 +48,11 @@ const (
 
 	successMsg = "success"
 
-	// credential verification checks
+	// Credential verification checks.
 	proofCheck  = "proof"
 	statusCheck = "credentialStatus"
 
-	// proof data keys
+	// Proof data keys.
 	challenge          = "challenge"
 	domain             = "domain"
 	proofPurpose       = "proofPurpose"
@@ -60,9 +61,9 @@ const (
 	cslRequestTokenName = "csl"
 )
 
-var logger = log.New("edge-service-verifier-restapi")
+var logger = log.New("vcs-verifier-restapi")
 
-// Handler http handler for each controller API endpoint
+// Handler http handler for each controller API endpoint.
 type Handler interface {
 	Path() string
 	Method() string
@@ -73,7 +74,7 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// New returns CreateCredential instance
+// New returns CreateCredential instance.
 func New(config *Config) (*Operation, error) {
 	p, err := verifier.New(config.StoreProvider)
 	if err != nil {
@@ -91,7 +92,7 @@ func New(config *Config) (*Operation, error) {
 	return svc, nil
 }
 
-// Config defines configuration for verifier operations
+// Config defines configuration for verifier operations.
 type Config struct {
 	StoreProvider  ariesstorage.Provider
 	VDRI           vdrapi.Registry
@@ -100,7 +101,7 @@ type Config struct {
 	DocumentLoader ld.DocumentLoader
 }
 
-// Operation defines handlers for Edge service
+// Operation defines handlers for verifier service.
 type Operation struct {
 	profileStore   *verifier.Profile
 	vdr            vdrapi.Registry
@@ -109,7 +110,7 @@ type Operation struct {
 	documentLoader ld.DocumentLoader
 }
 
-// GetRESTHandlers get all controller API handler available for this service
+// GetRESTHandlers get all controller API handler available for this service.
 func (o *Operation) GetRESTHandlers() []Handler {
 	return []Handler{
 		// profile
@@ -381,7 +382,7 @@ func (o *Operation) validateCredentialProof(vcByte []byte, opts *CredentialsVeri
 		opts = &CredentialsVerificationOptions{}
 	}
 
-	// TODO https://github.com/trustbloc/edge-service/issues/412 figure out the process when vc has more than one proof
+	// TODO https://github.com/trustbloc/vcs/issues/412 figure out the process when vc has more than one proof
 	proof := vc.Proofs[0]
 
 	if !vcInVPValidation {
@@ -434,7 +435,7 @@ func (o *Operation) validatePresentationProof(vpByte []byte, opts *VerifyPresent
 
 	var proof verifiable.Proof
 
-	// TODO https://github.com/trustbloc/edge-service/issues/412 figure out the process when vc has more than one proof
+	// TODO https://github.com/trustbloc/vcs/issues/412 figure out the process when vc has more than one proof
 	if len(vp.Proofs) != 0 {
 		proof = vp.Proofs[0]
 	}
@@ -514,7 +515,8 @@ func (o *Operation) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodGet, vcStatus.CustomFields[csl.StatusListCredential].(string), nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet,
+		vcStatus.CustomFields[csl.StatusListCredential].(string), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +578,7 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 	return vc, nil
 }
 
-//nolint: funlen,gocyclo
+//nolint:funlen,gocyclo,gocognit
 func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCredentialProof,
 	validateCredentialStatus bool) (*verifiable.Presentation, error) {
 	var vp *verifiable.Presentation

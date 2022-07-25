@@ -15,18 +15,18 @@ RUN apk add --no-cache \
 	libtool \
 	bash \
 	make;
-ADD . src/github.com/trustbloc/edge-service
-WORKDIR src/github.com/trustbloc/edge-service
+ADD . src/github.com/trustbloc/vcs
+WORKDIR src/github.com/trustbloc/vcs
 ENV EXECUTABLES go git
 
-FROM golang as edge-service
+FROM golang as vcs
 RUN make vc-rest
 
 
 FROM alpine:${ALPINE_VER} as base
-LABEL org.opencontainers.image.source https://github.com/trustbloc/edge-service
+LABEL org.opencontainers.image.source https://github.com/trustbloc/vcs
 
-COPY --from=edge-service /go/src/github.com/trustbloc/edge-service/.build/bin/vc-rest /usr/local/bin
+COPY --from=vcs /go/src/github.com/trustbloc/vcs/.build/bin/vc-rest /usr/local/bin
 
 # set up nsswitch.conf for Go's "netgo" implementation
 # - https://github.com/golang/go/blob/go1.9.1/src/net/conf.go#L194-L275

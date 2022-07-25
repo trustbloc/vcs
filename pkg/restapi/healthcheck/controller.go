@@ -6,8 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 package healthcheck
 
 import (
-	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	"github.com/trustbloc/edge-service/pkg/restapi/healthcheck/operation"
+	"github.com/trustbloc/vcs/pkg/internal/common/support"
+	"github.com/trustbloc/vcs/pkg/restapi/healthcheck/operation"
 )
 
 // New returns new controller instance.

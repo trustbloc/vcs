@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/edge-service
+module github.com/trustbloc/vcs
 
-go 1.17
+go 1.18
 
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -20,7 +20,6 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc.1.0.20220530114906-35b469518049
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220526205258-18d510d84955
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220606124520-53422361c38c
-	github.com/igor-pavlenko/httpsignatures-go v0.0.23
 	github.com/piprate/json-gold v0.4.1
 	github.com/spf13/cobra v1.3.0
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693

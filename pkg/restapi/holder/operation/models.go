@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
-// HolderProfileRequest holder mode profile request
+// HolderProfileRequest holder mode profile request.
 type HolderProfileRequest struct {
 	Name                    string                             `json:"name"`
 	SignatureType           string                             `json:"signatureType"`

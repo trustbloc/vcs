@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/edge-service/cmd/vc-rest
+module github.com/trustbloc/vcs/cmd/vc-rest
 
 require (
 	github.com/google/tink/go v1.6.1
@@ -19,11 +19,10 @@ require (
 	github.com/spf13/cobra v1.3.0
 	github.com/stretchr/testify v1.7.2
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
-	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 
 require (
-	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
@@ -31,7 +30,6 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
-	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/evanphx/json-patch v4.1.0+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.3.0 // indirect
@@ -46,7 +44,6 @@ require (
 	github.com/google/trillian v1.3.14-0.20210520152752-ceda464a95a3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc.1.0.20220530114906-35b469518049 // indirect
-	github.com/igor-pavlenko/httpsignatures-go v0.0.23 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
@@ -62,8 +59,6 @@ require (
 	github.com/multiformats/go-multibase v0.0.3 // indirect
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
-	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
-	github.com/opencontainers/runc v1.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -96,6 +91,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/trustbloc/edge-service => ../..
+replace github.com/trustbloc/vcs => ../..
 
-go 1.17
+go 1.18

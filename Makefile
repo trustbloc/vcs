@@ -15,8 +15,8 @@ OPENAPI_SPEC_PATH=.build/rest/openapi/spec
 OPENAPI_DOCKER_IMG_VERSION=v0.26.0
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.12
-GO_VER ?= 1.16
+ALPINE_VER ?= 3.14
+GO_VER ?= 1.18
 
 .PHONY: all
 all: checks unit-test bdd-test
@@ -63,8 +63,8 @@ unit-test:
 generate-test-keys: clean
 	@mkdir -p -p test/bdd/fixtures/keys/tls
 	@docker run -i --rm \
-		-v $(abspath .):/opt/workspace/edge-service \
-		--entrypoint "/opt/workspace/edge-service/scripts/generate_test_keys.sh" \
+		-v $(abspath .):/opt/workspace/vcs \
+		--entrypoint "/opt/workspace/vcs/scripts/generate_test_keys.sh" \
 		frapsoft/openssl
 
 create-element-did: clean

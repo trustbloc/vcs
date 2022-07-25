@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/edge-service/test/bdd
+module github.com/trustbloc/vcs/test/bdd
 
-replace github.com/trustbloc/edge-service => ../..
+replace github.com/trustbloc/vcs => ../..
 
-go 1.17
+go 1.18
 
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
@@ -18,7 +18,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220526205258-18d510d84955
 	github.com/tidwall/gjson v1.9.3
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
-	github.com/trustbloc/edge-service v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -52,7 +52,6 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc.1.0.20220530114906-35b469518049 // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220606124520-53422361c38c // indirect
 	github.com/hyperledger/aries-framework-go/test/component v0.0.0-20220509181817-261c3746d03e // indirect
-	github.com/igor-pavlenko/httpsignatures-go v0.0.23 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect

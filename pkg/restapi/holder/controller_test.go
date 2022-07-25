@@ -16,7 +16,7 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/holder/operation"
 )
 
 func TestController_New(t *testing.T) {

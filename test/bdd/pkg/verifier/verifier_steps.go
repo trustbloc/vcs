@@ -17,10 +17,10 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile/verifier"
-	"github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/edge-service/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
+	"github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
+	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 const (

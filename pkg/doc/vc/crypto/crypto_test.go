@@ -21,11 +21,13 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/testutil"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
-func TestCrypto_SignCredential(t *testing.T) {
+func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
+	t.Parallel()
+
 	t.Run("test success", func(t *testing.T) {
 		c := New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},

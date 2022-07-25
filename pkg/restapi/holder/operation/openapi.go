@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"github.com/trustbloc/edge-service/pkg/restapi/model"
+	"github.com/trustbloc/vcs/pkg/restapi/model"
 )
 
 // genericError model

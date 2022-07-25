@@ -18,7 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
-	"github.com/trustbloc/edge-service/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
 )
 
 const (

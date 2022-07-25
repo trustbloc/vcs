@@ -42,9 +42,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/stretchr/testify/require"
 
-	vccrypto "github.com/trustbloc/edge-service/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/edge-service/pkg/doc/vc/profile"
-	"github.com/trustbloc/edge-service/pkg/internal/testutil"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
 const (
@@ -263,7 +263,6 @@ func TestGetHolderProfile(t *testing.T) {
 
 		rr := serveHTTPMux(t, handler, endpoint, nil, urlVars)
 
-		fmt.Println(rr.Body.String())
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "data not found")
 	})

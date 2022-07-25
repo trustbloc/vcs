@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 
-	"github.com/trustbloc/edge-service/cmd/vc-rest/startcmd"
+	"github.com/trustbloc/vcs/cmd/vc-rest/startcmd"
 )
 
 var logger = log.New("vc-rest")

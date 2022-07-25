@@ -25,8 +25,8 @@ import (
 	keymethod "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/stretchr/testify/require"
 
-	did2 "github.com/trustbloc/edge-service/pkg/did"
-	"github.com/trustbloc/edge-service/pkg/key"
+	did2 "github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/key"
 )
 
 func TestPublicDID(t *testing.T) {

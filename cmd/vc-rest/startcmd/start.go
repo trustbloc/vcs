@@ -47,14 +47,14 @@ import (
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
-	"github.com/trustbloc/edge-service/cmd/common"
-	"github.com/trustbloc/edge-service/pkg/ld"
-	restholder "github.com/trustbloc/edge-service/pkg/restapi/holder"
-	holderops "github.com/trustbloc/edge-service/pkg/restapi/holder/operation"
-	restissuer "github.com/trustbloc/edge-service/pkg/restapi/issuer"
-	issuerops "github.com/trustbloc/edge-service/pkg/restapi/issuer/operation"
-	restverifier "github.com/trustbloc/edge-service/pkg/restapi/verifier"
-	verifierops "github.com/trustbloc/edge-service/pkg/restapi/verifier/operation"
+	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/pkg/ld"
+	restholder "github.com/trustbloc/vcs/pkg/restapi/holder"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
+	restissuer "github.com/trustbloc/vcs/pkg/restapi/issuer"
+	issuerops "github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
+	restverifier "github.com/trustbloc/vcs/pkg/restapi/verifier"
+	verifierops "github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
 )
 
 const (
@@ -249,7 +249,7 @@ func createStartCmd(srv server) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start vc-rest",
-		Long:  "Start vc-rest inside the edge-service",
+		Long:  "Start vc-rest inside the vcs",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			parameters, err := getVCRestParameters(cmd)
 			if err != nil {

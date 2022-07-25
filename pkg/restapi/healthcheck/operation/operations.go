@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/trustbloc/edge-service/pkg/internal/common/support"
-	commhttp "github.com/trustbloc/edge-service/pkg/restapi/internal/common/http"
+	"github.com/trustbloc/vcs/pkg/internal/common/support"
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
 )
 
 // API endpoints.
