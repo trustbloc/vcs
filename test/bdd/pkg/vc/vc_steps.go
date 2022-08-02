@@ -60,7 +60,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 }
 
 // RegisterSteps registers agent steps
-func (e *Steps) RegisterSteps(s *godog.Suite) {
+func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^Profile "([^"]*)" is created with DID "([^"]*)", privateKey "([^"]*)", keyID "([^"]*)", signatureHolder "([^"]*)", didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
 		e.createProfile)
 	s.Step(`^We can retrieve profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)"$`, e.getProfile)

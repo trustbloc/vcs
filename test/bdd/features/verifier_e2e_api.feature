@@ -22,7 +22,6 @@ Feature: Verifier VC REST API
     And   "Alice" has her "<credential>" issued as "<verifiable credential>"
     Then  "<verifierProfile>" verifies the verifiable credential provided by "Alice"
     Examples:
-    Examples:
       | verifierProfile     | credential                      | verifiable credential  |
       | ud_trustbloc        | university_degree.json          |                        |
       | pr_trustbloc        | permanent_resident_card.json    |                        |
@@ -39,10 +38,10 @@ Feature: Verifier VC REST API
       | pr_mavennet         | permanent_resident_card.json    | mavennet_vc2.json      |
       | cmtr_mavennet       | certified_mill_test_report.json | mavennet_vc3.json      |
       | crude_mavennet      | crude_product.json              | mavennet_vc4.json      |
-      | ud_factom           | university_degree.json          | factom_vc1.json        |
-      | pr_factom           | permanent_resident_card.json    | factom_vc2.json        |
-      | cmtr_factom         | certified_mill_test_report.json | factom_vc3.json        |
-      | crude_factom        | crude_product.json              | factom_vc4.json        |
+#      | ud_factom           | university_degree.json          | factom_vc1.json        |
+#      | pr_factom           | permanent_resident_card.json    | factom_vc2.json        |
+#      | cmtr_factom         | certified_mill_test_report.json | factom_vc3.json        |
+#      | crude_factom        | crude_product.json              | factom_vc4.json        |
       | ud_sicpa            | university_degree.json          | sicpa_vc1.json         |
       | pr_sicpa            | permanent_resident_card.json    | sicpa_vc2.json         |
       | crude_sicpa         | crude_product.json              | sicpa_vc3.json         |

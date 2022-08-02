@@ -41,7 +41,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 }
 
 // RegisterSteps registers agent steps
-func (e *Steps) RegisterSteps(s *godog.Suite) {
+func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^Client sends request to create a verifier profile with ID "([^"]*)"$`, e.createBasicVerifierProfile)
 	s.Step(`^Client deletes the verifier profile with ID "([^"]*)"$`, e.deleteVerifierProfile)
 	s.Step(`^Client can recreate the verifier profile with ID "([^"]*)"$`, e.createBasicVerifierProfile)
@@ -55,7 +55,14 @@ func (e *Steps) RegisterSteps(s *godog.Suite) {
 }
 
 func (e *Steps) credentialsVerification(verifierProfile, user string) error {
-	vc := e.bddContext.Args[bddutil.GetCredentialKey(user)]
+	vc, ok := e.bddContext.Args[bddutil.GetCredentialKey(user)]
+	if !ok {
+		vc, ok = e.bddContext.Args[user]
+		if !ok {
+			return fmt.Errorf("unable to find vc for user: %s", user)
+		}
+	}
+
 	opts := &operation.CredentialsVerificationOptions{
 		Checks:    []string{"proof"},
 		Challenge: e.bddContext.Args[bddutil.GetProofChallengeKey(user)],

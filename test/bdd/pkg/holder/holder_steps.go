@@ -92,7 +92,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 }
 
 // RegisterSteps registers agent steps
-func (e *Steps) RegisterSteps(s *godog.Suite) {
+func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^Client sends request to create a holder profile with ID "([^"]*)"$`, e.createBasicHolderProfile)
 	s.Step(`^Client deletes the holder profile with ID "([^"]*)"$`, e.deleteHolderProfile)
 	s.Step(`^Client can recreate the holder profile with ID "([^"]*)"$`, e.createBasicHolderProfile)

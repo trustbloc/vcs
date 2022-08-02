@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package vc-rest VC Issuer and Verifier REST API.
+// Package vc-rest VC Issuer, Verifier and Holder REST API.
 //
 //
 // Terms Of Service:
