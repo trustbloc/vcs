@@ -13,6 +13,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
@@ -250,7 +252,7 @@ func TestCreateProviders(t *testing.T) {
 
 func TestCreateKMS(t *testing.T) {
 	t.Run("fail to open master key store", func(t *testing.T) {
-		localKMS, err := createKMS(&ariesmockstorage.MockStoreProvider{FailNamespace: "masterkey"})
+		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{FailNamespace: "masterkey"}))
 
 		require.Nil(t, localKMS)
 		require.EqualError(t, err, "failed to open store for name space masterkey")
@@ -263,7 +265,7 @@ func TestCreateKMS(t *testing.T) {
 		err := masterKeyStore.Put("masterkey", []byte(""))
 		require.NoError(t, err)
 
-		localKMS, err := createKMS(&ariesmockstorage.MockStoreProvider{Store: &masterKeyStore})
+		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &masterKeyStore}))
 		require.EqualError(t, err, "masterKeyReader is empty")
 		require.Nil(t, localKMS)
 	})
@@ -352,22 +354,22 @@ func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 func TestPrepareMasterKeyReader(t *testing.T) {
 	t.Run("Unexpected error when trying to retrieve master key from store", func(t *testing.T) {
 		reader, err := prepareMasterKeyReader(
-			&ariesmockstorage.MockStoreProvider{
+			ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					ErrGet: errors.New("testError"),
 				},
-			})
+			}))
 		require.Equal(t, errors.New("testError"), err)
 		require.Nil(t, reader)
 	})
 	t.Run("Error when putting newly generated master key into store", func(t *testing.T) {
 		reader, err := prepareMasterKeyReader(
-			&ariesmockstorage.MockStoreProvider{
+			ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					ErrGet: storage.ErrDataNotFound,
 					ErrPut: errors.New("testError"),
 				},
-			})
+			}))
 		require.Equal(t, errors.New("testError"), err)
 		require.Nil(t, reader)
 	})

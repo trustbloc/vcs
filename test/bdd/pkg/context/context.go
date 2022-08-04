@@ -12,13 +12,13 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
-
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
 )
 
 const (
@@ -29,7 +29,7 @@ const (
 type BDDContext struct {
 	Args              map[string]string
 	CreatedCredential []byte
-	CreatedProfile    *profile.IssuerProfile
+	CreatedProfile    *vcsstorage.IssuerProfile
 	VDRI              vdrapi.Registry
 	TLSConfig         *tls.Config
 	TestData          map[string][]byte

@@ -21,6 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariesmodel "github.com/hyperledger/aries-framework-go/pkg/common/model"
@@ -43,7 +47,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
@@ -119,7 +122,7 @@ func TestCreateHolderProfile(t *testing.T) {
 
 	op, err := New(&Config{
 		Crypto:        customCrypto,
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		KeyManager:    customKMS,
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
@@ -192,7 +195,7 @@ func TestCreateHolderProfile(t *testing.T) {
 	t.Run("create profile - failed to created DID", func(t *testing.T) {
 		ops, err := New(&Config{
 			Crypto:        customCrypto,
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			KeyManager:    customKMS,
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
@@ -222,7 +225,7 @@ func TestGetHolderProfile(t *testing.T) {
 
 	op, err := New(&Config{
 		Crypto:        customCrypto,
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		KeyManager:    customKMS,
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
@@ -236,14 +239,14 @@ func TestGetHolderProfile(t *testing.T) {
 	urlVars := make(map[string]string)
 
 	t.Run("get profile - success", func(t *testing.T) {
-		vReq := &vcprofile.HolderProfile{
-			DataProfile: &vcprofile.DataProfile{
+		vReq := vcsstorage.HolderProfile{
+			DataProfile: vcsstorage.DataProfile{
 				Name:          "test",
 				SignatureType: vccrypto.Ed25519Signature2018,
 			},
 		}
 
-		err := op.profileStore.SaveHolderProfile(vReq)
+		err := op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		urlVars[profileIDPathParam] = vReq.Name
@@ -270,7 +273,7 @@ func TestGetHolderProfile(t *testing.T) {
 
 func TestDeleteHolderProfileHandler(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -290,12 +293,12 @@ func TestDeleteHolderProfileHandler(t *testing.T) {
 
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					Store:     make(map[string]ariesmockstorage.DBEntry),
 					ErrDelete: errors.New("delete error"),
 				},
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -329,7 +332,7 @@ func TestDeriveCredentials(t *testing.T) {
 	require.NotEmpty(t, requestVC)
 
 	ops, err := New(&Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		VDRI: &vdrmock.MockVDRegistry{
 			ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 				if didID == didKey {
@@ -526,7 +529,7 @@ func TestDeriveCredentials(t *testing.T) {
 	t.Run("derive credentials - failed to generate BBS selective disclosure", func(t *testing.T) {
 		count := 0
 		customOps, err := New(&Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					count++
@@ -568,8 +571,8 @@ func TestSignPresentation(t *testing.T) {
 	endpoint := "/test/prove/presentations"
 	keyID := "key-333"
 
-	vReq := &vcprofile.HolderProfile{
-		DataProfile: &vcprofile.DataProfile{
+	vReq := vcsstorage.HolderProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name:          "test",
 			SignatureType: vccrypto.Ed25519Signature2018,
 			Creator:       "did:test:abc#" + keyID,
@@ -584,14 +587,14 @@ func TestSignPresentation(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
-		StoreProvider:  ariesmemstorage.NewProvider(),
+		StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 		KeyManager:     customKMS,
 		Crypto:         customCrypto,
 		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
-	err = op.profileStore.SaveHolderProfile(vReq)
+	err = op.profileStore.Put(vReq)
 	require.NoError(t, err)
 
 	urlVars := make(map[string]string)
@@ -611,7 +614,7 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
@@ -627,7 +630,7 @@ func TestSignPresentation(t *testing.T) {
 		vReq.OverwriteHolder = true
 		vReq.DID = "did:trustbloc:xyz"
 
-		err = ops.profileStore.SaveHolderProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, http.MethodPost)
@@ -699,7 +702,7 @@ func TestSignPresentation(t *testing.T) {
 		require.NoError(t, err)
 
 		ops, err := New(&Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			KeyManager:    customKMS2,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
@@ -713,7 +716,7 @@ func TestSignPresentation(t *testing.T) {
 
 		vReq.SignatureRepresentation = verifiable.SignatureJWS
 
-		err = ops.profileStore.SaveHolderProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		signPresentationHandler := getHandler(t, ops, signPresentationEndpoint, http.MethodPost)
@@ -754,7 +757,7 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			Crypto:         customCrypto,
 			KeyManager:     customKMS,
 			DocumentLoader: loader,
@@ -793,7 +796,7 @@ func TestSignPresentation(t *testing.T) {
 	t.Run("sign presentation - signing error", func(t *testing.T) {
 		op, err := New(&Config{
 			Crypto:         customCrypto,
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			KeyManager:     customKMS,
 			VDRI:           &vdrmock.MockVDRegistry{ResolveErr: errors.New("resolve error")},
 			DocumentLoader: loader,
@@ -802,7 +805,7 @@ func TestSignPresentation(t *testing.T) {
 
 		vReq.Creator = "not a did"
 
-		err = op.profileStore.SaveHolderProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		signPresentationHandler := getHandler(t, op, signPresentationEndpoint, http.MethodPost)
@@ -897,13 +900,13 @@ func serveHTTP(t *testing.T, handler http.HandlerFunc, method, path string, req 
 func saveTestProfile(t *testing.T, op *Operation) {
 	t.Helper()
 
-	vReq := &vcprofile.HolderProfile{
-		DataProfile: &vcprofile.DataProfile{
+	vReq := vcsstorage.HolderProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name: testProfileID,
 		},
 	}
 
-	err := op.profileStore.SaveHolderProfile(vReq)
+	err := op.profileStore.Put(vReq)
 	require.NoError(t, err)
 }
 

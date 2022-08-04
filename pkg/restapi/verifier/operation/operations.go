@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"strconv"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -25,7 +27,6 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
@@ -76,13 +77,13 @@ type httpClient interface {
 
 // New returns CreateCredential instance.
 func New(config *Config) (*Operation, error) {
-	p, err := verifier.New(config.StoreProvider)
+	profileStore, err := config.StoreProvider.OpenVerifierProfileStore()
 	if err != nil {
 		return nil, err
 	}
 
 	svc := &Operation{
-		profileStore:   p,
+		profileStore:   profileStore,
 		vdr:            config.VDRI,
 		httpClient:     &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 		requestTokens:  config.RequestTokens,
@@ -94,7 +95,7 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for verifier operations.
 type Config struct {
-	StoreProvider  ariesstorage.Provider
+	StoreProvider  vcsstorage.Provider
 	VDRI           vdrapi.Registry
 	TLSConfig      *tls.Config
 	RequestTokens  map[string]string
@@ -103,7 +104,7 @@ type Config struct {
 
 // Operation defines handlers for verifier service.
 type Operation struct {
-	profileStore   *verifier.Profile
+	profileStore   vcsstorage.VerifierProfileStore
 	vdr            vdrapi.Registry
 	httpClient     httpClient
 	requestTokens  map[string]string
@@ -132,7 +133,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 //    default: genericError
 //        201: profileData
 func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Request) {
-	request := &verifier.ProfileData{}
+	request := &vcsstorage.VerifierProfile{}
 
 	if err := json.NewDecoder(req.Body).Decode(request); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf(invalidRequestErrMsg+": %s", err.Error()))
@@ -146,21 +147,18 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	profile, err := o.profileStore.GetProfile(request.ID)
+	_, err := o.profileStore.Get(request.ID)
+	if err == nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", request.ID))
 
-	if err != nil && !errors.Is(err, ariesstorage.ErrDataNotFound) {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+		return
+	} else if !errors.Is(err, ariesstorage.ErrDataNotFound) {
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
 
-	if profile != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", profile.ID))
-
-		return
-	}
-
-	err = o.profileStore.SaveProfile(request)
+	err = o.profileStore.Put(*request)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -180,7 +178,7 @@ func (o *Operation) createProfileHandler(rw http.ResponseWriter, req *http.Reque
 func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	profileID := mux.Vars(req)[profileIDPathParam]
 
-	profile, err := o.profileStore.GetProfile(profileID)
+	profile, err := o.profileStore.Get(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -200,7 +198,7 @@ func (o *Operation) getProfileHandler(rw http.ResponseWriter, req *http.Request)
 func (o *Operation) deleteProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	profileID := mux.Vars(req)["id"]
 
-	err := o.profileStore.DeleteProfile(profileID)
+	err := o.profileStore.Delete(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -221,7 +219,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 	// get the profile
 	profileID := mux.Vars(req)[profileIDPathParam]
 
-	profile, err := o.profileStore.GetProfile(profileID)
+	profile, err := o.profileStore.Get(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid verifier profile - id=%s: err=%s",
 			profileID, err.Error()))
@@ -246,7 +244,7 @@ func (o *Operation) verifyCredentialHandler(rw http.ResponseWriter, req *http.Re
 		return
 	}
 
-	checks := getCredentialChecks(profile, verificationReq.Opts)
+	checks := getCredentialChecks(&profile, verificationReq.Opts)
 
 	var result []CredentialsVerificationCheckResult
 
@@ -308,7 +306,7 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 	// get the profile
 	profileID := mux.Vars(req)[profileIDPathParam]
 
-	profile, err := o.profileStore.GetProfile(profileID)
+	profile, err := o.profileStore.Get(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid verifier profile - id=%s: err=%s",
 			profileID, err.Error()))
@@ -326,7 +324,7 @@ func (o *Operation) verifyPresentationHandler(rw http.ResponseWriter, req *http.
 		return
 	}
 
-	checks := getPresentationChecks(profile, verificationReq.Opts)
+	checks := getPresentationChecks(&profile, verificationReq.Opts)
 
 	var result []VerifyPresentationCheckResult
 
@@ -691,7 +689,7 @@ func (o *Operation) sendHTTPRequest(req *http.Request, status int, token string)
 	return body, nil
 }
 
-func getCredentialChecks(profile *verifier.ProfileData, opts *CredentialsVerificationOptions) []string {
+func getCredentialChecks(profile *vcsstorage.VerifierProfile, opts *CredentialsVerificationOptions) []string {
 	switch {
 	case opts != nil && len(opts.Checks) != 0:
 		return opts.Checks
@@ -702,7 +700,7 @@ func getCredentialChecks(profile *verifier.ProfileData, opts *CredentialsVerific
 	return []string{proofCheck}
 }
 
-func getPresentationChecks(profile *verifier.ProfileData, opts *VerifyPresentationOptions) []string {
+func getPresentationChecks(profile *vcsstorage.VerifierProfile, opts *VerifyPresentationOptions) []string {
 	switch {
 	case opts != nil && len(opts.Checks) != 0:
 		return opts.Checks
@@ -770,7 +768,7 @@ func getDIDDocFromProof(verificationMethod string, vdr vdrapi.Registry) (*did.Do
 	return docResolution.DIDDocument, nil
 }
 
-func validateProfileRequest(pr *verifier.ProfileData) error {
+func validateProfileRequest(pr *vcsstorage.VerifierProfile) error {
 	switch {
 	case pr.ID == "":
 		return errors.New("missing profile id")

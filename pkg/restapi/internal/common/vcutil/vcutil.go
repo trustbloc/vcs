@@ -10,12 +10,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 )
 
 const (
@@ -95,7 +95,7 @@ func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedI
 
 // UpdateIssuer overrides credential issuer for profile if profile.OverwriteIssuer=true or credential issuer is missing.
 // Credential issuer will always be DID.
-func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
+func UpdateIssuer(credential *verifiable.Credential, profile *vcsstorage.IssuerProfile) {
 	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
 		credential.Issuer = verifiable.Issuer{
 			ID:           profile.DID,
@@ -105,7 +105,7 @@ func UpdateIssuer(credential *verifiable.Credential, profile *vcprofile.IssuerPr
 }
 
 // UpdateSignatureTypeContext updates context for JSONWebSignature2020.
-func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcprofile.IssuerProfile) {
+func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcsstorage.IssuerProfile) {
 	if profile.SignatureType == crypto.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)
 	}
@@ -113,19 +113,4 @@ func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcpr
 	if profile.SignatureType == crypto.BbsBlsSignature2020 {
 		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
-}
-
-// GetDocIDFromURL Given an EDV document URL, returns just the document ID.
-func GetDocIDFromURL(docURL string) string {
-	splitBySlashes := strings.Split(docURL, `/`)
-	docIDToRetrieve := splitBySlashes[len(splitBySlashes)-1]
-
-	return docIDToRetrieve
-}
-
-// GetVaultIDFromURL Given an EDV vault location URL, returns just the vaultID.
-func GetVaultIDFromURL(vaultLocationURL string) string {
-	vaultLocationURLSplitUp := strings.Split(vaultLocationURL, "/")
-
-	return vaultLocationURLSplitUp[len(vaultLocationURLSplitUp)-1]
 }

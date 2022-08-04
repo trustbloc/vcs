@@ -16,6 +16,8 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
@@ -27,7 +29,6 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
 	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -200,7 +201,7 @@ func (e *Steps) createIssuerProfile(user, profileName string) error { //nolint: 
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.IssuerProfile{}
+	profileResponse := vcsstorage.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -573,7 +574,7 @@ func (e *Steps) createHolderProfile(user, profileName string) error {
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.IssuerProfile{}
+	profileResponse := vcsstorage.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -588,7 +589,7 @@ func (e *Steps) createHolderProfile(user, profileName string) error {
 }
 
 func (e *Steps) prepareCredential(user, cred, vcred string) error {
-	var credEmpty, vcredEmpty = cred == "", vcred == ""
+	credEmpty, vcredEmpty := cred == "", vcred == ""
 
 	switch {
 	case !vcredEmpty:
@@ -616,7 +617,7 @@ func (e *Steps) prepareCredential(user, cred, vcred string) error {
 
 //nolint: gocyclo,funlen
 func (e *Steps) getPresentation(user, cred, vcred, vpres string) error {
-	var userEmpty, credEmpty, vcredEmpty, vpresEmpty = user == "", cred == "", vcred == "", vpres == ""
+	userEmpty, credEmpty, vcredEmpty, vpresEmpty := user == "", cred == "", vcred == "", vpres == ""
 
 	switch {
 	case userEmpty || credEmpty:

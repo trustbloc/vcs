@@ -10,7 +10,6 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +17,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
+	ariesvcsprovider "github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+	mongodbvcsprovider "github.com/trustbloc/vcs/pkg/storage/mongodbprovider"
 
 	"github.com/google/tink/go/subtle/random"
 	"github.com/gorilla/mux"
@@ -170,9 +174,7 @@ const (
 	didMethodWeb     = "web"
 	didMethodFactom  = "factom"
 
-	masterKeyURI       = "local-lock://custom/master/key/"
-	masterKeyStoreName = "masterkey"
-	masterKeyDBKeyName = masterKeyStoreName
+	masterKeyURI = "local-lock://custom/master/key/"
 
 	splitRequestTokenLength = 2
 	masterKeyNumBytes       = 32
@@ -538,16 +540,15 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	issuerService, err := restissuer.New(&issuerops.Config{
-		StoreProvider:      edgeServiceProvs.provider,
-		KMSSecretsProvider: edgeServiceProvs.kmsSecretsProvider,
-		KeyManager:         localKMS,
-		Crypto:             crypto,
-		VDRI:               vdr,
-		HostURL:            externalHostURL,
-		Domain:             parameters.blocDomain,
-		TLSConfig:          &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
-		DIDAnchorOrigin:    parameters.didAnchorOrigin,
-		DocumentLoader:     loader,
+		StoreProvider:   edgeServiceProvs.provider,
+		KeyManager:      localKMS,
+		Crypto:          crypto,
+		VDRI:            vdr,
+		HostURL:         externalHostURL,
+		Domain:          parameters.blocDomain,
+		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
+		DIDAnchorOrigin: parameters.didAnchorOrigin,
+		DocumentLoader:  loader,
 	})
 	if err != nil {
 		return err
@@ -613,12 +614,12 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 }
 
 type kmsProvider struct {
-	storageProvider   ariesstorage.Provider
+	storageProvider   vcsstorage.Provider
 	secretLockService secretlock.Service
 }
 
 func (k kmsProvider) StorageProvider() ariesstorage.Provider {
-	return k.storageProvider
+	return k.storageProvider.GetAriesProvider()
 }
 
 func (k kmsProvider) SecretLock() secretlock.Service {
@@ -671,8 +672,8 @@ func acceptsDID(method string) bool {
 }
 
 type edgeServiceProviders struct {
-	provider           ariesstorage.Provider
-	kmsSecretsProvider ariesstorage.Provider
+	provider           vcsstorage.Provider
+	kmsSecretsProvider vcsstorage.Provider
 }
 
 func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, error) {
@@ -693,45 +694,75 @@ func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, 
 	return &edgeServiceProvs, nil
 }
 
-func createMainStoreProvider(parameters *vcRestParameters) (ariesstorage.Provider, error) { //nolint: dupl
+func createMainStoreProvider(parameters *vcRestParameters) (vcsstorage.Provider, error) { //nolint: dupl
 	switch {
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
-		return ariesmemstorage.NewProvider(), nil
+		return ariesvcsprovider.New(ariesmemstorage.NewProvider()), nil
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
-		return ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
+		couchDBProvider, err := ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
 			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
+		if err != nil {
+			return nil, err
+		}
+
+		return ariesvcsprovider.New(couchDBProvider), nil
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMYSQLDBOption):
-		return ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
+		mySQLProvider, err := ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
 			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
+		if err != nil {
+			return nil, err
+		}
+
+		return ariesvcsprovider.New(mySQLProvider), nil
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMongoDBOption):
-		return ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
+		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
 			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
+		if err != nil {
+			return nil, err
+		}
+
+		return mongodbvcsprovider.New(mongoDBProvider), nil
 	default:
 		return nil, fmt.Errorf("%s is not a valid database type."+
 			" run start --help to see the available options", parameters.dbParameters.databaseType)
 	}
 }
 
-func createKMSSecretsProvider(parameters *vcRestParameters) (ariesstorage.Provider, error) { //nolint: dupl
+func createKMSSecretsProvider(parameters *vcRestParameters) (vcsstorage.Provider, error) { //nolint: dupl
 	switch {
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
-		return ariesmemstorage.NewProvider(), nil
+		return ariesvcsprovider.New(ariesmemstorage.NewProvider()), nil
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
-		return ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+		couchDBProvider, err := ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
 			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+		if err != nil {
+			return nil, err
+		}
+
+		return ariesvcsprovider.New(couchDBProvider), nil
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMYSQLDBOption):
-		return ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+		mySQLProvider, err := ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
 			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+		if err != nil {
+			return nil, err
+		}
+
+		return ariesvcsprovider.New(mySQLProvider), nil
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMongoDBOption):
-		return ariesmongodbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
+		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
 			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
+		if err != nil {
+			return nil, err
+		}
+
+		return mongodbvcsprovider.New(mongoDBProvider), nil
 	default:
 		return nil, fmt.Errorf("%s is not a valid KMS secrets database type."+
 			" run start --help to see the available options", parameters.dbParameters.kmsSecretsDatabaseType)
 	}
 }
 
-func createKMS(kmsSecretsProvider ariesstorage.Provider) (*localkms.LocalKMS, error) {
+func createKMS(kmsSecretsProvider vcsstorage.Provider) (*localkms.LocalKMS, error) {
 	localKMS, err := createLocalKMS(kmsSecretsProvider)
 	if err != nil {
 		return nil, err
@@ -740,7 +771,7 @@ func createKMS(kmsSecretsProvider ariesstorage.Provider) (*localkms.LocalKMS, er
 	return localKMS, nil
 }
 
-func createLocalKMS(kmsSecretsStoreProvider ariesstorage.Provider) (*localkms.LocalKMS, error) {
+func createLocalKMS(kmsSecretsStoreProvider vcsstorage.Provider) (*localkms.LocalKMS, error) {
 	masterKeyReader, err := prepareMasterKeyReader(kmsSecretsStoreProvider)
 	if err != nil {
 		return nil, err
@@ -760,19 +791,18 @@ func createLocalKMS(kmsSecretsStoreProvider ariesstorage.Provider) (*localkms.Lo
 }
 
 // prepareMasterKeyReader prepares a master key reader for secret lock usage
-func prepareMasterKeyReader(kmsSecretsStoreProvider ariesstorage.Provider) (*bytes.Reader, error) {
-	masterKeyStore, err := kmsSecretsStoreProvider.OpenStore(masterKeyStoreName)
+func prepareMasterKeyReader(kmsSecretsStoreProvider vcsstorage.Provider) (*bytes.Reader, error) {
+	masterKeyStore, err := kmsSecretsStoreProvider.OpenMasterKeyStore()
 	if err != nil {
 		return nil, err
 	}
 
-	masterKey, err := masterKeyStore.Get(masterKeyDBKeyName)
+	masterKey, err := masterKeyStore.Get()
 	if err != nil {
 		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			masterKeyRaw := random.GetRandomBytes(uint32(masterKeyNumBytes))
-			masterKey = []byte(base64.URLEncoding.EncodeToString(masterKeyRaw))
+			masterKey = random.GetRandomBytes(uint32(masterKeyNumBytes))
 
-			putErr := masterKeyStore.Put(masterKeyDBKeyName, masterKey)
+			putErr := masterKeyStore.Put(masterKey)
 			if putErr != nil {
 				return nil, putErr
 			}

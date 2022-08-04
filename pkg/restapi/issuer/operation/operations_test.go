@@ -21,6 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -42,7 +46,6 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log/mocklogger"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/model"
@@ -160,8 +163,6 @@ const (
 	  },
 	  "issuanceDate": "2010-01-01T19:23:24Z"
 	}`
-
-	testData = `"Hello World!"`
 )
 
 var mockLoggerProvider = mocklogger.Provider{MockLogger: &mocklogger.MockLogger{}} //nolint: gochecknoglobals
@@ -177,9 +178,9 @@ func TestMain(m *testing.M) {
 func TestNew(t *testing.T) {
 	t.Run("test error from opening credential store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("error open store"),
-			}, VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
+			}), VDRI: &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
 		})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "error open store")
@@ -187,9 +188,9 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("fail to create credential store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("create error"),
-			}, VDRI: &vdrmock.MockVDRegistry{},
+			}), VDRI: &vdrmock.MockVDRegistry{},
 			HostURL: "localhost:8080",
 		})
 		require.Error(t, err)
@@ -198,7 +199,7 @@ func TestNew(t *testing.T) {
 	})
 	t.Run("test error from csl", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{FailNamespace: "credentialstatus"},
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{FailNamespace: "credentialstatus"}),
 			VDRI:          &vdrmock.MockVDRegistry{}, HostURL: "localhost:8080",
 		})
 		require.Error(t, err)
@@ -211,9 +212,9 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	const profileID = "example_university"
 
 	s := make(map[string]ariesmockstorage.DBEntry)
-	s["profile_issuer_example_university"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfile)}
-	s["profile_issuer_vc_without_status"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfileWithDisableVCStatus)}
-	s["profile_issuer_empty"] = ariesmockstorage.DBEntry{Value: []byte("{}")}
+	s["example_university"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfile)}
+	s["vc_without_status"] = ariesmockstorage.DBEntry{Value: []byte(testIssuerProfileWithDisableVCStatus)}
+	s["empty"] = ariesmockstorage.DBEntry{Value: []byte("{}")}
 	s["issuer-http://example.edu/credentials/1872"] = ariesmockstorage.DBEntry{Value: []byte(validVC)}
 
 	customKMS := createKMS(t)
@@ -222,15 +223,14 @@ func TestUpdateCredentialStatusHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider: &ariesmockstorage.MockStoreProvider{
+		StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 			Store: &ariesmockstorage.MockStore{Store: s},
-		},
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager:         customKMS,
-		Crypto:             customCrypto,
-		VDRI:               &vdrmock.MockVDRegistry{},
-		HostURL:            "localhost:8080",
-		DocumentLoader:     testutil.DocumentLoader(t),
+		}),
+		KeyManager:     customKMS,
+		Crypto:         customCrypto,
+		VDRI:           &vdrmock.MockVDRegistry{},
+		HostURL:        "localhost:8080",
+		DocumentLoader: testutil.DocumentLoader(t),
 	})
 	require.NoError(t, err)
 
@@ -440,12 +440,11 @@ func TestCreateProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager:         customKMS,
-		VDRI:               &vdrmock.MockVDRegistry{},
-		Crypto:             customCrypto,
-		HostURL:            "localhost:8080", Domain: "testnet",
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+		KeyManager:    customKMS,
+		VDRI:          &vdrmock.MockVDRegistry{},
+		Crypto:        customCrypto,
+		HostURL:       "localhost:8080", Domain: "testnet",
 	})
 	require.NoError(t, err)
 
@@ -460,7 +459,7 @@ func TestCreateProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
-		profile := vcprofile.IssuerProfile{}
+		profile := vcsstorage.IssuerProfile{}
 
 		err = json.Unmarshal(rr.Body.Bytes(), &profile)
 
@@ -484,18 +483,17 @@ func TestCreateProfileHandler(t *testing.T) {
 		require.Contains(t, rr.Body.String(), "profile test already exists")
 	})
 
-	t.Run("create profile - other error in GetProfile", func(t *testing.T) {
+	t.Run("create profile - other error in GetIssuerProfile", func(t *testing.T) {
 		s := &ariesmockstorage.MockStore{
 			Store: make(map[string]ariesmockstorage.DBEntry),
 		}
 
 		op, err := New(&Config{
-			StoreProvider:      &ariesmockstorage.MockStoreProvider{Store: s},
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			Crypto:             customCrypto,
-			HostURL:            "localhost:8080", Domain: "testnet",
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: s}),
+			KeyManager:    customKMS,
+			VDRI:          &vdrmock.MockVDRegistry{},
+			Crypto:        customCrypto,
+			HostURL:       "localhost:8080", Domain: "testnet",
 		})
 		require.NoError(t, err)
 
@@ -509,16 +507,15 @@ func TestCreateProfileHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		rr := serveHTTP(t, createProfileHandler.Handle(), http.MethodPost, createProfileEndpoint, vReqBytes)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "get error")
 	})
 
 	t.Run("create profile success without creating did", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:        customCrypto,
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{ResolveValue: &did.Doc{
 				ID:             "did1",
 				Authentication: []did.Verification{{VerificationMethod: did.VerificationMethod{ID: "did1#key1"}}},
@@ -541,7 +538,7 @@ func TestCreateProfileHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		createProfileHandler.Handle().ServeHTTP(rr, req)
-		profile := vcprofile.IssuerProfile{}
+		profile := vcsstorage.IssuerProfile{}
 
 		err = json.Unmarshal(rr.Body.Bytes(), &profile)
 		require.NoError(t, err)
@@ -554,12 +551,11 @@ func TestCreateProfileHandler(t *testing.T) {
 
 	t.Run("test failed to resolve did", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{ResolveErr: fmt.Errorf("resolve error")},
-			HostURL:            "localhost:8080",
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:        customCrypto,
+			KeyManager:    customKMS,
+			VDRI:          &vdrmock.MockVDRegistry{ResolveErr: fmt.Errorf("resolve error")},
+			HostURL:       "localhost:8080",
 		})
 
 		require.NoError(t, err)
@@ -624,12 +620,11 @@ func TestGetProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		Crypto:             customCrypto,
-		KeyManager:         customKMS,
-		VDRI:               &vdrmock.MockVDRegistry{},
-		HostURL:            "localhost:8080",
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+		Crypto:        customCrypto,
+		KeyManager:    customKMS,
+		VDRI:          &vdrmock.MockVDRegistry{},
+		HostURL:       "localhost:8080",
 	})
 
 	require.NoError(t, err)
@@ -666,7 +661,7 @@ func TestGetProfileHandler(t *testing.T) {
 		getProfileHandler.Handle().ServeHTTP(rr, req)
 
 		require.Equal(t, http.StatusOK, rr.Code)
-		profileResponse := &vcprofile.IssuerProfile{}
+		profileResponse := &vcsstorage.IssuerProfile{}
 		err = json.Unmarshal(rr.Body.Bytes(), profileResponse)
 		require.NoError(t, err)
 		require.Equal(t, profileResponse.Name, profile.Name)
@@ -690,12 +685,11 @@ func TestDeleteProfileHandler(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager:         customKMS,
-		VDRI:               &vdrmock.MockVDRegistry{},
-		Crypto:             customCrypto,
-		HostURL:            "localhost:8080", Domain: "testnet",
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+		KeyManager:    customKMS,
+		VDRI:          &vdrmock.MockVDRegistry{},
+		Crypto:        customCrypto,
+		HostURL:       "localhost:8080", Domain: "testnet",
 	})
 	require.NoError(t, err)
 
@@ -715,15 +709,14 @@ func TestDeleteProfileHandler(t *testing.T) {
 
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 				Store:     make(map[string]ariesmockstorage.DBEntry),
 				ErrDelete: errors.New("delete error"),
-			}},
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			Crypto:             customCrypto,
-			HostURL:            "localhost:8080", Domain: "testnet",
+			}}),
+			KeyManager: customKMS,
+			VDRI:       &vdrmock.MockVDRegistry{},
+			Crypto:     customCrypto,
+			HostURL:    "localhost:8080", Domain: "testnet",
 		})
 		require.NoError(t, err)
 
@@ -739,7 +732,7 @@ func TestDeleteProfileHandler(t *testing.T) {
 	})
 }
 
-func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.IssuerProfile {
+func createProfileSuccess(t *testing.T, op *Operation) *vcsstorage.IssuerProfile {
 	t.Helper()
 
 	req, err := http.NewRequest(http.MethodPost, createProfileEndpoint, bytes.NewBuffer([]byte(testIssuerProfile)))
@@ -750,7 +743,7 @@ func createProfileSuccess(t *testing.T, op *Operation) *vcprofile.IssuerProfile 
 	createProfileEndpoint := getHandler(t, op, createProfileEndpoint, http.MethodPost)
 	createProfileEndpoint.Handle().ServeHTTP(rr, req)
 
-	profile := &vcprofile.IssuerProfile{}
+	profile := &vcsstorage.IssuerProfile{}
 
 	err = json.Unmarshal(rr.Body.Bytes(), &profile)
 	require.NoError(t, err)
@@ -771,13 +764,12 @@ func TestStoreVCHandler(t *testing.T) {
 
 	t.Run("store vc success", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -793,13 +785,12 @@ func TestStoreVCHandler(t *testing.T) {
 	})
 	t.Run("store vc err missing profile name", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
@@ -817,13 +808,12 @@ func TestStoreVCHandler(t *testing.T) {
 	})
 	t.Run("store vc err unable to unmarshal vc", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodPost, storeCredentialEndpoint,
@@ -851,25 +841,26 @@ func TestRetrieveVCHandler(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 
 	t.Run("retrieve vc success", func(t *testing.T) {
-		storeProvider := ariesmemstorage.NewProvider()
+		storeProvider := ariesprovider.New(ariesmemstorage.NewProvider())
 
 		op, err := New(&Config{
-			StoreProvider:      storeProvider,
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  storeProvider,
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
 		saveTestProfile(t, op, getTestProfile())
 
-		vcStore, err := storeProvider.OpenStore(verifiableCredentialsStoreName)
+		vcStore, err := storeProvider.OpenVCStore()
 		require.NoError(t, err)
 
-		err = vcStore.Put(generateVCEntryKey(getTestProfile().Name, testURLQueryID), []byte(testData))
+		vc := &verifiable.Credential{ID: testURLQueryID}
+
+		err = vcStore.Put(getTestProfile().Name, vc)
 		require.NoError(t, err)
 
 		r, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -882,19 +873,21 @@ func TestRetrieveVCHandler(t *testing.T) {
 		r.URL.RawQuery = q.Encode()
 		rr := httptest.NewRecorder()
 
+		vcBytes, err := json.Marshal(vc)
+		require.NoError(t, err)
+
 		op.retrieveCredentialHandler(rr, r)
 		require.Equal(t, http.StatusOK, rr.Code)
-		require.Equal(t, testData, rr.Body.String())
+		require.Equal(t, string(vcBytes), rr.Body.String())
 	})
 	t.Run("retrieve vc fail - no VC found under the given ID", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -920,13 +913,12 @@ func TestRetrieveVCHandler(t *testing.T) {
 	})
 	t.Run("retrieve vc error when missing profile name", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -941,13 +933,12 @@ func TestRetrieveVCHandler(t *testing.T) {
 	})
 	t.Run("retrieve vc error when missing vc ID", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 		req, err := http.NewRequest(http.MethodGet, retrieveCredentialEndpoint,
@@ -964,13 +955,12 @@ func TestRetrieveVCHandler(t *testing.T) {
 	})
 	t.Run("retrieve vc fail when writing document retrieval success", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1004,13 +994,12 @@ func TestVCStatus(t *testing.T) {
 
 	t.Run("test error from get CSL", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1029,13 +1018,12 @@ func TestVCStatus(t *testing.T) {
 
 	t.Run("test success", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{},
-			HostURL:            "localhost:8080",
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{},
+			HostURL:        "localhost:8080",
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1099,13 +1087,12 @@ func TestOperation_GetRESTHandlers(t *testing.T) {
 	require.NoError(t, err)
 
 	op, err := New(&Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		Crypto:             customCrypto,
-		KeyManager:         customKMS,
-		VDRI:               &vdrmock.MockVDRegistry{},
-		HostURL:            "localhost:8080",
-		DocumentLoader:     testutil.DocumentLoader(t),
+		StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+		Crypto:         customCrypto,
+		KeyManager:     customKMS,
+		VDRI:           &vdrmock.MockVDRegistry{},
+		HostURL:        "localhost:8080",
+		DocumentLoader: testutil.DocumentLoader(t),
 	})
 
 	require.NoError(t, err)
@@ -1131,10 +1118,9 @@ func TestIssueCredential(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager:         customKMS,
-		Crypto:             customCrypto,
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+		KeyManager:    customKMS,
+		Crypto:        customCrypto,
 		VDRI: &vdrmock.MockVDRegistry{
 			ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 				return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1144,7 +1130,7 @@ func TestIssueCredential(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = op.profileStore.SaveProfile(profile)
+	err = op.profileStore.Put(*profile)
 	require.NoError(t, err)
 
 	urlVars := make(map[string]string)
@@ -1154,9 +1140,8 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - success", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1172,7 +1157,7 @@ func TestIssueCredential(t *testing.T) {
 		profile.SignatureRepresentation = verifiable.SignatureJWS
 		profile.SignatureType = vccrypto.JSONWebSignature2020
 
-		err = ops.profileStore.SaveProfile(profile)
+		err = ops.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
@@ -1271,9 +1256,8 @@ func TestIssueCredential(t *testing.T) {
 		customVerificationMethod := "did:test:zzz#" + keyID
 
 		ops, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1287,7 +1271,7 @@ func TestIssueCredential(t *testing.T) {
 		profile.SignatureRepresentation = verifiable.SignatureJWS
 		profile.SignatureType = vccrypto.Ed25519Signature2018
 
-		err = ops.profileStore.SaveProfile(profile)
+		err = ops.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
@@ -1323,9 +1307,8 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential without issuanceDate - success", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1341,7 +1324,7 @@ func TestIssueCredential(t *testing.T) {
 		profile.SignatureRepresentation = verifiable.SignatureJWS
 		profile.SignatureType = vccrypto.JSONWebSignature2020
 
-		err = ops.profileStore.SaveProfile(profile)
+		err = ops.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
@@ -1394,9 +1377,8 @@ func TestIssueCredential(t *testing.T) {
 		customPurpose := "customPurpose"
 
 		ops, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1409,7 +1391,7 @@ func TestIssueCredential(t *testing.T) {
 
 		profile.SignatureRepresentation = verifiable.SignatureJWS
 
-		err = ops.profileStore.SaveProfile(profile)
+		err = ops.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
@@ -1432,9 +1414,8 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential with opts - invalid vc status", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1447,7 +1428,7 @@ func TestIssueCredential(t *testing.T) {
 
 		profile.SignatureRepresentation = verifiable.SignatureJWS
 
-		err = ops.profileStore.SaveProfile(profile)
+		err = ops.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, ops, issueCredentialPath, http.MethodPost)
@@ -1470,11 +1451,10 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			Crypto:             customCrypto,
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			DocumentLoader:     loader,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:         customCrypto,
+			KeyManager:     customKMS,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1563,10 +1543,9 @@ func TestIssueCredential(t *testing.T) {
 
 	t.Run("issue credential - DID not resolvable", func(t *testing.T) {
 		op1, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			Crypto:        customCrypto,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, keyID, pubKey)}, nil
@@ -1596,16 +1575,15 @@ func TestIssueCredential(t *testing.T) {
 		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", pubKey)
 
 		op, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			DocumentLoader:     loader,
+			Crypto:         customCrypto,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(profile)
+		err = op.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		op.vcStatusManager = &mockCredentialStatusManager{CreateErr: errors.New("csl error")}
@@ -1629,16 +1607,15 @@ func TestIssueCredential(t *testing.T) {
 		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", pubKey)
 
 		op, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			DocumentLoader:     loader,
+			Crypto:         customCrypto,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(profile)
+		err = op.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, op, issueCredentialPath, http.MethodPost)
@@ -1661,18 +1638,17 @@ func TestIssueCredential(t *testing.T) {
 		didDoc := createDIDDoc("did:test:hd9712akdsaishda7", pubKey)
 
 		op, err := New(&Config{
-			Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			VDRI:               &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			DocumentLoader:     loader,
+			Crypto:         &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:     customKMS,
+			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
 		op.vcStatusManager = &mockVCStatusManager{createStatusIDValue: &verifiable.TypedID{ID: "id"}}
 
-		err = op.profileStore.SaveProfile(profile)
+		err = op.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		issueCredentialHandler := getHandler(t, op, issueCredentialPath, http.MethodPost)
@@ -1740,12 +1716,11 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 
 	op, err := New(&Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager:         customKMS,
-		VDRI:               &vdrmock.MockVDRegistry{},
-		Crypto:             &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
-		DocumentLoader:     loader,
+		StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+		KeyManager:     customKMS,
+		VDRI:           &vdrmock.MockVDRegistry{},
+		Crypto:         &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign credential")},
+		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
@@ -1758,7 +1733,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 	profile := getTestProfile()
 	profile.Creator = issuerProfileDIDKey
 
-	err = op.profileStore.SaveProfile(profile)
+	err = op.profileStore.Put(*profile)
 	require.NoError(t, err)
 
 	urlVars := make(map[string]string)
@@ -1766,9 +1741,8 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - success", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
@@ -1788,7 +1762,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 			},
 		}}
 
-		err = op.profileStore.SaveProfile(profile)
+		err = op.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		restHandler := getHandler(t, op, composeAndIssueCredentialPath, http.MethodPost)
@@ -1917,11 +1891,10 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			DocumentLoader:     loader,
+			Crypto:         customCrypto,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:     customKMS,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
@@ -1942,17 +1915,16 @@ func TestComposeAndIssueCredential(t *testing.T) {
 
 	t.Run("compose and issue credential - add credential status error", func(t *testing.T) {
 		ops, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
-			DocumentLoader:     loader,
+			Crypto:         customCrypto,
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:     customKMS,
+			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
 		ops.vcStatusManager = &mockCredentialStatusManager{CreateErr: errors.New("csl error")}
 
-		err = ops.profileStore.SaveProfile(profile)
+		err = ops.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		req := &ComposeCredentialRequest{}
@@ -2031,10 +2003,9 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		op1, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			Crypto:        customCrypto,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 			VDRI: &vdrmock.MockVDRegistry{
 				ResolveFunc: func(didID string, opts ...vdr.DIDMethodOption) (*did.DocResolution, error) {
 					return &did.DocResolution{DIDDocument: createDIDDocWithKeyID(didID, key1ID, pubKey)}, nil
@@ -2044,7 +2015,7 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = op1.profileStore.SaveProfile(profile)
+		err = op1.profileStore.Put(*profile)
 		require.NoError(t, err)
 
 		handler1 := getHandler(t, op1, composeAndIssueCredentialPath, http.MethodPost)
@@ -2178,10 +2149,9 @@ func TestGenerateKeypair(t *testing.T) {
 
 	t.Run("generate key pair (default)- success", func(t *testing.T) {
 		op, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			Crypto:        customCrypto,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 		})
 		require.NoError(t, err)
 
@@ -2200,10 +2170,9 @@ func TestGenerateKeypair(t *testing.T) {
 
 	t.Run("generate key pair - BBS", func(t *testing.T) {
 		op, err := New(&Config{
-			Crypto:             customCrypto,
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			Crypto:        customCrypto,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 		})
 		require.NoError(t, err)
 
@@ -2229,10 +2198,9 @@ func TestGenerateKeypair(t *testing.T) {
 
 	t.Run("generate key pair - failure", func(t *testing.T) {
 		op, err := New(&Config{
-			Crypto:             customCrypto,
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			KeyManager:         customKMS,
+			Crypto:        customCrypto,
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			KeyManager:    customKMS,
 		})
 		require.NoError(t, err)
 
@@ -2317,9 +2285,9 @@ func handlerLookup(t *testing.T, op *Operation, pathToLookup, methodToLookup str
 	return nil
 }
 
-func getTestProfile() *vcprofile.IssuerProfile {
-	return &vcprofile.IssuerProfile{
-		DataProfile: &vcprofile.DataProfile{
+func getTestProfile() *vcsstorage.IssuerProfile {
+	return &vcsstorage.IssuerProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name:          "test",
 			DID:           "did:test:abc",
 			SignatureType: "Ed25519Signature2018",
@@ -2329,9 +2297,9 @@ func getTestProfile() *vcprofile.IssuerProfile {
 	}
 }
 
-func getIssuerProfile() *vcprofile.IssuerProfile {
-	return &vcprofile.IssuerProfile{
-		DataProfile: &vcprofile.DataProfile{
+func getIssuerProfile() *vcsstorage.IssuerProfile {
+	return &vcsstorage.IssuerProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name:          testIssuerProfileID,
 			DID:           "did:test:abc",
 			SignatureType: "Ed25519Signature2018",
@@ -2341,10 +2309,10 @@ func getIssuerProfile() *vcprofile.IssuerProfile {
 	}
 }
 
-func saveTestProfile(t *testing.T, op *Operation, profile *vcprofile.IssuerProfile) {
+func saveTestProfile(t *testing.T, op *Operation, profile *vcsstorage.IssuerProfile) {
 	t.Helper()
 
-	err := op.profileStore.SaveProfile(profile)
+	err := op.profileStore.Put(*profile)
 	require.NoError(t, err)
 }
 
@@ -2451,11 +2419,11 @@ type mockVCStatusManager struct {
 	GetRevocationListVCErr   error
 }
 
-func (m *mockVCStatusManager) CreateStatusID(profile *vcprofile.DataProfile, url string) (*verifiable.TypedID, error) {
+func (m *mockVCStatusManager) CreateStatusID(profile *vcsstorage.DataProfile, url string) (*verifiable.TypedID, error) {
 	return m.createStatusIDValue, m.createStatusIDErr
 }
 
-func (m *mockVCStatusManager) UpdateVC(v *verifiable.Credential, profile *vcprofile.DataProfile, status bool) error {
+func (m *mockVCStatusManager) UpdateVC(v *verifiable.Credential, profile *vcsstorage.DataProfile, status bool) error {
 	return m.updateVCErr
 }
 
@@ -2467,7 +2435,7 @@ type mockCredentialStatusManager struct {
 	CreateErr error
 }
 
-func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProfile,
+func (m *mockCredentialStatusManager) CreateStatusID(profile *vcsstorage.DataProfile,
 	url string) (*verifiable.TypedID, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
@@ -2477,7 +2445,7 @@ func (m *mockCredentialStatusManager) CreateStatusID(profile *vcprofile.DataProf
 }
 
 func (m *mockCredentialStatusManager) UpdateVC(v *verifiable.Credential,
-	profile *vcprofile.DataProfile, status bool) error {
+	profile *vcsstorage.DataProfile, status bool) error {
 	return nil
 }
 

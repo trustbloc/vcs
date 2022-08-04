@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -22,7 +24,7 @@ import (
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			Crypto:        &cryptomock.Crypto{}, VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -31,9 +33,9 @@ func TestController_New(t *testing.T) {
 
 	t.Run("test error", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("error open store"),
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
@@ -44,7 +46,7 @@ func TestController_New(t *testing.T) {
 
 func TestController_GetOperations(t *testing.T) {
 	controller, err := New(&operation.Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		Crypto:        &cryptomock.Crypto{}, VDRI: &vdrmock.MockVDRegistry{},
 	})
 

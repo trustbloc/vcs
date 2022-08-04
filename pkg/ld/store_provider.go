@@ -9,8 +9,9 @@ package ld
 import (
 	"fmt"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 )
 
 // StoreProvider provides stores for JSON-LD contexts and remote providers.
@@ -20,13 +21,13 @@ type StoreProvider struct {
 }
 
 // NewStoreProvider returns a new instance of StoreProvider.
-func NewStoreProvider(storageProvider storage.Provider) (*StoreProvider, error) {
-	contextStore, err := ld.NewContextStore(storageProvider)
+func NewStoreProvider(storageProvider vcsstorage.Provider) (*StoreProvider, error) {
+	contextStore, err := ld.NewContextStore(storageProvider.GetAriesProvider())
 	if err != nil {
 		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
 	}
 
-	remoteProviderStore, err := ld.NewRemoteProviderStore(storageProvider)
+	remoteProviderStore, err := ld.NewRemoteProviderStore(storageProvider.GetAriesProvider())
 	if err != nil {
 		return nil, fmt.Errorf("create remote provider store: %w", err)
 	}

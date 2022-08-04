@@ -10,11 +10,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 )
 
 func TestGetContextsFromJSONRaw(t *testing.T) {
@@ -173,8 +174,8 @@ func TestDecodeTypedIDFromJSONRaw(t *testing.T) {
 }
 
 func TestUpdateIssuer(t *testing.T) {
-	profile := &vcprofile.IssuerProfile{
-		DataProfile: &vcprofile.DataProfile{
+	profile := &vcsstorage.IssuerProfile{
+		DataProfile: vcsstorage.DataProfile{
 			DID:  "did:example",
 			Name: "sample-profile",
 		},
@@ -207,8 +208,8 @@ func TestUpdateIssuer(t *testing.T) {
 }
 
 func TestUpdateSignatureTypeContext(t *testing.T) {
-	profile := &vcprofile.IssuerProfile{
-		DataProfile: &vcprofile.DataProfile{
+	profile := &vcsstorage.IssuerProfile{
+		DataProfile: vcsstorage.DataProfile{
 			DID:  "did:example",
 			Name: "sample-profile",
 		},
@@ -225,13 +226,6 @@ func TestUpdateSignatureTypeContext(t *testing.T) {
 	profile.SignatureType = crypto.BbsBlsSignature2020
 	UpdateSignatureTypeContext(vc, profile)
 	require.Len(t, vc.Context, 3)
-}
-
-func TestGetDocIDFromURL(t *testing.T) {
-	require.Equal(t, GetDocIDFromURL("http://docserver.com/1234"), "1234")
-	require.Equal(t, GetDocIDFromURL("http://docserver.com/xyz/ABC1234"), "ABC1234")
-	require.Equal(t, GetDocIDFromURL("/xyz/ABC1234"), "ABC1234")
-	require.Equal(t, GetDocIDFromURL("/abcd"), "abcd")
 }
 
 func stringToRaw(s string) json.RawMessage {

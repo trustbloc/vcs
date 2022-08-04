@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
 	"github.com/google/tink/go/keyset"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto/primitive/composite/ecdh"
@@ -28,11 +30,10 @@ func TestController_New(t *testing.T) {
 		require.NoError(t, err)
 
 		controller, err := New(&operation.Config{
-			StoreProvider:      ariesmemstorage.NewProvider(),
-			Crypto:             &cryptomock.Crypto{},
-			KMSSecretsProvider: ariesmemstorage.NewProvider(),
-			KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
-			VDRI:               &vdrmock.MockVDRegistry{}, HostURL: "",
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+			Crypto:        &cryptomock.Crypto{},
+			KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+			VDRI:          &vdrmock.MockVDRegistry{}, HostURL: "",
 		})
 		require.NoError(t, err)
 		require.NotNil(t, controller)
@@ -40,9 +41,9 @@ func TestController_New(t *testing.T) {
 
 	t.Run("test error", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: fmt.Errorf("error open store"),
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{}, HostURL: "",
 		})
 		require.Error(t, err)
@@ -56,11 +57,10 @@ func TestController_GetOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	controller, err := New(&operation.Config{
-		StoreProvider:      ariesmemstorage.NewProvider(),
-		Crypto:             &cryptomock.Crypto{},
-		KMSSecretsProvider: ariesmemstorage.NewProvider(),
-		KeyManager:         &mockkms.KeyManager{CreateKeyValue: kh},
-		VDRI:               &vdrmock.MockVDRegistry{}, HostURL: "",
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
+		Crypto:        &cryptomock.Crypto{},
+		KeyManager:    &mockkms.KeyManager{CreateKeyValue: kh},
+		VDRI:          &vdrmock.MockVDRegistry{}, HostURL: "",
 	})
 
 	require.NoError(t, err)

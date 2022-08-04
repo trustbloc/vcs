@@ -15,9 +15,10 @@ import (
 	"net/http"
 	"strings"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/cucumber/godog"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -123,7 +124,6 @@ func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatu
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", "rw_token", //nolint: bodyclose
 		bytes.NewBuffer(requestBytes))
-
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (e *Steps) createHolderProfile(profileName, did, privateKey, keyID, signatu
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.HolderProfile{}
+	profileResponse := vcsstorage.HolderProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -172,7 +172,6 @@ func (e *Steps) createBasicHolderProfile(profileName string) error {
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
-
 	if err != nil {
 		return err
 	}
@@ -221,7 +220,7 @@ func (e *Steps) getProfile(profileName, did, signatureType string) error {
 	return e.checkProfileResponse(profileName, did, signatureType, profileResponse)
 }
 
-func (e *Steps) getProfileData(profileName string) (*profile.HolderProfile, error) {
+func (e *Steps) getProfileData(profileName string) (*vcsstorage.HolderProfile, error) {
 	resp, err := bddutil.HTTPDo(http.MethodGet, //nolint: bodyclose
 		fmt.Sprintf(holderURL+"/holder/profile/%s", profileName), "", "rw_token", nil)
 	if err != nil {
@@ -235,7 +234,7 @@ func (e *Steps) getProfileData(profileName string) (*profile.HolderProfile, erro
 		return nil, err
 	}
 
-	profileResponse := &profile.HolderProfile{}
+	profileResponse := &vcsstorage.HolderProfile{}
 
 	err = json.Unmarshal(respBytes, profileResponse)
 	if err != nil {
@@ -323,7 +322,7 @@ func (e *Steps) validatePresentation(signedVPByte []byte) error {
 }
 
 func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfileDID, expectedSignatureType string,
-	profileResponse *profile.HolderProfile) error {
+	profileResponse *vcsstorage.HolderProfile) error {
 	if profileResponse.Name != expectedProfileResponseName {
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}
