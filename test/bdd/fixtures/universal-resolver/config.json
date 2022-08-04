@@ -1,0 +1,16 @@
+{
+  "drivers": [
+    {
+      "pattern": "^(did:v1:test:nym:.+)$",
+      "image": "veresone/uni-resolver-did-v1-driver",
+      "imageProperties": "true",
+      "tag": "latest"
+    },
+    {
+      "pattern": "^(did:web:.+)$",
+      "image": "uport/uni-resolver-driver-did-uport",
+      "imagePort": "8081",
+      "tag": "latest"
+    }
+  ]
+}

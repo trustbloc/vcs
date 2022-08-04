@@ -93,7 +93,7 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 }
 
 // RegisterSteps registers agent steps
-func (e *Steps) RegisterSteps(s *godog.Suite) {
+func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^"([^"]*)" sends request to create an issuer profile with the name "([^"]*)"$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" deletes the issuer profile with the name "([^"]*)"$`, e.deleteIssuerProfile)
 	s.Step(`^"([^"]*)" can recreate the issuer profile with the name "([^"]*)"$`, e.createIssuerProfile)

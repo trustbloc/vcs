@@ -3,7 +3,7 @@
 ## Setup
 Start the OpenAPI demo by running the following make target from project root directory.
 
-`make run-openapi-demo`
+`make open-api-demo`
 
 Once the services are up, click [here](http://localhost:8089/openapi/) launch the OpenAPI interface.
 

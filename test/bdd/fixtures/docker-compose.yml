@@ -1,0 +1,258 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+version: '2'
+
+services:
+  issuer.trustbloc.local:
+    container_name: issuer.trustbloc.local
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${ISSUER_VC_HOST}:${ISSUER_VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://issuer.trustbloc.local:${ISSUER_VC_PORT}
+      - BLOC_DOMAIN=testnet.orb.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=issuer_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=issuer_
+      - VC_REST_MODE=issuer
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_TLS_SYSTEMCERTPOOL=true
+      - VC_REST_API_TOKEN=rw_token
+      - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
+    ports:
+      - ${ISSUER_VC_PORT}:${ISSUER_VC_PORT}
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  verifier.trustbloc.local:
+    container_name: verifier.trustbloc.local
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${VERIFIER_VC_HOST}:${VERIFIER_VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://verifier.trustbloc.local:${VERIFIER_VC_PORT}
+      - BLOC_DOMAIN=testnet.orb.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=verifier_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=verifier_
+      - VC_REST_MODE=verifier
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_API_TOKEN=rw_token
+      - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
+    ports:
+      - ${VERIFIER_VC_PORT}:${VERIFIER_VC_PORT}
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  holder.trustbloc.local:
+    container_name: holder.trustbloc.local
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${HOLDER_VC_HOST}:${HOLDER_VC_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://holder.trustbloc.local:${HOLDER_VC_PORT}
+      - BLOC_DOMAIN=testnet.orb.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=holder_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=holder_
+      - VC_REST_MODE=holder
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_TLS_SYSTEMCERTPOOL=true
+      - VC_REST_API_TOKEN=rw_token
+      - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
+    ports:
+      - ${HOLDER_VC_PORT}:${HOLDER_VC_PORT}
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  vc-rest.trustbloc.local:
+    container_name: vc-rest.trustbloc.local
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=${VC_REST_HOST}:${VC_REST_PORT}
+      - VC_REST_HOST_URL_EXTERNAL=http://vc-rest.trustbloc.local:${VC_REST_PORT}
+      - BLOC_DOMAIN=testnet.orb.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
+      - DATABASE_TYPE=mem
+      - KMSSECRETS_DATABASE_TYPE=mem
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
+    ports:
+      - ${VC_REST_PORT}:${VC_REST_PORT}
+    command:  start
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  did-resolver.trustbloc.local:
+    container_name: did-resolver.trustbloc.local
+    image: ${DID_RESOLVER_IMAGE}:${DID_RESOLVER_IMAGE_TAG}
+    environment:
+      - DID_REST_HOST_URL=${DID_RESOLVER_HOST}:${DID_RESOLVER_PORT}
+      - DID_REST_HOST_URL_EXTERNAL=http://did-resolver.trustbloc.local:${DID_RESOLVER_PORT}
+      - DID_REST_CONFIG_FILE=/opt/did-resolver/config.json
+      - DID_REST_TLS_SYSTEMCERTPOOL=true
+      - DID_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+    ports:
+      - ${DID_RESOLVER_PORT}:${DID_RESOLVER_PORT}
+    command:  start
+    volumes:
+      - ./keys/tls:/etc/tls
+      - ./did-resolver/config.json:/opt/did-resolver/config.json
+    networks:
+      - bdd_net
+
+  kms.trustbloc.local:
+    container_name: kms.trustbloc.local
+    image: ${KMS_IMAGE}:${KMS_IMAGE_TAG}
+    environment:
+      - KMS_HOST=0.0.0.0:8077
+      - KMS_BASE_URL=https://localhost:8077
+      - KMS_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
+      - KMS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
+      - KMS_DATABASE_TYPE=${KMS_DATABASE_TYPE}
+      - KMS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMS_DATABASE_PREFIX=kms_
+      - KMS_SECRET_LOCK_TYPE=local
+      - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
+      - KMS_ZCAP_ENABLE=true
+      - KMS_CACHE_EXPIRATION=10m
+      - KMS_LOG_LEVEL=debug
+      - KMS_DID_DOMAIN=testnet.orb.local
+    ports:
+      - 8077:8077
+    command: start
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  mongodb.example.com:
+    container_name: mongodb.example.com
+    image: ${MONGODB_IMAGE}:${MONGODB_IMAGE_TAG}
+    ports:
+      - ${MONGODB_PORT}:${MONGODB_PORT}
+    networks:
+      - bdd_net
+
+  mysql:
+    container_name: mysql
+    image: mysql:${MYSQL_IMAGE_TAG}
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+    volumes:
+      - ./mysql-config:/docker-entrypoint-initdb.d
+    networks:
+      - bdd_net
+
+  sidetree:
+    container_name: testnet.orb.local
+    image: ${SIDETREE_MOCK_IMAGE}:${SIDETREE_MOCK_IMAGE_TAG}
+    environment:
+      - SIDETREE_MOCK_TLS_CERTIFICATE=/etc/sidetree/tls/ec-pubCert.pem
+      - SIDETREE_MOCK_TLS_KEY=/etc/sidetree/tls/ec-key.pem
+      - SIDETREE_MOCK_HOST=0.0.0.0
+      - SIDETREE_MOCK_PORT=443
+      - SIDETREE_MOCK_DID_NAMESPACE=did:orb
+      - SIDETREE_MOCK_DID_ALIASES=did:orb:testnet.orb.local
+      - SIDETREE_MOCK_EXTERNAL_ENDPOINT=https://testnet.orb.local
+      - SIDETREE_MOCK_WELLKNOWN_PATH=did-orb
+    ports:
+      - 443:443
+    volumes:
+      - ./keys/tls:/etc/sidetree/tls
+    networks:
+      - bdd_net
+
+  file-server.trustbloc.local: # file server for hosting static resources (e.g. JSON-LD contexts)
+    container_name: file-server.trustbloc.local
+    image: halverneus/static-file-server:latest
+    environment:
+      - PORT=10096
+      - FOLDER=/data
+      - TLS_CERT=/etc/tls/ec-pubCert.pem
+      - TLS_KEY=/etc/tls/ec-key.pem
+    ports:
+      - "10096:10096"
+    volumes:
+      - ./file-server:/data
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  uni-resolver-web:
+    image: universalresolver/uni-resolver-web:v0.4.0-8390e7a
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./universal-resolver/config.json:/opt/uni-resolver-java/uni-resolver-web/config.json
+      - ./universal-resolver/run-uni-resolver-web.sh:/opt/uni-resolver-java/uni-resolver-web/docker/run-uni-resolver-web.sh
+    networks:
+      - bdd_net
+
+  uni-resolver-driver-did-uport:
+    container_name: uni-resolver-did-uport
+    image: uport/uni-resolver-driver-did-uport:latest
+    ports:
+      - "8083:8081"
+    networks:
+      - bdd_net
+
+  uni-resolver-did-v1-driver:
+    container_name: uni-resolver-did-v1
+    image: veresone/uni-resolver-did-v1-driver:latest
+    ports:
+      - "8085:8080"
+    networks:
+      - bdd_net
+
+  vc-openapi.trustbloc.local:
+    container_name: vc-openapi.trustbloc.local
+    image: swaggerapi/swagger-ui
+    environment:
+      - SWAGGER_JSON=/spec/openAPI.yml
+      - BASE_URL=/openapi
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./spec:/spec
+    networks:
+      - bdd_net
+
+networks:
+  bdd_net:
+    driver: bridge

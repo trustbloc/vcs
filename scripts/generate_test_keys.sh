@@ -8,7 +8,7 @@
 set -e
 
 
-echo "Generating vcs Test PKI"
+echo "Generating test PKI for VC services"
 
 cd /opt/workspace/vcs
 mkdir -p test/bdd/fixtures/keys/tls
@@ -21,10 +21,8 @@ subjectAltName = @alt_names
 [alt_names]
 DNS.1 = localhost
 DNS.2 = testnet.orb.local
-DNS.3 = stakeholder.one
-DNS.4 = hubstore.example.com
-DNS.5 = kms.example.com
-DNS.6 = file-server.example.com
+DNS.3 = kms.trustbloc.local
+DNS.4 = file-server.trustbloc.local
 " >> "$tmp"
 
 #create CA
@@ -39,4 +37,4 @@ openssl x509 -req -in test/bdd/fixtures/keys/tls/ec-key.csr -CA test/bdd/fixture
 #create master key for kms secret lock
 openssl rand 32 | base64 | sed 's/+/-/g; s/\//_/g' > test/bdd/fixtures/keys/tls/secret-lock.key
 
-echo "done generating vcs PKI"
+echo "done generating PKI"
