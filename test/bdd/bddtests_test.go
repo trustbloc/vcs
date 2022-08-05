@@ -38,7 +38,11 @@ func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all but excluding those marked with @wip
 	tags := "@all && ~@wip"
 
-	if os.Getenv("TAGS") != "" {
+	envTags := os.Getenv("TAGS")
+
+	println("env tags are", envTags)
+
+	if envTags != "" {
 		tags = os.Getenv("TAGS")
 	}
 
