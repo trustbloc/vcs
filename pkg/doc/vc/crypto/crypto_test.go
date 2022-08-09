@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -21,7 +23,6 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
@@ -35,7 +36,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 		)
 
 		signedVC, err := c.SignCredential(
-			getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			&getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
@@ -55,7 +56,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 			responseDomain    string
 			responseChallenge string
 			responseTime      *time.Time
-			profile           *vcprofile.IssuerProfile
+			profile           *vcsstorage.IssuerProfile
 			err               string
 		}{
 			{
@@ -81,8 +82,8 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 			{
 				name:        "signing with verification method option with profile DID",
 				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc#key1")},
-				profile: &vcprofile.IssuerProfile{
-					DataProfile: &vcprofile.DataProfile{
+				profile: &vcsstorage.IssuerProfile{
+					DataProfile: vcsstorage.DataProfile{
 						Name:          "test",
 						DID:           "did:trustbloc:abc",
 						SignatureType: "Ed25519Signature2018",
@@ -100,18 +101,22 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 			},
 			{
 				name: "signing with verification method, purpose options & representation(proofValue)",
-				signingOpts: []SigningOpts{WithPurpose(AssertionMethod),
+				signingOpts: []SigningOpts{
+					WithPurpose(AssertionMethod),
 					WithVerificationMethod("did:trustbloc:abc#key1"),
-					WithSigningRepresentation("proofValue")},
+					WithSigningRepresentation("proofValue"),
+				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
 			},
 			{
 				name: "signing with verification method, purpose, created, type & representation(jws) options",
-				signingOpts: []SigningOpts{WithPurpose(AssertionMethod),
+				signingOpts: []SigningOpts{
+					WithPurpose(AssertionMethod),
 					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithSigningRepresentation("jws"),
-					WithCreated(prepareTestCreated(-1, -1, 0))},
+					WithCreated(prepareTestCreated(-1, -1, 0)),
+				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
 				responseTime:      prepareTestCreated(-1, -1, 0),
@@ -126,14 +131,16 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 				name: "failed with invalid signing representation",
 				signingOpts: []SigningOpts{
 					WithVerificationMethod("did:trustbloc:abc#key1"),
-					WithSigningRepresentation("xyz")},
+					WithSigningRepresentation("xyz"),
+				},
 				err: "invalid proof format : xyz",
 			},
 			{
 				name: "test with JsonWebSignature2020",
 				signingOpts: []SigningOpts{
 					WithVerificationMethod("did:trustbloc:abc#key1"),
-					WithSignatureType("JsonWebSignature2020")},
+					WithSignatureType("JsonWebSignature2020"),
+				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
 			},
@@ -141,7 +148,8 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 				name: "failed with unsupported signature type",
 				signingOpts: []SigningOpts{
 					WithVerificationMethod("did:trustbloc:abc#key1"),
-					WithSignatureType("123")},
+					WithSignatureType("123"),
+				},
 				err: "signature type unsupported 123",
 			},
 		}
@@ -162,7 +170,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 				}
 
 				signedVC, err := c.SignCredential(
-					profile.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+					&profile.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 					tc.signingOpts...)
 
 				if tc.err != "" {
@@ -208,7 +216,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 		p := getTestIssuerProfile()
 		p.Creator = "wrongValue"
 		signedVC, err := c.SignCredential(
-			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			&p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verificationMethod value wrongValue should be in did#keyID format")
 		require.Nil(t, signedVC)
@@ -220,7 +228,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 			testutil.DocumentLoader(t),
 		)
 		signedVC, err := c.SignCredential(
-			getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			&getTestIssuerProfile().DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 		require.Nil(t, signedVC)
@@ -233,7 +241,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 		p := getTestIssuerProfile()
 
 		signedVC, err := c.SignCredential(
-			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			&p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose("invalid"))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "proof purpose invalid not supported")
@@ -247,7 +255,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 		p := getTestIssuerProfile()
 
 		signedVC, err := c.SignCredential(
-			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			&p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
@@ -260,7 +268,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 		p := getTestIssuerProfile()
 
 		signedVC, err := c.SignCredential(
-			p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
+			&p.DataProfile, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
@@ -275,7 +283,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 		)
 
 		signedVC, err := c.SignCredential(
-			&vcprofile.DataProfile{
+			&vcsstorage.DataProfile{
 				Name:          "test",
 				DID:           "did:trustbloc:abc",
 				SignatureType: "BbsBlsSignature2020",
@@ -330,9 +338,9 @@ func TestSignPresentation(t *testing.T) {
 	})
 }
 
-func getTestIssuerProfile() *vcprofile.IssuerProfile {
-	return &vcprofile.IssuerProfile{
-		DataProfile: &vcprofile.DataProfile{
+func getTestIssuerProfile() *vcsstorage.IssuerProfile {
+	return &vcsstorage.IssuerProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name:          "test",
 			DID:           "did:trustbloc:abc",
 			SignatureType: "Ed25519Signature2018",
@@ -342,9 +350,9 @@ func getTestIssuerProfile() *vcprofile.IssuerProfile {
 	}
 }
 
-func getTestHolderProfile() *vcprofile.HolderProfile {
-	return &vcprofile.HolderProfile{
-		DataProfile: &vcprofile.DataProfile{
+func getTestHolderProfile() *vcsstorage.HolderProfile {
+	return &vcsstorage.HolderProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name:          "test",
 			DID:           "did:trustbloc:abc",
 			SignatureType: "Ed25519Signature2018",

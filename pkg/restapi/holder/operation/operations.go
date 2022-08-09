@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"time"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/gorilla/mux"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -25,7 +27,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
 	commondid "github.com/trustbloc/vcs/pkg/restapi/internal/common/did"
 	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
@@ -56,14 +57,14 @@ type commonDID interface {
 
 // New returns CreateCredential instance.
 func New(config *Config) (*Operation, error) {
-	p, err := vcprofile.New(config.StoreProvider)
+	profileStore, err := config.StoreProvider.OpenHolderProfileStore()
 	if err != nil {
 		return nil, err
 	}
 
 	svc := &Operation{
 		vdr:          config.VDRI,
-		profileStore: p,
+		profileStore: profileStore,
 		commonDID: commondid.New(&commondid.Config{
 			VDRI: config.VDRI, KeyManager: config.KeyManager,
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
@@ -78,7 +79,7 @@ func New(config *Config) (*Operation, error) {
 
 // Config defines configuration for vcs operations.
 type Config struct {
-	StoreProvider   ariesstorage.Provider
+	StoreProvider   vcsstorage.Provider
 	KeyManager      keyManager
 	VDRI            vdrapi.Registry
 	Domain          string
@@ -95,7 +96,7 @@ type keyManager interface {
 // Operation defines handlers for holder service.
 type Operation struct {
 	commonDID      commonDID
-	profileStore   *vcprofile.Profile
+	profileStore   vcsstorage.HolderProfileStore
 	crypto         *crypto.Crypto
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
@@ -135,27 +136,25 @@ func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http
 		return
 	}
 
-	profile, err := o.profileStore.GetHolderProfile(request.Name)
-	if err != nil && !errors.Is(err, ariesstorage.ErrDataNotFound) {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
+	_, err := o.profileStore.Get(request.Name)
+	if err == nil {
+		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", request.Name))
+
+		return
+	} else if !errors.Is(err, ariesstorage.ErrDataNotFound) {
+		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
 		return
 	}
 
-	if profile != nil {
-		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("profile %s already exists", profile.Name))
-
-		return
-	}
-
-	profile, err = o.createHolderProfile(request)
+	profile, err := o.createHolderProfile(request)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
 	}
 
-	err = o.profileStore.SaveHolderProfile(profile)
+	err = o.profileStore.Put(*profile)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -175,7 +174,7 @@ func (o *Operation) createHolderProfileHandler(rw http.ResponseWriter, req *http
 func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	profileID := mux.Vars(req)[profileIDPathParam]
 
-	profile, err := o.profileStore.GetHolderProfile(profileID)
+	profile, err := o.profileStore.Get(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -195,7 +194,7 @@ func (o *Operation) getHolderProfileHandler(rw http.ResponseWriter, req *http.Re
 func (o *Operation) deleteHolderProfileHandler(rw http.ResponseWriter, req *http.Request) {
 	profileID := mux.Vars(req)[profileIDPathParam]
 
-	err := o.profileStore.DeleteHolderProfile(profileID)
+	err := o.profileStore.Delete(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
@@ -216,7 +215,7 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 	// get the holder profile
 	profileID := mux.Vars(req)[profileIDPathParam]
 
-	profile, err := o.profileStore.GetHolderProfile(profileID)
+	profile, err := o.profileStore.Get(profileID)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, fmt.Sprintf("invalid holder profile - id=%s: err=%s",
 			profileID, err.Error()))
@@ -243,10 +242,10 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 	}
 
 	// update holder
-	updateHolder(presentation, profile)
+	updateHolder(presentation, &profile)
 
 	// sign presentation
-	signedVP, err := o.crypto.SignPresentation(profile, presentation, getPresentationSigningOpts(presReq.Opts)...)
+	signedVP, err := o.crypto.SignPresentation(&profile, presentation, getPresentationSigningOpts(presReq.Opts)...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign presentation:"+
 			" %s", err.Error()))
@@ -374,13 +373,13 @@ func getPresentationSigningOpts(opts *SignPresentationOptions) []crypto.SigningO
 }
 
 // updateHolder overrides presentation holder form profile.
-func updateHolder(presentation *verifiable.Presentation, profile *vcprofile.HolderProfile) {
+func updateHolder(presentation *verifiable.Presentation, profile *vcsstorage.HolderProfile) {
 	if profile.OverwriteHolder || presentation.Holder == "" {
 		presentation.Holder = profile.DID
 	}
 }
 
-func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.HolderProfile, error) {
+func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcsstorage.HolderProfile, error) {
 	var didID, publicKeyID string
 
 	didID, publicKeyID, err := o.commonDID.CreateDID(pr.DIDKeyType, pr.SignatureType, pr.DID,
@@ -391,8 +390,8 @@ func (o *Operation) createHolderProfile(pr *HolderProfileRequest) (*vcprofile.Ho
 
 	created := time.Now().UTC()
 
-	return &vcprofile.HolderProfile{
-		DataProfile: &vcprofile.DataProfile{
+	return &vcsstorage.HolderProfile{
+		DataProfile: vcsstorage.DataProfile{
 			Name:                    pr.Name,
 			Created:                 &created,
 			DID:                     didID,

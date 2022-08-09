@@ -9,6 +9,8 @@ package ld_test
 import (
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
 	mockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/stretchr/testify/require"
@@ -18,7 +20,7 @@ import (
 
 func TestNewStoreProvider(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		provider, err := ld.NewStoreProvider(mockstorage.NewMockStoreProvider())
+		provider, err := ld.NewStoreProvider(ariesprovider.New(mockstorage.NewMockStoreProvider()))
 
 		require.NotNil(t, provider)
 		require.NoError(t, err)
@@ -28,7 +30,9 @@ func TestNewStoreProvider(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.FailNamespace = ldstore.ContextStoreName
 
-		provider, err := ld.NewStoreProvider(storageProvider)
+		vcsStorageProvider := ariesprovider.New(storageProvider)
+
+		provider, err := ld.NewStoreProvider(vcsStorageProvider)
 
 		require.Nil(t, provider)
 		require.Error(t, err)
@@ -39,7 +43,9 @@ func TestNewStoreProvider(t *testing.T) {
 		storageProvider := mockstorage.NewMockStoreProvider()
 		storageProvider.FailNamespace = ldstore.RemoteProviderStoreName
 
-		provider, err := ld.NewStoreProvider(storageProvider)
+		vcsStorageProvider := ariesprovider.New(storageProvider)
+
+		provider, err := ld.NewStoreProvider(vcsStorageProvider)
 
 		require.Nil(t, provider)
 		require.Error(t, err)
@@ -48,14 +54,14 @@ func TestNewStoreProvider(t *testing.T) {
 }
 
 func TestStoreProvider_JSONLDContextStore(t *testing.T) {
-	provider, err := ld.NewStoreProvider(mockstorage.NewMockStoreProvider())
+	provider, err := ld.NewStoreProvider(ariesprovider.New(mockstorage.NewMockStoreProvider()))
 	require.NoError(t, err)
 
 	require.NotNil(t, provider.JSONLDContextStore())
 }
 
 func TestStoreProvider_JSONLDRemoteProviderStore(t *testing.T) {
-	provider, err := ld.NewStoreProvider(mockstorage.NewMockStoreProvider())
+	provider, err := ld.NewStoreProvider(ariesprovider.New(mockstorage.NewMockStoreProvider()))
 	require.NoError(t, err)
 
 	require.NotNil(t, provider.JSONLDRemoteProviderStore())

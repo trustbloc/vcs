@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package operation
 
 import (
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/model"
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 )
 
 // genericError model
@@ -24,7 +24,7 @@ type genericError struct { // nolint: unused,deadcode
 // swagger:response profileData
 type profileData struct { // nolint: unused,deadcode
 	// in: body
-	verifier.ProfileData
+	vcsstorage.VerifierProfile
 }
 
 // getProfileReq model

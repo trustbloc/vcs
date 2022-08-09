@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
@@ -24,7 +26,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/piprate/json-gold/ld"
 
-	vcprofile "github.com/trustbloc/vcs/pkg/doc/vc/profile"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
 
@@ -188,7 +189,7 @@ type Crypto struct {
 }
 
 // SignCredential signs vc.
-func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiable.Credential,
+func (c *Crypto) SignCredential(dataProfile *vcsstorage.DataProfile, vc *verifiable.Credential,
 	opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
@@ -216,7 +217,7 @@ func (c *Crypto) SignCredential(dataProfile *vcprofile.DataProfile, vc *verifiab
 }
 
 // SignPresentation signs a presentation.
-func (c *Crypto) SignPresentation(profile *vcprofile.HolderProfile, vp *verifiable.Presentation,
+func (c *Crypto) SignPresentation(profile *vcsstorage.HolderProfile, vp *verifiable.Presentation,
 	opts ...SigningOpts) (*verifiable.Presentation, error) {
 	signOpts := &signingOpts{}
 	// apply opts

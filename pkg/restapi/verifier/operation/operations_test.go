@@ -21,6 +21,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
@@ -35,7 +39,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -49,7 +52,7 @@ const (
 func Test_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -58,9 +61,9 @@ func Test_New(t *testing.T) {
 
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: errors.New("error creating the store"),
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
@@ -71,7 +74,7 @@ func Test_New(t *testing.T) {
 
 func TestCreateProfile(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -80,7 +83,7 @@ func TestCreateProfile(t *testing.T) {
 	handler := getHandler(t, op, endpoint, http.MethodPost)
 
 	t.Run("create profile - success", func(t *testing.T) {
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID:                 uuid.New().String(),
 			Name:               "test",
 			CredentialChecks:   []string{proofCheck, statusCheck},
@@ -94,7 +97,7 @@ func TestCreateProfile(t *testing.T) {
 
 		require.Equal(t, http.StatusCreated, rr.Code)
 
-		profileRes := &verifier.ProfileData{}
+		profileRes := &vcsstorage.VerifierProfile{}
 		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
 		require.NoError(t, err)
 		require.Equal(t, vReq, profileRes)
@@ -108,7 +111,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - missing profile id", func(t *testing.T) {
-		vReq := &verifier.ProfileData{}
+		vReq := &vcsstorage.VerifierProfile{}
 
 		vReqBytes, err := json.Marshal(vReq)
 		require.NoError(t, err)
@@ -120,7 +123,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - missing profile name", func(t *testing.T) {
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID: "test1",
 		}
 
@@ -134,7 +137,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - invalid credential checks", func(t *testing.T) {
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID:               "test1",
 			Name:             "test 1",
 			CredentialChecks: []string{proofCheck, statusCheck, "invalidCheck"},
@@ -150,7 +153,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - invalid presentation checks", func(t *testing.T) {
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID:                 "test1",
 			Name:               "test 1",
 			PresentationChecks: []string{proofCheck, "invalidCheck"},
@@ -166,7 +169,7 @@ func TestCreateProfile(t *testing.T) {
 	})
 
 	t.Run("create profile - profile already exists", func(t *testing.T) {
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID:   "test1",
 			Name: "test 1",
 		}
@@ -186,12 +189,12 @@ func TestCreateProfile(t *testing.T) {
 
 	t.Run("create profile - get profile error", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					Store:  make(map[string]ariesmockstorage.DBEntry),
 					ErrGet: errors.New("get error"),
 				},
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -199,7 +202,7 @@ func TestCreateProfile(t *testing.T) {
 		endpoint := profileEndpoint
 		handler := getHandler(t, op, endpoint, http.MethodPost)
 
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID:   "test1",
 			Name: "test 1",
 		}
@@ -208,18 +211,18 @@ func TestCreateProfile(t *testing.T) {
 		require.NoError(t, err)
 
 		rr := serveHTTP(t, handler.Handle(), http.MethodPost, endpoint, vReqBytes)
-		require.Equal(t, http.StatusBadRequest, rr.Code)
+		require.Equal(t, http.StatusInternalServerError, rr.Code)
 		require.Contains(t, rr.Body.String(), "get error")
 	})
 
 	t.Run("create profile - profile fetch db error", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					Store:  make(map[string]ariesmockstorage.DBEntry),
 					ErrPut: errors.New("save error"),
 				},
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -227,7 +230,7 @@ func TestCreateProfile(t *testing.T) {
 		endpoint := profileEndpoint
 		handler := getHandler(t, op, endpoint, http.MethodPost)
 
-		vReq := &verifier.ProfileData{
+		vReq := &vcsstorage.VerifierProfile{
 			ID:   "test1",
 			Name: "test 1",
 		}
@@ -244,7 +247,7 @@ func TestCreateProfile(t *testing.T) {
 
 func TestGetProfile(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -255,11 +258,11 @@ func TestGetProfile(t *testing.T) {
 	urlVars := make(map[string]string)
 
 	t.Run("get profile - success", func(t *testing.T) {
-		vReq := &verifier.ProfileData{
+		vReq := vcsstorage.VerifierProfile{
 			ID: "test",
 		}
 
-		err := op.profileStore.SaveProfile(vReq)
+		err := op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		urlVars[profileIDPathParam] = vReq.ID
@@ -268,7 +271,7 @@ func TestGetProfile(t *testing.T) {
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		profileRes := &verifier.ProfileData{}
+		profileRes := &vcsstorage.VerifierProfile{}
 		err = json.Unmarshal(rr.Body.Bytes(), &profileRes)
 		require.NoError(t, err)
 		require.Equal(t, vReq.ID, profileRes.ID)
@@ -286,7 +289,7 @@ func TestGetProfile(t *testing.T) {
 
 func TestDeleteProfileHandler(t *testing.T) {
 	op, err := New(&Config{
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		VDRI:          &vdrmock.MockVDRegistry{},
 	})
 	require.NoError(t, err)
@@ -306,12 +309,12 @@ func TestDeleteProfileHandler(t *testing.T) {
 
 	t.Run("delete profile - other error in delete profile from store", func(t *testing.T) {
 		op, err := New(&Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				Store: &ariesmockstorage.MockStore{
 					Store:     make(map[string]ariesmockstorage.DBEntry),
 					ErrDelete: errors.New("delete error"),
 				},
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -334,20 +337,20 @@ func TestVerifyCredential(t *testing.T) {
 
 	op, err := New(&Config{
 		VDRI:           &vdrmock.MockVDRegistry{},
-		StoreProvider:  ariesmemstorage.NewProvider(),
+		StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 		RequestTokens:  map[string]string{cslRequestTokenName: "tk1"},
 		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
-	vReq := &verifier.ProfileData{
+	vReq := vcsstorage.VerifierProfile{
 		ID:                 "test",
 		Name:               "test verifier",
 		CredentialChecks:   []string{proofCheck, statusCheck},
 		PresentationChecks: []string{proofCheck},
 	}
 
-	err = op.profileStore.SaveProfile(vReq)
+	err = op.profileStore.Put(vReq)
 	require.NoError(t, err)
 
 	urlVars := make(map[string]string)
@@ -368,12 +371,12 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, errNew := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, errNew)
 
-		err = ops.profileStore.SaveProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
@@ -431,12 +434,12 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, errNew := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, errNew)
 
-		err = ops.profileStore.SaveProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		encodeBits, errNew := utils.NewBitString(2).EncodeBits()
@@ -483,7 +486,7 @@ func TestVerifyCredential(t *testing.T) {
 	t.Run("credential verification - invalid profile", func(t *testing.T) {
 		ops, errNew := New(&Config{
 			VDRI:          &vdrmock.MockVDRegistry{},
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 		})
 		require.NoError(t, errNew)
 
@@ -832,12 +835,12 @@ func TestVerifyCredential(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		// verify credential
@@ -920,12 +923,12 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = ops.profileStore.SaveProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		ops.httpClient = &mockHTTPClient{doValue: &http.Response{
@@ -978,12 +981,12 @@ func TestVerifyCredential(t *testing.T) {
 
 		ops, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = ops.profileStore.SaveProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		vcBytes, err := vc.MarshalJSON()
@@ -1016,19 +1019,19 @@ func TestVerifyPresentation(t *testing.T) {
 
 	op, err := New(&Config{
 		VDRI:           &vdrmock.MockVDRegistry{},
-		StoreProvider:  ariesmemstorage.NewProvider(),
+		StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 		DocumentLoader: loader,
 	})
 	require.NoError(t, err)
 
-	vReq := &verifier.ProfileData{
+	vReq := vcsstorage.VerifierProfile{
 		ID:                 "test",
 		Name:               "test verifier",
 		CredentialChecks:   []string{proofCheck, statusCheck},
 		PresentationChecks: []string{proofCheck, statusCheck},
 	}
 
-	err = op.profileStore.SaveProfile(vReq)
+	err = op.profileStore.Put(vReq)
 	require.NoError(t, err)
 
 	urlVars := make(map[string]string)
@@ -1048,7 +1051,7 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
@@ -1061,7 +1064,7 @@ func TestVerifyPresentation(t *testing.T) {
 			Body:       ioutil.NopCloser(strings.NewReader(fmt.Sprintf(revocationListVC, didDoc.ID, encodeBits))),
 		}}
 
-		err = op.profileStore.SaveProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		// verify credential
@@ -1095,7 +1098,7 @@ func TestVerifyPresentation(t *testing.T) {
 	t.Run("presentation verification - invalid profile", func(t *testing.T) {
 		ops, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
@@ -1111,12 +1114,12 @@ func TestVerifyPresentation(t *testing.T) {
 	t.Run("presentation verification - invalid vp", func(t *testing.T) {
 		ops, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = ops.profileStore.SaveProfile(vReq)
+		err = ops.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		vReq := &VerifyPresentationRequest{
@@ -1254,12 +1257,12 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		// verify credential
@@ -1346,12 +1349,12 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		// verify credential
@@ -1389,12 +1392,12 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		// verify credential
@@ -1431,12 +1434,12 @@ func TestVerifyPresentation(t *testing.T) {
 
 		op, err := New(&Config{
 			VDRI:           &vdrmock.MockVDRegistry{ResolveValue: didDoc},
-			StoreProvider:  ariesmemstorage.NewProvider(),
+			StoreProvider:  ariesprovider.New(ariesmemstorage.NewProvider()),
 			DocumentLoader: loader,
 		})
 		require.NoError(t, err)
 
-		err = op.profileStore.SaveProfile(vReq)
+		err = op.profileStore.Put(vReq)
 		require.NoError(t, err)
 
 		// verify credential
@@ -1753,11 +1756,11 @@ func serveHTTPMux(t *testing.T, handler Handler, endpoint string, reqBytes []byt
 func saveTestProfile(t *testing.T, op *Operation) {
 	t.Helper()
 
-	vReq := &verifier.ProfileData{
+	vReq := vcsstorage.VerifierProfile{
 		ID: testProfileID,
 	}
 
-	err := op.profileStore.SaveProfile(vReq)
+	err := op.profileStore.Put(vReq)
 	require.NoError(t, err)
 }
 

@@ -14,10 +14,11 @@ import (
 	"net/http"
 	"strings"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
 	"github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -211,7 +212,7 @@ func (e *Steps) verify(endpoint string, reqBytes []byte, checks []string, result
 }
 
 func (e *Steps) createBasicVerifierProfile(profileID string) error {
-	profileRequest := &verifier.ProfileData{}
+	profileRequest := &vcsstorage.VerifierProfile{}
 
 	profileRequest.ID = profileID
 	profileRequest.Name = profileID
@@ -223,7 +224,6 @@ func (e *Steps) createBasicVerifierProfile(profileID string) error {
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, verifierHostURL+"/verifier/profile", "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
-
 	if err != nil {
 		return err
 	}

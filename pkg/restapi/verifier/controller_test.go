@@ -10,6 +10,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -21,7 +23,7 @@ import (
 func TestController_New(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: ariesmemstorage.NewProvider(),
+			StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 			VDRI:          &vdrmock.MockVDRegistry{},
 		})
 		require.NoError(t, err)
@@ -30,9 +32,9 @@ func TestController_New(t *testing.T) {
 
 	t.Run("test failure", func(t *testing.T) {
 		controller, err := New(&operation.Config{
-			StoreProvider: &ariesmockstorage.MockStoreProvider{
+			StoreProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
 				ErrOpenStoreHandle: errors.New("error creating the store"),
-			},
+			}),
 			VDRI: &vdrmock.MockVDRegistry{},
 		})
 		require.Error(t, err)
@@ -44,7 +46,7 @@ func TestController_New(t *testing.T) {
 func TestController_GetOperations(t *testing.T) {
 	controller, err := New(&operation.Config{
 		VDRI:          &vdrmock.MockVDRegistry{},
-		StoreProvider: ariesmemstorage.NewProvider(),
+		StoreProvider: ariesprovider.New(ariesmemstorage.NewProvider()),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, controller)

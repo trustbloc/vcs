@@ -17,15 +17,14 @@ import (
 	"strings"
 	"time"
 
+	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile"
-	"github.com/trustbloc/vcs/pkg/doc/vc/profile/verifier"
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
 	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
@@ -163,7 +162,6 @@ func (e *Steps) signAndVerifyPresentation(holder, signatureType, checksList, res
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "", "rw_token",
 		bytes.NewBuffer(reqBytes))
-
 	if err != nil {
 		return err
 	}
@@ -215,7 +213,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, didMe
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.IssuerProfile{}
+	profileResponse := vcsstorage.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -234,7 +232,7 @@ func (e *Steps) createProfile(profileName, did, privateKey, keyID, holder, didMe
 	return nil
 }
 
-func (e *Steps) getProfileData(profileName string) (*profile.IssuerProfile, error) {
+func (e *Steps) getProfileData(profileName string) (*vcsstorage.IssuerProfile, error) {
 	// False positive on linter bodyclose
 	// https://github.com/golangci/golangci-lint/issues/637
 	resp, err := bddutil.HTTPDo(http.MethodGet, fmt.Sprintf(issuerURL+"profile/%s", profileName), //nolint: bodyclose
@@ -250,7 +248,7 @@ func (e *Steps) getProfileData(profileName string) (*profile.IssuerProfile, erro
 		return nil, err
 	}
 
-	profileResponse := &profile.IssuerProfile{}
+	profileResponse := &vcsstorage.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, profileResponse)
 	if err != nil {
@@ -499,7 +497,7 @@ func (e *Steps) retrieveCredential(profileName string) error {
 	}
 
 	if !b {
-		return fmt.Errorf("validation of retrieved VC failed")
+		return fmt.Errorf(" validation of retrieved VC failed")
 	}
 
 	return nil
@@ -662,7 +660,7 @@ func (e *Steps) updateCredentialStatus(credID, profileName string) error {
 }
 
 func (e *Steps) checkProfileResponse(expectedProfileResponseName, expectedProfileDID, expectedSignatureType string,
-	profileResponse *profile.IssuerProfile) error {
+	profileResponse *vcsstorage.IssuerProfile) error {
 	if profileResponse.Name != expectedProfileResponseName {
 		return fmt.Errorf("expected %s but got %s instead", expectedProfileResponseName, profileResponse.Name)
 	}
@@ -705,7 +703,6 @@ func (e *Steps) createHolderProfile(profileName, signatureType string) error {
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
-
 	if err != nil {
 		return err
 	}
@@ -721,7 +718,7 @@ func (e *Steps) createHolderProfile(profileName, signatureType string) error {
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.HolderProfile{}
+	profileResponse := vcsstorage.HolderProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -917,7 +914,6 @@ func (e *Steps) callHolderProfileService(profileRequest *holderops.HolderProfile
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, holderURL+"/holder/profile", "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
-
 	if err != nil {
 		return err
 	}
@@ -933,7 +929,7 @@ func (e *Steps) callHolderProfileService(profileRequest *holderops.HolderProfile
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := profile.HolderProfile{}
+	profileResponse := vcsstorage.HolderProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -973,8 +969,10 @@ func (e *Steps) sendDIDAuthResponse(holder, issuer string) error {
 	}
 
 	pres := verifiable.Presentation{
-		Context: []string{"https://www.w3.org/2018/credentials/v1",
-			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"},
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
+		},
 		Type: []string{"VerifiablePresentation"},
 	}
 
@@ -1079,7 +1077,6 @@ func (e *Steps) validateDIDAuthResponse(issuer, holder string) error {
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
 		"rw_token", bytes.NewBuffer(reqBytes))
-
 	if err != nil {
 		return err
 	}
@@ -1098,7 +1095,7 @@ func (e *Steps) storeCredentialHolder(holder, flow string) error {
 }
 
 func (e *Steps) createBasicVerifierProfile(profileID string) error {
-	profileRequest := &verifier.ProfileData{}
+	profileRequest := &vcsstorage.VerifierProfile{}
 
 	profileRequest.ID = profileID
 	profileRequest.Name = profileID
@@ -1110,7 +1107,6 @@ func (e *Steps) createBasicVerifierProfile(profileID string) error {
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, verifierURL+"/verifier/profile", "", //nolint: bodyclose
 		"rw_token", bytes.NewBuffer(requestBytes))
-
 	if err != nil {
 		return err
 	}
@@ -1189,7 +1185,6 @@ func (e *Steps) generateAndVerifyPresentation(verifierID, flow, holder string) e
 
 	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "",
 		"rw_token", bytes.NewBuffer(reqBytes))
-
 	if err != nil {
 		return err
 	}
