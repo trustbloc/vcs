@@ -517,12 +517,8 @@ github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-2
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149/go.mod h1:GDANCnJONcCqBvv6QgKuk5Y2FWHyD/Hu26kyc7NTyfY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e h1:wBblDEArmEpwYFivc5mnniI+5IkT2gXvbn0Cc90W1jE=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e/go.mod h1:0VNWYQ937z51P4usiHUPz0MImh8tsKEVsHVmAx2z5zA=
-github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc.1.0.20220603055629-55b4fab22d40 h1:4OHnb4dh35Pzc3g8lGISM7ASx4Qh936YmCXfJFBrLcY=
-github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc.1.0.20220603055629-55b4fab22d40/go.mod h1:u+E9ZMD6TNPci7citnar2mEhZ3eKKgsoJqXkbgnpTyk=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220803133253-7c7e2582363d h1:ORjjC/UP9lfTRVtDnpl4q5KXLzeJs67uOz4OjrBS6wE=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220803133253-7c7e2582363d/go.mod h1:dF+5/YPvp4mXP72i2mXxo+l8ZYb9XmGmeHVv1sxhymg=
-github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc.1.0.20220530114906-35b469518049 h1:8IOvvZbJILpFDRs36wD1vC6zfKWiCm3dWWPm54bN5JE=
-github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc.1.0.20220530114906-35b469518049/go.mod h1:w2ANkQuCP7fjIO0EruwPPVmcNJ/l2+SZiDWEPLbIGoE=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc2.0.20220729203359-da1de2fa21ce h1:COpeqKShWjBJ/hDnnjgQg0MCC1BuV4tMA2ksSKmchRc=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc2.0.20220729203359-da1de2fa21ce/go.mod h1:mmoE3SQsM0WYLweUmBCQJE2abf73iO4LxpP/e0NONYI=
 github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220526205258-18d510d84955 h1:/61GcGWg1js4aDDMKTgDffx+LzI9HmtXjnYZh2080Ms=
@@ -977,8 +973,6 @@ go.etcd.io/etcd/raft/v3 v3.5.0-alpha.0/go.mod h1:FAwse6Zlm5v4tEWZaTjmNhe17Int4Ox
 go.etcd.io/etcd/server/v3 v3.5.0-alpha.0/go.mod h1:tsKetYpt980ZTpzl/gb+UOJj9RkIyCb1u4wjzMg90BQ=
 go.etcd.io/etcd/tests/v3 v3.5.0-alpha.0/go.mod h1:HnrHxjyCuZ8YDt8PYVyQQ5d1ZQfzJVEtQWllr5Vp/30=
 go.etcd.io/etcd/v3 v3.5.0-alpha.0/go.mod h1:JZ79d3LV6NUfPjUxXrpiFAYcjhT+06qqw+i28snx8To=
-go.mongodb.org/mongo-driver v1.10.0 h1:UtV6N5k14upNp4LTduX0QCufG124fSu25Wz9tu94GLg=
-go.mongodb.org/mongo-driver v1.10.0/go.mod h1:wsihk0Kdgv8Kqu1Anit4sfK+22vSFbUrAVEYRhCXrA8=
 go.mongodb.org/mongo-driver v1.10.1 h1:NujsPveKwHaWuKUer/ceo9DzEe7HIj1SlJ6uvXZG0S4=
 go.mongodb.org/mongo-driver v1.10.1/go.mod h1:z4XpeoU6w+9Vht+jAFyLgVrD+jGSQQe0+CBWFHNiHt8=
 go.opencensus.io v0.15.0/go.mod h1:UffZAU+4sDEINUGP/B7UfBBkq4fqLu9zXAX7ke6CHW0=
