@@ -7,11 +7,11 @@ module github.com/trustbloc/vcs/cmd/vc-rest
 require (
 	github.com/google/tink/go v1.6.1
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220802205703-0b9948cb71fb
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220816070605-5fa4db149935
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220803133253-7c7e2582363d
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220526205258-18d510d84955
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9
 	github.com/piprate/json-gold v0.4.1
@@ -44,6 +44,7 @@ require (
 	github.com/google/trillian v1.3.14-0.20210520152752-ceda464a95a3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc2.0.20220729203359-da1de2fa21ce // indirect
+	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/jinzhu/copier v0.0.0-20190924061706-b57f9002281a // indirect
@@ -73,7 +74,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
-	github.com/trustbloc/orb v1.0.0-rc2.0.20220729193203-d83f3ce77a0c // indirect
+	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

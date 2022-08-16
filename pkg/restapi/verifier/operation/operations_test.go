@@ -1687,6 +1687,10 @@ func (s *ed25519TestSigner) Sign(doc []byte) ([]byte, error) {
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 
+func (s *ed25519TestSigner) Alg() string {
+	return ""
+}
+
 func getEd25519TestSigner(privKey []byte) *ed25519TestSigner {
 	return &ed25519TestSigner{privateKey: privKey}
 }
