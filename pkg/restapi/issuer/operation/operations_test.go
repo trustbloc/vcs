@@ -1851,9 +1851,9 @@ func TestComposeAndIssueCredential(t *testing.T) {
 		require.Equal(t, 1, len(vcResp.Types))
 		require.Equal(t, "VerifiableCredential", vcResp.Types[0])
 
-		credSubject, ok = vcResp.Subject.([]verifiable.Subject)
+		credSubjectString, ok := vcResp.Subject.(string)
 		require.True(t, ok)
-		require.Equal(t, subject, credSubject[0].ID)
+		require.Equal(t, subject, credSubjectString)
 
 		// test - with proof format, purpose & created
 		const createdTime = "2011-04-16T18:11:09-04:00"

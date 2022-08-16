@@ -138,6 +138,10 @@ func (s *signer) Sign(doc []byte) ([]byte, error) {
 	return ed25519.Sign(s.privateKey, doc), nil
 }
 
+func (s *signer) Alg() string {
+	return ""
+}
+
 // ExpectedStringError formats the response error message.
 func ExpectedStringError(expected, actual string) error {
 	return fmt.Errorf("expected %s but got %s instead", expected, actual)
