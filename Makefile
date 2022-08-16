@@ -2,12 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+GOBIN_PATH=$(abspath .)/.build/bin
 VC_REST_PATH=cmd/vc-rest
 
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 DID_ELEMENT_SIDETREE_REQUEST_URL    ?= https://element-did.com/api/v1/sidetree/requests
+MOCK_VERSION 	?=v1.6.0
 
 # OpenAPI spec
 SWAGGER_DOCKER_IMG =quay.io/goswagger/swagger
@@ -19,7 +21,12 @@ SWAGGER_OUTPUT     =$(SWAGGER_DIR)"/openAPI.yml"
 ALPINE_VER ?= 3.14
 GO_VER ?= 1.18
 
-GOBIN_PATH=$(abspath .)/.build/bin
+OS := $(shell uname)
+ifeq  ($(OS),$(filter $(OS),Darwin Linux))
+	PATH:=$(PATH):$(GOBIN_PATH)
+else
+	PATH:=$(PATH);$(subst /,\\,$(GOBIN_PATH))
+endif
 
 .PHONY: all
 all: checks unit-test bdd-test
@@ -27,13 +34,19 @@ all: checks unit-test bdd-test
 .PHONY: checks
 checks: license lint open-api-spec
 
+.PHONY: mocks
+mocks:
+	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
+	@go generate ./...
+
 .PHONY: lint
-lint:
+lint: mocks
 	@scripts/check_lint.sh
 
 .PHONY: license
 license:
 	@scripts/check_license.sh
+
 
 .PHONY: vc-rest
 vc-rest:
@@ -57,7 +70,7 @@ bdd-interop-test:clean vc-rest-docker generate-test-keys
 	@scripts/check_integration_interop.sh
 
 .PHONY: unit-test
-unit-test:
+unit-test: mocks
 	@scripts/check_unit.sh
 
 .PHONY: generate-test-keys
