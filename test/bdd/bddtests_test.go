@@ -24,6 +24,7 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/holder"
 	"github.com/trustbloc/vcs/test/bdd/pkg/issuer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/vc"
+	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
 	"github.com/trustbloc/vcs/test/bdd/pkg/verifier"
 )
 
@@ -139,6 +140,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 		issuer.NewSteps(bddContext),
 		verifier.NewSteps(bddContext),
 		holder.NewSteps(bddContext),
+		vc_echo.NewSteps(bddContext),
 	}
 
 	for _, f := range features {

@@ -6,19 +6,17 @@ SPDX-License-Identifier: Apache-2.0
 
 // Package vc-rest VC Issuer, Verifier and Holder REST API.
 //
-//
 // Terms Of Service:
 //
+//	Schemes: http, https
+//	Version: 0.1.0
+//	License: SPDX-License-Identifier: Apache-2.0
 //
-//     Schemes: http, https
-//     Version: 0.1.0
-//     License: SPDX-License-Identifier: Apache-2.0
+//	Consumes:
+//	- application/json
 //
-//     Consumes:
-//     - application/json
-//
-//     Produces:
-//     - application/json
+//	Produces:
+//	- application/json
 //
 // swagger:meta
 package main
@@ -40,7 +38,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(startcmd.GetStartCmd(&startcmd.HTTPServer{}))
+	rootCmd.AddCommand(startcmd.GetStartCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		logger.Fatalf("Failed to run vc-rest: %s", err.Error())

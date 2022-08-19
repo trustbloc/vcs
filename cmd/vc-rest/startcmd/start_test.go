@@ -1,5 +1,6 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
@@ -14,9 +15,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-
-	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
-
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
@@ -24,16 +22,11 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 )
 
-type mockServer struct{}
-
-func (s *mockServer) ListenAndServe(host string, handler http.Handler) error {
-	return nil
-}
-
 func TestStartCmdContents(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
+	startCmd := GetStartCmd()
 
 	require.Equal(t, "start", startCmd.Use)
 	require.Equal(t, "Start vc-rest", startCmd.Short)
@@ -44,29 +37,29 @@ func TestStartCmdContents(t *testing.T) {
 
 func TestStartCmdWithBlankArg(t *testing.T) {
 	t.Run("test blank host url arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		args := []string{"--" + hostURLFlagName, ""}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
 		require.Error(t, err)
-		require.Equal(t, "host-url value is empty", err.Error())
+		require.Contains(t, err.Error(), "host-url value is empty")
 	})
 
 	t.Run("test blank bloc domain arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		args := []string{"--" + hostURLFlagName, "test", "--" + blocDomainFlagName, ""}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
 		require.Error(t, err)
-		require.Equal(t, "bloc-domain value is empty", err.Error())
+		require.Contains(t, err.Error(), "bloc-domain value is empty")
 	})
 
 	t.Run("test blank database type arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
@@ -76,11 +69,11 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		err := startCmd.Execute()
 		require.Error(t, err)
-		require.Equal(t, "database-type value is empty", err.Error())
+		require.Contains(t, err.Error(), "database-type value is empty")
 	})
 
 	t.Run("test blank mode type arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
@@ -91,11 +84,11 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		err := startCmd.Execute()
 		require.Error(t, err)
-		require.Equal(t, "mode value is empty", err.Error())
+		require.Contains(t, err.Error(), "mode value is empty")
 	})
 
 	t.Run("invalid mode", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
@@ -112,32 +105,31 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 func TestStartCmdWithMissingArg(t *testing.T) {
 	t.Run("test missing host url arg", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		err := startCmd.Execute()
 
 		require.Error(t, err)
-		require.Equal(t,
-			"Neither host-url (command line flag) nor VC_REST_HOST_URL (environment variable) have been set.",
-			err.Error())
+		require.Contains(t, err.Error(),
+			"Neither host-url (command line flag) nor VC_REST_HOST_URL (environment variable) have been set.")
 	})
 }
 
 func TestStartCmdWithBlankEnvVar(t *testing.T) {
 	t.Run("test blank host env var", func(t *testing.T) {
-		startCmd := GetStartCmd(&mockServer{})
+		startCmd := GetStartCmd()
 
 		err := os.Setenv(hostURLEnvKey, "")
 		require.NoError(t, err)
 
 		err = startCmd.Execute()
 		require.Error(t, err)
-		require.Equal(t, "VC_REST_HOST_URL value is empty", err.Error())
+		require.Contains(t, err.Error(), "VC_REST_HOST_URL value is empty")
 	})
 }
 
 func TestStartCmdCreateKMSFailure(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
+	startCmd := GetStartCmd()
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
@@ -152,8 +144,14 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to ping couchDB")
 }
 
+type mockServer struct{}
+
+func (s *mockServer) ListenAndServe() error {
+	return nil
+}
+
 func TestStartCmdValidArgs(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
+	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
@@ -168,7 +166,33 @@ func TestStartCmdValidArgs(t *testing.T) {
 	err := startCmd.Execute()
 
 	require.Nil(t, err)
-	require.Equal(t, log.ERROR, log.GetLevel(""))
+}
+
+func TestStartCmdWithEchoHandler(t *testing.T) {
+	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
+
+	args := []string{
+		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
+		"--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+		"--" + useEchoHandlerFlagName, "true",
+	}
+	startCmd.SetArgs(args)
+
+	err := startCmd.Execute()
+
+	require.Nil(t, err)
+}
+
+func TestHealthCheckEchoHandler(t *testing.T) {
+	e, err := buildEchoHandler(&Configuration{})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -179,7 +203,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
+	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	setEnvVars(t, databaseTypeMemOption)
 
@@ -191,63 +215,91 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 
 func TestCreateProviders(t *testing.T) {
 	t.Run("test error from create new couchdb", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeCouchDBOption}}, nil)
+		cfg, err := prepareConfiguration(&startupParameters{
+			dbParameters: &dbParameters{
+				databaseType: databaseTypeCouchDBOption,
+			},
+		})
+
+		require.Nil(t, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to ping couchDB: url can't be blank")
 	})
 	t.Run("test error from create new mysql", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeMYSQLDBOption}}, nil)
+		cfg, err := prepareConfiguration(&startupParameters{
+			dbParameters: &dbParameters{
+				databaseType: databaseTypeMYSQLDBOption,
+			},
+		})
+
+		require.Nil(t, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
 	})
 	t.Run("test error from create new mongodb", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: databaseTypeMongoDBOption}}, nil)
-		require.EqualError(t, err, "failed to create a new MongoDB client: error parsing uri: scheme must "+
+		cfg, err := prepareConfiguration(&startupParameters{
+			dbParameters: &dbParameters{
+				databaseType: databaseTypeMongoDBOption,
+			},
+		})
+
+		require.Nil(t, cfg)
+		require.Contains(t, err.Error(), "failed to create a new MongoDB client: error parsing uri: scheme must "+
 			`be "mongodb" or "mongodb+srv"`)
 	})
 	t.Run("test error from create new kms secrets couchdb", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{
+		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
 				databaseType:           databaseTypeMemOption,
 				kmsSecretsDatabaseType: databaseTypeCouchDBOption,
 			},
-		}, nil)
+		})
+
+		require.Nil(t, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to ping couchDB: url can't be blank")
 	})
 	t.Run("test error from create new kms secrets mysql", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{
+		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
 				databaseType:           databaseTypeMemOption,
 				kmsSecretsDatabaseType: databaseTypeMYSQLDBOption,
 			},
-		}, nil)
+		})
+
+		require.Nil(t, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
 	})
 	t.Run("test error from create new kms secrets mongodb", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{
+		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
 				databaseType:           databaseTypeMemOption,
 				kmsSecretsDatabaseType: databaseTypeMongoDBOption,
 			},
-		}, nil)
-		require.EqualError(t, err, "failed to create a new MongoDB client: error parsing uri: scheme must "+
+		})
+
+		require.Nil(t, cfg)
+		require.Contains(t, err.Error(), "failed to create a new MongoDB client: error parsing uri: scheme must "+
 			`be "mongodb" or "mongodb+srv"`)
 	})
 	t.Run("test invalid database type", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{dbParameters: &dbParameters{databaseType: "data1"}}, nil)
-		require.EqualError(t, err, "data1 is not a valid database type. "+
+		cfg, err := prepareConfiguration(&startupParameters{dbParameters: &dbParameters{databaseType: "data1"}})
+
+		require.Nil(t, cfg)
+		require.Contains(t, err.Error(), "data1 is not a valid database type. "+
 			"run start --help to see the available options")
 	})
 	t.Run("test invalid kms secrets database type", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{
+		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
 				databaseType:           databaseTypeMemOption,
 				kmsSecretsDatabaseType: "data1",
 			},
-		}, nil)
-		require.EqualError(t, err, "data1 is not a valid KMS secrets database type. "+
+		})
+
+		require.Nil(t, cfg)
+		require.Contains(t, err.Error(), "data1 is not a valid KMS secrets database type. "+
 			"run start --help to see the available options")
 	})
 }
@@ -293,10 +345,12 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
-		err := startEdgeService(&vcRestParameters{
+		cfg, err := prepareConfiguration(&startupParameters{
 			universalResolverURL: "wrong",
 			dbParameters:         &dbParameters{databaseType: "mem", kmsSecretsDatabaseType: "mem"},
-		}, nil)
+		})
+
+		require.Nil(t, cfg)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 	})
@@ -352,7 +406,7 @@ func TestAcceptedDIDs(t *testing.T) {
 }
 
 func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
+	startCmd := GetStartCmd()
 
 	setEnvVars(t, databaseTypeMemOption)
 
@@ -405,12 +459,25 @@ func TestValidateAuthorizationBearerToken(t *testing.T) {
 }
 
 func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
-	startCmd := GetStartCmd(&mockServer{})
+	startCmd := GetStartCmd()
 
 	setEnvVars(t, databaseTypeMemOption)
 
 	defer unsetEnvVars(t)
 	require.NoError(t, os.Setenv(contextEnableRemoteEnvKey, "not bool"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
+}
+
+func TestUseEchoHandlerInvalidArgsEnvVar(t *testing.T) {
+	startCmd := GetStartCmd()
+
+	setEnvVars(t, databaseTypeMemOption)
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(useEchoHandlerEnvKey, "not bool"))
 
 	err := startCmd.Execute()
 	require.Error(t, err)

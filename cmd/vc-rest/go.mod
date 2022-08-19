@@ -14,6 +14,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220526205258-18d510d84955
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9
+	github.com/labstack/echo/v4 v4.8.0
 	github.com/piprate/json-gold v0.4.1
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.3.0
@@ -37,6 +38,7 @@ require (
 	github.com/go-kivik/couchdb/v3 v3.2.8 // indirect
 	github.com/go-kivik/kivik/v3 v3.2.3 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -51,6 +53,9 @@ require (
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
+	github.com/labstack/gommon v0.3.1 // indirect
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/minio/blake2b-simd v0.0.0-20160723061019-3f5f724cb5b1 // indirect
 	github.com/minio/sha256-simd v1.0.0 // indirect
@@ -77,6 +82,8 @@ require (
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect
+	github.com/valyala/bytebufferpool v1.0.0 // indirect
+	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.1 // indirect
@@ -91,6 +98,7 @@ require (
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/genproto v0.0.0-20220222213610-43724f9ea8cf // indirect
 	google.golang.org/grpc v1.44.0 // indirect

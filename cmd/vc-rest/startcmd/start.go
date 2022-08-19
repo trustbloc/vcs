@@ -1,60 +1,30 @@
 /*
 Copyright SecureKey Technologies Inc. All Rights Reserved.
+
 SPDX-License-Identifier: Apache-2.0
 */
 
 package startcmd
 
 import (
-	"bytes"
 	"crypto/subtle"
 	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
-
-	ariesvcsprovider "github.com/trustbloc/vcs/pkg/storage/ariesprovider"
-	mongodbvcsprovider "github.com/trustbloc/vcs/pkg/storage/mongodbprovider"
-
-	"github.com/google/tink/go/subtle/random"
 	"github.com/gorilla/mux"
-	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
-	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
-	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
-	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
-	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
-	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/labstack/echo/v4"
+	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 	restlogspec "github.com/trustbloc/edge-core/pkg/restapi/logspec"
-	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
-	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 
 	"github.com/trustbloc/vcs/cmd/common"
-	"github.com/trustbloc/vcs/pkg/ld"
 	restholder "github.com/trustbloc/vcs/pkg/restapi/holder"
 	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/vcs/pkg/restapi/issuer"
@@ -64,535 +34,196 @@ import (
 )
 
 const (
-	commonEnvVarUsageText = "Alternatively, this can be set with the following environment variable: "
-
-	hostURLFlagName      = "host-url"
-	hostURLFlagShorthand = "u"
-	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
-	hostURLEnvKey        = "VC_REST_HOST_URL"
-
-	blocDomainFlagName      = "bloc-domain"
-	blocDomainFlagShorthand = "b"
-	blocDomainFlagUsage     = "Bloc domain"
-	blocDomainEnvKey        = "BLOC_DOMAIN"
-
-	hostURLExternalFlagName      = "host-url-external"
-	hostURLExternalFlagShorthand = "x"
-	hostURLExternalEnvKey        = "VC_REST_HOST_URL_EXTERNAL"
-	hostURLExternalFlagUsage     = "Host External Name:Port This is the URL for the host server as seen externally." +
-		" If not provided, then the host url will be used here. " + commonEnvVarUsageText + hostURLExternalEnvKey
-
-	universalResolverURLFlagName      = "universal-resolver-url"
-	universalResolverURLFlagShorthand = "r"
-	universalResolverURLFlagUsage     = "Universal Resolver instance is running on. Format: HostName:Port."
-	universalResolverURLEnvKey        = "UNIVERSAL_RESOLVER_HOST_URL"
-
-	modeFlagName      = "mode"
-	modeFlagShorthand = "m"
-	modeFlagUsage     = "Mode in which the vc-rest service will run. Possible values: " +
-		"['issuer', 'verifier', 'holder', 'combined'] (default: combined)."
-	modeEnvKey = "VC_REST_MODE"
-
-	databaseTypeFlagName      = "database-type"
-	databaseTypeEnvKey        = "DATABASE_TYPE"
-	databaseTypeFlagShorthand = "t"
-	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb, mysql, mongodb. " + commonEnvVarUsageText + databaseTypeEnvKey
-
-	databaseURLFlagName      = "database-url"
-	databaseURLEnvKey        = "DATABASE_URL"
-	databaseURLFlagShorthand = "v"
-	databaseURLFlagUsage     = "The URL of the database. Not needed if using memstore." +
-		" For CouchDB, include the username:password@ text if required. " + commonEnvVarUsageText + databaseURLEnvKey
-
-	databasePrefixFlagName  = "database-prefix"
-	databasePrefixEnvKey    = "DATABASE_PREFIX"
-	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
-		commonEnvVarUsageText + databasePrefixEnvKey
-
-	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
-	kmsSecretsDatabaseTypeFlagName      = "kms-secrets-database-type" //nolint: gosec
-	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
-	kmsSecretsDatabaseTypeFlagShorthand = "k"
-	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
-		"Supported options: mem, couchdb, mysql, mongodb. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
-
-	kmsSecretsDatabaseURLFlagName      = "kms-secrets-database-url" //nolint: gosec
-	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
-	kmsSecretsDatabaseURLFlagShorthand = "s"
-	kmsSecretsDatabaseURLFlagUsage     = "The URL of the database. Not needed if using memstore. For CouchDB, " +
-		"include the username:password@ text if required. " +
-		commonEnvVarUsageText + databaseURLEnvKey
-
-	kmsSecretsDatabasePrefixFlagName  = "kms-secrets-database-prefix" //nolint: gosec
-	kmsSecretsDatabasePrefixEnvKey    = "KMSSECRETS_DATABASE_PREFIX"  //nolint: gosec
-	kmsSecretsDatabasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving " +
-		"the underlying KMS secrets database. " + commonEnvVarUsageText + kmsSecretsDatabasePrefixEnvKey
-
-	// remote JSON-LD context provider url flag.
-	contextProviderFlagName  = "context-provider-url"
-	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
-	contextProviderFlagUsage = "Remote context provider URL to get JSON-LD contexts from." +
-		" This flag can be repeated, allowing setting up multiple context providers." +
-		commonEnvVarUsageText + contextProviderEnvKey
-
-	// enable fetching JSON-LD contexts from the network.
-	contextEnableRemoteFlagName  = "context-enable-remote"
-	contextEnableRemoteEnvKey    = "VC_REST_CONTEXT_ENABLE_REMOTE"
-	contextEnableRemoteFlagUsage = "Enables remote JSON-LD contexts fetching. Defaults to false." +
-		commonEnvVarUsageText + contextEnableRemoteEnvKey
-
-	tlsSystemCertPoolFlagName  = "tls-systemcertpool"
-	tlsSystemCertPoolFlagUsage = "Use system certificate pool." +
-		" Possible values [true] [false]. Defaults to false if not set. " + commonEnvVarUsageText + tlsSystemCertPoolEnvKey
-	tlsSystemCertPoolEnvKey = "VC_REST_TLS_SYSTEMCERTPOOL"
-
-	tlsCACertsFlagName  = "tls-cacerts"
-	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." + commonEnvVarUsageText + tlsCACertsEnvKey
-	tlsCACertsEnvKey    = "VC_REST_TLS_CACERTS"
-
-	tokenFlagName  = "api-token"
-	tokenEnvKey    = "VC_REST_API_TOKEN" //nolint: gosec
-	tokenFlagUsage = "Check for bearer token in the authorization header (optional). " +
-		commonEnvVarUsageText + tokenEnvKey
-
-	requestTokensFlagName  = "request-tokens"
-	requestTokensEnvKey    = "VC_REST_REQUEST_TOKENS" //nolint: gosec
-	requestTokensFlagUsage = "Tokens used for http request " +
-		commonEnvVarUsageText + requestTokensEnvKey
-
-	didAnchorOriginFlagName  = "did-anchor-origin"
-	didAnchorOriginEnvKey    = "VC_REST_DID_ANCHOR_ORIGIN"
-	didAnchorOriginFlagUsage = "DID anchor origin" + commonEnvVarUsageText + didAnchorOriginEnvKey
-
-	databaseTypeMemOption     = "mem"
-	databaseTypeCouchDBOption = "couchdb"
-	databaseTypeMYSQLDBOption = "mysql"
-	databaseTypeMongoDBOption = "mongodb"
-
-	didMethodVeres   = "v1"
-	didMethodElement = "elem"
-	didMethodSov     = "sov"
-	didMethodWeb     = "web"
-	didMethodFactom  = "factom"
-
-	masterKeyURI = "local-lock://custom/master/key/"
-
-	splitRequestTokenLength = 2
-	masterKeyNumBytes       = 32
+	healthCheckEndpoint = "/healthcheck"
 )
 
 var logger = log.New("vc-rest")
 
-// mode in which to run the vc-rest service
-type mode string
-
-const (
-	verifier mode = "verifier"
-	issuer   mode = "issuer"
-	holder   mode = "holder"
-	combined mode = "combined"
-
-	// api
-	healthCheckEndpoint = "/healthcheck"
-)
-
-type vcRestParameters struct {
-	hostURL              string
-	blocDomain           string
-	hostURLExternal      string
-	universalResolverURL string
-	mode                 string
-	dbParameters         *dbParameters
-	tlsSystemCertPool    bool
-	tlsCACerts           []string
-	token                string
-	requestTokens        map[string]string
-	logLevel             string
-	didAnchorOrigin      string
-	contextProviderURLs  []string
-	contextEnableRemote  bool
+type httpServer interface {
+	ListenAndServe() error
 }
 
-type dbParameters struct {
-	databaseType             string
-	databaseURL              string
-	databasePrefix           string
-	kmsSecretsDatabaseType   string
-	kmsSecretsDatabaseURL    string
-	kmsSecretsDatabasePrefix string
+type startOpts struct {
+	server  httpServer
+	handler http.Handler
 }
 
-type healthCheckResp struct {
-	Status      string    `json:"status"`
-	CurrentTime time.Time `json:"currentTime"`
+// StartOpts configures the vc-rest server with custom options.
+type StartOpts func(opts *startOpts)
+
+// WithHTTPServer sets the custom HTTP server.
+func WithHTTPServer(server httpServer) StartOpts {
+	return func(opts *startOpts) {
+		opts.server = server
+	}
 }
 
-type server interface {
-	ListenAndServe(host string, router http.Handler) error
-}
-
-// HTTPServer represents an actual HTTP server implementation.
-type HTTPServer struct{}
-
-// ListenAndServe starts the server using the standard Go HTTP server implementation.
-func (s *HTTPServer) ListenAndServe(host string, router http.Handler) error {
-	return http.ListenAndServe(host, router)
+// WithHTTPHandler sets the custom HTTP handler.
+func WithHTTPHandler(handler http.Handler) StartOpts {
+	return func(opts *startOpts) {
+		opts.handler = handler
+	}
 }
 
 // GetStartCmd returns the Cobra start command.
-func GetStartCmd(srv server) *cobra.Command {
-	startCmd := createStartCmd(srv)
+func GetStartCmd(opts ...StartOpts) *cobra.Command {
+	startCmd := createStartCmd(opts...)
 
 	createFlags(startCmd)
 
 	return startCmd
 }
 
-func createStartCmd(srv server) *cobra.Command {
+func createStartCmd(opts ...StartOpts) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start vc-rest",
 		Long:  "Start vc-rest inside the vcs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			parameters, err := getVCRestParameters(cmd)
+			params, err := getStartupParameters(cmd)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to get startup parameters: %w", err)
 			}
 
-			return startEdgeService(parameters, srv)
+			conf, err := prepareConfiguration(params)
+			if err != nil {
+				return fmt.Errorf("failed to prepare configuration: %w", err)
+			}
+
+			if conf.StartupParameters.useEchoHandler {
+				var e *echo.Echo
+
+				e, err = buildEchoHandler(conf)
+				if err != nil {
+					return fmt.Errorf("failed to build echo handler: %w", err)
+				}
+
+				opts = append(opts, WithHTTPHandler(e))
+			}
+
+			return startServer(conf, opts...)
 		},
 	}
 }
 
-// nolint: gocyclo,funlen
-func getVCRestParameters(cmd *cobra.Command) (*vcRestParameters, error) {
-	hostURL, err := cmdutils.GetUserSetVarFromString(cmd, hostURLFlagName, hostURLEnvKey, false)
-	if err != nil {
-		return nil, err
+// buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
+func buildEchoHandler(_ *Configuration) (*echo.Echo, error) {
+	e := echo.New()
+	e.HideBanner = true
+
+	// Middlewares
+	e.Use(echomw.Logger())
+
+	// Handlers
+	e.GET(healthCheckEndpoint, func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "success"})
+	})
+	// TODO: Add API handlers
+
+	return e, nil
+}
+
+func startServer(conf *Configuration, opts ...StartOpts) error {
+	o := &startOpts{}
+
+	for _, opt := range opts {
+		opt(o)
 	}
 
-	blocDomain, err := cmdutils.GetUserSetVarFromString(cmd, blocDomainFlagName, blocDomainEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
-	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
-		hostURLExternalEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	universalResolverURL, err := cmdutils.GetUserSetVarFromString(cmd, universalResolverURLFlagName,
-		universalResolverURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	mode, err := getMode(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	tlsSystemCertPool, tlsCACerts, err := getTLS(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	dbParams, err := getDBParameters(cmd)
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := cmdutils.GetUserSetVarFromString(cmd, tokenFlagName,
-		tokenEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	requestTokens := getRequestTokens(cmd)
-
-	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, common.LogLevelFlagName, common.LogLevelEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
-
-	contextProviderURLs := cmdutils.GetUserSetOptionalCSVVar(cmd, contextProviderFlagName,
-		contextProviderEnvKey)
-
-	contextEnableRemoteConfig, err := cmdutils.GetUserSetVarFromString(cmd, contextEnableRemoteFlagName,
-		contextEnableRemoteEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	contextEnableRemote := false
-
-	if contextEnableRemoteConfig != "" {
-		contextEnableRemote, err = strconv.ParseBool(contextEnableRemoteConfig)
+	if o.handler == nil { // default handler is based on gorilla/mux
+		h, err := buildHandler(conf)
 		if err != nil {
-			return nil, err
+			return fmt.Errorf("failed to build default handler: %w", err)
+		}
+
+		o.handler = h
+	}
+
+	if o.server == nil {
+		o.server = &http.Server{
+			Addr:    conf.StartupParameters.hostURL,
+			Handler: o.handler,
 		}
 	}
 
-	return &vcRestParameters{
-		hostURL: hostURL,
+	logger.Infof("Starting vc-rest server on host %s", conf.StartupParameters.hostURL)
 
-		blocDomain:           blocDomain,
-		hostURLExternal:      hostURLExternal,
-		universalResolverURL: universalResolverURL,
-		mode:                 mode,
-		dbParameters:         dbParams,
-		tlsSystemCertPool:    tlsSystemCertPool,
-		tlsCACerts:           tlsCACerts,
-		token:                token,
-		requestTokens:        requestTokens,
-		logLevel:             loggingLevel,
-		didAnchorOrigin:      didAnchorOrigin,
-		contextProviderURLs:  contextProviderURLs,
-		contextEnableRemote:  contextEnableRemote,
-	}, nil
+	return o.server.ListenAndServe()
 }
 
-func getRequestTokens(cmd *cobra.Command) map[string]string {
-	requestTokens := cmdutils.GetUserSetOptionalCSVVar(cmd, requestTokensFlagName,
-		requestTokensEnvKey)
-
-	tokens := make(map[string]string)
-
-	for _, token := range requestTokens {
-		split := strings.Split(token, "=")
-		switch len(split) {
-		case splitRequestTokenLength:
-			tokens[split[0]] = split[1]
-		default:
-			logger.Warnf("invalid token '%s'", token)
-		}
-	}
-
-	return tokens
-}
-
-func getMode(cmd *cobra.Command) (string, error) {
-	mode, err := cmdutils.GetUserSetVarFromString(cmd, modeFlagName, modeEnvKey, true)
-	if err != nil {
-		return "", err
-	}
-
-	if !supportedMode(mode) {
-		return "nil", fmt.Errorf("unsupported mode: %s", mode)
-	}
-
-	if mode == "" {
-		mode = string(combined)
-	}
-
-	return mode, nil
-}
-
-func getTLS(cmd *cobra.Command) (bool, []string, error) {
-	tlsSystemCertPoolString, err := cmdutils.GetUserSetVarFromString(cmd, tlsSystemCertPoolFlagName,
-		tlsSystemCertPoolEnvKey, true)
-	if err != nil {
-		return false, nil, err
-	}
-
-	tlsSystemCertPool := false
-	if tlsSystemCertPoolString != "" {
-		tlsSystemCertPool, err = strconv.ParseBool(tlsSystemCertPoolString)
-		if err != nil {
-			return false, nil, err
-		}
-	}
-
-	tlsCACerts := cmdutils.GetUserSetOptionalCSVVar(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
-
-	return tlsSystemCertPool, tlsCACerts, nil
-}
-
-func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
-	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName,
-		databaseTypeEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
-	databaseURL, err := cmdutils.GetUserSetVarFromString(cmd, databaseURLFlagName,
-		databaseURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	databasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, databasePrefixFlagName,
-		databasePrefixEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
-		kmsSecretsDatabaseTypeEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
-	keyDatabaseURL, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseURLFlagName,
-		kmsSecretsDatabaseURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	keyDatabasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabasePrefixFlagName,
-		kmsSecretsDatabasePrefixEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	return &dbParameters{
-		databaseType:             databaseType,
-		databaseURL:              databaseURL,
-		databasePrefix:           databasePrefix,
-		kmsSecretsDatabaseType:   keyDatabaseType,
-		kmsSecretsDatabaseURL:    keyDatabaseURL,
-		kmsSecretsDatabasePrefix: keyDatabasePrefix,
-	}, nil
-}
-
-func createFlags(startCmd *cobra.Command) {
-	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
-	startCmd.Flags().StringP(blocDomainFlagName, blocDomainFlagShorthand, "", blocDomainFlagUsage)
-	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
-	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
-		universalResolverURLFlagUsage)
-	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
-	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
-	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
-	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
-	startCmd.Flags().StringP(kmsSecretsDatabaseTypeFlagName, kmsSecretsDatabaseTypeFlagShorthand, "",
-		kmsSecretsDatabaseTypeFlagUsage)
-	startCmd.Flags().StringP(kmsSecretsDatabaseURLFlagName, kmsSecretsDatabaseURLFlagShorthand, "",
-		kmsSecretsDatabaseURLFlagUsage)
-	startCmd.Flags().StringP(kmsSecretsDatabasePrefixFlagName, "", "", kmsSecretsDatabasePrefixFlagUsage)
-	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "",
-		tlsSystemCertPoolFlagUsage)
-	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
-	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
-	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
-	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
-	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
-	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
-	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
-}
-
-// nolint: gocyclo,funlen,gocognit
-func startEdgeService(parameters *vcRestParameters, srv server) error {
-	if parameters.logLevel != "" {
-		common.SetDefaultLogLevel(logger, parameters.logLevel)
-	}
-
-	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
-	if err != nil {
-		return err
-	}
-
-	edgeServiceProvs, err := createStoreProviders(parameters)
-	if err != nil {
-		return err
-	}
-
-	localKMS, err := createKMS(edgeServiceProvs.kmsSecretsProvider)
-	if err != nil {
-		return err
-	}
-
-	// Create VDRI
-	vdr, err := createVDRI(parameters.universalResolverURL,
-		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, parameters.blocDomain,
-		parameters.requestTokens["sidetreeToken"])
-	if err != nil {
-		return err
-	}
-
-	externalHostURL := parameters.hostURL
-	if parameters.hostURLExternal != "" {
-		externalHostURL = parameters.hostURLExternal
-	}
-
-	crypto, err := tinkcrypto.New()
-	if err != nil {
-		return err
+// buildHandler builds an HTTP handler based on gorilla/mux router.
+func buildHandler(conf *Configuration) (http.Handler, error) {
+	if conf.StartupParameters.logLevel != "" {
+		common.SetDefaultLogLevel(logger, conf.StartupParameters.logLevel)
 	}
 
 	router := mux.NewRouter()
 
-	if parameters.token != "" {
-		router.Use(authorizationMiddleware(parameters.token))
+	if conf.StartupParameters.token != "" {
+		router.Use(authorizationMiddleware(conf.StartupParameters.token))
 	}
 
-	ldStore, err := ld.NewStoreProvider(edgeServiceProvs.provider)
-	if err != nil {
-		return err
-	}
-
-	loader, err := createJSONLDDocumentLoader(ldStore, rootCAs, parameters.contextProviderURLs,
-		parameters.contextEnableRemote)
-	if err != nil {
-		return err
+	externalHostURL := conf.StartupParameters.hostURL
+	if conf.StartupParameters.hostURLExternal != "" {
+		externalHostURL = conf.StartupParameters.hostURLExternal
 	}
 
 	issuerService, err := restissuer.New(&issuerops.Config{
-		StoreProvider:   edgeServiceProvs.provider,
-		KeyManager:      localKMS,
-		Crypto:          crypto,
-		VDRI:            vdr,
+		StoreProvider:   conf.Storage.provider,
+		KeyManager:      conf.LocalKMS,
+		Crypto:          conf.Crypto,
+		VDRI:            conf.VDR,
 		HostURL:         externalHostURL,
-		Domain:          parameters.blocDomain,
-		TLSConfig:       &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
-		DIDAnchorOrigin: parameters.didAnchorOrigin,
-		DocumentLoader:  loader,
+		Domain:          conf.StartupParameters.blocDomain,
+		TLSConfig:       &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
+		DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
+		DocumentLoader:  conf.DocumentLoader,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	holderService, err := restholder.New(&holderops.Config{
 		TLSConfig: &tls.Config{
-			RootCAs:    rootCAs,
+			RootCAs:    conf.RootCAs,
 			MinVersion: tls.VersionTLS12,
 		},
-		StoreProvider: edgeServiceProvs.provider, KeyManager: localKMS, Crypto: crypto,
-		VDRI: vdr, Domain: parameters.blocDomain,
-		DIDAnchorOrigin: parameters.didAnchorOrigin,
-		DocumentLoader:  loader,
+		StoreProvider:   conf.Storage.provider,
+		KeyManager:      conf.LocalKMS,
+		Crypto:          conf.Crypto,
+		VDRI:            conf.VDR,
+		Domain:          conf.StartupParameters.blocDomain,
+		DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
+		DocumentLoader:  conf.DocumentLoader,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	verifierService, err := restverifier.New(&verifierops.Config{
-		StoreProvider: edgeServiceProvs.provider,
-		TLSConfig:     &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, VDRI: vdr,
-		RequestTokens:  parameters.requestTokens,
-		DocumentLoader: loader,
+		StoreProvider:  conf.Storage.provider,
+		TLSConfig:      &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
+		VDRI:           conf.VDR,
+		RequestTokens:  conf.StartupParameters.requestTokens,
+		DocumentLoader: conf.DocumentLoader,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if parameters.mode == string(issuer) || parameters.mode == string(combined) {
+	if conf.StartupParameters.mode == string(issuer) || conf.StartupParameters.mode == string(combined) {
 		for _, handler := range issuerService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
 	}
 
-	if parameters.mode == string(verifier) || parameters.mode == string(combined) {
+	if conf.StartupParameters.mode == string(verifier) || conf.StartupParameters.mode == string(combined) {
 		for _, handler := range verifierService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
 	}
 
-	if parameters.mode == string(holder) || parameters.mode == string(combined) {
+	if conf.StartupParameters.mode == string(holder) || conf.StartupParameters.mode == string(combined) {
 		for _, handler := range holderService.GetOperations() {
 			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 		}
@@ -603,278 +234,26 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 	}
 
 	// handlers for JSON-LD context operations
-	for _, handler := range ldrest.New(ldsvc.New(ldStore)).GetRESTHandlers() {
+	for _, handler := range ldrest.New(ldsvc.New(conf.LDContextStore)).GetRESTHandlers() {
 		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
 	}
 
 	// health check
 	router.HandleFunc(healthCheckEndpoint, healthCheckHandler).Methods(http.MethodGet)
 
-	logger.Infof("Starting vc rest server on host %s", parameters.hostURL)
-
-	return srv.ListenAndServe(parameters.hostURL, constructCORSHandler(router))
+	return constructCORSHandler(router), nil
 }
 
-type kmsProvider struct {
-	storageProvider   kms.Store
-	secretLockService secretlock.Service
-}
-
-func (k kmsProvider) StorageProvider() kms.Store {
-	return k.storageProvider
-}
-
-func (k kmsProvider) SecretLock() secretlock.Service {
-	return k.secretLockService
-}
-
-func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
-	sidetreeAuthToken string) (vdrapi.Registry, error) {
-	var opts []vdrpkg.Option
-
-	if universalResolver != "" {
-		universalResolverVDRI, err := httpbinding.New(universalResolver,
-			httpbinding.WithAccept(acceptsDID), httpbinding.WithHTTPClient(&http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-				},
-			}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
-		}
-
-		// add universal resolver vdr
-		opts = append(opts, vdrpkg.WithVDR(universalResolverVDRI))
-	}
-
-	vdr, err := orb.New(nil, orb.WithDomain(blocDomain), orb.WithTLSConfig(tlsConfig),
-		orb.WithAuthToken(sidetreeAuthToken))
-	if err != nil {
-		return nil, err
-	}
-
-	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))
-
-	return vdrpkg.New(opts...), nil
-}
-
-func supportedMode(mode string) bool {
-	if len(mode) > 0 && mode != string(verifier) && mode != string(issuer) && mode != string(holder) {
-		return false
-	}
-
-	return true
-}
-
-// acceptsDID returns if given did method is accepted by VC REST api
-func acceptsDID(method string) bool {
-	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom
-}
-
-type edgeServiceProviders struct {
-	provider           vcsstorage.Provider
-	kmsSecretsProvider vcsstorage.Provider
-}
-
-func createStoreProviders(parameters *vcRestParameters) (*edgeServiceProviders, error) {
-	var edgeServiceProvs edgeServiceProviders
-
-	var err error
-
-	edgeServiceProvs.provider, err = createMainStoreProvider(parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	edgeServiceProvs.kmsSecretsProvider, err = createKMSSecretsProvider(parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	return &edgeServiceProvs, nil
-}
-
-func createMainStoreProvider(parameters *vcRestParameters) (vcsstorage.Provider, error) { //nolint: dupl
-	switch {
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
-		return ariesvcsprovider.New(ariesmemstorage.NewProvider()), nil
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
-		couchDBProvider, err := ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
-			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(couchDBProvider), nil
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMYSQLDBOption):
-		mySQLProvider, err := ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
-			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(mySQLProvider), nil
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMongoDBOption):
-		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
-			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return mongodbvcsprovider.New(mongoDBProvider), nil
-	default:
-		return nil, fmt.Errorf("%s is not a valid database type."+
-			" run start --help to see the available options", parameters.dbParameters.databaseType)
-	}
-}
-
-func createKMSSecretsProvider(parameters *vcRestParameters) (vcsstorage.Provider, error) { //nolint: dupl
-	switch {
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
-		return ariesvcsprovider.New(ariesmemstorage.NewProvider()), nil
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
-		couchDBProvider, err := ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(couchDBProvider), nil
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMYSQLDBOption):
-		mySQLProvider, err := ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(mySQLProvider), nil
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMongoDBOption):
-		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return mongodbvcsprovider.New(mongoDBProvider), nil
-	default:
-		return nil, fmt.Errorf("%s is not a valid KMS secrets database type."+
-			" run start --help to see the available options", parameters.dbParameters.kmsSecretsDatabaseType)
-	}
-}
-
-func createKMS(kmsSecretsProvider vcsstorage.Provider) (*localkms.LocalKMS, error) {
-	localKMS, err := createLocalKMS(kmsSecretsProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	return localKMS, nil
-}
-
-func createLocalKMS(kmsSecretsStoreProvider vcsstorage.Provider) (*localkms.LocalKMS, error) {
-	masterKeyReader, err := prepareMasterKeyReader(kmsSecretsStoreProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	secretLockService, err := local.NewService(masterKeyReader, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO (#769): Create our own implementation of the KMS storage interface and pass it in here instead of wrapping
-	//  the Aries storage provider.
-	kmsStore, err := kms.NewAriesProviderWrapper(kmsSecretsStoreProvider.GetAriesProvider())
-	if err != nil {
-		return nil, err
-	}
-
-	kmsProv := kmsProvider{
-		storageProvider:   kmsStore,
-		secretLockService: secretLockService,
-	}
-
-	return localkms.New(masterKeyURI, kmsProv)
-}
-
-// prepareMasterKeyReader prepares a master key reader for secret lock usage
-func prepareMasterKeyReader(kmsSecretsStoreProvider vcsstorage.Provider) (*bytes.Reader, error) {
-	masterKeyStore, err := kmsSecretsStoreProvider.OpenMasterKeyStore()
-	if err != nil {
-		return nil, err
-	}
-
-	masterKey, err := masterKeyStore.Get()
-	if err != nil {
-		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			masterKey = random.GetRandomBytes(uint32(masterKeyNumBytes))
-
-			putErr := masterKeyStore.Put(masterKey)
-			if putErr != nil {
-				return nil, putErr
+func authorizationMiddleware(token string) mux.MiddlewareFunc {
+	middleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if validateAuthorizationBearerToken(w, r, token) {
+				next.ServeHTTP(w, r)
 			}
-		} else {
-			return nil, err
-		}
+		})
 	}
 
-	masterKeyReader := bytes.NewReader(masterKey)
-
-	return masterKeyReader, nil
-}
-
-func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPool,
-	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
-	var loaderOpts []ariesld.DocumentLoaderOpts
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12},
-		},
-	}
-
-	for _, url := range providerURLs {
-		loaderOpts = append(loaderOpts,
-			ariesld.WithRemoteProvider(
-				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
-			),
-		)
-	}
-
-	if contextEnableRemote {
-		loaderOpts = append(loaderOpts,
-			ariesld.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
-	}
-
-	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return loader, nil
-}
-
-func constructCORSHandler(handler http.Handler) http.Handler {
-	return cors.New(
-		cors.Options{
-			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
-			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
-		},
-	).Handler(handler)
-}
-
-func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
-	rw.WriteHeader(http.StatusOK)
-
-	err := json.NewEncoder(rw).Encode(&healthCheckResp{
-		Status:      "success",
-		CurrentTime: time.Now(),
-	})
-	if err != nil {
-		logger.Errorf("healthcheck response failure, %s", err)
-	}
+	return middleware
 }
 
 func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, token string) bool {
@@ -895,14 +274,28 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	return true
 }
 
-func authorizationMiddleware(token string) mux.MiddlewareFunc {
-	middleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if validateAuthorizationBearerToken(w, r, token) {
-				next.ServeHTTP(w, r)
-			}
-		})
-	}
+type healthCheckResp struct {
+	Status      string    `json:"status"`
+	CurrentTime time.Time `json:"currentTime"`
+}
 
-	return middleware
+func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
+	rw.WriteHeader(http.StatusOK)
+
+	err := json.NewEncoder(rw).Encode(&healthCheckResp{
+		Status:      "success",
+		CurrentTime: time.Now(),
+	})
+	if err != nil {
+		logger.Errorf("healthcheck response failure, %s", err)
+	}
+}
+
+func constructCORSHandler(handler http.Handler) http.Handler {
+	return cors.New(
+		cors.Options{
+			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
+			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
+		},
+	).Handler(handler)
 }
