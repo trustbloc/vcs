@@ -2456,7 +2456,8 @@ func (m *mockCredentialStatusManager) GetRevocationListVC(id string) ([]byte, er
 func createKMS(t *testing.T) *localkms.LocalKMS {
 	t.Helper()
 
-	p := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
 
 	k, err := localkms.New("local-lock://custom/primary/key/", p)
 	require.NoError(t, err)

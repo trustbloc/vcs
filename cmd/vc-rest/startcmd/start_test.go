@@ -13,6 +13,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
@@ -268,6 +270,17 @@ func TestCreateKMS(t *testing.T) {
 		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &masterKeyStore}))
 		require.EqualError(t, err, "masterKeyReader is empty")
 		require.Nil(t, localKMS)
+	})
+	t.Run("fail to create Aries provider wrapper", func(t *testing.T) {
+		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{
+			Store: &ariesmockstorage.MockStore{
+				Store: map[string]ariesmockstorage.DBEntry{},
+			},
+			FailNamespace: kms.AriesWrapperStoreName,
+		}))
+
+		require.Nil(t, localKMS)
+		require.EqualError(t, err, "failed to open store for name space kmsdb")
 	})
 }
 
