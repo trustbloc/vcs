@@ -18,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	ariesvcsprovider "github.com/trustbloc/vcs/pkg/storage/ariesprovider"
@@ -614,12 +616,12 @@ func startEdgeService(parameters *vcRestParameters, srv server) error {
 }
 
 type kmsProvider struct {
-	storageProvider   vcsstorage.Provider
+	storageProvider   kms.Store
 	secretLockService secretlock.Service
 }
 
-func (k kmsProvider) StorageProvider() ariesstorage.Provider {
-	return k.storageProvider.GetAriesProvider()
+func (k kmsProvider) StorageProvider() kms.Store {
+	return k.storageProvider
 }
 
 func (k kmsProvider) SecretLock() secretlock.Service {
@@ -782,8 +784,15 @@ func createLocalKMS(kmsSecretsStoreProvider vcsstorage.Provider) (*localkms.Loca
 		return nil, err
 	}
 
+	// TODO (#769): Create our own implementation of the KMS storage interface and pass it in here instead of wrapping
+	//  the Aries storage provider.
+	kmsStore, err := kms.NewAriesProviderWrapper(kmsSecretsStoreProvider.GetAriesProvider())
+	if err != nil {
+		return nil, err
+	}
+
 	kmsProv := kmsProvider{
-		storageProvider:   kmsSecretsStoreProvider,
+		storageProvider:   kmsStore,
 		secretLockService: secretLockService,
 	}
 
