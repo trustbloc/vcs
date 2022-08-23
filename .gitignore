@@ -33,3 +33,6 @@ build/
 
 test/bdd/fixtures/keys/tls
 test/bdd/fixtures/spec/
+
+# Auto-generated mock files
+*_mocks_test.go

@@ -115,6 +115,35 @@ services:
     networks:
       - bdd_net
 
+  vc-rest-echo.trustbloc.local:
+    container_name: vc-rest-echo.trustbloc.local
+    image: ${VC_REST_IMAGE}:latest
+    environment:
+      - VC_REST_HOST_URL=0.0.0.0:8075
+      - BLOC_DOMAIN=testnet.orb.local
+      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
+      - DATABASE_TYPE=mongodb
+      - DATABASE_URL=mongodb://mongodb.example.com:27017
+      - DATABASE_PREFIX=vc_rest_echo_
+      - KMSSECRETS_DATABASE_TYPE=mongodb
+      - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
+      - KMSSECRETS_DATABASE_PREFIX=vc_rest_echo_
+      - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_TLS_SYSTEMCERTPOOL=true
+      - VC_REST_API_TOKEN=rw_token
+      - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
+      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
+      - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
+      - VC_USE_ECHO_HANDLER=true
+    ports:
+      - "8075:8075"
+    entrypoint: ""
+    command:  /bin/sh -c "sleep 5;vc-rest start"
+    volumes:
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
   did-resolver.trustbloc.local:
     container_name: did-resolver.trustbloc.local
     image: ${DID_RESOLVER_IMAGE}:${DID_RESOLVER_IMAGE_TAG}
