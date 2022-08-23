@@ -14,8 +14,8 @@ touch "$pwd"/coverage.out
 
 amend_coverage_file () {
 if [ -f profile.out ]; then
-     cat profile.out >> "$pwd"/coverage.out
-     rm profile.out
+    cat profile.out | grep -v ".gen.go" >> "$pwd"/coverage.out
+    rm profile.out
 fi
 }
 

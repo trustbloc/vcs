@@ -1,0 +1,12 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+package: spec
+output: openapi.gen.go
+generate:
+  models: false
+  echo-server: false
+  embedded-spec: true
