@@ -7,22 +7,39 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"testing"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
+	dctest "github.com/ory/dockertest/v3"
+	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+)
+
+const (
+	mongoDBConnString  = "mongodb://localhost:27018"
+	dockerMongoDBImage = "mongo"
+	dockerMongoDBTag   = "4.0.0"
 )
 
 func TestStartCmdContents(t *testing.T) {
@@ -169,11 +186,18 @@ func TestStartCmdValidArgs(t *testing.T) {
 }
 
 func TestStartCmdWithEchoHandler(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+	defer func() {
+		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
-		"--" + databaseTypeFlagName, databaseTypeMemOption,
+		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+		"--" + databaseURLFlagName, mongoDBConnString,
+		"--" + databasePrefixFlagName, "vc_rest_echo_",
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
 		"--" + useEchoHandlerFlagName, "true",
 	}
@@ -182,17 +206,6 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 	err := startCmd.Execute()
 
 	require.Nil(t, err)
-}
-
-func TestHealthCheckEchoHandler(t *testing.T) {
-	e, err := buildEchoHandler(&Configuration{})
-	require.NoError(t, err)
-
-	req := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -529,4 +542,53 @@ func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flag
 
 	flagAnnotations := flag.Annotations
 	require.Nil(t, flagAnnotations)
+}
+
+func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
+	t.Helper()
+
+	pool, err := dctest.NewPool("")
+	require.NoError(t, err)
+
+	mongoDBResource, err := pool.RunWithOptions(&dctest.RunOptions{
+		Repository: dockerMongoDBImage,
+		Tag:        dockerMongoDBTag,
+		PortBindings: map[dc.Port][]dc.PortBinding{
+			"27017/tcp": {{HostIP: "", HostPort: "27018"}},
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, waitForMongoDBToBeUp())
+
+	return pool, mongoDBResource
+}
+
+func waitForMongoDBToBeUp() error {
+	return backoff.Retry(pingMongoDB, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
+}
+
+func pingMongoDB() error {
+	var err error
+
+	tM := reflect.TypeOf(bson.M{})
+	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
+	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
+
+	mongoClient, err := mongo.NewClient(clientOpts)
+	if err != nil {
+		return err
+	}
+
+	err = mongoClient.Connect(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to connect to MongoDB: %w", err)
+	}
+
+	db := mongoClient.Database("test")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return db.Client().Ping(ctx, nil)
 }

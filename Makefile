@@ -34,13 +34,14 @@ all: checks unit-test bdd-test
 .PHONY: checks
 checks: license lint open-api-spec
 
-.PHONY: mocks
-mocks:
+.PHONY: generate
+generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
+	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@latest
 	@go generate ./...
 
 .PHONY: lint
-lint: mocks
+lint: generate
 	@scripts/check_lint.sh
 
 .PHONY: license
@@ -70,7 +71,7 @@ bdd-interop-test:clean vc-rest-docker generate-test-keys
 	@scripts/check_integration_interop.sh
 
 .PHONY: unit-test
-unit-test: mocks
+unit-test: generate
 	@scripts/check_unit.sh
 
 .PHONY: generate-test-keys

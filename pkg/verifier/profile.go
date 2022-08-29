@@ -21,7 +21,7 @@ type Profile struct {
 	URL            string      `json:"url,omitempty"`
 	Active         bool        `json:"active"`
 	Checks         interface{} `json:"checks"`
-	OIDCConfig     interface{} `json:"oidcConfig"`
+	OIDCConfig     interface{} `json:"oidcConfig,omitempty"`
 	OrganizationID string      `json:"organizationID"`
 }
 

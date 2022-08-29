@@ -1,0 +1,6 @@
+{
+  "url": "https://test-verifier.com",
+  "checks": {
+    "check1": "value1"
+  }
+}

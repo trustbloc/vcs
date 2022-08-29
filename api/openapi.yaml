@@ -1,0 +1,519 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+openapi: 3.0.0
+info:
+  title: vc-services-api
+  version: 0.1.0
+  description: TrustBloc VC services support credential issuance and verification using OIDC4VC and WACI as a protocol of interaction between wallet and issuer.
+  license:
+    name: Apache-2.0
+    url: 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+  contact:
+    name: SecureKey Technologies Inc.
+    email: hello@trustbloc.dev
+    url: 'https://trustbloc.dev'
+servers:
+  - url: 'http://localhost:8070'
+tags:
+  - name: issuer
+    description: issuer-related models and endpoints
+  - name: verifier
+    description: verifier-related models and endpoints
+  - name: healthcheck
+    description: server health check
+paths:
+  /healthcheck:
+    get:
+      summary: Health Check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+      operationId: get-healthcheck
+      description: Returns server health check status.
+      tags:
+        - healthcheck
+  /issuer/profiles:
+    post:
+      summary: Create Profile
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuerProfile'
+        '400':
+          description: Bad Request
+        '409':
+          description: Profile Already Exists
+      operationId: post-issuer-profiles
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIssuerProfileData'
+      description: Creates issuer profile which results in Issuer Profile object in VCS storage.
+    get:
+      summary: ''
+      operationId: get-issuer-profiles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IssuerProfile'
+      description: Gets all issuer profiles for a given organization.
+  '/issuer/profiles/{profileID}':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    get:
+      summary: Get Profile
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuerProfile'
+        '400':
+          description: Bad Request
+      operationId: get-issuer-profiles-profileID
+      description: Gets an issuer profile by ID.
+    put:
+      summary: Update Profile
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuerProfile'
+      operationId: put-issuer-profiles-profileID
+      description: Updates issuer profile stored in VCS storage.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateIssuerProfileData'
+    delete:
+      summary: Delete Profile
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+      operationId: delete-issuer-profiles-profileID
+      description: Deletes issuer profile from VCS storage.
+  '/issuer/profiles/{profileID}/activate':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Activate Profile
+      responses:
+        '200':
+          description: OK
+      operationId: post-issuer-profiles-profileID-activate
+      description: Activates issuer profile.
+      tags:
+        - issuer
+  '/issuer/profiles/{profileID}/deactivate':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Deactivate Profile
+      responses:
+        '200':
+          description: OK
+      operationId: post-issuer-profiles-profileID-deactivate
+      description: Deactivates issuer profile.
+      tags:
+        - issuer
+  /verifier/profiles:
+    post:
+      summary: Create Profile
+      tags:
+        - verifier
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifierProfile'
+        '400':
+          description: Bad Request
+        '409':
+          description: Profile Already Exists
+      operationId: post-verifier-profiles
+      description: Creates verifier profile which results in a Verifier Profile object in VCS storage.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVerifierProfileData'
+          application/xml:
+            schema:
+              type: object
+              properties: {}
+        description: ''
+    get:
+      summary: Get All Profiles
+      operationId: get-verifier-profiles
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VerifierProfile'
+      description: Gets all verifier profiles for organization.
+      tags:
+        - verifier
+  '/verifier/profiles/{profileID}':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    put:
+      summary: Update Profile
+      tags:
+        - verifier
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifierProfile'
+        '400':
+          description: Bad Request
+      operationId: put-verifier-profiles-profileID
+      description: Updates verifier profile stored in VCS storage.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateVerifierProfileData'
+    delete:
+      summary: Delete Profile
+      tags:
+        - verifier
+      responses:
+        '200':
+          description: OK
+      operationId: delete-verifier-profiles-profileID
+      description: Deletes verifier profile from VCS storage.
+    get:
+      summary: Get Profile
+      operationId: get-verifier-profiles-profileID
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifierProfile'
+      description: Gets verifier profile by ID.
+      tags:
+        - verifier
+      parameters: []
+  '/verifier/profiles/{profileID}/activate':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Activate Profile
+      tags:
+        - verifier
+      responses:
+        '200':
+          description: OK
+      operationId: post-verifier-profiles-profileID-activate
+      description: Activates verifier profile.
+  '/verifier/profiles/{profileID}/deactivate':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Deactivate Profile
+      tags:
+        - verifier
+      responses:
+        '200':
+          description: OK
+      operationId: post-verifier-profiles-profileID-deactivate
+      description: 'Deactivates verifier profile. Once deactivated, any attempt to perform credential management or interaction operation on this profile will result in an error.'
+components:
+  schemas:
+    HealthCheckResponse:
+      title: HealthCheckResponse
+      x-stoplight:
+        id: 7jusxlmcr31g5
+      x-tags:
+        - healthcheck
+      type: object
+      properties:
+        status:
+          type: string
+          description: Status is "success" if server is up and running.
+      required:
+        - status
+      description: Response model for health check status.
+    IssuerProfile:
+      title: IssuerProfile
+      x-tags:
+        - issuer
+      type: object
+      description: Model for issuer profile.
+      properties:
+        id:
+          type: string
+          description: 'Short unique string across the VCS platform, to be used as a reference to this profile.'
+        name:
+          type: string
+          description: Issuer’s display name.
+        url:
+          type: string
+          description: 'URI of the issuer, Refer issuer from VC data model.'
+        organizationID:
+          type: string
+          description: Unique identifier of the organization.
+        active:
+          type: boolean
+          description: Is profile active? Can be modified using disable/enable profile endpoints.
+        vcConfig:
+          $ref: '#/components/schemas/VCConfig'
+        oidcConfig:
+          type: object
+          description: Configuration for OIDC4VC credential interaction operations.
+        kmsConfig:
+          type: object
+          description: KMS configuration.
+      required:
+        - id
+        - name
+        - url
+        - organizationID
+        - active
+        - vcConfig
+    CreateIssuerProfileData:
+      title: CreateIssuerProfileData
+      x-tags:
+        - issuer
+      type: object
+      description: Model for creating issuer profile.
+      properties:
+        name:
+          type: string
+          description: Issuer’s display name.
+        url:
+          type: string
+          description: 'URI of the issuer, Refer issuer from VC data model.'
+        organizationID:
+          type: string
+          description: Unique identifier of the organization.
+        vcConfig:
+          $ref: '#/components/schemas/VCConfig'
+        oidcConfig:
+          type: object
+          description: Configuration for OIDC4VC credential interaction operations.
+        kmsConfig:
+          type: object
+          description: KMS configuration.
+      required:
+        - name
+        - url
+        - organizationID
+        - vcConfig
+    UpdateIssuerProfileData:
+      title: UpdateIssuerProfileData
+      x-tags:
+        - issuer
+      type: object
+      description: Model for updating issuer profile data.
+      properties:
+        name:
+          type: string
+          description: Issuer’s display name.
+        url:
+          type: string
+          description: 'URI of the issuer, Refer issuer from VC data model.'
+        organizationID:
+          type: string
+          description: Unique identifier of the organization.
+        vcConfig:
+          $ref: '#/components/schemas/VCConfig'
+        oidcConfig:
+          type: object
+          description: Configuration for OIDC4VC credential interaction operations.
+        kmsConfig:
+          type: object
+          description: KMS configuration.
+      required:
+        - name
+    VCConfig:
+      title: VCConfig
+      x-tags:
+        - issuer
+      type: object
+      description: Model for VC configuration.
+      properties:
+        format:
+          type: string
+          enum:
+            - jwt_vc
+            - ldp_vc
+          description: Supported VC formats.
+        signingAlgorithm:
+          type: string
+          description: List of supported cryptographic signing algorithms.
+        didMethod:
+          type: string
+          description: DID method of the DID to be used for signing.
+          enum:
+            - orb
+            - web
+            - key
+        signingDID:
+          type: string
+          description: DID to be used for signing.
+        status:
+          type: string
+          description: Credential status type allowed for the profile.
+          enum:
+            - StatusList2021
+        contexts:
+          type: array
+          description: 'Additional JSON-LD contexts the profile is going to use on top of standard W3C verifiable credential contexts and VCS contexts (status, signature suite, etc).'
+          items:
+            type: string
+      required:
+        - format
+        - signingAlgorithm
+        - didMethod
+        - signingDID
+    VerifierProfile:
+      title: VerifierProfile
+      x-tags:
+        - verifier
+      type: object
+      description: Model for verifier profile.
+      properties:
+        id:
+          type: string
+          description: 'Short unique string across the VCS platform, to be used as a reference to this profile.'
+        name:
+          type: string
+          description: Verifier’s display name.
+        url:
+          type: string
+          description: URI of the verifier.
+        organizationID:
+          type: string
+          description: Unique identifier of the organization.
+        active:
+          type: boolean
+          description: Defines if profile is enabled.
+        checks:
+          description: Type of checks to be formed and formats supported.
+          type: object
+        oidcConfig:
+          type: object
+          description: Configuration for OIDC4VC credential interaction operations.
+      required:
+        - id
+        - name
+        - organizationID
+        - active
+        - checks
+    CreateVerifierProfileData:
+      title: CreateVerifierProfileData
+      x-tags:
+        - verifier
+      type: object
+      description: Model for creating verifier profile.
+      properties:
+        name:
+          type: string
+          description: Verifier’s display name.
+        url:
+          type: string
+          description: URI of the verifier.
+        checks:
+          type: object
+          description: Type of checks to be performed and formats supported.
+        oidcConfig:
+          type: object
+          description: Configuration for participating in OIDC4VC credential interaction operations.
+        organizationID:
+          type: string
+          description: Unique identifier of the organization.
+      required:
+        - name
+        - checks
+        - organizationID
+    UpdateVerifierProfileData:
+      title: UpdateVerifierProfileData
+      x-tags:
+        - verifier
+      type: object
+      description: Model for updating verifier profile data.
+      properties:
+        name:
+          type: string
+          description: Verifier’s display name.
+        url:
+          type: string
+          description: URI of the verifier.
+        checks:
+          type: object
+          description: Type of checks to be performed and formats supported.
+        oidcConfig:
+          type: object
+          description: Configuration for participating in OIDC4VC credential interaction operations.
+  securitySchemes: {}

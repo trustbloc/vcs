@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/gorilla/mux"
 	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
 	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
@@ -24,13 +25,20 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 	restlogspec "github.com/trustbloc/edge-core/pkg/restapi/logspec"
 
+	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/cmd/common"
 	restholder "github.com/trustbloc/vcs/pkg/restapi/holder"
 	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
 	restissuer "github.com/trustbloc/vcs/pkg/restapi/issuer"
 	issuerops "github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
+	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	restverifier "github.com/trustbloc/vcs/pkg/restapi/verifier"
 	verifierops "github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/verifierstore"
+	verifiersvc "github.com/trustbloc/vcs/pkg/verifier"
 )
 
 const (
@@ -107,18 +115,42 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 }
 
 // buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
-func buildEchoHandler(_ *Configuration) (*echo.Echo, error) {
+func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	e := echo.New()
 	e.HideBanner = true
 
 	// Middlewares
 	e.Use(echomw.Logger())
+	e.Use(echomw.Recover())
+
+	swagger, err := spec.GetSwagger()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get openapi spec: %w", err)
+	}
+
+	swagger.Servers = nil // skip validating server names matching
+
+	e.Use(oapimw.OapiRequestValidator(swagger))
 
 	// Handlers
-	e.GET(healthCheckEndpoint, func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"status": "success"})
-	})
-	// TODO: Add API handlers
+	healthcheck.RegisterHandlers(e, &healthcheck.Controller{})
+
+	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
+		conf.StartupParameters.dbParameters.databasePrefix+"vcs",
+		5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
+	}
+
+	// Issuer Profile Management API
+	issuerv1.RegisterHandlers(e, issuerv1.NewController())
+
+	// Verifier Profile Management API
+	verifierProfileStore := verifierstore.NewProfileStore(mongodbClient)
+	verifierProfileSvc := verifiersvc.NewProfileService(verifierProfileStore)
+	verifierController := verifierv1.NewController(verifierProfileSvc)
+
+	verifierv1.RegisterHandlers(e, verifierController)
 
 	return e, nil
 }
