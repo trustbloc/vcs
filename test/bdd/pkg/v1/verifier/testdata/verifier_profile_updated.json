@@ -1,21 +1,22 @@
 {
-  "url": "https://test-verifier.com",
+  "id": "{{ .ProfileID }}",
+  "name": "updated verifier profile",
+  "url": "https://example.com/verifier",
+  "organizationID": "org1",
+  "active": true,
   "checks": {
     "credential": {
       "proof": true,
       "format": [
-        "jwt_vc"
+        "ldp_vc"
       ],
       "status": true
     },
     "presentation": {
       "proof": true,
       "format": [
-        "jwt_vp"
+        "ldp_vp"
       ]
     }
-  },
-  "oidcConfig": {
-    "config": "value"
   }
 }

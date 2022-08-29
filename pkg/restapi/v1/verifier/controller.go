@@ -10,11 +10,12 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/jinzhu/copier"
 	"github.com/labstack/echo/v4"
 
 	"github.com/trustbloc/vcs/pkg/verifier"
@@ -63,10 +64,7 @@ func (c *Controller) GetVerifierProfiles(ctx echo.Context) error {
 	var verifierProfiles []*VerifierProfile
 
 	for _, profile := range profiles {
-		var vp VerifierProfile
-		copier.Copy(&vp, profile) //nolint:errcheck
-
-		verifierProfiles = append(verifierProfiles, &vp)
+		verifierProfiles = append(verifierProfiles, mapProfile(profile))
 	}
 
 	return ctx.JSON(http.StatusOK, verifierProfiles)
@@ -81,18 +79,12 @@ func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	var p verifier.Profile
-	copier.Copy(&p, &body) //nolint:errcheck
-
-	createdProfile, err := c.profileSvc.Create(&p)
+	createdProfile, err := c.profileSvc.Create(mapCreateVerifierProfileData(&body))
 	if err != nil {
 		return fmt.Errorf("failed to create verifier profile: %w", err)
 	}
 
-	var vp VerifierProfile
-	copier.Copy(&vp, createdProfile) //nolint:errcheck
-
-	return ctx.JSON(http.StatusOK, &vp)
+	return ctx.JSON(http.StatusOK, mapProfile(createdProfile))
 }
 
 // DeleteVerifierProfilesProfileID deletes profile from VCS storage.
@@ -110,13 +102,14 @@ func (c *Controller) DeleteVerifierProfilesProfileID(_ echo.Context, profileID s
 func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
 	profile, err := c.profileSvc.GetProfile(profileID)
 	if err != nil {
+		if errors.Is(err, verifier.ErrProfileNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err)
+		}
+
 		return fmt.Errorf("failed to get verifier profile: %w", err)
 	}
 
-	var vp VerifierProfile
-	copier.Copy(&vp, profile) //nolint:errcheck
-
-	return ctx.JSON(http.StatusOK, &vp)
+	return ctx.JSON(http.StatusOK, mapProfile(profile))
 }
 
 // PutVerifierProfilesProfileID updates profile.
@@ -128,20 +121,15 @@ func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID st
 		return echo.NewHTTPError(http.StatusBadRequest, err)
 	}
 
-	var profileUpdate verifier.ProfileUpdate
-	copier.Copy(&profileUpdate, &body) //nolint:errcheck
-
+	profileUpdate := mapUpdateVerifierProfileData(&body)
 	profileUpdate.ID = profileID
 
-	updatedProfile, err := c.profileSvc.Update(&profileUpdate)
+	updatedProfile, err := c.profileSvc.Update(profileUpdate)
 	if err != nil {
 		return fmt.Errorf("failed to update verifier profile: %w", err)
 	}
 
-	var vp VerifierProfile
-	copier.Copy(&vp, updatedProfile) //nolint:errcheck
-
-	return ctx.JSON(http.StatusOK, &vp)
+	return ctx.JSON(http.StatusOK, mapProfile(updatedProfile))
 }
 
 // PostVerifierProfilesProfileIDActivate activates profile.
@@ -162,4 +150,134 @@ func (c *Controller) PostVerifierProfilesProfileIDDeactivate(_ echo.Context, pro
 	}
 
 	return nil
+}
+
+func mapCreateVerifierProfileData(data *CreateVerifierProfileData) *verifier.Profile {
+	profile := &verifier.Profile{
+		Name:           data.Name,
+		OrganizationID: data.OrganizationID,
+		Checks:         mapChecks(data.Checks),
+	}
+
+	if data.Url != nil {
+		profile.URL = *data.Url
+	}
+
+	if data.OidcConfig != nil {
+		profile.OIDCConfig = *data.OidcConfig
+	}
+
+	return profile
+}
+
+func mapUpdateVerifierProfileData(data *UpdateVerifierProfileData) *verifier.ProfileUpdate {
+	profileUpdate := &verifier.ProfileUpdate{}
+
+	if data.Name != nil {
+		profileUpdate.Name = *data.Name
+	}
+
+	if data.Url != nil {
+		profileUpdate.URL = *data.Url
+	}
+
+	if data.Checks != nil {
+		profileUpdate.Checks = mapChecks(*data.Checks)
+	}
+
+	if data.OidcConfig != nil {
+		profileUpdate.OIDCConfig = *data.OidcConfig
+	}
+
+	return profileUpdate
+}
+
+type verifierChecks struct {
+	Credential struct {
+		Format []string `json:"format,omitempty"`
+		Proof  bool     `json:"proof,omitempty"`
+		Status *bool    `json:"status,omitempty"`
+	} `json:"credential,omitempty"`
+
+	Presentation struct {
+		Format []string `json:"format,omitempty"`
+		Proof  bool     `json:"proof,omitempty"`
+	} `json:"presentation,omitempty"`
+}
+
+func mapChecks(m map[string]interface{}) *verifier.VerificationChecks {
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil
+	}
+
+	var checks verifierChecks
+	if err = json.Unmarshal(b, &checks); err != nil {
+		return nil
+	}
+
+	vc := &verifier.VerificationChecks{
+		Credential: &verifier.CredentialChecks{
+			Proof:  checks.Credential.Proof,
+			Status: checks.Credential.Status != nil && *checks.Credential.Status,
+		},
+		Presentation: &verifier.PresentationChecks{
+			Proof: checks.Presentation.Proof,
+		},
+	}
+
+	for _, format := range checks.Credential.Format {
+		vc.Credential.Format = append(vc.Credential.Format, verifier.CredentialFormat(format))
+	}
+
+	for _, format := range checks.Presentation.Format {
+		vc.Presentation.Format = append(vc.Presentation.Format, verifier.PresentationFormat(format))
+	}
+
+	return vc
+}
+
+func mapProfile(profile *verifier.Profile) *VerifierProfile {
+	vp := &VerifierProfile{
+		Id:             profile.ID,
+		Name:           profile.Name,
+		OrganizationID: profile.OrganizationID,
+		Active:         profile.Active,
+	}
+
+	if profile.URL != "" {
+		vp.Url = &profile.URL
+	}
+
+	if profile.Checks != nil {
+		vc := VerifierChecks{}
+
+		if profile.Checks.Credential != nil {
+			for _, format := range profile.Checks.Credential.Format {
+				vc.Credential.Format = append(vc.Credential.Format, VerifierChecksCredentialFormat(format))
+			}
+
+			vc.Credential.Proof = profile.Checks.Credential.Proof
+			vc.Credential.Status = &profile.Checks.Credential.Status
+		}
+
+		if profile.Checks.Presentation != nil {
+			for _, format := range profile.Checks.Presentation.Format {
+				vc.Presentation.Format = append(vc.Presentation.Format, VerifierChecksPresentationFormat(format))
+			}
+
+			vc.Presentation.Proof = profile.Checks.Presentation.Proof
+		}
+
+		vp.Checks = vc
+	}
+
+	if profile.OIDCConfig != nil {
+		c, ok := profile.OIDCConfig.(map[string]interface{})
+		if ok {
+			vp.OidcConfig = &c
+		}
+	}
+
+	return vp
 }

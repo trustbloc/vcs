@@ -56,6 +56,7 @@ var (
 		Active:         true,
 		OrganizationID: "orgID",
 		Checks:         verificationChecks,
+		OIDCConfig:     map[string]interface{}{"config": "value"},
 	}
 )
 
@@ -214,6 +215,25 @@ func TestController_GetVerifierProfilesProfileID(t *testing.T) {
 		err := controller.GetVerifierProfilesProfileID(c, "profileID")
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, rec.Code)
+	})
+
+	t.Run("404 Not Found", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(nil, verifiersvc.ErrProfileNotFound)
+
+		e := echo.New()
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		controller := verifier.NewController(mockProfileSvc)
+
+		err := controller.GetVerifierProfilesProfileID(c, "profileID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), verifiersvc.ErrProfileNotFound.Error())
 	})
 
 	t.Run("error from profile service", func(t *testing.T) {

@@ -9,8 +9,11 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
+	"errors"
 	"fmt"
 )
+
+var ErrProfileNotFound = errors.New("profile not found")
 
 type ProfileID = string
 
