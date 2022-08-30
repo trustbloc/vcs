@@ -29,9 +29,27 @@ import (
 	"github.com/trustbloc/vcs/pkg/key"
 )
 
+type keyCreator struct {
+	KMS kms.KeyManager
+
+	JWKKeyCreator    func(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error)
+	CryptoKeyCreator func(kt kms.KeyType) func(kms.KeyManager) (string, interface{}, error)
+}
+
+func (k *keyCreator) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+	return k.JWKKeyCreator(keyType)(k.KMS)
+}
+func (k *keyCreator) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+	return k.CryptoKeyCreator(keyType)(k.KMS)
+}
+
 func TestPublicDID(t *testing.T) {
 	t.Run("fails if method is not supported", func(t *testing.T) {
-		_, err := did2.PublicDID(&did2.Config{Method: "unsupported"})(newKMS(t))
+		creator := did2.New(&did2.Config{})
+		_, err := creator.PublicDID("unsupported", "jsonwebsignature2020", kms.ED25519Type,
+			&keyCreator{
+				KMS: newKMS(t),
+			})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported did method")
 	})
@@ -39,81 +57,121 @@ func TestPublicDID(t *testing.T) {
 	t.Run("did:trustbloc", func(t *testing.T) {
 		t.Run("creates DID", func(t *testing.T) {
 			expected := newDIDDoc()
-			result, err := did2.PublicDID(&did2.Config{
-				Method:                 orb.DIDMethod,
-				VerificationMethodType: "JsonWebKey2020",
-				VDR:                    &vdr2.MockVDRegistry{CreateValue: expected},
-				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
-				CryptoKeyCreator:       key.CryptoKeyCreator(kms.ED25519Type),
-			})(newKMS(t))
+			creator := did2.New(&did2.Config{
+				VDR: &vdr2.MockVDRegistry{CreateValue: expected},
+			})
+
+			result, err := creator.PublicDID(
+				orb.DIDMethod, "jsonwebsignature2020", kms.ED25519Type,
+				&keyCreator{
+					KMS:              newKMS(t),
+					JWKKeyCreator:    key.JWKKeyCreator,
+					CryptoKeyCreator: key.CryptoKeyCreator,
+				})
 			require.NoError(t, err)
-			require.Equal(t, result.DIDDocument, expected)
+			require.Equal(t, result.DocResolution.DIDDocument, expected)
 		})
 
 		t.Run("fails if JWKKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
-			_, err := did2.PublicDID(&did2.Config{
-				Method:                 orb.DIDMethod,
-				VerificationMethodType: "JsonWebKey2020",
-				JWKKeyCreator: func(kms.KeyManager) (string, *jwk.JWK, error) {
-					return "", nil, expected
-				},
-			})(newKMS(t))
-			require.ErrorIs(t, err, expected)
+			creator := did2.New(&did2.Config{})
+			_, err := creator.PublicDID(orb.DIDMethod,
+				"jsonwebsignature2020", kms.ED25519Type,
+				&keyCreator{
+					KMS:           newKMS(t),
+					JWKKeyCreator: errorJWKKeyCreator,
+				})
+			require.Contains(t, err.Error(), expected.Error())
 		})
 
 		t.Run("fails if CryptoKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
-			_, err := did2.PublicDID(&did2.Config{
-				Method:                 orb.DIDMethod,
-				VerificationMethodType: "JsonWebKey2020",
-				VDR:                    newVDR(t, newDIDDoc(), nil),
-				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
-				CryptoKeyCreator: func(kms.KeyManager) (string, interface{}, error) {
-					return "", nil, expected
-				},
-			})(newKMS(t))
-			require.ErrorIs(t, err, expected)
+			creator := did2.New(&did2.Config{
+				VDR: newVDR(t, newDIDDoc(), nil),
+			})
+			_, err := creator.PublicDID(orb.DIDMethod,
+				"jsonwebsignature2020", kms.ED25519Type,
+				&keyCreator{
+					KMS:              newKMS(t),
+					JWKKeyCreator:    key.JWKKeyCreator,
+					CryptoKeyCreator: errorCryptoKeyCreator,
+				})
+			require.Contains(t, err.Error(), expected.Error())
 		})
 
 		t.Run("fails if VDR cannot create DID", func(t *testing.T) {
 			expected := errors.New("test")
-			_, err := did2.PublicDID(&did2.Config{
-				Method:                 orb.DIDMethod,
-				VerificationMethodType: "JsonWebKey2020",
-				VDR:                    &vdr2.MockVDRegistry{CreateErr: expected},
-				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
-				CryptoKeyCreator:       key.CryptoKeyCreator(kms.ED25519Type),
-			})(newKMS(t))
+			creator := did2.New(&did2.Config{
+				VDR: &vdr2.MockVDRegistry{CreateErr: expected},
+			})
+			_, err := creator.PublicDID(
+				orb.DIDMethod,
+				"jsonwebsignature2020", kms.ED25519Type,
+				&keyCreator{
+					KMS:              newKMS(t),
+					JWKKeyCreator:    key.JWKKeyCreator,
+					CryptoKeyCreator: key.CryptoKeyCreator,
+				})
 			require.ErrorIs(t, err, expected)
 		})
 	})
 
 	t.Run("did:key", func(t *testing.T) {
 		t.Run("creates DID", func(t *testing.T) {
-			result, err := did2.PublicDID(&did2.Config{
-				Method:                 keymethod.DIDMethod,
-				VerificationMethodType: "JsonWebKey2020", // TODO the verification method type is probably ignored by did:key
-				VDR:                    vdr.New(vdr.WithVDR(keymethod.New())),
-				JWKKeyCreator:          key.JWKKeyCreator(kms.ED25519Type),
-				CryptoKeyCreator:       key.CryptoKeyCreator(kms.ED25519Type),
-			})(newKMS(t))
+			creator := did2.New(&did2.Config{
+				VDR: vdr.New(vdr.WithVDR(keymethod.New())),
+			})
+			result, err := creator.PublicDID(keymethod.DIDMethod,
+				"JsonWebKey2020", kms.ED25519Type, // TODO the verification method type is probably ignored by did:key
+				&keyCreator{
+					KMS:              newKMS(t),
+					JWKKeyCreator:    key.JWKKeyCreator,
+					CryptoKeyCreator: key.CryptoKeyCreator,
+				})
 			require.NoError(t, err)
-			require.True(t, strings.HasPrefix(result.DIDDocument.ID, "did:key"))
+			require.True(t, strings.HasPrefix(result.DocResolution.DIDDocument.ID, "did:key"))
 		})
 
 		t.Run("fails if JWKKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
-			_, err := did2.PublicDID(&did2.Config{
-				Method:                 keymethod.DIDMethod,
-				VerificationMethodType: "JsonWebKey2020",
-				JWKKeyCreator: func(kms.KeyManager) (string, *jwk.JWK, error) {
-					return "", nil, expected
-				},
-			})(newKMS(t))
-			require.ErrorIs(t, err, expected)
+			creator := did2.New(&did2.Config{})
+			_, err := creator.PublicDID(keymethod.DIDMethod, "JsonWebKey2020", kms.ED25519Type,
+				&keyCreator{
+					KMS:           newKMS(t),
+					JWKKeyCreator: errorJWKKeyCreator,
+				})
+			require.Contains(t, err.Error(), expected.Error())
 		})
 	})
+
+	t.Run("did:web", func(t *testing.T) {
+		t.Run("creates DID", func(t *testing.T) {
+			creator := did2.New(&did2.Config{
+				VDR: vdr.New(vdr.WithVDR(keymethod.New())),
+			})
+			result, err := creator.PublicDID("web",
+				"JsonWebKey2020", kms.ED25519Type, // TODO the verification method type is probably ignored by did:key
+				&keyCreator{
+					KMS:              newKMS(t),
+					JWKKeyCreator:    key.JWKKeyCreator,
+					CryptoKeyCreator: key.CryptoKeyCreator,
+				})
+			require.Error(t, err)
+			require.Nil(t, result)
+		})
+	})
+}
+
+func errorJWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error) {
+	return func(km kms.KeyManager) (string, *jwk.JWK, error) {
+		return "", nil, errors.New("test")
+	}
+}
+
+func errorCryptoKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, interface{}, error) {
+	return func(km kms.KeyManager) (string, interface{}, error) {
+		return "", nil, errors.New("test")
+	}
 }
 
 func newKMS(t *testing.T) kms.KeyManager {
