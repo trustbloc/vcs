@@ -11,6 +11,18 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Defines values for VerifierChecksCredentialFormat.
+const (
+	JwtVc VerifierChecksCredentialFormat = "jwt_vc"
+	LdpVc VerifierChecksCredentialFormat = "ldp_vc"
+)
+
+// Defines values for VerifierChecksPresentationFormat.
+const (
+	JwtVp VerifierChecksPresentationFormat = "jwt_vp"
+	LdpVp VerifierChecksPresentationFormat = "ldp_vp"
+)
+
 // Model for creating verifier profile.
 type CreateVerifierProfileData struct {
 	// Type of checks to be performed and formats supported.
@@ -44,13 +56,43 @@ type UpdateVerifierProfileData struct {
 	Url *string `json:"url,omitempty"`
 }
 
+// Checks to be performed by a verifier profile for verifying credentials and presentations.
+type VerifierChecks struct {
+	// Checks to be performed during credential verification.
+	Credential struct {
+		// Supported credential formats.
+		Format []VerifierChecksCredentialFormat `json:"format"`
+
+		// Proof check for credential.
+		Proof bool `json:"proof"`
+
+		// Status check for credential.
+		Status *bool `json:"status,omitempty"`
+	} `json:"credential"`
+
+	// Checks to be performed during presentation verification.
+	Presentation struct {
+		// Supported presentation formats.
+		Format []VerifierChecksPresentationFormat `json:"format"`
+
+		// Proof check for presentation.
+		Proof bool `json:"proof"`
+	} `json:"presentation"`
+}
+
+// VerifierChecksCredentialFormat defines model for VerifierChecks.Credential.Format.
+type VerifierChecksCredentialFormat string
+
+// VerifierChecksPresentationFormat defines model for VerifierChecks.Presentation.Format.
+type VerifierChecksPresentationFormat string
+
 // Model for verifier profile.
 type VerifierProfile struct {
 	// Defines if profile is enabled.
 	Active bool `json:"active"`
 
-	// Type of checks to be formed and formats supported.
-	Checks map[string]interface{} `json:"checks"`
+	// Checks to be performed by a verifier profile for verifying credentials and presentations.
+	Checks VerifierChecks `json:"checks"`
 
 	// Short unique string across the VCS platform, to be used as a reference to this profile.
 	Id string `json:"id"`

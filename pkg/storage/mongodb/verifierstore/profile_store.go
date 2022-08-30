@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jinzhu/copier"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -23,20 +24,36 @@ const profileCollection = "verifier_profile"
 var ErrDataNotFound = errors.New("data not found")
 
 type profileUpdateDocument struct {
-	Name       string      `bson:"name,omitempty"`
-	URL        string      `bson:"url,omitempty"`
-	Checks     interface{} `bson:"checks,omitempty"`
-	OIDCConfig interface{} `bson:"oidcConfig,omitempty"`
+	Name       string              `bson:"name,omitempty"`
+	URL        string              `bson:"url,omitempty"`
+	Checks     *verificationChecks `bson:"checks,omitempty"`
+	OIDCConfig interface{}         `bson:"oidcConfig,omitempty"`
 }
 
 type profileDocument struct {
-	ID             primitive.ObjectID `bson:"_id,omitempty"`
-	Name           string             `bson:"name"`
-	URL            string             `bson:"url"`
-	Active         bool               `bson:"active"`
-	Checks         interface{}        `bson:"checks"`
-	OIDCConfig     interface{}        `bson:"oidcConfig"`
-	OrganizationID string             `bson:"organizationId"`
+	ID             primitive.ObjectID  `bson:"_id,omitempty"`
+	Name           string              `bson:"name"`
+	URL            string              `bson:"url"`
+	Active         bool                `bson:"active"`
+	Checks         *verificationChecks `bson:"checks"`
+	OIDCConfig     interface{}         `bson:"oidcConfig"`
+	OrganizationID string              `bson:"organizationId"`
+}
+
+type credentialChecks struct {
+	Proof  bool     `bson:"proof"`
+	Format []string `bson:"format"`
+	Status bool     `bson:"status,omitempty"`
+}
+
+type presentationChecks struct {
+	Proof  bool     `bson:"proof"`
+	Format []string `bson:"format"`
+}
+
+type verificationChecks struct {
+	Credential   *credentialChecks   `bson:"credential"`
+	Presentation *presentationChecks `bson:"presentation"`
 }
 
 // ProfileStore manages profile in mongodb.
@@ -83,7 +100,7 @@ func (p *ProfileStore) Update(profile *verifier.ProfileUpdate) error {
 
 	//nolint: govet
 	result, err := collection.UpdateOne(ctxWithTimeout,
-		bson.D{{"_id", id}}, bson.D{{"$set", profileUpdateDoc(profile)}})
+		bson.D{{"_id", id}}, bson.D{{"$set", profileToUpdateDocument(profile)}})
 	if err != nil {
 		return err
 	}
@@ -221,34 +238,88 @@ func profileToDocument(profile *verifier.Profile) (*profileDocument, error) {
 		return nil, err
 	}
 
-	return &profileDocument{
-		ID:             id,
-		Name:           profile.Name,
-		URL:            profile.URL,
-		Active:         profile.Active,
-		Checks:         profile.Checks,
-		OIDCConfig:     profile.OIDCConfig,
-		OrganizationID: profile.OrganizationID,
-	}, nil
+	var doc profileDocument
+
+	if err = copier.Copy(&doc, profile); err != nil {
+		return nil, err
+	}
+
+	doc.ID = id
+
+	return &doc, nil
 }
 
-func profileUpdateDoc(profile *verifier.ProfileUpdate) *profileUpdateDocument {
-	return &profileUpdateDocument{
+func profileToUpdateDocument(profile *verifier.ProfileUpdate) *profileUpdateDocument {
+	doc := &profileUpdateDocument{
 		Name:       profile.Name,
 		URL:        profile.URL,
-		Checks:     profile.Checks,
 		OIDCConfig: profile.OIDCConfig,
 	}
+
+	if profile.Checks != nil {
+		doc.Checks = &verificationChecks{}
+
+		if profile.Checks.Credential != nil {
+			doc.Checks.Credential = &credentialChecks{
+				Proof:  profile.Checks.Credential.Proof,
+				Status: profile.Checks.Credential.Status,
+			}
+
+			for _, format := range profile.Checks.Credential.Format {
+				doc.Checks.Credential.Format = append(doc.Checks.Credential.Format, string(format))
+			}
+		}
+
+		if profile.Checks.Presentation != nil {
+			doc.Checks.Presentation = &presentationChecks{
+				Proof: profile.Checks.Presentation.Proof,
+			}
+
+			for _, format := range profile.Checks.Presentation.Format {
+				doc.Checks.Presentation.Format = append(doc.Checks.Presentation.Format, string(format))
+			}
+		}
+	}
+
+	return doc
 }
 
-func profileFromDocument(profileDoc *profileDocument) *verifier.Profile {
-	return &verifier.Profile{
-		ID:             profileDoc.ID.Hex(),
-		Name:           profileDoc.Name,
-		URL:            profileDoc.URL,
-		Active:         profileDoc.Active,
-		Checks:         profileDoc.Checks,
-		OIDCConfig:     profileDoc.OIDCConfig,
-		OrganizationID: profileDoc.OrganizationID,
+func profileFromDocument(doc *profileDocument) *verifier.Profile {
+	profile := &verifier.Profile{
+		ID:             doc.ID.Hex(),
+		Name:           doc.Name,
+		URL:            doc.URL,
+		Active:         doc.Active,
+		OIDCConfig:     doc.OIDCConfig,
+		OrganizationID: doc.OrganizationID,
 	}
+
+	if doc.Checks != nil {
+		profile.Checks = &verifier.VerificationChecks{}
+
+		if doc.Checks.Credential != nil {
+			profile.Checks.Credential = &verifier.CredentialChecks{
+				Proof:  doc.Checks.Credential.Proof,
+				Status: doc.Checks.Credential.Status,
+			}
+
+			for _, format := range doc.Checks.Credential.Format {
+				profile.Checks.Credential.Format = append(profile.Checks.Credential.Format,
+					verifier.CredentialFormat(format))
+			}
+		}
+
+		if doc.Checks.Presentation != nil {
+			profile.Checks.Presentation = &verifier.PresentationChecks{
+				Proof: doc.Checks.Presentation.Proof,
+			}
+
+			for _, format := range doc.Checks.Presentation.Format {
+				profile.Checks.Presentation.Format = append(profile.Checks.Presentation.Format,
+					verifier.PresentationFormat(format))
+			}
+		}
+	}
+
+	return profile
 }

@@ -63,7 +63,10 @@ func (c *Controller) GetVerifierProfiles(ctx echo.Context) error {
 	var verifierProfiles []*VerifierProfile
 
 	for _, profile := range profiles {
-		verifierProfiles = append(verifierProfiles, mapToVerifierProfile(profile))
+		var vp VerifierProfile
+		copier.Copy(&vp, profile) //nolint:errcheck
+
+		verifierProfiles = append(verifierProfiles, &vp)
 	}
 
 	return ctx.JSON(http.StatusOK, verifierProfiles)
@@ -79,21 +82,22 @@ func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
 	}
 
 	var p verifier.Profile
-	if err := copier.Copy(&p, &body); err != nil {
-		return fmt.Errorf("failed to map body to profile: %w", err)
-	}
+	copier.Copy(&p, &body) //nolint:errcheck
 
 	createdProfile, err := c.profileSvc.Create(&p)
 	if err != nil {
 		return fmt.Errorf("failed to create verifier profile: %w", err)
 	}
 
-	return ctx.JSON(http.StatusOK, mapToVerifierProfile(createdProfile))
+	var vp VerifierProfile
+	copier.Copy(&vp, createdProfile) //nolint:errcheck
+
+	return ctx.JSON(http.StatusOK, &vp)
 }
 
 // DeleteVerifierProfilesProfileID deletes profile from VCS storage.
 // DELETE /verifier/profiles/{profileID}.
-func (c *Controller) DeleteVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
+func (c *Controller) DeleteVerifierProfilesProfileID(_ echo.Context, profileID string) error {
 	if err := c.profileSvc.Delete(profileID); err != nil {
 		return fmt.Errorf("failed to delete verifier profile: %w", err)
 	}
@@ -109,7 +113,10 @@ func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID st
 		return fmt.Errorf("failed to get verifier profile: %w", err)
 	}
 
-	return ctx.JSON(http.StatusOK, mapToVerifierProfile(profile))
+	var vp VerifierProfile
+	copier.Copy(&vp, profile) //nolint:errcheck
+
+	return ctx.JSON(http.StatusOK, &vp)
 }
 
 // PutVerifierProfilesProfileID updates profile.
@@ -122,9 +129,7 @@ func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID st
 	}
 
 	var profileUpdate verifier.ProfileUpdate
-	if err := copier.Copy(&profileUpdate, &body); err != nil {
-		return fmt.Errorf("failed to map body to profile update: %w", err)
-	}
+	copier.Copy(&profileUpdate, &body) //nolint:errcheck
 
 	profileUpdate.ID = profileID
 
@@ -133,12 +138,15 @@ func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID st
 		return fmt.Errorf("failed to update verifier profile: %w", err)
 	}
 
-	return ctx.JSON(http.StatusOK, mapToVerifierProfile(updatedProfile))
+	var vp VerifierProfile
+	copier.Copy(&vp, updatedProfile) //nolint:errcheck
+
+	return ctx.JSON(http.StatusOK, &vp)
 }
 
 // PostVerifierProfilesProfileIDActivate activates profile.
 // POST /verifier/profiles/{profileID}/activate.
-func (c *Controller) PostVerifierProfilesProfileIDActivate(ctx echo.Context, profileID string) error {
+func (c *Controller) PostVerifierProfilesProfileIDActivate(_ echo.Context, profileID string) error {
 	if err := c.profileSvc.ActivateProfile(profileID); err != nil {
 		return fmt.Errorf("failed to activate verifier profile: %w", err)
 	}
@@ -148,42 +156,10 @@ func (c *Controller) PostVerifierProfilesProfileIDActivate(ctx echo.Context, pro
 
 // PostVerifierProfilesProfileIDDeactivate deactivates profile.
 // POST /verifier/profiles/{profileID}/deactivate.
-func (c *Controller) PostVerifierProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error {
+func (c *Controller) PostVerifierProfilesProfileIDDeactivate(_ echo.Context, profileID string) error {
 	if err := c.profileSvc.DeactivateProfile(profileID); err != nil {
 		return fmt.Errorf("failed to deactivate verifier profile: %w", err)
 	}
 
 	return nil
-}
-
-func mapToVerifierProfile(p *verifier.Profile) *VerifierProfile {
-	verifierProfile := &VerifierProfile{
-		Id:             p.ID,
-		Name:           p.Name,
-		OrganizationID: p.OrganizationID,
-		Active:         p.Active,
-	}
-
-	var (
-		m  map[string]interface{}
-		ok bool
-	)
-
-	m, ok = p.Checks.(map[string]interface{})
-	if ok {
-		verifierProfile.Checks = m
-	}
-
-	if p.URL != "" {
-		verifierProfile.Url = &p.URL
-	}
-
-	if p.OIDCConfig != nil {
-		m, ok = p.OIDCConfig.(map[string]interface{})
-		if ok {
-			verifierProfile.OidcConfig = &m
-		}
-	}
-
-	return verifierProfile
 }

@@ -460,8 +460,7 @@ components:
           type: boolean
           description: Defines if profile is enabled.
         checks:
-          description: Type of checks to be formed and formats supported.
-          type: object
+          $ref: '#/components/schemas/VerifierChecks'
         oidcConfig:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
@@ -516,4 +515,63 @@ components:
         oidcConfig:
           type: object
           description: Configuration for participating in OIDC4VC credential interaction operations.
+    VerifierChecks:
+      title: VerifierChecks
+      x-tags:
+        - verifier
+      type: object
+      description: Checks to be performed by a verifier profile for verifying credentials and presentations.
+      x-examples:
+        example-jwt:
+          credential:
+            proof: true
+            format:
+              - jwt_vc
+          presentation:
+            proof: true
+            format:
+              - jwt_vp
+      properties:
+        credential:
+          type: object
+          description: Checks to be performed during credential verification.
+          required:
+            - proof
+            - format
+          properties:
+            proof:
+              type: boolean
+              description: Proof check for credential.
+            format:
+              type: array
+              description: Supported credential formats.
+              items:
+                type: string
+                enum:
+                  - jwt_vc
+                  - ldp_vc
+            status:
+              type: boolean
+              description: Status check for credential.
+        presentation:
+          type: object
+          description: Checks to be performed during presentation verification.
+          required:
+            - proof
+            - format
+          properties:
+            proof:
+              type: boolean
+              description: Proof check for presentation.
+            format:
+              type: array
+              description: Supported presentation formats.
+              items:
+                type: string
+                enum:
+                  - jwt_vp
+                  - ldp_vp
+      required:
+        - credential
+        - presentation
   securitySchemes: {}

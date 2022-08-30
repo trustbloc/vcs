@@ -29,6 +29,36 @@ var (
 	updateProfileData []byte
 )
 
+//nolint:gochecknoglobals
+var (
+	verificationChecks = &verifiersvc.VerificationChecks{
+		Credential: &verifiersvc.CredentialChecks{
+			Proof: true,
+			Format: []verifiersvc.CredentialFormat{
+				verifiersvc.JwtVC,
+				verifiersvc.LdpVC,
+			},
+			Status: true,
+		},
+		Presentation: &verifiersvc.PresentationChecks{
+			Proof: true,
+			Format: []verifiersvc.PresentationFormat{
+				verifiersvc.JwtVP,
+				verifiersvc.LdpVP,
+			},
+		},
+	}
+
+	testProfile = &verifiersvc.Profile{
+		ID:             "id",
+		Name:           "test profile",
+		URL:            "https://test-verifier.com",
+		Active:         true,
+		OrganizationID: "orgID",
+		Checks:         verificationChecks,
+	}
+)
+
 func TestController_GetVerifierProfiles(t *testing.T) {
 	t.Run("200 OK", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -38,14 +68,14 @@ func TestController_GetVerifierProfiles(t *testing.T) {
 				Name:           "profile1",
 				Active:         true,
 				OrganizationID: "org1",
-				Checks:         map[string]interface{}{"check1": "value1"},
+				Checks:         verificationChecks,
 			},
 			{
 				ID:             "id2",
 				Name:           "profile2",
 				Active:         true,
 				OrganizationID: "org1",
-				Checks:         map[string]interface{}{"check1": "value1"},
+				Checks:         verificationChecks,
 			},
 		}, nil)
 
@@ -89,14 +119,7 @@ func TestController_GetVerifierProfiles(t *testing.T) {
 func TestController_PostVerifierProfiles(t *testing.T) {
 	t.Run("200 OK", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().Create(gomock.Any()).Times(1).Return(&verifiersvc.Profile{
-			ID:             "id",
-			Name:           "test profile",
-			URL:            "https://test-verifier.com",
-			Active:         true,
-			OrganizationID: "orgID",
-			Checks:         map[string]interface{}{"check1": "value1"},
-		}, nil)
+		mockProfileSvc.EXPECT().Create(gomock.Any()).Times(1).Return(testProfile, nil)
 
 		e := echo.New()
 
@@ -176,13 +199,7 @@ func TestController_DeleteVerifierProfilesProfileID(t *testing.T) {
 func TestController_GetVerifierProfilesProfileID(t *testing.T) {
 	t.Run("200 OK", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&verifiersvc.Profile{
-			ID:             "profileID",
-			Name:           "test profile",
-			Active:         true,
-			OrganizationID: "orgID",
-			Checks:         map[string]interface{}{"check1": "value1"},
-		}, nil)
+		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(testProfile, nil)
 
 		e := echo.New()
 
@@ -222,15 +239,7 @@ func TestController_GetVerifierProfilesProfileID(t *testing.T) {
 func TestController_PutVerifierProfilesProfileID(t *testing.T) {
 	t.Run("200 OK", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().Update(gomock.Any()).Times(1).Return(&verifiersvc.Profile{
-			ID:             "id",
-			Name:           "test profile",
-			URL:            "https://test-verifier.com",
-			Active:         true,
-			OrganizationID: "orgID",
-			Checks:         map[string]interface{}{"check1": "value1"},
-			OIDCConfig:     map[string]interface{}{"conf": "value"},
-		}, nil)
+		mockProfileSvc.EXPECT().Update(gomock.Any()).Times(1).Return(testProfile, nil)
 
 		e := echo.New()
 

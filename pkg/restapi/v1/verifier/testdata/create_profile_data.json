@@ -3,6 +3,20 @@
   "organizationID": "orgID",
   "url": "https://test-verifier.com",
   "checks": {
-    "check1": "value1"
+    "credential": {
+      "proof": false,
+      "format": [
+        "ldp_vc",
+        "jwt_vc"
+      ],
+      "status": true
+    },
+    "presentation": {
+      "proof": true,
+      "format": [
+        "ldp_vp",
+        "jwt_vp"
+      ]
+    }
   }
 }
