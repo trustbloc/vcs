@@ -14,24 +14,59 @@ import (
 
 type ProfileID = string
 
-// Profile verifier profile.
+// Profile is a verifier profile.
 type Profile struct {
-	ID             ProfileID   `json:"id"`
-	Name           string      `json:"name,omitempty"`
-	URL            string      `json:"url,omitempty"`
-	Active         bool        `json:"active"`
-	Checks         interface{} `json:"checks"`
-	OIDCConfig     interface{} `json:"oidcConfig,omitempty"`
-	OrganizationID string      `json:"organizationID"`
+	ID             ProfileID
+	Name           string
+	URL            string
+	Active         bool
+	Checks         *VerificationChecks
+	OIDCConfig     interface{}
+	OrganizationID string
 }
 
-// ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update api.
+// ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update API.
 type ProfileUpdate struct {
-	ID         ProfileID   `json:"id"`
-	Name       string      `json:"name,omitempty"`
-	URL        string      `json:"url,omitempty"`
-	Checks     interface{} `json:"checks"`
-	OIDCConfig interface{} `json:"oidcConfig"`
+	ID         ProfileID
+	Name       string
+	URL        string
+	Checks     *VerificationChecks
+	OIDCConfig interface{}
+}
+
+// CredentialFormat is the encoding format for VC.
+type CredentialFormat string
+
+const (
+	JwtVC CredentialFormat = "jwt_vc"
+	LdpVC CredentialFormat = "ldp_vc"
+)
+
+// CredentialChecks are checks to be performed during credential verification.
+type CredentialChecks struct {
+	Proof  bool
+	Format []CredentialFormat
+	Status bool
+}
+
+// PresentationFormat is the encoding format for VP.
+type PresentationFormat string
+
+const (
+	JwtVP PresentationFormat = "jwt_vp"
+	LdpVP PresentationFormat = "ldp_vp"
+)
+
+// PresentationChecks are checks to be performed during presentation verification.
+type PresentationChecks struct {
+	Proof  bool
+	Format []PresentationFormat
+}
+
+// VerificationChecks are checks to be performed for verifying credentials and presentations.
+type VerificationChecks struct {
+	Credential   *CredentialChecks
+	Presentation *PresentationChecks
 }
 
 type profileStore interface {

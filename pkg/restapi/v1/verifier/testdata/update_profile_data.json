@@ -1,6 +1,18 @@
 {
   "url": "https://test-verifier.com",
   "checks": {
-    "check1": "value1"
+    "credential": {
+      "proof": true,
+      "format": [
+        "jwt_vc"
+      ],
+      "status": true
+    },
+    "presentation": {
+      "proof": true,
+      "format": [
+        "jwt_vp"
+      ]
+    }
   }
 }

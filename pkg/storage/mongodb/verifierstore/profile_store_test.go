@@ -40,8 +40,8 @@ func TestProfileStore_Success(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
-	require.NoError(t, err)
+	client, connErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	require.NoError(t, connErr)
 
 	store := verifierstore.NewProfileStore(client)
 	require.NotNil(t, store)
@@ -50,7 +50,30 @@ func TestProfileStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create profile", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{})
+		id, err := store.Create(&verifier.Profile{
+			Name:   "test profile",
+			URL:    "https://verifer.example.com",
+			Active: true,
+			Checks: &verifier.VerificationChecks{
+				Credential: &verifier.CredentialChecks{
+					Proof: true,
+					Format: []verifier.CredentialFormat{
+						verifier.JwtVC,
+						verifier.LdpVC,
+					},
+					Status: true,
+				},
+				Presentation: &verifier.PresentationChecks{
+					Proof: true,
+					Format: []verifier.PresentationFormat{
+						verifier.JwtVP,
+						verifier.LdpVP,
+					},
+				},
+			},
+			OIDCConfig:     nil,
+			OrganizationID: "org1",
+		})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 	})
@@ -82,23 +105,56 @@ func TestProfileStore_Success(t *testing.T) {
 	})
 
 	t.Run("Update profile", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{Name: "Test1"})
+		checks := &verifier.VerificationChecks{
+			Credential: &verifier.CredentialChecks{
+				Proof: true,
+				Format: []verifier.CredentialFormat{
+					verifier.JwtVC,
+					verifier.LdpVC,
+				},
+				Status: true,
+			},
+			Presentation: &verifier.PresentationChecks{
+				Proof: true,
+				Format: []verifier.PresentationFormat{
+					verifier.JwtVP,
+					verifier.LdpVP,
+				},
+			},
+		}
+
+		id, err := store.Create(&verifier.Profile{
+			Name:           "test profile",
+			URL:            "https://verifer.example.com",
+			Active:         true,
+			Checks:         checks,
+			OIDCConfig:     nil,
+			OrganizationID: "org1",
+		})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
 		profile, err := store.Find(id)
 		require.NoError(t, err)
 		require.NotNil(t, profile)
-		require.Equal(t, "Test1", profile.Name)
+		require.Equal(t, "test profile", profile.Name)
 		require.Equal(t, id, profile.ID)
 
-		err = store.Update(&verifier.ProfileUpdate{ID: id, Name: "Test2"})
+		checks.Credential.Format = []verifier.CredentialFormat{verifier.LdpVC}
+		checks.Presentation.Format = []verifier.PresentationFormat{verifier.LdpVP}
+
+		err = store.Update(&verifier.ProfileUpdate{ID: id, Name: "updated profile", Checks: checks})
 		require.NoError(t, err)
 
 		profileUpdated, err := store.Find(id)
 		require.NoError(t, err)
 		require.NotNil(t, profileUpdated)
-		require.Equal(t, "Test2", profileUpdated.Name)
+		require.Equal(t, "updated profile", profileUpdated.Name)
+		require.Equal(t, "https://verifer.example.com", profileUpdated.URL)
+		require.Equal(t, true, profileUpdated.Active)
+		require.EqualValues(t, checks, profileUpdated.Checks)
+		require.Equal(t, nil, profileUpdated.OIDCConfig)
+		require.Equal(t, "org1", profileUpdated.OrganizationID)
 	})
 
 	t.Run("Activate/Deactivate profile", func(t *testing.T) {
