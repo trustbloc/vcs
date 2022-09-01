@@ -173,21 +173,3 @@ jobs:
           NPM_WALLET_PKG_TAG: $(NPM_WALLET_PKG_TAG)
           NPM_WALLET_PKG_NAME: $(NPM_WALLET_PKG_NAME)
           NPM_WALLET_PKG_REPO: $(NPM_WALLET_PKG_REPO)
-
-  Interop:
-    needs: [Checks, UnitTest, BDDTestHolder, BDDTestIssuer, BDDTestVerifier, BDDTestVCGeneric, BDDTestCHAPIWorkflow]
-    if: github.event_name == 'push' && (github.repository == 'trustbloc/vcs' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: ${{ env.GO_VERSION }}
-      - name: Run BDD interop tests
-        run: |
-          echo $PATH
-          go env
-          echo ${{ github.workspace }}
-          make bdd-interop-test
