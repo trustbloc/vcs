@@ -301,6 +301,10 @@ components:
         status:
           type: string
           description: Status is "success" if server is up and running.
+        currentTime:
+          type: string
+          format: date-time
+          description: Current time of the server.
       required:
         - status
       description: Response model for health check status.

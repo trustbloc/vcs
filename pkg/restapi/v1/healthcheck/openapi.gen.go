@@ -4,11 +4,16 @@
 package healthcheck
 
 import (
+	"time"
+
 	"github.com/labstack/echo/v4"
 )
 
 // Response model for health check status.
 type HealthCheckResponse struct {
+	// Current time of the server.
+	CurrentTime *time.Time `json:"currentTime,omitempty"`
+
 	// Status is "success" if server is up and running.
 	Status string `json:"status"`
 }
