@@ -16,14 +16,22 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/stretchr/testify/require"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/issuer"
+	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
 )
 
 func TestProfileService_Create(t *testing.T) {
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
 	t.Run("Success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
@@ -33,7 +41,8 @@ func TestProfileService_Create(t *testing.T) {
 
 		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
 		store.EXPECT().Find("id").Times(1).Return(&issuer.Profile{ID: "id"}, nil, nil)
-		didCreator.EXPECT().PublicDID("orb", "Ed25519Signature2018", kms.ED25519Type,
+
+		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
 			Return(&didcreator.CreateResult{
 				DocResolution: &did.DocResolution{
@@ -46,11 +55,13 @@ func TestProfileService_Create(t *testing.T) {
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 			DIDCreator:   didCreator,
-			KeysCreator:  KeysCreatorSuccess,
+			KMSRegistry:  kmsRegistry,
 		})
 
-		profile, err := service.Create(&issuer.Profile{
-			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: "Ed25519Signature2018", DIDMethod: "orb"},
+		profile, _, err := service.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: vc.Ed25519Signature2018,
+				DIDMethod: didcreator.OrbDIDMethod,
+				KeyType:   arieskms.ED25519Type},
 		}, []*cm.CredentialManifest{})
 
 		require.NoError(t, err)
@@ -66,7 +77,7 @@ func TestProfileService_Create(t *testing.T) {
 
 		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 			Times(1).Return("", errors.New("create failed"))
-		didCreator.EXPECT().PublicDID("orb", "Ed25519Signature2018", kms.ED25519Type,
+		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
 			Return(&didcreator.CreateResult{
 				DocResolution: &did.DocResolution{
@@ -79,11 +90,12 @@ func TestProfileService_Create(t *testing.T) {
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 			DIDCreator:   didCreator,
-			KeysCreator:  KeysCreatorSuccess,
+			KMSRegistry:  kmsRegistry,
 		})
 
-		_, err := service.Create(&issuer.Profile{
-			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: "Ed25519Signature2018", DIDMethod: "orb"},
+		_, _, err := service.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: vc.Ed25519Signature2018,
+				DIDMethod: didcreator.OrbDIDMethod, KeyType: arieskms.ED25519Type},
 		}, []*cm.CredentialManifest{})
 		require.Error(t, err)
 	})
@@ -97,7 +109,7 @@ func TestProfileService_Create(t *testing.T) {
 
 		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
 		store.EXPECT().Find("id").Times(1).Return(nil, nil, errors.New("create failed"))
-		didCreator.EXPECT().PublicDID("orb", "Ed25519Signature2018", kms.ED25519Type,
+		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
 			Return(&didcreator.CreateResult{
 				DocResolution: &did.DocResolution{
@@ -110,18 +122,23 @@ func TestProfileService_Create(t *testing.T) {
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 			DIDCreator:   didCreator,
-			KeysCreator:  KeysCreatorSuccess,
+			KMSRegistry:  kmsRegistry,
 		})
 
-		_, err := service.Create(&issuer.Profile{
-			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: "Ed25519Signature2018", DIDMethod: "orb"},
+		_, _, err := service.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: vc.Ed25519Signature2018,
+				DIDMethod: didcreator.OrbDIDMethod, KeyType: arieskms.ED25519Type},
 		}, []*cm.CredentialManifest{})
 		require.Error(t, err)
 	})
 
-	t.Run("Create Fail invalid signature algorithm", func(t *testing.T) {
+	t.Run("Create Fail kms registry error", func(t *testing.T) {
+		brokenKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+
+		brokenKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil,
+			errors.New("fail to create key manager"))
+
 		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
 
 		store := NewMockProfileStore(ctrl)
 		didCreator := NewMockDIDCreator(ctrl)
@@ -129,30 +146,15 @@ func TestProfileService_Create(t *testing.T) {
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 			DIDCreator:   didCreator,
-			KeysCreator:  KeysCreatorSuccess,
+			KMSRegistry:  brokenKMSRegistry,
 		})
 
-		_, err := service.Create(&issuer.Profile{
-			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: "invalid", DIDMethod: "orb"},
-		}, []*cm.CredentialManifest{})
-		require.Error(t, err)
-	})
-
-	t.Run("Create Fail key creator error", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := NewMockProfileStore(ctrl)
-		didCreator := NewMockDIDCreator(ctrl)
-
-		service := issuer.NewProfileService(&issuer.ServiceConfig{
-			ProfileStore: store,
-			DIDCreator:   didCreator,
-			KeysCreator:  KeysCreatorFailed,
-		})
-
-		_, err := service.Create(&issuer.Profile{
-			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: "Ed25519Signature2018", DIDMethod: "orb"},
+		_, _, err := service.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{
+				Format:           "ldp_vc",
+				SigningAlgorithm: vc.Ed25519Signature2018,
+				DIDMethod:        didcreator.OrbDIDMethod,
+			},
 		}, []*cm.CredentialManifest{})
 		require.Error(t, err)
 	})
@@ -163,17 +165,22 @@ func TestProfileService_Create(t *testing.T) {
 
 		store := NewMockProfileStore(ctrl)
 		didCreator := NewMockDIDCreator(ctrl)
-		didCreator.EXPECT().PublicDID("orb", "Ed25519Signature2018", kms.ED25519Type,
+		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).Return(nil, errors.New("create did failed"))
 
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 			DIDCreator:   didCreator,
-			KeysCreator:  KeysCreatorSuccess,
+			KMSRegistry:  kmsRegistry,
 		})
 
-		_, err := service.Create(&issuer.Profile{
-			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: "Ed25519Signature2018", DIDMethod: "orb"},
+		_, _, err := service.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{
+				Format:           "ldp_vc",
+				SigningAlgorithm: vc.Ed25519Signature2018,
+				DIDMethod:        didcreator.OrbDIDMethod,
+				KeyType:          arieskms.ED25519Type,
+			},
 		}, []*cm.CredentialManifest{})
 		require.Error(t, err)
 	})
@@ -187,16 +194,13 @@ func TestProfileService_Update(t *testing.T) {
 		store := NewMockProfileStore(ctrl)
 
 		store.EXPECT().Update(&issuer.ProfileUpdate{ID: "id", Name: "test"}).Times(1).Return(nil)
-		store.EXPECT().Find("id").Times(1).Return(&issuer.Profile{ID: "id"}, nil, nil)
 
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 		})
 
-		profile, err := service.Update(&issuer.ProfileUpdate{ID: "id", Name: "test"})
-
+		err := service.Update(&issuer.ProfileUpdate{ID: "id", Name: "test"})
 		require.NoError(t, err)
-		require.Equal(t, "id", profile.ID)
 	})
 
 	t.Run("Update Fail", func(t *testing.T) {
@@ -211,24 +215,7 @@ func TestProfileService_Update(t *testing.T) {
 			ProfileStore: store,
 		})
 
-		_, err := service.Update(&issuer.ProfileUpdate{ID: "id", Name: "test"})
-		require.Error(t, err)
-	})
-
-	t.Run("Update Fail 2", func(t *testing.T) {
-		ctrl := gomock.NewController(t)
-		defer ctrl.Finish()
-
-		store := NewMockProfileStore(ctrl)
-
-		store.EXPECT().Update(&issuer.ProfileUpdate{ID: "id", Name: "test"}).Times(1).Return(nil)
-		store.EXPECT().Find("id").Times(1).Return(nil, nil, errors.New("create failed"))
-
-		service := issuer.NewProfileService(&issuer.ServiceConfig{
-			ProfileStore: store,
-		})
-
-		_, err := service.Update(&issuer.ProfileUpdate{ID: "id", Name: "test"})
+		err := service.Update(&issuer.ProfileUpdate{ID: "id", Name: "test"})
 		require.Error(t, err)
 	})
 }
@@ -353,7 +340,7 @@ func TestProfileService_Find(t *testing.T) {
 			ProfileStore: store,
 		})
 
-		profile, err := service.GetProfile("id")
+		profile, _, err := service.GetProfile("id")
 
 		require.NoError(t, err)
 		require.Equal(t, "id", profile.ID)
@@ -371,8 +358,7 @@ func TestProfileService_Find(t *testing.T) {
 			ProfileStore: store,
 		})
 
-		_, err := service.GetProfile("id")
-
+		_, _, err := service.GetProfile("id")
 		require.Error(t, err)
 	})
 }
@@ -416,17 +402,17 @@ func TestProfileService_GetAll(t *testing.T) {
 type mockKeyCreator struct {
 }
 
-func (c *mockKeyCreator) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+func (c *mockKeyCreator) CreateJWKKey(keyType arieskms.KeyType) (string, *jwk.JWK, error) {
 	return "", nil, nil
 }
-func (c *mockKeyCreator) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+func (c *mockKeyCreator) CreateCryptoKey(keyType arieskms.KeyType) (string, interface{}, error) {
 	return "", nil, nil
 }
 
-func KeysCreatorSuccess(config *issuer.KMSConfig) (didcreator.KeysCreator, error) {
+func KeysCreatorSuccess(config *kms.Config) (didcreator.KeysCreator, error) {
 	return &mockKeyCreator{}, nil
 }
 
-func KeysCreatorFailed(config *issuer.KMSConfig) (didcreator.KeysCreator, error) {
+func KeysCreatorFailed(config *kms.Config) (didcreator.KeysCreator, error) {
 	return nil, errors.New("fail to create key creator")
 }

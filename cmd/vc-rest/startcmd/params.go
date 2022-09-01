@@ -64,6 +64,11 @@ const (
 	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		commonEnvVarUsageText + databasePrefixEnvKey
 
+	secretLockKeyPathFlagName  = "secret-lock-key-path"
+	secretLockKeyPathEnvKey    = "VC_SECRET_LOCK_KEY_PATH" //nolint:gosec // not hard-coded credentials
+	secretLockKeyPathFlagUsage = "The path to the file with key to be used by local secret lock. If missing noop " +
+		"service lock is used. " + commonEnvVarUsageText + secretLockKeyPathEnvKey
+
 	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
 	kmsSecretsDatabaseTypeFlagName      = "kms-secrets-database-type" //nolint: gosec
 	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
@@ -148,6 +153,7 @@ type startupParameters struct {
 	universalResolverURL string
 	mode                 string
 	dbParameters         *dbParameters
+	kmsParameters        *kmsParameters
 	tlsSystemCertPool    bool
 	tlsCACerts           []string
 	token                string
@@ -166,6 +172,10 @@ type dbParameters struct {
 	kmsSecretsDatabaseType   string
 	kmsSecretsDatabaseURL    string
 	kmsSecretsDatabasePrefix string
+}
+
+type kmsParameters struct {
+	secretLockKeyPath string
 }
 
 // nolint: gocyclo,funlen
@@ -203,6 +213,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	dbParams, err := getDBParameters(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	kmsParams, err := getKMSParameters(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -262,6 +277,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
 		dbParameters:         dbParams,
+		kmsParameters:        kmsParams,
 		tlsSystemCertPool:    tlsSystemCertPool,
 		tlsCACerts:           tlsCACerts,
 		token:                token,
@@ -317,6 +333,18 @@ func getTLS(cmd *cobra.Command) (bool, []string, error) {
 	tlsCACerts := cmdutils.GetUserSetOptionalCSVVar(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
 
 	return tlsSystemCertPool, tlsCACerts, nil
+}
+
+func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
+	secretLockKeyPath, err := cmdutils.GetUserSetVarFromString(cmd, secretLockKeyPathFlagName,
+		secretLockKeyPathEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kmsParameters{
+		secretLockKeyPath: secretLockKeyPath,
+	}, nil
 }
 
 func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
@@ -395,6 +423,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
+	startCmd.Flags().StringP(secretLockKeyPathFlagName, "", "", secretLockKeyPathFlagUsage)
 	startCmd.Flags().StringP(kmsSecretsDatabaseTypeFlagName, kmsSecretsDatabaseTypeFlagShorthand, "",
 		kmsSecretsDatabaseTypeFlagUsage)
 	startCmd.Flags().StringP(kmsSecretsDatabaseURLFlagName, kmsSecretsDatabaseURLFlagShorthand, "",

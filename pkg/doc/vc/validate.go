@@ -13,20 +13,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 )
 
+type Format string
+
 const (
-	jwtVC = "jwt_vc"
-	ldpVC = "ldp_vc"
+	JwtVC Format = "jwt_vc"
+	LdpVC Format = "ldp_vc"
 )
-
-/*
-"*/
-
-func ValidateVCFormat(format string) error {
-	if format != jwtVC && format != ldpVC {
-		return fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, jwtVC, ldpVC)
-	}
-	return nil
-}
 
 // SignatureType type of signature used to sign vc.
 type SignatureType string
@@ -55,40 +47,52 @@ func (st SignatureType) lowerCase() string {
 	return strings.ToLower(string(st))
 }
 
-func ValidateVCSignatureAlgorithm(format, signatureType string) (SignatureType, error) {
-	var validSignatureTypes []SignatureType
+type signatureTypeDesc struct {
+	SignatureType     SignatureType
+	VCFormat          Format
+	SupportedKeyTypes []kms.KeyType
+}
 
-	if format == jwtVC {
-		validSignatureTypes = []SignatureType{
-			EdDSA,
-			ES256K,
-			ES256,
-			ES384,
-			PS256,
-		}
-	}
+// nolint: gochecknoglobals
+var signatureTypes = []signatureTypeDesc{
+	{Ed25519Signature2018, LdpVC, []kms.KeyType{kms.ED25519Type}},
+	{Ed25519Signature2020, LdpVC, []kms.KeyType{kms.ED25519Type}},
+	{EcdsaSecp256k1Signature2019, LdpVC,
+		[]kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363}},
+	{BbsBlsSignature2020, LdpVC, []kms.KeyType{kms.BLS12381G2Type}},
+	{JSONWebSignature2020, LdpVC, []kms.KeyType{
+		kms.ED25519Type, kms.X25519ECDHKWType,
+		kms.ECDSASecp256k1TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.RSAPS256Type,
+	}},
+	{EdDSA, JwtVC, []kms.KeyType{kms.ED25519Type}},
+	{ES256K, JwtVC, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363}},
 
-	if format == ldpVC {
-		validSignatureTypes = []SignatureType{
-			Ed25519Signature2018,
-			Ed25519Signature2020,
-			EcdsaSecp256k1Signature2019,
-			BbsBlsSignature2020,
-			JSONWebSignature2020,
-		}
-	}
+	{ES256, JwtVC, []kms.KeyType{kms.ECDSAP256TypeDER}},
+	{ES384, JwtVC, []kms.KeyType{kms.ECDSAP384TypeDER}},
+	{PS256, JwtVC, []kms.KeyType{kms.RSAPS256Type}},
+}
 
-	if validSignatureTypes == nil {
-		return "", fmt.Errorf("unsupported vc format %s", format)
-	}
-
-	for _, val := range validSignatureTypes {
-		if val.lowerCase() == strings.ToLower(signatureType) {
-			return val, nil
+func ValidateVCSignatureAlgorithm(format Format, signatureType string,
+	kmsKeyTypes []kms.KeyType) (SignatureType, error) {
+	for _, supportedSignature := range signatureTypes {
+		if supportedSignature.SignatureType.lowerCase() == strings.ToLower(signatureType) &&
+			supportedSignature.VCFormat == format && matchKeyTypes(kmsKeyTypes, supportedSignature.SupportedKeyTypes) {
+			return supportedSignature.SignatureType, nil
 		}
 	}
 
 	return "", fmt.Errorf("unsupported siganture type %s by vc format %s", signatureType, format)
+}
+
+func matchKeyTypes(keyTypes1 []kms.KeyType, keyTypes2 []kms.KeyType) bool {
+	for _, type1 := range keyTypes1 {
+		for _, type2 := range keyTypes2 {
+			if type1 == type2 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func matchKeyType(keyType string, types ...kms.KeyType) (kms.KeyType, error) {
@@ -115,22 +119,10 @@ func matchKeyType(keyType string, types ...kms.KeyType) (kms.KeyType, error) {
 }
 
 func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.KeyType, error) {
-	switch signatureType.lowerCase() {
-	case Ed25519Signature2018.lowerCase(), Ed25519Signature2020.lowerCase(), EdDSA.lowerCase():
-		return matchKeyType(keyType, kms.ED25519Type)
-	case EcdsaSecp256k1Signature2019.lowerCase(), ES256K.lowerCase():
-		return matchKeyType(keyType, kms.ECDSASecp256k1TypeIEEEP1363)
-	case BbsBlsSignature2020.lowerCase():
-		return matchKeyType(keyType, kms.BLS12381G2Type)
-	case JSONWebSignature2020.lowerCase():
-		return matchKeyType(keyType, kms.ED25519Type, kms.X25519ECDHKWType,
-			kms.ECDSASecp256k1TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.RSAPS256Type)
-	case ES256.lowerCase():
-		return matchKeyType(keyType, kms.ECDSAP256TypeDER)
-	case ES384.lowerCase():
-		return matchKeyType(keyType, kms.ECDSAP384TypeDER)
-	case PS256.lowerCase():
-		return matchKeyType(keyType, kms.RSAPS256Type)
+	for _, supportedSignature := range signatureTypes {
+		if supportedSignature.SignatureType == signatureType {
+			return matchKeyType(keyType, supportedSignature.SupportedKeyTypes...)
+		}
 	}
 
 	return "", fmt.Errorf("%s signature type currently not supported", signatureType)
