@@ -26,9 +26,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
-	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
-	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
-	verifierops "github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/issuer/operation"
+	verifierops "github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )

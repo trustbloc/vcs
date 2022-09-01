@@ -19,7 +19,7 @@ import (
 
 	"github.com/cucumber/godog"
 
-	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )

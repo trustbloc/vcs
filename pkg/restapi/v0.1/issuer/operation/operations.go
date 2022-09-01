@@ -18,6 +18,10 @@ import (
 	"strings"
 	"time"
 
+	commondid "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/did"
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/http"
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/vcutil"
+
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -34,9 +38,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
-	commondid "github.com/trustbloc/vcs/pkg/restapi/internal/common/did"
-	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
-	"github.com/trustbloc/vcs/pkg/restapi/internal/common/vcutil"
 )
 
 const (

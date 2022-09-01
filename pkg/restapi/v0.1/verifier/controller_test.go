@@ -10,14 +10,14 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier/operation"
+
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
 )
 
 func TestController_New(t *testing.T) {
