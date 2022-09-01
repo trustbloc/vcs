@@ -4,10 +4,10 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package holder
+package verifier
 
 import (
-	"github.com/trustbloc/vcs/pkg/restapi/holder/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier/operation"
 )
 
 // New returns new controller instance.

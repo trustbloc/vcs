@@ -16,6 +16,9 @@ import (
 	"net/http"
 	"time"
 
+	commondid "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/did"
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/http"
+
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	"github.com/gorilla/mux"
@@ -28,8 +31,6 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
-	commondid "github.com/trustbloc/vcs/pkg/restapi/internal/common/did"
-	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
 )
 
 const (

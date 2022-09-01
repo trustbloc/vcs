@@ -19,7 +19,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
 
-	"github.com/trustbloc/vcs/pkg/restapi/verifier/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )

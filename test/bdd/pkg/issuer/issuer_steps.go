@@ -29,8 +29,8 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	holderops "github.com/trustbloc/vcs/pkg/restapi/holder/operation"
-	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
+	holderops "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/issuer/operation"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )

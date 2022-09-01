@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"strconv"
 
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/http"
+
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	"github.com/gorilla/mux"
@@ -31,7 +33,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
-	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
 )
 
 const (

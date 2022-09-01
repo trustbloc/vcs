@@ -9,8 +9,9 @@ import (
 	"net/http"
 	"time"
 
+	commhttp "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/http"
+
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
-	commhttp "github.com/trustbloc/vcs/pkg/restapi/internal/common/http"
 )
 
 // API endpoints.

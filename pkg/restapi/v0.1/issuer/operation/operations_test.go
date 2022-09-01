@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/model"
+
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
@@ -48,7 +50,6 @@ import (
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/restapi/model"
 )
 
 const (

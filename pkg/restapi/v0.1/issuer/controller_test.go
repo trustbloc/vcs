@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/issuer/operation"
+
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	"github.com/google/tink/go/keyset"
@@ -20,8 +22,6 @@ import (
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
-
-	"github.com/trustbloc/vcs/pkg/restapi/issuer/operation"
 )
 
 func TestController_New(t *testing.T) {

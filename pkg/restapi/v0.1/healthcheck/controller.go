@@ -7,7 +7,7 @@ package healthcheck
 
 import (
 	"github.com/trustbloc/vcs/pkg/internal/common/support"
-	"github.com/trustbloc/vcs/pkg/restapi/healthcheck/operation"
+	"github.com/trustbloc/vcs/pkg/restapi/v0.1/healthcheck/operation"
 )
 
 // New returns new controller instance.
