@@ -162,49 +162,11 @@ services:
     networks:
       - bdd_net
 
-  kms.trustbloc.local:
-    container_name: kms.trustbloc.local
-    image: ${KMS_IMAGE}:${KMS_IMAGE_TAG}
-    environment:
-      - KMS_HOST=0.0.0.0:8077
-      - KMS_BASE_URL=https://localhost:8077
-      - KMS_TLS_CACERTS=/etc/tls/ec-cacert.pem
-      - KMS_TLS_SERVE_CERT=/etc/tls/ec-pubCert.pem
-      - KMS_TLS_SERVE_KEY=/etc/tls/ec-key.pem
-      - KMS_DATABASE_TYPE=${KMS_DATABASE_TYPE}
-      - KMS_DATABASE_URL=mongodb://mongodb.example.com:27017
-      - KMS_DATABASE_PREFIX=kms_
-      - KMS_SECRET_LOCK_TYPE=local
-      - KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
-      - KMS_ZCAP_ENABLE=true
-      - KMS_CACHE_EXPIRATION=10m
-      - KMS_LOG_LEVEL=debug
-      - KMS_DID_DOMAIN=testnet.orb.local
-    ports:
-      - 8077:8077
-    command: start
-    volumes:
-      - ./keys/tls:/etc/tls
-    networks:
-      - bdd_net
-
   mongodb.example.com:
     container_name: mongodb.example.com
     image: ${MONGODB_IMAGE}:${MONGODB_IMAGE_TAG}
     ports:
       - ${MONGODB_PORT}:${MONGODB_PORT}
-    networks:
-      - bdd_net
-
-  mysql:
-    container_name: mysql
-    image: mysql:${MYSQL_IMAGE_TAG}
-    restart: always
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: secret
-    volumes:
-      - ./mysql-config:/docker-entrypoint-initdb.d
     networks:
       - bdd_net
 

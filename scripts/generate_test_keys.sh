@@ -21,7 +21,6 @@ subjectAltName = @alt_names
 [alt_names]
 DNS.1 = localhost
 DNS.2 = testnet.orb.local
-DNS.3 = kms.trustbloc.local
 DNS.4 = file-server.trustbloc.local
 " >> "$tmp"
 
