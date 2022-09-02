@@ -10,6 +10,7 @@ package healthcheck
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -20,5 +21,7 @@ type Controller struct{}
 // GetHealthcheck returns the health check status.
 // GET /healthcheck.
 func (c *Controller) GetHealthcheck(ctx echo.Context) error {
-	return ctx.JSON(http.StatusOK, HealthCheckResponse{Status: "success"})
+	currentTime := time.Now()
+
+	return ctx.JSON(http.StatusOK, HealthCheckResponse{Status: "success", CurrentTime: &currentTime})
 }
