@@ -27,6 +27,10 @@ import (
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/pkg/did"
+	issuersvc "github.com/trustbloc/vcs/pkg/issuer"
+	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	restholder "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder"
 	holderops "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder/operation"
 	restissuer "github.com/trustbloc/vcs/pkg/restapi/v0.1/issuer"
@@ -37,6 +41,7 @@ import (
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/issuerstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/verifierstore"
 	verifiersvc "github.com/trustbloc/vcs/pkg/verifier"
 )
@@ -119,6 +124,8 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	e := echo.New()
 	e.HideBanner = true
 
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler
+
 	// Middlewares
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
@@ -142,8 +149,23 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
 	}
 
+	kmsRegistry := kms.NewRegistry(&kms.Config{
+		KMSType:           kms.Local,
+		SecretLockKeyPath: conf.StartupParameters.kmsParameters.secretLockKeyPath,
+		DBType:            conf.StartupParameters.dbParameters.databaseType,
+		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
+		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
+	})
+
 	// Issuer Profile Management API
-	issuerv1.RegisterHandlers(e, issuerv1.NewController())
+	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)
+	issuerProfileSvc := issuersvc.NewProfileService(&issuersvc.ServiceConfig{
+		ProfileStore: issuerProfileStore,
+		DIDCreator:   did.NewCreator(&did.CreatorConfig{}),
+		KMSRegistry:  kmsRegistry,
+	})
+
+	issuerv1.RegisterHandlers(e, issuerv1.NewController(issuerProfileSvc, kmsRegistry))
 
 	// Verifier Profile Management API
 	verifierProfileStore := verifierstore.NewProfileStore(mongodbClient)

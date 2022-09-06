@@ -26,7 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	did2 "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/key"
+	"github.com/trustbloc/vcs/pkg/kms/key"
 )
 
 type keyCreator struct {
@@ -45,7 +45,7 @@ func (k *keyCreator) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, 
 
 func TestPublicDID(t *testing.T) {
 	t.Run("fails if method is not supported", func(t *testing.T) {
-		creator := did2.New(&did2.Config{})
+		creator := did2.NewCreator(&did2.CreatorConfig{})
 		_, err := creator.PublicDID("unsupported", "jsonwebsignature2020", kms.ED25519Type,
 			&keyCreator{
 				KMS: newKMS(t),
@@ -57,7 +57,7 @@ func TestPublicDID(t *testing.T) {
 	t.Run("did:trustbloc", func(t *testing.T) {
 		t.Run("creates DID", func(t *testing.T) {
 			expected := newDIDDoc()
-			creator := did2.New(&did2.Config{
+			creator := did2.NewCreator(&did2.CreatorConfig{
 				VDR: &vdr2.MockVDRegistry{CreateValue: expected},
 			})
 
@@ -74,7 +74,7 @@ func TestPublicDID(t *testing.T) {
 
 		t.Run("fails if JWKKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
-			creator := did2.New(&did2.Config{})
+			creator := did2.NewCreator(&did2.CreatorConfig{})
 			_, err := creator.PublicDID(orb.DIDMethod,
 				"jsonwebsignature2020", kms.ED25519Type,
 				&keyCreator{
@@ -86,7 +86,7 @@ func TestPublicDID(t *testing.T) {
 
 		t.Run("fails if CryptoKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
-			creator := did2.New(&did2.Config{
+			creator := did2.NewCreator(&did2.CreatorConfig{
 				VDR: newVDR(t, newDIDDoc(), nil),
 			})
 			_, err := creator.PublicDID(orb.DIDMethod,
@@ -101,7 +101,7 @@ func TestPublicDID(t *testing.T) {
 
 		t.Run("fails if VDR cannot create DID", func(t *testing.T) {
 			expected := errors.New("test")
-			creator := did2.New(&did2.Config{
+			creator := did2.NewCreator(&did2.CreatorConfig{
 				VDR: &vdr2.MockVDRegistry{CreateErr: expected},
 			})
 			_, err := creator.PublicDID(
@@ -118,7 +118,7 @@ func TestPublicDID(t *testing.T) {
 
 	t.Run("did:key", func(t *testing.T) {
 		t.Run("creates DID", func(t *testing.T) {
-			creator := did2.New(&did2.Config{
+			creator := did2.NewCreator(&did2.CreatorConfig{
 				VDR: vdr.New(vdr.WithVDR(keymethod.New())),
 			})
 			result, err := creator.PublicDID(keymethod.DIDMethod,
@@ -134,7 +134,7 @@ func TestPublicDID(t *testing.T) {
 
 		t.Run("fails if JWKKeyCreator cannot create keys", func(t *testing.T) {
 			expected := errors.New("test")
-			creator := did2.New(&did2.Config{})
+			creator := did2.NewCreator(&did2.CreatorConfig{})
 			_, err := creator.PublicDID(keymethod.DIDMethod, "JsonWebKey2020", kms.ED25519Type,
 				&keyCreator{
 					KMS:           newKMS(t),
@@ -146,7 +146,7 @@ func TestPublicDID(t *testing.T) {
 
 	t.Run("did:web", func(t *testing.T) {
 		t.Run("creates DID", func(t *testing.T) {
-			creator := did2.New(&did2.Config{
+			creator := did2.NewCreator(&did2.CreatorConfig{
 				VDR: vdr.New(vdr.WithVDR(keymethod.New())),
 			})
 			result, err := creator.PublicDID("web",

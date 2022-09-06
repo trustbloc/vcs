@@ -10,27 +10,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 )
 
-func TestProfileStore_ValidateVCFormat(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		err := vc.ValidateVCFormat("jwt_vc")
-		require.NoError(t, err)
-
-		err = vc.ValidateVCFormat("ldp_vc")
-		require.NoError(t, err)
-	})
-
-	t.Run("Fail", func(t *testing.T) {
-		err := vc.ValidateVCFormat("fail")
-		require.Error(t, err)
-	})
-}
-
 func TestProfileStore_ValidateVCSignatureAlgorithm(t *testing.T) {
+	supportedKeyTypes := []kms.KeyType{
+		kms.ED25519Type,
+		kms.X25519ECDHKWType,
+		kms.ECDSASecp256k1TypeIEEEP1363,
+		kms.ECDSAP256TypeDER,
+		kms.ECDSAP384TypeDER,
+		kms.RSAPS256Type,
+		kms.BLS12381G2Type,
+	}
+
 	t.Run("Success", func(t *testing.T) {
 		validSignatureTypes := []string{"EdDSA",
 			"ES256k",
@@ -40,7 +36,7 @@ func TestProfileStore_ValidateVCSignatureAlgorithm(t *testing.T) {
 		}
 
 		for _, sigType := range validSignatureTypes {
-			stype, err := vc.ValidateVCSignatureAlgorithm("jwt_vc", sigType)
+			stype, err := vc.ValidateVCSignatureAlgorithm("jwt_vc", sigType, supportedKeyTypes)
 			require.NoError(t, err)
 			require.Equal(t, strings.ToLower(sigType), strings.ToLower(stype.Name()))
 		}
@@ -54,19 +50,19 @@ func TestProfileStore_ValidateVCSignatureAlgorithm(t *testing.T) {
 		}
 
 		for _, sigType := range validSignatureTypes {
-			stype, err := vc.ValidateVCSignatureAlgorithm("ldp_vc", sigType)
+			stype, err := vc.ValidateVCSignatureAlgorithm("ldp_vc", sigType, supportedKeyTypes)
 			require.NoError(t, err)
 			require.Equal(t, sigType, stype.Name())
 		}
 	})
 
 	t.Run("Fail", func(t *testing.T) {
-		_, err := vc.ValidateVCSignatureAlgorithm("fail", "fail")
+		_, err := vc.ValidateVCSignatureAlgorithm("fail", "fail", supportedKeyTypes)
 		require.Error(t, err)
 	})
 
 	t.Run("Fail 2", func(t *testing.T) {
-		_, err := vc.ValidateVCSignatureAlgorithm("ldp_vc", "fail")
+		_, err := vc.ValidateVCSignatureAlgorithm("ldp_vc", "fail", supportedKeyTypes)
 		require.Error(t, err)
 	})
 }

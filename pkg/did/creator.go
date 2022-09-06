@@ -15,10 +15,16 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 )
 
+type Method string
+
 const (
-	webDIDMethod = "web"
+	WebDIDMethod Method = "web"
+	KeyDIDMethod Method = key.DIDMethod
+	OrbDIDMethod Method = orb.DIDMethod
 )
 
 // CreateResult contains created did, update and recovery keys.
@@ -30,7 +36,7 @@ type CreateResult struct {
 
 // Creator service used to create public DID.
 type Creator struct {
-	config *Config
+	config *CreatorConfig
 }
 
 // KeysCreator create keys for DID creation process.
@@ -39,26 +45,27 @@ type KeysCreator interface {
 	CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error)
 }
 
-// Config configures PublicDID.
-type Config struct {
+// CreatorConfig configures PublicDID.
+type CreatorConfig struct {
 	VDR             vdr.Registry
 	DIDAnchorOrigin string
 }
 
-// New creates Creator.
-func New(config *Config) *Creator {
+// NewCreator creates Creator.
+func NewCreator(config *CreatorConfig) *Creator {
 	return &Creator{
 		config: config,
 	}
 }
 
 // PublicDID creates a new public DID given a key manager.
-func (c *Creator) PublicDID(method, verificationMethodType string, keyType kms.KeyType,
+func (c *Creator) PublicDID(method Method, verificationMethodType vc.SignatureType, keyType kms.KeyType,
 	km KeysCreator) (*CreateResult, error) {
-	methods := map[string]func(verificationMethodType string, keyType kms.KeyType, km KeysCreator) (*CreateResult, error){
-		key.DIDMethod: c.keyDID,
-		orb.DIDMethod: c.createDID,
-		webDIDMethod:  c.webDID,
+	methods := map[Method]func(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+		km KeysCreator) (*CreateResult, error){
+		KeyDIDMethod: c.keyDID,
+		OrbDIDMethod: c.createDID,
+		WebDIDMethod: c.webDID,
 	}
 
 	methodFn, supported := methods[method]
@@ -69,7 +76,8 @@ func (c *Creator) PublicDID(method, verificationMethodType string, keyType kms.K
 	return methodFn(verificationMethodType, keyType, km)
 }
 
-func (c *Creator) createDID(verificationMethodType string, keyType kms.KeyType, km KeysCreator) (*CreateResult, error) {
+func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+	km KeysCreator) (*CreateResult, error) {
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -111,7 +119,6 @@ func (c *Creator) createDID(verificationMethodType string, keyType kms.KeyType, 
 	updateKey, updateURL := keys[0], keyURLs[0]
 	recoveryKey, recoveryURL := keys[1], keyURLs[1]
 
-	// TODO what to do with updateKey and recoveryKey... ?
 	didResolution, err := c.config.VDR.Create(
 		orb.DIDMethod,
 		doc,
@@ -131,7 +138,8 @@ func (c *Creator) createDID(verificationMethodType string, keyType kms.KeyType, 
 	}, nil
 }
 
-func (c *Creator) keyDID(verificationMethodType string, keyType kms.KeyType, km KeysCreator) (*CreateResult, error) {
+func (c *Creator) keyDID(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+	km KeysCreator) (*CreateResult, error) {
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -153,12 +161,13 @@ func (c *Creator) keyDID(verificationMethodType string, keyType kms.KeyType, km 
 	}, nil
 }
 
-func (c *Creator) webDID(verificationMethodType string, keyType kms.KeyType, km KeysCreator) (*CreateResult, error) {
+func (c *Creator) webDID(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+	km KeysCreator) (*CreateResult, error) {
 	return nil, fmt.Errorf("did web method currently not supported, add support in future")
 }
 
 func newVerMethods(
-	count int, km KeysCreator, verMethodType string, keyType kms.KeyType) ([]*did.VerificationMethod, error) {
+	count int, km KeysCreator, verMethodType vc.SignatureType, keyType kms.KeyType) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 
 	for i := 0; i < count; i++ {
@@ -170,7 +179,7 @@ func newVerMethods(
 		// TODO sidetree doesn't support VM controller: https://github.com/decentralized-identity/sidetree/issues/1010
 		vm, err := did.NewVerificationMethodFromJWK(
 			keyID,
-			verMethodType,
+			string(verMethodType),
 			"",
 			j,
 		)

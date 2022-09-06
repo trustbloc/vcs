@@ -11,11 +11,18 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Defines values for KMSConfigType.
+const (
+	KMSConfigTypeAws   KMSConfigType = "aws"
+	KMSConfigTypeLocal KMSConfigType = "local"
+	KMSConfigTypeWeb   KMSConfigType = "web"
+)
+
 // Defines values for VCConfigDidMethod.
 const (
-	Key VCConfigDidMethod = "key"
-	Orb VCConfigDidMethod = "orb"
-	Web VCConfigDidMethod = "web"
+	VCConfigDidMethodKey VCConfigDidMethod = "key"
+	VCConfigDidMethodOrb VCConfigDidMethod = "orb"
+	VCConfigDidMethodWeb VCConfigDidMethod = "web"
 )
 
 // Defines values for VCConfigFormat.
@@ -24,15 +31,12 @@ const (
 	LdpVc VCConfigFormat = "ldp_vc"
 )
 
-// Defines values for VCConfigStatus.
-const (
-	StatusList2021 VCConfigStatus = "StatusList2021"
-)
-
 // Model for creating issuer profile.
 type CreateIssuerProfileData struct {
-	// KMS configuration.
-	KmsConfig *map[string]interface{} `json:"kmsConfig,omitempty"`
+	CredentialManifests *[]map[string]interface{} `json:"credentialManifests,omitempty"`
+
+	// Model for KMS configuration.
+	KmsConfig *KMSConfig `json:"kmsConfig,omitempty"`
 
 	// Issuer’s display name.
 	Name string `json:"name"`
@@ -53,13 +57,14 @@ type CreateIssuerProfileData struct {
 // Model for issuer profile.
 type IssuerProfile struct {
 	// Is profile active? Can be modified using disable/enable profile endpoints.
-	Active bool `json:"active"`
+	Active              bool                      `json:"active"`
+	CredentialManifests *[]map[string]interface{} `json:"credentialManifests,omitempty"`
 
 	// Short unique string across the VCS platform, to be used as a reference to this profile.
 	Id string `json:"id"`
 
-	// KMS configuration.
-	KmsConfig *map[string]interface{} `json:"kmsConfig,omitempty"`
+	// Model for KMS configuration.
+	KmsConfig *KMSConfig `json:"kmsConfig,omitempty"`
 
 	// Issuer’s display name.
 	Name string `json:"name"`
@@ -77,25 +82,40 @@ type IssuerProfile struct {
 	VcConfig VCConfig `json:"vcConfig"`
 }
 
+// Model for KMS configuration.
+type KMSConfig struct {
+	// Prefix of database used by local kms.
+	DbPrefix *string `json:"dbPrefix,omitempty"`
+
+	// Type of database used by local kms.
+	DbType *string `json:"dbType,omitempty"`
+
+	// URL to database used by local kms.
+	DbURL *string `json:"dbURL,omitempty"`
+
+	// KMS endpoint.
+	Endpoint *string `json:"endpoint,omitempty"`
+
+	// Path to secret lock used by local kms.
+	SecretLockKeyPath *string `json:"secretLockKeyPath,omitempty"`
+
+	// Type of kms used to create and store DID keys.
+	Type KMSConfigType `json:"type"`
+}
+
+// Type of kms used to create and store DID keys.
+type KMSConfigType string
+
 // Model for updating issuer profile data.
 type UpdateIssuerProfileData struct {
-	// KMS configuration.
-	KmsConfig *map[string]interface{} `json:"kmsConfig,omitempty"`
-
 	// Issuer’s display name.
-	Name string `json:"name"`
+	Name *string `json:"name,omitempty"`
 
 	// Configuration for OIDC4VC credential interaction operations.
 	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
 
-	// Unique identifier of the organization.
-	OrganizationID *string `json:"organizationID,omitempty"`
-
 	// URI of the issuer, Refer issuer from VC data model.
 	Url *string `json:"url,omitempty"`
-
-	// Model for VC configuration.
-	VcConfig *VCConfig `json:"vcConfig,omitempty"`
 }
 
 // Model for VC configuration.
@@ -109,6 +129,9 @@ type VCConfig struct {
 	// Supported VC formats.
 	Format VCConfigFormat `json:"format"`
 
+	// Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
+	KeyType *string `json:"keyType,omitempty"`
+
 	// List of supported cryptographic signing algorithms.
 	SigningAlgorithm string `json:"signingAlgorithm"`
 
@@ -116,7 +139,7 @@ type VCConfig struct {
 	SigningDID string `json:"signingDID"`
 
 	// Credential status type allowed for the profile.
-	Status *VCConfigStatus `json:"status,omitempty"`
+	Status *map[string]interface{} `json:"status,omitempty"`
 }
 
 // DID method of the DID to be used for signing.
@@ -124,9 +147,6 @@ type VCConfigDidMethod string
 
 // Supported VC formats.
 type VCConfigFormat string
-
-// Credential status type allowed for the profile.
-type VCConfigStatus string
 
 // PostIssuerProfilesJSONBody defines parameters for PostIssuerProfiles.
 type PostIssuerProfilesJSONBody = CreateIssuerProfileData

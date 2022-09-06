@@ -151,8 +151,9 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
 		"--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeCouchDBOption, "--" + kmsSecretsDatabaseURLFlagName,
-		"badURL",
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeCouchDBOption,
+		"--" + kmsSecretsDatabaseURLFlagName, "badURL",
+		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
 	}
 	startCmd.SetArgs(args)
 
@@ -177,6 +178,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
 		"--" + contextEnableRemoteFlagName, "true",
+		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
 	}
 	startCmd.SetArgs(args)
 
@@ -200,6 +202,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
 		"--" + useEchoHandlerFlagName, "true",
+		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
 	}
 	startCmd.SetArgs(args)
 
@@ -510,6 +513,9 @@ func setEnvVars(t *testing.T, databaseType string) {
 	require.NoError(t, err)
 
 	err = os.Setenv(kmsSecretsDatabaseTypeEnvKey, databaseTypeMemOption)
+	require.NoError(t, err)
+
+	err = os.Setenv(secretLockKeyPathEnvKey, "testSecretLock.key")
 	require.NoError(t, err)
 }
 

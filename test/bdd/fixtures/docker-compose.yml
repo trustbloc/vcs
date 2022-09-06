@@ -20,6 +20,7 @@ services:
       - KMSSECRETS_DATABASE_TYPE=mongodb
       - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
       - KMSSECRETS_DATABASE_PREFIX=issuer_
+      - VC_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - VC_REST_MODE=issuer
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
@@ -50,6 +51,7 @@ services:
       - KMSSECRETS_DATABASE_TYPE=mongodb
       - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
       - KMSSECRETS_DATABASE_PREFIX=verifier_
+      - VC_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - VC_REST_MODE=verifier
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_API_TOKEN=rw_token
@@ -79,6 +81,7 @@ services:
       - KMSSECRETS_DATABASE_TYPE=mongodb
       - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
       - KMSSECRETS_DATABASE_PREFIX=holder_
+      - VC_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - VC_REST_MODE=holder
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
@@ -105,6 +108,7 @@ services:
       - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
       - DATABASE_TYPE=mem
       - KMSSECRETS_DATABASE_TYPE=mem
+      - VC_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
     ports:
@@ -128,6 +132,7 @@ services:
       - KMSSECRETS_DATABASE_TYPE=mongodb
       - KMSSECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
       - KMSSECRETS_DATABASE_PREFIX=vc_rest_echo_
+      - VC_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token

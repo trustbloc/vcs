@@ -336,8 +336,11 @@ components:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
         kmsConfig:
-          type: object
-          description: KMS configuration.
+          $ref: '#/components/schemas/KMSConfig'
+        credentialManifests:
+          type: array
+          items:
+            type: object
       required:
         - id
         - name
@@ -367,8 +370,11 @@ components:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
         kmsConfig:
-          type: object
-          description: KMS configuration.
+          $ref: '#/components/schemas/KMSConfig'
+        credentialManifests:
+          type: array
+          items:
+            type: object
       required:
         - name
         - url
@@ -387,19 +393,9 @@ components:
         url:
           type: string
           description: 'URI of the issuer, Refer issuer from VC data model.'
-        organizationID:
-          type: string
-          description: Unique identifier of the organization.
-        vcConfig:
-          $ref: '#/components/schemas/VCConfig'
         oidcConfig:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
-        kmsConfig:
-          type: object
-          description: KMS configuration.
-      required:
-        - name
     VCConfig:
       title: VCConfig
       x-tags:
@@ -416,6 +412,9 @@ components:
         signingAlgorithm:
           type: string
           description: List of supported cryptographic signing algorithms.
+        keyType:
+          type: string
+          description: Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
         didMethod:
           type: string
           description: DID method of the DID to be used for signing.
@@ -427,10 +426,8 @@ components:
           type: string
           description: DID to be used for signing.
         status:
-          type: string
+          type: object
           description: Credential status type allowed for the profile.
-          enum:
-            - StatusList2021
         contexts:
           type: array
           description: 'Additional JSON-LD contexts the profile is going to use on top of standard W3C verifiable credential contexts and VCS contexts (status, signature suite, etc).'
@@ -441,6 +438,39 @@ components:
         - signingAlgorithm
         - didMethod
         - signingDID
+    KMSConfig:
+      title: KMSConfig
+      x-tags:
+        - issuer
+      type: object
+      description: Model for KMS configuration.
+      properties:
+        type:
+          type: string
+          description: Type of kms used to create and store DID keys.
+          enum:
+            - local
+            - web
+            - aws
+        endpoint:
+          type: string
+          description: KMS endpoint.
+        secretLockKeyPath:
+          type: string
+          description: Path to secret lock used by local kms.
+        dbType:
+          type: string
+          description: Type of database used by local kms.
+
+        dbURL:
+          type: string
+          description: URL to database used by local kms.
+
+        dbPrefix:
+          type: string
+          description: Prefix of database used by local kms.
+      required:
+        - type
     VerifierProfile:
       title: VerifierProfile
       x-tags:

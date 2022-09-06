@@ -4,11 +4,12 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination profile_mocks_test.go -self_package mocks -package issuer_test -source=profile.go -mock_names profileStore=MockProfileStore,didCreator=MockDIDCreator
+//go:generate mockgen -destination profile_mocks_test.go -self_package mocks -package issuer_test -source=profile.go -mock_names profileStore=MockProfileStore,didCreator=MockDIDCreator,kmsRegistry=MockKMSRegistry
 
 package issuer
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
@@ -16,51 +17,40 @@ import (
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 )
 
 type ProfileID = string
 
 // Profile verifier profile.
 type Profile struct {
-	ID             ProfileID   `json:"id"`
-	Name           string      `json:"name,omitempty"`
-	URL            string      `json:"url,omitempty"`
-	Active         bool        `json:"active"`
-	Checks         interface{} `json:"checks"`
-	OIDCConfig     interface{} `json:"oidcConfig"`
-	OrganizationID string      `json:"organizationID"`
-	VCConfig       *VCConfig   `json:"vcConfig"`
-	KMSConfig      *KMSConfig  `json:"kmsConfig"`
+	ID             ProfileID      `json:"id"`
+	Name           string         `json:"name,omitempty"`
+	URL            string         `json:"url,omitempty"`
+	Active         bool           `json:"active"`
+	OIDCConfig     interface{}    `json:"oidcConfig"`
+	OrganizationID string         `json:"organizationID"`
+	VCConfig       *VCConfig      `json:"vcConfig"`
+	KMSConfig      *vcskms.Config `json:"kmsConfig"`
 }
 
 // ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update api.
 type ProfileUpdate struct {
-	ID         ProfileID   `json:"id"`
-	Name       string      `json:"name,omitempty"`
-	URL        string      `json:"url,omitempty"`
-	Checks     interface{} `json:"checks"`
-	OIDCConfig interface{} `json:"oidcConfig"`
-	KMSConfig  *KMSConfig  `json:"kmsConfig"`
-}
-
-// KMSConfig configure kms that stores signing keys.
-type KMSConfig struct {
-	KMSType           string `json:"type"`
-	Endpoint          string `json:"endpoint"`
-	SecretLockKeyPath string `json:"secretLockKeyPath"`
-	DBType            string `json:"dbType"`
-	DBURL             string `json:"dbURL"`
-	DBPrefix          string `json:"dbPrefix"`
+	ID         ProfileID      `json:"id"`
+	Name       string         `json:"name,omitempty"`
+	URL        string         `json:"url,omitempty"`
+	OIDCConfig interface{}    `json:"oidcConfig"`
+	KMSConfig  *vcskms.Config `json:"kmsConfig"`
 }
 
 // VCConfig describes how to sign verifiable credentials.
 type VCConfig struct {
-	Format           string      `json:"format"`
-	SigningAlgorithm string      `json:"signingAlgorithm"`
-	KeyType          string      `json:"keyType,omitempty"`
-	DIDMethod        string      `json:"didMethod"`
-	Status           interface{} `json:"status"`
-	Context          []string    `json:"context"`
+	Format           vc.Format         `json:"format"`
+	SigningAlgorithm vc.SignatureType  `json:"signingAlgorithm"`
+	KeyType          kms.KeyType       `json:"keyType,omitempty"`
+	DIDMethod        didcreator.Method `json:"didMethod"`
+	Status           interface{}       `json:"status"`
+	Context          []string          `json:"context"`
 }
 
 // SigningDID contains information about profile signing did.
@@ -82,23 +72,29 @@ type profileStore interface {
 }
 
 type didCreator interface {
-	PublicDID(method, verificationMethodType string, keyType kms.KeyType,
+	PublicDID(method didcreator.Method, verificationMethodType vc.SignatureType, keyType kms.KeyType,
 		kc didcreator.KeysCreator) (*didcreator.CreateResult, error)
+}
+
+type kmsRegistry interface {
+	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
 }
 
 // ServiceConfig configure issuer.Service.
 type ServiceConfig struct {
 	ProfileStore profileStore
 	DIDCreator   didCreator
-
-	KeysCreator func(config *KMSConfig) (didcreator.KeysCreator, error)
+	KMSRegistry  kmsRegistry
 }
+
+var ErrProfileNameDuplication = errors.New("profile with same name already exists")
+var ErrDataNotFound = errors.New("data not found")
 
 // ProfileService manages verifier profile.
 type ProfileService struct {
 	store       profileStore
 	didCreator  didCreator
-	keysCreator func(config *KMSConfig) (didcreator.KeysCreator, error)
+	kmsRegistry kmsRegistry
 }
 
 // NewProfileService creates ProfileService.
@@ -106,33 +102,24 @@ func NewProfileService(config *ServiceConfig) *ProfileService {
 	return &ProfileService{
 		store:       config.ProfileStore,
 		didCreator:  config.DIDCreator,
-		keysCreator: config.KeysCreator,
+		kmsRegistry: config.KMSRegistry,
 	}
 }
 
 // Create creates and returns profile.
-func (p *ProfileService) Create(profile *Profile, credentialManifests []*cm.CredentialManifest) (*Profile, error) {
+func (p *ProfileService) Create(profile *Profile,
+	credentialManifests []*cm.CredentialManifest) (*Profile, *SigningDID, error) {
 	profile.Active = true
 
-	signingAlgorithm, err := vc.ValidateVCSignatureAlgorithm(profile.VCConfig.Format, profile.VCConfig.SigningAlgorithm)
+	keyCreator, err := p.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
-		return nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
-	}
-
-	keyType, err := vc.ValidateSignatureKeyType(signingAlgorithm, profile.VCConfig.KeyType)
-	if err != nil {
-		return nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
-	}
-
-	kms, err := p.keysCreator(profile.KMSConfig)
-	if err != nil {
-		return nil, fmt.Errorf("issuer profile service: create profile failed: get kms %w", err)
+		return nil, nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
 	}
 
 	createResult, err := p.didCreator.PublicDID(profile.VCConfig.DIDMethod,
-		profile.VCConfig.SigningAlgorithm, keyType, kms)
+		profile.VCConfig.SigningAlgorithm, profile.VCConfig.KeyType, keyCreator)
 	if err != nil {
-		return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
+		return nil, nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 	}
 
 	id, err := p.store.Create(profile, &SigningDID{
@@ -141,30 +128,25 @@ func (p *ProfileService) Create(profile *Profile, credentialManifests []*cm.Cred
 		RecoveryKeyURL: createResult.RecoveryKeyURL,
 	}, credentialManifests)
 	if err != nil {
-		return nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
+		return nil, nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
 	}
 
-	created, _, err := p.store.Find(id)
+	created, signingDID, err := p.store.Find(id)
 	if err != nil {
-		return nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
+		return nil, nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
 	}
 
-	return created, nil
+	return created, signingDID, nil
 }
 
 // Update updates unprotected files with nonempty fields from ProfileUpdate.
-func (p *ProfileService) Update(profile *ProfileUpdate) (*Profile, error) {
+func (p *ProfileService) Update(profile *ProfileUpdate) error {
 	err := p.store.Update(profile)
 	if err != nil {
-		return nil, fmt.Errorf("profile service: update profile failed %w", err)
+		return fmt.Errorf("profile service: update profile failed %w", err)
 	}
 
-	updated, _, err := p.store.Find(profile.ID)
-	if err != nil {
-		return nil, fmt.Errorf("profile service: create profile failed %w", err)
-	}
-
-	return updated, nil
+	return nil
 }
 
 // Delete deletes profile with given id.
@@ -198,13 +180,13 @@ func (p *ProfileService) DeactivateProfile(profileID ProfileID) error {
 }
 
 // GetProfile returns profile with given id.
-func (p *ProfileService) GetProfile(profileID ProfileID) (*Profile, error) {
-	profile, _, err := p.store.Find(profileID)
+func (p *ProfileService) GetProfile(profileID ProfileID) (*Profile, *SigningDID, error) {
+	profile, signingDID, err := p.store.Find(profileID)
 	if err != nil {
-		return nil, fmt.Errorf("profile service: get profile failed %w", err)
+		return nil, signingDID, fmt.Errorf("profile service: get profile failed %w", err)
 	}
 
-	return profile, nil
+	return profile, signingDID, nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.

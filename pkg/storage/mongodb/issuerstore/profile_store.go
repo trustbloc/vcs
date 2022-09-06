@@ -11,11 +11,15 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	didcreator "github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/issuer"
+	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -25,8 +29,6 @@ const (
 	credentialManifestCollection = "credential_manifest"
 )
 
-var ErrDataNotFound = errors.New("data not found")
-
 type profileUpdateDocument struct {
 	Name       string      `bson:"name,omitempty"`
 	URL        string      `bson:"url,omitempty"`
@@ -35,21 +37,21 @@ type profileUpdateDocument struct {
 }
 
 type vcConfigDocument struct {
-	Format           string      `bson:"format"`
-	SigningAlgorithm string      `bson:"signingAlgorithm"`
-	KeyType          string      `bson:"keyType,omitempty"`
-	DIDMethod        string      `bson:"didMethod"`
-	Status           interface{} `bson:"status"`
-	Context          []string    `bson:"context"`
+	Format           vc.Format         `bson:"format"`
+	SigningAlgorithm vc.SignatureType  `bson:"signingAlgorithm"`
+	KeyType          arieskms.KeyType  `bson:"keyType,omitempty"`
+	DIDMethod        didcreator.Method `bson:"didMethod"`
+	Status           interface{}       `bson:"status"`
+	Context          []string          `bson:"context"`
 }
 
 type kmsConfigDocument struct {
-	KMSType           string `bson:"type"`
-	Endpoint          string `bson:"endpoint"`
-	SecretLockKeyPath string `bson:"secretLockKeyPath"`
-	DBType            string `bson:"dbType"`
-	DBURL             string `bson:"dbURL"`
-	DBPrefix          string `bson:"dbPrefix"`
+	KMSType           kms.Type `bson:"type"`
+	Endpoint          string   `bson:"endpoint"`
+	SecretLockKeyPath string   `bson:"secretLockKeyPath"`
+	DBType            string   `bson:"dbType"`
+	DBURL             string   `bson:"dbURL"`
+	DBPrefix          string   `bson:"dbPrefix"`
 }
 
 type signingDIDDocument struct {
@@ -63,7 +65,6 @@ type profileDocument struct {
 	Name           string              `bson:"name"`
 	URL            string              `bson:"url"`
 	Active         bool                `bson:"active"`
-	Checks         interface{}         `bson:"checks"`
 	OIDCConfig     interface{}         `bson:"oidcConfig"`
 	OrganizationID string              `bson:"organizationId"`
 	VCConfig       *vcConfigDocument   `bson:"vcConfig"`
@@ -239,7 +240,7 @@ func (p *ProfileStore) Find(strID issuer.ProfileID) (*issuer.Profile, *issuer.Si
 	err = collection.FindOne(ctxWithTimeout, bson.M{"_id": id}).Decode(profileDoc)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, nil, ErrDataNotFound
+		return nil, nil, issuer.ErrDataNotFound
 	}
 
 	if err != nil {
@@ -345,7 +346,6 @@ func profileToDocument(profile *issuer.Profile, signingDID *issuer.SigningDID) (
 		Name:           profile.Name,
 		URL:            profile.URL,
 		Active:         profile.Active,
-		Checks:         profile.Checks,
 		OIDCConfig:     profile.OIDCConfig,
 		OrganizationID: profile.OrganizationID,
 		VCConfig:       vcConfigToDocument(profile.VCConfig),
@@ -358,7 +358,6 @@ func profileUpdateDoc(profile *issuer.ProfileUpdate) *profileUpdateDocument {
 	return &profileUpdateDocument{
 		Name:       profile.Name,
 		URL:        profile.URL,
-		Checks:     profile.Checks,
 		OIDCConfig: profile.OIDCConfig,
 	}
 }
@@ -369,7 +368,6 @@ func profileFromDocument(profileDoc *profileDocument) (*issuer.Profile, *issuer.
 		Name:           profileDoc.Name,
 		URL:            profileDoc.URL,
 		Active:         profileDoc.Active,
-		Checks:         profileDoc.Checks,
 		OIDCConfig:     profileDoc.OIDCConfig,
 		OrganizationID: profileDoc.OrganizationID,
 		VCConfig:       vcConfigFromDocument(profileDoc.VCConfig),
@@ -377,7 +375,7 @@ func profileFromDocument(profileDoc *profileDocument) (*issuer.Profile, *issuer.
 	}, signingDIDFromDocument(profileDoc.SigningDID)
 }
 
-func kmsConfigToDocument(kmsConfig *issuer.KMSConfig) *kmsConfigDocument {
+func kmsConfigToDocument(kmsConfig *kms.Config) *kmsConfigDocument {
 	return &kmsConfigDocument{
 		KMSType:           kmsConfig.KMSType,
 		Endpoint:          kmsConfig.Endpoint,
@@ -388,8 +386,8 @@ func kmsConfigToDocument(kmsConfig *issuer.KMSConfig) *kmsConfigDocument {
 	}
 }
 
-func kmsConfigFromDocument(kmsConfig *kmsConfigDocument) *issuer.KMSConfig {
-	return &issuer.KMSConfig{
+func kmsConfigFromDocument(kmsConfig *kmsConfigDocument) *kms.Config {
+	return &kms.Config{
 		KMSType:           kmsConfig.KMSType,
 		Endpoint:          kmsConfig.Endpoint,
 		SecretLockKeyPath: kmsConfig.SecretLockKeyPath,
