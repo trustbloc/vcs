@@ -23,6 +23,7 @@ import (
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	"github.com/trustbloc/vcs/test/bdd/pkg/holder"
 	"github.com/trustbloc/vcs/test/bdd/pkg/issuer"
+	v1issuer "github.com/trustbloc/vcs/test/bdd/pkg/v1/issuer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/vc"
 	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
 	"github.com/trustbloc/vcs/test/bdd/pkg/verifier"
@@ -88,6 +89,10 @@ func initializeTestSuite(ctx *godog.TestSuiteContext) {
 }
 
 func beforeSuiteHook() {
+	if os.Getenv("DISABLE_COMPOSE") == "true" {
+		return
+	}
+
 	dockerComposeUp := []string{"docker-compose", "-f", composeFilePath, "up", "--force-recreate", "-d"}
 
 	logger.Infof("Running %s", strings.Join(dockerComposeUp, " "))
@@ -113,6 +118,10 @@ func beforeSuiteHook() {
 }
 
 func afterSuiteHook() {
+	if os.Getenv("DISABLE_COMPOSE") == "true" {
+		return
+	}
+
 	dockerComposeDown := []string{"docker-compose", "-f", composeFilePath, "down"}
 
 	logger.Infof("Running %s", strings.Join(dockerComposeDown, " "))
@@ -138,6 +147,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 		common.NewSteps(bddContext),
 		vc.NewSteps(bddContext),
 		issuer.NewSteps(bddContext),
+		v1issuer.NewSteps(bddContext),
 		verifier.NewSteps(bddContext),
 		holder.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),

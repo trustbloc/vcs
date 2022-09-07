@@ -161,7 +161,10 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)
 	issuerProfileSvc := issuersvc.NewProfileService(&issuersvc.ServiceConfig{
 		ProfileStore: issuerProfileStore,
-		DIDCreator:   did.NewCreator(&did.CreatorConfig{}),
+		DIDCreator:   did.NewCreator(&did.CreatorConfig{
+			VDR:             conf.VDR,
+			DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
+		}),
 		KMSRegistry:  kmsRegistry,
 	})
 

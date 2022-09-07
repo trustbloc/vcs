@@ -39,8 +39,16 @@ const (
 
 	// Ed25519VerificationKey2018 ed25119 verification key.
 	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
+	// Ed25519VerificationKey2020 ed25119 verification key.
+	Ed25519VerificationKey2020 = "Ed25519VerificationKey2020"
 	// JSONWebKey2020 type.
 	JSONWebKey2020 = "JsonWebKey2020"
+
+	// EcdsaSecp256k1VerificationKey2019 type.
+	EcdsaSecp256k1VerificationKey2019 = "EcdsaSecp256k1VerificationKey2019"
+
+	// Bls12381G1Key2020 type.
+	Bls12381G1Key2020 = "Bls12381G1Key2020"
 )
 
 const (

@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	did2 "github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/key"
 )
 
@@ -122,7 +123,7 @@ func TestPublicDID(t *testing.T) {
 				VDR: vdr.New(vdr.WithVDR(keymethod.New())),
 			})
 			result, err := creator.PublicDID(keymethod.DIDMethod,
-				"JsonWebKey2020", kms.ED25519Type, // TODO the verification method type is probably ignored by did:key
+				vc.JSONWebSignature2020, kms.ED25519Type, // TODO the verification method type is probably ignored by did:key
 				&keyCreator{
 					KMS:              newKMS(t),
 					JWKKeyCreator:    key.JWKKeyCreator,

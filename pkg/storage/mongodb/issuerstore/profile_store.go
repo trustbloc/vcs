@@ -124,9 +124,11 @@ func (p *ProfileStore) Create(profile *issuer.Profile, signingDID *issuer.Signin
 		})
 	}
 
-	_, err = cmCollection.InsertMany(ctxWithTimeout, credentialManifestsDocs)
-	if err != nil {
-		return "", err
+	if len(credentialManifestsDocs) > 0 {
+		_, err = cmCollection.InsertMany(ctxWithTimeout, credentialManifestsDocs)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	return profileID.Hex(), nil
@@ -210,14 +212,10 @@ func (p *ProfileStore) Delete(profileID issuer.ProfileID) error {
 	cmCollection := p.mongoClient.Database().Collection(credentialManifestCollection)
 
 	//nolint: govet
-	result, err = cmCollection.DeleteMany(ctxWithTimeout,
+	_, err = cmCollection.DeleteMany(ctxWithTimeout,
 		bson.D{{"profile", id}})
 	if err != nil {
 		return err
-	}
-
-	if result.DeletedCount == 0 {
-		return fmt.Errorf("credential manifest with given profile id not found")
 	}
 
 	return nil
@@ -376,6 +374,10 @@ func profileFromDocument(profileDoc *profileDocument) (*issuer.Profile, *issuer.
 }
 
 func kmsConfigToDocument(kmsConfig *kms.Config) *kmsConfigDocument {
+	if kmsConfig == nil {
+		return nil
+	}
+
 	return &kmsConfigDocument{
 		KMSType:           kmsConfig.KMSType,
 		Endpoint:          kmsConfig.Endpoint,
@@ -387,6 +389,10 @@ func kmsConfigToDocument(kmsConfig *kms.Config) *kmsConfigDocument {
 }
 
 func kmsConfigFromDocument(kmsConfig *kmsConfigDocument) *kms.Config {
+	if kmsConfig == nil {
+		return nil
+	}
+
 	return &kms.Config{
 		KMSType:           kmsConfig.KMSType,
 		Endpoint:          kmsConfig.Endpoint,
