@@ -1,5 +1,9 @@
 {
-  "url": "https://test-verifier.com",
+  "id": "{{ .ProfileID }}",
+  "name": "verifier profile",
+  "url": "https://verifier.example.com",
+  "organizationID": "org1",
+  "active": true,
   "checks": {
     "credential": {
       "proof": true,
@@ -14,8 +18,5 @@
         "jwt_vp"
       ]
     }
-  },
-  "oidcConfig": {
-    "config": "value"
   }
 }

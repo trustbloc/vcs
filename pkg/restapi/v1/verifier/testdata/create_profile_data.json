@@ -18,5 +18,8 @@
         "jwt_vp"
       ]
     }
+  },
+  "oidcConfig": {
+    "config": "value"
   }
 }

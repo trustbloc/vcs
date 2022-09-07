@@ -199,7 +199,7 @@ func TestProfileStore_Success(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = store.Find(id)
-		require.EqualError(t, err, verifierstore.ErrDataNotFound.Error())
+		require.EqualError(t, err, verifier.ErrProfileNotFound.Error())
 	})
 }
 
@@ -252,7 +252,7 @@ func TestProfileStore_Fails(t *testing.T) {
 
 	t.Run("Find not existing profile id", func(t *testing.T) {
 		_, err := store.Find("121212121212121212121212")
-		require.EqualError(t, err, verifierstore.ErrDataNotFound.Error())
+		require.EqualError(t, err, verifier.ErrProfileNotFound.Error())
 	})
 
 	t.Run("Activate invalid profile id", func(t *testing.T) {

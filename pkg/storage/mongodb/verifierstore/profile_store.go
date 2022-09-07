@@ -21,8 +21,6 @@ import (
 
 const profileCollection = "verifier_profile"
 
-var ErrDataNotFound = errors.New("data not found")
-
 type profileUpdateDocument struct {
 	Name       string              `bson:"name,omitempty"`
 	URL        string              `bson:"url,omitempty"`
@@ -181,7 +179,7 @@ func (p *ProfileStore) Find(strID verifier.ProfileID) (*verifier.Profile, error)
 	err = collection.FindOne(ctxWithTimeout, bson.M{"_id": id}).Decode(profileDoc)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, ErrDataNotFound
+		return nil, verifier.ErrProfileNotFound
 	}
 
 	if err != nil {
