@@ -94,7 +94,9 @@ func HTTPDo(method, url, contentType, token string, body io.Reader) (*http.Respo
 		return nil, err
 	}
 
-	if respContentType := resp.Header.Get("Content-Type"); respContentType != "application/json" && respContentType != "" {
+	respContentType := resp.Header.Get("Content-Type")
+
+	if !strings.HasPrefix(respContentType, "application/json") && respContentType != "" {
 		return nil, fmt.Errorf("expected content type is application/json, but got :%s", respContentType)
 	}
 

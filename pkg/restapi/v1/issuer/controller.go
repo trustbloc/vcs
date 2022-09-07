@@ -538,13 +538,15 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 		ok bool
 	)
 
-	m, ok = p.VCConfig.Status.(map[string]interface{})
-	if !ok {
-		return nil, resterr.NewSystemError(issuerProfileCtrlComponent, "TypeCast",
-			fmt.Errorf("issuer profile vc config status has invalid type"))
-	}
+	if p.VCConfig.Status != nil {
+		m, ok = p.VCConfig.Status.(map[string]interface{})
+		if !ok {
+			return nil, resterr.NewSystemError(issuerProfileCtrlComponent, "TypeCast",
+				fmt.Errorf("issuer profile vc config status has invalid type"))
+		}
 
-	profile.VcConfig.Status = &m
+		profile.VcConfig.Status = &m
+	}
 
 	if p.OIDCConfig != nil {
 		m, ok = p.OIDCConfig.(map[string]interface{})

@@ -512,6 +512,7 @@ func TestController_mapToIssuerProfile(t *testing.T) {
 		},
 		OrganizationID: "orgID1",
 		ID:             "testId",
+		OIDCConfig:     map[string]interface{}{},
 	}
 
 	signingDID := &issuer.SigningDID{
@@ -527,10 +528,27 @@ func TestController_mapToIssuerProfile(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Failed", func(t *testing.T) {
+	t.Run("Incorrect oidc type", func(t *testing.T) {
 		controller := NewController(nil, nil)
 
-		_, err := controller.mapToDIDMethod("incorrect")
+		incorrectProfile := &issuer.Profile{}
+		require.NoError(t, copier.Copy(&incorrectProfile, &correctProfile))
+
+		incorrectProfile.OIDCConfig = ""
+
+		_, err := controller.mapToIssuerProfile(incorrectProfile, signingDID)
+		require.Error(t, err)
+	})
+
+	t.Run("Incorrect Status type", func(t *testing.T) {
+		controller := NewController(nil, nil)
+
+		incorrectProfile := &issuer.Profile{}
+		require.NoError(t, copier.Copy(&incorrectProfile, &correctProfile))
+
+		incorrectProfile.VCConfig.Status = ""
+
+		_, err := controller.mapToIssuerProfile(incorrectProfile, signingDID)
 		require.Error(t, err)
 	})
 }

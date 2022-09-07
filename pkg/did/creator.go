@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 )
 
 type Method string
@@ -26,6 +27,15 @@ const (
 	KeyDIDMethod Method = key.DIDMethod
 	OrbDIDMethod Method = orb.DIDMethod
 )
+
+// nolint: gochecknoglobals
+var signatureKeyTypeMap = map[vc.SignatureType]string{
+	vc.Ed25519Signature2020:        crypto.Ed25519VerificationKey2020,
+	vc.Ed25519Signature2018:        crypto.Ed25519VerificationKey2018,
+	vc.JSONWebSignature2020:        crypto.JSONWebKey2020,
+	vc.EcdsaSecp256k1Signature2019: crypto.EcdsaSecp256k1VerificationKey2019,
+	vc.BbsBlsSignature2020:         crypto.Bls12381G1Key2020,
+}
 
 // CreateResult contains created did, update and recovery keys.
 type CreateResult struct {
@@ -179,7 +189,7 @@ func newVerMethods(
 		// TODO sidetree doesn't support VM controller: https://github.com/decentralized-identity/sidetree/issues/1010
 		vm, err := did.NewVerificationMethodFromJWK(
 			keyID,
-			string(verMethodType),
+			signatureKeyTypeMap[verMethodType],
 			"",
 			j,
 		)

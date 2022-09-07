@@ -55,6 +55,14 @@ func TestProfileStore_Success(t *testing.T) {
 		id, err := store.Create(&issuer.Profile{
 			VCConfig:  &issuer.VCConfig{},
 			KMSConfig: &kms.Config{},
+		}, &issuer.SigningDID{}, nil)
+		require.NoError(t, err)
+		require.NotNil(t, id)
+	})
+
+	t.Run("Create profile with default kms config", func(t *testing.T) {
+		id, err := store.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{},
 		}, &issuer.SigningDID{}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -85,6 +93,18 @@ func TestProfileStore_Success(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, profile)
 		require.NotNil(t, signingDID)
+	})
+
+	t.Run("Create profile with default kms config and then get", func(t *testing.T) {
+		id, err := store.Create(&issuer.Profile{
+			VCConfig: &issuer.VCConfig{},
+		}, &issuer.SigningDID{}, []*cm.CredentialManifest{{}})
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		profile, _, err := store.Find(id)
+		require.NoError(t, err)
+		require.NotNil(t, profile)
 	})
 
 	t.Run("Create profile then find by id", func(t *testing.T) {
@@ -178,6 +198,28 @@ func TestProfileStore_Success(t *testing.T) {
 			VCConfig:  &issuer.VCConfig{},
 			KMSConfig: &kms.Config{},
 		}, &issuer.SigningDID{}, []*cm.CredentialManifest{{}})
+
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		profile, _, err := store.Find(id)
+		require.NoError(t, err)
+		require.NotNil(t, profile)
+		require.Equal(t, id, profile.ID)
+
+		err = store.Delete(profile.ID)
+		require.NoError(t, err)
+
+		_, _, err = store.Find(id)
+		require.EqualError(t, err, issuer.ErrDataNotFound.Error())
+	})
+
+	t.Run("Delete profile with out credential manifests", func(t *testing.T) {
+		id, err := store.Create(&issuer.Profile{
+			Name:      "Test1",
+			VCConfig:  &issuer.VCConfig{},
+			KMSConfig: &kms.Config{},
+		}, &issuer.SigningDID{}, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
