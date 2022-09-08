@@ -141,4 +141,4 @@ require (
 
 replace github.com/trustbloc/vcs => ../..
 
-go 1.18
+go 1.19

@@ -18,8 +18,8 @@ SWAGGER_DIR        ="./test/bdd/fixtures/spec"
 SWAGGER_OUTPUT     =$(SWAGGER_DIR)"/openAPI.yml"
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.14
-GO_VER ?= 1.18
+ALPINE_VER ?= 3.16
+GO_VER ?= 1.19
 
 OS := $(shell uname)
 ifeq  ($(OS),$(filter $(OS),Darwin Linux))

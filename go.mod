@@ -4,7 +4,7 @@
 
 module github.com/trustbloc/vcs
 
-go 1.18
+go 1.19
 
 require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
