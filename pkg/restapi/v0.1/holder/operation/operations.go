@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	commondid "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/did"
 	commhttp "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/http"
 
@@ -58,6 +60,8 @@ type commonDID interface {
 
 // New returns CreateCredential instance.
 func New(config *Config) (*Operation, error) {
+	vcskmswrapper := vcskms.NewAriesKeyManager(config.KeyManager, config.Crypto)
+
 	profileStore, err := config.StoreProvider.OpenHolderProfileStore()
 	if err != nil {
 		return nil, err
@@ -71,7 +75,8 @@ func New(config *Config) (*Operation, error) {
 			Domain: config.Domain, TLSConfig: config.TLSConfig,
 			DIDAnchorOrigin: config.DIDAnchorOrigin,
 		}),
-		crypto:         crypto.New(config.KeyManager, config.Crypto, config.VDRI, config.DocumentLoader),
+		vcskmswrapper:  vcskmswrapper,
+		crypto:         crypto.New(config.VDRI, config.DocumentLoader),
 		documentLoader: config.DocumentLoader,
 	}
 
@@ -98,6 +103,7 @@ type keyManager interface {
 type Operation struct {
 	commonDID      commonDID
 	profileStore   vcsstorage.HolderProfileStore
+	vcskmswrapper  vcskms.VCSKeyManager
 	crypto         *crypto.Crypto
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
@@ -245,8 +251,16 @@ func (o *Operation) signPresentationHandler(rw http.ResponseWriter, req *http.Re
 	// update holder
 	updateHolder(presentation, &profile)
 
+	signer := &vc.Signer{
+		DID:                     profile.DID,
+		Creator:                 profile.Creator,
+		SignatureType:           vc.SignatureType(profile.SignatureType),
+		SignatureRepresentation: profile.SignatureRepresentation,
+		KMS:                     o.vcskmswrapper,
+	}
+
 	// sign presentation
-	signedVP, err := o.crypto.SignPresentation(&profile, presentation, getPresentationSigningOpts(presReq.Opts)...)
+	signedVP, err := o.crypto.SignPresentation(signer, presentation, getPresentationSigningOpts(presReq.Opts)...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign presentation:"+
 			" %s", err.Error()))
@@ -317,7 +331,7 @@ func (o *Operation) deriveCredentialsHandler(rw http.ResponseWriter, req *http.R
 	vcBytes, err := derived.MarshalJSON()
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError,
-			fmt.Sprintf("failed to matshal derived vc: %s", err.Error()))
+			fmt.Sprintf("failed to matshal derived vcContent: %s", err.Error()))
 
 		return
 	}

@@ -54,6 +54,38 @@ type CreateIssuerProfileData struct {
 	VcConfig VCConfig `json:"vcConfig"`
 }
 
+// Options for issuing credential.
+type CredentialStatusOpt struct {
+	Type string `json:"type"`
+}
+
+// Model for issuer credential.
+type IssueCredentialData struct {
+	// URI of the verifier.
+	Credential interface{} `json:"credential"`
+
+	// Options for issuing credential.
+	Options *IssueCredentialOptions `json:"options,omitempty"`
+}
+
+// Options for issuing credential.
+type IssueCredentialOptions struct {
+	// Chalange is added to the proof.
+	Challenge *string `json:"challenge,omitempty"`
+
+	// The date of the proof. If omitted system time will be used.
+	Created *string `json:"created,omitempty"`
+
+	// Options for issuing credential.
+	CredentialStatus *CredentialStatusOpt `json:"credentialStatus,omitempty"`
+
+	// Domain is added to the proof.
+	Domain *string `json:"domain,omitempty"`
+
+	// The URI of the verificationMethod used for the proof. If omitted first ed25519 public key of DID (Issuer or Profile DID) will be used.
+	VerificationMethod *string `json:"verificationMethod,omitempty"`
+}
+
 // Model for issuer profile.
 type IssuerProfile struct {
 	// Is profile active? Can be modified using disable/enable profile endpoints.
@@ -154,11 +186,17 @@ type PostIssuerProfilesJSONBody = CreateIssuerProfileData
 // PutIssuerProfilesProfileIDJSONBody defines parameters for PutIssuerProfilesProfileID.
 type PutIssuerProfilesProfileIDJSONBody = UpdateIssuerProfileData
 
+// PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
+type PostIssueCredentialsJSONBody = map[string]interface{}
+
 // PostIssuerProfilesJSONRequestBody defines body for PostIssuerProfiles for application/json ContentType.
 type PostIssuerProfilesJSONRequestBody = PostIssuerProfilesJSONBody
 
 // PutIssuerProfilesProfileIDJSONRequestBody defines body for PutIssuerProfilesProfileID for application/json ContentType.
 type PutIssuerProfilesProfileIDJSONRequestBody = PutIssuerProfilesProfileIDJSONBody
+
+// PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
+type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -177,6 +215,9 @@ type ServerInterface interface {
 	// Activate Profile
 	// (POST /issuer/profiles/{profileID}/activate)
 	PostIssuerProfilesProfileIDActivate(ctx echo.Context, profileID string) error
+	// Issue credential
+	// (POST /issuer/profiles/{profileID}/credentials/issue)
+	PostIssueCredentials(ctx echo.Context, profileID string) error
 	// Deactivate Profile
 	// (POST /issuer/profiles/{profileID}/deactivate)
 	PostIssuerProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error
@@ -260,6 +301,22 @@ func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDActivate(ctx echo.Co
 	return err
 }
 
+// PostIssueCredentials converts echo context to params.
+func (w *ServerInterfaceWrapper) PostIssueCredentials(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostIssueCredentials(ctx, profileID)
+	return err
+}
+
 // PostIssuerProfilesProfileIDDeactivate converts echo context to params.
 func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDDeactivate(ctx echo.Context) error {
 	var err error
@@ -309,6 +366,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/issuer/profiles/:profileID", wrapper.GetIssuerProfilesProfileID)
 	router.PUT(baseURL+"/issuer/profiles/:profileID", wrapper.PutIssuerProfilesProfileID)
 	router.POST(baseURL+"/issuer/profiles/:profileID/activate", wrapper.PostIssuerProfilesProfileIDActivate)
+	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/deactivate", wrapper.PostIssuerProfilesProfileIDDeactivate)
 
 }

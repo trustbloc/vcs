@@ -18,10 +18,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	commondid "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/did"
 	commhttp "github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/http"
-	"github.com/trustbloc/vcs/pkg/restapi/v0.1/internal/common/vcutil"
-
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -86,8 +87,8 @@ type Handler interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(profile *vcsstorage.DataProfile, url string) (*verifiable.TypedID, error)
-	UpdateVC(v *verifiable.Credential, profile *vcsstorage.DataProfile, status bool) error
+	CreateStatusID(signer *vc.Signer, url string) (*verifiable.TypedID, error)
+	UpdateVC(v *verifiable.Credential, signer *vc.Signer, status bool) error
 	GetRevocationListVC(id string) ([]byte, error)
 }
 
@@ -101,7 +102,9 @@ type commonDID interface {
 
 // New returns CreateCredential instance.
 func New(config *Config) (*Operation, error) {
-	c := crypto.New(config.KeyManager, config.Crypto, config.VDRI, config.DocumentLoader)
+	vcskmswrapper := vcskms.NewAriesKeyManager(config.KeyManager, config.Crypto)
+
+	c := crypto.New(config.VDRI, config.DocumentLoader)
 
 	vcStatusManager, err := cslstatus.New(config.StoreProvider, cslSize, c, config.DocumentLoader)
 	if err != nil {
@@ -120,6 +123,7 @@ func New(config *Config) (*Operation, error) {
 
 	svc := &Operation{
 		profileStore:    profileStore,
+		vcskmswrapper:   vcskmswrapper,
 		kms:             config.KeyManager,
 		vdr:             config.VDRI,
 		crypto:          c,
@@ -155,6 +159,7 @@ type Config struct {
 // Operation defines handlers for issuer service.
 type Operation struct {
 	profileStore    vcsstorage.IssuerProfileStore
+	vcskmswrapper   vcskms.VCSKeyManager
 	kms             keyManager
 	vdr             vdrapi.Registry
 	crypto          *crypto.Crypto
@@ -268,7 +273,7 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	vc, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
+	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(o.documentLoader))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
@@ -285,7 +290,15 @@ func (o *Operation) updateCredentialStatusHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	if err := o.vcStatusManager.UpdateVC(vc, &profile.DataProfile, statusValue); err != nil {
+	signer := &vc.Signer{
+		DID:                     profile.DID,
+		Creator:                 profile.Creator,
+		SignatureType:           vc.SignatureType(profile.SignatureType),
+		SignatureRepresentation: profile.SignatureRepresentation,
+		KMS:                     o.vcskmswrapper,
+	}
+
+	if err := o.vcStatusManager.UpdateVC(credential, signer, statusValue); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to update vc status: %s", err.Error()))
 		return
@@ -409,14 +422,14 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 	// TODO https://github.com/trustbloc/vcs/issues/208 credential is bundled into string type - update
 	//  this to json.RawMessage
-	vc, err := o.parseAndVerifyVC([]byte(data.Credential))
+	credential, err := o.parseAndVerifyVC([]byte(data.Credential))
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest,
 			fmt.Sprintf("unable to unmarshal the VC: %s", err.Error()))
 		return
 	}
 	// TODO https://github.com/trustbloc/vcs/issues/417 add profileID to the path param rather than the body
-	if err = validateRequest(data.Profile, vc.ID); err != nil {
+	if err = validateRequest(data.Profile, credential.ID); err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusBadRequest, err.Error())
 
 		return
@@ -429,7 +442,7 @@ func (o *Operation) storeCredentialHandler(rw http.ResponseWriter, req *http.Req
 		return
 	}
 
-	err = o.vcStore.Put(profile.Name, vc)
+	err = o.vcStore.Put(profile.Name, credential)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, err.Error())
 
@@ -582,10 +595,17 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 
 		return
 	}
+	signer := &vc.Signer{
+		DID:                     profile.DID,
+		Creator:                 profile.Creator,
+		SignatureType:           vc.SignatureType(profile.SignatureType),
+		SignatureRepresentation: profile.SignatureRepresentation,
+		KMS:                     o.vcskmswrapper,
+	}
 
 	if !profile.DisableVCStatus {
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(&profile.DataProfile,
+		credential.Status, err = o.vcStatusManager.CreateStatusID(signer,
 			o.hostURL+"/"+profileID+credentialStatus)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
@@ -598,13 +618,13 @@ func (o *Operation) issueCredentialHandler(rw http.ResponseWriter, req *http.Req
 	}
 
 	// update context
-	vcutil.UpdateSignatureTypeContext(credential, &profile)
+	vcutil.UpdateSignatureTypeContext(credential, signer.SignatureType)
 
 	// update credential issuer
-	vcutil.UpdateIssuer(credential, &profile)
+	vcutil.UpdateIssuer(credential, profile.DID, profile.Name, profile.OverwriteIssuer)
 
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(&profile.DataProfile, credential, getIssuerSigningOpts(cred.Opts)...)
+	signedVC, err := o.crypto.SignCredential(signer, credential, getIssuerSigningOpts(cred.Opts)...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))
@@ -653,8 +673,15 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	}
 
 	if !profile.DisableVCStatus {
+		signer := &vc.Signer{
+			DID:                     profile.DID,
+			Creator:                 profile.Creator,
+			SignatureType:           vc.SignatureType(profile.SignatureType),
+			SignatureRepresentation: profile.SignatureRepresentation,
+			KMS:                     o.vcskmswrapper,
+		}
 		// set credential status
-		credential.Status, err = o.vcStatusManager.CreateStatusID(&profile.DataProfile,
+		credential.Status, err = o.vcStatusManager.CreateStatusID(signer,
 			o.hostURL+"/"+id+credentialStatus)
 		if err != nil {
 			commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to add credential status:"+
@@ -667,10 +694,10 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 	}
 
 	// update context
-	vcutil.UpdateSignatureTypeContext(credential, &profile)
+	vcutil.UpdateSignatureTypeContext(credential, vc.SignatureType(profile.SignatureType))
 
 	// update credential issuer
-	vcutil.UpdateIssuer(credential, &profile)
+	vcutil.UpdateIssuer(credential, profile.DID, profile.Name, profile.OverwriteIssuer)
 
 	// prepare signing options from request options
 	opts, err := getComposeSigningOpts(&composeCredReq)
@@ -681,8 +708,16 @@ func (o *Operation) composeAndIssueCredentialHandler(rw http.ResponseWriter, req
 		return
 	}
 
+	signer := &vc.Signer{
+		DID:                     profile.DID,
+		Creator:                 profile.Creator,
+		SignatureType:           vc.SignatureType(profile.SignatureType),
+		SignatureRepresentation: profile.SignatureRepresentation,
+		KMS:                     o.vcskmswrapper,
+	}
+
 	// sign the credential
-	signedVC, err := o.crypto.SignCredential(&profile.DataProfile, credential, opts...)
+	signedVC, err := o.crypto.SignCredential(signer, credential, opts...)
 	if err != nil {
 		commhttp.WriteErrorResponse(rw, http.StatusInternalServerError, fmt.Sprintf("failed to sign credential:"+
 			" %s", err.Error()))

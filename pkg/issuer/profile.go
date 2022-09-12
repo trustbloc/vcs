@@ -56,6 +56,7 @@ type VCConfig struct {
 // SigningDID contains information about profile signing did.
 type SigningDID struct {
 	DID            string
+	Creator        string
 	UpdateKeyURL   string
 	RecoveryKeyURL string
 }
@@ -124,6 +125,7 @@ func (p *ProfileService) Create(profile *Profile,
 
 	id, err := p.store.Create(profile, &SigningDID{
 		DID:            createResult.DocResolution.DIDDocument.ID,
+		Creator:        createResult.Creator,
 		UpdateKeyURL:   createResult.UpdateKeyURL,
 		RecoveryKeyURL: createResult.RecoveryKeyURL,
 	}, credentialManifests)

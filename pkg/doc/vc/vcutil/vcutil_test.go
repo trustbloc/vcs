@@ -10,8 +10,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/require"
 
@@ -174,57 +172,43 @@ func TestDecodeTypedIDFromJSONRaw(t *testing.T) {
 }
 
 func TestUpdateIssuer(t *testing.T) {
-	profile := &vcsstorage.IssuerProfile{
-		DataProfile: vcsstorage.DataProfile{
-			DID:  "did:example",
-			Name: "sample-profile",
-		},
-	}
+	issuerDID := "did:example"
+	issuerName := "sample-profile"
 
 	// no issuer in credential
 	vc := &verifiable.Credential{}
 
-	UpdateIssuer(vc, profile)
+	UpdateIssuer(vc, issuerDID, issuerName, false)
 	require.NotEmpty(t, vc.Issuer)
-	require.Equal(t, vc.Issuer.ID, profile.DID)
-	require.Equal(t, vc.Issuer.CustomFields["name"], profile.Name)
+	require.Equal(t, vc.Issuer.ID, issuerDID)
+	require.Equal(t, vc.Issuer.CustomFields["name"], issuerName)
 
 	// issuer in credential
 	vc = &verifiable.Credential{Issuer: verifiable.Issuer{
 		ID: "sample-issuer-id",
 	}}
 
-	UpdateIssuer(vc, profile)
+	UpdateIssuer(vc, issuerDID, issuerName, false)
 	require.NotEmpty(t, vc.Issuer)
 	require.Equal(t, vc.Issuer.ID, "sample-issuer-id")
 	require.Empty(t, vc.Issuer.CustomFields)
 
 	// issuer in credential + profile overwrites issuer
-	profile.OverwriteIssuer = true
-	UpdateIssuer(vc, profile)
+	UpdateIssuer(vc, issuerDID, issuerName, true)
 	require.NotEmpty(t, vc.Issuer)
-	require.Equal(t, vc.Issuer.ID, profile.DID)
-	require.Equal(t, vc.Issuer.CustomFields["name"], profile.Name)
+	require.Equal(t, vc.Issuer.ID, issuerDID)
+	require.Equal(t, vc.Issuer.CustomFields["name"], issuerName)
 }
 
 func TestUpdateSignatureTypeContext(t *testing.T) {
-	profile := &vcsstorage.IssuerProfile{
-		DataProfile: vcsstorage.DataProfile{
-			DID:  "did:example",
-			Name: "sample-profile",
-		},
-	}
 	vc := &verifiable.Credential{Context: []string{defVCContext}}
 
-	UpdateSignatureTypeContext(vc, profile)
 	require.Len(t, vc.Context, 1)
 
-	profile.SignatureType = crypto.JSONWebSignature2020
-	UpdateSignatureTypeContext(vc, profile)
+	UpdateSignatureTypeContext(vc, crypto.JSONWebSignature2020)
 	require.Len(t, vc.Context, 2)
 
-	profile.SignatureType = crypto.BbsBlsSignature2020
-	UpdateSignatureTypeContext(vc, profile)
+	UpdateSignatureTypeContext(vc, crypto.BbsBlsSignature2020)
 	require.Len(t, vc.Context, 3)
 }
 

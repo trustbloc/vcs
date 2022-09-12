@@ -28,6 +28,8 @@ import (
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	issuersvc "github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -40,6 +42,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/issuerstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/verifierstore"
@@ -48,6 +51,7 @@ import (
 
 const (
 	healthCheckEndpoint = "/healthcheck"
+	cslSize             = 1000
 )
 
 var logger = log.New("vc-rest")
@@ -161,14 +165,31 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)
 	issuerProfileSvc := issuersvc.NewProfileService(&issuersvc.ServiceConfig{
 		ProfileStore: issuerProfileStore,
-		DIDCreator:   did.NewCreator(&did.CreatorConfig{
+		DIDCreator: did.NewCreator(&did.CreatorConfig{
 			VDR:             conf.VDR,
 			DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
 		}),
-		KMSRegistry:  kmsRegistry,
+		KMSRegistry: kmsRegistry,
 	})
 
-	issuerv1.RegisterHandlers(e, issuerv1.NewController(issuerProfileSvc, kmsRegistry))
+	vcCrypto := crypto.New(conf.VDR, conf.DocumentLoader)
+
+	vcStatusManager, err := cslstatus.New(conf.Storage.provider, cslSize, vcCrypto, conf.DocumentLoader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
+	}
+
+	issuecredentialsvc := issuecredential.New(&issuecredential.Config{
+		VCStatusManager: vcStatusManager,
+		Crypto:          vcCrypto,
+	})
+
+	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
+		ProfileSvc:             issuerProfileSvc,
+		KMSRegistry:            kmsRegistry,
+		DocumentLoader:         conf.DocumentLoader,
+		IssueCredentialService: issuecredentialsvc,
+	}))
 
 	// Verifier Profile Management API
 	verifierProfileStore := verifierstore.NewProfileStore(mongodbClient)

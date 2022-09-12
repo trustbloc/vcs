@@ -92,7 +92,7 @@ func TestController_accessProfile(t *testing.T) {
 			nil,
 		)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		_, _, err := controller.accessProfile("profValidID", "testOrgID")
 		require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestController_accessProfile(t *testing.T) {
 			issuer.ErrDataNotFound,
 		)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		_, _, err := controller.accessProfile("profInValidID", "testOrgID")
 		requireValidationError(t, resterr.DoesntExist, "profile", err)
@@ -120,7 +120,7 @@ func TestController_accessProfile(t *testing.T) {
 			nil,
 		)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		_, _, err := controller.accessProfile("profValidID", "testAnotherID")
 		requireValidationError(t, resterr.DoesntExist, "profile", err)
@@ -132,7 +132,7 @@ func TestController_accessProfile(t *testing.T) {
 			nil, nil, errors.New("some other error"),
 		)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		_, _, err := controller.accessProfile("profValidID", "testOrgID")
 		requireSystemError(t, "issuer.ProfileService", "GetProfile", err)
@@ -141,14 +141,14 @@ func TestController_accessProfile(t *testing.T) {
 
 func TestController_validateKMSConfig(t *testing.T) {
 	t.Run("Success (use defult config)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		_, err := controller.validateKMSConfig(nil)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success(type aws)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		config := &KMSConfig{
 			Endpoint: strPtr("aws://url"),
@@ -160,7 +160,7 @@ func TestController_validateKMSConfig(t *testing.T) {
 	})
 
 	t.Run("Missed endpoint (type aws)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		config := &KMSConfig{
 			Type: "aws",
@@ -171,7 +171,7 @@ func TestController_validateKMSConfig(t *testing.T) {
 	})
 
 	t.Run("Success(type web)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		config := &KMSConfig{
 			Endpoint: strPtr("aws://url"),
@@ -183,7 +183,7 @@ func TestController_validateKMSConfig(t *testing.T) {
 	})
 
 	t.Run("Missed endpoint (type web)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		config := &KMSConfig{
 			Type: "web",
@@ -194,7 +194,7 @@ func TestController_validateKMSConfig(t *testing.T) {
 	})
 
 	t.Run("Success(type local)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		config := &KMSConfig{
 			DbPrefix:          strPtr("prefix"),
@@ -209,7 +209,7 @@ func TestController_validateKMSConfig(t *testing.T) {
 	})
 
 	t.Run("Missed fields (type local)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		correct := &KMSConfig{
 			DbPrefix:          strPtr("prefix"),
@@ -249,7 +249,7 @@ func TestController_validateKMSConfig(t *testing.T) {
 
 func TestController_validateVCConfig(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		didMethods := []string{"orb", "web", "key"}
 
@@ -279,7 +279,7 @@ func TestController_validateVCConfig(t *testing.T) {
 	}
 
 	t.Run("Failed (incorrect format)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		incorrect := &VCConfig{}
 		require.NoError(t, copier.Copy(incorrect, correct))
@@ -291,7 +291,7 @@ func TestController_validateVCConfig(t *testing.T) {
 	})
 
 	t.Run("Failed (incorrect signingAlgorithm)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		incorrect := &VCConfig{}
 		require.NoError(t, copier.Copy(incorrect, correct))
@@ -303,7 +303,7 @@ func TestController_validateVCConfig(t *testing.T) {
 	})
 
 	t.Run("Failed (incorrect keyType)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		incorrect := &VCConfig{}
 		require.NoError(t, copier.Copy(incorrect, correct))
@@ -315,7 +315,7 @@ func TestController_validateVCConfig(t *testing.T) {
 	})
 
 	t.Run("Failed (incorrect didMethod)", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		incorrect := &VCConfig{}
 		require.NoError(t, copier.Copy(incorrect, correct))
@@ -365,7 +365,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 	}
 
 	t.Run("Success", func(t *testing.T) {
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 		body := CreateIssuerProfileData{}
 
 		require.NoError(t, copier.Copy(&body, &correctData))
@@ -375,7 +375,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 	})
 
 	t.Run("Incorrect org id", func(t *testing.T) {
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 		body := CreateIssuerProfileData{}
 
 		require.NoError(t, copier.Copy(&body, &correctData))
@@ -387,7 +387,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 	})
 
 	t.Run("Incorrect kmsConfig Type", func(t *testing.T) {
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 		body := CreateIssuerProfileData{}
 
 		require.NoError(t, copier.Copy(&body, &correctData))
@@ -399,7 +399,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 	})
 
 	t.Run("Incorrect VcConfig SigningAlgorithm", func(t *testing.T) {
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 		body := CreateIssuerProfileData{}
 
 		require.NoError(t, copier.Copy(&body, &correctData))
@@ -414,7 +414,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 		brokenKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		brokenKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("broken"))
 
-		controller := NewController(mockProfileSvc, brokenKMSRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: brokenKMSRegistry})
 
 		_, err := controller.validateCreateProfileData(&correctData, "testOrgId")
 		requireSystemError(t, "kms.Registry", "GetKeyManager", err)
@@ -423,7 +423,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 
 func TestController_mapToKMSConfigType(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		tpe, err := controller.mapToKMSConfigType(vcskms.AWS)
 		require.NoError(t, err)
@@ -439,7 +439,7 @@ func TestController_mapToKMSConfigType(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		_, err := controller.mapToKMSConfigType("incorrect")
 		require.Error(t, err)
@@ -448,7 +448,7 @@ func TestController_mapToKMSConfigType(t *testing.T) {
 
 func TestController_mapToVCFormat(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		tpe, err := controller.mapToVCFormat(vc.JwtVC)
 		require.NoError(t, err)
@@ -460,7 +460,7 @@ func TestController_mapToVCFormat(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		_, err := controller.mapToVCFormat("incorrect")
 		require.Error(t, err)
@@ -469,7 +469,7 @@ func TestController_mapToVCFormat(t *testing.T) {
 
 func TestController_mapToDIDMethod(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		tpe, err := controller.mapToDIDMethod(did2.KeyDIDMethod)
 		require.NoError(t, err)
@@ -485,7 +485,7 @@ func TestController_mapToDIDMethod(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		_, err := controller.mapToDIDMethod("incorrect")
 		require.Error(t, err)
@@ -522,14 +522,14 @@ func TestController_mapToIssuerProfile(t *testing.T) {
 	}
 
 	t.Run("Success", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		_, err := controller.mapToIssuerProfile(correctProfile, signingDID)
 		require.NoError(t, err)
 	})
 
 	t.Run("Incorrect oidc type", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		incorrectProfile := &issuer.Profile{}
 		require.NoError(t, copier.Copy(&incorrectProfile, &correctProfile))
@@ -541,7 +541,7 @@ func TestController_mapToIssuerProfile(t *testing.T) {
 	})
 
 	t.Run("Incorrect Status type", func(t *testing.T) {
-		controller := NewController(nil, nil)
+		controller := NewController(&Config{})
 
 		incorrectProfile := &issuer.Profile{}
 		require.NoError(t, copier.Copy(&incorrectProfile, &correctProfile))
@@ -599,7 +599,7 @@ func TestController_CreateProfile(t *testing.T) {
 			&issuer.SigningDID{},
 			nil)
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		_, err := controller.createProfile(c, &correctData)
 		require.NoError(t, err)
@@ -610,7 +610,7 @@ func TestController_CreateProfile(t *testing.T) {
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		incorrectData := CreateIssuerProfileData{}
 		require.NoError(t, copier.Copy(&incorrectData, &correctData))
@@ -626,7 +626,7 @@ func TestController_CreateProfile(t *testing.T) {
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		incorrectData := CreateIssuerProfileData{}
 		require.NoError(t, copier.Copy(&incorrectData, &correctData))
@@ -647,7 +647,7 @@ func TestController_CreateProfile(t *testing.T) {
 		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(
 			nil, nil, issuer.ErrProfileNameDuplication)
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		_, err := controller.createProfile(c, &correctData)
 		requireValidationError(t, resterr.AlreadyExist, "name", err)
@@ -660,7 +660,7 @@ func TestController_CreateProfile(t *testing.T) {
 		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(
 			nil, nil, errors.New("other error"))
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		_, err := controller.createProfile(c, &correctData)
 		requireSystemError(t, "issuer.ProfileService", "CreateProfile", err)
@@ -681,7 +681,7 @@ func TestController_UpdateProfile(t *testing.T) {
 			}, OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().Update(gomock.Any()).Times(1).Return(nil)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -702,7 +702,7 @@ func TestController_UpdateProfile(t *testing.T) {
 			}, OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().Update(gomock.Any()).Times(1).Return(errors.New("error"))
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -718,7 +718,7 @@ func TestController_DeleteProfile(t *testing.T) {
 			Return(&issuer.Profile{OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().Delete(issuer.ProfileID("testId")).Times(1).Return(nil)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -732,7 +732,7 @@ func TestController_DeleteProfile(t *testing.T) {
 			Return(&issuer.Profile{OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().Delete(issuer.ProfileID("testId")).Times(1).Return(errors.New("error"))
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -748,7 +748,7 @@ func TestController_ActivateProfile(t *testing.T) {
 			Return(&issuer.Profile{OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().ActivateProfile(issuer.ProfileID("testId")).Times(1).Return(nil)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -762,7 +762,7 @@ func TestController_ActivateProfile(t *testing.T) {
 			Return(&issuer.Profile{OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().ActivateProfile(issuer.ProfileID("testId")).Times(1).Return(errors.New("error"))
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -778,7 +778,7 @@ func TestController_DeactivateProfile(t *testing.T) {
 			Return(&issuer.Profile{OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().DeactivateProfile(issuer.ProfileID("testId")).Times(1).Return(nil)
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -792,7 +792,7 @@ func TestController_DeactivateProfile(t *testing.T) {
 			Return(&issuer.Profile{OrganizationID: "orgID1", ID: "testId"}, &issuer.SigningDID{}, nil)
 		mockProfileSvc.EXPECT().DeactivateProfile(issuer.ProfileID("testId")).Times(1).Return(errors.New("error"))
 
-		controller := NewController(mockProfileSvc, nil)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
 
 		c := createContext("orgID1")
 
@@ -815,7 +815,7 @@ func TestController_AuthFailed(t *testing.T) {
 	t.Run("No token", func(t *testing.T) {
 		c := createContext("")
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		err := controller.PostIssuerProfiles(c)
 		requireAuthError(t, err)
@@ -839,7 +839,7 @@ func TestController_AuthFailed(t *testing.T) {
 	t.Run("Invlaid org id", func(t *testing.T) {
 		c := createContext("orgID2")
 
-		controller := NewController(mockProfileSvc, kmsRegistry)
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		err := controller.DeleteIssuerProfilesProfileID(c, "testId")
 		requireValidationError(t, resterr.DoesntExist, "profile", err)

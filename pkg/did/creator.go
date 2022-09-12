@@ -40,6 +40,7 @@ var signatureKeyTypeMap = map[vc.SignatureType]string{
 // CreateResult contains created did, update and recovery keys.
 type CreateResult struct {
 	DocResolution  *did.DocResolution
+	Creator        string
 	UpdateKeyURL   string
 	RecoveryKeyURL string
 }
@@ -94,6 +95,7 @@ func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms
 	}
 
 	authentication := methods[0]
+	assertion := methods[0]
 	capabilityDelegation := methods[1]
 	capabilityInvocation := methods[2]
 
@@ -101,6 +103,11 @@ func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms
 		Authentication: []did.Verification{{
 			VerificationMethod: *authentication,
 			Relationship:       did.Authentication,
+			Embedded:           true,
+		}},
+		AssertionMethod: []did.Verification{{
+			VerificationMethod: *assertion,
+			Relationship:       did.AssertionMethod,
 			Embedded:           true,
 		}},
 		CapabilityDelegation: []did.Verification{{
@@ -143,6 +150,7 @@ func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms
 
 	return &CreateResult{
 		DocResolution:  didResolution,
+		Creator:        didResolution.DIDDocument.ID + "#" + assertion.ID,
 		UpdateKeyURL:   updateURL,
 		RecoveryKeyURL: recoveryURL,
 	}, nil

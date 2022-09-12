@@ -7,10 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 type Format string
@@ -84,6 +88,16 @@ func ValidateVCSignatureAlgorithm(format Format, signatureType string,
 	return "", fmt.Errorf("unsupported siganture type %s by vc format %s", signatureType, format)
 }
 
+func GetSignatureTypeByName(signatureType string) (SignatureType, error) {
+	for _, supportedSignature := range signatureTypes {
+		if supportedSignature.SignatureType.lowerCase() == strings.ToLower(signatureType) {
+			return supportedSignature.SignatureType, nil
+		}
+	}
+
+	return "", fmt.Errorf("unsupported siganture type %q", signatureType)
+}
+
 func matchKeyTypes(keyTypes1 []kms.KeyType, keyTypes2 []kms.KeyType) bool {
 	for _, type1 := range keyTypes1 {
 		for _, type2 := range keyTypes2 {
@@ -126,4 +140,41 @@ func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.
 	}
 
 	return "", fmt.Errorf("%s signature type currently not supported", signatureType)
+}
+
+func ValidateCredential(cred interface{}, format Format,
+	opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
+	strRep, isStr := cred.(string)
+
+	var vcBytes []byte
+
+	if format == JwtVC {
+		if !isStr {
+			return nil, fmt.Errorf("invlaid vc format, should be %s", JwtVC)
+		}
+
+		vcBytes = []byte(strRep)
+	}
+
+	if format == LdpVC {
+		if isStr {
+			return nil, fmt.Errorf("invlaid vc format, should be %s", LdpVC)
+		}
+
+		var err error
+		vcBytes, err = json.Marshal(cred)
+
+		if err != nil {
+			return nil, fmt.Errorf("invlaid vc format: %w", err)
+		}
+	}
+
+	// validate the VC (ignore the proof and issuanceDate)
+	credential, err := verifiable.ParseCredential(vcBytes, opts...)
+
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	}
+
+	return credential, nil
 }

@@ -11,6 +11,8 @@ package kms
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 )
 
 type Type string
@@ -36,4 +38,5 @@ type VCSKeyManager interface {
 	SupportedKeyTypes() []kms.KeyType
 	CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error)
 	CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error)
+	NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error)
 }

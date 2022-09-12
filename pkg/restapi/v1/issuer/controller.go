@@ -13,13 +13,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/labstack/echo/v4"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -64,15 +69,36 @@ type profileService interface {
 	GetAllProfiles(orgID string) ([]*issuer.Profile, error)
 }
 
+type issueCredentialService interface {
+	IssueCredential(credential *verifiable.Credential,
+		issuerSigningOpts []crypto.SigningOpts,
+		profile *issuer.Profile,
+		signingDID *issuer.SigningDID) (*verifiable.Credential, error)
+}
+
+type Config struct {
+	ProfileSvc             profileService
+	KMSRegistry            kmsRegistry
+	DocumentLoader         ld.DocumentLoader
+	IssueCredentialService issueCredentialService
+}
+
 // Controller for Issuer Profile Management API.
 type Controller struct {
-	profileSvc  profileService
-	kmsRegistry kmsRegistry
+	profileSvc             profileService
+	kmsRegistry            kmsRegistry
+	documentLoader         ld.DocumentLoader
+	issueCredentialService issueCredentialService
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
-func NewController(profileSvc profileService, kmsRegistry kmsRegistry) *Controller {
-	return &Controller{profileSvc, kmsRegistry}
+func NewController(config *Config) *Controller {
+	return &Controller{
+		profileSvc:             config.ProfileSvc,
+		kmsRegistry:            config.KMSRegistry,
+		documentLoader:         config.DocumentLoader,
+		issueCredentialService: config.IssueCredentialService,
+	}
 }
 
 // PostIssuerProfiles creates a new issuer profile.
@@ -231,6 +257,53 @@ func (c *Controller) PostIssuerProfilesProfileIDDeactivate(ctx echo.Context, pro
 	return nil
 }
 
+// PostIssueCredentials issues credentials.
+// POST /issuer/profiles/{profileID}/credentials/issue.
+func (c *Controller) PostIssueCredentials(ctx echo.Context, profileID string) error {
+	var body IssueCredentialData
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.issueCredential(ctx, &body, profileID))
+}
+
+func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData,
+	profileID string) (*verifiable.Credential, error) {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	profile, signingDID, err := c.accessProfile(profileID, oidcOrgID)
+	if err != nil {
+		return nil, err
+	}
+
+	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
+
+	credential, err := vc.ValidateCredential(body.Credential, profile.VCConfig.Format,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithSchema(vcSchema),
+		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	}
+
+	credOpts, err := validateIssueCredOptions(body.Options)
+	if err != nil {
+		return nil, err
+	}
+
+	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile, signingDID)
+	if err != nil {
+		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
+	}
+
+	return signedVC, nil
+}
+
 func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, orgID string) (*issuer.Profile, error) {
 	if body.OrganizationID != orgID {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, profileOrganizationID,
@@ -261,6 +334,42 @@ func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, or
 		VCConfig:       vcConfig,
 		KMSConfig:      kmsConfig,
 	}, nil
+}
+
+func validateIssueCredOptions(options *IssueCredentialOptions) ([]crypto.SigningOpts, error) {
+	var signingOpts []crypto.SigningOpts
+
+	if options == nil {
+		return signingOpts, nil
+	}
+	if options.CredentialStatus.Type != "" && options.CredentialStatus.Type != cslstatus.StatusList2021Entry {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
+			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))
+	}
+
+	verificationMethod := options.VerificationMethod
+
+	if verificationMethod != nil {
+		signingOpts = append(signingOpts, crypto.WithVerificationMethod(*verificationMethod))
+	}
+
+	if options.Created != nil {
+		created, err := time.Parse(time.RFC3339, *options.Created)
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "options.created", err)
+		}
+		signingOpts = append(signingOpts, crypto.WithCreated(&created))
+	}
+
+	if options.Challenge != nil {
+		signingOpts = append(signingOpts, crypto.WithChallenge(*options.Challenge))
+	}
+
+	if options.Domain != nil {
+		signingOpts = append(signingOpts, crypto.WithDomain(*options.Domain))
+	}
+
+	return signingOpts, nil
 }
 
 func (c *Controller) validateCredentialManifests(credentialManifests *[]map[string]interface{}) (
