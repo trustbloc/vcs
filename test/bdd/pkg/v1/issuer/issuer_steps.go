@@ -18,6 +18,7 @@ import (
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 const (
@@ -59,12 +60,12 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 }
 
 func (e *Steps) createIssuerProfile(user, organizationName string) error { //nolint: funlen
-	profileRequest := createIssuerProfileData{
+	profileRequest := model.CreateIssuerProfileData{
 		Name:           "Test",
 		OidcConfig:     nil,
 		OrganizationID: organizationName,
 		Url:            "TestURL",
-		VcConfig: vcConfig{
+		VcConfig: model.VCConfig{
 			Contexts:         nil,
 			DidMethod:        "orb",
 			Format:           "ldp_vc",
@@ -99,7 +100,7 @@ func (e *Steps) createIssuerProfile(user, organizationName string) error { //nol
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := issuerProfile{}
+	profileResponse := model.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -115,7 +116,7 @@ func (e *Steps) updateIssuerProfileName(user, profileName string) error {
 	id := e.bddContext.Args[getProfileIDKey(user)]
 	token := e.bddContext.Args[getProfileAuthToken(user)]
 
-	profileRequest := updateIssuerProfileData{
+	profileRequest := model.UpdateIssuerProfileData{
 		Name: profileName,
 	}
 
@@ -145,23 +146,28 @@ func (e *Steps) updateIssuerProfileName(user, profileName string) error {
 }
 
 func (e *Steps) deleteIssuerProfile(user string) error {
+	err := e.doSimpleProfileIDRequest(user, http.MethodGet, issuerProfileURLFormat)
+	if err != nil {
+		return err
+	}
 	return e.doSimpleProfileIDRequest(user, http.MethodDelete, issuerProfileURLFormat)
 }
 
 func (e *Steps) activateIssuerProfile(user string) error {
-	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat + "/activate")
+	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat+"/activate")
 }
 
 func (e *Steps) deactivateIssuerProfile(user string) error {
-	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat + "/deactivate")
+	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat+"/deactivate")
 }
 
 func (e *Steps) doSimpleProfileIDRequest(user, httpMethod, urlFormat string) error {
 	id := e.bddContext.Args[getProfileIDKey(user)]
 	token := e.bddContext.Args[getProfileAuthToken(user)]
 
-	resp, err := bddutil.HTTPDo(httpMethod, fmt.Sprintf(urlFormat, //nolint: bodyclose
-		id), "", token, nil)
+	print("ID: " + id)
+
+	resp, err := bddutil.HTTPDo(httpMethod, fmt.Sprintf(urlFormat, id), "", token, nil)
 	if err != nil {
 		return err
 	}

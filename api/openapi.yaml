@@ -443,6 +443,13 @@ components:
         keyType:
           type: string
           description: Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
+        signatureRepresentation:
+          type: string
+          description: Type of signature value holder (e.g. "ProofValue" or "JWS").
+          enum:
+            - JWS
+            - ProofValue
+          default: ProofValue
         didMethod:
           type: string
           description: DID method of the DID to be used for signing.

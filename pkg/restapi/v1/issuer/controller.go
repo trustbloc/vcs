@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
@@ -325,8 +326,14 @@ func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, or
 		return nil, err
 	}
 
+	// TODO: add validation for profile URL
+	url := body.Url
+	if !strings.HasSuffix(url, "/") {
+		url = url + "/"
+	}
+
 	return &issuer.Profile{
-		URL:            body.Url,
+		URL:            url,
 		Name:           body.Name,
 		Active:         true,
 		OIDCConfig:     body.OidcConfig,
@@ -475,18 +482,24 @@ func (c *Controller) validateVCConfig(vcConfig *VCConfig,
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigDidMethod, err)
 	}
 
+	signatureRepresentation, err := c.validateSignatureRepresentation(vcConfig.SignatureRepresentation)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "signatureRepresentation", err)
+	}
+
 	var contexts []string
 	if vcConfig.Contexts != nil {
 		contexts = *vcConfig.Contexts
 	}
 
 	return &issuer.VCConfig{
-		Format:           vcFormat,
-		SigningAlgorithm: signingAlgorithm,
-		KeyType:          keyType,
-		DIDMethod:        didMethod,
-		Status:           vcConfig.Status,
-		Context:          contexts,
+		Format:                  vcFormat,
+		SigningAlgorithm:        signingAlgorithm,
+		KeyType:                 keyType,
+		DIDMethod:               didMethod,
+		SignatureRepresentation: signatureRepresentation,
+		Status:                  vcConfig.Status,
+		Context:                 contexts,
 	}, nil
 }
 
@@ -562,6 +575,37 @@ func (c *Controller) mapToVCFormat(format vc.Format) (VCConfigFormat, error) {
 		fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVc, LdpVc))
 }
 
+func (c *Controller) validateSignatureRepresentation(signatureRepresentation *VCConfigSignatureRepresentation) (
+	verifiable.SignatureRepresentation, error) {
+	if signatureRepresentation == nil {
+		return verifiable.SignatureProofValue, nil
+	}
+
+	switch *signatureRepresentation {
+	case JWS:
+		return verifiable.SignatureJWS, nil
+	case ProofValue:
+		return verifiable.SignatureProofValue, nil
+	}
+
+	return verifiable.SignatureProofValue, fmt.Errorf("unsupported signatureRepresentation %s, use one of next [%s, %s, %s]",
+		signatureRepresentation, JWS, ProofValue)
+}
+
+func (c *Controller) mapToSignatureRepresentation(signatureRepresentation verifiable.SignatureRepresentation) (
+	VCConfigSignatureRepresentation, error) {
+	switch signatureRepresentation {
+	case verifiable.SignatureJWS:
+		return JWS, nil
+	case verifiable.SignatureProofValue:
+		return ProofValue, nil
+	}
+
+	return "", resterr.NewSystemError(issuerProfileCtrlComponent, "mapToDIDMethod",
+		fmt.Errorf("signatureRepresentation missmatch %d, rest api supports only [%s, %s]",
+			signatureRepresentation, JWS, ProofValue))
+}
+
 func (c *Controller) validateDIDMethod(method VCConfigDidMethod) (did.Method, error) {
 	switch method {
 	case VCConfigDidMethodKey:
@@ -602,6 +646,11 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 		return nil, err
 	}
 
+	signatureRepresentation, err := c.mapToSignatureRepresentation(p.VCConfig.SignatureRepresentation)
+	if err != nil {
+		return nil, err
+	}
+
 	keyType := string(p.VCConfig.KeyType)
 	signingAlgorithm := string(p.VCConfig.SigningAlgorithm)
 
@@ -624,12 +673,13 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 	}
 
 	vcConfig := VCConfig{
-		Contexts:         &p.VCConfig.Context,
-		DidMethod:        didMethod,
-		Format:           format,
-		KeyType:          &keyType,
-		SigningAlgorithm: signingAlgorithm,
-		SigningDID:       signingDID.DID,
+		Contexts:                &p.VCConfig.Context,
+		DidMethod:               didMethod,
+		SignatureRepresentation: &signatureRepresentation,
+		Format:                  format,
+		KeyType:                 &keyType,
+		SigningAlgorithm:        signingAlgorithm,
+		SigningDID:              signingDID.DID,
 	}
 
 	profile := &IssuerProfile{
@@ -638,7 +688,7 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 		KmsConfig:      kmsConfig,
 		Name:           p.Name,
 		OrganizationID: p.OrganizationID,
-		Url:            p.URL,
+		Url:            p.URL + p.ID,
 		VcConfig:       vcConfig,
 	}
 

@@ -31,6 +31,12 @@ const (
 	LdpVc VCConfigFormat = "ldp_vc"
 )
 
+// Defines values for VCConfigSignatureRepresentation.
+const (
+	JWS        VCConfigSignatureRepresentation = "JWS"
+	ProofValue VCConfigSignatureRepresentation = "ProofValue"
+)
+
 // Model for creating issuer profile.
 type CreateIssuerProfileData struct {
 	CredentialManifests *[]map[string]interface{} `json:"credentialManifests,omitempty"`
@@ -164,6 +170,9 @@ type VCConfig struct {
 	// Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
 	KeyType *string `json:"keyType,omitempty"`
 
+	// Type of signature value holder (e.g. "ProofValue" or "JWS").
+	SignatureRepresentation *VCConfigSignatureRepresentation `json:"signatureRepresentation,omitempty"`
+
 	// List of supported cryptographic signing algorithms.
 	SigningAlgorithm string `json:"signingAlgorithm"`
 
@@ -179,6 +188,9 @@ type VCConfigDidMethod string
 
 // Supported VC formats.
 type VCConfigFormat string
+
+// Type of signature value holder (e.g. "ProofValue" or "JWS").
+type VCConfigSignatureRepresentation string
 
 // PostIssuerProfilesJSONBody defines parameters for PostIssuerProfiles.
 type PostIssuerProfilesJSONBody = CreateIssuerProfileData

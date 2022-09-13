@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
@@ -24,33 +25,34 @@ type ProfileID = string
 
 // Profile verifier profile.
 type Profile struct {
-	ID             ProfileID      `json:"id"`
-	Name           string         `json:"name,omitempty"`
-	URL            string         `json:"url,omitempty"`
-	Active         bool           `json:"active"`
-	OIDCConfig     interface{}    `json:"oidcConfig"`
-	OrganizationID string         `json:"organizationID"`
-	VCConfig       *VCConfig      `json:"vcConfig"`
-	KMSConfig      *vcskms.Config `json:"kmsConfig"`
+	ID             ProfileID
+	Name           string
+	URL            string
+	Active         bool
+	OIDCConfig     interface{}
+	OrganizationID string
+	VCConfig       *VCConfig
+	KMSConfig      *vcskms.Config
 }
 
 // ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update api.
 type ProfileUpdate struct {
-	ID         ProfileID      `json:"id"`
-	Name       string         `json:"name,omitempty"`
-	URL        string         `json:"url,omitempty"`
-	OIDCConfig interface{}    `json:"oidcConfig"`
-	KMSConfig  *vcskms.Config `json:"kmsConfig"`
+	ID         ProfileID
+	Name       string
+	URL        string
+	OIDCConfig interface{}
+	KMSConfig  *vcskms.Config
 }
 
 // VCConfig describes how to sign verifiable credentials.
 type VCConfig struct {
-	Format           vc.Format         `json:"format"`
-	SigningAlgorithm vc.SignatureType  `json:"signingAlgorithm"`
-	KeyType          kms.KeyType       `json:"keyType,omitempty"`
-	DIDMethod        didcreator.Method `json:"didMethod"`
-	Status           interface{}       `json:"status"`
-	Context          []string          `json:"context"`
+	Format                  vc.Format
+	SigningAlgorithm        vc.SignatureType
+	KeyType                 kms.KeyType
+	DIDMethod               didcreator.Method
+	SignatureRepresentation verifiable.SignatureRepresentation
+	Status                  interface{}
+	Context                 []string
 }
 
 // SigningDID contains information about profile signing did.
@@ -185,7 +187,7 @@ func (p *ProfileService) DeactivateProfile(profileID ProfileID) error {
 func (p *ProfileService) GetProfile(profileID ProfileID) (*Profile, *SigningDID, error) {
 	profile, signingDID, err := p.store.Find(profileID)
 	if err != nil {
-		return nil, signingDID, fmt.Errorf("profile service: get profile failed %w", err)
+		return nil, signingDID, fmt.Errorf("issuer profile service: get profile failed: %w", err)
 	}
 
 	return profile, signingDID, nil

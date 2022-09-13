@@ -119,7 +119,7 @@ func matchKeyType(keyType string, types ...kms.KeyType) (kms.KeyType, error) {
 	for _, possibleType := range types {
 		keyTypesNames = append(keyTypesNames, string(possibleType))
 
-		if keyType == string(possibleType) {
+		if strings.ToUpper(keyType) == strings.ToUpper(string(possibleType)) {
 			return possibleType, nil
 		}
 	}

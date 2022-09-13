@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	credentialStatus = "/status"
+	credentialStatus = "/credentials/status"
 )
 
 type vcStatusManager interface {
@@ -67,14 +67,14 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	}
 
 	signer := &vc.Signer{
-		DID:           signingDID.DID,
-		Creator:       signingDID.Creator,
-		SignatureType: profile.VCConfig.SigningAlgorithm,
-		KMS:           kms,
-		//SignatureRepresentation: profile.SignatureRepresentation,
+		DID:                     signingDID.DID,
+		Creator:                 signingDID.Creator,
+		SignatureType:           profile.VCConfig.SigningAlgorithm,
+		KMS:                     kms,
+		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
 	}
 
-	status, err := s.vcStatusManager.CreateStatusID(signer, profile.URL+credentialStatus)
+	status, err := s.vcStatusManager.CreateStatusID(signer, profile.URL+profile.ID+credentialStatus)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add credential status: %w", err)
 	}

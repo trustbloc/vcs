@@ -182,6 +182,7 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	issuecredentialsvc := issuecredential.New(&issuecredential.Config{
 		VCStatusManager: vcStatusManager,
 		Crypto:          vcCrypto,
+		KMSRegistry:     kmsRegistry,
 	})
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{

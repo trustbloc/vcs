@@ -5,7 +5,7 @@
 #
 
 @all
-@issuer_rest
+@issuer_rest_v1
 Feature: Issuer VC REST API
   @issuerProfileRecreationV1
   Scenario: Delete and recreate issuer profile
