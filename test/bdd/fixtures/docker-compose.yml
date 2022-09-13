@@ -249,6 +249,71 @@ services:
     networks:
       - bdd_net
 
+  oathkeeper.trustbloc.local:
+    container_name: oathkeeper.trustbloc.local
+    image: oryd/oathkeeper:${OATHKEEPER_IMAGE_TAG}
+    ports:
+      - "4455:4455"
+    command: /bin/sh -c "cp /etc/tls/ec-cacert.pem /usr/local/share/ca-certificates/;update-ca-certificates;oathkeeper serve proxy --config /oathkeeper/config.yaml"
+    user: root
+    entrypoint: ""
+    environment:
+      - LOG_LEVEL=debug
+      - PORT=4455
+      - ISSUER_URL=https://oathkeeper-proxy.trustbloc.local
+      - SERVE_PROXY_TLS_KEY_PATH=/etc/tls/ec-key.pem
+      - SERVE_PROXY_TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
+      - LOG_LEAK_SENSITIVE_VALUES=true
+    volumes:
+      - ./oathkeeper-config:/oathkeeper
+      - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+  oidc-provider.example.com:
+    container_name: oidc-provider.example.com
+    image: oryd/hydra:${HYDRA_IMAGE_TAG}
+    ports:
+      - "4444:4444"
+      - "4445:4445"
+    command: /bin/sh -c "sleep 20 && hydra migrate sql --read-from-env --yes; (sleep 10; tmp/hydra_configure.sh)& hydra serve all"
+    entrypoint: ""
+    environment:
+      - DSN=mysql://thirdpartyoidc:thirdpartyoidc-secret-pw@tcp(mysql:3306)/thirdpartyoidc?max_conns=20&max_idle_conns=4
+      - URLS_SELF_ISSUER=https://oidc-provider.example.com:4444/
+      - SECRETS_SYSTEM=testSecretsSystem
+      - OIDC_SUBJECT_TYPES_SUPPORTED=public
+      - OIDC_SUBJECT_TYPE_PAIRWISE_SALT=testSecretsSystem
+      - SERVE_TLS_KEY_PATH=/etc/tls/ec-key.pem
+      - SERVE_TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
+      - SERVE_PUBLIC_PORT=4444
+      - SERVE_ADMIN_PORT=4445
+      - LOG_LEAK_SENSITIVE_VALUES=true
+    restart: unless-stopped
+    volumes:
+      - ./keys/tls:/etc/tls
+      - ./hydra-config/hydra_configure.sh:/tmp/hydra_configure.sh
+    depends_on:
+      - mysql
+    networks:
+      - bdd_net
+
+  mysql:
+    container_name: mysql
+    image: mysql:${MYSQL_IMAGE_TAG}
+    ports:
+      - "3306:3306"
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+    logging:
+      driver: "none"
+    volumes:
+      - ./mysql-config:/docker-entrypoint-initdb.d
+    networks:
+      - bdd_net
+
 networks:
   bdd_net:
     driver: bridge

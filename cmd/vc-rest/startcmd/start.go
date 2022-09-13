@@ -39,6 +39,7 @@ import (
 	verifierops "github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier/operation"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/issuerstore"
@@ -130,6 +131,10 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
 
+	if conf.StartupParameters.token != "" {
+		e.Use(mw.APIKeyAuth(conf.StartupParameters.token))
+	}
+
 	swagger, err := spec.GetSwagger()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get openapi spec: %w", err)
@@ -161,11 +166,11 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)
 	issuerProfileSvc := issuersvc.NewProfileService(&issuersvc.ServiceConfig{
 		ProfileStore: issuerProfileStore,
-		DIDCreator:   did.NewCreator(&did.CreatorConfig{
+		DIDCreator: did.NewCreator(&did.CreatorConfig{
 			VDR:             conf.VDR,
 			DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
 		}),
-		KMSRegistry:  kmsRegistry,
+		KMSRegistry: kmsRegistry,
 	})
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(issuerProfileSvc, kmsRegistry))

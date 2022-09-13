@@ -8,20 +8,20 @@ package issuer
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/cucumber/godog"
-	"github.com/trustbloc/edge-core/pkg/log"
-
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/vcs/test/bdd/pkg/context"
+	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 const (
-	issuerURL              = "http://localhost:8075"
+	issuerURL              = "https://localhost:4455"
 	issuerProfileURL       = issuerURL + "/issuer/profiles"
 	issuerProfileURLFormat = issuerProfileURL + "/%s"
 )
@@ -30,32 +30,46 @@ func getProfileIDKey(user string) string {
 	return user + "-profileID"
 }
 
-func getProfileAuthToken(user string) string {
-	// temporary we use org id as token
-	return user + "-userOrg"
+func getProfileAuthTokenKey(user string) string {
+	return user + "-accessToken"
 }
-
-var logger = log.New("bdd-test")
 
 // Steps is steps for VC BDD tests
 type Steps struct {
-	bddContext *context.BDDContext
+	bddContext *bddcontext.BDDContext
+	tlsConfig  *tls.Config
 }
 
 // NewSteps returns new agent from client SDK
-func NewSteps(ctx *context.BDDContext) *Steps {
-	return &Steps{bddContext: ctx}
+func NewSteps(ctx *bddcontext.BDDContext) *Steps {
+	return &Steps{
+		bddContext: ctx,
+		tlsConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 }
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
+	s.Step(`^"([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)" to use vcs$`, e.authorizeUser)
 	s.Step(`^"([^"]*)" sends request to create an issuer profile with the organization "([^"]*)"$`, e.createIssuerProfile)
 	s.Step(`^"([^"]*)" deactivates the issuer profile$`, e.deactivateIssuerProfile)
 	s.Step(`^"([^"]*)" activates the issuer profile$`, e.activateIssuerProfile)
 	s.Step(`^"([^"]*)" deletes the issuer profile$`, e.deleteIssuerProfile)
 	s.Step(`^"([^"]*)" updates the issuer profile name to "([^"]*)"$`, e.updateIssuerProfileName)
-
 	s.Step(`^"([^"]*)" can recreate the issuer profile with the organization "([^"]*)"$`, e.createIssuerProfile)
+}
+
+func (e *Steps) authorizeUser(user, clientID, secret string) error {
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), clientID, secret, []string{"org_admin"})
+	if err != nil {
+		return err
+	}
+
+	e.bddContext.Args[getProfileAuthTokenKey(user)] = accessToken
+
+	return nil
 }
 
 func (e *Steps) createIssuerProfile(user, organizationName string) error { //nolint: funlen
@@ -74,23 +88,21 @@ func (e *Steps) createIssuerProfile(user, organizationName string) error { //nol
 		},
 	}
 
-	e.bddContext.Args[getProfileAuthToken(user)] = organizationName
-
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, issuerProfileURL, "application/json",
-		e.bddContext.Args[getProfileAuthToken(user)], //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPSDo(http.MethodPost, issuerProfileURL, "application/json",
+		e.bddContext.Args[getProfileAuthTokenKey(user)], //nolint: bodyclose
+		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -113,7 +125,7 @@ func (e *Steps) createIssuerProfile(user, organizationName string) error { //nol
 
 func (e *Steps) updateIssuerProfileName(user, profileName string) error {
 	id := e.bddContext.Args[getProfileIDKey(user)]
-	token := e.bddContext.Args[getProfileAuthToken(user)]
+	token := e.bddContext.Args[getProfileAuthTokenKey(user)]
 
 	profileRequest := updateIssuerProfileData{
 		Name: profileName,
@@ -124,15 +136,15 @@ func (e *Steps) updateIssuerProfileName(user, profileName string) error {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodDelete, fmt.Sprintf(issuerProfileURLFormat, //nolint: bodyclose
-		id), "", token, bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPSDo(http.MethodDelete, fmt.Sprintf(issuerProfileURLFormat, //nolint: bodyclose
+		id), "", token, bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
@@ -149,26 +161,26 @@ func (e *Steps) deleteIssuerProfile(user string) error {
 }
 
 func (e *Steps) activateIssuerProfile(user string) error {
-	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat + "/activate")
+	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat+"/activate")
 }
 
 func (e *Steps) deactivateIssuerProfile(user string) error {
-	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat + "/deactivate")
+	return e.doSimpleProfileIDRequest(user, http.MethodPost, issuerProfileURLFormat+"/deactivate")
 }
 
 func (e *Steps) doSimpleProfileIDRequest(user, httpMethod, urlFormat string) error {
 	id := e.bddContext.Args[getProfileIDKey(user)]
-	token := e.bddContext.Args[getProfileAuthToken(user)]
+	token := e.bddContext.Args[getProfileAuthTokenKey(user)]
 
-	resp, err := bddutil.HTTPDo(httpMethod, fmt.Sprintf(urlFormat, //nolint: bodyclose
-		id), "", token, nil)
+	resp, err := bddutil.HTTPSDo(httpMethod, fmt.Sprintf(urlFormat, //nolint: bodyclose
+		id), "", token, nil, e.tlsConfig)
 	if err != nil {
 		return err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
-	respBytes, err := ioutil.ReadAll(resp.Body)
+	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

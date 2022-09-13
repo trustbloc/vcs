@@ -76,7 +76,7 @@ func createContext(orgID string) echo.Context {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	if orgID != "" {
-		req.Header.Set("Authorization", "Bearer "+orgID)
+		req.Header.Set("X-User", orgID)
 	}
 
 	rec := httptest.NewRecorder()

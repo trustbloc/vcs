@@ -9,27 +9,27 @@ package verifier
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httputil"
-	"os"
 	"text/template"
 
 	"github.com/cucumber/godog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 
+	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
 const (
 	contentType     = "Content-Type"
 	applicationJSON = "application/json"
-	host            = "http://localhost:8075"
+	host            = "https://localhost:4455"
 )
 
 var (
@@ -53,19 +53,23 @@ type Steps struct {
 	responseBody   []byte
 	profileID      string
 	testdata       map[string][]byte
+	accessTokens   map[string]string
 }
 
 // NewSteps returns new Steps context.
 func NewSteps(ctx *bddcontext.BDDContext) *Steps {
-	httpClient := http.DefaultClient
-
-	if os.Getenv("HTTP_CLIENT_TRACE_ON") == "true" {
-		httpClient.Transport = &DumpTransport{r: http.DefaultTransport}
+	httpClient := http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
 	}
 
 	return &Steps{
-		bddContext: ctx,
-		httpClient: httpClient,
+		bddContext:   ctx,
+		httpClient:   &httpClient,
+		accessTokens: make(map[string]string),
 		testdata: map[string][]byte{
 			"verifier_profile_create.json":  verifierProfileCreateJSON,
 			"verifier_profile_created.json": verifierProfileCreatedJSON,
@@ -77,6 +81,7 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 
 // RegisterSteps registers scenario steps.
 func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
+	sc.Step(`^organization "([^"]*)" has been authorized using client id "([^"]*)" and secret "([^"]*)"$`, s.authorize)
 	sc.Step(`^organization "([^"]*)" creates a verifier profile with data from "([^"]*)"$`, s.createProfile)
 	sc.Step(`^organization "([^"]*)" has a verifier profile with data from "([^"]*)"$`, s.createProfile)
 	sc.Step(`^organization "([^"]*)" gets a verifier profile by ID$`, s.getProfileByID)
@@ -93,11 +98,23 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^verifier profile matches "([^"]*)"$`, s.checkProfileMatches)
 }
 
+func (s *Steps) authorize(ctx context.Context, org, clientID, secret string) error {
+	accessToken, err := bddutil.IssueAccessToken(ctx, clientID, secret, []string{"org_admin"})
+	if err != nil {
+		return fmt.Errorf("failed to get access token: %w", err)
+	}
+
+	s.accessTokens[org] = accessToken
+
+	return nil
+}
+
 func (s *Steps) createProfile(ctx context.Context, orgID, content string) error {
 	var profile verifierProfile
 
 	if err := s.httpDo(ctx, http.MethodPost, host+"/verifier/profiles",
 		withBody(bytes.NewReader(s.testdata[content])),
+		withBearerToken(s.accessTokens[orgID]),
 		withParsedResponse(&profile),
 	); err != nil {
 		return fmt.Errorf("create verifier profile: %w", err)
@@ -112,6 +129,7 @@ func (s *Steps) getProfileByID(ctx context.Context, orgID string) error {
 	var profile verifierProfile
 
 	if err := s.httpDo(ctx, http.MethodGet, host+"/verifier/profiles/"+s.profileID,
+		withBearerToken(s.accessTokens[orgID]),
 		withParsedResponse(&profile),
 	); err != nil {
 		return fmt.Errorf("get verifier profile: %w", err)
@@ -127,6 +145,7 @@ func (s *Steps) updateProfile(ctx context.Context, orgID, content string) error 
 
 	if err := s.httpDo(ctx, http.MethodPut, host+"/verifier/profiles/"+s.profileID,
 		withBody(bytes.NewReader(s.testdata[content])),
+		withBearerToken(s.accessTokens[orgID]),
 		withParsedResponse(&profile),
 	); err != nil {
 		return fmt.Errorf("update verifier profile: %w", err)
@@ -138,7 +157,8 @@ func (s *Steps) updateProfile(ctx context.Context, orgID, content string) error 
 }
 
 func (s *Steps) deleteProfile(ctx context.Context, orgID string) error {
-	if err := s.httpDo(ctx, http.MethodDelete, host+"/verifier/profiles/"+s.profileID); err != nil {
+	if err := s.httpDo(ctx, http.MethodDelete, host+"/verifier/profiles/"+s.profileID,
+		withBearerToken(s.accessTokens[orgID])); err != nil {
 		return fmt.Errorf("delete verifier profile: %w", err)
 	}
 
@@ -146,7 +166,8 @@ func (s *Steps) deleteProfile(ctx context.Context, orgID string) error {
 }
 
 func (s *Steps) activateProfile(ctx context.Context, orgID string) error {
-	if err := s.httpDo(ctx, http.MethodPost, host+"/verifier/profiles/"+s.profileID+"/activate"); err != nil {
+	if err := s.httpDo(ctx, http.MethodPost, host+"/verifier/profiles/"+s.profileID+"/activate",
+		withBearerToken(s.accessTokens[orgID])); err != nil {
 		return fmt.Errorf("activate verifier profile: %w", err)
 	}
 
@@ -154,7 +175,8 @@ func (s *Steps) activateProfile(ctx context.Context, orgID string) error {
 }
 
 func (s *Steps) deactivateProfile(ctx context.Context, orgID string) error {
-	if err := s.httpDo(ctx, http.MethodPost, host+"/verifier/profiles/"+s.profileID+"/deactivate"); err != nil {
+	if err := s.httpDo(ctx, http.MethodPost, host+"/verifier/profiles/"+s.profileID+"/deactivate",
+		withBearerToken(s.accessTokens[orgID])); err != nil {
 		return fmt.Errorf("deactivate verifier profile: %w", err)
 	}
 
@@ -178,7 +200,8 @@ func (s *Steps) checkProfileDeleted(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.httpDo(ctx, http.MethodGet, host+"/verifier/profiles/"+s.profileID); err != nil {
+	if err := s.httpDo(ctx, http.MethodGet, host+"/verifier/profiles/"+s.profileID,
+		withBearerToken(s.accessTokens["org1"])); err != nil {
 		if err.Error() != "404 Not Found" {
 			return err
 		}
@@ -195,6 +218,7 @@ func (s *Steps) checkProfileActivated(ctx context.Context) error {
 	var profile verifierProfile
 
 	if err := s.httpDo(ctx, http.MethodGet, host+"/verifier/profiles/"+s.profileID,
+		withBearerToken(s.accessTokens["org1"]),
 		withParsedResponse(&profile),
 	); err != nil {
 		return err
@@ -215,6 +239,7 @@ func (s *Steps) checkProfileDeactivated(ctx context.Context) error {
 	var profile verifierProfile
 
 	if err := s.httpDo(ctx, http.MethodGet, host+"/verifier/profiles/"+s.profileID,
+		withBearerToken(s.accessTokens["org1"]),
 		withParsedResponse(&profile),
 	); err != nil {
 		return err
@@ -267,6 +292,7 @@ func (s *Steps) checkProfileMatches(content string) error {
 
 type options struct {
 	body           io.Reader
+	bearerToken    string
 	parsedResponse interface{}
 }
 
@@ -275,6 +301,12 @@ type opt func(*options)
 func withBody(body io.Reader) opt {
 	return func(o *options) {
 		o.body = body
+	}
+}
+
+func withBearerToken(token string) opt {
+	return func(o *options) {
+		o.bearerToken = token
 	}
 }
 
@@ -299,6 +331,10 @@ func (s *Steps) httpDo(ctx context.Context, method, url string, opts ...opt) err
 	}
 
 	req.Header.Add(contentType, applicationJSON)
+
+	if op.bearerToken != "" {
+		req.Header.Add("Authorization", "Bearer "+op.bearerToken)
+	}
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -352,33 +388,4 @@ func parseError(status string, body []byte) error {
 // ProfileID is a helper function used in template to get the current profile ID.
 func (s *Steps) ProfileID() string {
 	return s.profileID
-}
-
-// DumpTransport is http.RoundTripper that dumps requests and responses.
-type DumpTransport struct {
-	r http.RoundTripper
-}
-
-// RoundTrip implements the RoundTripper interface.
-func (d *DumpTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	reqDump, err := httputil.DumpRequest(req, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dump request: %w", err)
-	}
-
-	fmt.Printf("\n****REQUEST****\n%s\n\n", string(reqDump))
-
-	resp, err := d.r.RoundTrip(req)
-	if err != nil {
-		return nil, err
-	}
-
-	respDump, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dump response: %w", err)
-	}
-
-	fmt.Printf("****RESPONSE****\n%s****************\n", string(respDump))
-
-	return resp, nil
 }

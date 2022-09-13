@@ -1,6 +1,6 @@
 {
   "name": "test profile",
-  "organizationID": "orgID",
+  "organizationID": "org1",
   "url": "https://test-verifier.com",
   "checks": {
     "credential": {

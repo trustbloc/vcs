@@ -7,6 +7,9 @@
 @all
 @verifier_profile_rest
 Feature: Verifier Profile Management REST API
+  Background:
+    Given organization "org1" has been authorized using client id "org1" and secret "org1-secret"
+
   Scenario: Create a new verifier profile
     When organization "org1" creates a verifier profile with data from "verifier_profile_create.json"
     Then verifier profile is created

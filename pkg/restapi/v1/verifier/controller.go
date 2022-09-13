@@ -14,11 +14,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/verifier"
+)
+
+const (
+	verifierProfileSvcComponent = "verifier.ProfileService"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -48,17 +53,14 @@ func NewController(profileSvc profileService) *Controller {
 // GetVerifierProfiles gets all verifier profiles for organization.
 // GET /verifier/profiles.
 func (c *Controller) GetVerifierProfiles(ctx echo.Context) error {
-	// TODO: resolve orgID from auth token
-	authHeader := ctx.Request().Header.Get("Authorization")
-	if authHeader == "" || !strings.Contains(authHeader, "Bearer") {
-		return echo.NewHTTPError(http.StatusUnauthorized, "missing authorization")
+	orgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
 	}
-
-	orgID := authHeader[len("Bearer "):] // for now assume that token is just plain orgID
 
 	profiles, err := c.profileSvc.GetAllProfiles(orgID)
 	if err != nil {
-		return fmt.Errorf("failed to get verifier profiles: %w", err)
+		return fmt.Errorf("get all profiles: %w", err)
 	}
 
 	var verifierProfiles []*VerifierProfile
@@ -73,15 +75,25 @@ func (c *Controller) GetVerifierProfiles(ctx echo.Context) error {
 // PostVerifierProfiles creates a new verifier profile.
 // POST /verifier/profiles.
 func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
+	orgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
 	var body CreateVerifierProfileData
 
-	if err := ctx.Bind(&body); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+	if err = ctx.Bind(&body); err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
+	}
+
+	if body.OrganizationID != orgID {
+		return resterr.NewValidationError(resterr.InvalidValue, "organizationID",
+			fmt.Errorf("org id mismatch (want %q, got %q)", orgID, body.OrganizationID))
 	}
 
 	createdProfile, err := c.profileSvc.Create(mapCreateVerifierProfileData(&body))
 	if err != nil {
-		return fmt.Errorf("failed to create verifier profile: %w", err)
+		return fmt.Errorf("create profile: %w", err)
 	}
 
 	return ctx.JSON(http.StatusOK, mapProfile(createdProfile))
@@ -89,9 +101,14 @@ func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
 
 // DeleteVerifierProfilesProfileID deletes profile from VCS storage.
 // DELETE /verifier/profiles/{profileID}.
-func (c *Controller) DeleteVerifierProfilesProfileID(_ echo.Context, profileID string) error {
-	if err := c.profileSvc.Delete(profileID); err != nil {
-		return fmt.Errorf("failed to delete verifier profile: %w", err)
+func (c *Controller) DeleteVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
+	profile, err := c.accessProfile(ctx, profileID)
+	if err != nil {
+		return err
+	}
+
+	if err = c.profileSvc.Delete(profile.ID); err != nil {
+		return fmt.Errorf("delete profile: %w", err)
 	}
 
 	return nil
@@ -100,13 +117,9 @@ func (c *Controller) DeleteVerifierProfilesProfileID(_ echo.Context, profileID s
 // GetVerifierProfilesProfileID gets profile by ID.
 // GET /verifier/profiles/{profileID}.
 func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
-	profile, err := c.profileSvc.GetProfile(profileID)
+	profile, err := c.accessProfile(ctx, profileID)
 	if err != nil {
-		if errors.Is(err, verifier.ErrProfileNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, err)
-		}
-
-		return fmt.Errorf("failed to get verifier profile: %w", err)
+		return err
 	}
 
 	return ctx.JSON(http.StatusOK, mapProfile(profile))
@@ -115,18 +128,23 @@ func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID st
 // PutVerifierProfilesProfileID updates profile.
 // PUT /verifier/profiles/{profileID}.
 func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
+	profile, err := c.accessProfile(ctx, profileID)
+	if err != nil {
+		return err
+	}
+
 	var body UpdateVerifierProfileData
 
-	if err := ctx.Bind(&body); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err)
+	if err = ctx.Bind(&body); err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
 	}
 
 	profileUpdate := mapUpdateVerifierProfileData(&body)
-	profileUpdate.ID = profileID
+	profileUpdate.ID = profile.ID
 
 	updatedProfile, err := c.profileSvc.Update(profileUpdate)
 	if err != nil {
-		return fmt.Errorf("failed to update verifier profile: %w", err)
+		return fmt.Errorf("update profile: %w", err)
 	}
 
 	return ctx.JSON(http.StatusOK, mapProfile(updatedProfile))
@@ -134,9 +152,14 @@ func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID st
 
 // PostVerifierProfilesProfileIDActivate activates profile.
 // POST /verifier/profiles/{profileID}/activate.
-func (c *Controller) PostVerifierProfilesProfileIDActivate(_ echo.Context, profileID string) error {
-	if err := c.profileSvc.ActivateProfile(profileID); err != nil {
-		return fmt.Errorf("failed to activate verifier profile: %w", err)
+func (c *Controller) PostVerifierProfilesProfileIDActivate(ctx echo.Context, profileID string) error {
+	profile, err := c.accessProfile(ctx, profileID)
+	if err != nil {
+		return err
+	}
+
+	if err = c.profileSvc.ActivateProfile(profile.ID); err != nil {
+		return fmt.Errorf("activate profile: %w", err)
 	}
 
 	return nil
@@ -144,12 +167,42 @@ func (c *Controller) PostVerifierProfilesProfileIDActivate(_ echo.Context, profi
 
 // PostVerifierProfilesProfileIDDeactivate deactivates profile.
 // POST /verifier/profiles/{profileID}/deactivate.
-func (c *Controller) PostVerifierProfilesProfileIDDeactivate(_ echo.Context, profileID string) error {
-	if err := c.profileSvc.DeactivateProfile(profileID); err != nil {
-		return fmt.Errorf("failed to deactivate verifier profile: %w", err)
+func (c *Controller) PostVerifierProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error {
+	profile, err := c.accessProfile(ctx, profileID)
+	if err != nil {
+		return err
+	}
+
+	if err = c.profileSvc.DeactivateProfile(profile.ID); err != nil {
+		return fmt.Errorf("deactivate profile: %w", err)
 	}
 
 	return nil
+}
+
+func (c *Controller) accessProfile(ctx echo.Context, profileID string) (*verifier.Profile, error) {
+	orgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	profile, err := c.profileSvc.GetProfile(profileID)
+	if err != nil {
+		if errors.Is(err, verifier.ErrProfileNotFound) {
+			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+				fmt.Errorf("no profile with id %s", profileID))
+		}
+
+		return nil, resterr.NewSystemError(verifierProfileSvcComponent, "GetProfile", err)
+	}
+
+	// block access to profiles of other organizations
+	if profile.OrganizationID != orgID {
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+			fmt.Errorf("no profile with id %s", profileID))
+	}
+
+	return profile, nil
 }
 
 func mapCreateVerifierProfileData(data *CreateVerifierProfileData) *verifier.Profile {
