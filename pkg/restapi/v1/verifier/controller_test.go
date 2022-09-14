@@ -18,6 +18,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	verifiersvc "github.com/trustbloc/vcs/pkg/verifier"
 )
@@ -34,9 +35,9 @@ var (
 	verificationChecks = &verifiersvc.VerificationChecks{
 		Credential: &verifiersvc.CredentialChecks{
 			Proof: true,
-			Format: []verifiersvc.CredentialFormat{
-				verifiersvc.JwtVC,
-				verifiersvc.LdpVC,
+			Format: []vc.Format{
+				vc.JwtVC,
+				vc.LdpVC,
 			},
 			Status: true,
 		},

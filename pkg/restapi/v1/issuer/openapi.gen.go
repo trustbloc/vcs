@@ -67,7 +67,7 @@ type CredentialStatusOpt struct {
 
 // Model for issuer credential.
 type IssueCredentialData struct {
-	// URI of the verifier.
+	// Credential in jws(string) or jsonld(object) formats.
 	Credential interface{} `json:"credential"`
 
 	// Options for issuing credential.
@@ -199,7 +199,7 @@ type PostIssuerProfilesJSONBody = CreateIssuerProfileData
 type PutIssuerProfilesProfileIDJSONBody = UpdateIssuerProfileData
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
-type PostIssueCredentialsJSONBody = map[string]interface{}
+type PostIssueCredentialsJSONBody = IssueCredentialData
 
 // PostIssuerProfilesJSONRequestBody defines body for PostIssuerProfiles for application/json ContentType.
 type PostIssuerProfilesJSONRequestBody = PostIssuerProfilesJSONBody

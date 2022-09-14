@@ -142,22 +142,31 @@ func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.
 	return "", fmt.Errorf("%s signature type currently not supported", signatureType)
 }
 
-func ValidateCredential(cred interface{}, format Format,
+func isFormatSupported(format Format, supportedFormats []Format) bool {
+	for _, supported := range supportedFormats {
+		if format == supported {
+			return true
+		}
+	}
+	return false
+}
+
+func ValidateCredential(cred interface{}, formats []Format,
 	opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
 	strRep, isStr := cred.(string)
 
 	var vcBytes []byte
 
-	if format == JwtVC {
-		if !isStr {
+	if isStr {
+		if !isFormatSupported(JwtVC, formats) {
 			return nil, fmt.Errorf("invlaid vc format, should be %s", JwtVC)
 		}
 
 		vcBytes = []byte(strRep)
 	}
 
-	if format == LdpVC {
-		if isStr {
+	if !isStr {
+		if !isFormatSupported(LdpVC, formats) {
 			return nil, fmt.Errorf("invlaid vc format, should be %s", LdpVC)
 		}
 

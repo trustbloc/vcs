@@ -173,20 +173,21 @@ paths:
       summary: Issue credential
       tags:
         - issuer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueCredentialData'
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/IssueCredentialData'
+                type: object
       operationId: post-issue-credentials
       description: Issuer credentials.
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
+
 
   /verifier/profiles:
     post:
@@ -316,6 +317,31 @@ paths:
           description: OK
       operationId: post-verifier-profiles-profileID-deactivate
       description: 'Deactivates verifier profile. Once deactivated, any attempt to perform credential management or interaction operation on this profile will result in an error.'
+  '/verifier/profiles/{profileID}/credentials/verify':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Verify credential
+      operationId: post-verify-credentials
+      tags:
+        - verifier
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCredentialData'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
 components:
   schemas:
     HealthCheckResponse:
@@ -644,6 +670,35 @@ components:
         - credential
         - presentation
 
+    VerifyCredentialData:
+      title: VerifyCredentialData
+      x-tags:
+        - verifier
+      type: object
+      description: Model for credential verification.
+      properties:
+        options:
+          $ref: '#/components/schemas/VerifyCredentialOptions'
+        credential:
+          oneOf:
+            - type: string
+            - type: object
+          description: Credential in jws(string) or jsonld(object) formats.
+      required:
+        - credential
+    VerifyCredentialOptions:
+      title: VerifyCredentialOptions
+      x-tags:
+        - verifier
+      type: object
+      description: Options for verify credential.
+      properties:
+        challenge:
+          type: string
+          description: Chalange is added to the proof.
+        domain:
+          type: string
+          description: Domain is added to the proof.
     IssueCredentialData:
       title: IssueCredentialData
       x-tags:
@@ -657,7 +712,7 @@ components:
           oneOf:
             - type: string
             - type: object
-          description: URI of the verifier.
+          description: Credential in jws(string) or jsonld(object) formats.
       required:
         - credential
     IssueCredentialOptions:

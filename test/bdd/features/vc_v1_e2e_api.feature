@@ -5,7 +5,7 @@
 #
 
 @all
-@vc_rest
+@vc_rest_v1
 Feature: Using VC REST API
 
   @e2e

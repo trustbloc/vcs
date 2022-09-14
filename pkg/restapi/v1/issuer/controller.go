@@ -284,7 +284,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 
-	credential, err := vc.ValidateCredential(body.Credential, profile.VCConfig.Format,
+	credential, err := vc.ValidateCredential(body.Credential, []vc.Format{profile.VCConfig.Format},
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
@@ -588,7 +588,7 @@ func (c *Controller) validateSignatureRepresentation(signatureRepresentation *VC
 		return verifiable.SignatureProofValue, nil
 	}
 
-	return verifiable.SignatureProofValue, fmt.Errorf("unsupported signatureRepresentation %s, use one of next [%s, %s, %s]",
+	return verifiable.SignatureProofValue, fmt.Errorf("unsupported signatureRepresentation %d, use one of next [%s, %s]",
 		signatureRepresentation, JWS, ProofValue)
 }
 
