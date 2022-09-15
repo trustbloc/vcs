@@ -19,6 +19,9 @@ import (
 	"strings"
 	"time"
 
+	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
+
 	"github.com/google/tink/go/subtle/random"
 	"github.com/gorilla/mux"
 	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
@@ -167,7 +170,6 @@ const (
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
-	didMethodWeb     = "web"
 	didMethodFactom  = "factom"
 
 	masterKeyURI       = "local-lock://custom/master/key/"
@@ -650,8 +652,13 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
 		return nil, err
 	}
 
-	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))
+	opts = append(opts, vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(&webVDR{
+		http: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			}},
+		VDR: web.New(),
+	}))
 
 	return vdrpkg.New(opts...), nil
 }
@@ -667,7 +674,7 @@ func supportedMode(mode string) bool {
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom
+		method == didMethodFactom
 }
 
 type edgeServiceProviders struct {
@@ -866,4 +873,18 @@ func authorizationMiddleware(token string) mux.MiddlewareFunc {
 	}
 
 	return middleware
+}
+
+type webVDR struct {
+	http *http.Client
+	*web.VDR
+}
+
+func (w *webVDR) Read(didID string, opts ...vdrapi.DIDMethodOption) (*ariesdid.DocResolution, error) {
+	docRes, err := w.VDR.Read(didID, append(opts, vdrapi.WithOption(web.HTTPClientOpt, w.http))...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read did web: %w", err)
+	}
+
+	return docRes, nil
 }
