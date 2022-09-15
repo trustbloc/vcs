@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package bddutil
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/tls"
 	_ "embed" //nolint:gci // required for go:embed
@@ -28,6 +29,8 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
 	"github.com/trustbloc/edge-core/pkg/log"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 var logger = log.New("bddutil")
@@ -343,4 +346,31 @@ func DocumentLoader() (*ld.DocumentLoader, error) {
 	}
 
 	return loader, nil
+}
+
+const oidcProviderURL = "https://localhost:4444"
+
+func IssueAccessToken(ctx context.Context, clientID, secret string, scopes []string) (string, error) {
+	conf := clientcredentials.Config{
+		TokenURL:     oidcProviderURL + "/oauth2/token",
+		ClientID:     clientID,
+		ClientSecret: secret,
+		Scopes:       scopes,
+		AuthStyle:    oauth2.AuthStyleInHeader,
+	}
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	})
+
+	token, err := conf.Token(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get token: %w", err)
+	}
+
+	return token.AccessToken, nil
 }

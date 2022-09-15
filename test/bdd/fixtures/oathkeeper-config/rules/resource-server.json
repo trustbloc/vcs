@@ -1,0 +1,41 @@
+[
+  {
+    "id": "profile-management",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/<issuer|verifier>/profiles<.*>",
+      "methods": [
+        "GET",
+        "POST",
+        "PUT",
+        "DELETE"
+      ]
+    },
+    "authenticators": [
+      {
+        "handler": "oauth2_introspection",
+        "config": {
+          "required_scope": [
+            "org_admin"
+          ]
+        }
+      }
+    ],
+    "mutators": [
+      {
+        "handler": "header",
+        "config": {
+          "headers": {
+            "X-User": "{{ print .Subject }}",
+            "X-API-Key": "rw_token"
+          }
+        }
+      }
+    ],
+    "authorizer": {
+      "handler": "allow"
+    }
+  }
+]
