@@ -52,6 +52,7 @@ services:
       - KMSSECRETS_DATABASE_PREFIX=verifier_
       - VC_REST_MODE=verifier
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
       - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local

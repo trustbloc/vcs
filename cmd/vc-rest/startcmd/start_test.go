@@ -312,10 +312,6 @@ func TestAcceptedDIDs(t *testing.T) {
 				result: true,
 			},
 			{
-				method: didMethodWeb,
-				result: true,
-			},
-			{
 				method: "edge",
 				result: false,
 			},
