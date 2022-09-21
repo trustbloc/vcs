@@ -11,6 +11,8 @@ package verifier
 import (
 	"errors"
 	"fmt"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 )
 
 var ErrProfileNotFound = errors.New("profile not found")
@@ -37,18 +39,10 @@ type ProfileUpdate struct {
 	OIDCConfig interface{}
 }
 
-// CredentialFormat is the encoding format for VC.
-type CredentialFormat string
-
-const (
-	JwtVC CredentialFormat = "jwt_vc"
-	LdpVC CredentialFormat = "ldp_vc"
-)
-
 // CredentialChecks are checks to be performed during credential verification.
 type CredentialChecks struct {
 	Proof  bool
-	Format []CredentialFormat
+	Format []vc.Format
 	Status bool
 }
 

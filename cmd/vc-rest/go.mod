@@ -9,7 +9,7 @@ require (
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/google/tink/go v1.6.1
 	github.com/gorilla/mux v1.8.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220819134023-730ac301c3c0
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220911073828-9fc7486e88a9
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e

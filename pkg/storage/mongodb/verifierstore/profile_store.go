@@ -15,6 +15,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
@@ -303,7 +304,7 @@ func profileFromDocument(doc *profileDocument) *verifier.Profile {
 
 			for _, format := range doc.Checks.Credential.Format {
 				profile.Checks.Credential.Format = append(profile.Checks.Credential.Format,
-					verifier.CredentialFormat(format))
+					vc.Format(format))
 			}
 		}
 

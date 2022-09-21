@@ -13,13 +13,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/labstack/echo/v4"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -64,15 +70,36 @@ type profileService interface {
 	GetAllProfiles(orgID string) ([]*issuer.Profile, error)
 }
 
+type issueCredentialService interface {
+	IssueCredential(credential *verifiable.Credential,
+		issuerSigningOpts []crypto.SigningOpts,
+		profile *issuer.Profile,
+		signingDID *issuer.SigningDID) (*verifiable.Credential, error)
+}
+
+type Config struct {
+	ProfileSvc             profileService
+	KMSRegistry            kmsRegistry
+	DocumentLoader         ld.DocumentLoader
+	IssueCredentialService issueCredentialService
+}
+
 // Controller for Issuer Profile Management API.
 type Controller struct {
-	profileSvc  profileService
-	kmsRegistry kmsRegistry
+	profileSvc             profileService
+	kmsRegistry            kmsRegistry
+	documentLoader         ld.DocumentLoader
+	issueCredentialService issueCredentialService
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
-func NewController(profileSvc profileService, kmsRegistry kmsRegistry) *Controller {
-	return &Controller{profileSvc, kmsRegistry}
+func NewController(config *Config) *Controller {
+	return &Controller{
+		profileSvc:             config.ProfileSvc,
+		kmsRegistry:            config.KMSRegistry,
+		documentLoader:         config.DocumentLoader,
+		issueCredentialService: config.IssueCredentialService,
+	}
 }
 
 // PostIssuerProfiles creates a new issuer profile.
@@ -231,6 +258,53 @@ func (c *Controller) PostIssuerProfilesProfileIDDeactivate(ctx echo.Context, pro
 	return nil
 }
 
+// PostIssueCredentials issues credentials.
+// POST /issuer/profiles/{profileID}/credentials/issue.
+func (c *Controller) PostIssueCredentials(ctx echo.Context, profileID string) error {
+	var body IssueCredentialData
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.issueCredential(ctx, &body, profileID))
+}
+
+func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData,
+	profileID string) (*verifiable.Credential, error) {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	profile, signingDID, err := c.accessProfile(profileID, oidcOrgID)
+	if err != nil {
+		return nil, err
+	}
+
+	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
+
+	credential, err := vc.ValidateCredential(body.Credential, []vc.Format{profile.VCConfig.Format},
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithSchema(vcSchema),
+		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	}
+
+	credOpts, err := validateIssueCredOptions(body.Options)
+	if err != nil {
+		return nil, err
+	}
+
+	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile, signingDID)
+	if err != nil {
+		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
+	}
+
+	return signedVC, nil
+}
+
 func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, orgID string) (*issuer.Profile, error) {
 	if body.OrganizationID != orgID {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, profileOrganizationID,
@@ -252,8 +326,14 @@ func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, or
 		return nil, err
 	}
 
+	// TODO: add validation for profile URL
+	url := body.Url
+	if !strings.HasSuffix(url, "/") {
+		url += "/"
+	}
+
 	return &issuer.Profile{
-		URL:            body.Url,
+		URL:            url,
 		Name:           body.Name,
 		Active:         true,
 		OIDCConfig:     body.OidcConfig,
@@ -261,6 +341,42 @@ func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, or
 		VCConfig:       vcConfig,
 		KMSConfig:      kmsConfig,
 	}, nil
+}
+
+func validateIssueCredOptions(options *IssueCredentialOptions) ([]crypto.SigningOpts, error) {
+	var signingOpts []crypto.SigningOpts
+
+	if options == nil {
+		return signingOpts, nil
+	}
+	if options.CredentialStatus.Type != "" && options.CredentialStatus.Type != cslstatus.StatusList2021Entry {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
+			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))
+	}
+
+	verificationMethod := options.VerificationMethod
+
+	if verificationMethod != nil {
+		signingOpts = append(signingOpts, crypto.WithVerificationMethod(*verificationMethod))
+	}
+
+	if options.Created != nil {
+		created, err := time.Parse(time.RFC3339, *options.Created)
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "options.created", err)
+		}
+		signingOpts = append(signingOpts, crypto.WithCreated(&created))
+	}
+
+	if options.Challenge != nil {
+		signingOpts = append(signingOpts, crypto.WithChallenge(*options.Challenge))
+	}
+
+	if options.Domain != nil {
+		signingOpts = append(signingOpts, crypto.WithDomain(*options.Domain))
+	}
+
+	return signingOpts, nil
 }
 
 func (c *Controller) validateCredentialManifests(credentialManifests *[]map[string]interface{}) (
@@ -366,18 +482,24 @@ func (c *Controller) validateVCConfig(vcConfig *VCConfig,
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigDidMethod, err)
 	}
 
+	signatureRepresentation, err := c.validateSignatureRepresentation(vcConfig.SignatureRepresentation)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "signatureRepresentation", err)
+	}
+
 	var contexts []string
 	if vcConfig.Contexts != nil {
 		contexts = *vcConfig.Contexts
 	}
 
 	return &issuer.VCConfig{
-		Format:           vcFormat,
-		SigningAlgorithm: signingAlgorithm,
-		KeyType:          keyType,
-		DIDMethod:        didMethod,
-		Status:           vcConfig.Status,
-		Context:          contexts,
+		Format:                  vcFormat,
+		SigningAlgorithm:        signingAlgorithm,
+		KeyType:                 keyType,
+		DIDMethod:               didMethod,
+		SignatureRepresentation: signatureRepresentation,
+		Status:                  vcConfig.Status,
+		Context:                 contexts,
 	}, nil
 }
 
@@ -453,6 +575,37 @@ func (c *Controller) mapToVCFormat(format vc.Format) (VCConfigFormat, error) {
 		fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVc, LdpVc))
 }
 
+func (c *Controller) validateSignatureRepresentation(signatureRepresentation *VCConfigSignatureRepresentation) (
+	verifiable.SignatureRepresentation, error) {
+	if signatureRepresentation == nil {
+		return verifiable.SignatureProofValue, nil
+	}
+
+	switch *signatureRepresentation {
+	case JWS:
+		return verifiable.SignatureJWS, nil
+	case ProofValue:
+		return verifiable.SignatureProofValue, nil
+	}
+
+	return verifiable.SignatureProofValue, fmt.Errorf("unsupported signatureRepresentation %d, use one of next [%s, %s]",
+		signatureRepresentation, JWS, ProofValue)
+}
+
+func (c *Controller) mapToSignatureRepresentation(signatureRepresentation verifiable.SignatureRepresentation) (
+	VCConfigSignatureRepresentation, error) {
+	switch signatureRepresentation {
+	case verifiable.SignatureJWS:
+		return JWS, nil
+	case verifiable.SignatureProofValue:
+		return ProofValue, nil
+	}
+
+	return "", resterr.NewSystemError(issuerProfileCtrlComponent, "mapToDIDMethod",
+		fmt.Errorf("signatureRepresentation missmatch %d, rest api supports only [%s, %s]",
+			signatureRepresentation, JWS, ProofValue))
+}
+
 func (c *Controller) validateDIDMethod(method VCConfigDidMethod) (did.Method, error) {
 	switch method {
 	case VCConfigDidMethodKey:
@@ -493,6 +646,11 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 		return nil, err
 	}
 
+	signatureRepresentation, err := c.mapToSignatureRepresentation(p.VCConfig.SignatureRepresentation)
+	if err != nil {
+		return nil, err
+	}
+
 	keyType := string(p.VCConfig.KeyType)
 	signingAlgorithm := string(p.VCConfig.SigningAlgorithm)
 
@@ -515,12 +673,13 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 	}
 
 	vcConfig := VCConfig{
-		Contexts:         &p.VCConfig.Context,
-		DidMethod:        didMethod,
-		Format:           format,
-		KeyType:          &keyType,
-		SigningAlgorithm: signingAlgorithm,
-		SigningDID:       signingDID.DID,
+		Contexts:                &p.VCConfig.Context,
+		DidMethod:               didMethod,
+		SignatureRepresentation: &signatureRepresentation,
+		Format:                  format,
+		KeyType:                 &keyType,
+		SigningAlgorithm:        signingAlgorithm,
+		SigningDID:              signingDID.DID,
 	}
 
 	profile := &IssuerProfile{
@@ -529,7 +688,7 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 		KmsConfig:      kmsConfig,
 		Name:           p.Name,
 		OrganizationID: p.OrganizationID,
-		Url:            p.URL,
+		Url:            p.URL + p.ID,
 		VcConfig:       vcConfig,
 	}
 

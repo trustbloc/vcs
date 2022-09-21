@@ -11,9 +11,9 @@ import (
 	"errors"
 	"fmt"
 
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 )
@@ -95,22 +95,22 @@ func DecodeTypedIDFromJSONRaw(typedIDBytes json.RawMessage) ([]verifiable.TypedI
 
 // UpdateIssuer overrides credential issuer for profile if profile.OverwriteIssuer=true or credential issuer is missing.
 // Credential issuer will always be DID.
-func UpdateIssuer(credential *verifiable.Credential, profile *vcsstorage.IssuerProfile) {
-	if profile.OverwriteIssuer || credential.Issuer.ID == "" {
+func UpdateIssuer(credential *verifiable.Credential, issuerDID, issuerName string, overwriteIssuer bool) {
+	if overwriteIssuer || credential.Issuer.ID == "" {
 		credential.Issuer = verifiable.Issuer{
-			ID:           profile.DID,
-			CustomFields: verifiable.CustomFields{"name": profile.Name},
+			ID:           issuerDID,
+			CustomFields: verifiable.CustomFields{"name": issuerName},
 		}
 	}
 }
 
 // UpdateSignatureTypeContext updates context for JSONWebSignature2020.
-func UpdateSignatureTypeContext(credential *verifiable.Credential, profile *vcsstorage.IssuerProfile) {
-	if profile.SignatureType == crypto.JSONWebSignature2020 {
+func UpdateSignatureTypeContext(credential *verifiable.Credential, signatureType vc.SignatureType) {
+	if signatureType == crypto.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)
 	}
 
-	if profile.SignatureType == crypto.BbsBlsSignature2020 {
+	if signatureType == crypto.BbsBlsSignature2020 {
 		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
 }

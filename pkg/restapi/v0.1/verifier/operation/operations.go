@@ -577,6 +577,21 @@ func (o *Operation) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Cred
 	return vc, nil
 }
 
+func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
+	vc, err := verifiable.ParseCredential(
+		vcBytes,
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return vc, nil
+}
+
 //nolint:funlen,gocyclo,gocognit
 func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCredentialProof,
 	validateCredentialStatus bool) (*verifiable.Presentation, error) {
@@ -644,21 +659,6 @@ func (o *Operation) parseAndVerifyVP(vpBytes []byte, validateVPPoof, validateCre
 	}
 
 	return vp, nil
-}
-
-func (o *Operation) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, err := verifiable.ParseCredential(
-		vcBytes,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(o.vdr).PublicKeyFetcher(),
-		),
-		verifiable.WithJSONLDDocumentLoader(o.documentLoader),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return vc, nil
 }
 
 func (o *Operation) sendHTTPRequest(req *http.Request, status int, token string) ([]byte, error) {

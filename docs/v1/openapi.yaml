@@ -160,6 +160,35 @@ paths:
       description: Deactivates issuer profile.
       tags:
         - issuer
+
+  '/issuer/profiles/{profileID}/credentials/issue':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Issue credential
+      tags:
+        - issuer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IssueCredentialData'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+      operationId: post-issue-credentials
+      description: Issuer credentials.
+
+
   /verifier/profiles:
     post:
       summary: Create Profile
@@ -186,7 +215,7 @@ paths:
           application/xml:
             schema:
               type: object
-              properties: {}
+              properties: { }
         description: ''
     get:
       summary: Get All Profiles
@@ -253,7 +282,7 @@ paths:
       description: Gets verifier profile by ID.
       tags:
         - verifier
-      parameters: []
+      parameters: [ ]
   '/verifier/profiles/{profileID}/activate':
     parameters:
       - schema:
@@ -288,6 +317,31 @@ paths:
           description: OK
       operationId: post-verifier-profiles-profileID-deactivate
       description: 'Deactivates verifier profile. Once deactivated, any attempt to perform credential management or interaction operation on this profile will result in an error.'
+  '/verifier/profiles/{profileID}/credentials/verify':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Verify credential
+      operationId: post-verify-credentials
+      tags:
+        - verifier
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyCredentialData'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyCredentialResponse'
 components:
   schemas:
     HealthCheckResponse:
@@ -415,6 +469,13 @@ components:
         keyType:
           type: string
           description: Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
+        signatureRepresentation:
+          type: string
+          description: Type of signature value holder (e.g. "ProofValue" or "JWS").
+          enum:
+            - JWS
+            - ProofValue
+          default: ProofValue
         didMethod:
           type: string
           description: DID method of the DID to be used for signing.
@@ -608,4 +669,117 @@ components:
       required:
         - credential
         - presentation
-  securitySchemes: {}
+
+    VerifyCredentialData:
+      title: VerifyCredentialData
+      x-tags:
+        - verifier
+      type: object
+      description: Model for credential verification.
+      properties:
+        options:
+          $ref: '#/components/schemas/VerifyCredentialOptions'
+        credential:
+          oneOf:
+            - type: string
+            - type: object
+          description: Credential in jws(string) or jsonld(object) formats.
+      required:
+        - credential
+    VerifyCredentialOptions:
+      title: VerifyCredentialOptions
+      x-tags:
+        - verifier
+      type: object
+      description: Options for verify credential.
+      properties:
+        challenge:
+          type: string
+          description: Chalange is added to the proof.
+        domain:
+          type: string
+          description: Domain is added to the proof.
+    VerifyCredentialResponse:
+      title: VerifyCredentialResponse
+      x-tags:
+        - verifier
+      type: object
+      description: Model for response of credentials verification.
+      properties:
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifyCredentialCheckResult'
+      required:
+        - checks
+    VerifyCredentialCheckResult:
+      title: VerifyCredentialCheckResult
+      x-tags:
+        - verifier
+      type: object
+      description: Verify credential response containing failure check details.
+      properties:
+        check:
+          type: string
+          description: Check title.
+        error:
+          type: string
+          description: Error message.
+        verificationMethod:
+          type: string
+          description: Verification method.
+      required:
+        - check
+        - error
+        - verificationMethod
+    IssueCredentialData:
+      title: IssueCredentialData
+      x-tags:
+        - issuer
+      type: object
+      description: Model for issuer credential.
+      properties:
+        options:
+          $ref: '#/components/schemas/IssueCredentialOptions'
+        credential:
+          oneOf:
+            - type: string
+            - type: object
+          description: Credential in jws(string) or jsonld(object) formats.
+      required:
+        - credential
+    IssueCredentialOptions:
+      title: IssueCredentialOptions
+      x-tags:
+        - issuer
+      type: object
+      description: Options for issuing credential.
+      properties:
+        verificationMethod:
+          type: string
+          description: The URI of the verificationMethod used for the proof. If omitted first ed25519 public key of DID (Issuer or Profile DID) will be used.
+        created:
+          type: string
+          description: The date of the proof. If omitted system time will be used.
+        challenge:
+          type: string
+          description: Chalange is added to the proof.
+        domain:
+          type: string
+          description: Domain is added to the proof.
+        credentialStatus:
+          $ref: '#/components/schemas/CredentialStatusOpt'
+
+    CredentialStatusOpt:
+      title: CredentialStatusOpt
+      x-tags:
+        - issuer
+      type: object
+      description: Options for issuing credential.
+      properties:
+        type:
+          type: string
+      required:
+        - type
+
+  securitySchemes: { }

@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/restapi/v0.1/model"
 
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
@@ -2420,11 +2421,11 @@ type mockVCStatusManager struct {
 	GetRevocationListVCErr   error
 }
 
-func (m *mockVCStatusManager) CreateStatusID(profile *vcsstorage.DataProfile, url string) (*verifiable.TypedID, error) {
+func (m *mockVCStatusManager) CreateStatusID(profile *vc.Signer, url string) (*verifiable.TypedID, error) {
 	return m.createStatusIDValue, m.createStatusIDErr
 }
 
-func (m *mockVCStatusManager) UpdateVC(v *verifiable.Credential, profile *vcsstorage.DataProfile, status bool) error {
+func (m *mockVCStatusManager) UpdateVC(v *verifiable.Credential, profile *vc.Signer, status bool) error {
 	return m.updateVCErr
 }
 
@@ -2436,7 +2437,7 @@ type mockCredentialStatusManager struct {
 	CreateErr error
 }
 
-func (m *mockCredentialStatusManager) CreateStatusID(profile *vcsstorage.DataProfile,
+func (m *mockCredentialStatusManager) CreateStatusID(profile *vc.Signer,
 	url string) (*verifiable.TypedID, error) {
 	if m.CreateErr != nil {
 		return nil, m.CreateErr
@@ -2446,7 +2447,7 @@ func (m *mockCredentialStatusManager) CreateStatusID(profile *vcsstorage.DataPro
 }
 
 func (m *mockCredentialStatusManager) UpdateVC(v *verifiable.Credential,
-	profile *vcsstorage.DataProfile, status bool) error {
+	profile *vc.Signer, status bool) error {
 	return nil
 }
 

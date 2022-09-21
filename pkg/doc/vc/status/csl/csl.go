@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 
 	"github.com/google/uuid"
@@ -55,7 +56,7 @@ const (
 )
 
 type crypto interface {
-	SignCredential(dataProfile *vcsstorage.DataProfile, vc *verifiable.Credential,
+	SignCredential(dataProfile *vc.Signer, vc *verifiable.Credential,
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
@@ -86,7 +87,7 @@ func New(provider vcsstorage.Provider, listSize int, c crypto,
 }
 
 // CreateStatusID creates status ID.
-func (c *CredentialStatusManager) CreateStatusID(profile *vcsstorage.DataProfile,
+func (c *CredentialStatusManager) CreateStatusID(profile *vc.Signer,
 	url string) (*verifiable.TypedID, error) {
 	cslWrapper, err := c.getLatestCSL(profile, url)
 	if err != nil {
@@ -125,7 +126,7 @@ func (c *CredentialStatusManager) CreateStatusID(profile *vcsstorage.DataProfile
 // UpdateVC updates vc.
 //nolint: gocyclo, funlen
 func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
-	profile *vcsstorage.DataProfile, status bool) error {
+	profile *vc.Signer, status bool) error {
 	// validate vc status
 	if err := c.validateVCStatus(v.Status); err != nil {
 		return err
@@ -238,7 +239,7 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*vcsstorage.CSLWrapp
 }
 
 //nolint:gocognit
-func (c *CredentialStatusManager) getLatestCSL(profile *vcsstorage.DataProfile,
+func (c *CredentialStatusManager) getLatestCSL(profile *vc.Signer,
 	url string) (*vcsstorage.CSLWrapper, error) {
 	// get latest id
 	id, err := c.store.GetLatestListID()
@@ -291,7 +292,7 @@ func (c *CredentialStatusManager) getLatestCSL(profile *vcsstorage.DataProfile,
 }
 
 func (c *CredentialStatusManager) createVC(vcID string,
-	profile *vcsstorage.DataProfile) (*verifiable.Credential, error) {
+	profile *vc.Signer) (*verifiable.Credential, error) {
 	credential := &verifiable.Credential{}
 	credential.Context = []string{vcContext, Context}
 
@@ -340,7 +341,7 @@ func (c *CredentialStatusManager) createVC(vcID string,
 }
 
 // prepareSigningOpts prepares signing opts from recently issued proof of given credential.
-func prepareSigningOpts(profile *vcsstorage.DataProfile, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
+func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
 	var signingOpts []vccrypto.SigningOpts
 
 	if len(proofs) == 0 {
@@ -374,12 +375,19 @@ func prepareSigningOpts(profile *vcsstorage.DataProfile, proofs []verifiable.Pro
 		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
 	}
 
-	signType, err := getStringValue(jsonKeySignatureOfType, proof)
+	signTypeName, err := getStringValue(jsonKeySignatureOfType, proof)
 	if err != nil {
 		return nil, err
 	}
 
-	signingOpts = append(signingOpts, vccrypto.WithSignatureType(signType))
+	if signTypeName != "" {
+		signType, err := vc.GetSignatureTypeByName(signTypeName)
+		if err != nil {
+			return nil, err
+		}
+
+		signingOpts = append(signingOpts, vccrypto.WithSignatureType(signType))
+	}
 
 	return signingOpts, nil
 }

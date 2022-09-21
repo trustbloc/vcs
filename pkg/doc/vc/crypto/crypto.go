@@ -11,31 +11,34 @@ import (
 	"strings"
 	"time"
 
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
-
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/bbsblssignature2020"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ecdsasecp256k1signature2019"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
 
 const (
 	// Ed25519Signature2018 ed25519 signature suite.
 	Ed25519Signature2018 = "Ed25519Signature2018"
+	// Ed25519Signature2020 ed25519 signature suite.
+	Ed25519Signature2020 = "Ed25519Signature2020"
 	// JSONWebSignature2020 json web signature suite.
 	JSONWebSignature2020 = "JsonWebSignature2020"
 	// BbsBlsSignature2020 signature suite.
 	BbsBlsSignature2020 = "BbsBlsSignature2020"
+	// EcdsaSecp256k1Signature2019 signature suite.
+	EcdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019"
 
 	// Ed25519VerificationKey2018 ed25119 verification key.
 	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
@@ -73,60 +76,13 @@ const (
 	CapabilityInvocation = "capabilityInvocation"
 )
 
-type kmsSigner struct {
-	keyHandle interface{}
-	crypto    ariescrypto.Crypto
-	bbs       bool
-}
-
-func newKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator, signatureType string) (*kmsSigner, error) {
-	// creator will contain didID#keyID
-	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)
-	if err != nil {
-		return nil, err
-	}
-
-	keyHandler, err := keyManager.Get(keyID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &kmsSigner{keyHandle: keyHandler, crypto: c, bbs: signatureType == BbsBlsSignature2020}, nil
-}
-
-func (s *kmsSigner) Sign(data []byte) ([]byte, error) {
-	if s.bbs {
-		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
-	}
-
-	v, err := s.crypto.Sign(data, s.keyHandle)
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
-}
-
-func (s *kmsSigner) Alg() string {
-	return ""
-}
-
-func (s *kmsSigner) textToLines(txt string) [][]byte {
-	lines := strings.Split(txt, "\n")
-	linesBytes := make([][]byte, 0, len(lines))
-
-	for i := range lines {
-		if strings.TrimSpace(lines[i]) != "" {
-			linesBytes = append(linesBytes, []byte(lines[i]))
-		}
-	}
-
-	return linesBytes
+type keyManager interface {
+	NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error)
 }
 
 // New return new instance of vc crypto.
-func New(keyManager kms.KeyManager, c ariescrypto.Crypto, vdr vdrapi.Registry, loader ld.DocumentLoader) *Crypto {
-	return &Crypto{keyManager: keyManager, crypto: c, vdr: vdr, documentLoader: loader}
+func New(vdr vdrapi.Registry, loader ld.DocumentLoader) *Crypto {
+	return &Crypto{vdr: vdr, documentLoader: loader}
 }
 
 // signingOpts holds options for the signing credential.
@@ -134,7 +90,7 @@ type signingOpts struct {
 	VerificationMethod string
 	Purpose            string
 	Representation     string
-	SignatureType      string
+	SignatureType      vc.SignatureType
 	Created            *time.Time
 	Challenge          string
 	Domain             string
@@ -165,7 +121,7 @@ func WithSigningRepresentation(representation string) SigningOpts {
 }
 
 // WithSignatureType is an option to pass signature type for signing.
-func WithSignatureType(signatureType string) SigningOpts {
+func WithSignatureType(signatureType vc.SignatureType) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.SignatureType = signatureType
 	}
@@ -194,14 +150,12 @@ func WithDomain(domain string) SigningOpts {
 
 // Crypto to sign credential.
 type Crypto struct {
-	keyManager     kms.KeyManager
-	crypto         ariescrypto.Crypto
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
 }
 
 // SignCredential signs vc.
-func (c *Crypto) SignCredential(dataProfile *vcsstorage.DataProfile, vc *verifiable.Credential,
+func (c *Crypto) SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
 	opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
@@ -209,13 +163,13 @@ func (c *Crypto) SignCredential(dataProfile *vcsstorage.DataProfile, vc *verifia
 		opt(signOpts)
 	}
 
-	signatureType := dataProfile.SignatureType
+	signatureType := signerData.SignatureType
 	if signOpts.SignatureType != "" {
 		signatureType = signOpts.SignatureType
 	}
 
-	signingCtx, err := c.getLinkedDataProofContext(dataProfile.Creator, signatureType, AssertionMethod,
-		dataProfile.SignatureRepresentation, signOpts)
+	signingCtx, err := c.getLinkedDataProofContext(signerData.Creator, signerData.KMS, signatureType, AssertionMethod,
+		signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +183,7 @@ func (c *Crypto) SignCredential(dataProfile *vcsstorage.DataProfile, vc *verifia
 }
 
 // SignPresentation signs a presentation.
-func (c *Crypto) SignPresentation(profile *vcsstorage.HolderProfile, vp *verifiable.Presentation,
+func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presentation,
 	opts ...SigningOpts) (*verifiable.Presentation, error) {
 	signOpts := &signingOpts{}
 	// apply opts
@@ -237,13 +191,13 @@ func (c *Crypto) SignPresentation(profile *vcsstorage.HolderProfile, vp *verifia
 		opt(signOpts)
 	}
 
-	signatureType := profile.SignatureType
+	signatureType := signerData.SignatureType
 	if signOpts.SignatureType != "" {
 		signatureType = signOpts.SignatureType
 	}
 
 	signingCtx, err := c.getLinkedDataProofContext(
-		profile.Creator, signatureType, Authentication, profile.SignatureRepresentation, signOpts)
+		signerData.Creator, signerData.KMS, signatureType, Authentication, signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +214,10 @@ func (c *Crypto) SignPresentation(profile *vcsstorage.HolderProfile, vp *verifia
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose string,
+func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
+	signatureType vc.SignatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, method, err := c.getSigner(creator, opts, signatureType)
+	s, method, err := c.getSigner(creator, km, opts, signatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -283,13 +238,17 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 
 	var signatureSuite ariessigner.SignatureSuite
 
-	switch signatureType {
+	switch signatureType { //nolint: exhaustive
 	case Ed25519Signature2018:
 		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
+	case Ed25519Signature2020:
+		signatureSuite = ed25519signature2020.New(suite.WithSigner(s))
 	case JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
 	case BbsBlsSignature2020:
 		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
+	case EcdsaSecp256k1Signature2019:
+		signatureSuite = ecdsasecp256k1signature2019.New(suite.WithSigner(s))
 	default:
 		return nil, fmt.Errorf("signature type unsupported %s", signatureType)
 	}
@@ -304,7 +263,7 @@ func (c *Crypto) getLinkedDataProofContext(creator, signatureType, proofPurpose 
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      method,
 		SignatureRepresentation: signRep,
-		SignatureType:           signatureType,
+		SignatureType:           signatureType.Name(),
 		Suite:                   signatureSuite,
 		Purpose:                 opts.Purpose,
 		Created:                 opts.Created,
@@ -331,13 +290,14 @@ func (c *Crypto) getAndResolveDID(verificationMethod string) (*did.Doc, error) {
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method.
-func (c *Crypto) getSigner(creator string, opts *signingOpts, signatureType string) (*kmsSigner, string, error) {
+func (c *Crypto) getSigner(creator string, km keyManager, opts *signingOpts,
+	signatureType vc.SignatureType) (vc.SignerAlgorithm, string, error) {
 	verificationMethod := creator
 	if opts.VerificationMethod != "" {
 		verificationMethod = opts.VerificationMethod
 	}
 
-	s, err := newKMSSigner(c.keyManager, c.crypto, verificationMethod, signatureType)
+	s, err := km.NewVCSigner(verificationMethod, signatureType)
 
 	return s, verificationMethod, err
 }

@@ -12,6 +12,8 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -19,7 +21,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/key"
+	"github.com/trustbloc/vcs/pkg/kms/signer"
 )
 
 // nolint: gochecknoglobals
@@ -40,7 +44,15 @@ const (
 )
 
 type LocalKeyManager struct {
-	local kms.KeyManager
+	local  kms.KeyManager
+	crypto ariescrypto.Crypto
+}
+
+func NewAriesKeyManager(localKms kms.KeyManager, crypto ariescrypto.Crypto) *LocalKeyManager {
+	return &LocalKeyManager{
+		local:  localKms,
+		crypto: crypto,
+	}
 }
 
 func NewLocalKeyManager(cfg *Config) (*LocalKeyManager, error) {
@@ -69,8 +81,14 @@ func NewLocalKeyManager(cfg *Config) (*LocalKeyManager, error) {
 		return nil, err
 	}
 
+	crypto, err := tinkcrypto.New()
+	if err != nil {
+		return nil, err
+	}
+
 	return &LocalKeyManager{
-		local: localKms,
+		local:  localKms,
+		crypto: crypto,
 	}, nil
 }
 
@@ -84,6 +102,10 @@ func (km *LocalKeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, 
 
 func (km *LocalKeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
 	return key.CryptoKeyCreator(keyType)(km.local)
+}
+
+func (km *LocalKeyManager) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+	return signer.NewKMSSigner(km.local, km.crypto, creator, signatureType)
 }
 
 func createLocalSecretLock(keyPath string) (secretlock.Service, error) {
