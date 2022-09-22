@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -37,12 +38,13 @@ type profileUpdateDocument struct {
 }
 
 type vcConfigDocument struct {
-	Format           vc.Format         `bson:"format"`
-	SigningAlgorithm vc.SignatureType  `bson:"signingAlgorithm"`
-	KeyType          arieskms.KeyType  `bson:"keyType,omitempty"`
-	DIDMethod        didcreator.Method `bson:"didMethod"`
-	Status           interface{}       `bson:"status"`
-	Context          []string          `bson:"context"`
+	Format                  vc.Format                          `bson:"format"`
+	SigningAlgorithm        vc.SignatureType                   `bson:"signingAlgorithm"`
+	KeyType                 arieskms.KeyType                   `bson:"keyType,omitempty"`
+	DIDMethod               didcreator.Method                  `bson:"didMethod"`
+	SignatureRepresentation verifiable.SignatureRepresentation `bson:"signatureRepresentation"`
+	Status                  interface{}                        `bson:"status"`
+	Context                 []string                           `bson:"context"`
 }
 
 type kmsConfigDocument struct {
@@ -56,6 +58,7 @@ type kmsConfigDocument struct {
 
 type signingDIDDocument struct {
 	DID            string `bson:"did"`
+	Creator        string `bson:"creator"`
 	UpdateKeyURL   string `bson:"updateKeyURL"`
 	RecoveryKeyURL string `bson:"recoveryKeyURL"`
 }
@@ -327,7 +330,7 @@ func profileIDFromString(strID issuer.ProfileID) (primitive.ObjectID, error) {
 
 	id, err := primitive.ObjectIDFromHex(strID)
 	if err != nil {
-		return primitive.NilObjectID, fmt.Errorf("issuer profile invalid id: %w", err)
+		return primitive.NilObjectID, fmt.Errorf("issuer profile invalid id(%s): %w", strID, err)
 	}
 
 	return id, nil
@@ -405,29 +408,32 @@ func kmsConfigFromDocument(kmsConfig *kmsConfigDocument) *kms.Config {
 
 func vcConfigToDocument(vcConfig *issuer.VCConfig) *vcConfigDocument {
 	return &vcConfigDocument{
-		Format:           vcConfig.Format,
-		SigningAlgorithm: vcConfig.SigningAlgorithm,
-		KeyType:          vcConfig.KeyType,
-		DIDMethod:        vcConfig.DIDMethod,
-		Status:           vcConfig.Status,
-		Context:          vcConfig.Context,
+		Format:                  vcConfig.Format,
+		SigningAlgorithm:        vcConfig.SigningAlgorithm,
+		KeyType:                 vcConfig.KeyType,
+		DIDMethod:               vcConfig.DIDMethod,
+		SignatureRepresentation: vcConfig.SignatureRepresentation,
+		Status:                  vcConfig.Status,
+		Context:                 vcConfig.Context,
 	}
 }
 
 func vcConfigFromDocument(vcConfig *vcConfigDocument) *issuer.VCConfig {
 	return &issuer.VCConfig{
-		Format:           vcConfig.Format,
-		SigningAlgorithm: vcConfig.SigningAlgorithm,
-		KeyType:          vcConfig.KeyType,
-		DIDMethod:        vcConfig.DIDMethod,
-		Status:           vcConfig.Status,
-		Context:          vcConfig.Context,
+		Format:                  vcConfig.Format,
+		SigningAlgorithm:        vcConfig.SigningAlgorithm,
+		KeyType:                 vcConfig.KeyType,
+		DIDMethod:               vcConfig.DIDMethod,
+		SignatureRepresentation: vcConfig.SignatureRepresentation,
+		Status:                  vcConfig.Status,
+		Context:                 vcConfig.Context,
 	}
 }
 
 func signingDIDToDocument(signingDID *issuer.SigningDID) *signingDIDDocument {
 	return &signingDIDDocument{
 		DID:            signingDID.DID,
+		Creator:        signingDID.Creator,
 		UpdateKeyURL:   signingDID.UpdateKeyURL,
 		RecoveryKeyURL: signingDID.RecoveryKeyURL,
 	}
@@ -436,6 +442,7 @@ func signingDIDToDocument(signingDID *issuer.SigningDID) *signingDIDDocument {
 func signingDIDFromDocument(signingDID *signingDIDDocument) *issuer.SigningDID {
 	return &issuer.SigningDID{
 		DID:            signingDID.DID,
+		Creator:        signingDID.Creator,
 		UpdateKeyURL:   signingDID.UpdateKeyURL,
 		RecoveryKeyURL: signingDID.RecoveryKeyURL,
 	}

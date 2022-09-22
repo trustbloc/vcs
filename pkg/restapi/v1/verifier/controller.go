@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier_test -source=controller.go -mock_names profileService=MockProfileService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService
 
 package verifier
 
@@ -15,15 +15,21 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/labstack/echo/v4"
+	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
 
 const (
-	verifierProfileSvcComponent = "verifier.ProfileService"
+	verifierProfileSvcComponent  = "verifier.ProfileService"
+	verifyCredentialSvcComponent = "verifycredential.Service"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -38,15 +44,33 @@ type profileService interface {
 	GetAllProfiles(orgID string) ([]*verifier.Profile, error)
 }
 
+type verifyCredentialSvc interface {
+	VerifyCredential(credential *verifiable.Credential, opts *verifycredential.Options,
+		profile *verifier.Profile) ([]verifycredential.CredentialsVerificationCheckResult, error)
+}
+
+type Config struct {
+	VerifyCredentialSvc verifyCredentialSvc
+	ProfileSvc          profileService
+	DocumentLoader      ld.DocumentLoader
+	VDR                 vdrapi.Registry
+}
+
 // Controller for Verifier Profile Management API.
 type Controller struct {
-	profileSvc profileService
+	verifyCredentialSvc verifyCredentialSvc
+	profileSvc          profileService
+	documentLoader      ld.DocumentLoader
+	vdr                 vdrapi.Registry
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
-func NewController(profileSvc profileService) *Controller {
+func NewController(config *Config) *Controller {
 	return &Controller{
-		profileSvc: profileSvc,
+		verifyCredentialSvc: config.VerifyCredentialSvc,
+		profileSvc:          config.ProfileSvc,
+		documentLoader:      config.DocumentLoader,
+		vdr:                 config.VDR,
 	}
 }
 
@@ -102,7 +126,12 @@ func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
 // DeleteVerifierProfilesProfileID deletes profile from VCS storage.
 // DELETE /verifier/profiles/{profileID}.
 func (c *Controller) DeleteVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
-	profile, err := c.accessProfile(ctx, profileID)
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -117,7 +146,12 @@ func (c *Controller) DeleteVerifierProfilesProfileID(ctx echo.Context, profileID
 // GetVerifierProfilesProfileID gets profile by ID.
 // GET /verifier/profiles/{profileID}.
 func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
-	profile, err := c.accessProfile(ctx, profileID)
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -128,7 +162,12 @@ func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID st
 // PutVerifierProfilesProfileID updates profile.
 // PUT /verifier/profiles/{profileID}.
 func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID string) error {
-	profile, err := c.accessProfile(ctx, profileID)
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -153,7 +192,12 @@ func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID st
 // PostVerifierProfilesProfileIDActivate activates profile.
 // POST /verifier/profiles/{profileID}/activate.
 func (c *Controller) PostVerifierProfilesProfileIDActivate(ctx echo.Context, profileID string) error {
-	profile, err := c.accessProfile(ctx, profileID)
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -168,7 +212,12 @@ func (c *Controller) PostVerifierProfilesProfileIDActivate(ctx echo.Context, pro
 // PostVerifierProfilesProfileIDDeactivate deactivates profile.
 // POST /verifier/profiles/{profileID}/deactivate.
 func (c *Controller) PostVerifierProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error {
-	profile, err := c.accessProfile(ctx, profileID)
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -180,29 +229,79 @@ func (c *Controller) PostVerifierProfilesProfileIDDeactivate(ctx echo.Context, p
 	return nil
 }
 
-func (c *Controller) accessProfile(ctx echo.Context, profileID string) (*verifier.Profile, error) {
-	orgID, err := util.GetOrgIDFromOIDC(ctx)
+// PostVerifyCredentials Verify credential
+// (POST /verifier/profiles/{profileID}/credentials/verify).
+func (c *Controller) PostVerifyCredentials(ctx echo.Context, profileID string) error {
+	var body VerifyCredentialData
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.verifyCredential(ctx, &body, profileID))
+}
+
+func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialData,
+	profileID string) (*VerifyCredentialResponse, error) {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	profile, err := c.profileSvc.GetProfile(profileID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
-		if errors.Is(err, verifier.ErrProfileNotFound) {
-			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-				fmt.Errorf("no profile with id %s", profileID))
-		}
+		return nil, err
+	}
 
+	credential, err := vc.ValidateCredential(body.Credential, profile.Checks.Credential.Format,
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
+
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
+	}
+
+	verRes, err := c.verifyCredentialSvc.VerifyCredential(credential, getVerifyCredentialOptions(body.Options), profile)
+	if err != nil {
+		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
+	}
+
+	return mapVerifyCredentialChecks(verRes), nil
+}
+
+func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*verifier.Profile, error) {
+	profile, err := c.profileSvc.GetProfile(profileID)
+	if errors.Is(err, verifier.ErrProfileNotFound) {
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+	}
+
+	if err != nil {
 		return nil, resterr.NewSystemError(verifierProfileSvcComponent, "GetProfile", err)
 	}
 
-	// block access to profiles of other organizations
-	if profile.OrganizationID != orgID {
+	// Profiles of other organization is not visible.
+	if profile.OrganizationID != oidcOrgID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("no profile with id %s", profileID))
+			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
 	}
 
 	return profile, nil
+}
+
+func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerificationCheckResult) *VerifyCredentialResponse {
+	result := &VerifyCredentialResponse{}
+	for _, check := range checks {
+		result.Checks = append(result.Checks, VerifyCredentialCheckResult{
+			Check:              check.Check,
+			Error:              check.Error,
+			VerificationMethod: check.VerificationMethod,
+		})
+	}
+
+	return result
 }
 
 func mapCreateVerifierProfileData(data *CreateVerifierProfileData) *verifier.Profile {
@@ -269,7 +368,7 @@ func mapChecks(m map[string]interface{}) *verifier.VerificationChecks {
 		return nil
 	}
 
-	vc := &verifier.VerificationChecks{
+	vchecks := &verifier.VerificationChecks{
 		Credential: &verifier.CredentialChecks{
 			Proof:  checks.Credential.Proof,
 			Status: checks.Credential.Status != nil && *checks.Credential.Status,
@@ -280,14 +379,14 @@ func mapChecks(m map[string]interface{}) *verifier.VerificationChecks {
 	}
 
 	for _, format := range checks.Credential.Format {
-		vc.Credential.Format = append(vc.Credential.Format, verifier.CredentialFormat(format))
+		vchecks.Credential.Format = append(vchecks.Credential.Format, vc.Format(format))
 	}
 
 	for _, format := range checks.Presentation.Format {
-		vc.Presentation.Format = append(vc.Presentation.Format, verifier.PresentationFormat(format))
+		vchecks.Presentation.Format = append(vchecks.Presentation.Format, verifier.PresentationFormat(format))
 	}
 
-	return vc
+	return vchecks
 }
 
 func mapProfile(profile *verifier.Profile) *VerifierProfile {
@@ -333,4 +432,19 @@ func mapProfile(profile *verifier.Profile) *VerifierProfile {
 	}
 
 	return vp
+}
+
+func getVerifyCredentialOptions(options *VerifyCredentialOptions) *verifycredential.Options {
+	result := &verifycredential.Options{}
+	if options == nil {
+		return result
+	}
+	if options.Challenge != nil {
+		result.Challenge = *options.Challenge
+	}
+	if options.Domain != nil {
+		result.Domain = *options.Domain
+	}
+
+	return result
 }

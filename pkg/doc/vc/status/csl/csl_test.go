@@ -16,9 +16,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -117,7 +119,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -131,7 +133,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		s, err := New(ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
 			ErrGet: fmt.Errorf("get error"),
 		}}), 1,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{},
+			vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader), loader)
 		require.NoError(t, err)
 
@@ -147,7 +149,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			ErrGet: storage.ErrDataNotFound,
 			ErrPut: fmt.Errorf("put error"),
 		}}), 1,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{},
+			vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader), loader)
 		require.NoError(t, err)
 
@@ -170,7 +172,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}), 1,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -193,7 +195,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 				return nil
 			},
 		}}), 1,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -210,7 +212,7 @@ func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 		s, err := New(ariesprovider.New(&storeProvider{store: &mockStore{getFunc: func(k string) ([]byte, error) {
 			return nil, fmt.Errorf("get error")
 		}}}), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{}, &vdrmock.MockVDRegistry{},
+			vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader), loader)
 		require.NoError(t, err)
 		csl, err := s.GetRevocationListVC("1")
@@ -224,7 +226,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -241,7 +243,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status type not supported", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -259,7 +261,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -277,7 +279,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -297,7 +299,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status statusListCredential wrong value type", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -317,7 +319,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test statusPurpose not exist", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -337,7 +339,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -375,7 +377,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		s, err := New(ariesprovider.New(&storeProvider{store: &mockStore{getFunc: func(k string) ([]byte, error) {
 			return nil, fmt.Errorf("get error")
 		}}}), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
@@ -397,11 +399,12 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test error from sign status credential", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
-			vccrypto.New(&mockkms.KeyManager{}, &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")},
+			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusID(getTestProfile(), "localhost:8080/status")
+		_, err = s.CreateStatusID(getTestSignerWithCrypto(
+			&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}), "localhost:8080/status")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})
@@ -411,7 +414,7 @@ func TestPrepareSigningOpts(t *testing.T) {
 	t.Parallel()
 
 	t.Run("prepare signing opts", func(t *testing.T) {
-		profile := &vcsstorage.DataProfile{
+		profile := &vc.Signer{
 			Creator: "did:creator#key-1",
 		}
 
@@ -528,12 +531,21 @@ func TestPrepareSigningOpts(t *testing.T) {
 	})
 }
 
-func getTestProfile() *vcsstorage.DataProfile {
-	return &vcsstorage.DataProfile{
-		Name:          "test",
+func getTestProfile() *vc.Signer {
+	return &vc.Signer{
 		DID:           "did:test:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
+		KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, &cryptomock.Crypto{}),
+	}
+}
+
+func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
+	return &vc.Signer{
+		DID:           "did:test:abc",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:test:abc#key1",
+		KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, crypto),
 	}
 }
 

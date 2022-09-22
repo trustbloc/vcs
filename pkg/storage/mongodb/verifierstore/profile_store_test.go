@@ -22,6 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/verifierstore"
 	"github.com/trustbloc/vcs/pkg/verifier"
@@ -57,9 +58,9 @@ func TestProfileStore_Success(t *testing.T) {
 			Checks: &verifier.VerificationChecks{
 				Credential: &verifier.CredentialChecks{
 					Proof: true,
-					Format: []verifier.CredentialFormat{
-						verifier.JwtVC,
-						verifier.LdpVC,
+					Format: []vc.Format{
+						vc.JwtVC,
+						vc.LdpVC,
 					},
 					Status: true,
 				},
@@ -108,9 +109,9 @@ func TestProfileStore_Success(t *testing.T) {
 		checks := &verifier.VerificationChecks{
 			Credential: &verifier.CredentialChecks{
 				Proof: true,
-				Format: []verifier.CredentialFormat{
-					verifier.JwtVC,
-					verifier.LdpVC,
+				Format: []vc.Format{
+					vc.JwtVC,
+					vc.LdpVC,
 				},
 				Status: true,
 			},
@@ -140,7 +141,7 @@ func TestProfileStore_Success(t *testing.T) {
 		require.Equal(t, "test profile", profile.Name)
 		require.Equal(t, id, profile.ID)
 
-		checks.Credential.Format = []verifier.CredentialFormat{verifier.LdpVC}
+		checks.Credential.Format = []vc.Format{vc.LdpVC}
 		checks.Presentation.Format = []verifier.PresentationFormat{verifier.LdpVP}
 
 		err = store.Update(&verifier.ProfileUpdate{ID: id, Name: "updated profile", Checks: checks})

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -30,6 +31,7 @@ type BDDContext struct {
 	Args              map[string]string
 	CreatedCredential []byte
 	CreatedProfile    *vcsstorage.IssuerProfile
+	CreatedProfileV1  *model.IssuerProfile
 	VDRI              vdrapi.Registry
 	TLSConfig         *tls.Config
 	TestData          map[string][]byte

@@ -18,6 +18,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 const (
@@ -73,12 +74,12 @@ func (e *Steps) authorizeUser(user, clientID, secret string) error {
 }
 
 func (e *Steps) createIssuerProfile(user, organizationName string) error { //nolint: funlen
-	profileRequest := createIssuerProfileData{
+	profileRequest := model.CreateIssuerProfileData{
 		Name:           "Test",
 		OidcConfig:     nil,
 		OrganizationID: organizationName,
 		Url:            "TestURL",
-		VcConfig: vcConfig{
+		VcConfig: model.VCConfig{
 			Contexts:         nil,
 			DidMethod:        "orb",
 			Format:           "ldp_vc",
@@ -111,7 +112,7 @@ func (e *Steps) createIssuerProfile(user, organizationName string) error { //nol
 		return bddutil.ExpectedStatusCodeError(http.StatusCreated, resp.StatusCode, respBytes)
 	}
 
-	profileResponse := issuerProfile{}
+	profileResponse := model.IssuerProfile{}
 
 	err = json.Unmarshal(respBytes, &profileResponse)
 	if err != nil {
@@ -127,7 +128,7 @@ func (e *Steps) updateIssuerProfileName(user, profileName string) error {
 	id := e.bddContext.Args[getProfileIDKey(user)]
 	token := e.bddContext.Args[getProfileAuthTokenKey(user)]
 
-	profileRequest := updateIssuerProfileData{
+	profileRequest := model.UpdateIssuerProfileData{
 		Name: profileName,
 	}
 
@@ -157,6 +158,10 @@ func (e *Steps) updateIssuerProfileName(user, profileName string) error {
 }
 
 func (e *Steps) deleteIssuerProfile(user string) error {
+	err := e.doSimpleProfileIDRequest(user, http.MethodGet, issuerProfileURLFormat)
+	if err != nil {
+		return err
+	}
 	return e.doSimpleProfileIDRequest(user, http.MethodDelete, issuerProfileURLFormat)
 }
 
@@ -172,8 +177,7 @@ func (e *Steps) doSimpleProfileIDRequest(user, httpMethod, urlFormat string) err
 	id := e.bddContext.Args[getProfileIDKey(user)]
 	token := e.bddContext.Args[getProfileAuthTokenKey(user)]
 
-	resp, err := bddutil.HTTPSDo(httpMethod, fmt.Sprintf(urlFormat, //nolint: bodyclose
-		id), "", token, nil, e.tlsConfig)
+	resp, err := bddutil.HTTPSDo(httpMethod, fmt.Sprintf(urlFormat, id), "", token, nil, e.tlsConfig)
 	if err != nil {
 		return err
 	}

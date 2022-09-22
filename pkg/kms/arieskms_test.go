@@ -19,7 +19,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -202,4 +207,40 @@ func pingMongoDB() error {
 	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
+}
+
+func TestNewAriesKeyManager(t *testing.T) {
+	type args struct {
+		localKms arieskms.KeyManager
+		crypto   crypto.Crypto
+	}
+	tests := []struct {
+		name string
+		args args
+		want *kms.LocalKeyManager
+	}{
+		{
+			name: "OK Mocked",
+			args: args{
+				localKms: &mockkms.KeyManager{},
+				crypto:   &mockcrypto.Crypto{},
+			},
+			want: kms.NewAriesKeyManager(&mockkms.KeyManager{}, &mockcrypto.Crypto{}),
+		},
+		{
+			name: "OK Local",
+			args: args{
+				localKms: &localkms.LocalKMS{},
+				crypto:   &tinkcrypto.Crypto{},
+			},
+			want: kms.NewAriesKeyManager(&localkms.LocalKMS{}, &tinkcrypto.Crypto{}),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := kms.NewAriesKeyManager(tt.args.localKms, tt.args.crypto); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewAriesKeyManager() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

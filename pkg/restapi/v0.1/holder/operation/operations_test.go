@@ -781,7 +781,7 @@ func TestSignPresentation(t *testing.T) {
 
 	t.Run("sign presentation - invalid presentation", func(t *testing.T) {
 		req := &SignPresentationRequest{
-			Presentation: []byte(vc),
+			Presentation: []byte(vcContent),
 		}
 
 		reqBytes, err := json.Marshal(req)
@@ -984,7 +984,7 @@ const (
 		}
 	}`
 
-	vc = `{` +
+	vcContent = `{` +
 		validContext + `,
 	  "id": "http://example.edu/credentials/1872",
 	  "type": "VerifiableCredential",
