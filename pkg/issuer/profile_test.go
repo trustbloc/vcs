@@ -39,8 +39,8 @@ func TestProfileService_Create(t *testing.T) {
 		store := NewMockProfileStore(ctrl)
 		didCreator := NewMockDIDCreator(ctrl)
 
-		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
-		store.EXPECT().Find("id").Times(1).Return(&issuer.Profile{ID: "id"}, nil, nil)
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
+		store.EXPECT().Find("id").Times(1).Return(&issuer.Profile{ID: "id"}, nil)
 
 		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
@@ -58,7 +58,7 @@ func TestProfileService_Create(t *testing.T) {
 			KMSRegistry:  kmsRegistry,
 		})
 
-		profile, _, err := service.Create(&issuer.Profile{
+		profile, err := service.Create(&issuer.Profile{
 			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: vc.Ed25519Signature2018,
 				DIDMethod: didcreator.OrbDIDMethod,
 				KeyType:   arieskms.ED25519Type},
@@ -75,7 +75,7 @@ func TestProfileService_Create(t *testing.T) {
 		store := NewMockProfileStore(ctrl)
 		didCreator := NewMockDIDCreator(ctrl)
 
-		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).
 			Times(1).Return("", errors.New("create failed"))
 		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
@@ -93,7 +93,7 @@ func TestProfileService_Create(t *testing.T) {
 			KMSRegistry:  kmsRegistry,
 		})
 
-		_, _, err := service.Create(&issuer.Profile{
+		_, err := service.Create(&issuer.Profile{
 			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: vc.Ed25519Signature2018,
 				DIDMethod: didcreator.OrbDIDMethod, KeyType: arieskms.ED25519Type},
 		}, []*cm.CredentialManifest{})
@@ -107,8 +107,8 @@ func TestProfileService_Create(t *testing.T) {
 		store := NewMockProfileStore(ctrl)
 		didCreator := NewMockDIDCreator(ctrl)
 
-		store.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
-		store.EXPECT().Find("id").Times(1).Return(nil, nil, errors.New("create failed"))
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
+		store.EXPECT().Find("id").Times(1).Return(nil, errors.New("create failed"))
 		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
 			Return(&didcreator.CreateResult{
@@ -125,7 +125,7 @@ func TestProfileService_Create(t *testing.T) {
 			KMSRegistry:  kmsRegistry,
 		})
 
-		_, _, err := service.Create(&issuer.Profile{
+		_, err := service.Create(&issuer.Profile{
 			VCConfig: &issuer.VCConfig{Format: "ldp_vc", SigningAlgorithm: vc.Ed25519Signature2018,
 				DIDMethod: didcreator.OrbDIDMethod, KeyType: arieskms.ED25519Type},
 		}, []*cm.CredentialManifest{})
@@ -149,7 +149,7 @@ func TestProfileService_Create(t *testing.T) {
 			KMSRegistry:  brokenKMSRegistry,
 		})
 
-		_, _, err := service.Create(&issuer.Profile{
+		_, err := service.Create(&issuer.Profile{
 			VCConfig: &issuer.VCConfig{
 				Format:           "ldp_vc",
 				SigningAlgorithm: vc.Ed25519Signature2018,
@@ -174,7 +174,7 @@ func TestProfileService_Create(t *testing.T) {
 			KMSRegistry:  kmsRegistry,
 		})
 
-		_, _, err := service.Create(&issuer.Profile{
+		_, err := service.Create(&issuer.Profile{
 			VCConfig: &issuer.VCConfig{
 				Format:           "ldp_vc",
 				SigningAlgorithm: vc.Ed25519Signature2018,
@@ -334,13 +334,13 @@ func TestProfileService_Find(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := NewMockProfileStore(ctrl)
-		store.EXPECT().Find("id").Times(1).Return(&issuer.Profile{ID: "id"}, nil, nil)
+		store.EXPECT().Find("id").Times(1).Return(&issuer.Profile{ID: "id"}, nil)
 
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 		})
 
-		profile, _, err := service.GetProfile("id")
+		profile, err := service.GetProfile("id")
 
 		require.NoError(t, err)
 		require.Equal(t, "id", profile.ID)
@@ -352,13 +352,13 @@ func TestProfileService_Find(t *testing.T) {
 
 		store := NewMockProfileStore(ctrl)
 
-		store.EXPECT().Find("id").Times(1).Return(nil, nil, errors.New("failed"))
+		store.EXPECT().Find("id").Times(1).Return(nil, errors.New("failed"))
 
 		service := issuer.NewProfileService(&issuer.ServiceConfig{
 			ProfileStore: store,
 		})
 
-		_, _, err := service.GetProfile("id")
+		_, err := service.GetProfile("id")
 		require.Error(t, err)
 	})
 }
