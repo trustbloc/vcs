@@ -25,4 +25,13 @@ hydra clients create \
     --scope org_admin \
     --skip-tls-verify
 
+hydra clients create \
+    --endpoint https://oidc-provider.example.com:4445 \
+    --id test_org \
+    --secret test-org-secret \
+    --grant-types client_credentials \
+    --response-types token,code \
+    --scope org_admin \
+    --skip-tls-verify
+
 echo "Finished creating OAuth clients"
