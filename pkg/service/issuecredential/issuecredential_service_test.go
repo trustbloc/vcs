@@ -16,22 +16,24 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/vcs/pkg/kms/signer"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/issuer"
-	"github.com/trustbloc/vcs/pkg/kms"
 )
 
 func TestService_IssueCredential(t *testing.T) {
@@ -45,9 +47,9 @@ func TestService_IssueCredential(t *testing.T) {
 		customCrypto, err := tinkcrypto.New()
 		require.NoError(t, err)
 
-		ariesKeyManager := kms.NewAriesKeyManager(customKMS, customCrypto)
 		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(ariesKeyManager, nil)
+		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
+			&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
 		mockVCStatusManager := NewMockvcStatusManager(gomock.NewController(t))
 		mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&verifiable.TypedID{
@@ -57,24 +59,24 @@ func TestService_IssueCredential(t *testing.T) {
 
 		tests := []struct {
 			name string
-			kt   kmskeytypes.KeyType
+			kt   kms.KeyType
 			sr   verifiable.SignatureRepresentation
 		}{
 			{
 				name: "OK ED25519",
-				kt:   kmskeytypes.ED25519Type,
+				kt:   kms.ED25519Type,
 			},
 			{
 				name: "OK ECDSA P256",
-				kt:   kmskeytypes.ECDSAP256TypeIEEEP1363,
+				kt:   kms.ECDSAP256TypeIEEEP1363,
 			},
 			{
 				name: "OK ECDSA P384",
-				kt:   kmskeytypes.ECDSAP384TypeIEEEP1363,
+				kt:   kms.ECDSAP384TypeIEEEP1363,
 			},
 			{
 				name: "OK ECDSA P521",
-				kt:   kmskeytypes.ECDSAP521TypeIEEEP1363,
+				kt:   kms.ECDSAP521TypeIEEEP1363,
 			},
 		}
 
@@ -275,4 +277,23 @@ func createKMS(t *testing.T) *localkms.LocalKMS {
 	require.NoError(t, err)
 
 	return k
+}
+
+type mockVCSKeyManager struct {
+	crypto ariescrypto.Crypto
+	kms    *localkms.LocalKMS
+}
+
+func (m *mockVCSKeyManager) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType)
+}
+
+func (m *mockVCSKeyManager) SupportedKeyTypes() []kms.KeyType {
+	return nil
+}
+func (m *mockVCSKeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+	return "", nil, nil
+}
+func (m *mockVCSKeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+	return "", nil, nil
 }

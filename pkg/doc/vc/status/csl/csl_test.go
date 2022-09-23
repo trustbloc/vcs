@@ -16,10 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/kms/signer"
+
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
-	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
@@ -536,7 +537,7 @@ func getTestProfile() *vc.Signer {
 		DID:           "did:test:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
-		KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, &cryptomock.Crypto{}),
+		KMS:           &mockKMS{},
 	}
 }
 
@@ -545,8 +546,20 @@ func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
 		DID:           "did:test:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
-		KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, crypto),
+		KMS:           &mockKMS{crypto: crypto},
 	}
+}
+
+type mockKMS struct {
+	crypto ariescrypto.Crypto
+}
+
+func (m *mockKMS) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+	if m.crypto == nil {
+		m.crypto = &cryptomock.Crypto{}
+	}
+
+	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType)
 }
 
 // storeProvider mock store provider.

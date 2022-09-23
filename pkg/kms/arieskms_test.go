@@ -13,18 +13,14 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -47,7 +43,7 @@ var secretLockKeyFile string
 
 func TestNewLocalKeyManager(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		km, err := kms.NewLocalKeyManager(&kms.Config{
+		km, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "mem",
@@ -71,6 +67,10 @@ func TestNewLocalKeyManager(t *testing.T) {
 		require.NotEmpty(t, cryptoKeyID)
 		require.NotNil(t, cryptoKey)
 		require.NoError(t, err)
+
+		_, err = km.NewVCSigner("did", "EdDSA")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "verificationMethod value did should be in did#keyID format")
 	})
 
 	t.Run("Success mongodb", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 		}()
 
-		km, err := kms.NewLocalKeyManager(&kms.Config{
+		km, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "mongodb",
@@ -93,7 +93,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 	})
 
 	t.Run("Incorrect SecretLockKeyPath", func(t *testing.T) {
-		_, err := kms.NewLocalKeyManager(&kms.Config{
+		_, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
 			SecretLockKeyPath: "incorrect",
 			DBType:            "mem",
@@ -105,7 +105,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 	})
 
 	t.Run("Incorrect db type", func(t *testing.T) {
-		_, err := kms.NewLocalKeyManager(&kms.Config{
+		_, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
 			SecretLockKeyPath: secretLockKeyFile,
 			DBType:            "incorrect",
@@ -114,6 +114,44 @@ func TestNewLocalKeyManager(t *testing.T) {
 		})
 
 		require.Contains(t, err.Error(), "not supported database type")
+	})
+}
+
+func TestNewWebKeyManager(t *testing.T) {
+	t.Run("wrong endpoint for kms web", func(t *testing.T) {
+		km, err := kms.NewAriesKeyManager(&kms.Config{
+			KMSType:    kms.Web,
+			HTTPClient: &http.Client{},
+			Endpoint:   "url",
+		})
+
+		require.NotNil(t, km)
+		require.NoError(t, err)
+
+		require.Contains(t, km.SupportedKeyTypes(), arieskms.ED25519Type)
+
+		_, _, err = km.CreateJWKKey(arieskms.ED25519Type)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unsupported protocol scheme")
+	})
+}
+
+func TestNewAWSKeyManager(t *testing.T) {
+	t.Run("wrong key type for kms aws", func(t *testing.T) {
+		km, err := kms.NewAriesKeyManager(&kms.Config{
+			KMSType:    kms.AWS,
+			HTTPClient: &http.Client{},
+			Endpoint:   "url",
+		})
+
+		require.NotNil(t, km)
+		require.NoError(t, err)
+
+		_, _, err = km.CreateJWKKey(arieskms.ED25519Type)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "key not supported ED25519")
 	})
 }
 
@@ -207,40 +245,4 @@ func pingMongoDB() error {
 	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
-}
-
-func TestNewAriesKeyManager(t *testing.T) {
-	type args struct {
-		localKms arieskms.KeyManager
-		crypto   crypto.Crypto
-	}
-	tests := []struct {
-		name string
-		args args
-		want *kms.LocalKeyManager
-	}{
-		{
-			name: "OK Mocked",
-			args: args{
-				localKms: &mockkms.KeyManager{},
-				crypto:   &mockcrypto.Crypto{},
-			},
-			want: kms.NewAriesKeyManager(&mockkms.KeyManager{}, &mockcrypto.Crypto{}),
-		},
-		{
-			name: "OK Local",
-			args: args{
-				localKms: &localkms.LocalKMS{},
-				crypto:   &tinkcrypto.Crypto{},
-			},
-			want: kms.NewAriesKeyManager(&localkms.LocalKMS{}, &tinkcrypto.Crypto{}),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := kms.NewAriesKeyManager(tt.args.localKms, tt.args.crypto); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewAriesKeyManager() = %v, want %v", got, tt.want)
-			}
-		})
-	}
 }

@@ -9,13 +9,12 @@ replace github.com/trustbloc/vcs => ../..
 go 1.19
 
 require (
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cucumber/godog v0.12.5
 	github.com/google/go-cmp v0.5.8
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220911073828-9fc7486e88a9
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220526205258-18d510d84955
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
 	github.com/tidwall/gjson v1.9.3
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
@@ -26,7 +25,8 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
-	github.com/btcsuite/btcd v0.22.0-beta // indirect
+	github.com/btcsuite/btcd v0.22.1 // indirect
+	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cucumber/gherkin-go/v19 v19.0.3 // indirect
@@ -82,7 +82,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
-	github.com/stretchr/testify v1.7.2 // indirect
+	github.com/stretchr/testify v1.7.5 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect

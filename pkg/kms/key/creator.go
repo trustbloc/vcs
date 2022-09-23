@@ -19,10 +19,14 @@ import (
 	jose2 "github.com/square/go-jose/v3"
 )
 
+type keyManager interface {
+	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
+}
+
 // JWKKeyCreator creates a new key of the given type using a given key manager, returning the key's ID
 // and public key in JWK format.
-func JWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error) {
-	return func(km kms.KeyManager) (string, *jwk.JWK, error) {
+func JWKKeyCreator(kt kms.KeyType) func(keyManager) (string, *jwk.JWK, error) {
+	return func(km keyManager) (string, *jwk.JWK, error) {
 		keyID, keyBytes, err := km.CreateAndExportPubKeyBytes(kt)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to create new JWK key: %w", err)
@@ -55,8 +59,8 @@ func JWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error
 
 // CryptoKeyCreator creates a new key of the given type using a given key manager, returning the key's ID
 // and public key in one of the crypto.PublicKey formats.
-func CryptoKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, interface{}, error) {
-	return func(km kms.KeyManager) (string, interface{}, error) {
+func CryptoKeyCreator(kt kms.KeyType) func(keyManager) (string, interface{}, error) {
+	return func(km keyManager) (string, interface{}, error) {
 		keyID, keyBytes, err := km.CreateAndExportPubKeyBytes(kt)
 		if err != nil {
 			return "", nil, fmt.Errorf("failed to create new crypto key: %w", err)

@@ -7,32 +7,22 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/google/tink/go/subtle/random"
 	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
-	ariesstorage "github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
-
 	"github.com/trustbloc/vcs/pkg/ld"
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 	mongodbvcsprovider "github.com/trustbloc/vcs/pkg/storage/mongodbprovider"
@@ -52,8 +42,6 @@ const (
 type Configuration struct {
 	RootCAs           *x509.CertPool
 	Storage           *vcStorageProviders
-	LocalKMS          *localkms.LocalKMS
-	Crypto            *tinkcrypto.Crypto
 	VDR               vdrapi.Registry
 	DocumentLoader    jsonld.DocumentLoader
 	LDContextStore    *ld.StoreProvider
@@ -67,16 +55,6 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 	}
 
 	storeProviders, err := createStoreProviders(parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	localKMS, err := createKMS(storeProviders.kmsSecretsProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	crypto, err := tinkcrypto.New()
 	if err != nil {
 		return nil, err
 	}
@@ -102,8 +80,6 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 	return &Configuration{
 		RootCAs:           rootCAs,
 		Storage:           storeProviders,
-		LocalKMS:          localKMS,
-		Crypto:            crypto,
 		VDR:               vdr,
 		DocumentLoader:    loader,
 		LDContextStore:    ldStore,
@@ -112,8 +88,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 }
 
 type vcStorageProviders struct {
-	provider           vcsstorage.Provider
-	kmsSecretsProvider vcsstorage.Provider
+	provider vcsstorage.Provider
 }
 
 func createStoreProviders(parameters *startupParameters) (*vcStorageProviders, error) {
@@ -122,11 +97,6 @@ func createStoreProviders(parameters *startupParameters) (*vcStorageProviders, e
 	var err error
 
 	edgeServiceProvs.provider, err = createMainStoreProvider(parameters)
-	if err != nil {
-		return nil, err
-	}
-
-	edgeServiceProvs.kmsSecretsProvider, err = createKMSSecretsProvider(parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -148,96 +118,6 @@ func createMainStoreProvider(parameters *startupParameters) (vcsstorage.Provider
 		return nil, fmt.Errorf("%s is not a valid database type."+
 			" run start --help to see the available options", parameters.dbParameters.databaseType)
 	}
-}
-
-func createKMSSecretsProvider(parameters *startupParameters) (vcsstorage.Provider, error) { //nolint: dupl
-	switch {
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMongoDBOption):
-		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return mongodbvcsprovider.New(mongoDBProvider), nil
-	default:
-		return nil, fmt.Errorf("%s is not a valid KMS secrets database type."+
-			" run start --help to see the available options", parameters.dbParameters.kmsSecretsDatabaseType)
-	}
-}
-
-type kmsProvider struct {
-	storageProvider   kms.Store
-	secretLockService secretlock.Service
-}
-
-func (k kmsProvider) StorageProvider() kms.Store {
-	return k.storageProvider
-}
-
-func (k kmsProvider) SecretLock() secretlock.Service {
-	return k.secretLockService
-}
-
-func createKMS(kmsSecretsProvider vcsstorage.Provider) (*localkms.LocalKMS, error) {
-	localKMS, err := createLocalKMS(kmsSecretsProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	return localKMS, nil
-}
-
-func createLocalKMS(kmsSecretsStoreProvider vcsstorage.Provider) (*localkms.LocalKMS, error) {
-	masterKeyReader, err := prepareMasterKeyReader(kmsSecretsStoreProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	secretLockService, err := local.NewService(masterKeyReader, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO (#769): Create our own implementation of the KMS storage interface and pass it in here instead of wrapping
-	//  the Aries storage provider.
-	kmsStore, err := kms.NewAriesProviderWrapper(kmsSecretsStoreProvider.GetAriesProvider())
-	if err != nil {
-		return nil, err
-	}
-
-	kmsProv := kmsProvider{
-		storageProvider:   kmsStore,
-		secretLockService: secretLockService,
-	}
-
-	return localkms.New(masterKeyURI, kmsProv)
-}
-
-// prepareMasterKeyReader prepares a master key reader for secret lock usage
-func prepareMasterKeyReader(kmsSecretsStoreProvider vcsstorage.Provider) (*bytes.Reader, error) {
-	masterKeyStore, err := kmsSecretsStoreProvider.OpenMasterKeyStore()
-	if err != nil {
-		return nil, err
-	}
-
-	masterKey, err := masterKeyStore.Get()
-	if err != nil {
-		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			masterKey = random.GetRandomBytes(uint32(masterKeyNumBytes))
-
-			putErr := masterKeyStore.Put(masterKey)
-			if putErr != nil {
-				return nil, putErr
-			}
-		} else {
-			return nil, err
-		}
-	}
-
-	masterKeyReader := bytes.NewReader(masterKey)
-
-	return masterKeyReader, nil
 }
 
 func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
