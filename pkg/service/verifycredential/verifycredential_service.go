@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
@@ -27,11 +26,7 @@ import (
 )
 
 const (
-	challenge          = "challenge"
-	domain             = "domain"
-	proofPurpose       = "proofPurpose"
-	verificationMethod = "verificationMethod"
-	successMsg         = "success"
+	revokedMsg = "revoked"
 )
 
 type vcStatusManager interface {
@@ -52,11 +47,6 @@ type Options struct {
 
 	// Domain is added to the proof.
 	Domain string
-}
-
-type VerificationStatus struct {
-	Verified bool
-	Message  string
 }
 
 type Config struct {
@@ -91,7 +81,7 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 			return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
 		}
 
-		err = s.validateCredentialProof(vcBytes, opts, false)
+		err = s.ValidateCredentialProof(vcBytes, opts.Challenge, opts.Domain, false)
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "proof",
@@ -100,16 +90,11 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 		}
 	}
 	if checks.Status {
-		ver, err := s.checkVCStatus(credential.Status, credential.Issuer.ID)
-
+		err := s.ValidateVCStatus(credential.Status, credential.Issuer.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch the status : %w", err)
-		}
-
-		if !ver.Verified {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "credentialStatus",
-				Error: ver.Message,
+				Error: err.Error(),
 			})
 		}
 	}
@@ -129,7 +114,7 @@ func (s *Service) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Creden
 	return cred, err
 }
 
-func (s *Service) validateCredentialProof(vcByte []byte, opts *Options, vcInVPValidation bool) error { // nolint: lll,gocyclo
+func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation bool) error { // nolint: lll,gocyclo
 	credential, err := s.parseAndVerifyVCStrictMode(vcByte)
 	if err != nil {
 		return fmt.Errorf("verifiable credential proof validation error : %w", err)
@@ -144,24 +129,24 @@ func (s *Service) validateCredentialProof(vcByte []byte, opts *Options, vcInVPVa
 
 	if !vcInVPValidation {
 		// validate challenge
-		if validateErr := validateProofData(proof, challenge, opts.Challenge); validateErr != nil {
+		if validateErr := crypto.ValidateProofKey(proof, crypto.Challenge, proofChallenge); validateErr != nil {
 			return validateErr
 		}
 
 		// validate domain
-		if validateErr := validateProofData(proof, domain, opts.Domain); validateErr != nil {
+		if validateErr := crypto.ValidateProofKey(proof, crypto.Domain, proofDomain); validateErr != nil {
 			return validateErr
 		}
 	}
 
 	// get the verification method
-	verificationMethod, err := getVerificationMethodFromProof(proof)
+	verificationMethod, err := crypto.GetVerificationMethodFromProof(proof)
 	if err != nil {
 		return err
 	}
 
 	// get the did doc from verification method
-	didDoc, err := getDIDDocFromProof(verificationMethod, s.vdr)
+	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(verificationMethod, s.vdr)
 	if err != nil {
 		return err
 	}
@@ -172,63 +157,58 @@ func (s *Service) validateCredentialProof(vcByte []byte, opts *Options, vcInVPVa
 	}
 
 	// validate proof purpose
-	if err := validateProofPurpose(proof, verificationMethod, didDoc); err != nil {
+	if err := crypto.ValidateProof(proof, verificationMethod, didDoc); err != nil {
 		return fmt.Errorf("verifiable credential proof purpose validation error : %w", err)
 	}
 
 	return nil
 }
 
-func (s *Service) checkVCStatus(vcStatus *verifiable.TypedID, issuer string) (*VerificationStatus, error) {
-	vcResp := &VerificationStatus{
-		Verified: false, Message: "Revoked",
-	}
-
+func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error {
 	// validate vc status
 	if err := s.validateVCStatus(vcStatus); err != nil {
-		return nil, err
+		return err
 	}
 
 	statusListIndex, err := strconv.Atoi(vcStatus.CustomFields[csl.StatusListIndex].(string))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	revocationListVC, err := s.vcStatusManager.GetRevocationListVC(
 		vcStatus.CustomFields[csl.StatusListCredential].(string))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if revocationListVC.Issuer.ID != issuer {
-		return nil, fmt.Errorf("issuer of the credential do not match vc revocation list issuer")
+		return fmt.Errorf("issuer of the credential do not match vc revocation list issuer")
 	}
 
 	credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
 	if !ok {
-		return nil, fmt.Errorf("invalid subject field structure")
+		return fmt.Errorf("invalid subject field structure")
 	}
 
 	if credSubject[0].CustomFields[csl.StatusPurpose].(string) != vcStatus.CustomFields[csl.StatusPurpose].(string) {
-		return nil, fmt.Errorf("vc statusPurpose not matching statusListCredential statusPurpose")
+		return fmt.Errorf("vc statusPurpose not matching statusListCredential statusPurpose")
 	}
 
 	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode bits: %w", err)
+		return fmt.Errorf("failed to decode bits: %w", err)
 	}
 
 	bitSet, err := bitString.Get(statusListIndex)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	if !bitSet {
-		vcResp.Verified = true
-		vcResp.Message = successMsg
+	if bitSet {
+		return errors.New(revokedMsg)
 	}
 
-	return vcResp, nil
+	return nil
 }
 
 func (s *Service) validateVCStatus(vcStatus *verifiable.TypedID) error {
@@ -253,61 +233,4 @@ func (s *Service) validateVCStatus(vcStatus *verifiable.TypedID) error {
 	}
 
 	return nil
-}
-
-func validateProofData(proof verifiable.Proof, key, expectedValue string) error {
-	actualVal := ""
-
-	val, ok := proof[key]
-	if ok {
-		actualVal, _ = val.(string) // nolint
-	}
-
-	if expectedValue != actualVal {
-		return fmt.Errorf("invalid %s in the proof : expected=%s actual=%s", key, expectedValue, actualVal)
-	}
-
-	return nil
-}
-
-func validateProofPurpose(proof verifiable.Proof, verificationMethod string, didDoc *did.Doc) error {
-	purposeVal, ok := proof[proofPurpose]
-	if !ok {
-		return errors.New("proof doesn't have purpose")
-	}
-
-	purpose, ok := purposeVal.(string)
-	if !ok {
-		return errors.New("proof purpose is not a string")
-	}
-
-	return crypto.ValidateProofPurpose(purpose, verificationMethod, didDoc)
-}
-
-func getVerificationMethodFromProof(proof verifiable.Proof) (string, error) {
-	verificationMethodVal, ok := proof[verificationMethod]
-	if !ok {
-		return "", errors.New("proof doesn't have verification method")
-	}
-
-	verificationMethod, ok := verificationMethodVal.(string)
-	if !ok {
-		return "", errors.New("proof verification method is not a string")
-	}
-
-	return verificationMethod, nil
-}
-
-func getDIDDocFromProof(verificationMethod string, vdr vdrapi.Registry) (*did.Doc, error) {
-	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
-	if err != nil {
-		return nil, err
-	}
-
-	docResolution, err := vdr.Resolve(didID)
-	if err != nil {
-		return nil, err
-	}
-
-	return docResolution.DIDDocument, nil
 }

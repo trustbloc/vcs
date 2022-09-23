@@ -9,6 +9,9 @@ package diddoc
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 )
 
 const (
@@ -35,4 +38,18 @@ func GetKeyIDFromVerificationMethod(creator string) (string, error) {
 	}
 
 	return idSplit[1], nil
+}
+
+func GetDIDDocFromVerificationMethod(verificationMethod string, vdr vdrapi.Registry) (*did.Doc, error) {
+	didID, err := GetDIDFromVerificationMethod(verificationMethod)
+	if err != nil {
+		return nil, err
+	}
+
+	docResolution, err := vdr.Resolve(didID)
+	if err != nil {
+		return nil, err
+	}
+
+	return docResolution.DIDDocument, nil
 }

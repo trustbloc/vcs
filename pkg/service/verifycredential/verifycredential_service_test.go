@@ -9,31 +9,16 @@ package verifycredential
 import (
 	_ "embed"
 	"errors"
-	"fmt"
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/common/model"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 
 	vcformats "github.com/trustbloc/vcs/pkg/doc/vc"
-	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
@@ -89,14 +74,6 @@ func TestService_VerifyCredential(t *testing.T) {
 			},
 		}, nil)
 
-		customKMS := createKMS(t)
-
-		customCrypto, err := tinkcrypto.New()
-		require.NoError(t, err)
-
-		created, err := time.Parse(time.RFC3339, "2018-03-15T00:00:00Z")
-		require.NoError(t, err)
-
 		tests := []struct {
 			name string
 			kt   kmskeytypes.KeyType
@@ -137,64 +114,34 @@ func TestService_VerifyCredential(t *testing.T) {
 					t.Run(sigRepresentationTextCase.name, func(t *testing.T) {
 						tests := []struct {
 							name   string
-							vcFile string
+							vcFile []byte
 						}{
 							{
 								name:   "Credential format JWT",
-								vcFile: sampleVCJWT,
+								vcFile: []byte(sampleVCJWT),
 							},
 							{
 								name:   "Credential format JSON-LD",
-								vcFile: sampleVCJsonLD,
+								vcFile: []byte(sampleVCJsonLD),
 							},
 						}
 						for _, vcFileTestCase := range tests {
 							t.Run(vcFileTestCase.name, func(t *testing.T) {
 								// Assert
-								vc, err := verifiable.ParseCredential(
-									[]byte(vcFileTestCase.vcFile),
-									verifiable.WithDisabledProofCheck(),
-									verifiable.WithJSONLDDocumentLoader(loader))
-								require.NoError(t, err)
-
-								keyID, kh, err := customKMS.Create(ktTestCase.kt)
-								require.NoError(t, err)
-
-								pkBytes, _, err := customKMS.ExportPubKeyBytes(keyID)
-								require.NoError(t, err)
-
-								didDoc := createDIDDoc(t, "did:trustblock:abc", keyID, pkBytes, ktTestCase.kt)
-								mockVDRRegistry := &vdrmock.MockVDRegistry{
-									ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
-										return &did.DocResolution{DIDDocument: didDoc}, nil
-									},
-								}
-
-								// Sign
-								signerSuite := jsonwebsignature2020.New(
-									suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh)))
-								err = vc.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
-									SignatureType:           "JsonWebSignature2020",
-									Suite:                   signerSuite,
-									SignatureRepresentation: sigRepresentationTextCase.sr,
-									Created:                 &created,
-									VerificationMethod:      didDoc.VerificationMethod[0].ID,
-									Domain:                  domain,
-									Challenge:               challenge,
-									Purpose:                 vccrypto.AssertionMethod,
-								}, jsonld.WithDocumentLoader(loader))
-								require.NoError(t, err)
+								vc, vdr := testutil.SignedVC(
+									t, vcFileTestCase.vcFile, ktTestCase.kt, sigRepresentationTextCase.sr,
+									loader, crypto.AssertionMethod)
 
 								// Verify
 								op := New(&Config{
 									VcStatusManager: mockVCStatusManager,
-									VDR:             mockVDRRegistry,
+									VDR:             vdr,
 									DocumentLoader:  loader,
 								})
 
 								res, err := op.VerifyCredential(vc, &Options{
-									Challenge: challenge,
-									Domain:    domain,
+									Challenge: crypto.Challenge,
+									Domain:    crypto.Domain,
 								}, testProfile)
 
 								require.NoError(t, err)
@@ -209,38 +156,41 @@ func TestService_VerifyCredential(t *testing.T) {
 
 	t.Run("Failed", func(t *testing.T) {
 		// Assert
-		mockVCStatusManager := NewMockVcStatusManager(gomock.NewController(t))
-		mockVCStatusManager.EXPECT().GetRevocationListVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-			Subject: []verifiable.Subject{{
-				ID: "",
-				CustomFields: map[string]interface{}{
-					"statusListIndex": "1",
-					"statusPurpose":   "2",
-					"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
-				},
-			}},
-			Issuer: verifiable.Issuer{
-				ID: "did:trustblock:abc",
-			},
-		}, nil)
 		mockVDRRegistry := &vdrmock.MockVDRegistry{}
 		loader := testutil.DocumentLoader(t)
+
 		vc, err := verifiable.ParseCredential(
 			[]byte(sampleVCJsonLD),
 			verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
-		service := New(&Config{
-			VcStatusManager: mockVCStatusManager,
-			VDR:             mockVDRRegistry,
-			DocumentLoader:  loader,
-		})
-
 		t.Run("Proof", func(t *testing.T) {
-			res, err := service.VerifyCredential(vc, &Options{
-				Challenge: challenge,
-				Domain:    domain,
+			mockVCStatusManager := NewMockVcStatusManager(gomock.NewController(t))
+			mockVCStatusManager.EXPECT().GetRevocationListVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+				Subject: []verifiable.Subject{{
+					ID: "",
+					CustomFields: map[string]interface{}{
+						"statusListIndex": "1",
+						"statusPurpose":   "2",
+						"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+					},
+				}},
+				Issuer: verifiable.Issuer{
+					ID: "did:trustblock:abc",
+				},
+			}, nil)
+			service := New(&Config{
+				VcStatusManager: mockVCStatusManager,
+				VDR:             mockVDRRegistry,
+				DocumentLoader:  loader,
+			})
+
+			var res []CredentialsVerificationCheckResult
+
+			res, err = service.VerifyCredential(vc, &Options{
+				Challenge: crypto.Challenge,
+				Domain:    crypto.Domain,
 			}, testProfile)
 
 			require.NoError(t, err)
@@ -248,6 +198,7 @@ func TestService_VerifyCredential(t *testing.T) {
 		})
 
 		t.Run("Proof and Status", func(t *testing.T) {
+			require.NoError(t, err)
 			failedMockVCStatusManager := NewMockVcStatusManager(gomock.NewController(t))
 			failedMockVCStatusManager.EXPECT().GetRevocationListVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 				Subject: []verifiable.Subject{{
@@ -262,80 +213,20 @@ func TestService_VerifyCredential(t *testing.T) {
 					ID: "did:trustblock:abc",
 				},
 			}, nil)
-			op := New(&Config{
+			service := New(&Config{
 				VcStatusManager: failedMockVCStatusManager,
 				VDR:             mockVDRRegistry,
 				DocumentLoader:  loader,
 			})
-			res, err := op.VerifyCredential(vc, &Options{
-				Challenge: challenge,
-				Domain:    domain,
+			res, err := service.VerifyCredential(vc, &Options{
+				Challenge: crypto.Challenge,
+				Domain:    crypto.Domain,
 			}, testProfile)
 
 			require.NoError(t, err)
 			require.Len(t, res, 2)
 		})
-
-		t.Run("Status", func(t *testing.T) {
-			vc.Status = nil
-			res, err := service.VerifyCredential(vc, &Options{
-				Challenge: challenge,
-				Domain:    domain,
-			}, testProfile)
-
-			require.Error(t, err)
-			require.Nil(t, res)
-		})
 	})
-}
-
-func createDIDDoc(t *testing.T, didID, keyID string, pubKeyBytes []byte, kt kmskeytypes.KeyType) *did.Doc {
-	t.Helper()
-
-	const (
-		didContext = "https://w3id.org/did/v1"
-		keyType    = "JsonWebKey2020"
-	)
-
-	creator := fmt.Sprintf("%s#%s", didID, keyID)
-
-	service := did.Service{
-		ID:              "did:example:123456789abcdefghi#did-communication",
-		Type:            "did-communication",
-		ServiceEndpoint: model.NewDIDCommV1Endpoint("https://agent.example.com/"),
-		RecipientKeys:   []string{creator},
-		Priority:        0,
-	}
-
-	j, _ := jwksupport.PubKeyBytesToJWK(pubKeyBytes, kt)
-
-	mv, _ := did.NewVerificationMethodFromJWK(creator, keyType, "", j)
-
-	createdTime := time.Now()
-
-	return &did.Doc{
-		Context:              []string{didContext},
-		ID:                   didID,
-		VerificationMethod:   []did.VerificationMethod{*mv},
-		Service:              []did.Service{service},
-		Created:              &createdTime,
-		AssertionMethod:      []did.Verification{{VerificationMethod: *mv}},
-		Authentication:       []did.Verification{{VerificationMethod: *mv}},
-		CapabilityInvocation: []did.Verification{{VerificationMethod: *mv}},
-		CapabilityDelegation: []did.Verification{{VerificationMethod: *mv}},
-	}
-}
-
-func createKMS(t *testing.T) *localkms.LocalKMS {
-	t.Helper()
-
-	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
-	require.NoError(t, err)
-
-	k, err := localkms.New("local-lock://custom/primary/key/", p)
-	require.NoError(t, err)
-
-	return k
 }
 
 func TestService_checkVCStatus(t *testing.T) {
@@ -360,7 +251,6 @@ func TestService_checkVCStatus(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    *VerificationStatus
 		wantErr bool
 	}{
 		{
@@ -391,10 +281,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want: &VerificationStatus{
-				Verified: true,
-				Message:  "success",
-			},
 			wantErr: false,
 		},
 		{
@@ -409,7 +295,6 @@ func TestService_checkVCStatus(t *testing.T) {
 					return nil
 				},
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -433,7 +318,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -452,7 +336,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -476,7 +359,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -500,7 +382,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -531,7 +412,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -562,7 +442,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -601,7 +480,6 @@ func TestService_checkVCStatus(t *testing.T) {
 				},
 				issuer: "did:trustblock:abc",
 			},
-			want:    nil,
 			wantErr: true,
 		},
 	}
@@ -611,13 +489,10 @@ func TestService_checkVCStatus(t *testing.T) {
 			s := &Service{
 				vcStatusManager: tt.fields.getVCStatusManager(),
 			}
-			got, err := s.checkVCStatus(tt.args.getVcStatus(), tt.args.issuer)
+			err := s.ValidateVCStatus(tt.args.getVcStatus(), tt.args.issuer)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("checkVCStatus() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ValidateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("checkVCStatus() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -708,6 +583,67 @@ func TestService_validateVCStatus(t *testing.T) {
 			s := &Service{}
 			if err := s.validateVCStatus(tt.args.vcStatus); (err != nil) != tt.wantErr {
 				t.Errorf("validateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestService_ValidateCredentialProof(t *testing.T) {
+	loader := testutil.DocumentLoader(t)
+	signedVC, vdr := testutil.SignedVC(
+		t, []byte(sampleVCJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+	type args struct {
+		getVcByte        func() []byte
+		proofChallenge   string
+		proofDomain      string
+		vcInVPValidation bool
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "ProofChallenge invalid value",
+			args: args{
+				getVcByte: func() []byte {
+					vc := *signedVC
+					b, _ := vc.MarshalJSON()
+					return b
+				},
+				proofChallenge:   "some value",
+				vcInVPValidation: false,
+			},
+			wantErr: true,
+		},
+		{
+			name: "ProofDomain invalid value",
+			args: args{
+				getVcByte: func() []byte {
+					vc := *signedVC
+					b, _ := vc.MarshalJSON()
+					return b
+				},
+				proofChallenge:   crypto.Challenge,
+				proofDomain:      "some value",
+				vcInVPValidation: false,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				documentLoader: loader,
+				vdr:            vdr,
+			}
+			if err := s.ValidateCredentialProof(
+				tt.args.getVcByte(),
+				tt.args.proofChallenge,
+				tt.args.proofDomain,
+				tt.args.vcInVPValidation); (err != nil) != tt.wantErr {
+				t.Errorf("ValidateCredentialProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
