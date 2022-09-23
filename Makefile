@@ -8,7 +8,6 @@ VC_REST_PATH=cmd/vc-rest
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
-DID_ELEMENT_SIDETREE_REQUEST_URL    ?= https://element-did.com/api/v1/sidetree/requests
 MOCK_VERSION 	?=v1.6.0
 
 # OpenAPI spec
@@ -48,7 +47,6 @@ lint: generate
 license:
 	@scripts/check_license.sh
 
-
 .PHONY: vc-rest
 vc-rest:
 	@echo "Building vc-rest"
@@ -66,14 +64,9 @@ vc-rest-docker:
 bdd-test: clean vc-rest-docker generate-test-keys
 	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
-.PHONY: bdd-interop-test
-bdd-interop-test:clean vc-rest-docker generate-test-keys
-	@scripts/check_integration_interop.sh
-
 .PHONY: unit-test
 unit-test: generate
 	@scripts/check_unit.sh
-
 
 # TODO (#264): frapsoft/openssl only has an amd64 version. While this does work under amd64 and arm64 Mac OS currently,
 #               we should add an arm64 version for systems that can only run arm64 code.
@@ -84,17 +77,6 @@ generate-test-keys: clean
 		-v $(abspath .):/opt/workspace/vcs \
 		--entrypoint "/opt/workspace/vcs/scripts/generate_test_keys.sh" \
 		frapsoft/openssl
-
-create-element-did: clean
-	@mkdir -p .build
-	@cp scripts/create-element-did.js .build/
-	@REQUEST_URL=$(DID_ELEMENT_SIDETREE_REQUEST_URL) scripts/create_element_did.sh
-
-# this target creates VCs and VPs from other systems for interop tests
-prepare-test-verifiables: clean
-	@mkdir -p .build
-	@cp scripts/prepare-test-verifiables.js .build/
-	@scripts/prepare_test_verifiables.sh
 
 .PHONY: open-api-spec
 open-api-spec: clean

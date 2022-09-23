@@ -94,7 +94,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
+			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + modeFlagName, "",
 		}
 		startCmd.SetArgs(args)
@@ -109,8 +109,8 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMemOption,
-			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + modeFlagName, "invalid",
+			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + modeFlagName, "invalid",
 		}
 		startCmd.SetArgs(args)
 
@@ -150,8 +150,9 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
-		"--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeCouchDBOption,
+		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption,
+		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + kmsSecretsDatabaseURLFlagName, "badURL",
 		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
 	}
@@ -159,7 +160,7 @@ func TestStartCmdCreateKMSFailure(t *testing.T) {
 
 	err := startCmd.Execute()
 	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to ping couchDB")
+	require.Contains(t, err.Error(), "failed to create a new MongoDB client")
 }
 
 type mockServer struct{}
@@ -169,16 +170,23 @@ func (s *mockServer) ListenAndServe() error {
 }
 
 func TestStartCmdValidArgs(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+	defer func() {
+		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
-		"--" + databaseTypeFlagName, databaseTypeMemOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
+		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
 		"--" + contextEnableRemoteFlagName, "true",
 		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
+		"--" + databaseURLFlagName, mongoDBConnString,
+		"--" + kmsSecretsDatabaseURLFlagName, mongoDBConnString,
 	}
 	startCmd.SetArgs(args)
 
@@ -200,8 +208,8 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMemOption, "--" + tokenFlagName, "tk1",
-		"--" + useEchoHandlerFlagName, "true",
+		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
+		"--" + kmsSecretsDatabaseURLFlagName, mongoDBConnString,
 		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
 	}
 	startCmd.SetArgs(args)
@@ -211,17 +219,15 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 	require.Nil(t, err)
 }
 
-func TestHealthCheck(t *testing.T) {
-	b := &httptest.ResponseRecorder{}
-	healthCheckHandler(b, nil)
-
-	require.Equal(t, http.StatusOK, b.Code)
-}
-
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+	defer func() {
+		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
-	setEnvVars(t, databaseTypeMemOption)
+	setEnvVars(t, databaseTypeMongoDBOption)
 
 	defer unsetEnvVars(t)
 
@@ -230,28 +236,6 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 }
 
 func TestCreateProviders(t *testing.T) {
-	t.Run("test error from create new couchdb", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType: databaseTypeCouchDBOption,
-			},
-		})
-
-		require.Nil(t, cfg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to ping couchDB: url can't be blank")
-	})
-	t.Run("test error from create new mysql", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType: databaseTypeMYSQLDBOption,
-			},
-		})
-
-		require.Nil(t, cfg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
-	})
 	t.Run("test error from create new mongodb", func(t *testing.T) {
 		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
@@ -263,34 +247,10 @@ func TestCreateProviders(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create a new MongoDB client: error parsing uri: scheme must "+
 			`be "mongodb" or "mongodb+srv"`)
 	})
-	t.Run("test error from create new kms secrets couchdb", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMemOption,
-				kmsSecretsDatabaseType: databaseTypeCouchDBOption,
-			},
-		})
-
-		require.Nil(t, cfg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to ping couchDB: url can't be blank")
-	})
-	t.Run("test error from create new kms secrets mysql", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMemOption,
-				kmsSecretsDatabaseType: databaseTypeMYSQLDBOption,
-			},
-		})
-
-		require.Nil(t, cfg)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "DB URL for new mySQL DB provider can't be blank")
-	})
 	t.Run("test error from create new kms secrets mongodb", func(t *testing.T) {
 		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMemOption,
+				databaseType:           databaseTypeMongoDBOption,
 				kmsSecretsDatabaseType: databaseTypeMongoDBOption,
 			},
 		})
@@ -307,9 +267,15 @@ func TestCreateProviders(t *testing.T) {
 			"run start --help to see the available options")
 	})
 	t.Run("test invalid kms secrets database type", func(t *testing.T) {
+		pool, mongoDBResource := startMongoDBContainer(t)
+		defer func() {
+			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		}()
+
 		cfg, err := prepareConfiguration(&startupParameters{
 			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMemOption,
+				databaseType:           databaseTypeMongoDBOption,
+				databaseURL:            mongoDBConnString,
 				kmsSecretsDatabaseType: "data1",
 			},
 		})
@@ -361,9 +327,19 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
+		pool, mongoDBResource := startMongoDBContainer(t)
+		defer func() {
+			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		}()
+
 		cfg, err := prepareConfiguration(&startupParameters{
 			universalResolverURL: "wrong",
-			dbParameters:         &dbParameters{databaseType: "mem", kmsSecretsDatabaseType: "mem"},
+			dbParameters: &dbParameters{
+				databaseType:           databaseTypeMongoDBOption,
+				kmsSecretsDatabaseType: databaseTypeMongoDBOption,
+				databaseURL:            mongoDBConnString,
+				kmsSecretsDatabaseURL:  mongoDBConnString,
+			},
 		})
 
 		require.Nil(t, cfg)
@@ -424,7 +400,7 @@ func TestAcceptedDIDs(t *testing.T) {
 func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd()
 
-	setEnvVars(t, databaseTypeMemOption)
+	setEnvVars(t, databaseTypeMongoDBOption)
 
 	defer unsetEnvVars(t)
 	require.NoError(t, os.Setenv(tlsSystemCertPoolEnvKey, "wrongvalue"))
@@ -477,23 +453,10 @@ func TestValidateAuthorizationBearerToken(t *testing.T) {
 func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd()
 
-	setEnvVars(t, databaseTypeMemOption)
+	setEnvVars(t, databaseTypeMongoDBOption)
 
 	defer unsetEnvVars(t)
 	require.NoError(t, os.Setenv(contextEnableRemoteEnvKey, "not bool"))
-
-	err := startCmd.Execute()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid syntax")
-}
-
-func TestUseEchoHandlerInvalidArgsEnvVar(t *testing.T) {
-	startCmd := GetStartCmd()
-
-	setEnvVars(t, databaseTypeMemOption)
-
-	defer unsetEnvVars(t)
-	require.NoError(t, os.Setenv(useEchoHandlerEnvKey, "not bool"))
 
 	err := startCmd.Execute()
 	require.Error(t, err)
@@ -512,10 +475,16 @@ func setEnvVars(t *testing.T, databaseType string) {
 	err = os.Setenv(databaseTypeEnvKey, databaseType)
 	require.NoError(t, err)
 
-	err = os.Setenv(kmsSecretsDatabaseTypeEnvKey, databaseTypeMemOption)
+	err = os.Setenv(kmsSecretsDatabaseTypeEnvKey, databaseTypeMongoDBOption)
 	require.NoError(t, err)
 
 	err = os.Setenv(secretLockKeyPathEnvKey, "testSecretLock.key")
+	require.NoError(t, err)
+
+	err = os.Setenv(databaseURLEnvKey, mongoDBConnString)
+	require.NoError(t, err)
+
+	err = os.Setenv(kmsSecretsDatabaseURLEnvKey, mongoDBConnString)
 	require.NoError(t, err)
 }
 
