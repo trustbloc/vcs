@@ -31,7 +31,7 @@ const (
 		" Format must be <driver>:[//]<driver-specific-dsn>." +
 		" Examples: 'mysql://root:secret@tcp(localhost:3306)/adapter', 'mem://test'," +
 		" 'mongodb://mongodb.example.com:27017'." +
-		" Supported drivers are [mem, mysql, couchdb, mongodb]." +
+		" Supported drivers are [mongodb]." +
 		" Alternatively, this can be set with the following environment variable: " + DatabaseURLEnvKey
 	// DatabaseURLEnvKey is the databaes url.
 	DatabaseURLEnvKey = "DATABASE_URL"

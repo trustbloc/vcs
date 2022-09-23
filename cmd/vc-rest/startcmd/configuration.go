@@ -16,11 +16,8 @@ import (
 	"strings"
 
 	"github.com/google/tink/go/subtle/random"
-	ariescouchdbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb"
 	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
-	ariesmysqlstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	ariesmemstorage "github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
@@ -38,7 +35,6 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/ld"
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
-	ariesvcsprovider "github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 	mongodbvcsprovider "github.com/trustbloc/vcs/pkg/storage/mongodbprovider"
 )
 
@@ -140,24 +136,6 @@ func createStoreProviders(parameters *startupParameters) (*vcStorageProviders, e
 
 func createMainStoreProvider(parameters *startupParameters) (vcsstorage.Provider, error) { //nolint: dupl
 	switch {
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMemOption):
-		return ariesvcsprovider.New(ariesmemstorage.NewProvider()), nil
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeCouchDBOption):
-		couchDBProvider, err := ariescouchdbstorage.NewProvider(parameters.dbParameters.databaseURL,
-			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(couchDBProvider), nil
-	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMYSQLDBOption):
-		mySQLProvider, err := ariesmysqlstorage.NewProvider(parameters.dbParameters.databaseURL,
-			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(mySQLProvider), nil
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMongoDBOption):
 		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
 			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
@@ -174,24 +152,6 @@ func createMainStoreProvider(parameters *startupParameters) (vcsstorage.Provider
 
 func createKMSSecretsProvider(parameters *startupParameters) (vcsstorage.Provider, error) { //nolint: dupl
 	switch {
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMemOption):
-		return ariesvcsprovider.New(ariesmemstorage.NewProvider()), nil
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeCouchDBOption):
-		couchDBProvider, err := ariescouchdbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-			ariescouchdbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(couchDBProvider), nil
-	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMYSQLDBOption):
-		mySQLProvider, err := ariesmysqlstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
-			ariesmysqlstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))
-		if err != nil {
-			return nil, err
-		}
-
-		return ariesvcsprovider.New(mySQLProvider), nil
 	case strings.EqualFold(parameters.dbParameters.kmsSecretsDatabaseType, databaseTypeMongoDBOption):
 		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.kmsSecretsDatabaseURL,
 			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.kmsSecretsDatabasePrefix))

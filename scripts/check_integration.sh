@@ -6,13 +6,6 @@
 #
 set -e
 
-declare -a tests=(
-   "holder_rest"
-   "issuer_rest"
-   "verifier_rest"
-   "vc_rest"
-   "w3c_workflow"
-)
 
 TAGS=${TAGS:-all}
 
@@ -24,7 +17,7 @@ Important: for these test to run correctly, you must ensure that your hosts file
 127.0.0.1 testnet.orb.local
 ---
 "
-echo "Running adapter integration tests with tag=$TAGS"
+echo "Running vcs integration tests with tag=$TAGS"
 
 
 go test -count=1 -v -cover . -p 1 -timeout=40m $TAGS

@@ -22,8 +22,6 @@ To build from source see [here](docs/build.md).
 - [VC Services](docs/vcs/README.md)
 - [OpenAPI Spec](docs/vc-rest/openapi_spec.md)
 - [OpenAPI Demo](docs/vc-rest/openapi_demo.md)
-- [VC Interop API Implementation Status](docs/vc-rest/vc_interop_api_impl_status.md)
-
 
 ## Contributing
 Thank you for your interest in contributing. Please see our [community contribution guidelines](https://github.com/trustbloc/community/blob/main/CONTRIBUTING.md) for more information.

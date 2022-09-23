@@ -124,14 +124,6 @@ const (
 	didAnchorOriginEnvKey    = "VC_REST_DID_ANCHOR_ORIGIN"
 	didAnchorOriginFlagUsage = "DID anchor origin" + commonEnvVarUsageText + didAnchorOriginEnvKey
 
-	useEchoHandlerFlagName  = "use-echo-handler"
-	useEchoHandlerEnvKey    = "VC_USE_ECHO_HANDLER"
-	useEchoHandlerFlagUsage = "Use Echo handler for serving HTTP requests. Defaults to false (gorilla/mux is used " +
-		"as a default http handler) " + commonEnvVarUsageText + databaseTypeEnvKey
-
-	databaseTypeMemOption     = "mem"
-	databaseTypeCouchDBOption = "couchdb"
-	databaseTypeMYSQLDBOption = "mysql"
 	databaseTypeMongoDBOption = "mongodb"
 
 	didMethodVeres   = "v1"
@@ -162,7 +154,6 @@ type startupParameters struct {
 	didAnchorOrigin      string
 	contextProviderURLs  []string
 	contextEnableRemote  bool
-	useEchoHandler       bool
 }
 
 type dbParameters struct {
@@ -255,21 +246,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		}
 	}
 
-	useEchoHandlerConfig, err := cmdutils.GetUserSetVarFromString(cmd, useEchoHandlerFlagName,
-		useEchoHandlerEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	useEchoHandler := false
-
-	if useEchoHandlerConfig != "" {
-		useEchoHandler, err = strconv.ParseBool(useEchoHandlerConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &startupParameters{
 		hostURL:              hostURL,
 		blocDomain:           blocDomain,
@@ -286,7 +262,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		didAnchorOrigin:      didAnchorOrigin,
 		contextProviderURLs:  contextProviderURLs,
 		contextEnableRemote:  contextEnableRemote,
-		useEchoHandler:       useEchoHandler,
 	}, nil
 }
 
@@ -437,5 +412,4 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
 	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
-	startCmd.Flags().StringP(useEchoHandlerFlagName, "", "", useEchoHandlerFlagUsage)
 }

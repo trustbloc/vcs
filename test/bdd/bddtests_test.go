@@ -21,14 +21,10 @@ import (
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
-	"github.com/trustbloc/vcs/test/bdd/pkg/holder"
-	"github.com/trustbloc/vcs/test/bdd/pkg/issuer"
 	v1issuer "github.com/trustbloc/vcs/test/bdd/pkg/v1/issuer"
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
 	v1verifier "github.com/trustbloc/vcs/test/bdd/pkg/v1/verifier"
-	"github.com/trustbloc/vcs/test/bdd/pkg/vc"
 	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
-	"github.com/trustbloc/vcs/test/bdd/pkg/verifier"
 )
 
 const (
@@ -104,7 +100,7 @@ func beforeSuiteHook() {
 		logger.Fatalf("%s: %s", err.Error(), string(out))
 	}
 
-	testSleep := 10
+	testSleep := 60
 
 	if os.Getenv("TEST_SLEEP") != "" {
 		s, err := strconv.Atoi(os.Getenv("TEST_SLEEP"))
@@ -147,13 +143,9 @@ func initializeScenario(sc *godog.ScenarioContext) {
 
 	features := []feature{
 		common.NewSteps(bddContext),
-		vc.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
-		issuer.NewSteps(bddContext),
 		v1issuer.NewSteps(bddContext),
-		verifier.NewSteps(bddContext),
 		v1verifier.NewSteps(bddContext),
-		holder.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 	}
 

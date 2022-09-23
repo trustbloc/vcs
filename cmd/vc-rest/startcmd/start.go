@@ -9,36 +9,22 @@ package startcmd
 import (
 	"crypto/subtle"
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
-	"github.com/gorilla/mux"
-	ldrest "github.com/hyperledger/aries-framework-go/pkg/controller/rest/ld"
-	ldsvc "github.com/hyperledger/aries-framework-go/pkg/ld"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
-	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
-	restlogspec "github.com/trustbloc/edge-core/pkg/restapi/logspec"
-
 	"github.com/trustbloc/vcs/api/spec"
-	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	issuersvc "github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	restholder "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder"
-	holderops "github.com/trustbloc/vcs/pkg/restapi/v0.1/holder/operation"
-	restissuer "github.com/trustbloc/vcs/pkg/restapi/v0.1/issuer"
-	issuerops "github.com/trustbloc/vcs/pkg/restapi/v0.1/issuer/operation"
-	restverifier "github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier"
-	verifierops "github.com/trustbloc/vcs/pkg/restapi/v0.1/verifier/operation"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
@@ -110,16 +96,14 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 				return fmt.Errorf("failed to prepare configuration: %w", err)
 			}
 
-			if conf.StartupParameters.useEchoHandler {
-				var e *echo.Echo
+			var e *echo.Echo
 
-				e, err = buildEchoHandler(conf)
-				if err != nil {
-					return fmt.Errorf("failed to build echo handler: %w", err)
-				}
-
-				opts = append(opts, WithHTTPHandler(e))
+			e, err = buildEchoHandler(conf)
+			if err != nil {
+				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
+
+			opts = append(opts, WithHTTPHandler(e))
 
 			return startServer(conf, opts...)
 		},
@@ -136,6 +120,7 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	// Middlewares
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
+	e.Use(echomw.CORS())
 
 	if conf.StartupParameters.token != "" {
 		e.Use(mw.APIKeyAuth(conf.StartupParameters.token))
@@ -232,15 +217,6 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 		opt(o)
 	}
 
-	if o.handler == nil { // default handler is based on gorilla/mux
-		h, err := buildHandler(conf)
-		if err != nil {
-			return fmt.Errorf("failed to build default handler: %w", err)
-		}
-
-		o.handler = h
-	}
-
 	if o.server == nil {
 		o.server = &http.Server{
 			Addr:    conf.StartupParameters.hostURL,
@@ -251,111 +227,6 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 	logger.Infof("Starting vc-rest server on host %s", conf.StartupParameters.hostURL)
 
 	return o.server.ListenAndServe()
-}
-
-// buildHandler builds an HTTP handler based on gorilla/mux router.
-func buildHandler(conf *Configuration) (http.Handler, error) {
-	if conf.StartupParameters.logLevel != "" {
-		common.SetDefaultLogLevel(logger, conf.StartupParameters.logLevel)
-	}
-
-	router := mux.NewRouter()
-
-	if conf.StartupParameters.token != "" {
-		router.Use(authorizationMiddleware(conf.StartupParameters.token))
-	}
-
-	externalHostURL := conf.StartupParameters.hostURL
-	if conf.StartupParameters.hostURLExternal != "" {
-		externalHostURL = conf.StartupParameters.hostURLExternal
-	}
-
-	issuerService, err := restissuer.New(&issuerops.Config{
-		StoreProvider:   conf.Storage.provider,
-		KeyManager:      conf.LocalKMS,
-		Crypto:          conf.Crypto,
-		VDRI:            conf.VDR,
-		HostURL:         externalHostURL,
-		Domain:          conf.StartupParameters.blocDomain,
-		TLSConfig:       &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
-		DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
-		DocumentLoader:  conf.DocumentLoader,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	holderService, err := restholder.New(&holderops.Config{
-		TLSConfig: &tls.Config{
-			RootCAs:    conf.RootCAs,
-			MinVersion: tls.VersionTLS12,
-		},
-		StoreProvider:   conf.Storage.provider,
-		KeyManager:      conf.LocalKMS,
-		Crypto:          conf.Crypto,
-		VDRI:            conf.VDR,
-		Domain:          conf.StartupParameters.blocDomain,
-		DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
-		DocumentLoader:  conf.DocumentLoader,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	verifierService, err := restverifier.New(&verifierops.Config{
-		StoreProvider:  conf.Storage.provider,
-		TLSConfig:      &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
-		VDRI:           conf.VDR,
-		RequestTokens:  conf.StartupParameters.requestTokens,
-		DocumentLoader: conf.DocumentLoader,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	if conf.StartupParameters.mode == string(issuer) || conf.StartupParameters.mode == string(combined) {
-		for _, handler := range issuerService.GetOperations() {
-			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-		}
-	}
-
-	if conf.StartupParameters.mode == string(verifier) || conf.StartupParameters.mode == string(combined) {
-		for _, handler := range verifierService.GetOperations() {
-			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-		}
-	}
-
-	if conf.StartupParameters.mode == string(holder) || conf.StartupParameters.mode == string(combined) {
-		for _, handler := range holderService.GetOperations() {
-			router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-		}
-	}
-
-	for _, handler := range restlogspec.New().GetOperations() {
-		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-	}
-
-	// handlers for JSON-LD context operations
-	for _, handler := range ldrest.New(ldsvc.New(conf.LDContextStore)).GetRESTHandlers() {
-		router.HandleFunc(handler.Path(), handler.Handle()).Methods(handler.Method())
-	}
-
-	// health check
-	router.HandleFunc(healthCheckEndpoint, healthCheckHandler).Methods(http.MethodGet)
-
-	return constructCORSHandler(router), nil
-}
-
-func authorizationMiddleware(token string) mux.MiddlewareFunc {
-	middleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if validateAuthorizationBearerToken(w, r, token) {
-				next.ServeHTTP(w, r)
-			}
-		})
-	}
-
-	return middleware
 }
 
 func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, token string) bool {
@@ -374,30 +245,4 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	}
 
 	return true
-}
-
-type healthCheckResp struct {
-	Status      string    `json:"status"`
-	CurrentTime time.Time `json:"currentTime"`
-}
-
-func healthCheckHandler(rw http.ResponseWriter, r *http.Request) {
-	rw.WriteHeader(http.StatusOK)
-
-	err := json.NewEncoder(rw).Encode(&healthCheckResp{
-		Status:      "success",
-		CurrentTime: time.Now(),
-	})
-	if err != nil {
-		logger.Errorf("healthcheck response failure, %s", err)
-	}
-}
-
-func constructCORSHandler(handler http.Handler) http.Handler {
-	return cors.New(
-		cors.Options{
-			AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodHead},
-			AllowedHeaders: []string{"Origin", "Accept", "Content-Type", "X-Requested-With", "Authorization"},
-		},
-	).Handler(handler)
 }
