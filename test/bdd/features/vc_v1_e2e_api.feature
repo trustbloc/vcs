@@ -7,15 +7,17 @@
 @all
 @vc_rest_v1
 Feature: Using VC REST API
+  Background:
+    Given Organization "test_org" has been authorized with client id "test_org" and secret "test-org-secret"
 
   @e2e
   Scenario Outline: Store, retrieve, verify credential and presentation using different kind of profiles
     Given V1 Issuer profile "<issuerProfile>" for organization "<organization>" is created with signatureHolder "<signatureHolder>", didMethod "<didMethod>", signatureType "<signatureType>" and keyType "<keyType>"
-    And   V1 We can retrieve issuer profile "<issuerProfile>" with DID "<didMethod>" and signatureType "<signatureType>"
+    And   V1 We can retrieve issuer profile "<issuerProfile>" with DID "<didMethod>" and signatureType "<signatureType>" for organization "<organization>"
     Given V1 Verifier profile "<verifierProfile>" for organization "<organization>" is created"
-    And   V1 We can retrieve verifier profile "<verifierProfile>"
-    And   V1 New verifiable credential is created from "<credential>" under "<issuerProfile>" profile
-    And   V1 verifiable credential is verified under "<verifierProfile>" profile
+    And   V1 We can retrieve verifier profile "<verifierProfile>" for organization "<organization>"
+    And   V1 New verifiable credential is created from "<credential>" under "<issuerProfile>" profile for organization "<organization>"
+    And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "<organization>"
 
     Examples:
       | issuerProfile                    | verifierProfile                  | organization | credential                      | signatureHolder | didMethod | signatureType        | keyType      |

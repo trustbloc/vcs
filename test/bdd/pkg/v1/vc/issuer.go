@@ -42,16 +42,14 @@ func (e *Steps) createIssuerProfile(profileName, organizationName, signatureHold
 		},
 	}
 
-	e.bddContext.Args[getProfileAuthToken(profileName)] = organizationName
-
 	requestBytes, err := json.Marshal(profileRequest)
 	if err != nil {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, issuerProfileURL, "application/json",
-		e.bddContext.Args[getProfileAuthToken(profileName)], //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPSDo(http.MethodPost, issuerProfileURL, "application/json",
+		e.bddContext.Args[getOrgAuthTokenKey(organizationName)], //nolint: bodyclose
+		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -84,11 +82,11 @@ func (e *Steps) createIssuerProfile(profileName, organizationName, signatureHold
 	return nil
 }
 
-func (e *Steps) getIssuerProfileData(profileName string) (*model.IssuerProfile, error) {
+func (e *Steps) getIssuerProfileData(profileName, organizationName string) (*model.IssuerProfile, error) {
 	id := e.bddContext.Args[getProfileIDKey(profileName)]
-	token := e.bddContext.Args[getProfileAuthToken(profileName)]
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
-	resp, err := bddutil.HTTPDo(http.MethodGet, fmt.Sprintf(issuerProfileURLFormat, id), "", token, nil)
+	resp, err := bddutil.HTTPSDo(http.MethodGet, fmt.Sprintf(issuerProfileURLFormat, id), "", token, nil, e.tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +112,8 @@ func (e *Steps) getIssuerProfileData(profileName string) (*model.IssuerProfile, 
 	return profileResponse, nil
 }
 
-func (e *Steps) checkIssuerProfile(profileName, did, signatureType string) error {
-	profileResponse, err := e.getIssuerProfileData(profileName)
+func (e *Steps) checkIssuerProfile(profileName, did, signatureType, organizationName string) error {
+	profileResponse, err := e.getIssuerProfileData(profileName, organizationName)
 	if err != nil {
 		return err
 	}

@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	
+
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -41,16 +41,14 @@ func (e *Steps) createVerifierProfile(profileName, organizationName string) erro
 		Url:            &url,
 	}
 
-	e.bddContext.Args[getProfileAuthToken(profileName)] = organizationName
-
 	requestBytes, err := json.Marshal(verifierProfileRequest)
 	if err != nil {
 		return err
 	}
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, verifierProfileURL, "application/json",
-		e.bddContext.Args[getProfileAuthToken(profileName)], //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPSDo(http.MethodPost, verifierProfileURL, "application/json",
+		e.bddContext.Args[getOrgAuthTokenKey(organizationName)], //nolint: bodyclose
+		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -78,11 +76,11 @@ func (e *Steps) createVerifierProfile(profileName, organizationName string) erro
 	return nil
 }
 
-func (e *Steps) getVerifierProfileData(profileName string) (*model.VerifierProfile, error) {
+func (e *Steps) getVerifierProfileData(profileName, organizationName string) (*model.VerifierProfile, error) {
 	id := e.bddContext.Args[getProfileIDKey(profileName)]
-	token := e.bddContext.Args[getProfileAuthToken(profileName)]
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
-	resp, err := bddutil.HTTPDo(http.MethodGet, fmt.Sprintf(verifierProfileURLFormat, id), "", token, nil)
+	resp, err := bddutil.HTTPSDo(http.MethodGet, fmt.Sprintf(verifierProfileURLFormat, id), "", token, nil, e.tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -108,8 +106,8 @@ func (e *Steps) getVerifierProfileData(profileName string) (*model.VerifierProfi
 	return verifierProfileResponse, nil
 }
 
-func (e *Steps) checkVerifierProfile(profileName string) error {
-	profileResponse, err := e.getVerifierProfileData(profileName)
+func (e *Steps) checkVerifierProfile(profileName, organizationName string) error {
+	profileResponse, err := e.getVerifierProfileData(profileName, organizationName)
 	if err != nil {
 		return err
 	}

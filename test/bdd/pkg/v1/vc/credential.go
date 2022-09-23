@@ -21,8 +21,8 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-func (e *Steps) createCredential(credential, profileName string) error {
-	token := e.bddContext.Args[getProfileAuthToken(profileName)]
+func (e *Steps) createCredential(credential, profileName, organizationName string) error {
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	template, ok := e.bddContext.TestData[credential]
 	if !ok {
@@ -40,7 +40,7 @@ func (e *Steps) createCredential(credential, profileName string) error {
 		return err
 	}
 
-	profileResponse, err := e.getIssuerProfileData(profileName)
+	profileResponse, err := e.getIssuerProfileData(profileName, organizationName)
 	if err != nil {
 		return fmt.Errorf("unable to fetch profile - %w", err)
 	}
@@ -58,8 +58,8 @@ func (e *Steps) createCredential(credential, profileName string) error {
 
 	endpointURL := fmt.Sprintf(issueCredentialURLFormat, profileResponse.Id)
 
-	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
-		bytes.NewBuffer(requestBytes))
+	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
+		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -80,8 +80,8 @@ func (e *Steps) createCredential(credential, profileName string) error {
 	return e.checkVC(respBytes, profileName)
 }
 
-func (e *Steps) verifyCredential(profileName string) error {
-	profileResponse, err := e.getVerifierProfileData(profileName)
+func (e *Steps) verifyCredential(profileName, organizationName string) error {
+	profileResponse, err := e.getVerifierProfileData(profileName, organizationName)
 	if err != nil {
 		return fmt.Errorf("unable to fetch profile - %w", err)
 	}
@@ -107,9 +107,9 @@ func (e *Steps) verifyCredential(profileName string) error {
 	}
 
 	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, profileResponse.ID)
-	token := e.bddContext.Args[getProfileAuthToken(profileName)]
-	resp, err := bddutil.HTTPDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
-		bytes.NewBuffer(reqBytes))
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
+		bytes.NewBuffer(reqBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
