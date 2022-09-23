@@ -92,14 +92,14 @@ func NewProfileStore(mongoClient *mongodb.Client) *ProfileStore {
 }
 
 // Create creates profile document in a database.
-func (p *ProfileStore) Create(profile *issuer.Profile, signingDID *issuer.SigningDID,
+func (p *ProfileStore) Create(profile *issuer.Profile,
 	credentialManifests []*cm.CredentialManifest) (issuer.ProfileID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
 	collection := p.mongoClient.Database().Collection(profileCollection)
 
-	profileDoc, err := profileToDocument(profile, signingDID)
+	profileDoc, err := profileToDocument(profile)
 	if err != nil {
 		return "", err
 	}
@@ -225,7 +225,7 @@ func (p *ProfileStore) Delete(profileID issuer.ProfileID) error {
 }
 
 // Find profile by give id.
-func (p *ProfileStore) Find(strID issuer.ProfileID) (*issuer.Profile, *issuer.SigningDID, error) {
+func (p *ProfileStore) Find(strID issuer.ProfileID) (*issuer.Profile, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -233,7 +233,7 @@ func (p *ProfileStore) Find(strID issuer.ProfileID) (*issuer.Profile, *issuer.Si
 
 	id, err := profileIDFromString(strID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	profileDoc := &profileDocument{}
@@ -241,16 +241,16 @@ func (p *ProfileStore) Find(strID issuer.ProfileID) (*issuer.Profile, *issuer.Si
 	err = collection.FindOne(ctxWithTimeout, bson.M{"_id": id}).Decode(profileDoc)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, nil, issuer.ErrDataNotFound
+		return nil, issuer.ErrDataNotFound
 	}
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("issuer profile find failed: %w", err)
+		return nil, fmt.Errorf("issuer profile find failed: %w", err)
 	}
 
-	profile, signingDID := profileFromDocument(profileDoc)
+	profile := profileFromDocument(profileDoc)
 
-	return profile, signingDID, nil
+	return profile, nil
 }
 
 // FindByOrgID all profiles by give org id.
@@ -275,7 +275,7 @@ func (p *ProfileStore) FindByOrgID(orgID string) ([]*issuer.Profile, error) {
 			return nil, fmt.Errorf("issuer profile find by org id: decode doc failed: %w", err)
 		}
 
-		profile, _ := profileFromDocument(profileDoc)
+		profile := profileFromDocument(profileDoc)
 
 		result = append(result, profile)
 	}
@@ -336,7 +336,7 @@ func profileIDFromString(strID issuer.ProfileID) (primitive.ObjectID, error) {
 	return id, nil
 }
 
-func profileToDocument(profile *issuer.Profile, signingDID *issuer.SigningDID) (*profileDocument, error) {
+func profileToDocument(profile *issuer.Profile) (*profileDocument, error) {
 	id, err := profileIDFromString(profile.ID)
 	if err != nil {
 		return nil, err
@@ -351,7 +351,7 @@ func profileToDocument(profile *issuer.Profile, signingDID *issuer.SigningDID) (
 		OrganizationID: profile.OrganizationID,
 		VCConfig:       vcConfigToDocument(profile.VCConfig),
 		KMSConfig:      kmsConfigToDocument(profile.KMSConfig),
-		SigningDID:     signingDIDToDocument(signingDID),
+		SigningDID:     signingDIDToDocument(profile.SigningDID),
 	}, nil
 }
 
@@ -363,7 +363,7 @@ func profileUpdateDoc(profile *issuer.ProfileUpdate) *profileUpdateDocument {
 	}
 }
 
-func profileFromDocument(profileDoc *profileDocument) (*issuer.Profile, *issuer.SigningDID) {
+func profileFromDocument(profileDoc *profileDocument) *issuer.Profile {
 	return &issuer.Profile{
 		ID:             profileDoc.ID.Hex(),
 		Name:           profileDoc.Name,
@@ -373,7 +373,8 @@ func profileFromDocument(profileDoc *profileDocument) (*issuer.Profile, *issuer.
 		OrganizationID: profileDoc.OrganizationID,
 		VCConfig:       vcConfigFromDocument(profileDoc.VCConfig),
 		KMSConfig:      kmsConfigFromDocument(profileDoc.KMSConfig),
-	}, signingDIDFromDocument(profileDoc.SigningDID)
+		SigningDID:     signingDIDFromDocument(profileDoc.SigningDID),
+	}
 }
 
 func kmsConfigToDocument(kmsConfig *kms.Config) *kmsConfigDocument {
@@ -431,6 +432,10 @@ func vcConfigFromDocument(vcConfig *vcConfigDocument) *issuer.VCConfig {
 }
 
 func signingDIDToDocument(signingDID *issuer.SigningDID) *signingDIDDocument {
+	if signingDID == nil {
+		return nil
+	}
+
 	return &signingDIDDocument{
 		DID:            signingDID.DID,
 		Creator:        signingDID.Creator,
@@ -440,6 +445,10 @@ func signingDIDToDocument(signingDID *issuer.SigningDID) *signingDIDDocument {
 }
 
 func signingDIDFromDocument(signingDID *signingDIDDocument) *issuer.SigningDID {
+	if signingDID == nil {
+		return nil
+	}
+
 	return &issuer.SigningDID{
 		DID:            signingDID.DID,
 		Creator:        signingDID.Creator,

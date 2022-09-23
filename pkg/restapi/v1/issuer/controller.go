@@ -61,10 +61,10 @@ type kmsRegistry interface {
 
 type profileService interface {
 	Create(profile *issuer.Profile,
-		credentialManifests []*cm.CredentialManifest) (*issuer.Profile, *issuer.SigningDID, error)
+		credentialManifests []*cm.CredentialManifest) (*issuer.Profile, error)
 	Update(profile *issuer.ProfileUpdate) error
 	Delete(profileID issuer.ProfileID) error
-	GetProfile(profileID issuer.ProfileID) (*issuer.Profile, *issuer.SigningDID, error)
+	GetProfile(profileID issuer.ProfileID) (*issuer.Profile, error)
 	ActivateProfile(profileID issuer.ProfileID) error
 	DeactivateProfile(profileID issuer.ProfileID) error
 	GetAllProfiles(orgID string) ([]*issuer.Profile, error)
@@ -130,7 +130,7 @@ func (c *Controller) createProfile(ctx echo.Context, body *CreateIssuerProfileDa
 		return nil, err
 	}
 
-	createdProfile, signingDID, err := c.profileSvc.Create(profile, credentialManifests)
+	createdProfile, err := c.profileSvc.Create(profile, credentialManifests)
 	if errors.Is(err, issuer.ErrProfileNameDuplication) {
 		return nil, resterr.NewValidationError(resterr.AlreadyExist, profileName, err)
 	}
@@ -139,7 +139,7 @@ func (c *Controller) createProfile(ctx echo.Context, body *CreateIssuerProfileDa
 		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "CreateProfile", err)
 	}
 
-	return c.mapToIssuerProfile(createdProfile, signingDID)
+	return c.mapToIssuerProfile(createdProfile)
 }
 
 // DeleteIssuerProfilesProfileID deletes profile.
@@ -150,7 +150,7 @@ func (c *Controller) DeleteIssuerProfilesProfileID(ctx echo.Context, profileID s
 		return err
 	}
 
-	profile, _, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -171,12 +171,12 @@ func (c *Controller) GetIssuerProfilesProfileID(ctx echo.Context, profileID stri
 		return err
 	}
 
-	profile, signingDID, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.mapToIssuerProfile(profile, signingDID))
+	return util.WriteOutput(ctx)(c.mapToIssuerProfile(profile))
 }
 
 // PutIssuerProfilesProfileID updates a profile.
@@ -193,7 +193,7 @@ func (c *Controller) PutIssuerProfilesProfileID(ctx echo.Context, profileID stri
 		return err
 	}
 
-	profile, _, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -208,12 +208,12 @@ func (c *Controller) PutIssuerProfilesProfileID(ctx echo.Context, profileID stri
 		return resterr.NewSystemError(issuerProfileSvcComponent, "UpdateProfile", err)
 	}
 
-	updated, signingDID, err := c.profileSvc.GetProfile(profile.ID)
+	updated, err := c.profileSvc.GetProfile(profile.ID)
 	if err != nil {
 		return resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
 	}
 
-	return util.WriteOutput(ctx)(c.mapToIssuerProfile(updated, signingDID))
+	return util.WriteOutput(ctx)(c.mapToIssuerProfile(updated))
 }
 
 // PostIssuerProfilesProfileIDActivate activates a profile.
@@ -224,7 +224,7 @@ func (c *Controller) PostIssuerProfilesProfileIDActivate(ctx echo.Context, profi
 		return err
 	}
 
-	profile, _, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func (c *Controller) PostIssuerProfilesProfileIDDeactivate(ctx echo.Context, pro
 		return err
 	}
 
-	profile, _, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -277,7 +277,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, err
 	}
 
-	profile, signingDID, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, oidcOrgID)
 	if err != nil {
 		return nil, err
 	}
@@ -297,7 +297,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, err
 	}
 
-	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile, signingDID)
+	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile, profile.SigningDID)
 	if err != nil {
 		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
 	}
@@ -503,24 +503,24 @@ func (c *Controller) validateVCConfig(vcConfig *VCConfig,
 	}, nil
 }
 
-func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*issuer.Profile, *issuer.SigningDID, error) {
-	profile, signingDID, err := c.profileSvc.GetProfile(profileID)
+func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*issuer.Profile, error) {
+	profile, err := c.profileSvc.GetProfile(profileID)
 	if errors.Is(err, issuer.ErrDataNotFound) {
-		return nil, nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
 			fmt.Errorf("profile with given id %s, dosn't exists", profileID))
 	}
 
 	if err != nil {
-		return nil, nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
+		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
 	}
 
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != oidcOrgID {
-		return nil, nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
 			fmt.Errorf("profile with given id %s, dosn't exists", profileID))
 	}
 
-	return profile, signingDID, nil
+	return profile, nil
 }
 
 func (c *Controller) validateKMSType(kmsType KMSConfigType) (kms.Type, error) {
@@ -635,7 +635,7 @@ func (c *Controller) mapToDIDMethod(method did.Method) (VCConfigDidMethod, error
 			method, VCConfigDidMethodKey, VCConfigDidMethodWeb, VCConfigDidMethodOrb))
 }
 
-func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.SigningDID) (*IssuerProfile, error) {
+func (c *Controller) mapToIssuerProfile(p *issuer.Profile) (*IssuerProfile, error) {
 	format, err := c.mapToVCFormat(p.VCConfig.Format)
 	if err != nil {
 		return nil, err
@@ -679,7 +679,10 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile, signingDID *issuer.Si
 		Format:                  format,
 		KeyType:                 &keyType,
 		SigningAlgorithm:        signingAlgorithm,
-		SigningDID:              signingDID.DID,
+	}
+
+	if p.SigningDID != nil {
+		vcConfig.SigningDID = p.SigningDID.DID
 	}
 
 	profile := &IssuerProfile{

@@ -25,23 +25,25 @@ type ProfileID = string
 
 // Profile verifier profile.
 type Profile struct {
-	ID             ProfileID
-	Name           string
-	URL            string
-	Active         bool
-	OIDCConfig     interface{}
-	OrganizationID string
-	VCConfig       *VCConfig
-	KMSConfig      *vcskms.Config
+	ID             ProfileID      `json:"id"`
+	Name           string         `json:"name,omitempty"`
+	URL            string         `json:"url,omitempty"`
+	Active         bool           `json:"active"`
+	OIDCConfig     interface{}    `json:"oidcConfig"`
+	OrganizationID string         `json:"organizationID"`
+	VCConfig       *VCConfig      `json:"vcConfig"`
+	KMSConfig      *vcskms.Config `json:"kmsConfig"`
+	SigningDID     *SigningDID    `json:"signingDID"`
 }
 
 // ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update api.
 type ProfileUpdate struct {
-	ID         ProfileID
-	Name       string
-	URL        string
-	OIDCConfig interface{}
-	KMSConfig  *vcskms.Config
+	ID         ProfileID      `json:"id"`
+	Name       string         `json:"name,omitempty"`
+	URL        string         `json:"url,omitempty"`
+	OIDCConfig interface{}    `json:"oidcConfig"`
+	KMSConfig  *vcskms.Config `json:"kmsConfig"`
+	SigningDID *SigningDID    `json:"signingDID"`
 }
 
 // VCConfig describes how to sign verifiable credentials.
@@ -64,12 +66,12 @@ type SigningDID struct {
 }
 
 type profileStore interface {
-	Create(profile *Profile, signingDID *SigningDID, credentialManifests []*cm.CredentialManifest) (ProfileID, error)
+	Create(profile *Profile, credentialManifests []*cm.CredentialManifest) (ProfileID, error)
 	Update(profile *ProfileUpdate) error
 	UpdateActiveField(profileID ProfileID, active bool) error
 	Delete(profileID ProfileID) error
 
-	Find(strID ProfileID) (*Profile, *SigningDID, error)
+	Find(strID ProfileID) (*Profile, error)
 	FindCredentialManifests(strID ProfileID) ([]*cm.CredentialManifest, error)
 	FindByOrgID(orgID string) ([]*Profile, error)
 }
@@ -111,36 +113,38 @@ func NewProfileService(config *ServiceConfig) *ProfileService {
 
 // Create creates and returns profile.
 func (p *ProfileService) Create(profile *Profile,
-	credentialManifests []*cm.CredentialManifest) (*Profile, *SigningDID, error) {
+	credentialManifests []*cm.CredentialManifest) (*Profile, error) {
 	profile.Active = true
 
 	keyCreator, err := p.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
-		return nil, nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
+		return nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
 	}
 
 	createResult, err := p.didCreator.PublicDID(profile.VCConfig.DIDMethod,
 		profile.VCConfig.SigningAlgorithm, profile.VCConfig.KeyType, keyCreator)
 	if err != nil {
-		return nil, nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
+		return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 	}
 
-	id, err := p.store.Create(profile, &SigningDID{
+	profile.SigningDID = &SigningDID{
 		DID:            createResult.DocResolution.DIDDocument.ID,
 		Creator:        createResult.Creator,
 		UpdateKeyURL:   createResult.UpdateKeyURL,
 		RecoveryKeyURL: createResult.RecoveryKeyURL,
-	}, credentialManifests)
-	if err != nil {
-		return nil, nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
 	}
 
-	created, signingDID, err := p.store.Find(id)
+	id, err := p.store.Create(profile, credentialManifests)
 	if err != nil {
-		return nil, nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
+		return nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
 	}
 
-	return created, signingDID, nil
+	created, err := p.store.Find(id)
+	if err != nil {
+		return nil, fmt.Errorf("issuer profile service: create profile failed %w", err)
+	}
+
+	return created, nil
 }
 
 // Update updates unprotected files with nonempty fields from ProfileUpdate.
@@ -184,13 +188,13 @@ func (p *ProfileService) DeactivateProfile(profileID ProfileID) error {
 }
 
 // GetProfile returns profile with given id.
-func (p *ProfileService) GetProfile(profileID ProfileID) (*Profile, *SigningDID, error) {
-	profile, signingDID, err := p.store.Find(profileID)
+func (p *ProfileService) GetProfile(profileID ProfileID) (*Profile, error) {
+	profile, err := p.store.Find(profileID)
 	if err != nil {
-		return nil, signingDID, fmt.Errorf("issuer profile service: get profile failed: %w", err)
+		return nil, fmt.Errorf("profile service: get profile failed %w", err)
 	}
 
-	return profile, signingDID, nil
+	return profile, nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.
