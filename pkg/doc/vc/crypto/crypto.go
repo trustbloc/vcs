@@ -76,6 +76,14 @@ const (
 	CapabilityInvocation = "capabilityInvocation"
 )
 
+const (
+	// Purpose is the key of verifiable.Proof.
+	Purpose = "proofPurpose"
+
+	// VerificationMethod is the key of verifiable.Proof.
+	VerificationMethod = "verificationMethod"
+)
+
 type keyManager interface {
 	NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error)
 }
@@ -226,7 +234,7 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 		proofPurpose = opts.Purpose
 	}
 
-	didDoc, err := c.getAndResolveDID(method)
+	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
 	if err != nil {
 		return nil, err
 	}
@@ -272,20 +280,6 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 	}
 
 	return signingCtx, nil
-}
-
-func (c *Crypto) getAndResolveDID(verificationMethod string) (*did.Doc, error) {
-	didID, err := diddoc.GetDIDFromVerificationMethod(verificationMethod)
-	if err != nil {
-		return nil, err
-	}
-
-	docResolution, err := c.vdr.Resolve(didID)
-	if err != nil {
-		return nil, err
-	}
-
-	return docResolution.DIDDocument, nil
 }
 
 // getSigner returns signer and verification method based on profile and signing opts
