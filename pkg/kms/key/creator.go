@@ -4,16 +4,20 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package key
+package key //nolint: cyclop
 
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/asn1"
 	"fmt"
 
+	"github.com/btcsuite/btcd/btcec"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	jose2 "github.com/square/go-jose/v3"
@@ -21,6 +25,12 @@ import (
 
 type keyManager interface {
 	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
+}
+
+type publicKeyInfo struct {
+	Raw       asn1.RawContent
+	Algorithm pkix.AlgorithmIdentifier
+	PublicKey asn1.BitString
 }
 
 // JWKKeyCreator creates a new key of the given type using a given key manager, returning the key's ID
@@ -43,6 +53,23 @@ func JWKKeyCreator(kt kms.KeyType) func(keyManager) (string, *jwk.JWK, error) {
 				},
 				Kty: "OKP",
 				Crv: "Ed25519", // TODO where is the constant for this?
+			}
+		case kms.ECDSASecp256k1IEEEP1363:
+			var pki publicKeyInfo
+			if rest, err := asn1.Unmarshal(keyBytes, &pki); err != nil {
+				return "", nil, err
+			} else if len(rest) != 0 {
+				return "", nil, fmt.Errorf("x509: trailing data after ASN.1 of public-key")
+			}
+
+			pubKey, err := btcec.ParsePubKey(pki.PublicKey.RightAlign(), btcec.S256())
+			if err != nil {
+				return "", nil, err
+			}
+
+			j, err = jwksupport.JWKFromKey(pubKey.ToECDSA())
+			if err != nil {
+				return "", nil, err
 			}
 		default:
 			var err error
@@ -89,6 +116,20 @@ func CryptoKeyCreator(kt kms.KeyType) func(keyManager) (string, interface{}, err
 			}
 		case kms.ED25519Type:
 			pubKey = ed25519.PublicKey(keyBytes)
+		case kms.ECDSASecp256k1IEEEP1363:
+			var pki publicKeyInfo
+			if rest, err := asn1.Unmarshal(keyBytes, &pki); err != nil {
+				return "", nil, err
+			} else if len(rest) != 0 {
+				return "", nil, fmt.Errorf("x509: trailing data after ASN.1 of public-key")
+			}
+
+			btPK, err := btcec.ParsePubKey(pki.PublicKey.RightAlign(), btcec.S256())
+			if err != nil {
+				return "", nil, err
+			}
+
+			pubKey = btPK.ToECDSA()
 		default:
 			return "", nil, fmt.Errorf("unsupported key type: %s", kt)
 		}

@@ -45,6 +45,7 @@ var ariesSupportedKeyTypes = []kms.KeyType{
 var awsSupportedKeyTypes = []kms.KeyType{
 	kms.ECDSAP256TypeDER,
 	kms.ECDSAP384TypeDER,
+	kms.ECDSASecp256k1TypeIEEEP1363,
 }
 
 const (

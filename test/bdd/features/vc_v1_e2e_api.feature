@@ -20,13 +20,13 @@ Feature: Using VC REST API
     And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "<organization>"
 
     Examples:
-      | issuerProfile                    | verifierProfile                  | organization | credential                      | signatureHolder | didMethod | signatureType        | keyType      |
-      | i_myprofile_ud_local_ed25519_jws | v_myprofile_ud_local_ed25519_jws | test_org     | university_degree.json          | JWS             | orb       | Ed25519Signature2018 | Ed25519      |
-      | i_myprofile_ud_local_p256_pv     | v_myprofile_ud_local_p256_pv     | test_org     | university_degree.json          | ProofValue      | orb       | JsonWebSignature2020 | ECDSAP256DER |
-      | i_myprofile_prc_unireg_ed25519   | v_myprofile_prc_unireg_ed25519   | test_org     | permanent_resident_card.json    | JWS             | orb       | JsonWebSignature2020 | Ed25519      |
-      | i_myprofile_prc_unireg_p256      | v_myprofile_prc_unireg_p256      | test_org     | permanent_resident_card.json    | JWS             | orb       | JsonWebSignature2020 | ECDSAP256DER |
-      | i_myprofile_cp_unireg_ed25519    | v_myprofile_cp_unireg_ed25519    | test_org     | crude_product.json              | JWS             | orb       | JsonWebSignature2020 | Ed25519      |
-      | i_myprofile_cp_unireg_p256       | v_myprofile_cp_unireg_p256       | test_org     | crude_product.json              | JWS             | orb       | JsonWebSignature2020 | ECDSAP256DER |
-      | i_myprofile_cmtr_unireg_ed25519  | v_myprofile_cmtr_unireg_ed25519  | test_org     | certified_mill_test_report.json | JWS             | orb       | JsonWebSignature2020 | Ed25519      |
-      | i_myprofile_cmtr_unireg_p256     | v_myprofile_cmtr_unireg_p256     | test_org     | certified_mill_test_report.json | JWS             | orb       | JsonWebSignature2020 | ECDSAP256DER |
+      | issuerProfile             | verifierProfile            | organization | credential                      | signatureHolder | didMethod | signatureType               | keyType                      |
+      | i_myprofile_ud_P256k1     | v_myprofile_ud_P256k1      | test_org     | university_degree.json          | JWS             | orb       | EcdsaSecp256k1Signature2019 | ECDSASecp256k1IEEEP1363      |
+      | i_myprofile_ud_p256       | v_myprofile_ud_p256        | test_org     | university_degree.json          | JWS             | orb       | JsonWebSignature2020        | ECDSAP256DER                 |
+      | i_myprofile_prc_P256k1    | v_myprofile_prc_P256k1     | test_org     | permanent_resident_card.json    | JWS             | orb       | JsonWebSignature2020        | ECDSASecp256k1IEEEP1363      |
+      | i_myprofile_prc_p256      | v_myprofile_prc_p256       | test_org     | permanent_resident_card.json    | JWS             | orb       | JsonWebSignature2020        | ECDSAP256DER                 |
+      | i_myprofile_cp_p384       | v_myprofile_cp_p384        | test_org     | crude_product.json              | JWS             | orb       | JsonWebSignature2020        | ECDSAP384DER                 |
+      | i_myprofile_cp_p256       | v_myprofile_cp_p256        | test_org     | crude_product.json              | JWS             | orb       | JsonWebSignature2020        | ECDSAP256DER                 |
+      | i_myprofile_cmtr_p384     | v_myprofile_cmtr_p384      | test_org     | certified_mill_test_report.json | JWS             | orb       | JsonWebSignature2020        | ECDSAP384DER                 |
+      | i_myprofile_cmtr_p256     | v_myprofile_cmtr_p256      | test_org     | certified_mill_test_report.json | JWS             | orb       | JsonWebSignature2020        | ECDSAP256DER                 |
 
