@@ -142,7 +142,7 @@ type VerifyCredentialOptions struct {
 
 // Model for response of credentials verification.
 type VerifyCredentialResponse struct {
-	Checks []VerifyCredentialCheckResult `json:"checks"`
+	Checks *[]VerifyCredentialCheckResult `json:"checks,omitempty"`
 }
 
 // PostVerifierProfilesJSONBody defines parameters for PostVerifierProfiles.

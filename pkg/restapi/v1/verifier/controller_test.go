@@ -655,7 +655,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 		rsp, err := controller.verifyCredential(c, &body, "testId")
 		require.NoError(t, err)
-		require.Equal(t, &VerifyCredentialResponse{Checks: []VerifyCredentialCheckResult{{}}}, rsp)
+		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
@@ -668,7 +668,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 		rsp, err := controller.verifyCredential(c, &body, "testId")
 
 		require.NoError(t, err)
-		require.Equal(t, &VerifyCredentialResponse{Checks: []VerifyCredentialCheckResult{{}}}, rsp)
+		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
@@ -835,7 +835,7 @@ func Test_mapVerifyCredentialChecks(t *testing.T) {
 		want *VerifyCredentialResponse
 	}{
 		{
-			name: "",
+			name: "OK",
 			args: args{
 				checks: []verifycredential.CredentialsVerificationCheckResult{
 					{
@@ -851,7 +851,7 @@ func Test_mapVerifyCredentialChecks(t *testing.T) {
 				},
 			},
 			want: &VerifyCredentialResponse{
-				Checks: []VerifyCredentialCheckResult{
+				Checks: &[]VerifyCredentialCheckResult{
 					{
 						Check:              "check1",
 						Error:              "error1",
@@ -863,6 +863,15 @@ func Test_mapVerifyCredentialChecks(t *testing.T) {
 						VerificationMethod: "verificationMethod2",
 					},
 				},
+			},
+		},
+		{
+			name: "OK Empty",
+			args: args{
+				checks: []verifycredential.CredentialsVerificationCheckResult{},
+			},
+			want: &VerifyCredentialResponse{
+				Checks: nil,
 			},
 		},
 	}
