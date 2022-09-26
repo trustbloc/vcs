@@ -60,4 +60,24 @@ func TestApiKeyAuth(t *testing.T) {
 		require.Contains(t, err.Error(), "Unauthorized")
 		require.False(t, handlerCalled)
 	})
+
+	t.Run("skip health check endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/healthcheck", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
 }
