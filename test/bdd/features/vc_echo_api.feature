@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+@all
 @vc_rest_echo
 Feature: VC REST API using Echo web framework
   Scenario: VC server is up and running

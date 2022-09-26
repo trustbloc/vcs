@@ -9,7 +9,6 @@ package startcmd
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -19,9 +18,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/spf13/cobra"
@@ -33,7 +29,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/cmd/common"
-	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 )
 
 const (
@@ -145,24 +140,6 @@ func TestStartCmdWithBlankEnvVar(t *testing.T) {
 	})
 }
 
-func TestStartCmdCreateKMSFailure(t *testing.T) {
-	startCmd := GetStartCmd()
-
-	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
-		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption,
-		"--" + databaseURLFlagName, mongoDBConnString,
-		"--" + kmsSecretsDatabaseURLFlagName, "badURL",
-		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
-	}
-	startCmd.SetArgs(args)
-
-	err := startCmd.Execute()
-	require.NotNil(t, err)
-	require.Contains(t, err.Error(), "failed to create a new MongoDB client")
-}
-
 type mockServer struct{}
 
 func (s *mockServer) ListenAndServe() error {
@@ -179,14 +156,13 @@ func TestStartCmdValidArgs(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
+		"--" + kmsTypeFlagName, "web",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
 		"--" + contextEnableRemoteFlagName, "true",
-		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
 		"--" + databaseURLFlagName, mongoDBConnString,
-		"--" + kmsSecretsDatabaseURLFlagName, mongoDBConnString,
 	}
 	startCmd.SetArgs(args)
 
@@ -208,9 +184,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
-		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
-		"--" + kmsSecretsDatabaseURLFlagName, mongoDBConnString,
-		"--" + secretLockKeyPathFlagName, "testSecretLock.key",
+		"--" + kmsTypeFlagName, "web",
 	}
 	startCmd.SetArgs(args)
 
@@ -247,74 +221,12 @@ func TestCreateProviders(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create a new MongoDB client: error parsing uri: scheme must "+
 			`be "mongodb" or "mongodb+srv"`)
 	})
-	t.Run("test error from create new kms secrets mongodb", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMongoDBOption,
-				kmsSecretsDatabaseType: databaseTypeMongoDBOption,
-			},
-		})
-
-		require.Nil(t, cfg)
-		require.Contains(t, err.Error(), "failed to create a new MongoDB client: error parsing uri: scheme must "+
-			`be "mongodb" or "mongodb+srv"`)
-	})
 	t.Run("test invalid database type", func(t *testing.T) {
 		cfg, err := prepareConfiguration(&startupParameters{dbParameters: &dbParameters{databaseType: "data1"}})
 
 		require.Nil(t, cfg)
 		require.Contains(t, err.Error(), "data1 is not a valid database type. "+
 			"run start --help to see the available options")
-	})
-	t.Run("test invalid kms secrets database type", func(t *testing.T) {
-		pool, mongoDBResource := startMongoDBContainer(t)
-		defer func() {
-			require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
-		}()
-
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMongoDBOption,
-				databaseURL:            mongoDBConnString,
-				kmsSecretsDatabaseType: "data1",
-			},
-		})
-
-		require.Nil(t, cfg)
-		require.Contains(t, err.Error(), "data1 is not a valid KMS secrets database type. "+
-			"run start --help to see the available options")
-	})
-}
-
-func TestCreateKMS(t *testing.T) {
-	t.Run("fail to open master key store", func(t *testing.T) {
-		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{FailNamespace: "masterkey"}))
-
-		require.Nil(t, localKMS)
-		require.EqualError(t, err, "failed to open store for name space masterkey")
-	})
-	t.Run("fail to create master key service", func(t *testing.T) {
-		masterKeyStore := ariesmockstorage.MockStore{
-			Store: make(map[string]ariesmockstorage.DBEntry),
-		}
-
-		err := masterKeyStore.Put("masterkey", []byte(""))
-		require.NoError(t, err)
-
-		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &masterKeyStore}))
-		require.EqualError(t, err, "masterKeyReader is empty")
-		require.Nil(t, localKMS)
-	})
-	t.Run("fail to create Aries provider wrapper", func(t *testing.T) {
-		localKMS, err := createKMS(ariesprovider.New(&ariesmockstorage.MockStoreProvider{
-			Store: &ariesmockstorage.MockStore{
-				Store: map[string]ariesmockstorage.DBEntry{},
-			},
-			FailNamespace: kms.AriesWrapperStoreName,
-		}))
-
-		require.Nil(t, localKMS)
-		require.EqualError(t, err, "failed to open store for name space kmsdb")
 	})
 }
 
@@ -335,10 +247,8 @@ func TestCreateVDRI(t *testing.T) {
 		cfg, err := prepareConfiguration(&startupParameters{
 			universalResolverURL: "wrong",
 			dbParameters: &dbParameters{
-				databaseType:           databaseTypeMongoDBOption,
-				kmsSecretsDatabaseType: databaseTypeMongoDBOption,
-				databaseURL:            mongoDBConnString,
-				kmsSecretsDatabaseURL:  mongoDBConnString,
+				databaseType: databaseTypeMongoDBOption,
+				databaseURL:  mongoDBConnString,
 			},
 		})
 
@@ -410,30 +320,6 @@ func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
-func TestPrepareMasterKeyReader(t *testing.T) {
-	t.Run("Unexpected error when trying to retrieve master key from store", func(t *testing.T) {
-		reader, err := prepareMasterKeyReader(
-			ariesprovider.New(&ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{
-					ErrGet: errors.New("testError"),
-				},
-			}))
-		require.Equal(t, errors.New("testError"), err)
-		require.Nil(t, reader)
-	})
-	t.Run("Error when putting newly generated master key into store", func(t *testing.T) {
-		reader, err := prepareMasterKeyReader(
-			ariesprovider.New(&ariesmockstorage.MockStoreProvider{
-				Store: &ariesmockstorage.MockStore{
-					ErrGet: storage.ErrDataNotFound,
-					ErrPut: errors.New("testError"),
-				},
-			}))
-		require.Equal(t, errors.New("testError"), err)
-		require.Nil(t, reader)
-	})
-}
-
 func TestValidateAuthorizationBearerToken(t *testing.T) {
 	t.Run("test invalid token", func(t *testing.T) {
 		header := make(map[string][]string)
@@ -475,16 +361,10 @@ func setEnvVars(t *testing.T, databaseType string) {
 	err = os.Setenv(databaseTypeEnvKey, databaseType)
 	require.NoError(t, err)
 
-	err = os.Setenv(kmsSecretsDatabaseTypeEnvKey, databaseTypeMongoDBOption)
-	require.NoError(t, err)
-
-	err = os.Setenv(secretLockKeyPathEnvKey, "testSecretLock.key")
-	require.NoError(t, err)
-
 	err = os.Setenv(databaseURLEnvKey, mongoDBConnString)
 	require.NoError(t, err)
 
-	err = os.Setenv(kmsSecretsDatabaseURLEnvKey, mongoDBConnString)
+	err = os.Setenv(kmsTypeEnvKey, "web")
 	require.NoError(t, err)
 }
 

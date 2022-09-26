@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/google/tink/go/keyset"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -43,7 +42,7 @@ func TestKMSSigner_Alg(t *testing.T) {
 func TestKMSSigner_Sign(t *testing.T) {
 	type fields struct {
 		keyHandle interface{}
-		getCrypto func() crypto.Crypto
+		getCrypto func() crypto
 		bbs       bool
 	}
 	type args struct {
@@ -60,7 +59,7 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "BBS SignMulti OK",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto.Crypto {
+				getCrypto: func() crypto {
 					return &mockcrypto.Crypto{
 						BBSSignValue: []byte("signed"),
 						BBSSignErr:   nil,
@@ -78,7 +77,7 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "BBS SignMulti Error",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto.Crypto {
+				getCrypto: func() crypto {
 					return &mockcrypto.Crypto{
 						BBSSignValue: nil,
 						BBSSignErr:   errors.New("some error"),
@@ -96,7 +95,7 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "Sign OK",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto.Crypto {
+				getCrypto: func() crypto {
 					return &mockcrypto.Crypto{
 						SignValue: []byte("signed"),
 						SignErr:   nil,
@@ -114,7 +113,7 @@ func TestKMSSigner_Sign(t *testing.T) {
 			name: "Sign Error",
 			fields: fields{
 				keyHandle: nil,
-				getCrypto: func() crypto.Crypto {
+				getCrypto: func() crypto {
 					return &mockcrypto.Crypto{
 						SignValue: nil,
 						SignErr:   errors.New("some error"),
@@ -206,7 +205,7 @@ func TestKMSSigner_textToLines(t *testing.T) {
 func TestNewKMSSigner(t *testing.T) {
 	type args struct {
 		keyManager    kms.KeyManager
-		c             crypto.Crypto
+		c             crypto
 		creator       string
 		signatureType vc.SignatureType
 	}

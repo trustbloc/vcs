@@ -145,13 +145,21 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
 	}
 
-	kmsRegistry := kms.NewRegistry(&kms.Config{
-		KMSType:           kms.Local,
+	defaultVCSKeyManager, err := kms.NewAriesKeyManager(&kms.Config{
+		KMSType:           conf.StartupParameters.kmsParameters.kmsType,
+		Endpoint:          conf.StartupParameters.kmsParameters.kmsEndpoint,
+		Region:            conf.StartupParameters.kmsParameters.kmsRegion,
+		HTTPClient:        http.DefaultClient, // TODO change to custom http client
 		SecretLockKeyPath: conf.StartupParameters.kmsParameters.secretLockKeyPath,
 		DBType:            conf.StartupParameters.dbParameters.databaseType,
 		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
 		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create default kms: %w", err)
+	}
+
+	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
 	// Issuer Profile Management API
 	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)

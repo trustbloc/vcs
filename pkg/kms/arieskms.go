@@ -10,16 +10,20 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
+	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/local"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
+	awssvc "github.com/trustbloc/kms/pkg/aws"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/key"
@@ -37,38 +41,89 @@ var ariesSupportedKeyTypes = []kms.KeyType{
 	kms.BLS12381G2Type,
 }
 
+// nolint: gochecknoglobals
+var awsSupportedKeyTypes = []kms.KeyType{
+	kms.ECDSAP256TypeDER,
+	kms.ECDSAP384TypeDER,
+}
+
 const (
 	keystoreLocalPrimaryKeyURI = "local-lock://keystorekms"
 	storageTypeMemOption       = "mem"
 	storageTypeMongoDBOption   = "mongodb"
 )
 
-type LocalKeyManager struct {
-	local  kms.KeyManager
-	crypto ariescrypto.Crypto
+type keyManager interface {
+	Get(keyID string) (interface{}, error)
+	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
 }
 
-func NewAriesKeyManager(localKms kms.KeyManager, crypto ariescrypto.Crypto) *LocalKeyManager {
-	return &LocalKeyManager{
-		local:  localKms,
-		crypto: crypto,
+type crypto interface {
+	Sign(msg []byte, kh interface{}) ([]byte, error)
+	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
+}
+
+type KeyManager struct {
+	keyManager keyManager
+	crypto     crypto
+	kmsType    Type
+}
+
+func NewAriesKeyManager(cfg *Config) (*KeyManager, error) {
+	switch cfg.KMSType {
+	case Local:
+		km, cr, err := createLocalKMS(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		return &KeyManager{
+			kmsType:    cfg.KMSType,
+			keyManager: km,
+			crypto:     cr,
+		}, nil
+	case Web:
+		return &KeyManager{
+			kmsType:    cfg.KMSType,
+			keyManager: webkms.New(cfg.Endpoint, cfg.HTTPClient),
+			crypto:     webcrypto.New(cfg.Endpoint, cfg.HTTPClient),
+		}, nil
+	case AWS:
+		awsSession, err := session.NewSession(&aws.Config{
+			Endpoint:                      &cfg.Endpoint,
+			Region:                        aws.String(cfg.Region),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		awsSvc := awssvc.New(awsSession, nil, "")
+
+		return &KeyManager{
+			kmsType:    cfg.KMSType,
+			keyManager: awsSvc,
+			crypto:     awsSvc,
+		}, nil
 	}
+
+	return nil, fmt.Errorf("unsupported kms type: %s", cfg.KMSType)
 }
 
-func NewLocalKeyManager(cfg *Config) (*LocalKeyManager, error) {
+func createLocalKMS(cfg *Config) (keyManager, crypto, error) {
 	secretLockService, err := createLocalSecretLock(cfg.SecretLockKeyPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	storeProvider, err := createStoreProvider(cfg.DBType, cfg.DBURL, cfg.DBPrefix)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	kmsStore, err := kms.NewAriesProviderWrapper(storeProvider)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	kmsProv := kmsProvider{
@@ -78,34 +133,35 @@ func NewLocalKeyManager(cfg *Config) (*LocalKeyManager, error) {
 
 	localKms, err := localkms.New(keystoreLocalPrimaryKeyURI, kmsProv)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	crypto, err := tinkcrypto.New()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &LocalKeyManager{
-		local:  localKms,
-		crypto: crypto,
-	}, nil
+	return localKms, crypto, nil
 }
 
-func (km *LocalKeyManager) SupportedKeyTypes() []kms.KeyType {
+func (km *KeyManager) SupportedKeyTypes() []kms.KeyType {
+	if km.kmsType == AWS {
+		return awsSupportedKeyTypes
+	}
+
 	return ariesSupportedKeyTypes
 }
 
-func (km *LocalKeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
-	return key.JWKKeyCreator(keyType)(km.local)
+func (km *KeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+	return key.JWKKeyCreator(keyType)(km.keyManager)
 }
 
-func (km *LocalKeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
-	return key.CryptoKeyCreator(keyType)(km.local)
+func (km *KeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+	return key.CryptoKeyCreator(keyType)(km.keyManager)
 }
 
-func (km *LocalKeyManager) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
-	return signer.NewKMSSigner(km.local, km.crypto, creator, signatureType)
+func (km *KeyManager) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+	return signer.NewKMSSigner(km.keyManager, km.crypto, creator, signatureType)
 }
 
 func createLocalSecretLock(keyPath string) (secretlock.Service, error) {

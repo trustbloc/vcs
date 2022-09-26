@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/kms/signer"
+
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -23,8 +25,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
-	vcskms "github.com/trustbloc/vcs/pkg/kms"
-
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
@@ -88,7 +88,7 @@ func TestCrypto_SignCredential(t *testing.T) { //nolint:gocognit
 					DID:           "did:trustbloc:abc",
 					SignatureType: "Ed25519Signature2018",
 					Creator:       "did:trustbloc:abc#key1",
-					KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, &cryptomock.Crypto{}),
+					KMS:           &mockKMS{},
 				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
@@ -297,7 +297,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 				DID:           "did:trustbloc:abc",
 				SignatureType: "BbsBlsSignature2020",
 				Creator:       "did:trustbloc:abc#key1",
-				KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, &cryptomock.Crypto{}),
+				KMS:           &mockKMS{},
 			}, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
@@ -368,7 +368,7 @@ func getTestSigner() *vc.Signer {
 		DID:           "did:trustbloc:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:trustbloc:abc#key1",
-		KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, &cryptomock.Crypto{}),
+		KMS:           &mockKMS{},
 	}
 }
 
@@ -377,8 +377,20 @@ func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
 		DID:           "did:trustbloc:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:trustbloc:abc#key1",
-		KMS:           vcskms.NewAriesKeyManager(&mockkms.KeyManager{}, crypto),
+		KMS:           &mockKMS{crypto: crypto},
 	}
+}
+
+type mockKMS struct {
+	crypto ariescrypto.Crypto
+}
+
+func (m *mockKMS) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+	if m.crypto == nil {
+		m.crypto = &cryptomock.Crypto{}
+	}
+
+	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType)
 }
 
 // nolint: unparam

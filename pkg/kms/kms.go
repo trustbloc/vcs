@@ -9,6 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 package kms
 
 import (
+	"net/http"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
@@ -25,8 +27,10 @@ const (
 
 // Config configure kms that stores signing keys.
 type Config struct {
-	KMSType  Type
-	Endpoint string
+	KMSType    Type
+	Endpoint   string
+	Region     string
+	HTTPClient *http.Client
 
 	SecretLockKeyPath string
 	DBType            string

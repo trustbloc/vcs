@@ -9,20 +9,26 @@ package signer
 import (
 	"strings"
 
-	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
-
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
 
 type KMSSigner struct {
 	keyHandle interface{}
-	crypto    ariescrypto.Crypto
+	crypto    crypto
 	bbs       bool
 }
 
-func NewKMSSigner(keyManager kms.KeyManager, c ariescrypto.Crypto, creator string,
+type keyManager interface {
+	Get(keyID string) (interface{}, error)
+}
+
+type crypto interface {
+	Sign(msg []byte, kh interface{}) ([]byte, error)
+	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
+}
+
+func NewKMSSigner(keyManager keyManager, c crypto, creator string,
 	signatureType vc.SignatureType) (*KMSSigner, error) {
 	// creator will contain didID#keyID
 	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)

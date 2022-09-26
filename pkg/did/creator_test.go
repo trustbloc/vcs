@@ -31,17 +31,24 @@ import (
 )
 
 type keyCreator struct {
-	KMS kms.KeyManager
-
-	JWKKeyCreator    func(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error)
-	CryptoKeyCreator func(kt kms.KeyType) func(kms.KeyManager) (string, interface{}, error)
+	kms                   kms.KeyManager
+	errorJWKKeyCreator    bool
+	errorCryptoKeyCreator bool
 }
 
 func (k *keyCreator) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
-	return k.JWKKeyCreator(keyType)(k.KMS)
+	if k.errorJWKKeyCreator {
+		return "", nil, errors.New("test")
+	}
+
+	return key.JWKKeyCreator(keyType)(k.kms)
 }
 func (k *keyCreator) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
-	return k.CryptoKeyCreator(keyType)(k.KMS)
+	if k.errorCryptoKeyCreator {
+		return "", nil, errors.New("test")
+	}
+
+	return key.CryptoKeyCreator(keyType)(k.kms)
 }
 
 func TestPublicDID(t *testing.T) {
@@ -49,7 +56,7 @@ func TestPublicDID(t *testing.T) {
 		creator := did2.NewCreator(&did2.CreatorConfig{})
 		_, err := creator.PublicDID("unsupported", "jsonwebsignature2020", kms.ED25519Type,
 			&keyCreator{
-				KMS: newKMS(t),
+				kms: newKMS(t),
 			})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported did method")
@@ -65,9 +72,7 @@ func TestPublicDID(t *testing.T) {
 			result, err := creator.PublicDID(
 				orb.DIDMethod, "jsonwebsignature2020", kms.ED25519Type,
 				&keyCreator{
-					KMS:              newKMS(t),
-					JWKKeyCreator:    key.JWKKeyCreator,
-					CryptoKeyCreator: key.CryptoKeyCreator,
+					kms: newKMS(t),
 				})
 			require.NoError(t, err)
 			require.Equal(t, result.DocResolution.DIDDocument, expected)
@@ -79,8 +84,8 @@ func TestPublicDID(t *testing.T) {
 			_, err := creator.PublicDID(orb.DIDMethod,
 				"jsonwebsignature2020", kms.ED25519Type,
 				&keyCreator{
-					KMS:           newKMS(t),
-					JWKKeyCreator: errorJWKKeyCreator,
+					kms:                newKMS(t),
+					errorJWKKeyCreator: true,
 				})
 			require.Contains(t, err.Error(), expected.Error())
 		})
@@ -93,9 +98,8 @@ func TestPublicDID(t *testing.T) {
 			_, err := creator.PublicDID(orb.DIDMethod,
 				"jsonwebsignature2020", kms.ED25519Type,
 				&keyCreator{
-					KMS:              newKMS(t),
-					JWKKeyCreator:    key.JWKKeyCreator,
-					CryptoKeyCreator: errorCryptoKeyCreator,
+					kms:                   newKMS(t),
+					errorCryptoKeyCreator: true,
 				})
 			require.Contains(t, err.Error(), expected.Error())
 		})
@@ -109,9 +113,7 @@ func TestPublicDID(t *testing.T) {
 				orb.DIDMethod,
 				"jsonwebsignature2020", kms.ED25519Type,
 				&keyCreator{
-					KMS:              newKMS(t),
-					JWKKeyCreator:    key.JWKKeyCreator,
-					CryptoKeyCreator: key.CryptoKeyCreator,
+					kms: newKMS(t),
 				})
 			require.ErrorIs(t, err, expected)
 		})
@@ -125,9 +127,7 @@ func TestPublicDID(t *testing.T) {
 			result, err := creator.PublicDID(keymethod.DIDMethod,
 				vc.JSONWebSignature2020, kms.ED25519Type, // TODO the verification method type is probably ignored by did:key
 				&keyCreator{
-					KMS:              newKMS(t),
-					JWKKeyCreator:    key.JWKKeyCreator,
-					CryptoKeyCreator: key.CryptoKeyCreator,
+					kms: newKMS(t),
 				})
 			require.NoError(t, err)
 			require.True(t, strings.HasPrefix(result.DocResolution.DIDDocument.ID, "did:key"))
@@ -138,8 +138,8 @@ func TestPublicDID(t *testing.T) {
 			creator := did2.NewCreator(&did2.CreatorConfig{})
 			_, err := creator.PublicDID(keymethod.DIDMethod, "JsonWebKey2020", kms.ED25519Type,
 				&keyCreator{
-					KMS:           newKMS(t),
-					JWKKeyCreator: errorJWKKeyCreator,
+					kms:                newKMS(t),
+					errorJWKKeyCreator: true,
 				})
 			require.Contains(t, err.Error(), expected.Error())
 		})
@@ -153,26 +153,12 @@ func TestPublicDID(t *testing.T) {
 			result, err := creator.PublicDID("web",
 				"JsonWebKey2020", kms.ED25519Type, // TODO the verification method type is probably ignored by did:key
 				&keyCreator{
-					KMS:              newKMS(t),
-					JWKKeyCreator:    key.JWKKeyCreator,
-					CryptoKeyCreator: key.CryptoKeyCreator,
+					kms: newKMS(t),
 				})
 			require.Error(t, err)
 			require.Nil(t, result)
 		})
 	})
-}
-
-func errorJWKKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, *jwk.JWK, error) {
-	return func(km kms.KeyManager) (string, *jwk.JWK, error) {
-		return "", nil, errors.New("test")
-	}
-}
-
-func errorCryptoKeyCreator(kt kms.KeyType) func(kms.KeyManager) (string, interface{}, error) {
-	return func(km kms.KeyManager) (string, interface{}, error) {
-		return "", nil, errors.New("test")
-	}
 }
 
 func newKMS(t *testing.T) kms.KeyManager {

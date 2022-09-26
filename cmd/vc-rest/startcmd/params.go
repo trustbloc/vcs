@@ -11,10 +11,54 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/trustbloc/vcs/pkg/kms"
+
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
 	"github.com/trustbloc/vcs/cmd/common"
+)
+
+// kms params
+const (
+	kmsTypeFlagName  = "default-kms-type"
+	kmsTypeEnvKey    = "VC_REST_DEFAULT_KMS_TYPE"
+	kmsTypeFlagUsage = "Default KMS type (local,web,aws)." +
+		" Alternatively, this can be set with the following environment variable: " + kmsTypeEnvKey
+
+	kmsEndpointFlagName  = "default-kms-endpoint"
+	kmsEndpointEnvKey    = "VC_REST_DEFAULT_KMS_ENDPOINT"
+	kmsEndpointFlagUsage = "Default KMS URL." +
+		" Alternatively, this can be set with the following environment variable: " + kmsEndpointEnvKey
+
+	kmsRegionFlagName  = "default-kms-region"
+	kmsRegionEnvKey    = "VC_REST_DEFAULT_KMS_REGION"
+	kmsRegionFlagUsage = "Default KMS region." +
+		" Alternatively, this can be set with the following environment variable: " + kmsEndpointEnvKey
+
+	secretLockKeyPathFlagName  = "default-kms-secret-lock-key-path"
+	secretLockKeyPathEnvKey    = "VC_REST_DEFAULT_KMS_SECRET_LOCK_KEY_PATH"
+	secretLockKeyPathFlagUsage = "The path to the file with key to be used by local secret lock. If missing noop " +
+		"service lock is used. " + commonEnvVarUsageText + secretLockKeyPathEnvKey
+
+	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
+	kmsSecretsDatabaseTypeFlagName      = "default-kms-secrets-database-type"         //nolint: gosec
+	kmsSecretsDatabaseTypeEnvKey        = "VC_REST_DEFAULT_KMS_SECRETS_DATABASE_TYPE" //nolint: gosec
+	kmsSecretsDatabaseTypeFlagShorthand = "k"
+	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
+		"Supported options: mem, mongodb. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
+
+	kmsSecretsDatabaseURLFlagName      = "default-kms-secrets-database-url"         //nolint: gosec
+	kmsSecretsDatabaseURLEnvKey        = "VC_REST_DEFAULT_KMS_SECRETS_DATABASE_URL" //nolint: gosec
+	kmsSecretsDatabaseURLFlagShorthand = "s"
+	kmsSecretsDatabaseURLFlagUsage     = "The URL (or connection string) of the database. Not needed if using memstore. For mongodb, " +
+		"include the mongodb://mongodb.example.com:27017. " +
+		commonEnvVarUsageText + databaseURLEnvKey
+
+	kmsSecretsDatabasePrefixFlagName  = "default=kms-secrets-database-prefix"         //nolint: gosec
+	kmsSecretsDatabasePrefixEnvKey    = "VC_REST_DEFAULT_KMS_SECRETS_DATABASE_PREFIX" //nolint: gosec
+	kmsSecretsDatabasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving " +
+		"the underlying KMS secrets database. " + commonEnvVarUsageText + kmsSecretsDatabasePrefixEnvKey
 )
 
 const (
@@ -64,30 +108,6 @@ const (
 	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		commonEnvVarUsageText + databasePrefixEnvKey
 
-	secretLockKeyPathFlagName  = "secret-lock-key-path"
-	secretLockKeyPathEnvKey    = "VC_SECRET_LOCK_KEY_PATH" //nolint:gosec // not hard-coded credentials
-	secretLockKeyPathFlagUsage = "The path to the file with key to be used by local secret lock. If missing noop " +
-		"service lock is used. " + commonEnvVarUsageText + secretLockKeyPathEnvKey
-
-	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
-	kmsSecretsDatabaseTypeFlagName      = "kms-secrets-database-type" //nolint: gosec
-	kmsSecretsDatabaseTypeEnvKey        = "KMSSECRETS_DATABASE_TYPE"  //nolint: gosec
-	kmsSecretsDatabaseTypeFlagShorthand = "k"
-	kmsSecretsDatabaseTypeFlagUsage     = "The type of database to use for storage of KMS secrets. " +
-		"Supported options: mem, couchdb, mysql, mongodb. " + commonEnvVarUsageText + kmsSecretsDatabaseTypeEnvKey
-
-	kmsSecretsDatabaseURLFlagName      = "kms-secrets-database-url" //nolint: gosec
-	kmsSecretsDatabaseURLEnvKey        = "KMSSECRETS_DATABASE_URL"  //nolint: gosec
-	kmsSecretsDatabaseURLFlagShorthand = "s"
-	kmsSecretsDatabaseURLFlagUsage     = "The URL of the database. Not needed if using memstore. For CouchDB, " +
-		"include the username:password@ text if required. " +
-		commonEnvVarUsageText + databaseURLEnvKey
-
-	kmsSecretsDatabasePrefixFlagName  = "kms-secrets-database-prefix" //nolint: gosec
-	kmsSecretsDatabasePrefixEnvKey    = "KMSSECRETS_DATABASE_PREFIX"  //nolint: gosec
-	kmsSecretsDatabasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving " +
-		"the underlying KMS secrets database. " + commonEnvVarUsageText + kmsSecretsDatabasePrefixEnvKey
-
 	// remote JSON-LD context provider url flag.
 	contextProviderFlagName  = "context-provider-url"
 	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
@@ -132,10 +152,7 @@ const (
 	didMethodWeb     = "web"
 	didMethodFactom  = "factom"
 
-	masterKeyURI = "local-lock://custom/master/key/"
-
 	splitRequestTokenLength = 2
-	masterKeyNumBytes       = 32
 )
 
 type startupParameters struct {
@@ -157,16 +174,19 @@ type startupParameters struct {
 }
 
 type dbParameters struct {
-	databaseType             string
-	databaseURL              string
-	databasePrefix           string
-	kmsSecretsDatabaseType   string
-	kmsSecretsDatabaseURL    string
-	kmsSecretsDatabasePrefix string
+	databaseType   string
+	databaseURL    string
+	databasePrefix string
 }
 
 type kmsParameters struct {
-	secretLockKeyPath string
+	kmsType                  kms.Type
+	kmsEndpoint              string
+	kmsRegion                string
+	kmsSecretsDatabaseType   string
+	kmsSecretsDatabaseURL    string
+	kmsSecretsDatabasePrefix string
+	secretLockKeyPath        string
 }
 
 // nolint: gocyclo,funlen
@@ -311,15 +331,49 @@ func getTLS(cmd *cobra.Command) (bool, []string, error) {
 }
 
 func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
-	secretLockKeyPath, err := cmdutils.GetUserSetVarFromString(cmd, secretLockKeyPathFlagName,
-		secretLockKeyPathEnvKey, false)
+	kmsTypeStr, err := cmdutils.GetUserSetVarFromString(cmd, kmsTypeFlagName, kmsTypeEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
 
+	kmsType := kms.Type(kmsTypeStr)
+
+	if !supportedKmsType(kmsType) {
+		return nil, fmt.Errorf("unsupported kms type: %s", kmsType)
+	}
+
+	kmsEndpoint := cmdutils.GetUserSetOptionalVarFromString(cmd, kmsEndpointFlagName, kmsEndpointEnvKey)
+
+	kmsRegion := cmdutils.GetUserSetOptionalVarFromString(cmd, kmsRegionFlagName, kmsRegionEnvKey)
+
+	secretLockKeyPath := cmdutils.GetUserSetOptionalVarFromString(cmd, secretLockKeyPathFlagName, secretLockKeyPathEnvKey)
+	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
+		kmsSecretsDatabaseTypeEnvKey, kmsType != kms.Local)
+	if err != nil {
+		return nil, err
+	}
+	keyDatabaseURL := cmdutils.GetUserSetOptionalVarFromString(cmd, kmsSecretsDatabaseURLFlagName,
+		kmsSecretsDatabaseURLEnvKey)
+	keyDatabasePrefix := cmdutils.GetUserSetOptionalVarFromString(cmd, kmsSecretsDatabasePrefixFlagName,
+		kmsSecretsDatabasePrefixEnvKey)
+
 	return &kmsParameters{
-		secretLockKeyPath: secretLockKeyPath,
+		kmsType:                  kmsType,
+		kmsEndpoint:              kmsEndpoint,
+		kmsRegion:                kmsRegion,
+		secretLockKeyPath:        secretLockKeyPath,
+		kmsSecretsDatabaseType:   keyDatabaseType,
+		kmsSecretsDatabaseURL:    keyDatabaseURL,
+		kmsSecretsDatabasePrefix: keyDatabasePrefix,
 	}, nil
+}
+
+func supportedKmsType(kmsType kms.Type) bool {
+	if kmsType != kms.Local && kmsType != kms.Web && kmsType != kms.AWS {
+		return false
+	}
+
+	return true
 }
 
 func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
@@ -341,31 +395,10 @@ func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
 		return nil, err
 	}
 
-	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
-		kmsSecretsDatabaseTypeEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
-
-	keyDatabaseURL, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseURLFlagName,
-		kmsSecretsDatabaseURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	keyDatabasePrefix, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabasePrefixFlagName,
-		kmsSecretsDatabasePrefixEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
 	return &dbParameters{
-		databaseType:             databaseType,
-		databaseURL:              databaseURL,
-		databasePrefix:           databasePrefix,
-		kmsSecretsDatabaseType:   keyDatabaseType,
-		kmsSecretsDatabaseURL:    keyDatabaseURL,
-		kmsSecretsDatabasePrefix: keyDatabasePrefix,
+		databaseType:   databaseType,
+		databaseURL:    databaseURL,
+		databasePrefix: databasePrefix,
 	}, nil
 }
 
@@ -398,12 +431,6 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
-	startCmd.Flags().StringP(secretLockKeyPathFlagName, "", "", secretLockKeyPathFlagUsage)
-	startCmd.Flags().StringP(kmsSecretsDatabaseTypeFlagName, kmsSecretsDatabaseTypeFlagShorthand, "",
-		kmsSecretsDatabaseTypeFlagUsage)
-	startCmd.Flags().StringP(kmsSecretsDatabaseURLFlagName, kmsSecretsDatabaseURLFlagShorthand, "",
-		kmsSecretsDatabaseURLFlagUsage)
-	startCmd.Flags().StringP(kmsSecretsDatabasePrefixFlagName, "", "", kmsSecretsDatabasePrefixFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
@@ -412,4 +439,13 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
 	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
+	startCmd.Flags().StringP(kmsSecretsDatabaseTypeFlagName, kmsSecretsDatabaseTypeFlagShorthand, "",
+		kmsSecretsDatabaseTypeFlagUsage)
+	startCmd.Flags().StringP(kmsSecretsDatabaseURLFlagName, kmsSecretsDatabaseURLFlagShorthand, "",
+		kmsSecretsDatabaseURLFlagUsage)
+	startCmd.Flags().StringP(kmsSecretsDatabasePrefixFlagName, "", "", kmsSecretsDatabasePrefixFlagUsage)
+	startCmd.Flags().String(kmsTypeFlagName, "", kmsTypeFlagUsage)
+	startCmd.Flags().String(kmsEndpointFlagName, "", kmsEndpointFlagUsage)
+	startCmd.Flags().String(secretLockKeyPathFlagName, "", secretLockKeyPathFlagUsage)
+	startCmd.Flags().String(kmsRegionFlagName, "", kmsRegionFlagUsage)
 }
