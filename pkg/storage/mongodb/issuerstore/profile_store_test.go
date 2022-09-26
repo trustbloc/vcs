@@ -23,6 +23,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -55,7 +56,7 @@ func TestProfileStore_Success(t *testing.T) {
 		id, err := store.Create(&issuer.Profile{
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -64,7 +65,7 @@ func TestProfileStore_Success(t *testing.T) {
 	t.Run("Create profile with default kms config", func(t *testing.T) {
 		id, err := store.Create(&issuer.Profile{
 			VCConfig:   &issuer.VCConfig{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -93,7 +94,7 @@ func TestProfileStore_Success(t *testing.T) {
 	t.Run("Create profile with default kms config and then get", func(t *testing.T) {
 		id, err := store.Create(&issuer.Profile{
 			VCConfig:   &issuer.VCConfig{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -108,7 +109,7 @@ func TestProfileStore_Success(t *testing.T) {
 			OrganizationID: "test1",
 			VCConfig:       &issuer.VCConfig{},
 			KMSConfig:      &kms.Config{},
-			SigningDID:     &issuer.SigningDID{},
+			SigningDID:     &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 
@@ -116,7 +117,7 @@ func TestProfileStore_Success(t *testing.T) {
 			OrganizationID: "test1",
 			VCConfig:       &issuer.VCConfig{},
 			KMSConfig:      &kms.Config{},
-			SigningDID:     &issuer.SigningDID{},
+			SigningDID:     &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 
@@ -124,7 +125,7 @@ func TestProfileStore_Success(t *testing.T) {
 			OrganizationID: "test2",
 			VCConfig:       &issuer.VCConfig{},
 			KMSConfig:      &kms.Config{},
-			SigningDID:     &issuer.SigningDID{},
+			SigningDID:     &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 
@@ -138,7 +139,7 @@ func TestProfileStore_Success(t *testing.T) {
 			Name:       "Test1",
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 
 		require.NoError(t, err)
@@ -165,7 +166,7 @@ func TestProfileStore_Success(t *testing.T) {
 			Active:     true,
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -198,7 +199,7 @@ func TestProfileStore_Success(t *testing.T) {
 			Name:       "Test1",
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 
 		require.NoError(t, err)
@@ -221,7 +222,7 @@ func TestProfileStore_Success(t *testing.T) {
 			Name:       "Test1",
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, nil)
 
 		require.NoError(t, err)
@@ -244,7 +245,7 @@ func TestProfileStore_Success(t *testing.T) {
 			Name:       "Test1",
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		},
 			[]*cm.CredentialManifest{{ID: "testID",
 				OutputDescriptors: []*cm.OutputDescriptor{{
@@ -287,7 +288,7 @@ func TestProfileStore_Fails(t *testing.T) {
 			ID:         "invalid",
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.Contains(t, err.Error(), "issuer profile invalid id")
 		require.Empty(t, id)
@@ -297,7 +298,7 @@ func TestProfileStore_Fails(t *testing.T) {
 		id, err := store.Create(&issuer.Profile{
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 
 		require.NoError(t, err)
@@ -307,7 +308,7 @@ func TestProfileStore_Fails(t *testing.T) {
 			ID:         id,
 			VCConfig:   &issuer.VCConfig{},
 			KMSConfig:  &kms.Config{},
-			SigningDID: &issuer.SigningDID{},
+			SigningDID: &did.SigningDID{},
 		}, []*cm.CredentialManifest{{}})
 		require.Contains(t, err.Error(), "duplicate key error collection")
 		require.Empty(t, id2)

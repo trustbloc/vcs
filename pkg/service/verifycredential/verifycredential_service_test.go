@@ -46,11 +46,11 @@ var (
 
 	// nolint:gochecknoglobals
 	verificationChecks = &verifier.VerificationChecks{
-		Credential: &verifier.CredentialChecks{
+		Credential: verifier.CredentialChecks{
 			Proof: true,
 			Format: []vcformats.Format{
-				vcformats.JwtVC,
-				vcformats.LdpVC,
+				vcformats.Jwt,
+				vcformats.Ldp,
 			},
 			Status: true,
 		},
@@ -64,7 +64,6 @@ var (
 		Active:         true,
 		OrganizationID: "orgID",
 		Checks:         verificationChecks,
-		OIDCConfig:     map[string]interface{}{"config": "value"},
 	}
 )
 

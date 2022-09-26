@@ -9,26 +9,7 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
-)
-
-// Defines values for KMSConfigType.
-const (
-	KMSConfigTypeAws   KMSConfigType = "aws"
-	KMSConfigTypeLocal KMSConfigType = "local"
-	KMSConfigTypeWeb   KMSConfigType = "web"
-)
-
-// Defines values for VCConfigDidMethod.
-const (
-	VCConfigDidMethodKey VCConfigDidMethod = "key"
-	VCConfigDidMethodOrb VCConfigDidMethod = "orb"
-	VCConfigDidMethodWeb VCConfigDidMethod = "web"
-)
-
-// Defines values for VCConfigFormat.
-const (
-	JwtVc VCConfigFormat = "jwt_vc"
-	LdpVc VCConfigFormat = "ldp_vc"
+	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 // Defines values for VCConfigSignatureRepresentation.
@@ -42,7 +23,7 @@ type CreateIssuerProfileData struct {
 	CredentialManifests *[]map[string]interface{} `json:"credentialManifests,omitempty"`
 
 	// Model for KMS configuration.
-	KmsConfig *KMSConfig `json:"kmsConfig,omitempty"`
+	KmsConfig *externalRef0.KMSConfig `json:"kmsConfig,omitempty"`
 
 	// Issuer’s display name.
 	Name string `json:"name"`
@@ -102,7 +83,7 @@ type IssuerProfile struct {
 	Id string `json:"id"`
 
 	// Model for KMS configuration.
-	KmsConfig *KMSConfig `json:"kmsConfig,omitempty"`
+	KmsConfig *externalRef0.KMSConfig `json:"kmsConfig,omitempty"`
 
 	// Issuer’s display name.
 	Name string `json:"name"`
@@ -119,30 +100,6 @@ type IssuerProfile struct {
 	// Model for VC configuration.
 	VcConfig VCConfig `json:"vcConfig"`
 }
-
-// Model for KMS configuration.
-type KMSConfig struct {
-	// Prefix of database used by local kms.
-	DbPrefix *string `json:"dbPrefix,omitempty"`
-
-	// Type of database used by local kms.
-	DbType *string `json:"dbType,omitempty"`
-
-	// URL to database used by local kms.
-	DbURL *string `json:"dbURL,omitempty"`
-
-	// KMS endpoint.
-	Endpoint *string `json:"endpoint,omitempty"`
-
-	// Path to secret lock used by local kms.
-	SecretLockKeyPath *string `json:"secretLockKeyPath,omitempty"`
-
-	// Type of kms used to create and store DID keys.
-	Type KMSConfigType `json:"type"`
-}
-
-// Type of kms used to create and store DID keys.
-type KMSConfigType string
 
 // Model for updating issuer profile data.
 type UpdateIssuerProfileData struct {
@@ -162,10 +119,10 @@ type VCConfig struct {
 	Contexts *[]string `json:"contexts,omitempty"`
 
 	// DID method of the DID to be used for signing.
-	DidMethod VCConfigDidMethod `json:"didMethod"`
+	DidMethod externalRef0.DIDMethod `json:"didMethod"`
 
 	// Supported VC formats.
-	Format VCConfigFormat `json:"format"`
+	Format externalRef0.VCFormat `json:"format"`
 
 	// Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
 	KeyType *string `json:"keyType,omitempty"`
@@ -182,12 +139,6 @@ type VCConfig struct {
 	// Credential status type allowed for the profile.
 	Status *map[string]interface{} `json:"status,omitempty"`
 }
-
-// DID method of the DID to be used for signing.
-type VCConfigDidMethod string
-
-// Supported VC formats.
-type VCConfigFormat string
 
 // Type of signature value holder (e.g. "ProofValue" or "JWS").
 type VCConfigSignatureRepresentation string

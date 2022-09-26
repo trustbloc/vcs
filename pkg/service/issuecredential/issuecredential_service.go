@@ -60,16 +60,15 @@ func New(config *Config) *Service {
 
 func (s *Service) IssueCredential(credential *verifiable.Credential,
 	issuerSigningOpts []crypto.SigningOpts,
-	profile *issuer.Profile,
-	signingDID *issuer.SigningDID) (*verifiable.Credential, error) {
+	profile *issuer.Profile) (*verifiable.Credential, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kms: %w", err)
 	}
 
 	signer := &vc.Signer{
-		DID:                     signingDID.DID,
-		Creator:                 signingDID.Creator,
+		DID:                     profile.SigningDID.DID,
+		Creator:                 profile.SigningDID.Creator,
 		SignatureType:           profile.VCConfig.SigningAlgorithm,
 		KMS:                     kms,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
@@ -87,7 +86,7 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	vcutil.UpdateSignatureTypeContext(credential, profile.VCConfig.SigningAlgorithm)
 
 	// update credential issuer
-	vcutil.UpdateIssuer(credential, signingDID.DID, profile.Name, true)
+	vcutil.UpdateIssuer(credential, profile.SigningDID.DID, profile.Name, true)
 
 	// sign the credential
 	signedVC, err := s.crypto.SignCredential(signer, credential, issuerSigningOpts...)

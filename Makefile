@@ -54,7 +54,7 @@ vc-rest:
 	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
 
 .PHONY: vc-rest-docker
-vc-rest-docker:
+vc-rest-docker: generate
 	@echo "Building vc rest docker image"
 	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \

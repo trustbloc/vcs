@@ -20,8 +20,8 @@ import (
 type Format string
 
 const (
-	JwtVC Format = "jwt_vc"
-	LdpVC Format = "ldp_vc"
+	Jwt Format = "jwt"
+	Ldp Format = "ldp"
 )
 
 // SignatureType type of signature used to sign vc.
@@ -59,24 +59,24 @@ type signatureTypeDesc struct {
 
 // nolint: gochecknoglobals
 var signatureTypes = []signatureTypeDesc{
-	{Ed25519Signature2018, LdpVC, []kms.KeyType{kms.ED25519Type}},
-	{Ed25519Signature2020, LdpVC, []kms.KeyType{kms.ED25519Type}},
-	{EcdsaSecp256k1Signature2019, LdpVC,
+	{Ed25519Signature2018, Ldp, []kms.KeyType{kms.ED25519Type}},
+	{Ed25519Signature2020, Ldp, []kms.KeyType{kms.ED25519Type}},
+	{EcdsaSecp256k1Signature2019, Ldp,
 		[]kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363}},
-	{BbsBlsSignature2020, LdpVC, []kms.KeyType{kms.BLS12381G2Type}},
-	{JSONWebSignature2020, LdpVC, []kms.KeyType{
+	{BbsBlsSignature2020, Ldp, []kms.KeyType{kms.BLS12381G2Type}},
+	{JSONWebSignature2020, Ldp, []kms.KeyType{
 		kms.ED25519Type, kms.X25519ECDHKWType,
 		kms.ECDSASecp256k1TypeIEEEP1363, kms.ECDSAP256TypeDER, kms.ECDSAP384TypeDER, kms.RSAPS256Type,
 	}},
-	{EdDSA, JwtVC, []kms.KeyType{kms.ED25519Type}},
-	{ES256K, JwtVC, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363}},
+	{EdDSA, Jwt, []kms.KeyType{kms.ED25519Type}},
+	{ES256K, Jwt, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363}},
 
-	{ES256, JwtVC, []kms.KeyType{kms.ECDSAP256TypeDER}},
-	{ES384, JwtVC, []kms.KeyType{kms.ECDSAP384TypeDER}},
-	{PS256, JwtVC, []kms.KeyType{kms.RSAPS256Type}},
+	{ES256, Jwt, []kms.KeyType{kms.ECDSAP256TypeDER}},
+	{ES384, Jwt, []kms.KeyType{kms.ECDSAP384TypeDER}},
+	{PS256, Jwt, []kms.KeyType{kms.RSAPS256Type}},
 }
 
-func ValidateVCSignatureAlgorithm(format Format, signatureType string,
+func ValidateSignatureAlgorithm(format Format, signatureType string,
 	kmsKeyTypes []kms.KeyType) (SignatureType, error) {
 	for _, supportedSignature := range signatureTypes {
 		if supportedSignature.SignatureType.lowerCase() == strings.ToLower(signatureType) &&
@@ -158,16 +158,16 @@ func ValidateCredential(cred interface{}, formats []Format,
 	var vcBytes []byte
 
 	if isStr {
-		if !isFormatSupported(JwtVC, formats) {
-			return nil, fmt.Errorf("invlaid vc format, should be %s", JwtVC)
+		if !isFormatSupported(Jwt, formats) {
+			return nil, fmt.Errorf("invlaid vc format, should be %s", Jwt)
 		}
 
 		vcBytes = []byte(strRep)
 	}
 
 	if !isStr {
-		if !isFormatSupported(LdpVC, formats) {
-			return nil, fmt.Errorf("invlaid vc format, should be %s", LdpVC)
+		if !isFormatSupported(Ldp, formats) {
+			return nil, fmt.Errorf("invlaid vc format, should be %s", Ldp)
 		}
 
 		var err error

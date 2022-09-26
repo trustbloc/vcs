@@ -22,13 +22,13 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 
-	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 )
 
@@ -40,12 +40,6 @@ const (
 	vcConfigFormat             = "vcConfig.format"
 	vcConfigSigningAlgorithm   = "vcConfig.signingAlgorithm"
 	vcConfigDidMethod          = "vcConfig.didMethod"
-	kmsConfigType              = "kmsConfig.type"
-	kmsConfigSecretLockKeyPath = "kmsConfig.secretLockKeyPath" //nolint: gosec
-	kmsConfigEndpoint          = "kmsConfig.endpoint"
-	kmsConfigDBURL             = "kmsConfig.dbURL"
-	kmsConfigDBType            = "kmsConfig.dbType"
-	kmsConfigDBPrefix          = "kmsConfig.dbPrefix"
 	profileCredentialManifests = "credentialManifests" //nolint: gosec
 	profileOrganizationID      = "organizationID"
 	profileName                = "name"
@@ -73,8 +67,7 @@ type profileService interface {
 type issueCredentialService interface {
 	IssueCredential(credential *verifiable.Credential,
 		issuerSigningOpts []crypto.SigningOpts,
-		profile *issuer.Profile,
-		signingDID *issuer.SigningDID) (*verifiable.Credential, error)
+		profile *issuer.Profile) (*verifiable.Credential, error)
 }
 
 type Config struct {
@@ -297,7 +290,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, err
 	}
 
-	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile, profile.SigningDID)
+	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile)
 	if err != nil {
 		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
 	}
@@ -311,7 +304,7 @@ func (c *Controller) validateCreateProfileData(body *CreateIssuerProfileData, or
 			fmt.Errorf("org id(%s) from oidc not much profile org id(%s)", orgID, body.OrganizationID))
 	}
 
-	kmsConfig, err := c.validateKMSConfig(body.KmsConfig)
+	kmsConfig, err := common.ValidateKMSConfig(body.KmsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -408,64 +401,14 @@ func (c *Controller) validateCredentialManifests(credentialManifests *[]map[stri
 	return result, nil
 }
 
-func (c *Controller) validateKMSConfig(config *KMSConfig) (*kms.Config, error) {
-	if config == nil {
-		return nil, nil //nolint: nilnil
-	}
-
-	kmsType, err := c.validateKMSType(config.Type)
-	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigType, err)
-	}
-
-	if kmsType == kms.AWS || kmsType == kms.Web {
-		if config.Endpoint == nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigEndpoint,
-				fmt.Errorf("enpoint is required for %s kms", config.Type))
-		}
-		return &kms.Config{
-			KMSType:  kmsType,
-			Endpoint: *config.Endpoint,
-		}, nil
-	}
-
-	if config.SecretLockKeyPath == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigSecretLockKeyPath,
-			fmt.Errorf("secretLockKeyPath is required for %s kms", config.Type))
-	}
-
-	if config.DbType == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigDBType,
-			fmt.Errorf("dbType is required for %s kms", config.Type))
-	}
-
-	if config.DbURL == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigDBURL,
-			fmt.Errorf("dbURL is required for %s kms", config.Type))
-	}
-
-	if config.DbPrefix == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, kmsConfigDBPrefix,
-			fmt.Errorf("dbPrefix is required for %s kms", config.Type))
-	}
-
-	return &kms.Config{
-		KMSType:           kmsType,
-		SecretLockKeyPath: *config.SecretLockKeyPath,
-		DBType:            *config.DbType,
-		DBURL:             *config.DbURL,
-		DBPrefix:          *config.DbPrefix,
-	}, nil
-}
-
 func (c *Controller) validateVCConfig(vcConfig *VCConfig,
 	supportedKeyTypes []arieskms.KeyType) (*issuer.VCConfig, error) {
-	vcFormat, err := c.validateVCFormat(vcConfig.Format)
+	vcFormat, err := common.ValidateVCFormat(vcConfig.Format)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigFormat, err)
 	}
 
-	signingAlgorithm, err := vc.ValidateVCSignatureAlgorithm(vcFormat, vcConfig.SigningAlgorithm, supportedKeyTypes)
+	signingAlgorithm, err := vc.ValidateSignatureAlgorithm(vcFormat, vcConfig.SigningAlgorithm, supportedKeyTypes)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigSigningAlgorithm,
 			fmt.Errorf("issuer profile service: create profile failed %w", err))
@@ -477,7 +420,7 @@ func (c *Controller) validateVCConfig(vcConfig *VCConfig,
 			fmt.Errorf("issuer profile service: create profile failed %w", err))
 	}
 
-	didMethod, err := c.validateDIDMethod(vcConfig.DidMethod)
+	didMethod, err := common.ValidateDIDMethod(vcConfig.DidMethod)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigDidMethod, err)
 	}
@@ -523,58 +466,6 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*issuer.
 	return profile, nil
 }
 
-func (c *Controller) validateKMSType(kmsType KMSConfigType) (kms.Type, error) {
-	switch kmsType {
-	case KMSConfigTypeAws:
-		return kms.AWS, nil
-	case KMSConfigTypeLocal:
-		return kms.Local, nil
-	case KMSConfigTypeWeb:
-		return kms.Web, nil
-	}
-
-	return "", fmt.Errorf("unsupported kms type %s, use one of next [%s, %s, %s]",
-		kmsType, KMSConfigTypeAws, KMSConfigTypeLocal, KMSConfigTypeWeb)
-}
-
-func (c *Controller) mapToKMSConfigType(kmsType kms.Type) (KMSConfigType, error) {
-	switch kmsType {
-	case kms.AWS:
-		return KMSConfigTypeAws, nil
-	case kms.Local:
-		return KMSConfigTypeLocal, nil
-	case kms.Web:
-		return KMSConfigTypeWeb, nil
-	}
-
-	return "", resterr.NewSystemError(issuerProfileCtrlComponent, "mapToKMSConfigType",
-		fmt.Errorf("kms type missmatch %s, rest api supportes only [%s, %s, %s]",
-			kmsType, KMSConfigTypeAws, KMSConfigTypeLocal, KMSConfigTypeWeb))
-}
-
-func (c *Controller) validateVCFormat(format VCConfigFormat) (vc.Format, error) {
-	switch format {
-	case JwtVc:
-		return vc.JwtVC, nil
-	case LdpVc:
-		return vc.LdpVC, nil
-	}
-
-	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVc, LdpVc)
-}
-
-func (c *Controller) mapToVCFormat(format vc.Format) (VCConfigFormat, error) {
-	switch format {
-	case vc.JwtVC:
-		return JwtVc, nil
-	case vc.LdpVC:
-		return LdpVc, nil
-	}
-
-	return "", resterr.NewSystemError(issuerProfileCtrlComponent, "mapToVCFormat",
-		fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVc, LdpVc))
-}
-
 func (c *Controller) validateSignatureRepresentation(signatureRepresentation *VCConfigSignatureRepresentation) (
 	verifiable.SignatureRepresentation, error) {
 	if signatureRepresentation == nil {
@@ -606,44 +497,15 @@ func (c *Controller) mapToSignatureRepresentation(signatureRepresentation verifi
 			signatureRepresentation, JWS, ProofValue))
 }
 
-func (c *Controller) validateDIDMethod(method VCConfigDidMethod) (did.Method, error) {
-	switch method {
-	case VCConfigDidMethodKey:
-		return did.KeyDIDMethod, nil
-	case VCConfigDidMethodWeb:
-		return did.WebDIDMethod, nil
-	case VCConfigDidMethodOrb:
-		return did.OrbDIDMethod, nil
-	}
-
-	return "", fmt.Errorf("unsupported did method %s, use one of next [%s, %s, %s]",
-		method, VCConfigDidMethodKey, VCConfigDidMethodWeb, VCConfigDidMethodOrb)
-}
-
-func (c *Controller) mapToDIDMethod(method did.Method) (VCConfigDidMethod, error) {
-	switch method {
-	case did.KeyDIDMethod:
-		return VCConfigDidMethodKey, nil
-	case did.WebDIDMethod:
-		return VCConfigDidMethodWeb, nil
-	case did.OrbDIDMethod:
-		return VCConfigDidMethodOrb, nil
-	}
-
-	return "", resterr.NewSystemError(issuerProfileCtrlComponent, "mapToDIDMethod",
-		fmt.Errorf("did method missmatch %s, rest api supports only [%s, %s, %s]",
-			method, VCConfigDidMethodKey, VCConfigDidMethodWeb, VCConfigDidMethodOrb))
-}
-
 func (c *Controller) mapToIssuerProfile(p *issuer.Profile) (*IssuerProfile, error) {
-	format, err := c.mapToVCFormat(p.VCConfig.Format)
+	format, err := common.MapToVCFormat(p.VCConfig.Format)
 	if err != nil {
-		return nil, err
+		return nil, resterr.NewSystemError(issuerProfileCtrlComponent, "mapToVCFormat", err)
 	}
 
-	didMethod, err := c.mapToDIDMethod(p.VCConfig.DIDMethod)
+	didMethod, err := common.MapToDIDMethod(p.VCConfig.DIDMethod)
 	if err != nil {
-		return nil, err
+		return nil, resterr.NewSystemError(issuerProfileCtrlComponent, "mapToDIDMethod", err)
 	}
 
 	signatureRepresentation, err := c.mapToSignatureRepresentation(p.VCConfig.SignatureRepresentation)
@@ -654,15 +516,15 @@ func (c *Controller) mapToIssuerProfile(p *issuer.Profile) (*IssuerProfile, erro
 	keyType := string(p.VCConfig.KeyType)
 	signingAlgorithm := string(p.VCConfig.SigningAlgorithm)
 
-	var kmsConfig *KMSConfig
+	var kmsConfig *common.KMSConfig
 
 	if p.KMSConfig != nil {
-		kmsType, err := c.mapToKMSConfigType(p.KMSConfig.KMSType)
+		kmsType, err := common.MapToKMSConfigType(p.KMSConfig.KMSType)
 		if err != nil {
-			return nil, err
+			return nil, resterr.NewSystemError(issuerProfileCtrlComponent, "mapToKMSConfigType", err)
 		}
 
-		kmsConfig = &KMSConfig{
+		kmsConfig = &common.KMSConfig{
 			DbPrefix:          &p.KMSConfig.DBPrefix,
 			DbType:            &p.KMSConfig.DBType,
 			DbURL:             &p.KMSConfig.DBURL,

@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService,kmsRegistry=MockKMSRegistry
 
 package verifier
 
@@ -15,13 +15,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/verifier"
@@ -30,12 +34,22 @@ import (
 const (
 	verifierProfileSvcComponent  = "verifier.ProfileService"
 	verifyCredentialSvcComponent = "verifycredential.Service"
+	kmsRegistryComponent         = "kms.Registry"
 )
+
+type PresentationDefinition = json.RawMessage
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
+type kmsManager = kms.VCSKeyManager
+
+type kmsRegistry interface {
+	GetKeyManager(config *kms.Config) (kmsManager, error)
+}
+
 type profileService interface {
-	Create(profile *verifier.Profile) (*verifier.Profile, error)
+	Create(profile *verifier.Profile, presentationDefinitions []*presexch.PresentationDefinition) (
+		*verifier.Profile, error)
 	Update(profile *verifier.ProfileUpdate) (*verifier.Profile, error)
 	Delete(profileID verifier.ProfileID) error
 	GetProfile(profileID verifier.ProfileID) (*verifier.Profile, error)
@@ -52,6 +66,7 @@ type verifyCredentialSvc interface {
 type Config struct {
 	VerifyCredentialSvc verifyCredentialSvc
 	ProfileSvc          profileService
+	KMSRegistry         kmsRegistry
 	DocumentLoader      ld.DocumentLoader
 	VDR                 vdrapi.Registry
 }
@@ -60,6 +75,7 @@ type Config struct {
 type Controller struct {
 	verifyCredentialSvc verifyCredentialSvc
 	profileSvc          profileService
+	kmsRegistry         kmsRegistry
 	documentLoader      ld.DocumentLoader
 	vdr                 vdrapi.Registry
 }
@@ -69,6 +85,7 @@ func NewController(config *Config) *Controller {
 	return &Controller{
 		verifyCredentialSvc: config.VerifyCredentialSvc,
 		profileSvc:          config.ProfileSvc,
+		kmsRegistry:         config.KMSRegistry,
 		documentLoader:      config.DocumentLoader,
 		vdr:                 config.VDR,
 	}
@@ -90,7 +107,11 @@ func (c *Controller) GetVerifierProfiles(ctx echo.Context) error {
 	var verifierProfiles []*VerifierProfile
 
 	for _, profile := range profiles {
-		verifierProfiles = append(verifierProfiles, mapProfile(profile))
+		outProfile, err := mapProfile(profile)
+		if err != nil {
+			return err
+		}
+		verifierProfiles = append(verifierProfiles, outProfile)
 	}
 
 	return ctx.JSON(http.StatusOK, verifierProfiles)
@@ -106,8 +127,8 @@ func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
 
 	var body CreateVerifierProfileData
 
-	if err = ctx.Bind(&body); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
+	if err = util.ReadBody(ctx, &body); err != nil {
+		return err
 	}
 
 	if body.OrganizationID != orgID {
@@ -115,12 +136,18 @@ func (c *Controller) PostVerifierProfiles(ctx echo.Context) error {
 			fmt.Errorf("org id mismatch (want %q, got %q)", orgID, body.OrganizationID))
 	}
 
-	createdProfile, err := c.profileSvc.Create(mapCreateVerifierProfileData(&body))
+	profile, presentationDefinitions, err := c.validateCreateVerifierProfileData(&body)
 	if err != nil {
-		return fmt.Errorf("create profile: %w", err)
+		return err
 	}
 
-	return ctx.JSON(http.StatusOK, mapProfile(createdProfile))
+	createdProfile, err := c.profileSvc.Create(profile, presentationDefinitions)
+	if err != nil {
+		return resterr.NewSystemError(verifierProfileSvcComponent, "Create",
+			fmt.Errorf("create profile: %w", err))
+	}
+
+	return util.WriteOutput(ctx)(mapProfile(createdProfile))
 }
 
 // DeleteVerifierProfilesProfileID deletes profile from VCS storage.
@@ -156,7 +183,7 @@ func (c *Controller) GetVerifierProfilesProfileID(ctx echo.Context, profileID st
 		return err
 	}
 
-	return ctx.JSON(http.StatusOK, mapProfile(profile))
+	return util.WriteOutput(ctx)(mapProfile(profile))
 }
 
 // PutVerifierProfilesProfileID updates profile.
@@ -178,15 +205,17 @@ func (c *Controller) PutVerifierProfilesProfileID(ctx echo.Context, profileID st
 		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
 	}
 
-	profileUpdate := mapUpdateVerifierProfileData(&body)
-	profileUpdate.ID = profile.ID
+	profileUpdate, err := validateUpdateVerifierProfileData(&body, profile.ID)
+	if err != nil {
+		return err
+	}
 
 	updatedProfile, err := c.profileSvc.Update(profileUpdate)
 	if err != nil {
 		return fmt.Errorf("update profile: %w", err)
 	}
 
-	return ctx.JSON(http.StatusOK, mapProfile(updatedProfile))
+	return util.WriteOutput(ctx)(mapProfile(updatedProfile))
 }
 
 // PostVerifierProfilesProfileIDActivate activates profile.
@@ -291,6 +320,94 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*verifie
 	return profile, nil
 }
 
+func validatePresentationDefinition(rawPD PresentationDefinition) (*presexch.PresentationDefinition, error) {
+	pd := &presexch.PresentationDefinition{}
+
+	err := json.Unmarshal(rawPD, &pd)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinition", err)
+	}
+
+	err = pd.ValidateSchema()
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinition", err)
+	}
+	return pd, nil
+}
+
+func (c *Controller) validateCreateVerifierProfileData(data *CreateVerifierProfileData) (
+	*verifier.Profile, []*presexch.PresentationDefinition, error) {
+	checks, err := validateChecks(data.Checks)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	kmsConfig, err := common.ValidateKMSConfig(data.KmsConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	keyManager, err := c.kmsRegistry.GetKeyManager(kmsConfig)
+	if err != nil {
+		return nil, nil, resterr.NewSystemError(kmsRegistryComponent, "GetKeyManager", err)
+	}
+
+	oidc4VPConfig, err := validateOIDC4VPConfig(data.OidcConfig, keyManager.SupportedKeyTypes())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var presentationDefinitions []*presexch.PresentationDefinition
+
+	if data.PresentationDefinitions != nil {
+		for _, rawPD := range *data.PresentationDefinitions {
+			pd, err := validatePresentationDefinition(rawPD)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			presentationDefinitions = append(presentationDefinitions, pd)
+		}
+	}
+
+	profile := &verifier.Profile{
+		Name:           data.Name,
+		OrganizationID: data.OrganizationID,
+		Checks:         checks,
+		KMSConfig:      kmsConfig,
+		OIDCConfig:     oidc4VPConfig,
+	}
+
+	if data.Url != nil {
+		profile.URL = *data.Url
+	}
+
+	return profile, presentationDefinitions, nil
+}
+
+func validateOIDC4VPConfig(cfg *OIDC4VPConfig, supportedKeyTypes []arieskms.KeyType) (*verifier.OIDC4VPConfig, error) {
+	if cfg == nil {
+		return nil, nil //nolint:nilnil
+	}
+
+	signingAlgorithm, err := vc.ValidateSignatureAlgorithm(vc.Jwt, cfg.RoSigningAlgorithm, supportedKeyTypes)
+
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "oidcConfig.roSigningAlgorithm",
+			fmt.Errorf("issuer profile service: create profile failed %w", err))
+	}
+
+	didMethod, err := common.ValidateDIDMethod(cfg.DidMethod)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "oidcConfig.didMethod", err)
+	}
+
+	return &verifier.OIDC4VPConfig{
+		DIDMethod:          didMethod,
+		ROSigningAlgorithm: signingAlgorithm,
+	}, nil
+}
+
 func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerificationCheckResult) *VerifyCredentialResponse {
 	if len(checks) == 0 {
 		return &VerifyCredentialResponse{}
@@ -310,26 +427,11 @@ func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerification
 	}
 }
 
-func mapCreateVerifierProfileData(data *CreateVerifierProfileData) *verifier.Profile {
-	profile := &verifier.Profile{
-		Name:           data.Name,
-		OrganizationID: data.OrganizationID,
-		Checks:         mapChecks(data.Checks),
+func validateUpdateVerifierProfileData(data *UpdateVerifierProfileData, profileID verifier.ProfileID) (
+	*verifier.ProfileUpdate, error) {
+	profileUpdate := &verifier.ProfileUpdate{
+		ID: profileID,
 	}
-
-	if data.Url != nil {
-		profile.URL = *data.Url
-	}
-
-	if data.OidcConfig != nil {
-		profile.OIDCConfig = *data.OidcConfig
-	}
-
-	return profile
-}
-
-func mapUpdateVerifierProfileData(data *UpdateVerifierProfileData) *verifier.ProfileUpdate {
-	profileUpdate := &verifier.ProfileUpdate{}
 
 	if data.Name != nil {
 		profileUpdate.Name = *data.Name
@@ -340,62 +442,85 @@ func mapUpdateVerifierProfileData(data *UpdateVerifierProfileData) *verifier.Pro
 	}
 
 	if data.Checks != nil {
-		profileUpdate.Checks = mapChecks(*data.Checks)
+		checks, err := validateChecks(*data.Checks)
+		if err != nil {
+			return nil, err
+		}
+
+		profileUpdate.Checks = checks
 	}
 
-	if data.OidcConfig != nil {
-		profileUpdate.OIDCConfig = *data.OidcConfig
-	}
-
-	return profileUpdate
+	return profileUpdate, nil
 }
 
-type verifierChecks struct {
-	Credential struct {
-		Format []string `json:"format,omitempty"`
-		Proof  bool     `json:"proof,omitempty"`
-		Status *bool    `json:"status,omitempty"`
-	} `json:"credential,omitempty"`
-
-	Presentation struct {
-		Format []string `json:"format,omitempty"`
-		Proof  bool     `json:"proof,omitempty"`
-	} `json:"presentation,omitempty"`
-}
-
-func mapChecks(m map[string]interface{}) *verifier.VerificationChecks {
-	b, err := json.Marshal(m)
-	if err != nil {
-		return nil
-	}
-
-	var checks verifierChecks
-	if err = json.Unmarshal(b, &checks); err != nil {
-		return nil
-	}
-
+func validateChecks(checks VerifierChecks) (*verifier.VerificationChecks, error) {
 	vchecks := &verifier.VerificationChecks{
-		Credential: &verifier.CredentialChecks{
+		Credential: verifier.CredentialChecks{
 			Proof:  checks.Credential.Proof,
 			Status: checks.Credential.Status != nil && *checks.Credential.Status,
 		},
-		Presentation: &verifier.PresentationChecks{
+	}
+
+	for _, rawFormat := range checks.Credential.Format {
+		format, err := common.ValidateVCFormat(rawFormat)
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "checks.credential.format", err)
+		}
+
+		vchecks.Credential.Format = append(vchecks.Credential.Format, format)
+	}
+
+	var presentationChecks *verifier.PresentationChecks
+
+	if checks.Presentation != nil {
+		presentationChecks = &verifier.PresentationChecks{
 			Proof: checks.Presentation.Proof,
-		},
+		}
+
+		for _, rawFormat := range checks.Presentation.Format {
+			format, err := common.ValidateVPFormat(rawFormat)
+			if err != nil {
+				return nil, resterr.NewValidationError(resterr.InvalidValue, "checks.presentation.format", err)
+			}
+			presentationChecks.Format = append(presentationChecks.Format, format)
+		}
 	}
 
-	for _, format := range checks.Credential.Format {
-		vchecks.Credential.Format = append(vchecks.Credential.Format, vc.Format(format))
-	}
+	vchecks.Presentation = presentationChecks
 
-	for _, format := range checks.Presentation.Format {
-		vchecks.Presentation.Format = append(vchecks.Presentation.Format, verifier.PresentationFormat(format))
-	}
-
-	return vchecks
+	return vchecks, nil
 }
 
-func mapProfile(profile *verifier.Profile) *VerifierProfile {
+func mapChecks(checks *verifier.VerificationChecks) (*VerifierChecks, error) {
+	vchecks := &VerifierChecks{}
+	vchecks.Credential.Proof = checks.Credential.Proof
+	vchecks.Credential.Status = &checks.Credential.Status
+
+	for _, rawFormat := range checks.Credential.Format {
+		format, err := common.MapToVCFormat(rawFormat)
+		if err != nil {
+			return nil, resterr.NewSystemError(verifierProfileSvcComponent, "MapToVCFormat", err)
+		}
+
+		vchecks.Credential.Format = append(vchecks.Credential.Format, format)
+	}
+
+	if checks.Presentation != nil {
+		vchecks.Presentation = &PresentationChecks{Proof: checks.Presentation.Proof}
+
+		for _, rawFormat := range checks.Presentation.Format {
+			format, err := common.MapToVPFormat(rawFormat)
+			if err != nil {
+				return nil, resterr.NewSystemError(verifierProfileSvcComponent, "MapToVPFormat", err)
+			}
+			vchecks.Presentation.Format = append(vchecks.Presentation.Format, format)
+		}
+	}
+
+	return vchecks, nil
+}
+
+func mapProfile(profile *verifier.Profile) (*VerifierProfile, error) {
 	vp := &VerifierProfile{
 		Id:             profile.ID,
 		Name:           profile.Name,
@@ -408,36 +533,14 @@ func mapProfile(profile *verifier.Profile) *VerifierProfile {
 	}
 
 	if profile.Checks != nil {
-		vc := VerifierChecks{}
-
-		if profile.Checks.Credential != nil {
-			for _, format := range profile.Checks.Credential.Format {
-				vc.Credential.Format = append(vc.Credential.Format, VerifierChecksCredentialFormat(format))
-			}
-
-			vc.Credential.Proof = profile.Checks.Credential.Proof
-			vc.Credential.Status = &profile.Checks.Credential.Status
+		checks, err := mapChecks(profile.Checks)
+		if err != nil {
+			return nil, err
 		}
-
-		if profile.Checks.Presentation != nil {
-			for _, format := range profile.Checks.Presentation.Format {
-				vc.Presentation.Format = append(vc.Presentation.Format, VerifierChecksPresentationFormat(format))
-			}
-
-			vc.Presentation.Proof = profile.Checks.Presentation.Proof
-		}
-
-		vp.Checks = vc
+		vp.Checks = *checks
 	}
 
-	if profile.OIDCConfig != nil {
-		c, ok := profile.OIDCConfig.(map[string]interface{})
-		if ok {
-			vp.OidcConfig = &c
-		}
-	}
-
-	return vp
+	return vp, nil
 }
 
 func getVerifyCredentialOptions(options *VerifyCredentialOptions) *verifycredential.Options {

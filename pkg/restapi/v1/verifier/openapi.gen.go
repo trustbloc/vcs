@@ -9,42 +9,53 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
-)
-
-// Defines values for VerifierChecksCredentialFormat.
-const (
-	JwtVc VerifierChecksCredentialFormat = "jwt_vc"
-	LdpVc VerifierChecksCredentialFormat = "ldp_vc"
-)
-
-// Defines values for VerifierChecksPresentationFormat.
-const (
-	JwtVp VerifierChecksPresentationFormat = "jwt_vp"
-	LdpVp VerifierChecksPresentationFormat = "ldp_vp"
+	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
 // Model for creating verifier profile.
 type CreateVerifierProfileData struct {
-	// Type of checks to be performed and formats supported.
-	Checks map[string]interface{} `json:"checks"`
+	// Checks to be performed by a verifier profile for verifying credentials and presentations.
+	Checks VerifierChecks `json:"checks"`
+
+	// Model for KMS configuration.
+	KmsConfig *externalRef0.KMSConfig `json:"kmsConfig,omitempty"`
 
 	// Verifier’s display name.
 	Name string `json:"name"`
 
-	// Configuration for participating in OIDC4VC credential interaction operations.
-	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
+	// Model for OIDC4VPConfig configuration.
+	OidcConfig *OIDC4VPConfig `json:"oidcConfig,omitempty"`
 
 	// Unique identifier of the organization.
-	OrganizationID string `json:"organizationID"`
+	OrganizationID          string                    `json:"organizationID"`
+	PresentationDefinitions *[]PresentationDefinition `json:"presentationDefinitions,omitempty"`
 
 	// URI of the verifier.
 	Url *string `json:"url,omitempty"`
 }
 
+// Model for OIDC4VPConfig configuration.
+type OIDC4VPConfig struct {
+	// DID method of the DID to be used for signing.
+	DidMethod externalRef0.DIDMethod `json:"didMethod"`
+
+	// Cryptographic algorithms used to sign oipd vp request object.
+	RoSigningAlgorithm string `json:"roSigningAlgorithm"`
+}
+
+// Checks to be performed during presentation verification.
+type PresentationChecks struct {
+	// Supported presentation formats.
+	Format []externalRef0.VPFormat `json:"format"`
+
+	// Proof check for presentation.
+	Proof bool `json:"proof"`
+}
+
 // Model for updating verifier profile data.
 type UpdateVerifierProfileData struct {
-	// Type of checks to be performed and formats supported.
-	Checks *map[string]interface{} `json:"checks,omitempty"`
+	// Checks to be performed by a verifier profile for verifying credentials and presentations.
+	Checks *VerifierChecks `json:"checks,omitempty"`
 
 	// Verifier’s display name.
 	Name *string `json:"name,omitempty"`
@@ -61,7 +72,7 @@ type VerifierChecks struct {
 	// Checks to be performed during credential verification.
 	Credential struct {
 		// Supported credential formats.
-		Format []VerifierChecksCredentialFormat `json:"format"`
+		Format []externalRef0.VCFormat `json:"format"`
 
 		// Proof check for credential.
 		Proof bool `json:"proof"`
@@ -71,20 +82,8 @@ type VerifierChecks struct {
 	} `json:"credential"`
 
 	// Checks to be performed during presentation verification.
-	Presentation struct {
-		// Supported presentation formats.
-		Format []VerifierChecksPresentationFormat `json:"format"`
-
-		// Proof check for presentation.
-		Proof bool `json:"proof"`
-	} `json:"presentation"`
+	Presentation *PresentationChecks `json:"presentation,omitempty"`
 }
-
-// VerifierChecksCredentialFormat defines model for VerifierChecks.Credential.Format.
-type VerifierChecksCredentialFormat string
-
-// VerifierChecksPresentationFormat defines model for VerifierChecks.Presentation.Format.
-type VerifierChecksPresentationFormat string
 
 // Model for verifier profile.
 type VerifierProfile struct {
@@ -99,9 +98,6 @@ type VerifierProfile struct {
 
 	// Verifier’s display name.
 	Name string `json:"name"`
-
-	// Configuration for OIDC4VC credential interaction operations.
-	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
 
 	// Unique identifier of the organization.
 	OrganizationID string `json:"organizationID"`

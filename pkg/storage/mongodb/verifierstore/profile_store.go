@@ -10,17 +10,21 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jinzhu/copier"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/common"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
 
 const profileCollection = "verifier_profile"
+const presentationDefinitionCollection = "presentation_definition"
 
 type profileUpdateDocument struct {
 	Name       string              `bson:"name,omitempty"`
@@ -30,29 +34,44 @@ type profileUpdateDocument struct {
 }
 
 type profileDocument struct {
-	ID             primitive.ObjectID  `bson:"_id,omitempty"`
-	Name           string              `bson:"name"`
-	URL            string              `bson:"url"`
-	Active         bool                `bson:"active"`
-	Checks         *verificationChecks `bson:"checks"`
-	OIDCConfig     interface{}         `bson:"oidcConfig"`
-	OrganizationID string              `bson:"organizationId"`
+	ID             primitive.ObjectID         `bson:"_id,omitempty"`
+	Name           string                     `bson:"name"`
+	URL            string                     `bson:"url"`
+	Active         bool                       `bson:"active"`
+	Checks         *verificationChecks        `bson:"checks"`
+	OIDCConfig     *oidc4vpConfigDoc          `bson:"oidcConfig"`
+	OrganizationID string                     `bson:"organizationId"`
+	KMSConfig      *common.KMSConfigDocument  `bson:"kmsConfig"`
+	SigningDID     *common.SigningDIDDocument `bson:"signingDID"`
+}
+
+type oidc4vpConfigDoc struct {
+	SigningAlgorithm vc.SignatureType  `bson:"signingAlgorithm"`
+	DIDMethod        didcreator.Method `bson:"didMethod"`
+	KeyType          kms.KeyType       `bson:"keyType"`
 }
 
 type credentialChecks struct {
-	Proof  bool     `bson:"proof"`
-	Format []string `bson:"format"`
-	Status bool     `bson:"status,omitempty"`
+	Proof  bool        `bson:"proof"`
+	Format []vc.Format `bson:"format"`
+	Status bool        `bson:"status,omitempty"`
 }
 
 type presentationChecks struct {
-	Proof  bool     `bson:"proof"`
-	Format []string `bson:"format"`
+	Proof  bool        `bson:"proof"`
+	Format []vc.Format `bson:"format"`
 }
 
 type verificationChecks struct {
-	Credential   *credentialChecks   `bson:"credential"`
+	Credential   credentialChecks    `bson:"credential"`
 	Presentation *presentationChecks `bson:"presentation"`
+}
+
+type presentationDefinitionDocument struct {
+	ID         primitive.ObjectID     `bson:"_id,omitempty"`
+	ProfileID  primitive.ObjectID     `bson:"profileID,omitempty"`
+	ExternalID string                 `bson:"externalID,omitempty"`
+	Content    map[string]interface{} `bson:"Content,omitempty"`
 }
 
 // ProfileStore manages profile in mongodb.
@@ -66,7 +85,8 @@ func NewProfileStore(mongoClient *mongodb.Client) *ProfileStore {
 }
 
 // Create creates profile document in a database.
-func (p *ProfileStore) Create(profile *verifier.Profile) (verifier.ProfileID, error) {
+func (p *ProfileStore) Create(profile *verifier.Profile,
+	presentationDefinitions []*presexch.PresentationDefinition) (verifier.ProfileID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -82,7 +102,33 @@ func (p *ProfileStore) Create(profile *verifier.Profile) (verifier.ProfileID, er
 		return "", err
 	}
 
-	return result.InsertedID.(primitive.ObjectID).Hex(), nil
+	profileID := result.InsertedID.(primitive.ObjectID) //nolint:errcheck
+
+	cmCollection := p.mongoClient.Database().Collection(presentationDefinitionCollection)
+
+	var presentationDefinitionDocs []interface{}
+	for _, pd := range presentationDefinitions {
+		//nolint: govet
+		content, err := mongodb.StructureToMap(pd)
+		if err != nil {
+			return "", fmt.Errorf("issuer profile create: convert credential manifests into map: %w", err)
+		}
+
+		presentationDefinitionDocs = append(presentationDefinitionDocs, &presentationDefinitionDocument{
+			ProfileID:  profileID,
+			Content:    content,
+			ExternalID: pd.ID,
+		})
+	}
+
+	if len(presentationDefinitionDocs) > 0 {
+		_, err = cmCollection.InsertMany(ctxWithTimeout, presentationDefinitionDocs)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return profileID.Hex(), nil
 }
 
 // Update updates unprotected fields of profile document in a database.
@@ -97,9 +143,14 @@ func (p *ProfileStore) Update(profile *verifier.ProfileUpdate) error {
 		return err
 	}
 
+	profileDoc, err := profileToUpdateDocument(profile)
+	if err != nil {
+		return err
+	}
+
 	//nolint: govet
 	result, err := collection.UpdateOne(ctxWithTimeout,
-		bson.D{{"_id", id}}, bson.D{{"$set", profileToUpdateDocument(profile)}})
+		bson.D{{"_id", id}}, bson.D{{"$set", profileDoc}})
 	if err != nil {
 		return err
 	}
@@ -187,7 +238,50 @@ func (p *ProfileStore) Find(strID verifier.ProfileID) (*verifier.Profile, error)
 		return nil, fmt.Errorf("verifier profile find failed: %w", err)
 	}
 
-	return profileFromDocument(profileDoc), nil
+	return profileFromDocument(profileDoc)
+}
+
+// FindPresentationDefinition give id or return first if id is null.
+func (p *ProfileStore) FindPresentationDefinition(strID verifier.ProfileID,
+	pdExternalID string) (*presexch.PresentationDefinition, error) {
+	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	collection := p.mongoClient.Database().Collection(presentationDefinitionCollection)
+
+	profileID, err := profileIDFromString(strID)
+	if err != nil {
+		return nil, err
+	}
+
+	pdDoc := &presentationDefinitionDocument{}
+
+	if pdExternalID == "" {
+		err = collection.FindOne(ctxWithTimeout, bson.M{"profileID": profileID}).Decode(pdDoc)
+	} else {
+		err = collection.FindOne(ctxWithTimeout,
+			bson.M{
+				"profileID":  profileID,
+				"externalID": pdExternalID,
+			}).Decode(pdDoc)
+	}
+
+	if errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, verifier.ErrProfileNotFound
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("verifier profile find pd failed: %w", err)
+	}
+
+	pd := &presexch.PresentationDefinition{}
+
+	err = mongodb.MapToStructure(pdDoc.Content, pd)
+	if err != nil {
+		return nil, fmt.Errorf("verifier profile find pd: pd deserialization failed: %w", err)
+	}
+
+	return pd, nil
 }
 
 // FindByOrgID all profiles by give org id.
@@ -212,7 +306,12 @@ func (p *ProfileStore) FindByOrgID(orgID string) ([]*verifier.Profile, error) {
 			return nil, fmt.Errorf("verifier profile find by org id: decode doc failed: %w", err)
 		}
 
-		result = append(result, profileFromDocument(profileDoc))
+		profile, err := profileFromDocument(profileDoc)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, profile)
 	}
 
 	return result, nil
@@ -237,88 +336,111 @@ func profileToDocument(profile *verifier.Profile) (*profileDocument, error) {
 		return nil, err
 	}
 
-	var doc profileDocument
-
-	if err = copier.Copy(&doc, profile); err != nil {
+	checks, err := checksToDocument(profile.Checks)
+	if err != nil {
 		return nil, err
 	}
 
-	doc.ID = id
+	var oidc4vpConfig *oidc4vpConfigDoc
+	if profile.OIDCConfig != nil {
+		oidc4vpConfig = &oidc4vpConfigDoc{
+			SigningAlgorithm: profile.OIDCConfig.ROSigningAlgorithm,
+			DIDMethod:        profile.OIDCConfig.DIDMethod,
+			KeyType:          profile.OIDCConfig.KeyType,
+		}
+	}
 
-	return &doc, nil
+	return &profileDocument{
+		ID:             id,
+		Name:           profile.Name,
+		URL:            profile.URL,
+		Active:         profile.Active,
+		OIDCConfig:     oidc4vpConfig,
+		OrganizationID: profile.OrganizationID,
+		Checks:         checks,
+		KMSConfig:      common.KMSConfigToDocument(profile.KMSConfig),
+		SigningDID:     common.SigningDIDToDocument(profile.SigningDID),
+	}, nil
 }
 
-func profileToUpdateDocument(profile *verifier.ProfileUpdate) *profileUpdateDocument {
+func profileToUpdateDocument(profile *verifier.ProfileUpdate) (*profileUpdateDocument, error) {
+	checks, err := checksToDocument(profile.Checks)
+	if err != nil {
+		return nil, err
+	}
+
 	doc := &profileUpdateDocument{
-		Name:       profile.Name,
-		URL:        profile.URL,
-		OIDCConfig: profile.OIDCConfig,
+		Name:   profile.Name,
+		URL:    profile.URL,
+		Checks: checks,
 	}
 
-	if profile.Checks != nil {
-		doc.Checks = &verificationChecks{}
-
-		if profile.Checks.Credential != nil {
-			doc.Checks.Credential = &credentialChecks{
-				Proof:  profile.Checks.Credential.Proof,
-				Status: profile.Checks.Credential.Status,
-			}
-
-			for _, format := range profile.Checks.Credential.Format {
-				doc.Checks.Credential.Format = append(doc.Checks.Credential.Format, string(format))
-			}
-		}
-
-		if profile.Checks.Presentation != nil {
-			doc.Checks.Presentation = &presentationChecks{
-				Proof: profile.Checks.Presentation.Proof,
-			}
-
-			for _, format := range profile.Checks.Presentation.Format {
-				doc.Checks.Presentation.Format = append(doc.Checks.Presentation.Format, string(format))
-			}
-		}
-	}
-
-	return doc
+	return doc, nil
 }
 
-func profileFromDocument(doc *profileDocument) *verifier.Profile {
+func profileFromDocument(doc *profileDocument) (*verifier.Profile, error) {
+	var oidc4vpConfig *verifier.OIDC4VPConfig
+	if doc.OIDCConfig != nil {
+		oidc4vpConfig = &verifier.OIDC4VPConfig{
+			ROSigningAlgorithm: doc.OIDCConfig.SigningAlgorithm,
+			DIDMethod:          doc.OIDCConfig.DIDMethod,
+			KeyType:            doc.OIDCConfig.KeyType,
+		}
+	}
+
 	profile := &verifier.Profile{
 		ID:             doc.ID.Hex(),
 		Name:           doc.Name,
 		URL:            doc.URL,
 		Active:         doc.Active,
-		OIDCConfig:     doc.OIDCConfig,
+		OIDCConfig:     oidc4vpConfig,
 		OrganizationID: doc.OrganizationID,
+		Checks:         checksFromDocument(doc.Checks),
+		KMSConfig:      common.KMSConfigFromDocument(doc.KMSConfig),
+		SigningDID:     common.SigningDIDFromDocument(doc.SigningDID),
 	}
 
-	if doc.Checks != nil {
-		profile.Checks = &verifier.VerificationChecks{}
+	return profile, nil
+}
 
-		if doc.Checks.Credential != nil {
-			profile.Checks.Credential = &verifier.CredentialChecks{
-				Proof:  doc.Checks.Credential.Proof,
-				Status: doc.Checks.Credential.Status,
-			}
+func checksToDocument(checks *verifier.VerificationChecks) (*verificationChecks, error) {
+	if checks == nil {
+		return nil, fmt.Errorf("checks should be not null")
+	}
 
-			for _, format := range doc.Checks.Credential.Format {
-				profile.Checks.Credential.Format = append(profile.Checks.Credential.Format,
-					vc.Format(format))
-			}
-		}
+	result := &verificationChecks{
+		Credential: credentialChecks{
+			Proof:  checks.Credential.Proof,
+			Format: checks.Credential.Format,
+			Status: checks.Credential.Status,
+		},
+	}
 
-		if doc.Checks.Presentation != nil {
-			profile.Checks.Presentation = &verifier.PresentationChecks{
-				Proof: doc.Checks.Presentation.Proof,
-			}
-
-			for _, format := range doc.Checks.Presentation.Format {
-				profile.Checks.Presentation.Format = append(profile.Checks.Presentation.Format,
-					verifier.PresentationFormat(format))
-			}
+	if checks.Presentation != nil {
+		result.Presentation = &presentationChecks{
+			Proof:  checks.Presentation.Proof,
+			Format: checks.Presentation.Format,
 		}
 	}
 
-	return profile
+	return result, nil
+}
+
+func checksFromDocument(checks *verificationChecks) *verifier.VerificationChecks {
+	result := &verifier.VerificationChecks{
+		Credential: verifier.CredentialChecks{
+			Proof:  checks.Credential.Proof,
+			Format: checks.Credential.Format,
+			Status: checks.Credential.Status,
+		},
+	}
+
+	if checks.Presentation != nil {
+		result.Presentation = &verifier.PresentationChecks{
+			Proof:  checks.Presentation.Proof,
+			Format: checks.Presentation.Format,
+		}
+	}
+
+	return result
 }

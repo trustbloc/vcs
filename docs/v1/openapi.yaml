@@ -390,7 +390,7 @@ components:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
         kmsConfig:
-          $ref: '#/components/schemas/KMSConfig'
+          $ref: './common.yaml#/components/schemas/KMSConfig'
         credentialManifests:
           type: array
           items:
@@ -424,7 +424,7 @@ components:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
         kmsConfig:
-          $ref: '#/components/schemas/KMSConfig'
+          $ref: './common.yaml#/components/schemas/KMSConfig'
         credentialManifests:
           type: array
           items:
@@ -450,6 +450,7 @@ components:
         oidcConfig:
           type: object
           description: Configuration for OIDC4VC credential interaction operations.
+
     VCConfig:
       title: VCConfig
       x-tags:
@@ -458,11 +459,8 @@ components:
       description: Model for VC configuration.
       properties:
         format:
-          type: string
-          enum:
-            - jwt_vc
-            - ldp_vc
-          description: Supported VC formats.
+          $ref: "./common.yaml#/components/schemas/VCFormat"
+
         signingAlgorithm:
           type: string
           description: List of supported cryptographic signing algorithms.
@@ -477,12 +475,7 @@ components:
             - ProofValue
           default: ProofValue
         didMethod:
-          type: string
-          description: DID method of the DID to be used for signing.
-          enum:
-            - orb
-            - web
-            - key
+          $ref: "./common.yaml#/components/schemas/DIDMethod"
         signingDID:
           type: string
           description: DID to be used for signing.
@@ -499,39 +492,6 @@ components:
         - signingAlgorithm
         - didMethod
         - signingDID
-    KMSConfig:
-      title: KMSConfig
-      x-tags:
-        - issuer
-      type: object
-      description: Model for KMS configuration.
-      properties:
-        type:
-          type: string
-          description: Type of kms used to create and store DID keys.
-          enum:
-            - local
-            - web
-            - aws
-        endpoint:
-          type: string
-          description: KMS endpoint.
-        secretLockKeyPath:
-          type: string
-          description: Path to secret lock used by local kms.
-        dbType:
-          type: string
-          description: Type of database used by local kms.
-
-        dbURL:
-          type: string
-          description: URL to database used by local kms.
-
-        dbPrefix:
-          type: string
-          description: Prefix of database used by local kms.
-      required:
-        - type
     VerifierProfile:
       title: VerifierProfile
       x-tags:
@@ -556,9 +516,6 @@ components:
           description: Defines if profile is enabled.
         checks:
           $ref: '#/components/schemas/VerifierChecks'
-        oidcConfig:
-          type: object
-          description: Configuration for OIDC4VC credential interaction operations.
       required:
         - id
         - name
@@ -579,11 +536,16 @@ components:
           type: string
           description: URI of the verifier.
         checks:
-          type: object
-          description: Type of checks to be performed and formats supported.
+          $ref: '#/components/schemas/VerifierChecks'
+        presentationDefinitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PresentationDefinition"
+
         oidcConfig:
-          type: object
-          description: Configuration for participating in OIDC4VC credential interaction operations.
+          $ref: '#/components/schemas/OIDC4VPConfig'
+        kmsConfig:
+          $ref: './common.yaml#/components/schemas/KMSConfig'
         organizationID:
           type: string
           description: Unique identifier of the organization.
@@ -591,6 +553,13 @@ components:
         - name
         - checks
         - organizationID
+    PresentationDefinition:
+      title: PresentationDefinition
+      x-tags:
+        - verifier
+      type: object
+      description: Presentation definition required by verifier.
+
     UpdateVerifierProfileData:
       title: UpdateVerifierProfileData
       x-tags:
@@ -605,11 +574,27 @@ components:
           type: string
           description: URI of the verifier.
         checks:
-          type: object
-          description: Type of checks to be performed and formats supported.
+          $ref: '#/components/schemas/VerifierChecks'
         oidcConfig:
           type: object
           description: Configuration for participating in OIDC4VC credential interaction operations.
+
+    PresentationChecks:
+      type: object
+      description: Checks to be performed during presentation verification.
+      required:
+        - proof
+        - format
+      properties:
+        proof:
+          type: boolean
+          description: Proof check for presentation.
+        format:
+          type: array
+          description: Supported presentation formats.
+          items:
+            $ref: "./common.yaml#/components/schemas/VPFormat"
+
     VerifierChecks:
       title: VerifierChecks
       x-tags:
@@ -641,34 +626,30 @@ components:
               type: array
               description: Supported credential formats.
               items:
-                type: string
-                enum:
-                  - jwt_vc
-                  - ldp_vc
+                $ref: "./common.yaml#/components/schemas/VCFormat"
             status:
               type: boolean
               description: Status check for credential.
         presentation:
-          type: object
-          description: Checks to be performed during presentation verification.
-          required:
-            - proof
-            - format
-          properties:
-            proof:
-              type: boolean
-              description: Proof check for presentation.
-            format:
-              type: array
-              description: Supported presentation formats.
-              items:
-                type: string
-                enum:
-                  - jwt_vp
-                  - ldp_vp
+          $ref: "#/components/schemas/PresentationChecks"
+
       required:
         - credential
-        - presentation
+
+    OIDC4VPConfig:
+      title: OIDC4VPConfig
+      type: object
+      description: Model for OIDC4VPConfig configuration.
+      properties:
+        roSigningAlgorithm:
+          type: string
+          description: Cryptographic algorithms used to sign oipd vp request object.
+        didMethod:
+          $ref: "./common.yaml#/components/schemas/DIDMethod"
+      required:
+        - roSigningAlgorithm
+        - didMethod
+
 
     VerifyCredentialData:
       title: VerifyCredentialData

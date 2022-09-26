@@ -10,3 +10,5 @@ generate:
   models: false
   echo-server: false
   embedded-spec: true
+import-mapping:
+  ./common.yaml: github.com/trustbloc/vcs/pkg/restapi/v1/common

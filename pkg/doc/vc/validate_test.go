@@ -47,7 +47,7 @@ func TestProfileStore_ValidateVCSignatureAlgorithm(t *testing.T) {
 		}
 
 		for _, sigType := range validSignatureTypes {
-			stype, err := vc.ValidateVCSignatureAlgorithm("jwt_vc", sigType, supportedKeyTypes)
+			stype, err := vc.ValidateSignatureAlgorithm(vc.Jwt, sigType, supportedKeyTypes)
 			require.NoError(t, err)
 			require.Equal(t, strings.ToLower(sigType), strings.ToLower(stype.Name()))
 		}
@@ -61,19 +61,19 @@ func TestProfileStore_ValidateVCSignatureAlgorithm(t *testing.T) {
 		}
 
 		for _, sigType := range validSignatureTypes {
-			stype, err := vc.ValidateVCSignatureAlgorithm("ldp_vc", sigType, supportedKeyTypes)
+			stype, err := vc.ValidateSignatureAlgorithm(vc.Ldp, sigType, supportedKeyTypes)
 			require.NoError(t, err)
 			require.Equal(t, sigType, stype.Name())
 		}
 	})
 
 	t.Run("Fail", func(t *testing.T) {
-		_, err := vc.ValidateVCSignatureAlgorithm("fail", "fail", supportedKeyTypes)
+		_, err := vc.ValidateSignatureAlgorithm("fail", "fail", supportedKeyTypes)
 		require.Error(t, err)
 	})
 
 	t.Run("Fail 2", func(t *testing.T) {
-		_, err := vc.ValidateVCSignatureAlgorithm("ldp_vc", "fail", supportedKeyTypes)
+		_, err := vc.ValidateSignatureAlgorithm("ldp_vc", "fail", supportedKeyTypes)
 		require.Error(t, err)
 	})
 }
@@ -162,7 +162,7 @@ func TestValidateCredential(t *testing.T) {
 				cred: func(t *testing.T) interface{} {
 					return sampleVCJWT
 				},
-				format: vc.JwtVC,
+				format: vc.Jwt,
 				opts: []verifiable.CredentialOpt{
 					verifiable.WithDisabledProofCheck(),
 					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
@@ -185,7 +185,7 @@ func TestValidateCredential(t *testing.T) {
 					require.NoError(t, err)
 					return mapped
 				},
-				format: vc.LdpVC,
+				format: vc.Ldp,
 				opts: []verifiable.CredentialOpt{
 					verifiable.WithDisabledProofCheck(),
 					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
@@ -205,7 +205,7 @@ func TestValidateCredential(t *testing.T) {
 				cred: func(t *testing.T) interface{} {
 					return []byte(sampleVCJWT)
 				},
-				format: vc.JwtVC,
+				format: vc.Jwt,
 				opts:   []verifiable.CredentialOpt{},
 			},
 			want: func(t *testing.T) *verifiable.Credential {
@@ -219,7 +219,7 @@ func TestValidateCredential(t *testing.T) {
 				cred: func(t *testing.T) interface{} {
 					return sampleVCJsonLD
 				},
-				format: vc.LdpVC,
+				format: vc.Ldp,
 				opts:   []verifiable.CredentialOpt{},
 			},
 			want: func(t *testing.T) *verifiable.Credential {
@@ -233,7 +233,7 @@ func TestValidateCredential(t *testing.T) {
 				cred: func(t *testing.T) interface{} {
 					return ""
 				},
-				format: vc.JwtVC,
+				format: vc.Jwt,
 				opts:   []verifiable.CredentialOpt{},
 			},
 			want: func(t *testing.T) *verifiable.Credential {
@@ -247,7 +247,7 @@ func TestValidateCredential(t *testing.T) {
 				cred: func(t *testing.T) interface{} {
 					return map[string]interface{}{}
 				},
-				format: vc.LdpVC,
+				format: vc.Ldp,
 				opts:   []verifiable.CredentialOpt{},
 			},
 			want: func(t *testing.T) *verifiable.Credential {

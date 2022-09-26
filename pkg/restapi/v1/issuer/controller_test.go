@@ -21,7 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
-	did2 "github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -29,6 +29,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 )
 
@@ -163,114 +164,6 @@ func TestController_accessProfile(t *testing.T) {
 	})
 }
 
-func TestController_validateKMSConfig(t *testing.T) {
-	t.Run("Success (use defult config)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		_, err := controller.validateKMSConfig(nil)
-		require.NoError(t, err)
-	})
-
-	t.Run("Success(type aws)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		config := &KMSConfig{
-			Endpoint: strPtr("aws://url"),
-			Type:     "aws",
-		}
-
-		_, err := controller.validateKMSConfig(config)
-		require.NoError(t, err)
-	})
-
-	t.Run("Missed endpoint (type aws)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		config := &KMSConfig{
-			Type: "aws",
-		}
-
-		_, err := controller.validateKMSConfig(config)
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.endpoint", err)
-	})
-
-	t.Run("Success(type web)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		config := &KMSConfig{
-			Endpoint: strPtr("aws://url"),
-			Type:     "web",
-		}
-
-		_, err := controller.validateKMSConfig(config)
-		require.NoError(t, err)
-	})
-
-	t.Run("Missed endpoint (type web)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		config := &KMSConfig{
-			Type: "web",
-		}
-
-		_, err := controller.validateKMSConfig(config)
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.endpoint", err)
-	})
-
-	t.Run("Success(type local)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		config := &KMSConfig{
-			DbPrefix:          strPtr("prefix"),
-			DbType:            strPtr("type"),
-			DbURL:             strPtr("url"),
-			SecretLockKeyPath: strPtr("path"),
-			Type:              "local",
-		}
-
-		_, err := controller.validateKMSConfig(config)
-		require.NoError(t, err)
-	})
-
-	t.Run("Missed fields (type local)", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		correct := &KMSConfig{
-			DbPrefix:          strPtr("prefix"),
-			DbType:            strPtr("type"),
-			DbURL:             strPtr("url"),
-			SecretLockKeyPath: strPtr("path"),
-			Type:              "local",
-		}
-
-		incorrect := &KMSConfig{}
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.DbPrefix = nil
-		_, err := controller.validateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.dbPrefix", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.DbURL = nil
-		_, err = controller.validateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.dbURL", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.DbType = nil
-		_, err = controller.validateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.dbType", err)
-
-		require.NoError(t, copier.Copy(incorrect, correct))
-		incorrect.SecretLockKeyPath = nil
-		_, err = controller.validateKMSConfig(incorrect)
-
-		requireValidationError(t, resterr.InvalidValue, "kmsConfig.secretLockKeyPath", err)
-	})
-}
-
 func TestController_validateVCConfig(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		controller := NewController(&Config{})
@@ -281,7 +174,7 @@ func TestController_validateVCConfig(t *testing.T) {
 			contexts := []string{"test"}
 			config := &VCConfig{
 				Contexts:         &contexts,
-				DidMethod:        VCConfigDidMethod(didMethod),
+				DidMethod:        common.DIDMethod(didMethod),
 				Format:           "jwt_vc",
 				KeyType:          strPtr("ED25519"),
 				SigningAlgorithm: "EdDSA",
@@ -369,7 +262,7 @@ func TestController_validateCreateProfileData(t *testing.T) {
 		OidcConfig:     nil,
 		OrganizationID: "testOrgId",
 		Url:            "TestURL",
-		KmsConfig: &KMSConfig{
+		KmsConfig: &common.KMSConfig{
 			DbPrefix:          nil,
 			DbType:            nil,
 			DbURL:             nil,
@@ -444,77 +337,6 @@ func TestController_validateCreateProfileData(t *testing.T) {
 	})
 }
 
-func TestController_mapToKMSConfigType(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		tpe, err := controller.mapToKMSConfigType(vcskms.AWS)
-		require.NoError(t, err)
-		require.Equal(t, KMSConfigTypeAws, tpe)
-
-		tpe, err = controller.mapToKMSConfigType(vcskms.Local)
-		require.NoError(t, err)
-		require.Equal(t, KMSConfigTypeLocal, tpe)
-
-		tpe, err = controller.mapToKMSConfigType(vcskms.Web)
-		require.NoError(t, err)
-		require.Equal(t, KMSConfigTypeWeb, tpe)
-	})
-
-	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		_, err := controller.mapToKMSConfigType("incorrect")
-		require.Error(t, err)
-	})
-}
-
-func TestController_mapToVCFormat(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		tpe, err := controller.mapToVCFormat(vc.JwtVC)
-		require.NoError(t, err)
-		require.Equal(t, JwtVc, tpe)
-
-		tpe, err = controller.mapToVCFormat(vc.LdpVC)
-		require.NoError(t, err)
-		require.Equal(t, LdpVc, tpe)
-	})
-
-	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		_, err := controller.mapToVCFormat("incorrect")
-		require.Error(t, err)
-	})
-}
-
-func TestController_mapToDIDMethod(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		tpe, err := controller.mapToDIDMethod(did2.KeyDIDMethod)
-		require.NoError(t, err)
-		require.Equal(t, VCConfigDidMethodKey, tpe)
-
-		tpe, err = controller.mapToDIDMethod(did2.OrbDIDMethod)
-		require.NoError(t, err)
-		require.Equal(t, VCConfigDidMethodOrb, tpe)
-
-		tpe, err = controller.mapToDIDMethod(did2.WebDIDMethod)
-		require.NoError(t, err)
-		require.Equal(t, VCConfigDidMethodWeb, tpe)
-	})
-
-	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(&Config{})
-
-		_, err := controller.mapToDIDMethod("incorrect")
-		require.Error(t, err)
-	})
-}
-
 func TestController_mapToIssuerProfile(t *testing.T) {
 	correctProfile := &issuer.Profile{
 		KMSConfig: &vcskms.Config{
@@ -526,7 +348,7 @@ func TestController_mapToIssuerProfile(t *testing.T) {
 			DBPrefix:          "",
 		},
 		VCConfig: &issuer.VCConfig{
-			Format:           "jwt_vc",
+			Format:           vc.Jwt,
 			SigningAlgorithm: "",
 			KeyType:          "",
 			DIDMethod:        "web",
@@ -582,7 +404,7 @@ func TestController_CreateProfile(t *testing.T) {
 		OidcConfig:     nil,
 		OrganizationID: "testOrgId",
 		Url:            "TestURL",
-		KmsConfig: &KMSConfig{
+		KmsConfig: &common.KMSConfig{
 			DbPrefix:          nil,
 			DbType:            nil,
 			DbURL:             nil,
@@ -606,14 +428,14 @@ func TestController_CreateProfile(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(
 			&issuer.Profile{VCConfig: &issuer.VCConfig{
-				Format:           "jwt_vc",
+				Format:           vc.Jwt,
 				SigningAlgorithm: "",
 				KeyType:          "",
 				DIDMethod:        "web",
 				Status:           map[string]interface{}{},
 				Context:          nil,
 			},
-				SigningDID: &issuer.SigningDID{}},
+				SigningDID: &did.SigningDID{}},
 			nil)
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
@@ -689,13 +511,13 @@ func TestController_UpdateProfile(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").MinTimes(1).
 			Return(&issuer.Profile{VCConfig: &issuer.VCConfig{
-				Format:           "jwt_vc",
+				Format:           vc.Jwt,
 				SigningAlgorithm: "",
 				KeyType:          "",
 				DIDMethod:        "web",
 				Status:           map[string]interface{}{},
 				Context:          nil,
-			}, OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			}, OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().Update(gomock.Any()).Times(1).Return(nil)
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -716,7 +538,7 @@ func TestController_UpdateProfile(t *testing.T) {
 				DIDMethod:        "web",
 				Status:           map[string]interface{}{},
 				Context:          nil,
-			}, OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			}, OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().Update(gomock.Any()).Times(1).Return(errors.New("error"))
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -732,7 +554,7 @@ func TestController_DeleteProfile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().Delete(issuer.ProfileID("testId")).Times(1).Return(nil)
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -746,7 +568,7 @@ func TestController_DeleteProfile(t *testing.T) {
 	t.Run("Failed", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().Delete(issuer.ProfileID("testId")).Times(1).Return(errors.New("error"))
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -762,7 +584,7 @@ func TestController_ActivateProfile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().ActivateProfile(issuer.ProfileID("testId")).Times(1).Return(nil)
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -776,7 +598,7 @@ func TestController_ActivateProfile(t *testing.T) {
 	t.Run("Failed", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().ActivateProfile(issuer.ProfileID("testId")).Times(1).Return(errors.New("error"))
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -792,7 +614,7 @@ func TestController_DeactivateProfile(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().DeactivateProfile(issuer.ProfileID("testId")).Times(1).Return(nil)
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -806,7 +628,7 @@ func TestController_DeactivateProfile(t *testing.T) {
 	t.Run("Failed", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &issuer.SigningDID{}}, nil)
+			Return(&issuer.Profile{OrganizationID: orgID, ID: "testId", SigningDID: &did.SigningDID{}}, nil)
 		mockProfileSvc.EXPECT().DeactivateProfile("testId").Times(1).Return(errors.New("error"))
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
@@ -821,7 +643,7 @@ func TestController_DeactivateProfile(t *testing.T) {
 func TestController_PostIssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockIssueCredsSvc := NewMockissueCredentialService(gomock.NewController(t))
-	mockIssueCredsSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+	mockIssueCredsSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return(nil, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -830,7 +652,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.LdpVC,
+					Format: vc.Ldp,
 				},
 			}, nil)
 
@@ -852,7 +674,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.JwtVC,
+					Format: vc.Jwt,
 				},
 			}, nil)
 
@@ -880,7 +702,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 func TestController_IssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockIssueCredsSvc := NewMockissueCredentialService(gomock.NewController(t))
-	mockIssueCredsSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+	mockIssueCredsSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return(&verifiable.Credential{}, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -889,7 +711,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.LdpVC,
+					Format: vc.Ldp,
 				},
 			}, nil)
 
@@ -917,7 +739,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.JwtVC,
+					Format: vc.Jwt,
 				},
 			}, nil)
 
@@ -986,7 +808,7 @@ func TestController_IssueCredentials(t *testing.T) {
 							OrganizationID: orgID,
 							ID:             "testId",
 							VCConfig: &issuer.VCConfig{
-								Format: vc.LdpVC,
+								Format: vc.Ldp,
 							},
 						}, nil)
 
@@ -1008,7 +830,7 @@ func TestController_IssueCredentials(t *testing.T) {
 							OrganizationID: orgID,
 							ID:             "testId",
 							VCConfig: &issuer.VCConfig{
-								Format: vc.LdpVC,
+								Format: vc.Ldp,
 							},
 						}, nil)
 					return mockProfileSvc
@@ -1028,7 +850,7 @@ func TestController_IssueCredentials(t *testing.T) {
 							OrganizationID: orgID,
 							ID:             "testId",
 							VCConfig: &issuer.VCConfig{
-								Format: vc.LdpVC,
+								Format: vc.Ldp,
 							},
 						}, nil)
 					return mockProfileSvc
@@ -1036,7 +858,6 @@ func TestController_IssueCredentials(t *testing.T) {
 				getIssueCredentialService: func() issueCredentialService {
 					mockFailedIssueCredsSvc := NewMockissueCredentialService(gomock.NewController(t))
 					mockFailedIssueCredsSvc.EXPECT().IssueCredential(
-						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any()).AnyTimes().
@@ -1074,7 +895,7 @@ func TestController_AuthFailed(t *testing.T) {
 
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
-		Return(&issuer.Profile{OrganizationID: orgID, SigningDID: &issuer.SigningDID{}}, nil)
+		Return(&issuer.Profile{OrganizationID: orgID, SigningDID: &did.SigningDID{}}, nil)
 
 	t.Run("No token", func(t *testing.T) {
 		c := createContext("")
