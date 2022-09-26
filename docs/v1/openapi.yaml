@@ -710,8 +710,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VerifyCredentialCheckResult'
-      required:
-        - checks
     VerifyCredentialCheckResult:
       title: VerifyCredentialCheckResult
       x-tags:

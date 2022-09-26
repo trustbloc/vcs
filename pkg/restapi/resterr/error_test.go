@@ -58,4 +58,15 @@ func TestNewValidationError(t *testing.T) {
 		requireCode(t, resp, AlreadyExist.Name())
 		requireMessage(t, resp, "some error")
 	})
+
+	t.Run("doesn't exist error", func(t *testing.T) {
+		err := NewValidationError(DoesntExist, "test.value1", errors.New("some error"))
+		require.Equal(t, "doesnt-exist[test.value1]: some error", err.Error())
+
+		httpCode, resp := err.HTTPCodeMsg()
+
+		require.Equal(t, http.StatusNotFound, httpCode)
+		requireCode(t, resp, DoesntExist.Name())
+		requireMessage(t, resp, "some error")
+	})
 }

@@ -69,25 +69,32 @@ func (e *CustomError) Error() string {
 }
 
 func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
-	if e.Code == SystemError {
+	var code int
+
+	switch e.Code {
+	case SystemError:
 		return http.StatusInternalServerError, map[string]interface{}{
 			"code":      SystemError.Name(),
 			"component": e.Component,
 			"operation": e.FailedOperation,
 			"message":   e.Err.Error(),
 		}
-	}
-
-	if e.Code == Unauthorized {
+	case Unauthorized:
 		return http.StatusUnauthorized, map[string]interface{}{
 			"code":    Unauthorized.Name(),
 			"message": e.Err.Error(),
 		}
-	}
-
-	code := http.StatusBadRequest
-	if e.Code == AlreadyExist {
+	case AlreadyExist:
 		code = http.StatusConflict
+
+	case DoesntExist:
+		code = http.StatusNotFound
+
+	case InvalidValue:
+		fallthrough
+
+	default:
+		code = http.StatusBadRequest
 	}
 
 	return code, map[string]interface{}{

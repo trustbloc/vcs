@@ -292,16 +292,22 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*verifie
 }
 
 func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerificationCheckResult) *VerifyCredentialResponse {
-	result := &VerifyCredentialResponse{}
+	if len(checks) == 0 {
+		return &VerifyCredentialResponse{}
+	}
+
+	var checkList []VerifyCredentialCheckResult
 	for _, check := range checks {
-		result.Checks = append(result.Checks, VerifyCredentialCheckResult{
+		checkList = append(checkList, VerifyCredentialCheckResult{
 			Check:              check.Check,
 			Error:              check.Error,
 			VerificationMethod: check.VerificationMethod,
 		})
 	}
 
-	return result
+	return &VerifyCredentialResponse{
+		Checks: &checkList,
+	}
 }
 
 func mapCreateVerifierProfileData(data *CreateVerifierProfileData) *verifier.Profile {
