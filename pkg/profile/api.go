@@ -8,6 +8,7 @@ package profile
 
 import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -52,15 +53,16 @@ type VCConfig struct {
 
 // Verifier profile.
 type Verifier struct {
-	ID             ID                  `json:"id,omitempty"`
-	Name           string              `json:"name,omitempty"`
-	URL            string              `json:"url,omitempty"`
-	Active         bool                `json:"active,omitempty"`
-	OrganizationID string              `json:"organizationID,omitempty"`
-	Checks         *VerificationChecks `json:"checks,omitempty"`
-	OIDCConfig     *OIDC4VPConfig      `json:"oidcConfig,omitempty"`
-	KMSConfig      *vcskms.Config      `json:"kmsConfig,omitempty"`
-	SigningDID     *SigningDID         `json:"signingDID,omitempty"`
+	ID                      ID                                 `json:"id,omitempty"`
+	Name                    string                             `json:"name,omitempty"`
+	URL                     string                             `json:"url,omitempty"`
+	Active                  bool                               `json:"active,omitempty"`
+	OrganizationID          string                             `json:"organizationID,omitempty"`
+	Checks                  *VerificationChecks                `json:"checks,omitempty"`
+	OIDCConfig              *OIDC4VPConfig                     `json:"oidcConfig,omitempty"`
+	KMSConfig               *vcskms.Config                     `json:"kmsConfig,omitempty"`
+	SigningDID              *SigningDID                        `json:"signingDID,omitempty"`
+	PresentationDefinitions []*presexch.PresentationDefinition `json:"presentationDefinitions,omitempty"`
 }
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.

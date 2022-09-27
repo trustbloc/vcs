@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
+
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -126,7 +127,9 @@ func NewVerifiersReader(config *Config) (*VerifierReader, error) {
 		return nil, nil
 	}
 
-	r := VerifierReader{verifiers: make(map[string]*profileapi.Verifier)}
+	r := VerifierReader{
+		verifiers: make(map[string]*profileapi.Verifier),
+	}
 
 	jsonBytes, err := os.ReadFile(filepath.Clean(config.ProfileJSONFile))
 	if err != nil {

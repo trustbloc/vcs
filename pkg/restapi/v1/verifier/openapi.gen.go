@@ -11,6 +11,18 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// InitiateOIDC4VPData defines model for InitiateOIDC4VPData.
+type InitiateOIDC4VPData struct {
+	PresentationDefinitionId *string `json:"presentation_definition_id,omitempty"`
+	Purpose                  *string `json:"purpose,omitempty"`
+}
+
+// InitiateOIDC4VPResponse defines model for InitiateOIDC4VPResponse.
+type InitiateOIDC4VPResponse struct {
+	AuthorizationRequest string `json:"authorization_request"`
+	TxId                 string `json:"tx_id"`
+}
+
 // Verify credential response containing failure check details.
 type VerifyCredentialCheckResult struct {
 	// Check title.
@@ -81,11 +93,17 @@ type VerifyPresentationResponse struct {
 // PostVerifyCredentialsJSONBody defines parameters for PostVerifyCredentials.
 type PostVerifyCredentialsJSONBody = VerifyCredentialData
 
+// InitiateOidcInteractionJSONBody defines parameters for InitiateOidcInteraction.
+type InitiateOidcInteractionJSONBody = InitiateOIDC4VPData
+
 // PostVerifyPresentationJSONBody defines parameters for PostVerifyPresentation.
 type PostVerifyPresentationJSONBody = VerifyPresentationData
 
 // PostVerifyCredentialsJSONRequestBody defines body for PostVerifyCredentials for application/json ContentType.
 type PostVerifyCredentialsJSONRequestBody = PostVerifyCredentialsJSONBody
+
+// InitiateOidcInteractionJSONRequestBody defines body for InitiateOidcInteraction for application/json ContentType.
+type InitiateOidcInteractionJSONRequestBody = InitiateOidcInteractionJSONBody
 
 // PostVerifyPresentationJSONRequestBody defines body for PostVerifyPresentation for application/json ContentType.
 type PostVerifyPresentationJSONRequestBody = PostVerifyPresentationJSONBody
@@ -95,6 +113,9 @@ type ServerInterface interface {
 	// Verify credential
 	// (POST /verifier/profiles/{profileID}/credentials/verify)
 	PostVerifyCredentials(ctx echo.Context, profileID string) error
+	// Used by verifier applications to initiate OpenID presentation flow through VCS
+	// (POST /verifier/profiles/{profileID}/interactions/initiate-oidc)
+	InitiateOidcInteraction(ctx echo.Context, profileID string) error
 	// Verify presentation
 	// (POST /verifier/profiles/{profileID}/presentations/verify)
 	PostVerifyPresentation(ctx echo.Context, profileID string) error
@@ -118,6 +139,22 @@ func (w *ServerInterfaceWrapper) PostVerifyCredentials(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostVerifyCredentials(ctx, profileID)
+	return err
+}
+
+// InitiateOidcInteraction converts echo context to params.
+func (w *ServerInterfaceWrapper) InitiateOidcInteraction(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.InitiateOidcInteraction(ctx, profileID)
 	return err
 }
 
@@ -166,6 +203,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/verifier/profiles/:profileID/credentials/verify", wrapper.PostVerifyCredentials)
+	router.POST(baseURL+"/verifier/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateOidcInteraction)
 	router.POST(baseURL+"/verifier/profiles/:profileID/presentations/verify", wrapper.PostVerifyPresentation)
 
 }
