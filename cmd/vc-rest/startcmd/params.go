@@ -130,6 +130,14 @@ const (
 	tlsCACertsFlagUsage = "Comma-Separated list of ca certs path." + commonEnvVarUsageText + tlsCACertsEnvKey
 	tlsCACertsEnvKey    = "VC_REST_TLS_CACERTS"
 
+	tlsCertificateFlagName  = "tls-certificate"
+	tlsCertificateFlagUsage = "TLS certificate for vcs server. " + commonEnvVarUsageText + tlsCertificateLEnvKey
+	tlsCertificateLEnvKey   = "VCS_REST_TLS_CERTIFICATE"
+
+	tlsKeyFlagName  = "tls-key"
+	tlsKeyFlagUsage = "TLS key for vcs server. " + commonEnvVarUsageText + tlsKeyEnvKey
+	tlsKeyEnvKey    = "VC_REST_TLS_KEY"
+
 	tokenFlagName  = "api-token"
 	tokenEnvKey    = "VC_REST_API_TOKEN" //nolint: gosec
 	tokenFlagUsage = "Check for bearer token in the authorization header (optional). " +
@@ -163,20 +171,26 @@ type startupParameters struct {
 	mode                 string
 	dbParameters         *dbParameters
 	kmsParameters        *kmsParameters
-	tlsSystemCertPool    bool
-	tlsCACerts           []string
 	token                string
 	requestTokens        map[string]string
 	logLevel             string
 	didAnchorOrigin      string
 	contextProviderURLs  []string
 	contextEnableRemote  bool
+	tlsParameters        *tlsParameters
 }
 
 type dbParameters struct {
 	databaseType   string
 	databaseURL    string
 	databasePrefix string
+}
+
+type tlsParameters struct {
+	systemCertPool bool
+	caCerts        []string
+	serveCertPath  string
+	serveKeyPath   string
 }
 
 type kmsParameters struct {
@@ -218,7 +232,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	tlsSystemCertPool, tlsCACerts, err := getTLS(cmd)
+	tlsParameters, err := getTLS(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -274,8 +288,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		mode:                 mode,
 		dbParameters:         dbParams,
 		kmsParameters:        kmsParams,
-		tlsSystemCertPool:    tlsSystemCertPool,
-		tlsCACerts:           tlsCACerts,
+		tlsParameters:        tlsParameters,
 		token:                token,
 		requestTokens:        requestTokens,
 		logLevel:             loggingLevel,
@@ -310,24 +323,33 @@ func supportedMode(mode string) bool {
 	return true
 }
 
-func getTLS(cmd *cobra.Command) (bool, []string, error) {
-	tlsSystemCertPoolString, err := cmdutils.GetUserSetVarFromString(cmd, tlsSystemCertPoolFlagName,
-		tlsSystemCertPoolEnvKey, true)
-	if err != nil {
-		return false, nil, err
-	}
+func getTLS(cmd *cobra.Command) (*tlsParameters, error) {
+	tlsSystemCertPoolString := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsSystemCertPoolFlagName,
+		tlsSystemCertPoolEnvKey)
 
 	tlsSystemCertPool := false
+
 	if tlsSystemCertPoolString != "" {
+		var err error
+
 		tlsSystemCertPool, err = strconv.ParseBool(tlsSystemCertPoolString)
 		if err != nil {
-			return false, nil, err
+			return nil, err
 		}
 	}
 
-	tlsCACerts := cmdutils.GetUserSetOptionalCSVVar(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
+	tlsCACerts := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, tlsCACertsFlagName, tlsCACertsEnvKey)
 
-	return tlsSystemCertPool, tlsCACerts, nil
+	tlsServeCertPath := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsCertificateFlagName, tlsCertificateLEnvKey)
+
+	tlsServeKeyPath := cmdutils.GetUserSetOptionalVarFromString(cmd, tlsKeyFlagName, tlsKeyEnvKey)
+
+	return &tlsParameters{
+		systemCertPool: tlsSystemCertPool,
+		caCerts:        tlsCACerts,
+		serveCertPath:  tlsServeCertPath,
+		serveKeyPath:   tlsServeKeyPath,
+	}, nil
 }
 
 func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
@@ -448,4 +470,6 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(kmsEndpointFlagName, "", kmsEndpointFlagUsage)
 	startCmd.Flags().String(secretLockKeyPathFlagName, "", secretLockKeyPathFlagUsage)
 	startCmd.Flags().String(kmsRegionFlagName, "", kmsRegionFlagUsage)
+	startCmd.Flags().StringP(tlsCertificateFlagName, "", "", tlsCertificateFlagUsage)
+	startCmd.Flags().StringP(tlsKeyFlagName, "", "", tlsKeyFlagUsage)
 }

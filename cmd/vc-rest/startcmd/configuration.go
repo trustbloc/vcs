@@ -49,7 +49,7 @@ type Configuration struct {
 }
 
 func prepareConfiguration(parameters *startupParameters) (*Configuration, error) {
-	rootCAs, err := tlsutils.GetCertPool(parameters.tlsSystemCertPool, parameters.tlsCACerts)
+	rootCAs, err := tlsutils.GetCertPool(parameters.tlsParameters.systemCertPool, parameters.tlsParameters.caCerts)
 	if err != nil {
 		return nil, err
 	}

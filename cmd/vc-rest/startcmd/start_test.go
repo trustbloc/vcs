@@ -146,6 +146,10 @@ func (s *mockServer) ListenAndServe() error {
 	return nil
 }
 
+func (s *mockServer) ListenAndServeTLS(certFile, keyFile string) error {
+	return nil
+}
+
 func TestStartCmdValidArgs(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 	defer func() {
@@ -215,6 +219,7 @@ func TestCreateProviders(t *testing.T) {
 			dbParameters: &dbParameters{
 				databaseType: databaseTypeMongoDBOption,
 			},
+			tlsParameters: &tlsParameters{systemCertPool: false},
 		})
 
 		require.Nil(t, cfg)
@@ -222,7 +227,10 @@ func TestCreateProviders(t *testing.T) {
 			`be "mongodb" or "mongodb+srv"`)
 	})
 	t.Run("test invalid database type", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{dbParameters: &dbParameters{databaseType: "data1"}})
+		cfg, err := prepareConfiguration(&startupParameters{
+			dbParameters:  &dbParameters{databaseType: "data1"},
+			tlsParameters: &tlsParameters{systemCertPool: false},
+		})
 
 		require.Nil(t, cfg)
 		require.Contains(t, err.Error(), "data1 is not a valid database type. "+
@@ -249,6 +257,9 @@ func TestCreateVDRI(t *testing.T) {
 			dbParameters: &dbParameters{
 				databaseType: databaseTypeMongoDBOption,
 				databaseURL:  mongoDBConnString,
+			},
+			tlsParameters: &tlsParameters{
+				systemCertPool: false,
 			},
 		})
 
