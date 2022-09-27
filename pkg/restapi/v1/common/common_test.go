@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	did2 "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
@@ -143,11 +143,11 @@ func TestController_ValidateKMSConfig(t *testing.T) {
 
 func TestController_mapToVCFormat(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		tpe, err := MapToVCFormat(vc.Jwt)
+		tpe, err := MapToVCFormat(vcsverifiable.Jwt)
 		require.NoError(t, err)
 		require.Equal(t, JwtVc, tpe)
 
-		tpe, err = MapToVCFormat(vc.Ldp)
+		tpe, err = MapToVCFormat(vcsverifiable.Ldp)
 		require.NoError(t, err)
 		require.Equal(t, LdpVc, tpe)
 	})
@@ -160,11 +160,11 @@ func TestController_mapToVCFormat(t *testing.T) {
 
 func TestController_mapToVPFormat(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		tpe, err := MapToVPFormat(vc.Jwt)
+		tpe, err := MapToVPFormat(vcsverifiable.Jwt)
 		require.NoError(t, err)
 		require.Equal(t, JwtVp, tpe)
 
-		tpe, err = MapToVPFormat(vc.Ldp)
+		tpe, err = MapToVPFormat(vcsverifiable.Ldp)
 		require.NoError(t, err)
 		require.Equal(t, LdpVp, tpe)
 	})
@@ -199,11 +199,11 @@ func TestController_mapToDIDMethod(t *testing.T) {
 func TestValidateVCFormat(t *testing.T) {
 	got, err := ValidateVCFormat(JwtVc)
 	require.NoError(t, err)
-	require.Equal(t, vc.Jwt, got)
+	require.Equal(t, vcsverifiable.Jwt, got)
 
 	got, err = ValidateVCFormat(LdpVc)
 	require.NoError(t, err)
-	require.Equal(t, vc.Ldp, got)
+	require.Equal(t, vcsverifiable.Ldp, got)
 
 	_, err = ValidateVCFormat("invalid")
 	require.Error(t, err)
@@ -212,11 +212,11 @@ func TestValidateVCFormat(t *testing.T) {
 func TestValidateVPFormat(t *testing.T) {
 	got, err := ValidateVPFormat(JwtVp)
 	require.NoError(t, err)
-	require.Equal(t, vc.Jwt, got)
+	require.Equal(t, vcsverifiable.Jwt, got)
 
 	got, err = ValidateVPFormat(LdpVp)
 	require.NoError(t, err)
-	require.Equal(t, vc.Ldp, got)
+	require.Equal(t, vcsverifiable.Ldp, got)
 
 	_, err = ValidateVPFormat("invalid")
 	require.Error(t, err)

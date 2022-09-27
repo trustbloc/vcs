@@ -18,7 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/common"
@@ -38,8 +38,8 @@ type profileUpdateDocument struct {
 }
 
 type vcConfigDocument struct {
-	Format                  vc.Format                          `bson:"format"`
-	SigningAlgorithm        vc.SignatureType                   `bson:"signingAlgorithm"`
+	Format                  vcsverifiable.Format               `bson:"format"`
+	SigningAlgorithm        vcsverifiable.SignatureType        `bson:"signingAlgorithm"`
 	KeyType                 arieskms.KeyType                   `bson:"keyType,omitempty"`
 	DIDMethod               didcreator.Method                  `bson:"didMethod"`
 	SignatureRepresentation verifiable.SignatureRepresentation `bson:"signatureRepresentation"`

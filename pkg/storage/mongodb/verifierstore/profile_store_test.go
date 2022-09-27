@@ -26,7 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/verifierstore"
 	"github.com/trustbloc/vcs/pkg/verifier"
@@ -42,17 +42,17 @@ const (
 var checks = &verifier.VerificationChecks{
 	Credential: verifier.CredentialChecks{
 		Proof: true,
-		Format: []vc.Format{
-			vc.Jwt,
-			vc.Ldp,
+		Format: []vcsverifiable.Format{
+			vcsverifiable.Jwt,
+			vcsverifiable.Ldp,
 		},
 		Status: true,
 	},
 	Presentation: &verifier.PresentationChecks{
 		Proof: true,
-		Format: []vc.Format{
-			vc.Jwt,
-			vc.Ldp,
+		Format: []vcsverifiable.Format{
+			vcsverifiable.Jwt,
+			vcsverifiable.Ldp,
 		},
 	},
 }
@@ -155,17 +155,17 @@ func TestProfileStore_Success(t *testing.T) {
 		uchecks := &verifier.VerificationChecks{
 			Credential: verifier.CredentialChecks{
 				Proof: true,
-				Format: []vc.Format{
-					vc.Jwt,
-					vc.Ldp,
+				Format: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+					vcsverifiable.Ldp,
 				},
 				Status: true,
 			},
 			Presentation: &verifier.PresentationChecks{
 				Proof: true,
-				Format: []vc.Format{
-					vc.Jwt,
-					vc.Ldp,
+				Format: []vcsverifiable.Format{
+					vcsverifiable.Jwt,
+					vcsverifiable.Ldp,
 				},
 			},
 		}
@@ -187,8 +187,8 @@ func TestProfileStore_Success(t *testing.T) {
 		require.Equal(t, "test profile", profile.Name)
 		require.Equal(t, id, profile.ID)
 
-		uchecks.Credential.Format = []vc.Format{vc.Ldp}
-		uchecks.Presentation.Format = []vc.Format{vc.Ldp}
+		uchecks.Credential.Format = []vcsverifiable.Format{vcsverifiable.Ldp}
+		uchecks.Presentation.Format = []vcsverifiable.Format{vcsverifiable.Ldp}
 
 		err = store.Update(&verifier.ProfileUpdate{ID: id, Name: "updated profile", Checks: uchecks})
 		require.NoError(t, err)

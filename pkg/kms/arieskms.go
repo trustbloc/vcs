@@ -26,6 +26,7 @@ import (
 	awssvc "github.com/trustbloc/kms/pkg/aws"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms/key"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 )
@@ -161,7 +162,8 @@ func (km *KeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{},
 	return key.CryptoKeyCreator(keyType)(km.keyManager)
 }
 
-func (km *KeyManager) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+func (km *KeyManager) NewVCSigner(
+	creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
 	return signer.NewKMSSigner(km.keyManager, km.crypto, creator, signatureType)
 }
 

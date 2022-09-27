@@ -25,6 +25,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -277,7 +278,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 
-	credential, err := vc.ValidateCredential(body.Credential, []vc.Format{profile.VCConfig.Format},
+	credential, err := vc.ValidateCredential(body.Credential, []vcsverifiable.Format{profile.VCConfig.Format},
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
@@ -408,13 +409,14 @@ func (c *Controller) validateVCConfig(vcConfig *VCConfig,
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigFormat, err)
 	}
 
-	signingAlgorithm, err := vc.ValidateSignatureAlgorithm(vcFormat, vcConfig.SigningAlgorithm, supportedKeyTypes)
+	signingAlgorithm, err := vcsverifiable.ValidateSignatureAlgorithm(
+		vcFormat, vcConfig.SigningAlgorithm, supportedKeyTypes)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigSigningAlgorithm,
 			fmt.Errorf("issuer profile service: create profile failed %w", err))
 	}
 
-	keyType, err := vc.ValidateSignatureKeyType(signingAlgorithm, strPtrToStr(vcConfig.KeyType))
+	keyType, err := vcsverifiable.ValidateSignatureKeyType(signingAlgorithm, strPtrToStr(vcConfig.KeyType))
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, vcConfigKeyType,
 			fmt.Errorf("issuer profile service: create profile failed %w", err))

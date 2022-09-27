@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
@@ -554,7 +555,7 @@ type mockKMS struct {
 	crypto ariescrypto.Crypto
 }
 
-func (m *mockKMS) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
 	if m.crypto == nil {
 		m.crypto = &cryptomock.Crypto{}
 	}

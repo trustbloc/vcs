@@ -141,6 +141,38 @@ type VerifyCredentialResponse struct {
 	Checks *[]VerifyCredentialCheckResult `json:"checks,omitempty"`
 }
 
+// Verify presentation response containing failure check details.
+type VerifyPresentationCheckResult struct {
+	// Check title.
+	Check string `json:"check"`
+
+	// Error message.
+	Error string `json:"error"`
+}
+
+// Model for presentation verification.
+type VerifyPresentationData struct {
+	// Options for verify presentation.
+	Options *VerifyPresentationOptions `json:"options,omitempty"`
+
+	// Presentation in jws(string) or jsonld(object) formats.
+	Presentation interface{} `json:"presentation"`
+}
+
+// Options for verify presentation.
+type VerifyPresentationOptions struct {
+	// Challenge is added to the proof.
+	Challenge *string `json:"challenge,omitempty"`
+
+	// Domain is added to the proof.
+	Domain *string `json:"domain,omitempty"`
+}
+
+// Model for response of presentation verification.
+type VerifyPresentationResponse struct {
+	Checks *[]VerifyPresentationCheckResult `json:"checks,omitempty"`
+}
+
 // PostVerifierProfilesJSONBody defines parameters for PostVerifierProfiles.
 type PostVerifierProfilesJSONBody = CreateVerifierProfileData
 
@@ -150,6 +182,9 @@ type PutVerifierProfilesProfileIDJSONBody = UpdateVerifierProfileData
 // PostVerifyCredentialsJSONBody defines parameters for PostVerifyCredentials.
 type PostVerifyCredentialsJSONBody = VerifyCredentialData
 
+// PostVerifyPresentationJSONBody defines parameters for PostVerifyPresentation.
+type PostVerifyPresentationJSONBody = VerifyPresentationData
+
 // PostVerifierProfilesJSONRequestBody defines body for PostVerifierProfiles for application/json ContentType.
 type PostVerifierProfilesJSONRequestBody = PostVerifierProfilesJSONBody
 
@@ -158,6 +193,9 @@ type PutVerifierProfilesProfileIDJSONRequestBody = PutVerifierProfilesProfileIDJ
 
 // PostVerifyCredentialsJSONRequestBody defines body for PostVerifyCredentials for application/json ContentType.
 type PostVerifyCredentialsJSONRequestBody = PostVerifyCredentialsJSONBody
+
+// PostVerifyPresentationJSONRequestBody defines body for PostVerifyPresentation for application/json ContentType.
+type PostVerifyPresentationJSONRequestBody = PostVerifyPresentationJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -185,6 +223,9 @@ type ServerInterface interface {
 	// Deactivate Profile
 	// (POST /verifier/profiles/{profileID}/deactivate)
 	PostVerifierProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error
+	// Verify presentation
+	// (POST /verifier/profiles/{profileID}/presentations/verify)
+	PostVerifyPresentation(ctx echo.Context, profileID string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -306,6 +347,22 @@ func (w *ServerInterfaceWrapper) PostVerifierProfilesProfileIDDeactivate(ctx ech
 	return err
 }
 
+// PostVerifyPresentation converts echo context to params.
+func (w *ServerInterfaceWrapper) PostVerifyPresentation(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostVerifyPresentation(ctx, profileID)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -342,5 +399,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/verifier/profiles/:profileID/activate", wrapper.PostVerifierProfilesProfileIDActivate)
 	router.POST(baseURL+"/verifier/profiles/:profileID/credentials/verify", wrapper.PostVerifyCredentials)
 	router.POST(baseURL+"/verifier/profiles/:profileID/deactivate", wrapper.PostVerifierProfilesProfileIDDeactivate)
+	router.POST(baseURL+"/verifier/profiles/:profileID/presentations/verify", wrapper.PostVerifyPresentation)
 
 }

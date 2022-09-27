@@ -22,8 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/issuer"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
@@ -348,7 +348,7 @@ func TestController_mapToIssuerProfile(t *testing.T) {
 			DBPrefix:          "",
 		},
 		VCConfig: &issuer.VCConfig{
-			Format:           vc.Jwt,
+			Format:           vcsverifiable.Jwt,
 			SigningAlgorithm: "",
 			KeyType:          "",
 			DIDMethod:        "web",
@@ -428,7 +428,7 @@ func TestController_CreateProfile(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(
 			&issuer.Profile{VCConfig: &issuer.VCConfig{
-				Format:           vc.Jwt,
+				Format:           vcsverifiable.Jwt,
 				SigningAlgorithm: "",
 				KeyType:          "",
 				DIDMethod:        "web",
@@ -511,7 +511,7 @@ func TestController_UpdateProfile(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 		mockProfileSvc.EXPECT().GetProfile("testId").MinTimes(1).
 			Return(&issuer.Profile{VCConfig: &issuer.VCConfig{
-				Format:           vc.Jwt,
+				Format:           vcsverifiable.Jwt,
 				SigningAlgorithm: "",
 				KeyType:          "",
 				DIDMethod:        "web",
@@ -652,7 +652,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.Ldp,
+					Format: vcsverifiable.Ldp,
 				},
 			}, nil)
 
@@ -674,7 +674,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.Jwt,
+					Format: vcsverifiable.Jwt,
 				},
 			}, nil)
 
@@ -711,7 +711,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.Ldp,
+					Format: vcsverifiable.Ldp,
 				},
 			}, nil)
 
@@ -739,7 +739,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &issuer.VCConfig{
-					Format: vc.Jwt,
+					Format: vcsverifiable.Jwt,
 				},
 			}, nil)
 
@@ -808,7 +808,7 @@ func TestController_IssueCredentials(t *testing.T) {
 							OrganizationID: orgID,
 							ID:             "testId",
 							VCConfig: &issuer.VCConfig{
-								Format: vc.Ldp,
+								Format: vcsverifiable.Ldp,
 							},
 						}, nil)
 
@@ -830,7 +830,7 @@ func TestController_IssueCredentials(t *testing.T) {
 							OrganizationID: orgID,
 							ID:             "testId",
 							VCConfig: &issuer.VCConfig{
-								Format: vc.Ldp,
+								Format: vcsverifiable.Ldp,
 							},
 						}, nil)
 					return mockProfileSvc
@@ -850,7 +850,7 @@ func TestController_IssueCredentials(t *testing.T) {
 							OrganizationID: orgID,
 							ID:             "testId",
 							VCConfig: &issuer.VCConfig{
-								Format: vc.Ldp,
+								Format: vcsverifiable.Ldp,
 							},
 						}, nil)
 					return mockProfileSvc

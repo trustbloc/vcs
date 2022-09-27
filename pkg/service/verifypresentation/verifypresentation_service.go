@@ -60,8 +60,8 @@ func New(config *Config) *Service {
 
 func (s *Service) VerifyPresentation(
 	presentation *verifiable.Presentation,
-	profile *verifier.Profile,
-	opts *Options) ([]PresentationVerificationCheckResult, error) {
+	opts *Options,
+	profile *verifier.Profile) ([]PresentationVerificationCheckResult, error) {
 	vpBytes, err := json.Marshal(presentation)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
@@ -69,9 +69,7 @@ func (s *Service) VerifyPresentation(
 
 	var result []PresentationVerificationCheckResult
 
-	checks := profile.Checks.Presentation
-
-	if checks.Proof {
+	if profile.Checks.Presentation.Proof {
 		err = s.validatePresentationProof(vpBytes, opts)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
@@ -81,11 +79,37 @@ func (s *Service) VerifyPresentation(
 		}
 	}
 
+	if profile.Checks.Credential.Proof {
+		err = s.validateCredentialsProof(presentation)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "credentialProof",
+				Error: err.Error(),
+			})
+		}
+	}
+
+	if profile.Checks.Credential.Status {
+		err = s.validateCredentialsStatus(presentation)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "credentialStatus",
+				Error: err.Error(),
+			})
+		}
+	}
+
 	return result, nil
 }
 
-func (s *Service) validatePresentationProof(vpBytes []byte, opts *Options) error { // nolint: gocyclo
-	vp, err := s.parseAndVerifyPresentation(vpBytes, true, false)
+func (s *Service) validatePresentationProof(vpBytes []byte, opts *Options) error {
+	vp, err := verifiable.ParsePresentation(
+		vpBytes,
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
+	)
 	if err != nil {
 		return fmt.Errorf("verifiable presentation proof validation error : %w", err)
 	}
@@ -93,7 +117,7 @@ func (s *Service) validatePresentationProof(vpBytes []byte, opts *Options) error
 	return s.validateProofData(vp, opts)
 }
 
-func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) error { // nolint: gocyclo
+func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) error {
 	if opts == nil {
 		opts = &Options{}
 	}
@@ -140,49 +164,41 @@ func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) 
 	return nil
 }
 
-//nolint:funlen,gocyclo,gocognit
-func (s *Service) parseAndVerifyPresentation(vpBytes []byte, validateCredentialProof,
-	validateCredentialStatus bool) (*verifiable.Presentation, error) {
-	vp, err := verifiable.ParsePresentation(
-		vpBytes,
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-		),
-		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// verify if the credentials in vp are valid
+func (s *Service) validateCredentialsProof(vp *verifiable.Presentation) error {
 	for _, cred := range vp.Credentials() {
 		vcBytes, err := json.Marshal(cred)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		if validateCredentialProof {
-			// verify if the credential in vp is valid
-			err = s.vcVerifier.ValidateCredentialProof(vcBytes, "", "", true)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if validateCredentialStatus {
-			vc, err := verifiable.ParseCredential(vcBytes,
-				verifiable.WithDisabledProofCheck(),
-				verifiable.WithJSONLDDocumentLoader(s.documentLoader))
-			if err != nil {
-				return nil, err
-			}
-
-			err = s.vcVerifier.ValidateVCStatus(vc.Status, vc.Issuer.ID)
-			if err != nil {
-				return nil, err
-			}
+		err = s.vcVerifier.ValidateCredentialProof(vcBytes, "", "", true)
+		if err != nil {
+			return err
 		}
 	}
 
-	return vp, nil
+	return nil
+}
+
+func (s *Service) validateCredentialsStatus(vp *verifiable.Presentation) error {
+	for _, cred := range vp.Credentials() {
+		vcBytes, err := json.Marshal(cred)
+		if err != nil {
+			return err
+		}
+
+		vc, err := verifiable.ParseCredential(vcBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+		if err != nil {
+			return err
+		}
+
+		err = s.vcVerifier.ValidateVCStatus(vc.Status, vc.Issuer.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

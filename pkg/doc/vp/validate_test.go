@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vc
+package vp_test
 
 import (
 	_ "embed"
@@ -16,44 +16,46 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/doc/vp"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 )
 
-//go:embed testdata/sample_vc.jsonld
-var sampleVCJsonLD string //nolint:gochecknoglobals
+//go:embed testdata/sample_vp.jsonld
+var sampleVPJsonLD string //nolint:gochecknoglobals
 
-//go:embed testdata/sample_vc.jwt
-var sampleVCJWT string //nolint:gochecknoglobals
+//go:embed testdata/sample_vp.jwt
+var sampleVPJWT string //nolint:gochecknoglobals
 
-func TestValidateCredential(t *testing.T) {
+func TestValidatePresentation(t *testing.T) {
 	type args struct {
 		cred   func(t *testing.T) interface{}
 		format vcsverifiable.Format
-		opts   []verifiable.CredentialOpt
+		opts   []verifiable.PresentationOpt
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    func(t *testing.T) *verifiable.Credential
+		want    func(t *testing.T) *verifiable.Presentation
 		wantErr bool
 	}{
 		{
 			name: "OK JWT",
 			args: args{
 				cred: func(t *testing.T) interface{} {
-					return sampleVCJWT
+					return sampleVPJWT
 				},
 				format: vcsverifiable.Jwt,
-				opts: []verifiable.CredentialOpt{
-					verifiable.WithDisabledProofCheck(),
-					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				opts: []verifiable.PresentationOpt{
+					verifiable.WithPresDisabledProofCheck(),
+					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 				},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
-				cred, err := verifiable.ParseCredential([]byte(sampleVCJWT), verifiable.WithDisabledProofCheck(),
-					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
+			want: func(t *testing.T) *verifiable.Presentation {
+				presentation, err := verifiable.ParsePresentation([]byte(sampleVPJWT),
+					verifiable.WithPresDisabledProofCheck(),
+					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 				require.NoError(t, err)
-				return cred
+				return presentation
 			},
 			wantErr: false,
 		},
@@ -62,21 +64,22 @@ func TestValidateCredential(t *testing.T) {
 			args: args{
 				cred: func(t *testing.T) interface{} {
 					mapped := map[string]interface{}{}
-					err := json.Unmarshal([]byte(sampleVCJsonLD), &mapped)
+					err := json.Unmarshal([]byte(sampleVPJsonLD), &mapped)
 					require.NoError(t, err)
 					return mapped
 				},
 				format: vcsverifiable.Ldp,
-				opts: []verifiable.CredentialOpt{
-					verifiable.WithDisabledProofCheck(),
-					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				opts: []verifiable.PresentationOpt{
+					verifiable.WithPresDisabledProofCheck(),
+					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 				},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
-				cred, err := verifiable.ParseCredential([]byte(sampleVCJsonLD), verifiable.WithDisabledProofCheck(),
-					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
+			want: func(t *testing.T) *verifiable.Presentation {
+				presentation, err := verifiable.ParsePresentation([]byte(sampleVPJsonLD),
+					verifiable.WithPresDisabledProofCheck(),
+					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 				require.NoError(t, err)
-				return cred
+				return presentation
 			},
 			wantErr: false,
 		},
@@ -84,12 +87,12 @@ func TestValidateCredential(t *testing.T) {
 			name: "Error invalid format JWT",
 			args: args{
 				cred: func(t *testing.T) interface{} {
-					return []byte(sampleVCJWT)
+					return []byte(sampleVPJWT)
 				},
 				format: vcsverifiable.Jwt,
-				opts:   []verifiable.CredentialOpt{},
+				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(t *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -98,12 +101,12 @@ func TestValidateCredential(t *testing.T) {
 			name: "Error invalid format JSON-LD",
 			args: args{
 				cred: func(t *testing.T) interface{} {
-					return sampleVCJsonLD
+					return sampleVPJsonLD
 				},
 				format: vcsverifiable.Ldp,
-				opts:   []verifiable.CredentialOpt{},
+				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(t *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -115,9 +118,9 @@ func TestValidateCredential(t *testing.T) {
 					return ""
 				},
 				format: vcsverifiable.Jwt,
-				opts:   []verifiable.CredentialOpt{},
+				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(t *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -129,9 +132,9 @@ func TestValidateCredential(t *testing.T) {
 					return map[string]interface{}{}
 				},
 				format: vcsverifiable.Ldp,
-				opts:   []verifiable.CredentialOpt{},
+				opts:   []verifiable.PresentationOpt{},
 			},
-			want: func(t *testing.T) *verifiable.Credential {
+			want: func(t *testing.T) *verifiable.Presentation {
 				return nil
 			},
 			wantErr: true,
@@ -139,9 +142,9 @@ func TestValidateCredential(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ValidateCredential(tt.args.cred(t), []vcsverifiable.Format{tt.args.format}, tt.args.opts...)
+			got, err := vp.ValidatePresentation(tt.args.cred(t), []vcsverifiable.Format{tt.args.format}, tt.args.opts...)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateCredential() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ValidatePresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			wantVC := tt.want(t)

@@ -17,7 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/common"
 	"github.com/trustbloc/vcs/pkg/verifier"
@@ -46,20 +46,20 @@ type profileDocument struct {
 }
 
 type oidc4vpConfigDoc struct {
-	SigningAlgorithm vc.SignatureType  `bson:"signingAlgorithm"`
-	DIDMethod        didcreator.Method `bson:"didMethod"`
-	KeyType          kms.KeyType       `bson:"keyType"`
+	SigningAlgorithm vcsverifiable.SignatureType `bson:"signingAlgorithm"`
+	DIDMethod        didcreator.Method           `bson:"didMethod"`
+	KeyType          kms.KeyType                 `bson:"keyType"`
 }
 
 type credentialChecks struct {
-	Proof  bool        `bson:"proof"`
-	Format []vc.Format `bson:"format"`
-	Status bool        `bson:"status,omitempty"`
+	Proof  bool                   `bson:"proof"`
+	Format []vcsverifiable.Format `bson:"format"`
+	Status bool                   `bson:"status,omitempty"`
 }
 
 type presentationChecks struct {
-	Proof  bool        `bson:"proof"`
-	Format []vc.Format `bson:"format"`
+	Proof  bool                   `bson:"proof"`
+	Format []vcsverifiable.Format `bson:"format"`
 }
 
 type verificationChecks struct {

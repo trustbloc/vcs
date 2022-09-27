@@ -17,8 +17,8 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
-	vcformats "github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
@@ -33,9 +33,9 @@ var (
 	verificationChecks = &verifier.VerificationChecks{
 		Credential: verifier.CredentialChecks{
 			Proof: true,
-			Format: []vcformats.Format{
-				vcformats.Jwt,
-				vcformats.Ldp,
+			Format: []vcs.Format{
+				vcs.Jwt,
+				vcs.Ldp,
 			},
 			Status: true,
 		},

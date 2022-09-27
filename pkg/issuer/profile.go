@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 )
 
@@ -48,8 +48,8 @@ type ProfileUpdate struct {
 
 // VCConfig describes how to sign verifiable credentials.
 type VCConfig struct {
-	Format                  vc.Format
-	SigningAlgorithm        vc.SignatureType
+	Format                  vcsverifiable.Format
+	SigningAlgorithm        vcsverifiable.SignatureType
 	KeyType                 kms.KeyType
 	DIDMethod               didcreator.Method
 	SignatureRepresentation verifiable.SignatureRepresentation
@@ -69,7 +69,7 @@ type profileStore interface {
 }
 
 type didCreator interface {
-	PublicDID(method didcreator.Method, verificationMethodType vc.SignatureType, keyType kms.KeyType,
+	PublicDID(method didcreator.Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 		kc didcreator.KeysCreator) (*didcreator.CreateResult, error)
 }
 
