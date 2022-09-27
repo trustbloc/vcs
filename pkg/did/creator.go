@@ -127,7 +127,7 @@ func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms
 	types := [2]string{"update", "recovery"}
 
 	for i := 0; i < 2; i++ {
-		keyURLs[i], keys[i], err = km.CreateCryptoKey(kms.ED25519Type)
+		keyURLs[i], keys[i], err = km.CreateCryptoKey(keyType)
 		if err != nil {
 			return nil, fmt.Errorf("did:orb: failed to create %s key: %w", types[i], err)
 		}

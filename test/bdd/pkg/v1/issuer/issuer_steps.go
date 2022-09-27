@@ -83,8 +83,8 @@ func (e *Steps) createIssuerProfile(user, organizationName string) error { //nol
 			Contexts:         nil,
 			DidMethod:        "orb",
 			Format:           "ldp_vc",
-			KeyType:          "ED25519",
-			SigningAlgorithm: "Ed25519Signature2018",
+			KeyType:          "ECDSAP256DER",
+			SigningAlgorithm: "JsonWebSignature2020",
 			Status:           nil,
 		},
 	}

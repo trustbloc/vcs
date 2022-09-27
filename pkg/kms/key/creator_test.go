@@ -56,6 +56,11 @@ func TestJWKKeyCreator(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to convert key to JWK")
 	})
+	t.Run("error parse p256k1", func(t *testing.T) {
+		_, _, err := key.JWKKeyCreator(kms.ECDSASecp256k1IEEEP1363)(&kmsMock{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "asn1: syntax error")
+	})
 }
 
 func TestCryptoKeyCreator(t *testing.T) {
@@ -102,6 +107,11 @@ func TestCryptoKeyCreator(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported key type")
 	})
+	t.Run("error parse p256k1", func(t *testing.T) {
+		_, _, err := key.CryptoKeyCreator(kms.ECDSASecp256k1IEEEP1363)(&kmsMock{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "asn1: syntax error")
+	})
 }
 
 func newKMS(t *testing.T) kms.KeyManager {
@@ -114,4 +124,11 @@ func newKMS(t *testing.T) kms.KeyManager {
 	require.NoError(t, err)
 
 	return ctx.KMS()
+}
+
+type kmsMock struct {
+}
+
+func (m *kmsMock) CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error) {
+	return "k1", []byte{}, nil
 }

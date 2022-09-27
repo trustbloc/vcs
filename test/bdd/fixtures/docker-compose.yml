@@ -16,11 +16,11 @@ services:
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=vc_rest_echo_
-      - VC_REST_DEFAULT_KMS_TYPE=local
-      - VC_REST_DEFAULT_KMS_SECRETS_DATABASE_TYPE=mongodb
-      - VC_REST_DEFAULT_KMS_SECRETS_DATABASE_URL=mongodb://mongodb.example.com:27017
-      - VC_REST_DEFAULT_KMS_SECRETS_DATABASE_PREFIX=vc_rest_echo_
-      - VC_REST_DEFAULT_KMS_SECRET_LOCK_KEY_PATH=/etc/tls/secret-lock.key
+      - VC_REST_DEFAULT_KMS_TYPE=aws
+      - VC_REST_DEFAULT_KMS_ENDPOINT=http://aws-kms:8020
+      - VC_REST_DEFAULT_KMS_REGION=ca-central-1
+      - AWS_ACCESS_KEY_ID=mock
+      - AWS_SECRET_ACCESS_KEY=mock
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
@@ -33,6 +33,20 @@ services:
     command:  /bin/sh -c "sleep 5;vc-rest start"
     volumes:
       - ./keys/tls:/etc/tls
+    networks:
+      - bdd_net
+
+
+  aws-kms:
+    container_name: aws-kms
+    image: nsmithuk/local-kms:latest
+    environment:
+      - PORT=8020
+      - KMS_REGION=ca-central-1
+      - KMS_ACCOUNT_ID=111122223333
+    ports:
+      - 8020:8020
+    entrypoint: "local-kms"
     networks:
       - bdd_net
 

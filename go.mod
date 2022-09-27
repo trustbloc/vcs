@@ -8,6 +8,7 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go v1.42.33
+	github.com/btcsuite/btcd v0.22.1
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
@@ -30,7 +31,7 @@ require (
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.7.5
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
-	github.com/trustbloc/kms v0.1.9-0.20220925115838-25df4d481426
+	github.com/trustbloc/kms v0.1.9-0.20220927102932-412f152996fa
 	go.mongodb.org/mongo-driver v1.10.0
 )
 
@@ -43,7 +44,6 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
-	github.com/btcsuite/btcd v0.22.1 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
