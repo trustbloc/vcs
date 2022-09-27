@@ -17,7 +17,6 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/verifier"
@@ -96,6 +95,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateVCStatus(
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
 			},
@@ -107,6 +109,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 					Checks: &verifier.VerificationChecks{
 						Presentation: &verifier.PresentationChecks{
 							Proof:  true,
+							Format: nil,
+						},
+						Credential: verifier.CredentialChecks{
+							Proof:  true,
+							Status: true,
 							Format: nil,
 						},
 					},
@@ -139,6 +146,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Proof:  false,
 							Format: nil,
 						},
+						Credential: verifier.CredentialChecks{
+							Proof:  false,
+							Status: false,
+							Format: nil,
+						},
 					},
 				},
 				opts: nil,
@@ -164,6 +176,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 					Checks: &verifier.VerificationChecks{
 						Presentation: &verifier.PresentationChecks{
 							Proof:  true,
+							Format: nil,
+						},
+						Credential: verifier.CredentialChecks{
+							Proof:  false,
+							Status: false,
 							Format: nil,
 						},
 					},
@@ -202,6 +219,11 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Proof:  true,
 							Format: nil,
 						},
+						Credential: verifier.CredentialChecks{
+							Proof:  false,
+							Format: nil,
+							Status: false,
+						},
 					},
 				},
 				opts: nil,
@@ -215,6 +237,59 @@ func TestService_VerifyPresentation(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Error credentials",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return vdr
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(errors.New("some error"))
+					mockVerifier.EXPECT().ValidateVCStatus(
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(errors.New("some error"))
+					return mockVerifier
+				},
+			},
+			args: args{
+				getPresentation: func() *verifiable.Presentation {
+					return signedVP
+				},
+				profile: &verifier.Profile{
+					Checks: &verifier.VerificationChecks{
+						Presentation: &verifier.PresentationChecks{
+							Proof:  false,
+							Format: nil,
+						},
+						Credential: verifier.CredentialChecks{
+							Proof:  true,
+							Status: true,
+							Format: nil,
+						},
+					},
+				},
+				opts: &Options{
+					Domain:    crypto.Domain,
+					Challenge: crypto.Challenge,
+				},
+			},
+			want: []PresentationVerificationCheckResult{
+				{
+					Check: "credentialProof",
+					Error: "some error",
+				},
+				{
+					Check: "credentialStatus",
+					Error: "some error",
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -223,7 +298,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			got, err := s.VerifyPresentation(tt.args.getPresentation(), tt.args.profile, tt.args.opts)
+			got, err := s.VerifyPresentation(tt.args.getPresentation(), tt.args.opts, tt.args.profile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -235,25 +310,22 @@ func TestService_VerifyPresentation(t *testing.T) {
 	}
 }
 
-func TestService_parseAndVerifyPresentation(t *testing.T) {
+func TestService_validatePresentationProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
 		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
 
 	type fields struct {
-		getVDR        func() vdrapi.Registry
-		getVcVerifier func() vcVerifier
+		getVDR func() vdrapi.Registry
 	}
 	type args struct {
-		getVpBytes               func() []byte
-		validateCredentialProof  bool
-		validateCredentialStatus bool
+		getVpBytes func() []byte
+		getOpts    func() *Options
 	}
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    *verifiable.Presentation
 		wantErr bool
 	}{
 		{
@@ -262,28 +334,19 @@ func TestService_parseAndVerifyPresentation(t *testing.T) {
 				getVDR: func() vdrapi.Registry {
 					return vdr
 				},
-				getVcVerifier: func() vcVerifier {
-					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
-					mockVerifier.EXPECT().ValidateCredentialProof(
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any()).Times(1).Return(nil)
-					mockVerifier.EXPECT().ValidateVCStatus(
-						gomock.Any(),
-						gomock.Any()).Times(1).Return(nil)
-					return mockVerifier
-				},
 			},
 			args: args{
 				getVpBytes: func() []byte {
 					b, _ := signedVP.MarshalJSON()
 					return b
 				},
-				validateCredentialProof:  true,
-				validateCredentialStatus: true,
+				getOpts: func() *Options {
+					return &Options{
+						Domain:    crypto.Domain,
+						Challenge: crypto.Challenge,
+					}
+				},
 			},
-			want:    signedVP,
 			wantErr: false,
 		},
 		{
@@ -292,17 +355,16 @@ func TestService_parseAndVerifyPresentation(t *testing.T) {
 				getVDR: func() vdrapi.Registry {
 					return &mockvdr.MockVDRegistry{}
 				},
-				getVcVerifier: func() vcVerifier {
-					return nil
-				},
 			},
 			args: args{
 				getVpBytes: func() []byte {
 					b, _ := signedVP.MarshalJSON()
 					return b
 				},
+				getOpts: func() *Options {
+					return &Options{}
+				},
 			},
-			want:    nil,
 			wantErr: true,
 		},
 		{
@@ -311,67 +373,16 @@ func TestService_parseAndVerifyPresentation(t *testing.T) {
 				getVDR: func() vdrapi.Registry {
 					return vdr
 				},
-				getVcVerifier: func() vcVerifier {
-					return nil
-				},
 			},
 			args: args{
 				getVpBytes: func() []byte {
 					b, _ := (&verifiable.Presentation{}).MarshalJSON()
 					return b
 				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "Error ValidateCredentialProof",
-			fields: fields{
-				getVDR: func() vdrapi.Registry {
-					return vdr
-				},
-				getVcVerifier: func() vcVerifier {
-					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
-					mockVerifier.EXPECT().ValidateCredentialProof(
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any(),
-						gomock.Any()).Times(1).Return(errors.New("some error"))
-					return mockVerifier
+				getOpts: func() *Options {
+					return &Options{}
 				},
 			},
-			args: args{
-				getVpBytes: func() []byte {
-					b, _ := signedVP.MarshalJSON()
-					return b
-				},
-				validateCredentialProof: true,
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "Error ValidateVCStatus",
-			fields: fields{
-				getVDR: func() vdrapi.Registry {
-					return vdr
-				},
-				getVcVerifier: func() vcVerifier {
-					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
-					mockVerifier.EXPECT().ValidateVCStatus(
-						gomock.Any(),
-						gomock.Any()).Times(1).Return(errors.New("some error"))
-					return mockVerifier
-				},
-			},
-			args: args{
-				getVpBytes: func() []byte {
-					b, _ := signedVP.MarshalJSON()
-					return b
-				},
-				validateCredentialStatus: true,
-			},
-			want:    nil,
 			wantErr: true,
 		},
 	}
@@ -380,19 +391,14 @@ func TestService_parseAndVerifyPresentation(t *testing.T) {
 			s := &Service{
 				vdr:            tt.fields.getVDR(),
 				documentLoader: loader,
-				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			got, err := s.parseAndVerifyPresentation(
+			err := s.validatePresentationProof(
 				tt.args.getVpBytes(),
-				tt.args.validateCredentialProof,
-				tt.args.validateCredentialStatus,
+				tt.args.getOpts(),
 			)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseAndVerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseAndVerifyPresentation() got = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -462,8 +468,7 @@ func TestService_validateProofData(t *testing.T) {
 				getVP: func() *verifiable.Presentation {
 					vp := &verifiable.Presentation{}
 					*vp = *signedVP
-					vp.Proofs = make([]verifiable.Proof, 1)
-					vp.Proofs[0] = map[string]interface{}{}
+					vp.Proofs = make([]verifiable.Proof, 0)
 					return vp
 				},
 				opts: &Options{},
@@ -614,6 +619,160 @@ func TestService_validateProofData(t *testing.T) {
 			s := &Service{vdr: tt.fields.vdr}
 			if err := s.validateProofData(tt.args.getVP(), tt.args.opts); (err != nil) != tt.wantErr {
 				t.Errorf("validateProofData() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestService_validateCredentialsProof(t *testing.T) {
+	loader := testutil.DocumentLoader(t)
+	signedVP, vdr := testutil.SignedVP(
+		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+
+	type fields struct {
+		getVDR        func() vdrapi.Registry
+		getVcVerifier func() vcVerifier
+	}
+	type args struct {
+		getVp func() *verifiable.Presentation
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "OK",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return vdr
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					return mockVerifier
+				},
+			},
+			args: args{
+				getVp: func() *verifiable.Presentation {
+					return signedVP
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Error ValidateCredentialProof",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return vdr
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(errors.New("some error"))
+					return mockVerifier
+				},
+			},
+			args: args{
+				getVp: func() *verifiable.Presentation {
+					return signedVP
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				vdr:            tt.fields.getVDR(),
+				documentLoader: loader,
+				vcVerifier:     tt.fields.getVcVerifier(),
+			}
+			if err := s.validateCredentialsProof(tt.args.getVp()); (err != nil) != tt.wantErr {
+				t.Errorf("validateCredentialsProof() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestService_validateCredentialsStatus(t *testing.T) {
+	loader := testutil.DocumentLoader(t)
+	signedVP, vdr := testutil.SignedVP(
+		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+
+	type fields struct {
+		getVDR        func() vdrapi.Registry
+		getVcVerifier func() vcVerifier
+	}
+	type args struct {
+		getVp func() *verifiable.Presentation
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "OK",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return vdr
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateVCStatus(
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					return mockVerifier
+				},
+			},
+			args: args{
+				getVp: func() *verifiable.Presentation {
+					return signedVP
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Error ValidateVCStatus",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return vdr
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateVCStatus(
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(errors.New("some error"))
+					return mockVerifier
+				},
+			},
+			args: args{
+				getVp: func() *verifiable.Presentation {
+					return signedVP
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Service{
+				vdr:            tt.fields.getVDR(),
+				documentLoader: loader,
+				vcVerifier:     tt.fields.getVcVerifier(),
+			}
+			if err := s.validateCredentialsStatus(tt.args.getVp()); (err != nil) != tt.wantErr {
+				t.Errorf("validateCredentialsStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

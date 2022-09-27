@@ -8,10 +8,11 @@ package vc
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 type keyManager interface {
-	NewVCSigner(creator string, signatureType SignatureType) (SignerAlgorithm, error)
+	NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (SignerAlgorithm, error)
 }
 
 type SignerAlgorithm interface {
@@ -23,7 +24,7 @@ type SignerAlgorithm interface {
 type Signer struct {
 	DID                     string
 	Creator                 string
-	SignatureType           SignatureType
+	SignatureType           vcsverifiable.SignatureType
 	SignatureRepresentation verifiable.SignatureRepresentation
 	KMS                     keyManager
 }

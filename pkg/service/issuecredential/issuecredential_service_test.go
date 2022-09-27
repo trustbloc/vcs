@@ -33,6 +33,7 @@ import (
 	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/issuer"
 )
@@ -116,7 +117,7 @@ func TestService_IssueCredential(t *testing.T) {
 							nil,
 							&issuer.Profile{
 								VCConfig: &issuer.VCConfig{
-									SigningAlgorithm:        vc.JSONWebSignature2020,
+									SigningAlgorithm:        vcs.JSONWebSignature2020,
 									SignatureRepresentation: sigRepresentationTextCase.sr,
 								},
 								SigningDID: &didcreator.SigningDID{
@@ -285,7 +286,7 @@ type mockVCSKeyManager struct {
 	kms    *localkms.LocalKMS
 }
 
-func (m *mockVCSKeyManager) NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error) {
+func (m *mockVCSKeyManager) NewVCSigner(creator string, signatureType vcs.SignatureType) (vc.SignerAlgorithm, error) {
 	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType)
 }
 

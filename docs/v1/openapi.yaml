@@ -342,6 +342,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyCredentialResponse'
+  '/verifier/profiles/{profileID}/presentations/verify':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Verify presentation
+      operationId: post-verify-presentation
+      tags:
+        - verifier
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPresentationData'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyPresentationResponse'
 components:
   schemas:
     HealthCheckResponse:
@@ -649,8 +674,6 @@ components:
       required:
         - roSigningAlgorithm
         - didMethod
-
-
     VerifyCredentialData:
       title: VerifyCredentialData
       x-tags:
@@ -711,6 +734,62 @@ components:
         - check
         - error
         - verificationMethod
+    VerifyPresentationData:
+      title: VerifyPresentationData
+      x-tags:
+        - verifier
+      type: object
+      description: Model for presentation verification.
+      properties:
+        options:
+          $ref: '#/components/schemas/VerifyPresentationOptions'
+        presentation:
+          oneOf:
+            - type: string
+            - type: object
+          description: Presentation in jws(string) or jsonld(object) formats.
+      required:
+        - presentation
+    VerifyPresentationOptions:
+      title: VerifyPresentationOptions
+      x-tags:
+        - verifier
+      type: object
+      description: Options for verify presentation.
+      properties:
+        challenge:
+          type: string
+          description: Challenge is added to the proof.
+        domain:
+          type: string
+          description: Domain is added to the proof.
+    VerifyPresentationResponse:
+      title: VerifyPresentationResponse
+      x-tags:
+        - verifier
+      type: object
+      description: Model for response of presentation verification.
+      properties:
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/VerifyPresentationCheckResult'
+    VerifyPresentationCheckResult:
+      title: VerifyPresentationCheckResult
+      x-tags:
+        - verifier
+      type: object
+      description: Verify presentation response containing failure check details.
+      properties:
+        check:
+          type: string
+          description: Check title.
+        error:
+          type: string
+          description: Error message.
+      required:
+        - check
+        - error
     IssueCredentialData:
       title: IssueCredentialData
       x-tags:

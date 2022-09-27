@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 type Type string
@@ -42,5 +43,5 @@ type VCSKeyManager interface {
 	SupportedKeyTypes() []kms.KeyType
 	CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error)
 	CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error)
-	NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error)
+	NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error)
 }

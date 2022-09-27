@@ -15,8 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockcrypto "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 func TestKMSSigner_Alg(t *testing.T) {
@@ -207,7 +206,7 @@ func TestNewKMSSigner(t *testing.T) {
 		keyManager    kms.KeyManager
 		c             crypto
 		creator       string
-		signatureType vc.SignatureType
+		signatureType vcsverifiable.SignatureType
 	}
 	tests := []struct {
 		name    string
@@ -224,7 +223,7 @@ func TestNewKMSSigner(t *testing.T) {
 				},
 				c:             &mockcrypto.Crypto{},
 				creator:       "example#key1",
-				signatureType: vc.Ed25519Signature2018,
+				signatureType: vcsverifiable.Ed25519Signature2018,
 			},
 			want: &KMSSigner{
 				keyHandle: &keyset.Handle{},
@@ -242,7 +241,7 @@ func TestNewKMSSigner(t *testing.T) {
 				},
 				c:             &mockcrypto.Crypto{},
 				creator:       "example#key1",
-				signatureType: vc.BbsBlsSignature2020,
+				signatureType: vcsverifiable.BbsBlsSignature2020,
 			},
 			want: &KMSSigner{
 				keyHandle: &keyset.Handle{},
@@ -260,7 +259,7 @@ func TestNewKMSSigner(t *testing.T) {
 				},
 				c:             &mockcrypto.Crypto{},
 				creator:       "key1",
-				signatureType: vc.BbsBlsSignature2020,
+				signatureType: vcsverifiable.BbsBlsSignature2020,
 			},
 			want:    nil,
 			wantErr: true,
@@ -274,7 +273,7 @@ func TestNewKMSSigner(t *testing.T) {
 				},
 				c:             &mockcrypto.Crypto{},
 				creator:       "example#key1",
-				signatureType: vc.BbsBlsSignature2020,
+				signatureType: vcsverifiable.BbsBlsSignature2020,
 			},
 			want:    nil,
 			wantErr: true,

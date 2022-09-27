@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
@@ -38,7 +38,7 @@ func TestProfileService_Create(t *testing.T) {
 
 		store.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
 		store.EXPECT().Find("id").Times(1).Return(&verifier.Profile{ID: "id"}, nil)
-		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
+		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vcsverifiable.Ed25519Signature2018, arieskms.ED25519Type,
 			gomock.Any()).Times(1).
 			Return(&didcreator.CreateResult{
 				DocResolution: &did.DocResolution{
@@ -56,7 +56,7 @@ func TestProfileService_Create(t *testing.T) {
 
 		profile, err := service.Create(&verifier.Profile{
 			OIDCConfig: &verifier.OIDC4VPConfig{
-				ROSigningAlgorithm: vc.Ed25519Signature2018,
+				ROSigningAlgorithm: vcsverifiable.Ed25519Signature2018,
 				DIDMethod:          didcreator.OrbDIDMethod,
 				KeyType:            arieskms.ED25519Type,
 			},

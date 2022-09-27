@@ -22,6 +22,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 )
 
@@ -124,7 +125,7 @@ func (c *CredentialStatusManager) CreateStatusID(profile *vc.Signer,
 }
 
 // UpdateVC updates vc.
-//nolint: gocyclo, funlen
+// nolint: gocyclo, funlen
 func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
 	profile *vc.Signer, status bool) error {
 	// validate vc status
@@ -381,7 +382,7 @@ func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccryp
 	}
 
 	if signTypeName != "" {
-		signType, err := vc.GetSignatureTypeByName(signTypeName)
+		signType, err := vcsverifiable.GetSignatureTypeByName(signTypeName)
 		if err != nil {
 			return nil, err
 		}

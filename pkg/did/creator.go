@@ -16,8 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 type Method string
@@ -29,12 +29,12 @@ const (
 )
 
 // nolint: gochecknoglobals
-var signatureKeyTypeMap = map[vc.SignatureType]string{
-	vc.Ed25519Signature2020:        crypto.Ed25519VerificationKey2020,
-	vc.Ed25519Signature2018:        crypto.Ed25519VerificationKey2018,
-	vc.JSONWebSignature2020:        crypto.JSONWebKey2020,
-	vc.EcdsaSecp256k1Signature2019: crypto.EcdsaSecp256k1VerificationKey2019,
-	vc.BbsBlsSignature2020:         crypto.Bls12381G1Key2020,
+var signatureKeyTypeMap = map[vcsverifiable.SignatureType]string{
+	vcsverifiable.Ed25519Signature2020:        crypto.Ed25519VerificationKey2020,
+	vcsverifiable.Ed25519Signature2018:        crypto.Ed25519VerificationKey2018,
+	vcsverifiable.JSONWebSignature2020:        crypto.JSONWebKey2020,
+	vcsverifiable.EcdsaSecp256k1Signature2019: crypto.EcdsaSecp256k1VerificationKey2019,
+	vcsverifiable.BbsBlsSignature2020:         crypto.Bls12381G1Key2020,
 }
 
 // CreateResult contains created did, update and recovery keys.
@@ -70,9 +70,9 @@ func NewCreator(config *CreatorConfig) *Creator {
 }
 
 // PublicDID creates a new public DID given a key manager.
-func (c *Creator) PublicDID(method Method, verificationMethodType vc.SignatureType, keyType kms.KeyType,
+func (c *Creator) PublicDID(method Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 	km KeysCreator) (*CreateResult, error) {
-	methods := map[Method]func(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+	methods := map[Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 		km KeysCreator) (*CreateResult, error){
 		KeyDIDMethod: c.keyDID,
 		OrbDIDMethod: c.createDID,
@@ -87,7 +87,7 @@ func (c *Creator) PublicDID(method Method, verificationMethodType vc.SignatureTy
 	return methodFn(verificationMethodType, keyType, km)
 }
 
-func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 	km KeysCreator) (*CreateResult, error) {
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
@@ -156,7 +156,7 @@ func (c *Creator) createDID(verificationMethodType vc.SignatureType, keyType kms
 	}, nil
 }
 
-func (c *Creator) keyDID(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 	km KeysCreator) (*CreateResult, error) {
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
@@ -179,13 +179,17 @@ func (c *Creator) keyDID(verificationMethodType vc.SignatureType, keyType kms.Ke
 	}, nil
 }
 
-func (c *Creator) webDID(verificationMethodType vc.SignatureType, keyType kms.KeyType,
+func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 	km KeysCreator) (*CreateResult, error) {
 	return nil, fmt.Errorf("did web method currently not supported, add support in future")
 }
 
 func newVerMethods(
-	count int, km KeysCreator, verMethodType vc.SignatureType, keyType kms.KeyType) ([]*did.VerificationMethod, error) {
+	count int,
+	km KeysCreator,
+	verMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType,
+) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 
 	for i := 0; i < count; i++ {

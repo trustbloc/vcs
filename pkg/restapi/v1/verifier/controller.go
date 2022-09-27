@@ -23,11 +23,14 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/doc/vp"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
+	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
 
@@ -63,31 +66,39 @@ type verifyCredentialSvc interface {
 		profile *verifier.Profile) ([]verifycredential.CredentialsVerificationCheckResult, error)
 }
 
+type verifyPresentationSvc interface {
+	VerifyPresentation(presentation *verifiable.Presentation, opts *verifypresentation.Options,
+		profile *verifier.Profile) ([]verifypresentation.PresentationVerificationCheckResult, error)
+}
+
 type Config struct {
-	VerifyCredentialSvc verifyCredentialSvc
-	ProfileSvc          profileService
-	KMSRegistry         kmsRegistry
-	DocumentLoader      ld.DocumentLoader
-	VDR                 vdrapi.Registry
+	VerifyCredentialSvc   verifyCredentialSvc
+	VerifyPresentationSvc verifyPresentationSvc
+	ProfileSvc            profileService
+	KMSRegistry           kmsRegistry
+	DocumentLoader        ld.DocumentLoader
+	VDR                   vdrapi.Registry
 }
 
 // Controller for Verifier Profile Management API.
 type Controller struct {
-	verifyCredentialSvc verifyCredentialSvc
-	profileSvc          profileService
-	kmsRegistry         kmsRegistry
-	documentLoader      ld.DocumentLoader
-	vdr                 vdrapi.Registry
+	verifyCredentialSvc   verifyCredentialSvc
+	verifyPresentationSvc verifyPresentationSvc
+	profileSvc            profileService
+	kmsRegistry           kmsRegistry
+	documentLoader        ld.DocumentLoader
+	vdr                   vdrapi.Registry
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
 func NewController(config *Config) *Controller {
 	return &Controller{
-		verifyCredentialSvc: config.VerifyCredentialSvc,
-		profileSvc:          config.ProfileSvc,
-		kmsRegistry:         config.KMSRegistry,
-		documentLoader:      config.DocumentLoader,
-		vdr:                 config.VDR,
+		verifyCredentialSvc:   config.VerifyCredentialSvc,
+		verifyPresentationSvc: config.VerifyPresentationSvc,
+		profileSvc:            config.ProfileSvc,
+		kmsRegistry:           config.KMSRegistry,
+		documentLoader:        config.DocumentLoader,
+		vdr:                   config.VDR,
 	}
 }
 
@@ -270,7 +281,7 @@ func (c *Controller) PostVerifyCredentials(ctx echo.Context, profileID string) e
 	return util.WriteOutput(ctx)(c.verifyCredential(ctx, &body, profileID))
 }
 
-func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialData,
+func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialData, //nolint:dupl
 	profileID string) (*VerifyCredentialResponse, error) {
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
@@ -298,6 +309,49 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 	}
 
 	return mapVerifyCredentialChecks(verRes), nil
+}
+
+// PostVerifyPresentation Verify presentation.
+// (POST /verifier/profiles/{profileID}/presentations/verify).
+func (c *Controller) PostVerifyPresentation(ctx echo.Context, profileID string) error {
+	var body VerifyPresentationData
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.verifyPresentation(ctx, &body, profileID))
+}
+
+func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentationData, //nolint:dupl
+	profileID string) (*VerifyPresentationResponse, error) {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
+	if err != nil {
+		return nil, err
+	}
+
+	presentation, err := vp.ValidatePresentation(body.Presentation, profile.Checks.Presentation.Format,
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader))
+
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation", err)
+	}
+
+	verRes, err := c.verifyPresentationSvc.VerifyPresentation(
+		presentation, getVerifyPresentationOptions(body.Options), profile)
+	if err != nil {
+		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
+	}
+
+	return mapVerifyPresentationChecks(verRes), nil
 }
 
 func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*verifier.Profile, error) {
@@ -390,7 +444,8 @@ func validateOIDC4VPConfig(cfg *OIDC4VPConfig, supportedKeyTypes []arieskms.KeyT
 		return nil, nil //nolint:nilnil
 	}
 
-	signingAlgorithm, err := vc.ValidateSignatureAlgorithm(vc.Jwt, cfg.RoSigningAlgorithm, supportedKeyTypes)
+	signingAlgorithm, err := vcsverifiable.ValidateSignatureAlgorithm(
+		vcsverifiable.Jwt, cfg.RoSigningAlgorithm, supportedKeyTypes)
 
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "oidcConfig.roSigningAlgorithm",
@@ -423,6 +478,25 @@ func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerification
 	}
 
 	return &VerifyCredentialResponse{
+		Checks: &checkList,
+	}
+}
+
+func mapVerifyPresentationChecks(
+	checks []verifypresentation.PresentationVerificationCheckResult) *VerifyPresentationResponse {
+	if len(checks) == 0 {
+		return &VerifyPresentationResponse{}
+	}
+
+	var checkList []VerifyPresentationCheckResult
+	for _, check := range checks {
+		checkList = append(checkList, VerifyPresentationCheckResult{
+			Check: check.Check,
+			Error: check.Error,
+		})
+	}
+
+	return &VerifyPresentationResponse{
 		Checks: &checkList,
 	}
 }
@@ -545,6 +619,21 @@ func mapProfile(profile *verifier.Profile) (*VerifierProfile, error) {
 
 func getVerifyCredentialOptions(options *VerifyCredentialOptions) *verifycredential.Options {
 	result := &verifycredential.Options{}
+	if options == nil {
+		return result
+	}
+	if options.Challenge != nil {
+		result.Challenge = *options.Challenge
+	}
+	if options.Domain != nil {
+		result.Domain = *options.Domain
+	}
+
+	return result
+}
+
+func getVerifyPresentationOptions(options *VerifyPresentationOptions) *verifypresentation.Options {
+	result := &verifypresentation.Options{}
 	if options == nil {
 		return result
 	}

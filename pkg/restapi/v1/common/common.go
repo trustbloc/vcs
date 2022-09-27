@@ -12,7 +12,7 @@ import (
 	"fmt"
 
 	"github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
@@ -26,44 +26,44 @@ const (
 	kmsConfigDBPrefix          = "kmsConfig.dbPrefix"
 )
 
-func ValidateVCFormat(format VCFormat) (vc.Format, error) {
+func ValidateVCFormat(format VCFormat) (vcsverifiable.Format, error) {
 	switch format {
 	case JwtVc:
-		return vc.Jwt, nil
+		return vcsverifiable.Jwt, nil
 	case LdpVc:
-		return vc.Ldp, nil
+		return vcsverifiable.Ldp, nil
 	}
 
 	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVc, LdpVc)
 }
 
-func MapToVCFormat(format vc.Format) (VCFormat, error) {
+func MapToVCFormat(format vcsverifiable.Format) (VCFormat, error) {
 	switch format {
-	case vc.Jwt:
+	case vcsverifiable.Jwt:
 		return JwtVc, nil
-	case vc.Ldp:
+	case vcsverifiable.Ldp:
 		return LdpVc, nil
 	}
 
 	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVc, LdpVc)
 }
 
-func ValidateVPFormat(format VPFormat) (vc.Format, error) {
+func ValidateVPFormat(format VPFormat) (vcsverifiable.Format, error) {
 	switch format {
 	case JwtVp:
-		return vc.Jwt, nil
+		return vcsverifiable.Jwt, nil
 	case LdpVp:
-		return vc.Ldp, nil
+		return vcsverifiable.Ldp, nil
 	}
 
 	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVc, LdpVc)
 }
 
-func MapToVPFormat(format vc.Format) (VPFormat, error) {
+func MapToVPFormat(format vcsverifiable.Format) (VPFormat, error) {
 	switch format {
-	case vc.Jwt:
+	case vcsverifiable.Jwt:
 		return JwtVp, nil
-	case vc.Ldp:
+	case vcsverifiable.Ldp:
 		return LdpVp, nil
 	}
 

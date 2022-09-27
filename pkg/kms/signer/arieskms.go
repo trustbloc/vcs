@@ -9,7 +9,7 @@ package signer
 import (
 	"strings"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
 
@@ -29,7 +29,7 @@ type crypto interface {
 }
 
 func NewKMSSigner(keyManager keyManager, c crypto, creator string,
-	signatureType vc.SignatureType) (*KMSSigner, error) {
+	signatureType vcsverifiable.SignatureType) (*KMSSigner, error) {
 	// creator will contain didID#keyID
 	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)
 	if err != nil {
@@ -41,7 +41,7 @@ func NewKMSSigner(keyManager keyManager, c crypto, creator string,
 		return nil, err
 	}
 
-	return &KMSSigner{keyHandle: keyHandler, crypto: c, bbs: signatureType == vc.BbsBlsSignature2020}, nil
+	return &KMSSigner{keyHandle: keyHandler, crypto: c, bbs: signatureType == vcsverifiable.BbsBlsSignature2020}, nil
 }
 
 func (s *KMSSigner) Sign(data []byte) ([]byte, error) {

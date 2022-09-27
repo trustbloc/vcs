@@ -16,7 +16,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	didcreator "github.com/trustbloc/vcs/pkg/did"
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 )
 
@@ -39,7 +39,7 @@ type Profile struct {
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.
 type OIDC4VPConfig struct {
-	ROSigningAlgorithm vc.SignatureType
+	ROSigningAlgorithm vcsverifiable.SignatureType
 	DIDMethod          didcreator.Method
 	KeyType            kms.KeyType
 }
@@ -55,14 +55,14 @@ type ProfileUpdate struct {
 // CredentialChecks are checks to be performed during credential verification.
 type CredentialChecks struct {
 	Proof  bool
-	Format []vc.Format
+	Format []vcsverifiable.Format
 	Status bool
 }
 
 // PresentationChecks are checks to be performed during presentation verification.
 type PresentationChecks struct {
 	Proof  bool
-	Format []vc.Format
+	Format []vcsverifiable.Format
 }
 
 // VerificationChecks are checks to be performed for verifying credentials and presentations.
@@ -82,7 +82,7 @@ type profileStore interface {
 }
 
 type didCreator interface {
-	PublicDID(method didcreator.Method, verificationMethodType vc.SignatureType, keyType kms.KeyType,
+	PublicDID(method didcreator.Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 		kc didcreator.KeysCreator) (*didcreator.CreateResult, error)
 }
 

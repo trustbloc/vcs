@@ -25,6 +25,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
 
@@ -85,7 +86,7 @@ const (
 )
 
 type keyManager interface {
-	NewVCSigner(creator string, signatureType vc.SignatureType) (vc.SignerAlgorithm, error)
+	NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error)
 }
 
 // New return new instance of vc crypto.
@@ -98,7 +99,7 @@ type signingOpts struct {
 	VerificationMethod string
 	Purpose            string
 	Representation     string
-	SignatureType      vc.SignatureType
+	SignatureType      vcsverifiable.SignatureType
 	Created            *time.Time
 	Challenge          string
 	Domain             string
@@ -129,7 +130,7 @@ func WithSigningRepresentation(representation string) SigningOpts {
 }
 
 // WithSignatureType is an option to pass signature type for signing.
-func WithSignatureType(signatureType vc.SignatureType) SigningOpts {
+func WithSignatureType(signatureType vcsverifiable.SignatureType) SigningOpts {
 	return func(opts *signingOpts) {
 		opts.SignatureType = signatureType
 	}
@@ -223,7 +224,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 }
 
 func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
-	signatureType vc.SignatureType, proofPurpose string,
+	signatureType vcsverifiable.SignatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
 	s, method, err := c.getSigner(creator, km, opts, signatureType)
 	if err != nil {
@@ -285,7 +286,7 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method.
 func (c *Crypto) getSigner(creator string, km keyManager, opts *signingOpts,
-	signatureType vc.SignatureType) (vc.SignerAlgorithm, string, error) {
+	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, string, error) {
 	verificationMethod := creator
 	if opts.VerificationMethod != "" {
 		verificationMethod = opts.VerificationMethod
