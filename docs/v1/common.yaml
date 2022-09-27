@@ -1,0 +1,73 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+openapi: 3.0.0
+info:
+  title: Common types for Verifiable Credential Service (VCS)
+  version: 0.2.0
+  description: TrustBloc VCS support credential issuance and verification using W3C VC-API along with OpenID4VC protocol for issuer/verifer interaction with Wallet.
+  license:
+    name: Apache-2.0
+    url: 'https://www.apache.org/licenses/LICENSE-2.0.txt'
+
+components:
+  schemas:
+    KMSConfig:
+      title: KMSConfig
+      x-tags:
+        - issuer
+      type: object
+      description: Model for KMS configuration.
+      properties:
+        type:
+          type: string
+          description: Type of kms used to create and store DID keys.
+          enum:
+            - local
+            - web
+            - aws
+        endpoint:
+          type: string
+          description: KMS endpoint.
+        secretLockKeyPath:
+          type: string
+          description: Path to secret lock used by local kms.
+        dbType:
+          type: string
+          description: Type of database used by local kms.
+
+        dbURL:
+          type: string
+          description: URL to database used by local kms.
+
+        dbPrefix:
+          type: string
+          description: Prefix of database used by local kms.
+      required:
+        - type
+
+    VCFormat:
+      title: VCFormat
+      type: string
+      enum:
+        - jwt_vc
+        - ldp_vc
+      description: Supported VC formats.
+
+    VPFormat:
+      title: VCFormat
+      type: string
+      enum:
+        - jwt_vp
+        - ldp_vp
+      description: Supported VP formats.
+    DIDMethod:
+      type: string
+      description: DID method of the DID to be used for signing.
+      enum:
+        - orb
+        - web
+        - key

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination profile_mocks_test.go -self_package mocks -package verifier_test -source=profile.go -mock_names profileStore=MockProfileStore
+//go:generate mockgen -destination profile_mocks_test.go -self_package mocks -package verifier_test -source=profile.go -mock_names profileStore=MockProfileStore,didCreator=MockDIDCreator,kmsRegistry=MockKMSRegistry
 
 package verifier
 
@@ -12,7 +12,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+
+	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
 )
 
 var ErrProfileNotFound = errors.New("profile not found")
@@ -25,18 +30,26 @@ type Profile struct {
 	Name           string
 	URL            string
 	Active         bool
-	Checks         *VerificationChecks
-	OIDCConfig     interface{}
 	OrganizationID string
+	Checks         *VerificationChecks
+	OIDCConfig     *OIDC4VPConfig
+	KMSConfig      *vcskms.Config
+	SigningDID     *didcreator.SigningDID
+}
+
+// OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.
+type OIDC4VPConfig struct {
+	ROSigningAlgorithm vc.SignatureType
+	DIDMethod          didcreator.Method
+	KeyType            kms.KeyType
 }
 
 // ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update API.
 type ProfileUpdate struct {
-	ID         ProfileID
-	Name       string
-	URL        string
-	Checks     *VerificationChecks
-	OIDCConfig interface{}
+	ID     ProfileID
+	Name   string
+	URL    string
+	Checks *VerificationChecks
 }
 
 // CredentialChecks are checks to be performed during credential verification.
@@ -46,28 +59,20 @@ type CredentialChecks struct {
 	Status bool
 }
 
-// PresentationFormat is the encoding format for VP.
-type PresentationFormat string
-
-const (
-	JwtVP PresentationFormat = "jwt_vp"
-	LdpVP PresentationFormat = "ldp_vp"
-)
-
 // PresentationChecks are checks to be performed during presentation verification.
 type PresentationChecks struct {
 	Proof  bool
-	Format []PresentationFormat
+	Format []vc.Format
 }
 
 // VerificationChecks are checks to be performed for verifying credentials and presentations.
 type VerificationChecks struct {
-	Credential   *CredentialChecks
+	Credential   CredentialChecks
 	Presentation *PresentationChecks
 }
 
 type profileStore interface {
-	Create(profile *Profile) (ProfileID, error)
+	Create(profile *Profile, presentationDefinitions []*presexch.PresentationDefinition) (ProfileID, error)
 	Update(profile *ProfileUpdate) error
 	UpdateActiveField(profileID ProfileID, active bool) error
 	Delete(profileID ProfileID) error
@@ -76,21 +81,63 @@ type profileStore interface {
 	FindByOrgID(orgID string) ([]*Profile, error)
 }
 
+type didCreator interface {
+	PublicDID(method didcreator.Method, verificationMethodType vc.SignatureType, keyType kms.KeyType,
+		kc didcreator.KeysCreator) (*didcreator.CreateResult, error)
+}
+
+type kmsRegistry interface {
+	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
+}
+
+// ServiceConfig configure verifier.Service.
+type ServiceConfig struct {
+	ProfileStore profileStore
+	DIDCreator   didCreator
+	KMSRegistry  kmsRegistry
+}
+
 // ProfileService manages verifier profile.
 type ProfileService struct {
-	store profileStore
+	store       profileStore
+	didCreator  didCreator
+	kmsRegistry kmsRegistry
 }
 
 // NewProfileService creates ProfileService.
-func NewProfileService(store profileStore) *ProfileService {
-	return &ProfileService{store: store}
+func NewProfileService(config *ServiceConfig) *ProfileService {
+	return &ProfileService{
+		store:       config.ProfileStore,
+		didCreator:  config.DIDCreator,
+		kmsRegistry: config.KMSRegistry,
+	}
 }
 
 // Create creates and returns profile.
-func (p *ProfileService) Create(profile *Profile) (*Profile, error) {
+func (p *ProfileService) Create(profile *Profile,
+	presentationDefinitions []*presexch.PresentationDefinition) (*Profile, error) {
 	profile.Active = true
 
-	id, err := p.store.Create(profile)
+	if profile.OIDCConfig != nil {
+		keyCreator, err := p.kmsRegistry.GetKeyManager(profile.KMSConfig)
+		if err != nil {
+			return nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
+		}
+
+		createResult, err := p.didCreator.PublicDID(profile.OIDCConfig.DIDMethod,
+			profile.OIDCConfig.ROSigningAlgorithm, profile.OIDCConfig.KeyType, keyCreator)
+		if err != nil {
+			return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
+		}
+
+		profile.SigningDID = &didcreator.SigningDID{
+			DID:            createResult.DocResolution.DIDDocument.ID,
+			UpdateKeyURL:   createResult.UpdateKeyURL,
+			RecoveryKeyURL: createResult.RecoveryKeyURL,
+		}
+	}
+
+	id, err := p.store.Create(profile, presentationDefinitions)
 	if err != nil {
 		return nil, fmt.Errorf("profile service: create profile failed %w", err)
 	}

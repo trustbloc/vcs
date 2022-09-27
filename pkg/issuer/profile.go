@@ -25,25 +25,25 @@ type ProfileID = string
 
 // Profile verifier profile.
 type Profile struct {
-	ID             ProfileID      `json:"id"`
-	Name           string         `json:"name,omitempty"`
-	URL            string         `json:"url,omitempty"`
-	Active         bool           `json:"active"`
-	OIDCConfig     interface{}    `json:"oidcConfig"`
-	OrganizationID string         `json:"organizationID"`
-	VCConfig       *VCConfig      `json:"vcConfig"`
-	KMSConfig      *vcskms.Config `json:"kmsConfig"`
-	SigningDID     *SigningDID    `json:"signingDID"`
+	ID             ProfileID              `json:"id"`
+	Name           string                 `json:"name,omitempty"`
+	URL            string                 `json:"url,omitempty"`
+	Active         bool                   `json:"active"`
+	OIDCConfig     interface{}            `json:"oidcConfig"`
+	OrganizationID string                 `json:"organizationID"`
+	VCConfig       *VCConfig              `json:"vcConfig"`
+	KMSConfig      *vcskms.Config         `json:"kmsConfig"`
+	SigningDID     *didcreator.SigningDID `json:"signingDID"`
 }
 
 // ProfileUpdate contains only unprotected fields from the verifier profile, that can be changed by update api.
 type ProfileUpdate struct {
-	ID         ProfileID      `json:"id"`
-	Name       string         `json:"name,omitempty"`
-	URL        string         `json:"url,omitempty"`
-	OIDCConfig interface{}    `json:"oidcConfig"`
-	KMSConfig  *vcskms.Config `json:"kmsConfig"`
-	SigningDID *SigningDID    `json:"signingDID"`
+	ID         ProfileID              `json:"id"`
+	Name       string                 `json:"name,omitempty"`
+	URL        string                 `json:"url,omitempty"`
+	OIDCConfig interface{}            `json:"oidcConfig"`
+	KMSConfig  *vcskms.Config         `json:"kmsConfig"`
+	SigningDID *didcreator.SigningDID `json:"signingDID"`
 }
 
 // VCConfig describes how to sign verifiable credentials.
@@ -55,14 +55,6 @@ type VCConfig struct {
 	SignatureRepresentation verifiable.SignatureRepresentation
 	Status                  interface{}
 	Context                 []string
-}
-
-// SigningDID contains information about profile signing did.
-type SigningDID struct {
-	DID            string
-	Creator        string
-	UpdateKeyURL   string
-	RecoveryKeyURL string
 }
 
 type profileStore interface {
@@ -127,7 +119,7 @@ func (p *ProfileService) Create(profile *Profile,
 		return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 	}
 
-	profile.SigningDID = &SigningDID{
+	profile.SigningDID = &didcreator.SigningDID{
 		DID:            createResult.DocResolution.DIDDocument.ID,
 		Creator:        createResult.Creator,
 		UpdateKeyURL:   createResult.UpdateKeyURL,

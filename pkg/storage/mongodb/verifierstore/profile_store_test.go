@@ -14,6 +14,10 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/go-test/deep"
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -34,6 +38,25 @@ const (
 	dockerMongoDBTag   = "4.0.0"
 )
 
+//nolint:gochecknoglobals
+var checks = &verifier.VerificationChecks{
+	Credential: verifier.CredentialChecks{
+		Proof: true,
+		Format: []vc.Format{
+			vc.Jwt,
+			vc.Ldp,
+		},
+		Status: true,
+	},
+	Presentation: &verifier.PresentationChecks{
+		Proof: true,
+		Format: []vc.Format{
+			vc.Jwt,
+			vc.Ldp,
+		},
+	},
+}
+
 func TestProfileStore_Success(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
@@ -51,53 +74,76 @@ func TestProfileStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create profile", func(t *testing.T) {
+		predicate := presexch.Required
+		strFilterType := "string"
+
+		pd := &presexch.PresentationDefinition{
+			ID: uuid.New().String(),
+			InputDescriptors: []*presexch.InputDescriptor{{
+				ID: uuid.New().String(),
+				Schema: []*presexch.Schema{{
+					URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+				}},
+				Constraints: &presexch.Constraints{
+					Fields: []*presexch.Field{{
+						Path:      []string{"$.first_name", "$.last_name"},
+						Predicate: &predicate,
+						Filter:    &presexch.Filter{Type: &strFilterType},
+					}},
+				},
+			}},
+		}
+
+		require.NoError(t, pd.ValidateSchema())
+
 		id, err := store.Create(&verifier.Profile{
 			Name:   "test profile",
 			URL:    "https://verifer.example.com",
 			Active: true,
-			Checks: &verifier.VerificationChecks{
-				Credential: &verifier.CredentialChecks{
-					Proof: true,
-					Format: []vc.Format{
-						vc.JwtVC,
-						vc.LdpVC,
-					},
-					Status: true,
-				},
-				Presentation: &verifier.PresentationChecks{
-					Proof: true,
-					Format: []verifier.PresentationFormat{
-						verifier.JwtVP,
-						verifier.LdpVP,
-					},
-				},
+			Checks: checks,
+			OIDCConfig: &verifier.OIDC4VPConfig{
+				ROSigningAlgorithm: "Test1",
+				DIDMethod:          "Test2",
+				KeyType:            "Test3",
 			},
-			OIDCConfig:     nil,
 			OrganizationID: "org1",
-		})
-		require.NoError(t, err)
-		require.NotNil(t, id)
-	})
-
-	t.Run("Create profile then find by id", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{})
-
+		}, []*presexch.PresentationDefinition{pd})
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
 		profile, err := store.Find(id)
 		require.NoError(t, err)
 		require.NotNil(t, profile)
+
+		presentationDefinition, err := store.FindPresentationDefinition(id, "")
+		require.NoError(t, err)
+		require.NotNil(t, presentationDefinition)
+
+		require.NoError(t, presentationDefinition.ValidateSchema())
+
+		if diff := deep.Equal(pd, presentationDefinition); diff != nil {
+			t.Error(diff)
+		}
+
+		presentationDefinition, err = store.FindPresentationDefinition(id, pd.ID)
+		require.NoError(t, err)
+		require.NotNil(t, presentationDefinition)
+
+		require.NoError(t, presentationDefinition.ValidateSchema())
+
+		if diff := deep.Equal(pd, presentationDefinition); diff != nil {
+			t.Error(diff)
+		}
 	})
 
 	t.Run("Create profile then find by id", func(t *testing.T) {
-		_, err := store.Create(&verifier.Profile{OrganizationID: "test1"})
+		_, err := store.Create(&verifier.Profile{OrganizationID: "test1", Checks: checks}, nil)
 		require.NoError(t, err)
 
-		_, err = store.Create(&verifier.Profile{OrganizationID: "test1"})
+		_, err = store.Create(&verifier.Profile{OrganizationID: "test1", Checks: checks}, nil)
 		require.NoError(t, err)
 
-		_, err = store.Create(&verifier.Profile{OrganizationID: "test2"})
+		_, err = store.Create(&verifier.Profile{OrganizationID: "test2", Checks: checks}, nil)
 		require.NoError(t, err)
 
 		profiles, err := store.FindByOrgID("test1")
@@ -106,20 +152,20 @@ func TestProfileStore_Success(t *testing.T) {
 	})
 
 	t.Run("Update profile", func(t *testing.T) {
-		checks := &verifier.VerificationChecks{
-			Credential: &verifier.CredentialChecks{
+		uchecks := &verifier.VerificationChecks{
+			Credential: verifier.CredentialChecks{
 				Proof: true,
 				Format: []vc.Format{
-					vc.JwtVC,
-					vc.LdpVC,
+					vc.Jwt,
+					vc.Ldp,
 				},
 				Status: true,
 			},
 			Presentation: &verifier.PresentationChecks{
 				Proof: true,
-				Format: []verifier.PresentationFormat{
-					verifier.JwtVP,
-					verifier.LdpVP,
+				Format: []vc.Format{
+					vc.Jwt,
+					vc.Ldp,
 				},
 			},
 		}
@@ -128,10 +174,10 @@ func TestProfileStore_Success(t *testing.T) {
 			Name:           "test profile",
 			URL:            "https://verifer.example.com",
 			Active:         true,
-			Checks:         checks,
+			Checks:         uchecks,
 			OIDCConfig:     nil,
 			OrganizationID: "org1",
-		})
+		}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
@@ -141,10 +187,10 @@ func TestProfileStore_Success(t *testing.T) {
 		require.Equal(t, "test profile", profile.Name)
 		require.Equal(t, id, profile.ID)
 
-		checks.Credential.Format = []vc.Format{vc.LdpVC}
-		checks.Presentation.Format = []verifier.PresentationFormat{verifier.LdpVP}
+		uchecks.Credential.Format = []vc.Format{vc.Ldp}
+		uchecks.Presentation.Format = []vc.Format{vc.Ldp}
 
-		err = store.Update(&verifier.ProfileUpdate{ID: id, Name: "updated profile", Checks: checks})
+		err = store.Update(&verifier.ProfileUpdate{ID: id, Name: "updated profile", Checks: uchecks})
 		require.NoError(t, err)
 
 		profileUpdated, err := store.Find(id)
@@ -153,13 +199,12 @@ func TestProfileStore_Success(t *testing.T) {
 		require.Equal(t, "updated profile", profileUpdated.Name)
 		require.Equal(t, "https://verifer.example.com", profileUpdated.URL)
 		require.Equal(t, true, profileUpdated.Active)
-		require.EqualValues(t, checks, profileUpdated.Checks)
-		require.Equal(t, nil, profileUpdated.OIDCConfig)
+		require.EqualValues(t, uchecks, profileUpdated.Checks)
 		require.Equal(t, "org1", profileUpdated.OrganizationID)
 	})
 
 	t.Run("Activate/Deactivate profile", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{Name: "Test1", Active: true})
+		id, err := store.Create(&verifier.Profile{Name: "Test1", Active: true, Checks: checks}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
@@ -187,7 +232,7 @@ func TestProfileStore_Success(t *testing.T) {
 	})
 
 	t.Run("Delete profile", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{Name: "Test1"})
+		id, err := store.Create(&verifier.Profile{Name: "Test1", Checks: checks}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
@@ -221,17 +266,17 @@ func TestProfileStore_Fails(t *testing.T) {
 	}()
 
 	t.Run("Create invalid profile id", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{ID: "invalid"})
+		id, err := store.Create(&verifier.Profile{ID: "invalid"}, nil)
 		require.Contains(t, err.Error(), "verifier profile invalid id")
 		require.Empty(t, id)
 	})
 
 	t.Run("Create profile same id", func(t *testing.T) {
-		id, err := store.Create(&verifier.Profile{})
+		id, err := store.Create(&verifier.Profile{Checks: checks}, nil)
 		require.NoError(t, err)
 		require.NotEmpty(t, id)
 
-		id2, err := store.Create(&verifier.Profile{ID: id})
+		id2, err := store.Create(&verifier.Profile{ID: id, Checks: checks}, nil)
 		require.Contains(t, err.Error(), "duplicate key error collection")
 		require.Empty(t, id2)
 	})
@@ -242,7 +287,7 @@ func TestProfileStore_Fails(t *testing.T) {
 	})
 
 	t.Run("Update not existing profile id", func(t *testing.T) {
-		err := store.Update(&verifier.ProfileUpdate{ID: "121212121212121212121212", Name: "Test"})
+		err := store.Update(&verifier.ProfileUpdate{ID: "121212121212121212121212", Name: "Test", Checks: checks})
 		require.Contains(t, err.Error(), "profile with given id not found")
 	})
 
@@ -274,6 +319,21 @@ func TestProfileStore_Fails(t *testing.T) {
 	t.Run("Delete not existing profile id", func(t *testing.T) {
 		err := store.Delete("121212121212121212121212")
 		require.Contains(t, err.Error(), "profile with given id not found")
+	})
+
+	t.Run("Find invalid profile id", func(t *testing.T) {
+		_, err := store.Find("invalid")
+		require.Contains(t, err.Error(), "verifier profile invalid id")
+	})
+
+	t.Run("Find presentation definition with invalid profile id", func(t *testing.T) {
+		_, err := store.FindPresentationDefinition("invalid", "")
+		require.Contains(t, err.Error(), "verifier profile invalid id")
+	})
+
+	t.Run("Find not existing presentation definition ", func(t *testing.T) {
+		_, err := store.FindPresentationDefinition("121212121212121212121212", "")
+		require.EqualError(t, err, verifier.ErrProfileNotFound.Error())
 	})
 }
 

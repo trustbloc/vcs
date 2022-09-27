@@ -20,8 +20,8 @@ import (
 	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/issuer"
-	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/common"
 )
 
 const (
@@ -47,32 +47,16 @@ type vcConfigDocument struct {
 	Context                 []string                           `bson:"context"`
 }
 
-type kmsConfigDocument struct {
-	KMSType           kms.Type `bson:"type"`
-	Endpoint          string   `bson:"endpoint"`
-	SecretLockKeyPath string   `bson:"secretLockKeyPath"`
-	DBType            string   `bson:"dbType"`
-	DBURL             string   `bson:"dbURL"`
-	DBPrefix          string   `bson:"dbPrefix"`
-}
-
-type signingDIDDocument struct {
-	DID            string `bson:"did"`
-	Creator        string `bson:"creator"`
-	UpdateKeyURL   string `bson:"updateKeyURL"`
-	RecoveryKeyURL string `bson:"recoveryKeyURL"`
-}
-
 type profileDocument struct {
-	ID             primitive.ObjectID  `bson:"_id,omitempty"`
-	Name           string              `bson:"name"`
-	URL            string              `bson:"url"`
-	Active         bool                `bson:"active"`
-	OIDCConfig     interface{}         `bson:"oidcConfig"`
-	OrganizationID string              `bson:"organizationId"`
-	VCConfig       *vcConfigDocument   `bson:"vcConfig"`
-	KMSConfig      *kmsConfigDocument  `bson:"kmsConfig"`
-	SigningDID     *signingDIDDocument `bson:"signingDID"`
+	ID             primitive.ObjectID         `bson:"_id,omitempty"`
+	Name           string                     `bson:"name"`
+	URL            string                     `bson:"url"`
+	Active         bool                       `bson:"active"`
+	OIDCConfig     interface{}                `bson:"oidcConfig"`
+	OrganizationID string                     `bson:"organizationId"`
+	VCConfig       *vcConfigDocument          `bson:"vcConfig"`
+	KMSConfig      *common.KMSConfigDocument  `bson:"kmsConfig"`
+	SigningDID     *common.SigningDIDDocument `bson:"signingDID"`
 }
 
 type credentialManifestsDocument struct {
@@ -350,8 +334,8 @@ func profileToDocument(profile *issuer.Profile) (*profileDocument, error) {
 		OIDCConfig:     profile.OIDCConfig,
 		OrganizationID: profile.OrganizationID,
 		VCConfig:       vcConfigToDocument(profile.VCConfig),
-		KMSConfig:      kmsConfigToDocument(profile.KMSConfig),
-		SigningDID:     signingDIDToDocument(profile.SigningDID),
+		KMSConfig:      common.KMSConfigToDocument(profile.KMSConfig),
+		SigningDID:     common.SigningDIDToDocument(profile.SigningDID),
 	}, nil
 }
 
@@ -372,38 +356,8 @@ func profileFromDocument(profileDoc *profileDocument) *issuer.Profile {
 		OIDCConfig:     profileDoc.OIDCConfig,
 		OrganizationID: profileDoc.OrganizationID,
 		VCConfig:       vcConfigFromDocument(profileDoc.VCConfig),
-		KMSConfig:      kmsConfigFromDocument(profileDoc.KMSConfig),
-		SigningDID:     signingDIDFromDocument(profileDoc.SigningDID),
-	}
-}
-
-func kmsConfigToDocument(kmsConfig *kms.Config) *kmsConfigDocument {
-	if kmsConfig == nil {
-		return nil
-	}
-
-	return &kmsConfigDocument{
-		KMSType:           kmsConfig.KMSType,
-		Endpoint:          kmsConfig.Endpoint,
-		SecretLockKeyPath: kmsConfig.SecretLockKeyPath,
-		DBType:            kmsConfig.DBType,
-		DBURL:             kmsConfig.DBURL,
-		DBPrefix:          kmsConfig.DBPrefix,
-	}
-}
-
-func kmsConfigFromDocument(kmsConfig *kmsConfigDocument) *kms.Config {
-	if kmsConfig == nil {
-		return nil
-	}
-
-	return &kms.Config{
-		KMSType:           kmsConfig.KMSType,
-		Endpoint:          kmsConfig.Endpoint,
-		SecretLockKeyPath: kmsConfig.SecretLockKeyPath,
-		DBType:            kmsConfig.DBType,
-		DBURL:             kmsConfig.DBURL,
-		DBPrefix:          kmsConfig.DBPrefix,
+		KMSConfig:      common.KMSConfigFromDocument(profileDoc.KMSConfig),
+		SigningDID:     common.SigningDIDFromDocument(profileDoc.SigningDID),
 	}
 }
 
@@ -428,31 +382,5 @@ func vcConfigFromDocument(vcConfig *vcConfigDocument) *issuer.VCConfig {
 		SignatureRepresentation: vcConfig.SignatureRepresentation,
 		Status:                  vcConfig.Status,
 		Context:                 vcConfig.Context,
-	}
-}
-
-func signingDIDToDocument(signingDID *issuer.SigningDID) *signingDIDDocument {
-	if signingDID == nil {
-		return nil
-	}
-
-	return &signingDIDDocument{
-		DID:            signingDID.DID,
-		Creator:        signingDID.Creator,
-		UpdateKeyURL:   signingDID.UpdateKeyURL,
-		RecoveryKeyURL: signingDID.RecoveryKeyURL,
-	}
-}
-
-func signingDIDFromDocument(signingDID *signingDIDDocument) *issuer.SigningDID {
-	if signingDID == nil {
-		return nil
-	}
-
-	return &issuer.SigningDID{
-		DID:            signingDID.DID,
-		Creator:        signingDID.Creator,
-		UpdateKeyURL:   signingDID.UpdateKeyURL,
-		RecoveryKeyURL: signingDID.RecoveryKeyURL,
 	}
 }

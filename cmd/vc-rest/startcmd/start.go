@@ -18,6 +18,7 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
+
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -161,15 +162,17 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
+	didCreator := did.NewCreator(&did.CreatorConfig{
+		VDR:             conf.VDR,
+		DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
+	})
+
 	// Issuer Profile Management API
 	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)
 	issuerProfileSvc := issuersvc.NewProfileService(&issuersvc.ServiceConfig{
 		ProfileStore: issuerProfileStore,
-		DIDCreator: did.NewCreator(&did.CreatorConfig{
-			VDR:             conf.VDR,
-			DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
-		}),
-		KMSRegistry: kmsRegistry,
+		DIDCreator:   didCreator,
+		KMSRegistry:  kmsRegistry,
 	})
 
 	vcCrypto := crypto.New(conf.VDR, conf.DocumentLoader)
@@ -194,7 +197,12 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 
 	// Verifier Profile Management API
 	verifierProfileStore := verifierstore.NewProfileStore(mongodbClient)
-	verifierProfileSvc := verifiersvc.NewProfileService(verifierProfileStore)
+	verifierProfileSvc := verifiersvc.NewProfileService(&verifiersvc.ServiceConfig{
+		ProfileStore: verifierProfileStore,
+		DIDCreator:   didCreator,
+		KMSRegistry:  kmsRegistry,
+	})
+
 	vcStatusManagerSvc := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
 		TLSConfig:      &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
@@ -209,6 +217,7 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	verifierController := verifierv1.NewController(&verifierv1.Config{
 		VerifyCredentialSvc: verifyCredentialSvc,
 		ProfileSvc:          verifierProfileSvc,
+		KMSRegistry:         kmsRegistry,
 		DocumentLoader:      conf.DocumentLoader,
 		VDR:                 conf.VDR,
 	})

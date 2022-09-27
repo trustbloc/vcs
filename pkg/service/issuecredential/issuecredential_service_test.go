@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 
+	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
@@ -117,11 +118,12 @@ func TestService_IssueCredential(t *testing.T) {
 								VCConfig: &issuer.VCConfig{
 									SigningAlgorithm:        vc.JSONWebSignature2020,
 									SignatureRepresentation: sigRepresentationTextCase.sr,
+								},
+								SigningDID: &didcreator.SigningDID{
+									DID:     didDoc.ID,
+									Creator: didDoc.VerificationMethod[0].ID,
 								}},
-							&issuer.SigningDID{
-								DID:     didDoc.ID,
-								Creator: didDoc.VerificationMethod[0].ID,
-							})
+						)
 						require.NoError(t, err)
 						validateVC(t, verifiableCredentials, didDoc, sigRepresentationTextCase.sr)
 					})
@@ -141,8 +143,7 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
 			nil,
-			&issuer.Profile{},
-			&issuer.SigningDID{})
+			&issuer.Profile{})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
@@ -162,8 +163,8 @@ func TestService_IssueCredential(t *testing.T) {
 			&verifiable.Credential{},
 			nil,
 			&issuer.Profile{
-				VCConfig: &issuer.VCConfig{}},
-			&issuer.SigningDID{})
+				SigningDID: &didcreator.SigningDID{},
+				VCConfig:   &issuer.VCConfig{}})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
@@ -186,8 +187,8 @@ func TestService_IssueCredential(t *testing.T) {
 			&verifiable.Credential{},
 			nil,
 			&issuer.Profile{
-				VCConfig: &issuer.VCConfig{}},
-			&issuer.SigningDID{})
+				SigningDID: &didcreator.SigningDID{},
+				VCConfig:   &issuer.VCConfig{}})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})

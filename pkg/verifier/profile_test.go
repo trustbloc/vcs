@@ -8,27 +8,59 @@ package verifier_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/stretchr/testify/require"
 
+	didcreator "github.com/trustbloc/vcs/pkg/did"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	"github.com/trustbloc/vcs/pkg/verifier"
 )
 
 func TestProfileService_Create(t *testing.T) {
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
 	t.Run("Success", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		store := NewMockProfileStore(ctrl)
+		didCreator := NewMockDIDCreator(ctrl)
 
-		store.EXPECT().Create(gomock.Any()).Times(1).Return("id", nil)
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
 		store.EXPECT().Find("id").Times(1).Return(&verifier.Profile{ID: "id"}, nil)
+		didCreator.EXPECT().PublicDID(didcreator.OrbDIDMethod, vc.Ed25519Signature2018, arieskms.ED25519Type,
+			gomock.Any()).Times(1).
+			Return(&didcreator.CreateResult{
+				DocResolution: &did.DocResolution{
+					DIDDocument: &did.Doc{
+						ID: fmt.Sprintf("did:example:%s", uuid.New().String()),
+					},
+				},
+			}, nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+			DIDCreator:   didCreator,
+			KMSRegistry:  kmsRegistry,
+		})
 
-		profile, err := service.Create(&verifier.Profile{})
+		profile, err := service.Create(&verifier.Profile{
+			OIDCConfig: &verifier.OIDC4VPConfig{
+				ROSigningAlgorithm: vc.Ed25519Signature2018,
+				DIDMethod:          didcreator.OrbDIDMethod,
+				KeyType:            arieskms.ED25519Type,
+			},
+		}, nil)
 
 		require.NoError(t, err)
 		require.Equal(t, "id", profile.ID)
@@ -39,11 +71,17 @@ func TestProfileService_Create(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := NewMockProfileStore(ctrl)
+		didCreator := NewMockDIDCreator(ctrl)
 
-		store.EXPECT().Create(gomock.Any()).Times(1).Return("", errors.New("create failed"))
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return("", errors.New("create failed"))
 
-		service := verifier.NewProfileService(store)
-		_, err := service.Create(&verifier.Profile{})
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+			DIDCreator:   didCreator,
+			KMSRegistry:  kmsRegistry,
+		})
+
+		_, err := service.Create(&verifier.Profile{}, nil)
 		require.Error(t, err)
 	})
 
@@ -52,13 +90,18 @@ func TestProfileService_Create(t *testing.T) {
 		defer ctrl.Finish()
 
 		store := NewMockProfileStore(ctrl)
+		didCreator := NewMockDIDCreator(ctrl)
 
-		store.EXPECT().Create(gomock.Any()).Times(1).Return("id", nil)
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return("id", nil)
 		store.EXPECT().Find("id").Times(1).Return(nil, errors.New("create failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+			DIDCreator:   didCreator,
+			KMSRegistry:  kmsRegistry,
+		})
 
-		_, err := service.Create(&verifier.Profile{})
+		_, err := service.Create(&verifier.Profile{}, nil)
 		require.Error(t, err)
 	})
 }
@@ -73,7 +116,9 @@ func TestProfileService_Update(t *testing.T) {
 		store.EXPECT().Update(&verifier.ProfileUpdate{ID: "id", Name: "test"}).Times(1).Return(nil)
 		store.EXPECT().Find("id").Times(1).Return(&verifier.Profile{ID: "id"}, nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		profile, err := service.Update(&verifier.ProfileUpdate{ID: "id", Name: "test"})
 
@@ -89,7 +134,9 @@ func TestProfileService_Update(t *testing.T) {
 
 		store.EXPECT().Update(&verifier.ProfileUpdate{ID: "id", Name: "test"}).Times(1).Return(errors.New("update failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 		_, err := service.Update(&verifier.ProfileUpdate{ID: "id", Name: "test"})
 		require.Error(t, err)
 	})
@@ -103,7 +150,9 @@ func TestProfileService_Update(t *testing.T) {
 		store.EXPECT().Update(&verifier.ProfileUpdate{ID: "id", Name: "test"}).Times(1).Return(nil)
 		store.EXPECT().Find("id").Times(1).Return(nil, errors.New("create failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		_, err := service.Update(&verifier.ProfileUpdate{ID: "id", Name: "test"})
 		require.Error(t, err)
@@ -119,7 +168,9 @@ func TestProfileService_Delete(t *testing.T) {
 
 		store.EXPECT().Delete("id").Times(1).Return(nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		err := service.Delete("id")
 
@@ -134,7 +185,9 @@ func TestProfileService_Delete(t *testing.T) {
 
 		store.EXPECT().Delete("id").Times(1).Return(errors.New("delete failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		err := service.Delete("id")
 
@@ -151,7 +204,9 @@ func TestProfileService_ActivateProfile(t *testing.T) {
 
 		store.EXPECT().UpdateActiveField("id", true).Times(1).Return(nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		err := service.ActivateProfile("id")
 
@@ -166,7 +221,9 @@ func TestProfileService_ActivateProfile(t *testing.T) {
 
 		store.EXPECT().UpdateActiveField("id", true).Times(1).Return(errors.New("failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		err := service.ActivateProfile("id")
 
@@ -183,7 +240,9 @@ func TestProfileService_DeactivateProfile(t *testing.T) {
 
 		store.EXPECT().UpdateActiveField("id", false).Times(1).Return(nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		err := service.DeactivateProfile("id")
 
@@ -198,7 +257,9 @@ func TestProfileService_DeactivateProfile(t *testing.T) {
 
 		store.EXPECT().UpdateActiveField("id", false).Times(1).Return(errors.New("failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		err := service.DeactivateProfile("id")
 
@@ -214,7 +275,9 @@ func TestProfileService_Find(t *testing.T) {
 		store := NewMockProfileStore(ctrl)
 		store.EXPECT().Find("id").Times(1).Return(&verifier.Profile{ID: "id"}, nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		profile, err := service.GetProfile("id")
 
@@ -230,7 +293,9 @@ func TestProfileService_Find(t *testing.T) {
 
 		store.EXPECT().Find("id").Times(1).Return(nil, errors.New("failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		_, err := service.GetProfile("id")
 
@@ -246,7 +311,9 @@ func TestProfileService_GetAll(t *testing.T) {
 		store := NewMockProfileStore(ctrl)
 		store.EXPECT().FindByOrgID("orgID").Times(1).Return([]*verifier.Profile{{ID: "id"}}, nil)
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		profiles, err := service.GetAllProfiles("orgID")
 
@@ -262,7 +329,9 @@ func TestProfileService_GetAll(t *testing.T) {
 
 		store.EXPECT().FindByOrgID("orgID").Times(1).Return(nil, errors.New("failed"))
 
-		service := verifier.NewProfileService(store)
+		service := verifier.NewProfileService(&verifier.ServiceConfig{
+			ProfileStore: store,
+		})
 
 		_, err := service.GetAllProfiles("orgID")
 

@@ -9,19 +9,28 @@ package verifier
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/jinzhu/copier"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	verifiersvc "github.com/trustbloc/vcs/pkg/verifier"
@@ -43,22 +52,33 @@ var (
 	sampleVCJWT string
 )
 
+// nolint:gochecknoglobals
+var ariesSupportedKeyTypes = []kms.KeyType{
+	kms.ED25519Type,
+	kms.X25519ECDHKWType,
+	kms.ECDSASecp256k1TypeIEEEP1363,
+	kms.ECDSAP256TypeDER,
+	kms.ECDSAP384TypeDER,
+	kms.RSAPS256Type,
+	kms.BLS12381G2Type,
+}
+
 //nolint:gochecknoglobals
 var (
 	verificationChecks = &verifiersvc.VerificationChecks{
-		Credential: &verifiersvc.CredentialChecks{
+		Credential: verifiersvc.CredentialChecks{
 			Proof: true,
 			Format: []vc.Format{
-				vc.JwtVC,
-				vc.LdpVC,
+				vc.Jwt,
+				vc.Ldp,
 			},
 			Status: true,
 		},
 		Presentation: &verifiersvc.PresentationChecks{
 			Proof: true,
-			Format: []verifiersvc.PresentationFormat{
-				verifiersvc.JwtVP,
-				verifiersvc.LdpVP,
+			Format: []vc.Format{
+				vc.Jwt,
+				vc.Ldp,
 			},
 		},
 	}
@@ -70,7 +90,6 @@ var (
 		Active:         true,
 		OrganizationID: "org1",
 		Checks:         verificationChecks,
-		OIDCConfig:     map[string]interface{}{"config": "value"},
 	}
 )
 
@@ -151,9 +170,15 @@ func TestController_GetVerifierProfiles(t *testing.T) {
 }
 
 func TestController_PostVerifierProfiles(t *testing.T) {
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
 	t.Run("200 OK", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().Create(gomock.Any()).Times(1).Return(testProfile, nil)
+		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(testProfile, nil)
 
 		e := echo.New()
 
@@ -164,7 +189,10 @@ func TestController_PostVerifierProfiles(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 
-		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
+		controller := NewController(&Config{
+			ProfileSvc:  mockProfileSvc,
+			KMSRegistry: kmsRegistry,
+		})
 
 		err := controller.PostVerifierProfiles(c)
 		require.NoError(t, err)
@@ -173,7 +201,7 @@ func TestController_PostVerifierProfiles(t *testing.T) {
 
 	t.Run("missing authorization", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().Create(gomock.Any()).Times(0)
+		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
 
 		e := echo.New()
 
@@ -192,7 +220,7 @@ func TestController_PostVerifierProfiles(t *testing.T) {
 
 	t.Run("invalid org id", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().Create(gomock.Any()).Times(0)
+		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
 
 		e := echo.New()
 
@@ -212,7 +240,7 @@ func TestController_PostVerifierProfiles(t *testing.T) {
 
 	t.Run("error from profile service", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().Create(gomock.Any()).Times(1).Return(nil, errors.New("create profile error"))
+		mockProfileSvc.EXPECT().Create(gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("create profile error"))
 
 		e := echo.New()
 
@@ -223,11 +251,172 @@ func TestController_PostVerifierProfiles(t *testing.T) {
 		rec := httptest.NewRecorder()
 		c := e.NewContext(req, rec)
 
-		controller := NewController(&Config{ProfileSvc: mockProfileSvc})
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		err := controller.PostVerifierProfiles(c)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "create profile")
+	})
+}
+
+func TestController_validateCreateVerifierProfileData(t *testing.T) {
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
+	intFilterType := "integer"
+	required := presexch.Required
+	pd := &presexch.PresentationDefinition{
+		ID:      "c1b88ce1-8460-4baf-8f16-4759a2f055fd",
+		Purpose: "To sell you a drink we need to know that you are an adult.",
+		InputDescriptors: []*presexch.InputDescriptor{{
+			ID:      "age_descriptor",
+			Purpose: "Your age should be greater or equal to 18.",
+			Schema: []*presexch.Schema{{
+				URI: fmt.Sprintf("%s#%s", verifiable.ContextID, verifiable.VCType),
+			}},
+			Constraints: &presexch.Constraints{
+				LimitDisclosure: &required,
+				Fields: []*presexch.Field{{
+					Path:      []string{"$.age"},
+					Predicate: &required,
+					Filter: &presexch.Filter{
+						Type:    &intFilterType,
+						Minimum: 18,
+					},
+				}},
+			},
+		}},
+	}
+
+	pdBytes, err := json.Marshal(pd)
+	require.NoError(t, err)
+
+	pdInput := []PresentationDefinition{pdBytes}
+
+	correct := &CreateVerifierProfileData{
+		Checks: VerifierChecks{},
+		KmsConfig: &common.KMSConfig{
+			DbPrefix:          nil,
+			DbType:            nil,
+			DbURL:             nil,
+			Endpoint:          strPtr("aws://url"),
+			SecretLockKeyPath: nil,
+			Type:              "aws",
+		},
+		Name: "Test",
+		OidcConfig: &OIDC4VPConfig{
+			DidMethod:          "orb",
+			RoSigningAlgorithm: "EdDSA",
+		},
+		OrganizationID:          "test",
+		PresentationDefinitions: &pdInput,
+		Url:                     nil,
+	}
+
+	t.Run("Success", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		controller := NewController(&Config{
+			ProfileSvc:  mockProfileSvc,
+			KMSRegistry: kmsRegistry,
+		})
+
+		_, _, err := controller.validateCreateVerifierProfileData(correct)
+		require.NoError(t, err)
+	})
+
+	t.Run("Invalid kms config", func(t *testing.T) {
+		controller := NewController(&Config{
+			KMSRegistry: kmsRegistry,
+		})
+
+		incorrect := &CreateVerifierProfileData{}
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrect.KmsConfig.Type = "incorrect"
+
+		_, _, err := controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "kmsConfig.type", err)
+	})
+
+	t.Run("Broken KMS Registry", func(t *testing.T) {
+		brokenKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		brokenKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("broken"))
+
+		controller := NewController(&Config{KMSRegistry: brokenKMSRegistry})
+
+		_, _, err := controller.validateCreateVerifierProfileData(correct)
+		requireSystemError(t, "kms.Registry", "GetKeyManager", err)
+	})
+
+	t.Run("Invalid checks", func(t *testing.T) {
+		controller := NewController(&Config{
+			KMSRegistry: kmsRegistry,
+		})
+
+		incorrect := &CreateVerifierProfileData{}
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrect.Checks.Credential.Format = []common.VCFormat{"invalid"}
+
+		_, _, err := controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "checks.credential.format", err)
+
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrect.Checks.Presentation = &PresentationChecks{
+			Format: []common.VPFormat{"invalid"},
+		}
+
+		_, _, err = controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "checks.presentation.format", err)
+	})
+
+	t.Run("Invalid OIDC4VPConfig", func(t *testing.T) {
+		controller := NewController(&Config{
+			KMSRegistry: kmsRegistry,
+		})
+
+		incorrect := &CreateVerifierProfileData{}
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrect.OidcConfig.DidMethod = "test"
+
+		_, _, err := controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "oidcConfig.didMethod", err)
+
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrect.OidcConfig.RoSigningAlgorithm = "invalid"
+
+		_, _, err = controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "oidcConfig.roSigningAlgorithm", err)
+	})
+
+	t.Run("Invalid PD", func(t *testing.T) {
+		controller := NewController(&Config{
+			KMSRegistry: kmsRegistry,
+		})
+
+		incorrect := &CreateVerifierProfileData{}
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrectPDInput := []PresentationDefinition{[]byte("invalid json")}
+		incorrect.PresentationDefinitions = &incorrectPDInput
+
+		_, _, err := controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "presentationDefinition", err)
+
+		require.NoError(t, copier.Copy(incorrect, correct))
+
+		incorrectPDInput = []PresentationDefinition{[]byte("{}")}
+		incorrect.PresentationDefinitions = &incorrectPDInput
+
+		_, _, err = controller.validateCreateVerifierProfileData(incorrect)
+		requireValidationError(t, resterr.InvalidValue, "presentationDefinition", err)
 	})
 }
 
@@ -882,4 +1071,30 @@ func Test_mapVerifyCredentialChecks(t *testing.T) {
 			}
 		})
 	}
+}
+
+func strPtr(str string) *string {
+	return &str
+}
+
+// nolint: unparam
+func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+
+	require.Equal(t, expectedCode, actualErr.Code)
+	require.Equal(t, incorrectValueName, actualErr.IncorrectValue)
+	require.Error(t, actualErr.Err)
+}
+
+func requireSystemError(t *testing.T, component, failedOperation string, actual error) { //nolint: unparam
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+
+	require.Equal(t, resterr.SystemError, actualErr.Code)
+	require.Equal(t, component, actualErr.Component)
+	require.Equal(t, failedOperation, actualErr.FailedOperation)
+	require.Error(t, actualErr.Err)
 }
