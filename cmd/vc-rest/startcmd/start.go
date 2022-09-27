@@ -48,6 +48,7 @@ var logger = log.New("vc-rest")
 
 type httpServer interface {
 	ListenAndServe() error
+	ListenAndServeTLS(certFile, keyFile string) error
 }
 
 type startOpts struct {
@@ -242,6 +243,12 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 	}
 
 	logger.Infof("Starting vc-rest server on host %s", conf.StartupParameters.hostURL)
+
+	if conf.StartupParameters.tlsParameters.serveKeyPath != "" &&
+		conf.StartupParameters.tlsParameters.serveCertPath != "" {
+		return o.server.ListenAndServeTLS(conf.StartupParameters.tlsParameters.serveCertPath,
+			conf.StartupParameters.tlsParameters.serveKeyPath)
+	}
 
 	return o.server.ListenAndServe()
 }
