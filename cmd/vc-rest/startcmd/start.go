@@ -11,7 +11,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"time"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/labstack/echo/v4"
@@ -20,11 +19,10 @@ import (
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/api/spec"
-	"github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
-	issuersvc "github.com/trustbloc/vcs/pkg/issuer"
 	"github.com/trustbloc/vcs/pkg/kms"
+	issuerfilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -33,10 +31,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/issuerstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/verifierstore"
-	verifiersvc "github.com/trustbloc/vcs/pkg/verifier"
 )
 
 const (
@@ -140,12 +134,7 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	// Handlers
 	healthcheck.RegisterHandlers(e, &healthcheck.Controller{})
 
-	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
-		conf.StartupParameters.dbParameters.databasePrefix+"vcs",
-		5*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
-	}
+	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}
 
 	defaultVCSKeyManager, err := kms.NewAriesKeyManager(&kms.Config{
 		KMSType:           conf.StartupParameters.kmsParameters.kmsType,
@@ -163,18 +152,15 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
-	didCreator := did.NewCreator(&did.CreatorConfig{
-		VDR:             conf.VDR,
-		DIDAnchorOrigin: conf.StartupParameters.didAnchorOrigin,
-	})
-
 	// Issuer Profile Management API
-	issuerProfileStore := issuerstore.NewProfileStore(mongodbClient)
-	issuerProfileSvc := issuersvc.NewProfileService(&issuersvc.ServiceConfig{
-		ProfileStore: issuerProfileStore,
-		DIDCreator:   didCreator,
-		KMSRegistry:  kmsRegistry,
+	issuerProfileSvc, err := issuerfilereader.NewIssuerReader(&issuerfilereader.Config{
+		ProfileJSONFile: conf.StartupParameters.profilesFilePath,
+		TLSConfig:       tlsConfig,
+		KMSRegistry:     kmsRegistry,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	vcCrypto := crypto.New(conf.VDR, conf.DocumentLoader)
 
@@ -197,12 +183,15 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 	}))
 
 	// Verifier Profile Management API
-	verifierProfileStore := verifierstore.NewProfileStore(mongodbClient)
-	verifierProfileSvc := verifiersvc.NewProfileService(&verifiersvc.ServiceConfig{
-		ProfileStore: verifierProfileStore,
-		DIDCreator:   didCreator,
-		KMSRegistry:  kmsRegistry,
-	})
+	verifierProfileSvc, err := issuerfilereader.NewVerifiersReader(
+		&issuerfilereader.Config{
+			ProfileJSONFile: conf.StartupParameters.profilesFilePath,
+			TLSConfig:       tlsConfig,
+			KMSRegistry:     kmsRegistry,
+		})
+	if err != nil {
+		return nil, err
+	}
 
 	vcStatusManagerSvc := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,

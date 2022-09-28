@@ -59,23 +59,12 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Contains(t, err.Error(), "host-url value is empty")
 	})
 
-	t.Run("test blank bloc domain arg", func(t *testing.T) {
-		startCmd := GetStartCmd()
-
-		args := []string{"--" + hostURLFlagName, "test", "--" + blocDomainFlagName, ""}
-		startCmd.SetArgs(args)
-
-		err := startCmd.Execute()
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "bloc-domain value is empty")
-	})
-
 	t.Run("test blank database type arg", func(t *testing.T) {
 		startCmd := GetStartCmd()
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, "",
+			"--" + databaseTypeFlagName, "",
 		}
 		startCmd.SetArgs(args)
 
@@ -89,7 +78,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + modeFlagName, "",
 		}
 		startCmd.SetArgs(args)
@@ -104,7 +93,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
-			"--" + blocDomainFlagName, "domain", "--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + modeFlagName, "invalid",
 		}
 		startCmd.SetArgs(args)
@@ -159,7 +148,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
+		"--" + hostURLFlagName, "localhost:8080",
 		"--" + kmsTypeFlagName, "web",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
@@ -184,7 +173,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
-		"--" + hostURLFlagName, "localhost:8080", "--" + blocDomainFlagName, "domain",
+		"--" + hostURLFlagName, "localhost:8080",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
@@ -240,7 +229,7 @@ func TestCreateProviders(t *testing.T) {
 
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
-		v, err := createVDRI("wrong", &tls.Config{MinVersion: tls.VersionTLS12}, "", "")
+		v, err := createVDRI("wrong", &tls.Config{MinVersion: tls.VersionTLS12})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to create new universal resolver vdr")
 		require.Nil(t, v)
@@ -269,7 +258,7 @@ func TestCreateVDRI(t *testing.T) {
 	})
 
 	t.Run("test success", func(t *testing.T) {
-		v, err := createVDRI("localhost:8083", &tls.Config{MinVersion: tls.VersionTLS12}, "", "")
+		v, err := createVDRI("localhost:8083", &tls.Config{MinVersion: tls.VersionTLS12})
 		require.NoError(t, err)
 		require.NotNil(t, v)
 	})
@@ -366,9 +355,6 @@ func setEnvVars(t *testing.T, databaseType string) {
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
 	require.NoError(t, err)
 
-	err = os.Setenv(blocDomainEnvKey, "domain")
-	require.NoError(t, err)
-
 	err = os.Setenv(databaseTypeEnvKey, databaseType)
 	require.NoError(t, err)
 
@@ -383,9 +369,6 @@ func unsetEnvVars(t *testing.T) {
 	t.Helper()
 
 	err := os.Unsetenv(hostURLEnvKey)
-	require.NoError(t, err)
-
-	err = os.Unsetenv(blocDomainEnvKey)
 	require.NoError(t, err)
 
 	err = os.Unsetenv(databaseTypeEnvKey)

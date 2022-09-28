@@ -21,7 +21,7 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-func (e *Steps) createCredential(credential, profileName, organizationName string) error {
+func (e *Steps) createCredential(credential, profileName, organizationName, signatureRepresentation string) error {
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	template, ok := e.bddContext.TestData[credential]
@@ -40,12 +40,7 @@ func (e *Steps) createCredential(credential, profileName, organizationName strin
 		return err
 	}
 
-	profileResponse, err := e.getIssuerProfileData(profileName, organizationName)
-	if err != nil {
-		return fmt.Errorf("unable to fetch profile - %w", err)
-	}
-
-	cred.ID = profileResponse.Url + "/" + uuid.New().String()
+	cred.ID = uuid.New().URN()
 
 	req := &model.IssueCredentialData{
 		Credential: cred,
@@ -56,7 +51,7 @@ func (e *Steps) createCredential(credential, profileName, organizationName strin
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(issueCredentialURLFormat, profileResponse.Id)
+	endpointURL := fmt.Sprintf(issueCredentialURLFormat, profileName)
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), e.tlsConfig)
@@ -77,15 +72,10 @@ func (e *Steps) createCredential(credential, profileName, organizationName strin
 
 	e.bddContext.CreatedCredential = respBytes
 
-	return e.checkVC(respBytes, profileName)
+	return e.checkVC(respBytes, profileName, signatureRepresentation)
 }
 
 func (e *Steps) verifyCredential(profileName, organizationName string) error {
-	profileResponse, err := e.getVerifierProfileData(profileName, organizationName)
-	if err != nil {
-		return fmt.Errorf("unable to fetch profile - %w", err)
-	}
-
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return err
@@ -106,7 +96,7 @@ func (e *Steps) verifyCredential(profileName, organizationName string) error {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, profileResponse.ID)
+	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, profileName)
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(reqBytes), e.tlsConfig)
@@ -138,7 +128,7 @@ func (e *Steps) verifyCredential(profileName, organizationName string) error {
 	return nil
 }
 
-func (e *Steps) checkVC(vcBytes []byte, profileName string) error {
+func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation string) error {
 	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
 		return err
@@ -154,10 +144,11 @@ func (e *Steps) checkVC(vcBytes []byte, profileName string) error {
 		return err
 	}
 
-	return e.checkSignatureHolder(vcMap)
+	return e.checkSignatureHolder(vcMap, signatureRepresentation)
 }
 
-func (e *Steps) checkSignatureHolder(vcMap map[string]interface{}) error {
+func (e *Steps) checkSignatureHolder(vcMap map[string]interface{},
+	signatureRepresentation string) error {
 	proof, found := vcMap["proof"]
 	if !found {
 		return fmt.Errorf("unable to find proof in VC map")
@@ -168,7 +159,7 @@ func (e *Steps) checkSignatureHolder(vcMap map[string]interface{}) error {
 		return fmt.Errorf("unable to assert proof field type as map[string]interface{}")
 	}
 
-	switch e.bddContext.CreatedProfileV1.VcConfig.SignatureRepresentation {
+	switch signatureRepresentation {
 	case "JWS":
 		_, found := proofMap["jws"]
 		if !found {

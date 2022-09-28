@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package did
+package file
 
 import (
 	"fmt"
@@ -18,14 +18,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-)
-
-type Method string
-
-const (
-	WebDIDMethod Method = "web"
-	KeyDIDMethod Method = key.DIDMethod
-	OrbDIDMethod Method = orb.DIDMethod
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 // nolint: gochecknoglobals
@@ -37,17 +30,17 @@ var signatureKeyTypeMap = map[vcsverifiable.SignatureType]string{
 	vcsverifiable.BbsBlsSignature2020:         crypto.Bls12381G1Key2020,
 }
 
-// CreateResult contains created did, update and recovery keys.
-type CreateResult struct {
-	DocResolution  *did.DocResolution
-	Creator        string
-	UpdateKeyURL   string
-	RecoveryKeyURL string
+// createResult contains created did, update and recovery keys.
+type createResult struct {
+	didID          string
+	creator        string
+	updateKeyURL   string
+	recoveryKeyURL string
 }
 
 // Creator service used to create public DID.
 type Creator struct {
-	config *CreatorConfig
+	config *creatorConfig
 }
 
 // KeysCreator create keys for DID creation process.
@@ -56,27 +49,26 @@ type KeysCreator interface {
 	CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error)
 }
 
-// CreatorConfig configures PublicDID.
-type CreatorConfig struct {
-	VDR             vdr.Registry
-	DIDAnchorOrigin string
+// creatorConfig configures PublicDID.
+type creatorConfig struct {
+	vdr vdr.Registry
 }
 
-// NewCreator creates Creator.
-func NewCreator(config *CreatorConfig) *Creator {
+// newCreator creates Creator.
+func newCreator(config *creatorConfig) *Creator {
 	return &Creator{
 		config: config,
 	}
 }
 
-// PublicDID creates a new public DID given a key manager.
-func (c *Creator) PublicDID(method Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*CreateResult, error) {
-	methods := map[Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-		km KeysCreator) (*CreateResult, error){
-		KeyDIDMethod: c.keyDID,
-		OrbDIDMethod: c.createDID,
-		WebDIDMethod: c.webDID,
+// publicDID creates a new public DID given a key manager.
+func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
+	km KeysCreator) (*createResult, error) {
+	methods := map[profileapi.Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
+		km KeysCreator) (*createResult, error){
+		profileapi.KeyDIDMethod: c.keyDID,
+		profileapi.OrbDIDMethod: c.createDID,
+		profileapi.WebDIDMethod: c.webDID,
 	}
 
 	methodFn, supported := methods[method]
@@ -88,7 +80,7 @@ func (c *Creator) PublicDID(method Method, verificationMethodType vcsverifiable.
 }
 
 func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*CreateResult, error) {
+	km KeysCreator) (*createResult, error) {
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -136,34 +128,33 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 	updateKey, updateURL := keys[0], keyURLs[0]
 	recoveryKey, recoveryURL := keys[1], keyURLs[1]
 
-	didResolution, err := c.config.VDR.Create(
+	didResolution, err := c.config.vdr.Create(
 		orb.DIDMethod,
 		doc,
 		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
-		vdr.WithOption(orb.AnchorOriginOpt, c.config.DIDAnchorOrigin),
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create did: %w", err)
 	}
 
-	return &CreateResult{
-		DocResolution:  didResolution,
-		Creator:        didResolution.DIDDocument.ID + "#" + assertion.ID,
-		UpdateKeyURL:   updateURL,
-		RecoveryKeyURL: recoveryURL,
+	return &createResult{
+		didID:          didResolution.DIDDocument.ID,
+		creator:        didResolution.DIDDocument.ID + "#" + assertion.ID,
+		updateKeyURL:   updateURL,
+		recoveryKeyURL: recoveryURL,
 	}, nil
 }
 
 func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*CreateResult, error) {
+	km KeysCreator) (*createResult, error) {
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
 	}
 
-	didResolution, err := c.config.VDR.Create(
+	didResolution, err := c.config.vdr.Create(
 		key.DIDMethod,
 		&did.Doc{
 			VerificationMethod: []did.VerificationMethod{*verMethod[0]},
@@ -174,14 +165,27 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 		return nil, fmt.Errorf("did:key: failed to create did: %w", err)
 	}
 
-	return &CreateResult{
-		DocResolution: didResolution,
+	return &createResult{
+		didID: didResolution.DIDDocument.ID,
 	}, nil
 }
 
 func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*CreateResult, error) {
-	return nil, fmt.Errorf("did web method currently not supported, add support in future")
+	km KeysCreator) (*createResult, error) {
+	r, err := c.createDID(verificationMethodType, keyType, km)
+	if err != nil {
+		return nil, err
+	}
+
+	didID := r.didID
+	creator := r.creator
+
+	return &createResult{
+		didID:          didID,
+		creator:        creator,
+		updateKeyURL:   r.updateKeyURL,
+		recoveryKeyURL: r.recoveryKeyURL,
+	}, nil
 }
 
 func newVerMethods(

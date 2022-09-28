@@ -19,7 +19,7 @@ import (
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/verifier"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 var (
@@ -72,7 +72,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 	}
 	type args struct {
 		getPresentation func() *verifiable.Presentation
-		profile         *verifier.Profile
+		profile         *profileapi.Verifier
 		opts            *Options
 	}
 	tests := []struct {
@@ -105,13 +105,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getPresentation: func() *verifiable.Presentation {
 					return signedVP
 				},
-				profile: &verifier.Profile{
-					Checks: &verifier.VerificationChecks{
-						Presentation: &verifier.PresentationChecks{
+				profile: &profileapi.Verifier{
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
 							Format: nil,
 						},
-						Credential: verifier.CredentialChecks{
+						Credential: profileapi.CredentialChecks{
 							Proof:  true,
 							Status: true,
 							Format: nil,
@@ -140,13 +140,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getPresentation: func() *verifiable.Presentation {
 					return nil
 				},
-				profile: &verifier.Profile{
-					Checks: &verifier.VerificationChecks{
-						Presentation: &verifier.PresentationChecks{
+				profile: &profileapi.Verifier{
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
 							Proof:  false,
 							Format: nil,
 						},
-						Credential: verifier.CredentialChecks{
+						Credential: profileapi.CredentialChecks{
 							Proof:  false,
 							Status: false,
 							Format: nil,
@@ -172,13 +172,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getPresentation: func() *verifiable.Presentation {
 					return signedVP
 				},
-				profile: &verifier.Profile{
-					Checks: &verifier.VerificationChecks{
-						Presentation: &verifier.PresentationChecks{
+				profile: &profileapi.Verifier{
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
 							Format: nil,
 						},
-						Credential: verifier.CredentialChecks{
+						Credential: profileapi.CredentialChecks{
 							Proof:  false,
 							Status: false,
 							Format: nil,
@@ -213,13 +213,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 					vp.Holder = "invalid value"
 					return &vp
 				},
-				profile: &verifier.Profile{
-					Checks: &verifier.VerificationChecks{
-						Presentation: &verifier.PresentationChecks{
+				profile: &profileapi.Verifier{
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
 							Format: nil,
 						},
-						Credential: verifier.CredentialChecks{
+						Credential: profileapi.CredentialChecks{
 							Proof:  false,
 							Format: nil,
 							Status: false,
@@ -260,13 +260,13 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getPresentation: func() *verifiable.Presentation {
 					return signedVP
 				},
-				profile: &verifier.Profile{
-					Checks: &verifier.VerificationChecks{
-						Presentation: &verifier.PresentationChecks{
+				profile: &profileapi.Verifier{
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
 							Proof:  false,
 							Format: nil,
 						},
-						Credential: verifier.CredentialChecks{
+						Credential: profileapi.CredentialChecks{
 							Proof:  true,
 							Status: true,
 							Format: nil,

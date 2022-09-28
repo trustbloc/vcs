@@ -22,7 +22,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
-	"github.com/trustbloc/vcs/pkg/verifier"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 const (
@@ -70,7 +70,7 @@ func New(config *Config) *Service {
 }
 
 func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Options,
-	profile *verifier.Profile) ([]CredentialsVerificationCheckResult, error) {
+	profile *profileapi.Verifier) ([]CredentialsVerificationCheckResult, error) {
 	checks := profile.Checks.Credential
 
 	var result []CredentialsVerificationCheckResult

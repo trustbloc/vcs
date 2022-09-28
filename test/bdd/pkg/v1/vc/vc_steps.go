@@ -17,7 +17,13 @@ import (
 )
 
 const (
-	credentialServiceURL = "https://localhost:4455"
+	credentialServiceURL      = "https://localhost:4455"
+	verifierProfileURL        = credentialServiceURL + "/verifier/profiles"
+	verifierProfileURLFormat  = verifierProfileURL + "/%s"
+	verifyCredentialURLFormat = verifierProfileURLFormat + "/credentials/verify"
+	issuerProfileURL          = credentialServiceURL + "/issuer/profiles"
+	issuerProfileURLFormat    = issuerProfileURL + "/%s"
+	issueCredentialURLFormat  = issuerProfileURLFormat + "/credentials/issue"
 )
 
 func getProfileIDKey(profileName string) string {
@@ -48,13 +54,7 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
 		e.authorizeOrganization)
-	s.Step(`^V1 Issuer profile "([^"]*)" for organization "([^"]*)" is created with signatureHolder "([^"]*)", didMethod "([^"]*)", signatureType "([^"]*)" and keyType "([^"]*)"$`, //nolint: lll
-		e.createIssuerProfile)
-	s.Step(`^V1 We can retrieve issuer profile "([^"]*)" with DID "([^"]*)" and signatureType "([^"]*)" for organization "([^"]*)"$`,
-		e.checkIssuerProfile)
-	s.Step(`^V1 Verifier profile "([^"]*)" for organization "([^"]*)" is created"$`, e.createVerifierProfile)
-	s.Step(`^V1 We can retrieve verifier profile "([^"]*)" for organization "([^"]*)"$`, e.checkVerifierProfile)
-	s.Step(`^V1 New verifiable credential is created from "([^"]*)" under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 New verifiable credential is created from "([^"]*)" under "([^"]*)" profile for organization "([^"]*)" with signature representation "([^"]*)"$`,
 		e.createCredential)
 	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyCredential)

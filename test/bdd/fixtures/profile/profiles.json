@@ -1,0 +1,177 @@
+{
+  "issuers":[
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_P256k1",
+        "name": "i_myprofile_ud_P256k1",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "EcdsaSecp256k1Signature2019",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1IEEEP1363",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_p256",
+        "name": "i_myprofile_ud_p256",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_prc_P256k1",
+        "name": "i_myprofile_prc_P256k1",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1IEEEP1363",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_prc_p256",
+        "name": "i_myprofile_prc_p256",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_cp_p384",
+        "name": "i_myprofile_cp_p384",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP384DER",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_cp_p256",
+        "name": "i_myprofile_cp_p256",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_cmtr_p384",
+        "name": "i_myprofile_cmtr_p384",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP384DER",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_cmtr_p256",
+        "name": "i_myprofile_cmtr_p256",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "ldp",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    }
+  ],
+  "verifiers":[
+    {
+      "verifier": {
+        "id": "v_myprofile",
+        "name": "v_myprofile",
+        "organizationID": "test_org",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "checks": {
+          "credential": {
+            "format": ["ldp"],
+            "proof": true,
+            "status": false
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    }
+  ]
+}

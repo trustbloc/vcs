@@ -9,37 +9,7 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
-	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
-
-// Defines values for VCConfigSignatureRepresentation.
-const (
-	JWS        VCConfigSignatureRepresentation = "JWS"
-	ProofValue VCConfigSignatureRepresentation = "ProofValue"
-)
-
-// Model for creating issuer profile.
-type CreateIssuerProfileData struct {
-	CredentialManifests *[]map[string]interface{} `json:"credentialManifests,omitempty"`
-
-	// Model for KMS configuration.
-	KmsConfig *externalRef0.KMSConfig `json:"kmsConfig,omitempty"`
-
-	// Issuer’s display name.
-	Name string `json:"name"`
-
-	// Configuration for OIDC4VC credential interaction operations.
-	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
-
-	// Unique identifier of the organization.
-	OrganizationID string `json:"organizationID"`
-
-	// URI of the issuer, Refer issuer from VC data model.
-	Url string `json:"url"`
-
-	// Model for VC configuration.
-	VcConfig VCConfig `json:"vcConfig"`
-}
 
 // Options for issuing credential.
 type CredentialStatusOpt struct {
@@ -73,195 +43,22 @@ type IssueCredentialOptions struct {
 	VerificationMethod *string `json:"verificationMethod,omitempty"`
 }
 
-// Model for issuer profile.
-type IssuerProfile struct {
-	// Is profile active? Can be modified using disable/enable profile endpoints.
-	Active              bool                      `json:"active"`
-	CredentialManifests *[]map[string]interface{} `json:"credentialManifests,omitempty"`
-
-	// Short unique string across the VCS platform, to be used as a reference to this profile.
-	Id string `json:"id"`
-
-	// Model for KMS configuration.
-	KmsConfig *externalRef0.KMSConfig `json:"kmsConfig,omitempty"`
-
-	// Issuer’s display name.
-	Name string `json:"name"`
-
-	// Configuration for OIDC4VC credential interaction operations.
-	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
-
-	// Unique identifier of the organization.
-	OrganizationID string `json:"organizationID"`
-
-	// URI of the issuer, Refer issuer from VC data model.
-	Url string `json:"url"`
-
-	// Model for VC configuration.
-	VcConfig VCConfig `json:"vcConfig"`
-}
-
-// Model for updating issuer profile data.
-type UpdateIssuerProfileData struct {
-	// Issuer’s display name.
-	Name *string `json:"name,omitempty"`
-
-	// Configuration for OIDC4VC credential interaction operations.
-	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
-
-	// URI of the issuer, Refer issuer from VC data model.
-	Url *string `json:"url,omitempty"`
-}
-
-// Model for VC configuration.
-type VCConfig struct {
-	// Additional JSON-LD contexts the profile is going to use on top of standard W3C verifiable credential contexts and VCS contexts (status, signature suite, etc).
-	Contexts *[]string `json:"contexts,omitempty"`
-
-	// DID method of the DID to be used for signing.
-	DidMethod externalRef0.DIDMethod `json:"didMethod"`
-
-	// Supported VC formats.
-	Format externalRef0.VCFormat `json:"format"`
-
-	// Type of key used for signing algorithms. Required only for signing algorithms that do not implicitly specify key type.
-	KeyType *string `json:"keyType,omitempty"`
-
-	// Type of signature value holder (e.g. "ProofValue" or "JWS").
-	SignatureRepresentation *VCConfigSignatureRepresentation `json:"signatureRepresentation,omitempty"`
-
-	// List of supported cryptographic signing algorithms.
-	SigningAlgorithm string `json:"signingAlgorithm"`
-
-	// DID to be used for signing.
-	SigningDID string `json:"signingDID"`
-
-	// Credential status type allowed for the profile.
-	Status *map[string]interface{} `json:"status,omitempty"`
-}
-
-// Type of signature value holder (e.g. "ProofValue" or "JWS").
-type VCConfigSignatureRepresentation string
-
-// PostIssuerProfilesJSONBody defines parameters for PostIssuerProfiles.
-type PostIssuerProfilesJSONBody = CreateIssuerProfileData
-
-// PutIssuerProfilesProfileIDJSONBody defines parameters for PutIssuerProfilesProfileID.
-type PutIssuerProfilesProfileIDJSONBody = UpdateIssuerProfileData
-
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
-
-// PostIssuerProfilesJSONRequestBody defines body for PostIssuerProfiles for application/json ContentType.
-type PostIssuerProfilesJSONRequestBody = PostIssuerProfilesJSONBody
-
-// PutIssuerProfilesProfileIDJSONRequestBody defines body for PutIssuerProfilesProfileID for application/json ContentType.
-type PutIssuerProfilesProfileIDJSONRequestBody = PutIssuerProfilesProfileIDJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Create Profile
-	// (POST /issuer/profiles)
-	PostIssuerProfiles(ctx echo.Context) error
-	// Delete Profile
-	// (DELETE /issuer/profiles/{profileID})
-	DeleteIssuerProfilesProfileID(ctx echo.Context, profileID string) error
-	// Get Profile
-	// (GET /issuer/profiles/{profileID})
-	GetIssuerProfilesProfileID(ctx echo.Context, profileID string) error
-	// Update Profile
-	// (PUT /issuer/profiles/{profileID})
-	PutIssuerProfilesProfileID(ctx echo.Context, profileID string) error
-	// Activate Profile
-	// (POST /issuer/profiles/{profileID}/activate)
-	PostIssuerProfilesProfileIDActivate(ctx echo.Context, profileID string) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
-	// Deactivate Profile
-	// (POST /issuer/profiles/{profileID}/deactivate)
-	PostIssuerProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
-}
-
-// PostIssuerProfiles converts echo context to params.
-func (w *ServerInterfaceWrapper) PostIssuerProfiles(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostIssuerProfiles(ctx)
-	return err
-}
-
-// DeleteIssuerProfilesProfileID converts echo context to params.
-func (w *ServerInterfaceWrapper) DeleteIssuerProfilesProfileID(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.DeleteIssuerProfilesProfileID(ctx, profileID)
-	return err
-}
-
-// GetIssuerProfilesProfileID converts echo context to params.
-func (w *ServerInterfaceWrapper) GetIssuerProfilesProfileID(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.GetIssuerProfilesProfileID(ctx, profileID)
-	return err
-}
-
-// PutIssuerProfilesProfileID converts echo context to params.
-func (w *ServerInterfaceWrapper) PutIssuerProfilesProfileID(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PutIssuerProfilesProfileID(ctx, profileID)
-	return err
-}
-
-// PostIssuerProfilesProfileIDActivate converts echo context to params.
-func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDActivate(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostIssuerProfilesProfileIDActivate(ctx, profileID)
-	return err
 }
 
 // PostIssueCredentials converts echo context to params.
@@ -277,22 +74,6 @@ func (w *ServerInterfaceWrapper) PostIssueCredentials(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostIssueCredentials(ctx, profileID)
-	return err
-}
-
-// PostIssuerProfilesProfileIDDeactivate converts echo context to params.
-func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDDeactivate(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostIssuerProfilesProfileIDDeactivate(ctx, profileID)
 	return err
 }
 
@@ -324,12 +105,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
-	router.POST(baseURL+"/issuer/profiles", wrapper.PostIssuerProfiles)
-	router.DELETE(baseURL+"/issuer/profiles/:profileID", wrapper.DeleteIssuerProfilesProfileID)
-	router.GET(baseURL+"/issuer/profiles/:profileID", wrapper.GetIssuerProfilesProfileID)
-	router.PUT(baseURL+"/issuer/profiles/:profileID", wrapper.PutIssuerProfilesProfileID)
-	router.POST(baseURL+"/issuer/profiles/:profileID/activate", wrapper.PostIssuerProfilesProfileIDActivate)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
-	router.POST(baseURL+"/issuer/profiles/:profileID/deactivate", wrapper.PostIssuerProfilesProfileIDDeactivate)
 
 }

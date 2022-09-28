@@ -17,8 +17,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
-	"github.com/trustbloc/vcs/pkg/issuer"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 const (
@@ -60,7 +60,7 @@ func New(config *Config) *Service {
 
 func (s *Service) IssueCredential(credential *verifiable.Credential,
 	issuerSigningOpts []crypto.SigningOpts,
-	profile *issuer.Profile) (*verifiable.Credential, error) {
+	profile *profileapi.Issuer) (*verifiable.Credential, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kms: %w", err)
