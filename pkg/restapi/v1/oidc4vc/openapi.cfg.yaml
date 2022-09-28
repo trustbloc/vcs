@@ -1,0 +1,15 @@
+#
+# Copyright SecureKey Technologies Inc. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+package: oidc4vc
+output: openapi.gen.go
+generate:
+  models: true
+  echo-server: true
+  embedded-spec: false
+output-options:
+  include-tags:
+    - oidc4vc
