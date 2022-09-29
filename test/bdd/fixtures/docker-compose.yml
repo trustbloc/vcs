@@ -11,7 +11,7 @@ services:
     image: ${VC_REST_IMAGE}:latest
     environment:
       - VC_REST_HOST_URL=0.0.0.0:8075
-      - BLOC_DOMAIN=testnet.orb.local
+      - VC_REST_PROFILES_FILE_PATH=/profile/profiles.json
       - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
@@ -24,8 +24,7 @@ services:
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
       - VC_REST_TLS_SYSTEMCERTPOOL=true
       - VC_REST_API_TOKEN=rw_token
-      - VC_REST_REQUEST_TOKENS=csl=rw_token,sidetreeToken=tk1
-      - VC_REST_DID_ANCHOR_ORIGIN=https://testnet.orb.local
+      - VC_REST_REQUEST_TOKENS=csl=rw_token
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
     ports:
       - "8075:8075"
@@ -33,6 +32,7 @@ services:
     command:  /bin/sh -c "sleep 5;vc-rest start"
     volumes:
       - ./keys/tls:/etc/tls
+      - ./profile:/profile/
     networks:
       - bdd_net
 
@@ -59,6 +59,7 @@ services:
       - DID_REST_CONFIG_FILE=/opt/did-resolver/config.json
       - DID_REST_TLS_SYSTEMCERTPOOL=true
       - DID_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem
+      - DID_REST_DID_DOMAIN=testnet.orb.local
     ports:
       - ${DID_RESOLVER_PORT}:${DID_RESOLVER_PORT}
     command:  start

@@ -69,10 +69,9 @@ const (
 	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
 	hostURLEnvKey        = "VC_REST_HOST_URL"
 
-	blocDomainFlagName      = "bloc-domain"
-	blocDomainFlagShorthand = "b"
-	blocDomainFlagUsage     = "Bloc domain"
-	blocDomainEnvKey        = "BLOC_DOMAIN"
+	profilesFilePathFlagName  = "profiles-file-path"
+	profilesFilePathFlagUsage = "Profiles json file path." + commonEnvVarUsageText + profilesFilePathEnvKey
+	profilesFilePathEnvKey    = "VC_REST_PROFILES_FILE_PATH"
 
 	hostURLExternalFlagName      = "host-url-external"
 	hostURLExternalFlagShorthand = "x"
@@ -148,10 +147,6 @@ const (
 	requestTokensFlagUsage = "Tokens used for http request " +
 		commonEnvVarUsageText + requestTokensEnvKey
 
-	didAnchorOriginFlagName  = "did-anchor-origin"
-	didAnchorOriginEnvKey    = "VC_REST_DID_ANCHOR_ORIGIN"
-	didAnchorOriginFlagUsage = "DID anchor origin" + commonEnvVarUsageText + didAnchorOriginEnvKey
-
 	databaseTypeMongoDBOption = "mongodb"
 
 	didMethodVeres   = "v1"
@@ -159,13 +154,14 @@ const (
 	didMethodSov     = "sov"
 	didMethodWeb     = "web"
 	didMethodFactom  = "factom"
+	didMethodORB     = "orb"
 
 	splitRequestTokenLength = 2
 )
 
 type startupParameters struct {
 	hostURL              string
-	blocDomain           string
+	profilesFilePath     string
 	hostURLExternal      string
 	universalResolverURL string
 	mode                 string
@@ -174,7 +170,6 @@ type startupParameters struct {
 	token                string
 	requestTokens        map[string]string
 	logLevel             string
-	didAnchorOrigin      string
 	contextProviderURLs  []string
 	contextEnableRemote  bool
 	tlsParameters        *tlsParameters
@@ -210,10 +205,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	blocDomain, err := cmdutils.GetUserSetVarFromString(cmd, blocDomainFlagName, blocDomainEnvKey, false)
-	if err != nil {
-		return nil, err
-	}
+	profilesFilePath := cmdutils.GetUserSetOptionalVarFromString(cmd, profilesFilePathFlagName, profilesFilePathEnvKey)
 
 	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
 		hostURLExternalEnvKey, true)
@@ -260,8 +252,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	didAnchorOrigin := cmdutils.GetUserSetOptionalVarFromString(cmd, didAnchorOriginFlagName, didAnchorOriginEnvKey)
-
 	contextProviderURLs := cmdutils.GetUserSetOptionalCSVVar(cmd, contextProviderFlagName,
 		contextProviderEnvKey)
 
@@ -282,7 +272,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 
 	return &startupParameters{
 		hostURL:              hostURL,
-		blocDomain:           blocDomain,
+		profilesFilePath:     profilesFilePath,
 		hostURLExternal:      hostURLExternal,
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
@@ -292,7 +282,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		token:                token,
 		requestTokens:        requestTokens,
 		logLevel:             loggingLevel,
-		didAnchorOrigin:      didAnchorOrigin,
 		contextProviderURLs:  contextProviderURLs,
 		contextEnableRemote:  contextEnableRemote,
 	}, nil
@@ -445,7 +434,7 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
-	startCmd.Flags().StringP(blocDomainFlagName, blocDomainFlagShorthand, "", blocDomainFlagUsage)
+	startCmd.Flags().StringP(profilesFilePathFlagName, "", "", profilesFilePathFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
@@ -458,7 +447,6 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
-	startCmd.Flags().StringP(didAnchorOriginFlagName, "", "", didAnchorOriginFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
 	startCmd.Flags().StringP(contextEnableRemoteFlagName, "", "", contextEnableRemoteFlagUsage)
 	startCmd.Flags().StringP(kmsSecretsDatabaseTypeFlagName, kmsSecretsDatabaseTypeFlagShorthand, "",

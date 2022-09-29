@@ -21,9 +21,7 @@ import (
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
-	v1issuer "github.com/trustbloc/vcs/test/bdd/pkg/v1/issuer"
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
-	v1verifier "github.com/trustbloc/vcs/test/bdd/pkg/v1/verifier"
 	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
 )
 
@@ -144,8 +142,6 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	features := []feature{
 		common.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
-		v1issuer.NewSteps(bddContext),
-		v1verifier.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 	}
 

@@ -11,9 +11,9 @@ package common
 import (
 	"fmt"
 
-	"github.com/trustbloc/vcs/pkg/did"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
@@ -70,27 +70,27 @@ func MapToVPFormat(format vcsverifiable.Format) (VPFormat, error) {
 	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVc, LdpVc)
 }
 
-func ValidateDIDMethod(method DIDMethod) (did.Method, error) {
+func ValidateDIDMethod(method DIDMethod) (profileapi.Method, error) {
 	switch method {
 	case DIDMethodKey:
-		return did.KeyDIDMethod, nil
+		return profileapi.KeyDIDMethod, nil
 	case DIDMethodWeb:
-		return did.WebDIDMethod, nil
+		return profileapi.WebDIDMethod, nil
 	case DIDMethodOrb:
-		return did.OrbDIDMethod, nil
+		return profileapi.OrbDIDMethod, nil
 	}
 
 	return "", fmt.Errorf("unsupported did method %s, use one of next [%s, %s, %s]",
 		method, DIDMethodKey, DIDMethodWeb, DIDMethodOrb)
 }
 
-func MapToDIDMethod(method did.Method) (DIDMethod, error) {
+func MapToDIDMethod(method profileapi.Method) (DIDMethod, error) {
 	switch method {
-	case did.KeyDIDMethod:
+	case profileapi.KeyDIDMethod:
 		return DIDMethodKey, nil
-	case did.WebDIDMethod:
+	case profileapi.WebDIDMethod:
 		return DIDMethodWeb, nil
-	case did.OrbDIDMethod:
+	case profileapi.OrbDIDMethod:
 		return DIDMethodOrb, nil
 	}
 

@@ -20,7 +20,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/verifier"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 var (
@@ -30,8 +30,8 @@ var (
 	sampleVCJWT string
 
 	// nolint:gochecknoglobals
-	verificationChecks = &verifier.VerificationChecks{
-		Credential: verifier.CredentialChecks{
+	verificationChecks = &profileapi.VerificationChecks{
+		Credential: profileapi.CredentialChecks{
 			Proof: true,
 			Format: []vcs.Format{
 				vcs.Jwt,
@@ -42,7 +42,7 @@ var (
 	}
 
 	// nolint:gochecknoglobals
-	testProfile = &verifier.Profile{
+	testProfile = &profileapi.Verifier{
 		ID:             "id",
 		Name:           "test profile",
 		URL:            "https://test-verifier.com",

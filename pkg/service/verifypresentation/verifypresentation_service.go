@@ -19,7 +19,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
-	"github.com/trustbloc/vcs/pkg/verifier"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 type vcVerifier interface {
@@ -61,7 +61,7 @@ func New(config *Config) *Service {
 func (s *Service) VerifyPresentation(
 	presentation *verifiable.Presentation,
 	opts *Options,
-	profile *verifier.Profile) ([]PresentationVerificationCheckResult, error) {
+	profile *profileapi.Verifier) ([]PresentationVerificationCheckResult, error) {
 	vpBytes, err := json.Marshal(presentation)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)

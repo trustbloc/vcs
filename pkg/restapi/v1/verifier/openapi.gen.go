@@ -9,102 +9,7 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
-	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
-
-// Model for creating verifier profile.
-type CreateVerifierProfileData struct {
-	// Checks to be performed by a verifier profile for verifying credentials and presentations.
-	Checks VerifierChecks `json:"checks"`
-
-	// Model for KMS configuration.
-	KmsConfig *externalRef0.KMSConfig `json:"kmsConfig,omitempty"`
-
-	// Verifier’s display name.
-	Name string `json:"name"`
-
-	// Model for OIDC4VPConfig configuration.
-	OidcConfig *OIDC4VPConfig `json:"oidcConfig,omitempty"`
-
-	// Unique identifier of the organization.
-	OrganizationID          string                    `json:"organizationID"`
-	PresentationDefinitions *[]PresentationDefinition `json:"presentationDefinitions,omitempty"`
-
-	// URI of the verifier.
-	Url *string `json:"url,omitempty"`
-}
-
-// Model for OIDC4VPConfig configuration.
-type OIDC4VPConfig struct {
-	// DID method of the DID to be used for signing.
-	DidMethod externalRef0.DIDMethod `json:"didMethod"`
-
-	// Cryptographic algorithms used to sign oipd vp request object.
-	RoSigningAlgorithm string `json:"roSigningAlgorithm"`
-}
-
-// Checks to be performed during presentation verification.
-type PresentationChecks struct {
-	// Supported presentation formats.
-	Format []externalRef0.VPFormat `json:"format"`
-
-	// Proof check for presentation.
-	Proof bool `json:"proof"`
-}
-
-// Model for updating verifier profile data.
-type UpdateVerifierProfileData struct {
-	// Checks to be performed by a verifier profile for verifying credentials and presentations.
-	Checks *VerifierChecks `json:"checks,omitempty"`
-
-	// Verifier’s display name.
-	Name *string `json:"name,omitempty"`
-
-	// Configuration for participating in OIDC4VC credential interaction operations.
-	OidcConfig *map[string]interface{} `json:"oidcConfig,omitempty"`
-
-	// URI of the verifier.
-	Url *string `json:"url,omitempty"`
-}
-
-// Checks to be performed by a verifier profile for verifying credentials and presentations.
-type VerifierChecks struct {
-	// Checks to be performed during credential verification.
-	Credential struct {
-		// Supported credential formats.
-		Format []externalRef0.VCFormat `json:"format"`
-
-		// Proof check for credential.
-		Proof bool `json:"proof"`
-
-		// Status check for credential.
-		Status *bool `json:"status,omitempty"`
-	} `json:"credential"`
-
-	// Checks to be performed during presentation verification.
-	Presentation *PresentationChecks `json:"presentation,omitempty"`
-}
-
-// Model for verifier profile.
-type VerifierProfile struct {
-	// Defines if profile is enabled.
-	Active bool `json:"active"`
-
-	// Checks to be performed by a verifier profile for verifying credentials and presentations.
-	Checks VerifierChecks `json:"checks"`
-
-	// Short unique string across the VCS platform, to be used as a reference to this profile.
-	Id string `json:"id"`
-
-	// Verifier’s display name.
-	Name string `json:"name"`
-
-	// Unique identifier of the organization.
-	OrganizationID string `json:"organizationID"`
-
-	// URI of the verifier.
-	Url *string `json:"url,omitempty"`
-}
 
 // Verify credential response containing failure check details.
 type VerifyCredentialCheckResult struct {
@@ -173,23 +78,11 @@ type VerifyPresentationResponse struct {
 	Checks *[]VerifyPresentationCheckResult `json:"checks,omitempty"`
 }
 
-// PostVerifierProfilesJSONBody defines parameters for PostVerifierProfiles.
-type PostVerifierProfilesJSONBody = CreateVerifierProfileData
-
-// PutVerifierProfilesProfileIDJSONBody defines parameters for PutVerifierProfilesProfileID.
-type PutVerifierProfilesProfileIDJSONBody = UpdateVerifierProfileData
-
 // PostVerifyCredentialsJSONBody defines parameters for PostVerifyCredentials.
 type PostVerifyCredentialsJSONBody = VerifyCredentialData
 
 // PostVerifyPresentationJSONBody defines parameters for PostVerifyPresentation.
 type PostVerifyPresentationJSONBody = VerifyPresentationData
-
-// PostVerifierProfilesJSONRequestBody defines body for PostVerifierProfiles for application/json ContentType.
-type PostVerifierProfilesJSONRequestBody = PostVerifierProfilesJSONBody
-
-// PutVerifierProfilesProfileIDJSONRequestBody defines body for PutVerifierProfilesProfileID for application/json ContentType.
-type PutVerifierProfilesProfileIDJSONRequestBody = PutVerifierProfilesProfileIDJSONBody
 
 // PostVerifyCredentialsJSONRequestBody defines body for PostVerifyCredentials for application/json ContentType.
 type PostVerifyCredentialsJSONRequestBody = PostVerifyCredentialsJSONBody
@@ -199,30 +92,9 @@ type PostVerifyPresentationJSONRequestBody = PostVerifyPresentationJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Get All Profiles
-	// (GET /verifier/profiles)
-	GetVerifierProfiles(ctx echo.Context) error
-	// Create Profile
-	// (POST /verifier/profiles)
-	PostVerifierProfiles(ctx echo.Context) error
-	// Delete Profile
-	// (DELETE /verifier/profiles/{profileID})
-	DeleteVerifierProfilesProfileID(ctx echo.Context, profileID string) error
-	// Get Profile
-	// (GET /verifier/profiles/{profileID})
-	GetVerifierProfilesProfileID(ctx echo.Context, profileID string) error
-	// Update Profile
-	// (PUT /verifier/profiles/{profileID})
-	PutVerifierProfilesProfileID(ctx echo.Context, profileID string) error
-	// Activate Profile
-	// (POST /verifier/profiles/{profileID}/activate)
-	PostVerifierProfilesProfileIDActivate(ctx echo.Context, profileID string) error
 	// Verify credential
 	// (POST /verifier/profiles/{profileID}/credentials/verify)
 	PostVerifyCredentials(ctx echo.Context, profileID string) error
-	// Deactivate Profile
-	// (POST /verifier/profiles/{profileID}/deactivate)
-	PostVerifierProfilesProfileIDDeactivate(ctx echo.Context, profileID string) error
 	// Verify presentation
 	// (POST /verifier/profiles/{profileID}/presentations/verify)
 	PostVerifyPresentation(ctx echo.Context, profileID string) error
@@ -231,88 +103,6 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
-}
-
-// GetVerifierProfiles converts echo context to params.
-func (w *ServerInterfaceWrapper) GetVerifierProfiles(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.GetVerifierProfiles(ctx)
-	return err
-}
-
-// PostVerifierProfiles converts echo context to params.
-func (w *ServerInterfaceWrapper) PostVerifierProfiles(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostVerifierProfiles(ctx)
-	return err
-}
-
-// DeleteVerifierProfilesProfileID converts echo context to params.
-func (w *ServerInterfaceWrapper) DeleteVerifierProfilesProfileID(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.DeleteVerifierProfilesProfileID(ctx, profileID)
-	return err
-}
-
-// GetVerifierProfilesProfileID converts echo context to params.
-func (w *ServerInterfaceWrapper) GetVerifierProfilesProfileID(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.GetVerifierProfilesProfileID(ctx, profileID)
-	return err
-}
-
-// PutVerifierProfilesProfileID converts echo context to params.
-func (w *ServerInterfaceWrapper) PutVerifierProfilesProfileID(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PutVerifierProfilesProfileID(ctx, profileID)
-	return err
-}
-
-// PostVerifierProfilesProfileIDActivate converts echo context to params.
-func (w *ServerInterfaceWrapper) PostVerifierProfilesProfileIDActivate(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostVerifierProfilesProfileIDActivate(ctx, profileID)
-	return err
 }
 
 // PostVerifyCredentials converts echo context to params.
@@ -328,22 +118,6 @@ func (w *ServerInterfaceWrapper) PostVerifyCredentials(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostVerifyCredentials(ctx, profileID)
-	return err
-}
-
-// PostVerifierProfilesProfileIDDeactivate converts echo context to params.
-func (w *ServerInterfaceWrapper) PostVerifierProfilesProfileIDDeactivate(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostVerifierProfilesProfileIDDeactivate(ctx, profileID)
 	return err
 }
 
@@ -391,14 +165,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
-	router.GET(baseURL+"/verifier/profiles", wrapper.GetVerifierProfiles)
-	router.POST(baseURL+"/verifier/profiles", wrapper.PostVerifierProfiles)
-	router.DELETE(baseURL+"/verifier/profiles/:profileID", wrapper.DeleteVerifierProfilesProfileID)
-	router.GET(baseURL+"/verifier/profiles/:profileID", wrapper.GetVerifierProfilesProfileID)
-	router.PUT(baseURL+"/verifier/profiles/:profileID", wrapper.PutVerifierProfilesProfileID)
-	router.POST(baseURL+"/verifier/profiles/:profileID/activate", wrapper.PostVerifierProfilesProfileIDActivate)
 	router.POST(baseURL+"/verifier/profiles/:profileID/credentials/verify", wrapper.PostVerifyCredentials)
-	router.POST(baseURL+"/verifier/profiles/:profileID/deactivate", wrapper.PostVerifierProfilesProfileIDDeactivate)
 	router.POST(baseURL+"/verifier/profiles/:profileID/presentations/verify", wrapper.PostVerifyPresentation)
 
 }

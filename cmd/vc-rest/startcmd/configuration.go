@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -60,8 +59,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 	}
 
 	vdr, err := createVDRI(parameters.universalResolverURL,
-		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12}, parameters.blocDomain,
-		parameters.requestTokens["sidetreeToken"])
+		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12})
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +118,7 @@ func createMainStoreProvider(parameters *startupParameters) (vcsstorage.Provider
 	}
 }
 
-func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
-	sidetreeAuthToken string) (vdrapi.Registry, error) {
+func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry, error) {
 	var opts []vdrpkg.Option
 
 	if universalResolver != "" {
@@ -139,14 +136,8 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
 		opts = append(opts, vdrpkg.WithVDR(universalResolverVDRI))
 	}
 
-	vdr, err := orb.New(nil, orb.WithDomain(blocDomain), orb.WithTLSConfig(tlsConfig),
-		orb.WithAuthToken(sidetreeAuthToken))
-	if err != nil {
-		return nil, err
-	}
-
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))
+	opts = append(opts, vdrpkg.WithVDR(key.New()))
 
 	return vdrpkg.New(opts...), nil
 }
@@ -154,7 +145,7 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config, blocDomain,
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom
+		method == didMethodWeb || method == didMethodFactom || method == didMethodORB
 }
 
 func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPool,

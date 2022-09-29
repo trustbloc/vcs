@@ -13,9 +13,9 @@ import (
 	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
 
-	did2 "github.com/trustbloc/vcs/pkg/did"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
@@ -177,15 +177,15 @@ func TestController_mapToVPFormat(t *testing.T) {
 
 func TestController_mapToDIDMethod(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		tpe, err := MapToDIDMethod(did2.KeyDIDMethod)
+		tpe, err := MapToDIDMethod(profileapi.KeyDIDMethod)
 		require.NoError(t, err)
 		require.Equal(t, DIDMethodKey, tpe)
 
-		tpe, err = MapToDIDMethod(did2.OrbDIDMethod)
+		tpe, err = MapToDIDMethod(profileapi.OrbDIDMethod)
 		require.NoError(t, err)
 		require.Equal(t, DIDMethodOrb, tpe)
 
-		tpe, err = MapToDIDMethod(did2.WebDIDMethod)
+		tpe, err = MapToDIDMethod(profileapi.WebDIDMethod)
 		require.NoError(t, err)
 		require.Equal(t, DIDMethodWeb, tpe)
 	})
@@ -225,15 +225,15 @@ func TestValidateVPFormat(t *testing.T) {
 func TestValidateDIDMethod(t *testing.T) {
 	got, err := ValidateDIDMethod(DIDMethodKey)
 	require.NoError(t, err)
-	require.Equal(t, did2.KeyDIDMethod, got)
+	require.Equal(t, profileapi.KeyDIDMethod, got)
 
 	got, err = ValidateDIDMethod(DIDMethodWeb)
 	require.NoError(t, err)
-	require.Equal(t, did2.WebDIDMethod, got)
+	require.Equal(t, profileapi.WebDIDMethod, got)
 
 	got, err = ValidateDIDMethod(DIDMethodOrb)
 	require.NoError(t, err)
-	require.Equal(t, did2.OrbDIDMethod, got)
+	require.Equal(t, profileapi.OrbDIDMethod, got)
 
 	_, err = ValidateDIDMethod("invalid")
 	require.Error(t, err)

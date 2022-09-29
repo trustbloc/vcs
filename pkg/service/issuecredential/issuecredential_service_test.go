@@ -30,12 +30,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 
-	didcreator "github.com/trustbloc/vcs/pkg/did"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/issuer"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 func TestService_IssueCredential(t *testing.T) {
@@ -115,12 +114,12 @@ func TestService_IssueCredential(t *testing.T) {
 						verifiableCredentials, err := service.IssueCredential(
 							&verifiable.Credential{},
 							nil,
-							&issuer.Profile{
-								VCConfig: &issuer.VCConfig{
+							&profileapi.Issuer{
+								VCConfig: &profileapi.VCConfig{
 									SigningAlgorithm:        vcs.JSONWebSignature2020,
 									SignatureRepresentation: sigRepresentationTextCase.sr,
 								},
-								SigningDID: &didcreator.SigningDID{
+								SigningDID: &profileapi.SigningDID{
 									DID:     didDoc.ID,
 									Creator: didDoc.VerificationMethod[0].ID,
 								}},
@@ -144,7 +143,7 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
 			nil,
-			&issuer.Profile{})
+			&profileapi.Issuer{})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
@@ -163,9 +162,9 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
 			nil,
-			&issuer.Profile{
-				SigningDID: &didcreator.SigningDID{},
-				VCConfig:   &issuer.VCConfig{}})
+			&profileapi.Issuer{
+				SigningDID: &profileapi.SigningDID{},
+				VCConfig:   &profileapi.VCConfig{}})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
@@ -187,9 +186,9 @@ func TestService_IssueCredential(t *testing.T) {
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
 			nil,
-			&issuer.Profile{
-				SigningDID: &didcreator.SigningDID{},
-				VCConfig:   &issuer.VCConfig{}})
+			&profileapi.Issuer{
+				SigningDID: &profileapi.SigningDID{},
+				VCConfig:   &profileapi.VCConfig{}})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
