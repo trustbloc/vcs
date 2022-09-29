@@ -14,11 +14,12 @@ import (
 type ErrorCode string
 
 const (
-	SystemError  ErrorCode = "system-error"
-	Unauthorized ErrorCode = "unauthorized"
-	InvalidValue ErrorCode = "invalid-value"
-	AlreadyExist ErrorCode = "already-exist"
-	DoesntExist  ErrorCode = "doesnt-exist"
+	SystemError     ErrorCode = "system-error"
+	Unauthorized    ErrorCode = "unauthorized"
+	InvalidValue    ErrorCode = "invalid-value"
+	AlreadyExist    ErrorCode = "already-exist"
+	DoesntExist     ErrorCode = "doesnt-exist"
+	ConditionNotMet ErrorCode = "condition-not-met"
 )
 
 func (c ErrorCode) Name() string {
@@ -89,6 +90,9 @@ func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 
 	case DoesntExist:
 		code = http.StatusNotFound
+
+	case ConditionNotMet:
+		code = http.StatusPreconditionFailed
 
 	case InvalidValue:
 		fallthrough

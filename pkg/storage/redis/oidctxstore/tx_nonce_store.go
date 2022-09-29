@@ -13,45 +13,47 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
+
+	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 )
 
-// TxStore stores oidc transactions in redis.
-type TxStore struct {
+// TxNonceStore stores oidc transactions in redis.
+type TxNonceStore struct {
 	client    *redis.Client
 	opTimeout time.Duration
 }
 
-// New creates TxStore.
-func New(client *redis.Client, opTimeout time.Duration) *TxStore {
-	return &TxStore{
+// New creates TxNonceStore.
+func New(client *redis.Client, opTimeout time.Duration) *TxNonceStore {
+	return &TxNonceStore{
 		client:    client,
 		opTimeout: opTimeout,
 	}
 }
 
 // GetAndDelete get and then delete transaction by one time token.
-func (ts *TxStore) GetAndDelete(key string) ([]byte, bool, error) {
+func (ts *TxNonceStore) GetAndDelete(nonce string) (string, bool, error) {
 	ctxWithTimeout, cancel := ts.contextWithTimeout()
 	defer cancel()
 
-	value, err := ts.client.GetDel(ctxWithTimeout, key).Result()
+	value, err := ts.client.GetDel(ctxWithTimeout, nonce).Result()
 	if errors.Is(err, redis.Nil) {
-		return nil, false, nil
+		return "", false, nil
 	}
 
 	if err != nil {
-		return nil, false, fmt.Errorf("redis getdel failed: %w", err)
+		return "", false, fmt.Errorf("redis getdel failed: %w", err)
 	}
 
-	return []byte(value), true, nil
+	return value, true, nil
 }
 
 // SetIfNotExist stores transaction if key not exists et.
-func (ts *TxStore) SetIfNotExist(key string, value []byte, expiration time.Duration) (bool, error) {
+func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiration time.Duration) (bool, error) {
 	ctxWithTimeout, cancel := ts.contextWithTimeout()
 	defer cancel()
 
-	isSet, err := ts.client.SetNX(ctxWithTimeout, key, string(value), expiration).Result()
+	isSet, err := ts.client.SetNX(ctxWithTimeout, nonce, string(txID), expiration).Result()
 	if err != nil {
 		return false, fmt.Errorf("redis setnx failed: %w", err)
 	}
@@ -59,6 +61,6 @@ func (ts *TxStore) SetIfNotExist(key string, value []byte, expiration time.Durat
 	return isSet, nil
 }
 
-func (ts *TxStore) contextWithTimeout() (context.Context, context.CancelFunc) {
+func (ts *TxNonceStore) contextWithTimeout() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), ts.opTimeout)
 }

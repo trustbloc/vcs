@@ -15,7 +15,12 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 
 	"github.com/golang/mock/gomock"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
@@ -25,6 +30,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
@@ -65,6 +71,19 @@ var (
 		},
 	}
 )
+
+func createContext(orgID string) echo.Context {
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	if orgID != "" {
+		req.Header.Set("X-User", orgID)
+	}
+
+	rec := httptest.NewRecorder()
+	return e.NewContext(req, rec)
+}
 
 func createContextWithBody(body []byte) echo.Context {
 	e := echo.New()
@@ -683,4 +702,225 @@ func Test_getVerifyPresentationOptions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func requireAuthError(t *testing.T, actual error) {
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+
+	require.Equal(t, resterr.Unauthorized, actualErr.Code)
+}
+
+func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+
+	require.Equal(t, expectedCode, actualErr.Code)
+	require.Equal(t, incorrectValueName, actualErr.IncorrectValue)
+	require.Error(t, actualErr.Err)
+}
+
+func requireSystemError(t *testing.T, component, failedOperation string, actual error) { //nolint: unparam
+	require.IsType(t, &resterr.CustomError{}, actual)
+	actualErr := &resterr.CustomError{}
+	require.True(t, errors.As(actual, &actualErr))
+	require.Equal(t, resterr.SystemError, actualErr.Code)
+	require.Equal(t, component, actualErr.Component)
+	require.Equal(t, failedOperation, actualErr.FailedOperation)
+	require.Error(t, actualErr.Err)
+}
+
+func TestController_AuthFailed(t *testing.T) {
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
+	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+		Return(&profileapi.Verifier{OrganizationID: orgID, SigningDID: &profileapi.SigningDID{}}, nil)
+
+	t.Run("No token", func(t *testing.T) {
+		c := createContext("")
+
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
+
+		err := controller.InitiateOidcInteraction(c, "testId")
+		requireAuthError(t, err)
+	})
+
+	t.Run("Invlaid org id", func(t *testing.T) {
+		c := createContext("orgID2")
+
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
+
+		err := controller.InitiateOidcInteraction(c, "testId")
+		requireValidationError(t, resterr.DoesntExist, "organizationID", err)
+	})
+}
+
+func TestController_InitiateOidcInteraction(t *testing.T) {
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
+	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+	mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Verifier{
+		OrganizationID: orgID,
+		Active:         true,
+		OIDCConfig:     &profileapi.OIDC4VPConfig{},
+		SigningDID:     &profileapi.SigningDID{},
+		PresentationDefinitions: []*presexch.PresentationDefinition{
+			&presexch.PresentationDefinition{},
+		},
+	}, nil)
+
+	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
+
+	t.Run("Success", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+		c := createContext(orgID)
+		err := controller.InitiateOidcInteraction(c, "testId")
+		require.NoError(t, err)
+	})
+}
+
+func TestController_initiateOidcInteraction(t *testing.T) {
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
+	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any()).
+		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
+
+	t.Run("Success", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		result, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+			&profileapi.Verifier{
+				OrganizationID: orgID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+				PresentationDefinitions: []*presexch.PresentationDefinition{
+					&presexch.PresentationDefinition{},
+				},
+			})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("Should be active", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+			&profileapi.Verifier{
+				OrganizationID: orgID,
+				Active:         false,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+			})
+
+		requireValidationError(t, resterr.ConditionNotMet, "profile.Active", err)
+	})
+
+	t.Run("Should have oidc config", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+			&profileapi.Verifier{
+				OrganizationID: orgID,
+				Active:         true,
+				OIDCConfig:     nil,
+				SigningDID:     &profileapi.SigningDID{},
+			})
+
+		requireValidationError(t, resterr.ConditionNotMet, "profile.OIDCConfig", err)
+	})
+
+	t.Run("Invalid pd id", func(t *testing.T) {
+		mockProfileSvcErr := NewMockProfileService(gomock.NewController(t))
+
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvcErr,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+			&profileapi.Verifier{
+				OrganizationID: orgID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+			})
+
+		requireValidationError(t, resterr.InvalidValue, "presentationDefinitionID", err)
+	})
+
+	t.Run("oidc4VPService.InitiateOidcInteraction failed", func(t *testing.T) {
+		oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any()).
+			AnyTimes().Return(nil, errors.New("fail"))
+
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+			&profileapi.Verifier{
+				OrganizationID: orgID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+				PresentationDefinitions: []*presexch.PresentationDefinition{
+					&presexch.PresentationDefinition{},
+				},
+			})
+
+		requireSystemError(t, "oidc4VPService", "InitiateOidcInteraction", err)
+	})
+}
+
+// nolint:gochecknoglobals
+var ariesSupportedKeyTypes = []kms.KeyType{
+	kms.ED25519Type,
+	kms.X25519ECDHKWType,
+	kms.ECDSASecp256k1TypeIEEEP1363,
+	kms.ECDSAP256TypeDER,
+	kms.ECDSAP384TypeDER,
+	kms.RSAPS256Type,
+	kms.BLS12381G2Type,
 }

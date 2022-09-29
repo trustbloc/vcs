@@ -5,15 +5,17 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService,kmsRegistry=MockKMSRegistry
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService,kmsRegistry=MockKMSRegistry,oidc4VPService=MockOIDC4VPService
 
 package verifier
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/labstack/echo/v4"
@@ -25,6 +27,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
@@ -58,6 +61,11 @@ type verifyPresentationSvc interface {
 		profile *profileapi.Verifier) ([]verifypresentation.PresentationVerificationCheckResult, error)
 }
 
+type oidc4VPService interface {
+	InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
+		profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error)
+}
+
 type Config struct {
 	VerifyCredentialSvc   verifyCredentialSvc
 	VerifyPresentationSvc verifyPresentationSvc
@@ -65,6 +73,7 @@ type Config struct {
 	KMSRegistry           kmsRegistry
 	DocumentLoader        ld.DocumentLoader
 	VDR                   vdrapi.Registry
+	OIDCVPService         oidc4VPService
 }
 
 // Controller for Verifier Profile Management API.
@@ -75,6 +84,7 @@ type Controller struct {
 	kmsRegistry           kmsRegistry
 	documentLoader        ld.DocumentLoader
 	vdr                   vdrapi.Registry
+	oidc4VPService        oidc4VPService
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
@@ -86,6 +96,7 @@ func NewController(config *Config) *Controller {
 		kmsRegistry:           config.KMSRegistry,
 		documentLoader:        config.DocumentLoader,
 		vdr:                   config.VDR,
+		oidc4VPService:        config.OIDCVPService,
 	}
 }
 
@@ -174,6 +185,54 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 	return mapVerifyPresentationChecks(verRes), nil
 }
 
+func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string) error {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
+	if err != nil {
+		return err
+	}
+
+	var body InitiateOIDC4VPData
+
+	if err = ctx.Bind(&body); err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
+	}
+
+	return util.WriteOutput(ctx)(c.initiateOidcInteraction(&body, profile))
+}
+
+func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
+	profile *profileapi.Verifier) (*InitiateOIDC4VPResponse, error) {
+	if !profile.Active {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.Active",
+			errors.New("profile should be active"))
+	}
+
+	if profile.OIDCConfig == nil {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.OIDCConfig",
+			errors.New("OIDC not configured"))
+	}
+
+	pd, err := findPresentationDefinition(profile, strPtrToStr(data.PresentationDefinitionId))
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
+	}
+
+	result, err := c.oidc4VPService.InitiateOidcInteraction(pd, strPtrToStr(data.Purpose), profile)
+	if err != nil {
+		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
+	}
+
+	return &InitiateOIDC4VPResponse{
+		AuthorizationRequest: result.AuthorizationRequest,
+		TxId:                 string(result.TxID),
+	}, err
+}
+
 func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Verifier, error) {
 	profile, err := c.profileSvc.GetProfile(profileID)
 
@@ -188,11 +247,27 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profile
 
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != oidcOrgID {
-		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "organizationID",
+			fmt.Errorf("profile with given org id %q, doesn't exist", oidcOrgID))
 	}
 
 	return profile, nil
+}
+
+func findPresentationDefinition(profile *profileapi.Verifier,
+	pdExternalID string) (*presexch.PresentationDefinition, error) {
+	pds := profile.PresentationDefinitions
+
+	if pdExternalID == "" && len(pds) > 0 {
+		return pds[0], nil
+	}
+
+	for _, pd := range pds {
+		if pd.ID == pdExternalID {
+			return pd, nil
+		}
+	}
+	return nil, fmt.Errorf("presentation definition not found for profile with id=%s", profile.ID)
 }
 
 func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerificationCheckResult) *VerifyCredentialResponse {
@@ -261,4 +336,12 @@ func getVerifyPresentationOptions(options *VerifyPresentationOptions) *verifypre
 	}
 
 	return result
+}
+
+func strPtrToStr(str *string) string {
+	if str == nil {
+		return ""
+	}
+
+	return *str
 }

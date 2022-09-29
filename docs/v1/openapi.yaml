@@ -118,6 +118,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyPresentationResponse'
+  '/verifier/profiles/{profileID}/interactions/initiate-oidc':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: ID of profile
+    post:
+      summary: Used by verifier applications to initiate OpenID presentation flow through VCS
+      operationId: initiate-oidc-interaction
+      tags:
+        - verifier
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateOIDC4VPData'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiateOIDC4VPResponse'
   /oidc/par:
     post:
       summary: Pushed Authorization Request
@@ -535,6 +560,25 @@ components:
       required:
         - request_uri
         - expires_in
+    InitiateOIDC4VPData:
+      title: InitiateOIDC4VPData
+      type: object
+      properties:
+        presentation_definition_id:
+          type: string
+        purpose:
+          type: string
+    InitiateOIDC4VPResponse:
+      title: InitiateOIDC4VPResponse
+      type: object
+      properties:
+        authorization_request:
+          type: string
+        tx_id:
+          type: string
+      required:
+        - authorization_request
+        - tx_id
     AccessTokenResponse:
       title: AccessTokenResponse
       x-tags:

@@ -97,6 +97,20 @@ func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.
 	return "", fmt.Errorf("%s signature type currently not supported", signatureType)
 }
 
+func SignatureTypesSupportedKeyType(keyType kms.KeyType) []SignatureType {
+	var result []SignatureType
+
+	for _, supportedSignature := range signatureTypes {
+		for _, supportedKeyType := range supportedSignature.SupportedKeyTypes {
+			if supportedKeyType == keyType {
+				result = append(result, supportedSignature.SignatureType)
+			}
+		}
+	}
+
+	return result
+}
+
 func matchKeyType(keyType string, types ...kms.KeyType) (kms.KeyType, error) {
 	if keyType == "" && len(types) == 1 {
 		return types[0], nil
