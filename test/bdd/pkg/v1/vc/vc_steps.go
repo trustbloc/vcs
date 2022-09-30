@@ -54,7 +54,7 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^Organization "([^"]*)" has been authorized with client id "([^"]*)" and secret "([^"]*)"$`,
 		e.authorizeOrganization)
-	s.Step(`^V1 New verifiable credential is created from "([^"]*)" under "([^"]*)" profile for organization "([^"]*)" with signature representation "([^"]*)"$`,
+	s.Step(`^V1 New verifiable credential is created from "([^"]*)" in "([^"]*)" format under "([^"]*)" profile for organization "([^"]*)" with signature representation "([^"]*)"$`,
 		e.createCredential)
 	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyCredential)

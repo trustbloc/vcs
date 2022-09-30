@@ -23,12 +23,18 @@ import (
 )
 
 // nolint: gochecknoglobals
-var signatureKeyTypeMap = map[vcsverifiable.SignatureType]string{
+var signatureTypeToDidVerificationMethod = map[vcsverifiable.SignatureType]string{
 	vcsverifiable.Ed25519Signature2020:        crypto.Ed25519VerificationKey2020,
 	vcsverifiable.Ed25519Signature2018:        crypto.Ed25519VerificationKey2018,
 	vcsverifiable.JSONWebSignature2020:        crypto.JSONWebKey2020,
 	vcsverifiable.EcdsaSecp256k1Signature2019: crypto.EcdsaSecp256k1VerificationKey2019,
 	vcsverifiable.BbsBlsSignature2020:         crypto.Bls12381G1Key2020,
+	// JWT
+	vcsverifiable.EdDSA:  crypto.JSONWebKey2020,
+	vcsverifiable.ES256K: crypto.JSONWebKey2020,
+	vcsverifiable.ES256:  crypto.JSONWebKey2020,
+	vcsverifiable.ES384:  crypto.JSONWebKey2020,
+	vcsverifiable.PS256:  crypto.JSONWebKey2020,
 }
 
 // createResult contains created did, update and recovery keys.
@@ -208,7 +214,7 @@ func newVerMethods(
 		// TODO sidetree doesn't support VM controller: https://github.com/decentralized-identity/sidetree/issues/1010
 		vm, err := did.NewVerificationMethodFromJWK(
 			keyID,
-			signatureKeyTypeMap[verMethodType],
+			signatureTypeToDidVerificationMethod[verMethodType],
 			"",
 			j,
 		)

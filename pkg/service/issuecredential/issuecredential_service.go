@@ -10,6 +10,7 @@ package issuecredential
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -30,7 +32,9 @@ type vcStatusManager interface {
 }
 
 type vcCrypto interface {
-	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
+	SignCredentialLDP(signerData *vc.Signer, vc *verifiable.Credential,
+		opts ...crypto.SigningOpts) (*verifiable.Credential, error)
+	SignCredentialJWT(signerData *vc.Signer, vc *verifiable.Credential,
 		opts ...crypto.SigningOpts) (*verifiable.Credential, error)
 }
 
@@ -70,17 +74,30 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		DID:                     profile.SigningDID.DID,
 		Creator:                 profile.SigningDID.Creator,
 		SignatureType:           profile.VCConfig.SigningAlgorithm,
+		KeyType:                 profile.VCConfig.KeyType,
 		KMS:                     kms,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
 	}
 
-	status, err := s.vcStatusManager.CreateStatusID(signer, profile.URL+profile.ID+credentialStatus)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add credential status: %w", err)
-	}
+	// todo: adjust s.vcStatusManager.CreateStatusID() to be able to work with JWT
+	// issue: https://github.com/trustbloc/vcs/issues/826
+	if profile.VCConfig.Format == vcsverifiable.Ldp {
+		var status *verifiable.TypedID
+		var statusURL string
 
-	credential.Context = append(credential.Context, cslstatus.Context)
-	credential.Status = status
+		statusURL, err = url.JoinPath(profile.URL, profile.ID, credentialStatus)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create sstatus URL: %w", err)
+		}
+
+		status, err = s.vcStatusManager.CreateStatusID(signer, statusURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add credential status: %w", err)
+		}
+
+		credential.Context = append(credential.Context, cslstatus.Context)
+		credential.Status = status
+	}
 
 	// update context
 	vcutil.UpdateSignatureTypeContext(credential, profile.VCConfig.SigningAlgorithm)
@@ -88,8 +105,18 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	// update credential issuer
 	vcutil.UpdateIssuer(credential, profile.SigningDID.DID, profile.Name, true)
 
+	var signedVC *verifiable.Credential
+
 	// sign the credential
-	signedVC, err := s.crypto.SignCredential(signer, credential, issuerSigningOpts...)
+	switch profile.VCConfig.Format {
+	case vcsverifiable.Jwt:
+		signedVC, err = s.crypto.SignCredentialJWT(signer, credential, issuerSigningOpts...)
+	case vcsverifiable.Ldp:
+		signedVC, err = s.crypto.SignCredentialLDP(signer, credential, issuerSigningOpts...)
+	default:
+		err = fmt.Errorf("unknown signature format %s", profile.VCConfig.Format)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign credential: %w", err)
 	}

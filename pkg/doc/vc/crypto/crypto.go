@@ -30,28 +30,15 @@ import (
 )
 
 const (
-	// Ed25519Signature2018 ed25519 signature suite.
-	Ed25519Signature2018 = "Ed25519Signature2018"
-	// Ed25519Signature2020 ed25519 signature suite.
-	Ed25519Signature2020 = "Ed25519Signature2020"
-	// JSONWebSignature2020 json web signature suite.
-	JSONWebSignature2020 = "JsonWebSignature2020"
-	// BbsBlsSignature2020 signature suite.
-	BbsBlsSignature2020 = "BbsBlsSignature2020"
-	// EcdsaSecp256k1Signature2019 signature suite.
-	EcdsaSecp256k1Signature2019 = "EcdsaSecp256k1Signature2019"
-
-	// Ed25519VerificationKey2018 ed25119 verification key.
+	// Ed25519VerificationKey2018 ed25119 verification type.
 	Ed25519VerificationKey2018 = "Ed25519VerificationKey2018"
-	// Ed25519VerificationKey2020 ed25119 verification key.
+	// Ed25519VerificationKey2020 ed25119 verification type.
 	Ed25519VerificationKey2020 = "Ed25519VerificationKey2020"
-	// JSONWebKey2020 type.
+	// JSONWebKey2020 verification type.
 	JSONWebKey2020 = "JsonWebKey2020"
-
-	// EcdsaSecp256k1VerificationKey2019 type.
+	// EcdsaSecp256k1VerificationKey2019 verification type.
 	EcdsaSecp256k1VerificationKey2019 = "EcdsaSecp256k1VerificationKey2019"
-
-	// Bls12381G1Key2020 type.
+	// Bls12381G1Key2020 verification type.
 	Bls12381G1Key2020 = "Bls12381G1Key2020"
 )
 
@@ -163,9 +150,9 @@ type Crypto struct {
 	documentLoader ld.DocumentLoader
 }
 
-// SignCredential signs vc.
-func (c *Crypto) SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
-	opts ...SigningOpts) (*verifiable.Credential, error) {
+// SignCredentialLDP adds verifiable.LinkedDataProofContext to the vc.
+func (c *Crypto) SignCredentialLDP(
+	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
@@ -187,6 +174,60 @@ func (c *Crypto) SignCredential(signerData *vc.Signer, vc *verifiable.Credential
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign vc: %w", err)
 	}
+
+	return vc, nil
+}
+
+// SignCredentialJWT returns vc in JWT format including the signature section.
+func (c *Crypto) SignCredentialJWT(
+	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
+	signOpts := &signingOpts{}
+	// apply opts
+	for _, opt := range opts {
+		opt(signOpts)
+	}
+
+	signatureType := signerData.SignatureType
+	if signOpts.SignatureType != "" {
+		signatureType = signOpts.SignatureType
+	}
+
+	s, method, err := c.getSigner(signerData.Creator, signerData.KMS, signOpts, signatureType)
+	if err != nil {
+		return nil, fmt.Errorf("getting signer for JWS: %w", err)
+	}
+
+	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get did doc from verification method %w", err)
+	}
+
+	proofPurpose := AssertionMethod
+	if signOpts.Purpose != "" {
+		proofPurpose = signOpts.Purpose
+	}
+
+	err = ValidateProofPurpose(proofPurpose, method, didDoc)
+	if err != nil {
+		return nil, fmt.Errorf("ValidateProofPurpose error: %w", err)
+	}
+
+	claims, err := vc.JWTClaims(false)
+	if err != nil {
+		return nil, fmt.Errorf("creating JWT claims for VC: %w", err)
+	}
+
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(signerData.KeyType)
+	if err != nil {
+		return nil, fmt.Errorf("getting JWS algo based on signature type: %w", err)
+	}
+
+	jws, err := claims.MarshalJWS(jwsAlgo, s, method)
+	if err != nil {
+		return nil, fmt.Errorf("MarshalJWS error: %w", err)
+	}
+
+	vc.JWT = jws
 
 	return vc, nil
 }
@@ -248,15 +289,15 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 	var signatureSuite ariessigner.SignatureSuite
 
 	switch signatureType { //nolint: exhaustive
-	case Ed25519Signature2018:
+	case vcsverifiable.Ed25519Signature2018:
 		signatureSuite = ed25519signature2018.New(suite.WithSigner(s))
-	case Ed25519Signature2020:
+	case vcsverifiable.Ed25519Signature2020:
 		signatureSuite = ed25519signature2020.New(suite.WithSigner(s))
-	case JSONWebSignature2020:
+	case vcsverifiable.JSONWebSignature2020:
 		signatureSuite = jsonwebsignature2020.New(suite.WithSigner(s))
-	case BbsBlsSignature2020:
+	case vcsverifiable.BbsBlsSignature2020:
 		signatureSuite = bbsblssignature2020.New(suite.WithSigner(s))
-	case EcdsaSecp256k1Signature2019:
+	case vcsverifiable.EcdsaSecp256k1Signature2019:
 		signatureSuite = ecdsasecp256k1signature2019.New(suite.WithSigner(s))
 	default:
 		return nil, fmt.Errorf("signature type unsupported %s", signatureType)

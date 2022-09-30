@@ -57,7 +57,7 @@ const (
 )
 
 type crypto interface {
-	SignCredential(dataProfile *vc.Signer, vc *verifiable.Credential,
+	SignCredentialLDP(dataProfile *vc.Signer, vc *verifiable.Credential,
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
@@ -90,7 +90,7 @@ func New(provider vcsstorage.Provider, listSize int, c crypto,
 // CreateStatusID creates status ID.
 func (c *CredentialStatusManager) CreateStatusID(profile *vc.Signer,
 	url string) (*verifiable.TypedID, error) {
-	cslWrapper, err := c.getLatestCSL(profile, url)
+	cslWrapper, err := c.getLatestCSLWrapper(profile, url)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +175,7 @@ func (c *CredentialStatusManager) UpdateVC(v *verifiable.Credential,
 	// remove all proofs because we are updating VC
 	cslWrapper.VC.Proofs = nil
 
-	signedCredential, err := c.crypto.SignCredential(profile, cslWrapper.VC, signOpts...)
+	signedCredential, err := c.crypto.SignCredentialLDP(profile, cslWrapper.VC, signOpts...)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (c *CredentialStatusManager) getCSLWrapper(id string) (*vcsstorage.CSLWrapp
 }
 
 //nolint:gocognit
-func (c *CredentialStatusManager) getLatestCSL(profile *vc.Signer,
+func (c *CredentialStatusManager) getLatestCSLWrapper(profile *vc.Signer,
 	url string) (*vcsstorage.CSLWrapper, error) {
 	// get latest id
 	id, err := c.store.GetLatestListID()
@@ -297,11 +297,11 @@ func (c *CredentialStatusManager) createVC(vcID string,
 	credential := &verifiable.Credential{}
 	credential.Context = []string{vcContext, Context}
 
-	if profile.SignatureType == vccrypto.JSONWebSignature2020 {
+	if profile.SignatureType == vcsverifiable.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Ctx)
 	}
 
-	if profile.SignatureType == vccrypto.BbsBlsSignature2020 {
+	if profile.SignatureType == vcsverifiable.BbsBlsSignature2020 {
 		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
 
@@ -333,7 +333,7 @@ func (c *CredentialStatusManager) createVC(vcID string,
 		return nil, err
 	}
 
-	signedCredential, err := c.crypto.SignCredential(profile, credential, signOpts...)
+	signedCredential, err := c.crypto.SignCredentialLDP(profile, credential, signOpts...)
 	if err != nil {
 		return nil, err
 	}

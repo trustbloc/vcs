@@ -21,6 +21,63 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_es256_jwt",
+        "name": "i_myprofile_ud_es256_jwt",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "jwt",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_es384_jwt",
+        "name": "i_myprofile_ud_es384_jwt",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES384",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP384DER",
+          "format": "jwt",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_es256k_jwt",
+        "name": "i_myprofile_ud_es256k_jwt",
+        "organizationID": "test_org",
+        "url": "https://test-issuer.com",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1IEEEP1363",
+          "format": "jwt",
+          "didMethod": "orb"
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_p256",
         "name": "i_myprofile_ud_p256",
         "organizationID": "test_org",
@@ -156,14 +213,33 @@
   "verifiers":[
     {
       "verifier": {
-        "id": "v_myprofile",
-        "name": "v_myprofile",
+        "id": "v_myprofile_ldp",
+        "name": "v_myprofile_ldp",
         "organizationID": "test_org",
         "url": "https://test-verifier.com",
         "active": true,
         "checks": {
           "credential": {
             "format": ["ldp"],
+            "proof": true,
+            "status": false
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "verifier": {
+        "id": "v_myprofile_jwt",
+        "name": "v_myprofile_jwt",
+        "organizationID": "test_org",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "checks": {
+          "credential": {
+            "format": ["jwt"],
             "proof": true,
             "status": false
           }
