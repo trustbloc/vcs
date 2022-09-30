@@ -12,11 +12,11 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1IEEEP1363",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "web"
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -31,11 +31,11 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "web"
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -54,7 +54,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -73,7 +73,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -92,7 +92,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -111,7 +111,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -130,7 +130,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     },
     {
@@ -149,7 +149,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     }
   ],
@@ -170,7 +170,7 @@
         }
       },
       "createDID": true,
-      "didDomain": "testnet.orb.local",
+      "didDomain": "https://testnet.orb.local",
       "didServiceAuthToken": "tk1"
     }
   ]

@@ -15,6 +15,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/spf13/cobra"
 
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -25,6 +26,7 @@ type Config struct {
 	ProfileJSONFile string
 	KMSRegistry     *vcskms.Registry
 	TLSConfig       *tls.Config
+	CMD             *cobra.Command
 }
 
 // IssuerReader read issuer profiles.
@@ -92,7 +94,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 			}
 
 			createResult, err := didCreator.publicDID(v.Data.VCConfig.DIDMethod,
-				v.Data.VCConfig.SigningAlgorithm, v.Data.VCConfig.KeyType, keyCreator)
+				v.Data.VCConfig.SigningAlgorithm, v.Data.VCConfig.KeyType, keyCreator, v.DidDomain)
 			if err != nil {
 				return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 			}
@@ -157,7 +159,7 @@ func NewVerifiersReader(config *Config) (*VerifierReader, error) {
 			}
 
 			createResult, err := didCreator.publicDID(v.Data.OIDCConfig.DIDMethod,
-				v.Data.OIDCConfig.ROSigningAlgorithm, v.Data.OIDCConfig.KeyType, keyCreator)
+				v.Data.OIDCConfig.ROSigningAlgorithm, v.Data.OIDCConfig.KeyType, keyCreator, v.DidDomain)
 			if err != nil {
 				return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 			}

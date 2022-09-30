@@ -8,6 +8,7 @@ package file
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -63,9 +64,9 @@ func newCreator(config *creatorConfig) *Creator {
 
 // publicDID creates a new public DID given a key manager.
 func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*createResult, error) {
+	km KeysCreator, didDomain string) (*createResult, error) {
 	methods := map[profileapi.Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-		km KeysCreator) (*createResult, error){
+		km KeysCreator, didDomain string) (*createResult, error){
 		profileapi.KeyDIDMethod: c.keyDID,
 		profileapi.OrbDIDMethod: c.createDID,
 		profileapi.WebDIDMethod: c.webDID,
@@ -76,11 +77,11 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 		return nil, fmt.Errorf("unsupported did method: %s", method)
 	}
 
-	return methodFn(verificationMethodType, keyType, km)
+	return methodFn(verificationMethodType, keyType, km, didDomain)
 }
 
 func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*createResult, error) {
+	km KeysCreator, didDomain string) (*createResult, error) {
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -148,7 +149,7 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 }
 
 func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*createResult, error) {
+	km KeysCreator, didDomain string) (*createResult, error) {
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -171,17 +172,19 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 }
 
 func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator) (*createResult, error) {
-	r, err := c.createDID(verificationMethodType, keyType, km)
+	km KeysCreator, didDomain string) (*createResult, error) {
+	r, err := c.createDID(verificationMethodType, keyType, km, didDomain)
 	if err != nil {
 		return nil, err
 	}
 
-	didID := r.didID
-	creator := r.creator
+	didWeb := strings.ReplaceAll(r.didID, "orb", "web:"+strings.ReplaceAll(didDomain, "https://", ""))
+	didWeb = strings.ReplaceAll(didWeb, "uAAA", "scid")
+
+	creator := strings.ReplaceAll(r.creator, r.didID, didWeb)
 
 	return &createResult{
-		didID:          didID,
+		didID:          didWeb,
 		creator:        creator,
 		updateKeyURL:   r.updateKeyURL,
 		recoveryKeyURL: r.recoveryKeyURL,
