@@ -94,7 +94,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 
 			var e *echo.Echo
 
-			e, err = buildEchoHandler(conf)
+			e, err = buildEchoHandler(conf, cmd)
 			if err != nil {
 				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
@@ -107,7 +107,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 }
 
 // buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
-func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
+func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, error) {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -157,6 +157,7 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 		ProfileJSONFile: conf.StartupParameters.profilesFilePath,
 		TLSConfig:       tlsConfig,
 		KMSRegistry:     kmsRegistry,
+		CMD:             cmd,
 	})
 	if err != nil {
 		return nil, err
@@ -188,6 +189,7 @@ func buildEchoHandler(conf *Configuration) (*echo.Echo, error) {
 			ProfileJSONFile: conf.StartupParameters.profilesFilePath,
 			TLSConfig:       tlsConfig,
 			KMSRegistry:     kmsRegistry,
+			CMD:             cmd,
 		})
 	if err != nil {
 		return nil, err

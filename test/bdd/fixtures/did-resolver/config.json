@@ -11,6 +11,9 @@
       "pattern": "^(did:orb:.+)$"
     },
     {
+      "pattern": "^(did:web:.+)$"
+    },
+    {
       "pattern": "^(did:.+)$",
       "url": "http://uni-resolver-web:8080/1.0/identifiers/$1"
     }
