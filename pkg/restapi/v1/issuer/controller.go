@@ -5,11 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4VCService=MockOIDC4VCService
 
 package issuer
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,7 +18,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
@@ -26,6 +29,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
 const (
@@ -50,11 +54,16 @@ type issueCredentialService interface {
 		profile *profileapi.Issuer) (*verifiable.Credential, error)
 }
 
+type oidc4VCService interface {
+	InitiateInteraction(req *oidc4vc.IssuanceRequest) (*oidc4vc.InteractionInfo, error)
+}
+
 type Config struct {
 	ProfileSvc             profileService
 	KMSRegistry            kmsRegistry
 	DocumentLoader         ld.DocumentLoader
 	IssueCredentialService issueCredentialService
+	OIDC4VCService         oidc4VCService
 }
 
 // Controller for Issuer Profile Management API.
@@ -63,6 +72,7 @@ type Controller struct {
 	kmsRegistry            kmsRegistry
 	documentLoader         ld.DocumentLoader
 	issueCredentialService issueCredentialService
+	oidc4VCService         oidc4VCService
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -72,6 +82,7 @@ func NewController(config *Config) *Controller {
 		kmsRegistry:            config.KMSRegistry,
 		documentLoader:         config.DocumentLoader,
 		issueCredentialService: config.IssueCredentialService,
+		oidc4VCService:         config.OIDC4VCService,
 	}
 }
 
@@ -156,6 +167,91 @@ func validateIssueCredOptions(options *IssueCredentialOptions) ([]crypto.Signing
 	}
 
 	return signingOpts, nil
+}
+
+// PostIssuerProfilesProfileIDInteractionsInitiateOidc initiates OIDC Credential Issuance.
+// POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
+func (c *Controller) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context, profileID string) error {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessProfile(profileID, oidcOrgID)
+	if err != nil {
+		return err
+	}
+
+	var body InitiateOIDC4VCRequest
+
+	if err = util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.initiateOidcInteraction(&body, profile))
+}
+
+func (c *Controller) initiateOidcInteraction(body *InitiateOIDC4VCRequest,
+	profile *profileapi.Issuer) (*InitiateOIDC4VCResponse, error) {
+	if !profile.Active {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.Active",
+			errors.New("profile should be active"))
+	}
+
+	if profile.OIDCConfig == nil {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.OIDCConfig",
+			errors.New("OIDC not configured"))
+	}
+
+	manifest, err := findCredentialManifest(profile.CredentialManifests, lo.FromPtr(body.CredentialTemplateId))
+	if err != nil {
+		return nil, err
+	}
+
+	issuanceReq := &oidc4vc.IssuanceRequest{
+		CredentialManifest:        manifest,
+		ClientInitiateIssuanceURL: lo.FromPtr(body.ClientInitiateIssuanceUrl),
+		ClientWellKnownURL:        lo.FromPtr(body.ClientWellknown),
+		ClaimEndpoint:             lo.FromPtr(body.ClaimEndpoint),
+		GrantType:                 lo.FromPtr(body.GrantType),
+		ResponseType:              lo.FromPtr(body.ResponseType),
+		Scope:                     lo.FromPtr(body.Scope),
+		AuthorizationDetails:      lo.FromPtr(body.AuthorizationDetails),
+	}
+
+	interactionInfo, err := c.oidc4VCService.InitiateInteraction(issuanceReq)
+	if err != nil {
+		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateInteraction", err)
+	}
+
+	return &InitiateOIDC4VCResponse{
+		InitiateIssuanceUrl: interactionInfo.InitiateIssuanceURL,
+		TxId:                interactionInfo.TxID,
+	}, nil
+}
+
+func findCredentialManifest(credentialManifests []cm.CredentialManifest, manifestID string) (
+	*cm.CredentialManifest, error) {
+	// profile should define at least one credential manifest
+	if len(credentialManifests) == 0 || credentialManifests[0].ID == "" {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.CredentialManifests",
+			errors.New("credential manifest not configured"))
+	}
+
+	// credential_template_id param is required if profile has more than one credential manifest defined
+	if len(credentialManifests) > 1 && manifestID == "" {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
+			errors.New("manifestID is required"))
+	}
+
+	for _, m := range credentialManifests {
+		if m.ID == manifestID {
+			return &m, nil
+		}
+	}
+
+	return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
+		errors.New("credential manifest not found"))
 }
 
 func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {

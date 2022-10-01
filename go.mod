@@ -28,6 +28,7 @@ require (
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.42.3-0.20220923124412-e98c0d745a0c
 	github.com/piprate/json-gold v0.4.1
+	github.com/samber/lo v1.29.0
 	github.com/spf13/cobra v1.5.0
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.0
@@ -158,6 +159,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be // indirect
+	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220722155237-a158d28d115b // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
