@@ -349,6 +349,13 @@ func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
+func TestDidWeb(t *testing.T) {
+	v := webVDR{}
+
+	_, err := v.Read("")
+	require.Error(t, err)
+}
+
 func setEnvVars(t *testing.T, databaseType string) {
 	t.Helper()
 

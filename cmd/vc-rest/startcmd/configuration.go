@@ -14,12 +14,14 @@ import (
 	"strings"
 
 	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	jsonld "github.com/piprate/json-gold/ld"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
 	"github.com/trustbloc/vcs/pkg/ld"
@@ -137,7 +139,13 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registr
 	}
 
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(key.New()))
+	opts = append(opts, vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(&webVDR{
+		http: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			}},
+		VDR: web.New(),
+	}))
 
 	return vdrpkg.New(opts...), nil
 }
@@ -145,7 +153,7 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registr
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom || method == didMethodORB
+		method == didMethodWeb || method == didMethodFactom || method == didMethodORB || method == didMethodKey
 }
 
 func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPool,
@@ -177,4 +185,18 @@ func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPoo
 	}
 
 	return loader, nil
+}
+
+type webVDR struct {
+	http *http.Client
+	*web.VDR
+}
+
+func (w *webVDR) Read(didID string, opts ...vdrapi.DIDMethodOption) (*ariesdid.DocResolution, error) {
+	docRes, err := w.VDR.Read(didID, append(opts, vdrapi.WithOption(web.HTTPClientOpt, w.http))...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read did web: %w", err)
+	}
+
+	return docRes, nil
 }

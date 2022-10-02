@@ -167,7 +167,8 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 	}
 
 	return &createResult{
-		didID: didResolution.DIDDocument.ID,
+		didID:   didResolution.DIDDocument.ID,
+		creator: didResolution.DIDDocument.ID + "#" + verMethod[0].ID,
 	}, nil
 }
 
@@ -191,12 +192,8 @@ func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, key
 	}, nil
 }
 
-func newVerMethods(
-	count int,
-	km KeysCreator,
-	verMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType,
-) ([]*did.VerificationMethod, error) {
+func newVerMethods(count int, km KeysCreator, verMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 
 	for i := 0; i < count; i++ {
