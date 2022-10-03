@@ -18,19 +18,27 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
+	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+)
+
+const (
+	commonEnvVarUsageText = "Alternatively, this can be set with the following environment variable: "
+
+	profilesFilePathFlagName  = "profiles-file-path"
+	profilesFilePathFlagUsage = "Profiles json file path." + commonEnvVarUsageText + profilesFilePathEnvKey
+	profilesFilePathEnvKey    = "VC_REST_PROFILES_FILE_PATH"
 )
 
 var logger = log.New("vc-rest")
 
 // Config contain config
 type Config struct {
-	ProfileJSONFile string
-	KMSRegistry     *vcskms.Registry
-	TLSConfig       *tls.Config
-	CMD             *cobra.Command
+	KMSRegistry *vcskms.Registry
+	TLSConfig   *tls.Config
+	CMD         *cobra.Command
 }
 
 // IssuerReader read issuer profiles.
@@ -66,13 +74,14 @@ type verifierProfile struct {
 
 // NewIssuerReader creates issuer Reader.
 func NewIssuerReader(config *Config) (*IssuerReader, error) {
-	if config.ProfileJSONFile == "" {
-		return nil, nil
+	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName, profilesFilePathEnvKey, false)
+	if err != nil {
+		return nil, err
 	}
 
 	r := IssuerReader{issuers: make(map[string]*profileapi.Issuer)}
 
-	jsonBytes, err := os.ReadFile(filepath.Clean(config.ProfileJSONFile))
+	jsonBytes, err := os.ReadFile(filepath.Clean(profileJSONFile))
 	if err != nil {
 		return nil, err
 	}
@@ -129,17 +138,18 @@ func (p *IssuerReader) GetAllProfiles(orgID string) ([]*profileapi.Issuer, error
 	return nil, nil
 }
 
-// NewVerifiersReader creates verifier Reader.
-func NewVerifiersReader(config *Config) (*VerifierReader, error) {
-	if config.ProfileJSONFile == "" {
-		return nil, nil
+// NewVerifierReader creates verifier Reader.
+func NewVerifierReader(config *Config) (*VerifierReader, error) {
+	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName, profilesFilePathEnvKey, false)
+	if err != nil {
+		return nil, err
 	}
 
 	r := VerifierReader{
 		verifiers: make(map[string]*profileapi.Verifier),
 	}
 
-	jsonBytes, err := os.ReadFile(filepath.Clean(config.ProfileJSONFile))
+	jsonBytes, err := os.ReadFile(filepath.Clean(profileJSONFile))
 	if err != nil {
 		return nil, err
 	}
@@ -194,4 +204,9 @@ func (p *VerifierReader) GetProfile(profileID profileapi.ID) (*profileapi.Verifi
 // GetAllProfiles returns all profiles with given organization id.
 func (p *verifierProfile) GetAllProfiles(orgID string) ([]*profileapi.Verifier, error) {
 	return nil, nil
+}
+
+// AddFlags add flags in cmd.
+func AddFlags(startCmd *cobra.Command) {
+	startCmd.Flags().StringP(profilesFilePathFlagName, "", "", profilesFilePathFlagUsage)
 }
