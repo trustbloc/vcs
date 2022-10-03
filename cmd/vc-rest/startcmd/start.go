@@ -22,7 +22,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/kms"
-	issuerfilereader "github.com/trustbloc/vcs/pkg/profile/reader"
+	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -153,11 +153,10 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
 	// Issuer Profile Management API
-	issuerProfileSvc, err := issuerfilereader.NewIssuerReader(&issuerfilereader.Config{
-		ProfileJSONFile: conf.StartupParameters.profilesFilePath,
-		TLSConfig:       tlsConfig,
-		KMSRegistry:     kmsRegistry,
-		CMD:             cmd,
+	issuerProfileSvc, err := profilereader.NewIssuerReader(&profilereader.Config{
+		TLSConfig:   tlsConfig,
+		KMSRegistry: kmsRegistry,
+		CMD:         cmd,
 	})
 	if err != nil {
 		return nil, err
@@ -184,12 +183,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}))
 
 	// Verifier Profile Management API
-	verifierProfileSvc, err := issuerfilereader.NewVerifiersReader(
-		&issuerfilereader.Config{
-			ProfileJSONFile: conf.StartupParameters.profilesFilePath,
-			TLSConfig:       tlsConfig,
-			KMSRegistry:     kmsRegistry,
-			CMD:             cmd,
+	verifierProfileSvc, err := profilereader.NewVerifierReader(
+		&profilereader.Config{
+			TLSConfig:   tlsConfig,
+			KMSRegistry: kmsRegistry,
+			CMD:         cmd,
 		})
 	if err != nil {
 		return nil, err

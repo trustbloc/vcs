@@ -35,6 +35,8 @@ const (
 	mongoDBConnString  = "mongodb://localhost:27018"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
+	profilePathFlag    = "profiles-file-path"
+	profilePathEnv     = "VC_REST_PROFILES_FILE_PATH"
 )
 
 func TestStartCmdContents(t *testing.T) {
@@ -145,6 +147,13 @@ func TestStartCmdValidArgs(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
+	file, err := os.CreateTemp("", "prefix")
+	require.NoError(t, err)
+	_, err = file.Write([]byte("{}"))
+	require.NoError(t, err)
+
+	defer func() { os.Remove(file.Name()) }()
+
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
@@ -155,11 +164,12 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
 		"--" + contextEnableRemoteFlagName, "true",
+		"--" + profilePathFlag, file.Name(),
 		"--" + databaseURLFlagName, mongoDBConnString,
 	}
 	startCmd.SetArgs(args)
 
-	err := startCmd.Execute()
+	err = startCmd.Execute()
 
 	require.Nil(t, err)
 }
@@ -170,6 +180,13 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
+	file, err := os.CreateTemp("", "prefix")
+	require.NoError(t, err)
+	_, err = file.Write([]byte("{}"))
+	require.NoError(t, err)
+
+	defer func() { os.Remove(file.Name()) }()
+
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
 	args := []string{
@@ -178,10 +195,11 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
 		"--" + kmsTypeFlagName, "web",
+		"--" + profilePathFlag, file.Name(),
 	}
 	startCmd.SetArgs(args)
 
-	err := startCmd.Execute()
+	err = startCmd.Execute()
 
 	require.Nil(t, err)
 }
@@ -192,13 +210,20 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
+	file, err := os.CreateTemp("", "prefix")
+	require.NoError(t, err)
+	_, err = file.Write([]byte("{}"))
+	require.NoError(t, err)
+
+	defer func() { os.Remove(file.Name()) }()
+
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
-	setEnvVars(t, databaseTypeMongoDBOption)
+	setEnvVars(t, databaseTypeMongoDBOption, file.Name())
 
 	defer unsetEnvVars(t)
 
-	err := startCmd.Execute()
+	err = startCmd.Execute()
 	require.NoError(t, err)
 }
 
@@ -310,7 +335,7 @@ func TestAcceptedDIDs(t *testing.T) {
 func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd()
 
-	setEnvVars(t, databaseTypeMongoDBOption)
+	setEnvVars(t, databaseTypeMongoDBOption, "")
 
 	defer unsetEnvVars(t)
 	require.NoError(t, os.Setenv(tlsSystemCertPoolEnvKey, "wrongvalue"))
@@ -339,7 +364,7 @@ func TestValidateAuthorizationBearerToken(t *testing.T) {
 func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd()
 
-	setEnvVars(t, databaseTypeMongoDBOption)
+	setEnvVars(t, databaseTypeMongoDBOption, "")
 
 	defer unsetEnvVars(t)
 	require.NoError(t, os.Setenv(contextEnableRemoteEnvKey, "not bool"))
@@ -356,7 +381,7 @@ func TestDidWeb(t *testing.T) {
 	require.Error(t, err)
 }
 
-func setEnvVars(t *testing.T, databaseType string) {
+func setEnvVars(t *testing.T, databaseType, filePath string) {
 	t.Helper()
 
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
@@ -370,6 +395,9 @@ func setEnvVars(t *testing.T, databaseType string) {
 
 	err = os.Setenv(kmsTypeEnvKey, "web")
 	require.NoError(t, err)
+
+	err = os.Setenv(profilePathEnv, filePath)
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -382,6 +410,9 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(kmsSecretsDatabasePrefixEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(profilePathEnv)
 	require.NoError(t, err)
 }
 

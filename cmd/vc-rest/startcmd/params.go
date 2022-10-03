@@ -11,10 +11,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/trustbloc/vcs/pkg/kms"
-
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+	"github.com/trustbloc/vcs/pkg/kms"
+	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 
 	"github.com/trustbloc/vcs/cmd/common"
 )
@@ -68,10 +68,6 @@ const (
 	hostURLFlagShorthand = "u"
 	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
 	hostURLEnvKey        = "VC_REST_HOST_URL"
-
-	profilesFilePathFlagName  = "profiles-file-path"
-	profilesFilePathFlagUsage = "Profiles json file path." + commonEnvVarUsageText + profilesFilePathEnvKey
-	profilesFilePathEnvKey    = "VC_REST_PROFILES_FILE_PATH"
 
 	hostURLExternalFlagName      = "host-url-external"
 	hostURLExternalFlagShorthand = "x"
@@ -162,7 +158,6 @@ const (
 
 type startupParameters struct {
 	hostURL              string
-	profilesFilePath     string
 	hostURLExternal      string
 	universalResolverURL string
 	mode                 string
@@ -205,8 +200,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	profilesFilePath := cmdutils.GetUserSetOptionalVarFromString(cmd, profilesFilePathFlagName, profilesFilePathEnvKey)
 
 	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
 		hostURLExternalEnvKey, true)
@@ -273,7 +266,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 
 	return &startupParameters{
 		hostURL:              hostURL,
-		profilesFilePath:     profilesFilePath,
 		hostURLExternal:      hostURLExternal,
 		universalResolverURL: universalResolverURL,
 		mode:                 mode,
@@ -435,7 +427,6 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
-	startCmd.Flags().StringP(profilesFilePathFlagName, "", "", profilesFilePathFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
@@ -461,4 +452,5 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(kmsRegionFlagName, "", kmsRegionFlagUsage)
 	startCmd.Flags().StringP(tlsCertificateFlagName, "", "", tlsCertificateFlagUsage)
 	startCmd.Flags().StringP(tlsKeyFlagName, "", "", tlsKeyFlagUsage)
+	profilereader.AddFlags(startCmd)
 }
