@@ -9,7 +9,7 @@ require (
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
-	github.com/labstack/echo/v4 v4.8.0
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/piprate/json-gold v0.4.1
 	github.com/spf13/cobra v1.5.0
