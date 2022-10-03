@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -28,35 +29,35 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/vcs/pkg/kms/signer"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 func TestService_IssueCredential(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Success", func(t *testing.T) {
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
+		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
+
+	mockVCStatusManager := NewMockvcStatusManager(gomock.NewController(t))
+	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&verifiable.TypedID{
+		ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+		Type: "JsonSchemaValidator2018",
+	}, nil)
+
+	t.Run("Success LDP", func(t *testing.T) {
 		t.Parallel()
-
-		customKMS := createKMS(t)
-
-		customCrypto, err := tinkcrypto.New()
-		require.NoError(t, err)
-
-		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
-			&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
-
-		mockVCStatusManager := NewMockvcStatusManager(gomock.NewController(t))
-		mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&verifiable.TypedID{
-			ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
-			Type: "JsonSchemaValidator2018",
-		}, nil)
 
 		tests := []struct {
 			name string
@@ -118,6 +119,7 @@ func TestService_IssueCredential(t *testing.T) {
 								VCConfig: &profileapi.VCConfig{
 									SigningAlgorithm:        vcs.JSONWebSignature2020,
 									SignatureRepresentation: sigRepresentationTextCase.sr,
+									Format:                  vcs.Ldp,
 								},
 								SigningDID: &profileapi.SigningDID{
 									DID:     didDoc.ID,
@@ -125,9 +127,86 @@ func TestService_IssueCredential(t *testing.T) {
 								}},
 						)
 						require.NoError(t, err)
-						validateVC(t, verifiableCredentials, didDoc, sigRepresentationTextCase.sr)
+						validateVC(t, verifiableCredentials, didDoc, sigRepresentationTextCase.sr, vcs.Ldp)
 					})
 				}
+			})
+		}
+	})
+
+	t.Run("Success JWT", func(t *testing.T) {
+		t.Parallel()
+
+		tests := []struct {
+			name string
+			kt   kms.KeyType
+			sr   verifiable.SignatureRepresentation
+		}{
+			{
+				name: "OK ED25519",
+				kt:   kms.ED25519Type,
+			},
+			{
+				name: "OK ECDSA P256",
+				kt:   kms.ECDSAP256TypeIEEEP1363,
+			},
+			{
+				name: "OK ECDSA P384",
+				kt:   kms.ECDSAP384TypeIEEEP1363,
+			},
+			{
+				name: "OK ECDSA P521",
+				kt:   kms.ECDSAP521TypeIEEEP1363,
+			},
+		}
+
+		for _, ktTestCase := range tests {
+			t.Run(ktTestCase.name, func(t *testing.T) {
+				keyID, _, err := customKMS.CreateAndExportPubKeyBytes(ktTestCase.kt)
+				require.NoError(t, err)
+
+				didDoc := createDIDDoc("did:trustblock:abc", keyID)
+				crypto := vccrypto.New(
+					&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
+
+				service := New(&Config{
+					VCStatusManager: mockVCStatusManager,
+					Crypto:          crypto,
+					KMSRegistry:     kmsRegistry,
+				})
+
+				verifiableCredentials, err := service.IssueCredential(
+					&verifiable.Credential{
+						ID:      "http://example.edu/credentials/1872",
+						Context: []string{verifiable.ContextURI},
+						Types:   []string{verifiable.VCType},
+						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						Issued: &util.TimeWrapper{
+							Time: time.Now(),
+						},
+						Issuer: verifiable.Issuer{
+							ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+						},
+						CustomFields: map[string]interface{}{
+							"first_name": "First name",
+							"last_name":  "Last name",
+							"info":       "Info",
+						},
+					},
+					nil,
+					&profileapi.Issuer{
+						VCConfig: &profileapi.VCConfig{
+							SigningAlgorithm: vcs.JSONWebSignature2020,
+							Format:           vcs.Jwt,
+							KeyType:          ktTestCase.kt,
+						},
+						SigningDID: &profileapi.SigningDID{
+							DID:     didDoc.ID,
+							Creator: didDoc.VerificationMethod[0].ID,
+						}},
+				)
+				require.NoError(t, err)
+				validateVC(t, verifiableCredentials, didDoc, 0, vcs.Jwt)
 			})
 		}
 	})
@@ -164,7 +243,9 @@ func TestService_IssueCredential(t *testing.T) {
 			nil,
 			&profileapi.Issuer{
 				SigningDID: &profileapi.SigningDID{},
-				VCConfig:   &profileapi.VCConfig{}})
+				VCConfig: &profileapi.VCConfig{
+					Format: vcs.Ldp,
+				}})
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
@@ -176,7 +257,7 @@ func TestService_IssueCredential(t *testing.T) {
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
 		cr := NewMockvcCrypto(gomock.NewController(t))
-		cr.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
+		cr.EXPECT().SignCredentialLDP(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
 		service := New(&Config{
 			KMSRegistry:     kmRegistry,
 			VCStatusManager: vcStatusManager,
@@ -188,8 +269,35 @@ func TestService_IssueCredential(t *testing.T) {
 			nil,
 			&profileapi.Issuer{
 				SigningDID: &profileapi.SigningDID{},
-				VCConfig:   &profileapi.VCConfig{}})
+				VCConfig: &profileapi.VCConfig{
+					Format: vcs.Ldp,
+				}})
 		require.Error(t, err)
+		require.Nil(t, verifiableCredentials)
+	})
+	t.Run("Error unknown signature format", func(t *testing.T) {
+		kmRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
+
+		vcStatusManager := NewMockvcStatusManager(gomock.NewController(t))
+		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
+
+		service := New(&Config{
+			KMSRegistry:     kmRegistry,
+			VCStatusManager: vcStatusManager,
+			Crypto:          nil,
+		})
+
+		verifiableCredentials, err := service.IssueCredential(
+			&verifiable.Credential{},
+			nil,
+			&profileapi.Issuer{
+				SigningDID: &profileapi.SigningDID{},
+				VCConfig: &profileapi.VCConfig{
+					Format: "invalid value",
+				}})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "unknown signature format")
 		require.Nil(t, verifiableCredentials)
 	})
 }
@@ -197,12 +305,19 @@ func TestService_IssueCredential(t *testing.T) {
 func validateVC(
 	t *testing.T, vc *verifiable.Credential,
 	did *did.Doc,
-	sigRepresentation verifiable.SignatureRepresentation) {
+	sigRepresentation verifiable.SignatureRepresentation,
+	vcFormat vcs.Format) {
 	t.Helper()
 
 	require.NotNil(t, vc)
 	require.NotNil(t, vc.Issuer)
 	require.Equal(t, "did:trustblock:abc", vc.Issuer.ID)
+
+	if vcFormat == vcs.Jwt {
+		require.NotEmpty(t, vc.JWT)
+		return
+	}
+
 	require.Len(t, vc.Proofs, 1)
 	verificationMethod, ok := vc.Proofs[0]["verificationMethod"]
 	require.True(t, ok)

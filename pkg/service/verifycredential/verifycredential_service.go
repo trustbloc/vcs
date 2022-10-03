@@ -120,6 +120,10 @@ func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDo
 		return fmt.Errorf("verifiable credential proof validation error : %w", err)
 	}
 
+	if len(credential.JWT) > 0 {
+		return nil
+	}
+
 	if len(credential.Proofs) == 0 {
 		return errors.New("verifiable credential doesn't contains proof")
 	}

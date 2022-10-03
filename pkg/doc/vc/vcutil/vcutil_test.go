@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 func TestGetContextsFromJSONRaw(t *testing.T) {
@@ -205,10 +205,10 @@ func TestUpdateSignatureTypeContext(t *testing.T) {
 
 	require.Len(t, vc.Context, 1)
 
-	UpdateSignatureTypeContext(vc, crypto.JSONWebSignature2020)
+	UpdateSignatureTypeContext(vc, vcsverifiable.JSONWebSignature2020)
 	require.Len(t, vc.Context, 2)
 
-	UpdateSignatureTypeContext(vc, crypto.BbsBlsSignature2020)
+	UpdateSignatureTypeContext(vc, vcsverifiable.BbsBlsSignature2020)
 	require.Len(t, vc.Context, 3)
 }
 

@@ -59,14 +59,12 @@ var signatureTypes = []signatureTypeDesc{
 	}},
 	{EdDSA, Jwt, []kms.KeyType{kms.ED25519Type}},
 	{ES256K, Jwt, []kms.KeyType{kms.ECDSASecp256k1TypeIEEEP1363}},
-
 	{ES256, Jwt, []kms.KeyType{kms.ECDSAP256TypeDER}},
 	{ES384, Jwt, []kms.KeyType{kms.ECDSAP384TypeDER}},
 	{PS256, Jwt, []kms.KeyType{kms.RSAPS256Type}},
 }
 
-func ValidateSignatureAlgorithm(format Format, signatureType string,
-	kmsKeyTypes []kms.KeyType) (SignatureType, error) {
+func ValidateSignatureAlgorithm(format Format, signatureType string, kmsKeyTypes []kms.KeyType) (SignatureType, error) {
 	for _, supportedSignature := range signatureTypes {
 		if supportedSignature.SignatureType.lowerCase() == strings.ToLower(signatureType) &&
 			supportedSignature.VCFormat == format && matchKeyTypes(kmsKeyTypes, supportedSignature.SupportedKeyTypes) {

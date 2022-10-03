@@ -13,7 +13,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
@@ -105,11 +104,11 @@ func UpdateIssuer(credential *verifiable.Credential, issuerDID, issuerName strin
 
 // UpdateSignatureTypeContext updates context for JSONWebSignature2020.
 func UpdateSignatureTypeContext(credential *verifiable.Credential, signatureType vcsverifiable.SignatureType) {
-	if signatureType == crypto.JSONWebSignature2020 {
+	if signatureType == vcsverifiable.JSONWebSignature2020 {
 		credential.Context = append(credential.Context, jsonWebSignature2020Context)
 	}
 
-	if signatureType == crypto.BbsBlsSignature2020 {
+	if signatureType == vcsverifiable.BbsBlsSignature2020 {
 		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
 }

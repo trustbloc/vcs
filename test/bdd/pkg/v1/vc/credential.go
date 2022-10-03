@@ -15,13 +15,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
+	
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-func (e *Steps) createCredential(credential, profileName, organizationName, signatureRepresentation string) error {
+func (e *Steps) createCredential(credential, vcFormat, profileName, organizationName, signatureRepresentation string) error {
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	template, ok := e.bddContext.TestData[credential]
@@ -42,8 +43,13 @@ func (e *Steps) createCredential(credential, profileName, organizationName, sign
 
 	cred.ID = uuid.New().URN()
 
+	reqData, err := getIssueCredentialRequestData(cred, vcFormat)
+	if err != nil {
+		return fmt.Errorf("unable to get issue credential request data: %w", err)
+	}
+
 	req := &model.IssueCredentialData{
-		Credential: cred,
+		Credential: reqData,
 	}
 
 	requestBytes, err := json.Marshal(req)
@@ -70,9 +76,29 @@ func (e *Steps) createCredential(credential, profileName, organizationName, sign
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	e.bddContext.CreatedCredential = respBytes
+	e.bddContext.CreatedCredential = respBytes[:len(respBytes)-1]
+	if vcFormat == "jwt_vc" {
+		return nil
+	}
 
 	return e.checkVC(respBytes, profileName, signatureRepresentation)
+}
+
+func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat string) (interface{}, error) {
+	switch desiredFormat {
+	case string(common.JwtVc):
+		claims, err := vc.JWTClaims(false)
+		if err != nil {
+			return nil, err
+		}
+
+		return claims.MarshalUnsecuredJWT()
+	case string(common.LdpVc):
+		return vc, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported format %s", desiredFormat)
+	}
 }
 
 func (e *Steps) verifyCredential(profileName, organizationName string) error {

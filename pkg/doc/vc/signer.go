@@ -8,6 +8,7 @@ package vc
 
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
@@ -25,6 +26,7 @@ type Signer struct {
 	DID                     string
 	Creator                 string
 	SignatureType           vcsverifiable.SignatureType
-	SignatureRepresentation verifiable.SignatureRepresentation
+	KeyType                 kms.KeyType
+	SignatureRepresentation verifiable.SignatureRepresentation // For LDP only.
 	KMS                     keyManager
 }

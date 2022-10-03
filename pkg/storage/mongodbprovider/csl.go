@@ -10,11 +10,11 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/trustbloc/vcs/pkg/storage"
-
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"go.mongodb.org/mongo-driver/bson"
 	mongodriver "go.mongodb.org/mongo-driver/mongo"
+
+	"github.com/trustbloc/vcs/pkg/storage"
 )
 
 const (
@@ -42,7 +42,6 @@ func (m *MongoDBVCSProvider) OpenCSLStore() (storage.CSLStore, error) {
 
 func (m *MongoDBCSLStore) PutCSLWrapper(cslWrapper *storage.CSLWrapper) error {
 	vcID := cslWrapper.VC.ID
-
 	mongoDBDocument, err := mongodb.PrepareDataForBSONStorage(cslWrapper)
 	if err != nil {
 		return err

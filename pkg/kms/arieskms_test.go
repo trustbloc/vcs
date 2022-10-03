@@ -12,7 +12,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"reflect"
@@ -166,7 +165,7 @@ func TestMain(m *testing.M) {
 }
 
 func createSecretLockKeyFile() (string, func()) {
-	f, err := ioutil.TempFile("", "secret-lock.key")
+	f, err := os.CreateTemp("", "secret-lock.key")
 	if err != nil {
 		panic(err)
 	}
