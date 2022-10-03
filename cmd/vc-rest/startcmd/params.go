@@ -155,6 +155,7 @@ const (
 	didMethodWeb     = "web"
 	didMethodFactom  = "factom"
 	didMethodORB     = "orb"
+	didMethodKey     = "key"
 
 	splitRequestTokenLength = 2
 )

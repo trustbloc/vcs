@@ -15,11 +15,15 @@ import (
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/edge-core/pkg/log"
 
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
+
+var logger = log.New("vc-rest")
 
 // Config contain config
 type Config struct {
@@ -86,7 +90,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 				return nil, err
 			}
 
-			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr))})
+			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))})
 
 			keyCreator, err := config.KMSRegistry.GetKeyManager(v.Data.KMSConfig)
 			if err != nil {
@@ -106,6 +110,8 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 				RecoveryKeyURL: createResult.recoveryKeyURL,
 			}
 		}
+
+		logger.Infof("create issuer profile successfully %s", v.Data.ID)
 
 		r.issuers[v.Data.ID] = v.Data
 	}
@@ -171,6 +177,8 @@ func NewVerifiersReader(config *Config) (*VerifierReader, error) {
 				RecoveryKeyURL: createResult.recoveryKeyURL,
 			}
 		}
+
+		logger.Infof("create verifier profile successfully %s", v.Data.ID)
 
 		r.verifiers[v.Data.ID] = v.Data
 	}
