@@ -227,6 +227,17 @@ services:
     networks:
       - bdd_net
 
+  oidc4vp-store.example.com: # oidc4vp request object public store
+    container_name: oidc4vp-store.example.com
+    image: nginx:latest
+    ports:
+      - "8076:8076"
+    volumes:
+      - ./nginx-config/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx-config/data:/var/www/data
+    networks:
+      - bdd_net
+
 networks:
   bdd_net:
     driver: bridge
