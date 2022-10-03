@@ -24,7 +24,7 @@ require (
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9
 	github.com/jinzhu/copier v0.3.5
-	github.com/labstack/echo/v4 v4.8.0
+	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.42.3-0.20220923124412-e98c0d745a0c
 	github.com/piprate/json-gold v0.4.1
