@@ -214,6 +214,14 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	verifierv1.RegisterHandlers(e, verifierController)
 
+	//if conf.StartupParameters.devMode {
+	//	devController := devapi.NewController(&devapi.Config{
+	//		VerifierProfileService:  verifierProfileSvc,
+	//		IssuerProfileService:    issuerProfileSvc,
+	//		IssuerCredentialService: issuecredentialsvc,
+	//	})
+	//}
+
 	return e, nil
 }
 
