@@ -4,16 +4,57 @@
 package devapi
 
 import (
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
 )
 
+// Response model for health check status.
+type HealthCheckResponse struct {
+	// Current time of the server.
+	CurrentTime *time.Time `json:"currentTime,omitempty"`
+
+	// Status is "success" if server is up and running.
+	Status string `json:"status"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Request did-config
+	// (GET /{profileType}/profiles/{profileID}/well-known/did-config)
+	DidConfig(ctx echo.Context, profileType string, profileID string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// DidConfig converts echo context to params.
+func (w *ServerInterfaceWrapper) DidConfig(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileType" -------------
+	var profileType string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileType", runtime.ParamLocationPath, ctx.Param("profileType"), &profileType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileType: %s", err))
+	}
+
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.DidConfig(ctx, profileType, profileID)
+	return err
 }
 
 // This is a simple interface which specifies echo.Route addition functions which
@@ -39,5 +80,11 @@ func RegisterHandlers(router EchoRouter, si ServerInterface) {
 // Registers handlers, and prepends BaseURL to the paths, so that the paths
 // can be served under a prefix.
 func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL string) {
+
+	wrapper := ServerInterfaceWrapper{
+		Handler: si,
+	}
+
+	router.GET(baseURL+"/:profileType/profiles/:profileID/well-known/did-config", wrapper.DidConfig)
 
 }

@@ -10,6 +10,7 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	"fmt"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	"net/http"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -214,13 +215,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	verifierv1.RegisterHandlers(e, verifierController)
 
-	//if conf.StartupParameters.devMode {
-	//	devController := devapi.NewController(&devapi.Config{
-	//		VerifierProfileService:  verifierProfileSvc,
-	//		IssuerProfileService:    issuerProfileSvc,
-	//		IssuerCredentialService: issuecredentialsvc,
-	//	})
-	//}
+	if conf.StartupParameters.devMode {
+		devController := devapi.NewController(&devapi.Config{
+			VerifierProfileService:  verifierProfileSvc,
+			IssuerProfileService:    issuerProfileSvc,
+			IssuerCredentialService: issuecredentialsvc,
+		})
+
+		devapi.RegisterHandlers(e, devController)
+	}
 
 	return e, nil
 }

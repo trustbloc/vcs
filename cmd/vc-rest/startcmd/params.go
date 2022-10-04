@@ -86,9 +86,9 @@ const (
 		"['issuer', 'verifier', 'holder', 'combined'] (default: combined)."
 	modeEnvKey = "VC_REST_MODE"
 
-	devModeFlagName = "dev-mode"
+	devModeFlagName      = "dev-mode"
 	devModeFlagShorthand = "d"
-	devModeFlagUsage = "Developer mode expose some additional apis. Possible values: " +
+	devModeFlagUsage     = "Developer mode expose some additional apis. Possible values: " +
 		"true, false (default: false)"
 	devModeEnvKey = "DEV_MODE"
 
@@ -175,7 +175,7 @@ type startupParameters struct {
 	contextProviderURLs  []string
 	contextEnableRemote  bool
 	tlsParameters        *tlsParameters
-	devMode            bool
+	devMode              bool
 }
 
 type dbParameters struct {
@@ -262,6 +262,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	devMode, err := getDevMode(cmd)
+
+	if err != nil {
+		return nil, err
+	}
+
 	contextEnableRemote := false
 
 	if contextEnableRemoteConfig != "" {
@@ -284,24 +290,21 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		logLevel:             loggingLevel,
 		contextProviderURLs:  contextProviderURLs,
 		contextEnableRemote:  contextEnableRemote,
+		devMode:              devMode,
 	}, nil
 }
 
-func getDevMode(cmd *cobra.Command) (string, error) {
+func getDevMode(cmd *cobra.Command) (bool, error) {
 	mode, err := cmdutils.GetUserSetVarFromString(cmd, devModeFlagName, devModeEnvKey, true)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	if !supportedMode(mode) {
-		return "nil", fmt.Errorf("unsupported mode: %s", mode)
+	if len(mode) == 0 {
+		return false, nil
 	}
 
-	if mode == "" {
-		mode = string(combined)
-	}
-
-	return mode, nil
+	return strconv.ParseBool(mode)
 }
 
 func getMode(cmd *cobra.Command) (string, error) {
