@@ -47,7 +47,7 @@ paths:
         name: profileID
         in: path
         required: true
-        description: ID of profile
+        description: Issuer Profile ID.
     post:
       summary: Issue credential
       tags:
@@ -66,8 +66,32 @@ paths:
                 type: object
       operationId: post-issue-credentials
       description: Issuer credentials.
-
-
+  '/issuer/profiles/{profileID}/interactions/initiate-oidc':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Issuer Profile ID.
+    post:
+      summary: Initiate OIDC Credential Issuance
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiateOIDC4VCResponse'
+      operationId: post-issuer-profiles-profileID-interactions-initiate-oidc
+      description: Used by the issuer to initiate OIDCI credential issuance interaction in VCS. The response contains initiate issuance URL which can be used to initiate the flow from issuer applications.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiateOIDC4VCRequest'
+      tags:
+        - issuer
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -353,7 +377,6 @@ components:
       required:
         - status
       description: Response model for health check status.
-
     VerifyCredentialData:
       title: VerifyCredentialData
       x-tags:
@@ -507,7 +530,6 @@ components:
           description: Domain is added to the proof.
         credentialStatus:
           $ref: '#/components/schemas/CredentialStatusOpt'
-
     CredentialStatusOpt:
       title: CredentialStatusOpt
       x-tags:
@@ -519,7 +541,6 @@ components:
           type: string
       required:
         - type
-
     AuthorizationDetailsParam:
       title: AuthorizationDetailsParam
       x-tags:
@@ -610,5 +631,56 @@ components:
       required:
         - access_token
         - token_type
-
-  securitySchemes: { }
+    InitiateOIDC4VCRequest:
+      title: InitiateOIDC4VCRequest
+      type: object
+      description: Model for Initiate OIDC Credential Issuance Request.
+      properties:
+        credential_template_id:
+          type: string
+          description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'
+        client_initiate_issuance_url:
+          type: string
+          description: 'URL of the issuance initiation endpoint of a Wallet. Takes precedence over client_wellknown request parameter. If both client_initiate_issuance_url and client_wellknown are not provided then response initiate issuance URL will contain custom initiate issuance URL in format openid-initiate-issuance://.'
+        client_wellknown:
+          type: string
+          description: String containing wallet/holder application OIDC client wellknown configuration URL.
+        op_state:
+          type: string
+          description: 'String value created by the Credential Issuer and opaque to the Wallet that is used to bind the sub-sequent authentication request with the Credential Issuer to a context set up during previous steps. If the client receives a value for this parameter, it MUST include it in the subsequent Authentication Request to the Credential Issuer as the op_state parameter value. MUST NOT be used in Authorization Code flow when pre-authorized_code is present.'
+        claim_endpoint:
+          type: string
+          description: Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
+        grant_type:
+          type: string
+          description: Issuer can provide custom grant types through this parameter. This grant type has to be used while exchanging an access token for authorization code in later steps. If not provided then default to authorization_code.
+        scope:
+          type: array
+          description: Contains scopes that issuer expects VCS to use while requesting authorization code for claim data. Defaults to openid.
+          items:
+            type: string
+        response_type:
+          type: string
+          description: Contains response type that issuer expects VCS to use while performing OIDC authorization request. Defaults to token.
+        authorization_details:
+          type: string
+          description: Customizes what kind of access Issuer wants to give to VCS.
+      x-tags:
+        - issuer
+    InitiateOIDC4VCResponse:
+      title: InitiateOIDC4VCResponse
+      type: object
+      description: Model for Initiate OIDC Credential Issuance Response.
+      properties:
+        initiate_issuance_url:
+          type: string
+          description: OIDC4CI initiate issuance URL to be used by the Issuer to pass relevant information to the Wallet to initiate issuance flow. Supports both HTTP GET and HTTP Redirect. Issuers may present QR code containing request data for users to scan from their mobile Wallet app.
+        tx_id:
+          type: string
+          description: To be used by Issuer applications for correlation if needed.
+      required:
+        - initiate_issuance_url
+        - tx_id
+      x-tags:
+        - issuer
+  securitySchemes: {}
