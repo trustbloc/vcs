@@ -110,6 +110,9 @@ type PostVerifyPresentationJSONRequestBody = PostVerifyPresentationJSONBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Used by verifier applications to initiate OpenID presentation flow through VCS
+	// (POST /verifier/interactions/authorization-response)
+	CheckAuthorizationResponse(ctx echo.Context) error
 	// Verify credential
 	// (POST /verifier/profiles/{profileID}/credentials/verify)
 	PostVerifyCredentials(ctx echo.Context, profileID string) error
@@ -124,6 +127,15 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// CheckAuthorizationResponse converts echo context to params.
+func (w *ServerInterfaceWrapper) CheckAuthorizationResponse(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.CheckAuthorizationResponse(ctx)
+	return err
 }
 
 // PostVerifyCredentials converts echo context to params.
@@ -202,6 +214,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.POST(baseURL+"/verifier/interactions/authorization-response", wrapper.CheckAuthorizationResponse)
 	router.POST(baseURL+"/verifier/profiles/:profileID/credentials/verify", wrapper.PostVerifyCredentials)
 	router.POST(baseURL+"/verifier/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateOidcInteraction)
 	router.POST(baseURL+"/verifier/profiles/:profileID/presentations/verify", wrapper.PostVerifyPresentation)

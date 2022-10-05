@@ -8,14 +8,20 @@ package verifier
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"crypto/rand"
 	_ "embed"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
@@ -90,6 +96,17 @@ func createContextWithBody(body []byte) echo.Context {
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(userHeader, orgID)
+
+	rec := httptest.NewRecorder()
+	return e.NewContext(req, rec)
+}
+
+func createContextApplicationForm(body []byte) echo.Context {
+	e := echo.New()
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 	req.Header.Set(userHeader, orgID)
 
 	rec := httptest.NewRecorder()
@@ -459,6 +476,357 @@ func TestController_VerifyPresentation(t *testing.T) {
 				require.Nil(t, rsp)
 			})
 		}
+	})
+}
+
+func generateToken(t *testing.T, claims interface{}, privKey ed25519.PrivateKey) string {
+	token, err := jwt.NewSigned(claims, nil, jwt.NewEd25519Signer(privKey))
+	require.NoError(t, err)
+	jws, err := token.Serialize(false)
+	require.NoError(t, err)
+
+	return jws
+}
+
+func TestController_CheckAuthorizationResponse(t *testing.T) {
+	pubKey, privKey, e := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, e)
+	v, e := jwt.NewEd25519Verifier(pubKey)
+	require.NoError(t, e)
+
+	sVerifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
+		Alg:      "EdDSA",
+		Verifier: v,
+	})
+
+	oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+	oidc4VPService.EXPECT().VerifyOIDCVerifiablePresentation(oidc4vp.TxID("txid"), "aaa", gomock.Any()).
+		AnyTimes().Return(nil)
+
+	t.Run("Success", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		require.NoError(t, err)
+	})
+
+	t.Run("Presentation submission missed", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"id_token._vp_token.presentation_submission", err)
+	})
+
+	t.Run("Nonce different", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "bbb",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"nonce", err)
+	})
+
+	t.Run("ID token expired", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   0,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"id_token.exp", err)
+	})
+
+	t.Run("ID token invalid signature", func(t *testing.T) {
+		_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKeyOther)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKeyOther)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"id_token", err)
+	})
+
+	t.Run("VP token expired", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   0,
+		}, privKey)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"vp_token.exp", err)
+	})
+
+	t.Run("VP token invalid signature", func(t *testing.T) {
+		_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKeyOther)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"vp_token", err)
+	})
+
+	t.Run("VP token invalid signature", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: struct {
+				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &VPTokenClaims{
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err := c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"vp_token.vp", err)
+	})
+}
+
+func TestController_validateAuthorizationResponse(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		body := "vp_token=toke1&" +
+			"&id_token=toke2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		ar, err := validateAuthorizationResponse(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, ar)
+	})
+
+	t.Run("Missed id_token", func(t *testing.T) {
+		body := "vp_token=v1&" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := validateAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+	})
+
+	t.Run("Duplicated id_token", func(t *testing.T) {
+		body := "vp_token=v1&" +
+			"id_token=1&id_token=2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := validateAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "id_token", err)
+	})
+
+	t.Run("Missed vp_token", func(t *testing.T) {
+		body := "id_token=v1&" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := validateAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
+	})
+
+	t.Run("Duplicated vp_token", func(t *testing.T) {
+		body := "id_token=v1&" +
+			"vp_token=1&vp_token=2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := validateAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "vp_token", err)
+	})
+
+	t.Run("Missed state", func(t *testing.T) {
+		body := "id_token=v1&" +
+			"&vp_token=t"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := validateAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "state", err)
+	})
+
+	t.Run("Duplicated state", func(t *testing.T) {
+		body := "id_token=v1&" +
+			"vp_token=1&state=2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		_, err := validateAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue, "state", err)
 	})
 }
 

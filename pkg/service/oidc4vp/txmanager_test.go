@@ -22,7 +22,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
 		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID("txID"), nil)
-		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", OrganizationID: "org_id"}, nil)
+		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", ProfileID: "org_id"}, nil)
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID"), 100*time.Second).Times(1).Return(true, nil)
@@ -34,7 +34,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, nonce)
 		require.NotNil(t, tx)
-		require.Equal(t, "org_id", tx.OrganizationID)
+		require.Equal(t, "org_id", tx.ProfileID)
 	})
 
 	t.Run("Fail", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 func TestTxManager_GetByOneTimeToken(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", OrganizationID: "org_id"}, nil)
+		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", ProfileID: "org_id"}, nil)
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		nonceStore.EXPECT().GetAndDelete("nonce").Times(1).Return(oidc4vp.TxID("txID"), true, nil)
@@ -96,7 +96,7 @@ func TestTxManager_GetByOneTimeToken(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, exists)
 		require.NotNil(t, tx)
-		require.Equal(t, "org_id", tx.OrganizationID)
+		require.Equal(t, "org_id", tx.ProfileID)
 	})
 
 	t.Run("Fail GetAndDelete", func(t *testing.T) {
@@ -132,7 +132,7 @@ func TestTxManager_GetByOneTimeToken(t *testing.T) {
 func TestTxManager_Get(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", OrganizationID: "org_id"}, nil)
+		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", ProfileID: "org_id"}, nil)
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 
@@ -142,7 +142,7 @@ func TestTxManager_Get(t *testing.T) {
 
 		require.NoError(t, err)
 		require.NotNil(t, tx)
-		require.Equal(t, "org_id", tx.OrganizationID)
+		require.Equal(t, "org_id", tx.ProfileID)
 	})
 
 	t.Run("Fail Get", func(t *testing.T) {
@@ -156,5 +156,20 @@ func TestTxManager_Get(t *testing.T) {
 		_, err := manager.Get("txID")
 
 		require.Contains(t, err.Error(), "test error 333")
+	})
+}
+
+func TestTxManagerStoreReceivedClaims(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		store := NewMockTxStore(gomock.NewController(t))
+		store.EXPECT().Update(gomock.Any()).Return(nil)
+
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, 100*time.Second)
+
+		err := manager.StoreReceivedClaims("txID", &oidc4vp.ReceivedClaims{})
+
+		require.NoError(t, err)
 	})
 }
