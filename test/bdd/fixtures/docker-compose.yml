@@ -29,6 +29,9 @@ services:
       - DEV_MODE=true
     ports:
       - "8075:8075"
+    depends_on:
+      - did-resolver.trustbloc.local
+      - sidetree
     entrypoint: ""
     command:  /bin/sh -c "sleep 5;vc-rest start"
     volumes:

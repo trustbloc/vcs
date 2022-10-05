@@ -38,6 +38,9 @@ func (s *Steps) httpGet(profileType string, id string) error {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet,
 		fmt.Sprintf("http://localhost:8075/%s/profiles/%s/well-known/did-config",
 			profileType, id), http.NoBody)
+
+	req.Header.Add("X-API-Key", "rw_token")
+	
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}

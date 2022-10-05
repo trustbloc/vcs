@@ -10,9 +10,10 @@ import (
 	"crypto/subtle"
 	"crypto/tls"
 	"fmt"
+	"net/http"
+
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
-	"net/http"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/labstack/echo/v4"

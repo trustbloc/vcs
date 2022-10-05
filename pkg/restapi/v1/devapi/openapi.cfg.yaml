@@ -10,8 +10,6 @@ generate:
   models: true
   echo-server: true
   embedded-spec: false
-import-mapping:
-  ./common.yaml: github.com/trustbloc/vcs/pkg/restapi/v1/common
 output-options:
   include-tags:
     - devapi
