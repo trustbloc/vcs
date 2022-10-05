@@ -20,7 +20,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
@@ -55,7 +54,7 @@ type issueCredentialService interface {
 }
 
 type oidc4VCService interface {
-	InitiateInteraction(req *oidc4vc.IssuanceRequest) (*oidc4vc.InteractionInfo, error)
+	InitiateOIDCInteraction(req *oidc4vc.InitiateIssuanceRequest) (*oidc4vc.InitiateIssuanceInfo, error)
 }
 
 type Config struct {
@@ -203,55 +202,55 @@ func (c *Controller) initiateOidcInteraction(body *InitiateOIDC4VCRequest,
 			errors.New("OIDC not configured"))
 	}
 
-	manifest, err := findCredentialManifest(profile.CredentialManifests, lo.FromPtr(body.CredentialTemplateId))
+	template, err := findCredentialTemplate(profile.CredentialTemplates, lo.FromPtr(body.CredentialTemplateId))
 	if err != nil {
 		return nil, err
 	}
 
-	issuanceReq := &oidc4vc.IssuanceRequest{
-		CredentialManifest:        manifest,
+	issuanceReq := &oidc4vc.InitiateIssuanceRequest{
+		CredentialTemplate:        template,
 		ClientInitiateIssuanceURL: lo.FromPtr(body.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(body.ClientWellknown),
 		ClaimEndpoint:             lo.FromPtr(body.ClaimEndpoint),
 		GrantType:                 lo.FromPtr(body.GrantType),
 		ResponseType:              lo.FromPtr(body.ResponseType),
 		Scope:                     lo.FromPtr(body.Scope),
-		AuthorizationDetails:      lo.FromPtr(body.AuthorizationDetails),
+		OpState:                   lo.FromPtr(body.OpState),
 	}
 
-	interactionInfo, err := c.oidc4VCService.InitiateInteraction(issuanceReq)
+	info, err := c.oidc4VCService.InitiateOIDCInteraction(issuanceReq)
 	if err != nil {
-		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateInteraction", err)
+		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateOIDCInteraction", err)
 	}
 
 	return &InitiateOIDC4VCResponse{
-		InitiateIssuanceUrl: interactionInfo.InitiateIssuanceURL,
-		TxId:                interactionInfo.TxID,
+		InitiateIssuanceUrl: info.InitiateIssuanceURL,
+		TxId:                info.TxID,
 	}, nil
 }
 
-func findCredentialManifest(credentialManifests []cm.CredentialManifest, manifestID string) (
-	*cm.CredentialManifest, error) {
-	// profile should define at least one credential manifest
-	if len(credentialManifests) == 0 || credentialManifests[0].ID == "" {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.CredentialManifests",
-			errors.New("credential manifest not configured"))
+func findCredentialTemplate(credentialTemplates []*verifiable.Credential, templateID string) (
+	*verifiable.Credential, error) {
+	// profile should define at least one credential template
+	if len(credentialTemplates) == 0 || credentialTemplates[0].ID == "" {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.CredentialTemplates",
+			errors.New("credential template not configured"))
 	}
 
-	// credential_template_id param is required if profile has more than one credential manifest defined
-	if len(credentialManifests) > 1 && manifestID == "" {
+	// credential_template_id param is required if profile has more than one credential template defined
+	if len(credentialTemplates) > 1 && templateID == "" {
 		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
-			errors.New("manifestID is required"))
+			errors.New("credential template id is required"))
 	}
 
-	for _, m := range credentialManifests {
-		if m.ID == manifestID {
-			return &m, nil
+	for _, t := range credentialTemplates {
+		if t.ID == templateID {
+			return t, nil
 		}
 	}
 
 	return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
-		errors.New("credential manifest not found"))
+		errors.New("credential template not found"))
 }
 
 func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {
