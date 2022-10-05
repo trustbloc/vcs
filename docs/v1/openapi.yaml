@@ -415,7 +415,6 @@ components:
           description: context.
         linked_dids:
           type: array
-          format: date-time
           items:
             oneOf:
               - type: string
