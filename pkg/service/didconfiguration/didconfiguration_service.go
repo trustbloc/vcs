@@ -80,6 +80,7 @@ func New(
 		verifierProfileService:  config.VerifierProfileService,
 		issuerProfileService:    config.IssuerProfileService,
 		issuerCredentialService: config.IssuerCredentialService,
+		kmsRegistry:             config.KmsRegistry,
 	}
 }
 
@@ -121,7 +122,7 @@ func (s *Service) DidConfig(
 				ID: profile.SigningDID.DID,
 			}
 			cred.Subject = map[string]interface{}{
-				"id":     profile.SigningDID.DID,
+				"id":     profile.SigningDID.DID, // todo nothing in JSON ???
 				"origin": fmt.Sprintf("%s://%s", u.Scheme, u.Hostname()),
 			}
 

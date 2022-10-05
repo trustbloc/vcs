@@ -47,8 +47,24 @@ func NewController(
 // DidConfig requests well-known DID config.
 // GET /{profileType}/profiles/{profileID}/well-known/did-config.
 func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID string) error {
+	var contextUrl strings.Builder
+
+	if scheme := ctx.Request().URL.Scheme; len(scheme) > 0 {
+		contextUrl.WriteString(scheme + "://")
+	} else {
+		contextUrl.WriteString("https://")
+	}
+
+	if hostName := ctx.Request().URL.Hostname(); len(hostName) > 0 {
+		contextUrl.WriteString(hostName + "/")
+	} else {
+		contextUrl.WriteString("localhost")
+	}
+
+	contextUrl.WriteString(ctx.Request().URL.Path)
+
 	return apiUtil.WriteOutput(ctx)(c.didConfigService.DidConfig(ctx.Request().Context(),
 		didconfiguration.ProfileType(strings.ToLower(profileType)),
 		profileID,
-		ctx.Request().URL.RequestURI()))
+		contextUrl.String()))
 }

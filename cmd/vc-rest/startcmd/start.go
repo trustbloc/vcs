@@ -221,6 +221,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		VerifierProfileService:  verifierProfileSvc,
 		IssuerProfileService:    issuerProfileSvc,
 		IssuerCredentialService: issuecredentialsvc,
+		KmsRegistry:             kmsRegistry,
 	})
 
 	if conf.StartupParameters.devMode {
