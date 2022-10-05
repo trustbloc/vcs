@@ -66,6 +66,11 @@ type Service struct {
 	kmsRegistry             kmsRegistry
 }
 
+type DidConfiguration struct {
+	Context    string        `json:"@context"`
+	LinkedDiDs []interface{} `json:"linked_dids"`
+}
+
 func New(
 	config *Config,
 ) *Service {
@@ -81,7 +86,7 @@ func (s *Service) DidConfig(
 	profileType ProfileType,
 	profileID string,
 	contextUrl string,
-) (*verifiable.Credential, error) {
+) (*DidConfiguration, error) {
 	u, err := url.Parse(contextUrl)
 
 	if err != nil {
@@ -172,5 +177,15 @@ func (s *Service) DidConfig(
 		return nil, err
 	}
 
-	return cred, nil
+	resp := &DidConfiguration{
+		Context: contextUrl,
+	}
+
+	if format == vcsverifiable.Jwt {
+		resp.LinkedDiDs = append(resp.LinkedDiDs, cred.JWT)
+	} else {
+		resp.LinkedDiDs = append(resp.LinkedDiDs, cred)
+	}
+
+	return resp, nil
 }

@@ -6,19 +6,18 @@ package devapi
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
 )
 
-// Response model for health check status.
-type HealthCheckResponse struct {
-	// Current time of the server.
-	CurrentTime *time.Time `json:"currentTime,omitempty"`
+// DID Config response.
+type DidConfig struct {
+	// context.
+	Context *string `json:"@context,omitempty"`
 
-	// Status is "success" if server is up and running.
-	Status string `json:"status"`
+	// Presentation in jws(string) or jsonld(object) formats
+	LinkedDids *[]interface{} `json:"linked_dids,omitempty"`
 }
 
 // ServerInterface represents all server handlers.
