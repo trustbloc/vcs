@@ -11,7 +11,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
-	"github.com/trustbloc/vcs/pkg/service/wellknown"
+	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"net/http"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -216,15 +216,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	verifierv1.RegisterHandlers(e, verifierController)
 
-	wellKnownSvc := wellknown.New(&wellknown.Config{
+	didConfigSvc := didconfiguration.New(&didconfiguration.Config{
 		VerifierProfileService:  verifierProfileSvc,
 		IssuerProfileService:    issuerProfileSvc,
 		IssuerCredentialService: issuecredentialsvc,
 	})
-	
+
 	if conf.StartupParameters.devMode {
 		devController := devapi.NewController(&devapi.Config{
-			WellKnownService: wellKnownSvc,
+			DidConfigService: didConfigSvc,
 		})
 
 		devapi.RegisterHandlers(e, devController)
