@@ -12,16 +12,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"time"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"net/url"
-	"time"
 )
 
 type verifierProfileService interface {

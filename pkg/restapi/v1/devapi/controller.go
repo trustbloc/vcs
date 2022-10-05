@@ -11,11 +11,12 @@ package devapi
 
 import (
 	"context"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"strings"
+
 	"github.com/labstack/echo/v4"
+
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
-	"strings"
 )
 
 type didConfigService interface {
@@ -24,7 +25,7 @@ type didConfigService interface {
 		profileType didconfiguration.ProfileType,
 		profileID string,
 		contextUrl string,
-	) (*verifiable.Credential, error)
+	) (*didconfiguration.DidConfiguration, error)
 }
 
 type Config struct {

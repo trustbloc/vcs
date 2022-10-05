@@ -22,6 +22,7 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
+	vc_devapi "github.com/trustbloc/vcs/test/bdd/pkg/vc-devapi"
 	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
 )
 
@@ -143,6 +144,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 		common.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
+		vc_devapi.NewSteps(bddContext),
 	}
 
 	for _, f := range features {
