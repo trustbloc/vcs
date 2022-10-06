@@ -17,7 +17,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/labstack/echo/v4"
@@ -413,15 +412,15 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 		ID:             "profileID",
 		Active:         true,
 		OIDCConfig:     &profileapi.OIDC4VCConfig{},
-		CredentialManifests: []cm.CredentialManifest{
+		CredentialTemplates: []*verifiable.Credential{
 			{
-				ID: "manifestID",
+				ID: "templateID",
 			},
 		},
 	}
 
 	req, err := json.Marshal(&InitiateOIDC4VCRequest{
-		CredentialTemplateId:      lo.ToPtr("manifestID"),
+		CredentialTemplateId:      lo.ToPtr("templateID"),
 		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
 		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
 		OpState:                   lo.ToPtr("eyJhbGciOiJSU0Et"),
@@ -432,7 +431,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 	})
 	require.NoError(t, err)
 
-	interactionInfo := &oidc4vc.InteractionInfo{
+	info := &oidc4vc.InitiateIssuanceInfo{
 		InitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 		TxID:                "txID",
 	}
@@ -445,7 +444,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(issuerProfile, nil)
-		mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(1).Return(interactionInfo, nil)
+		mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(1).Return(info, nil)
 
 		controller := NewController(&Config{
 			ProfileSvc:     mockProfileSvc,
@@ -468,7 +467,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				name: "Missing authorization",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(0)
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withOrgID(""))
 				},
 				check: func(t *testing.T, err error) {
@@ -479,7 +478,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				name: "Invalid profile",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withOrgID("invalid"))
 				},
 				check: func(t *testing.T, err error) {
@@ -491,7 +490,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				name: "Profile does not exist in the underlying storage",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("not found"))
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -503,7 +502,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				name: "Get profile error",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("get profile error"))
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -521,7 +520,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 						OIDCConfig:     &profileapi.OIDC4VCConfig{},
 					}, nil)
 
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -538,7 +537,7 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 						Active:         true,
 					}, nil)
 
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -547,43 +546,43 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				},
 			},
 			{
-				name: "Credential manifest not configured",
+				name: "Credential template not configured",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Issuer{
 						OrganizationID:      orgID,
 						ID:                  "profileID",
 						Active:              true,
 						OIDCConfig:          &profileapi.OIDC4VCConfig{},
-						CredentialManifests: []cm.CredentialManifest{},
+						CredentialTemplates: []*verifiable.Credential{},
 					}, nil)
 
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "credential manifest not configured")
+					require.Contains(t, err.Error(), "credential template not configured")
 				},
 			},
 			{
-				name: "ManifestID is required",
+				name: "Credential template ID is required",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Issuer{
 						OrganizationID: orgID,
 						ID:             "profileID",
 						Active:         true,
 						OIDCConfig:     &profileapi.OIDC4VCConfig{},
-						CredentialManifests: []cm.CredentialManifest{
+						CredentialTemplates: []*verifiable.Credential{
 							{
-								ID: "manifestID",
+								ID: "templateID",
 							},
 							{
-								ID: "manifestID2",
+								ID: "templateID2",
 							},
 						},
 					}, nil)
 
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4VCRequest{})
 					require.NoError(t, marshalErr)
@@ -592,14 +591,14 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "manifestID is required")
+					require.Contains(t, err.Error(), "credential template id is required")
 				},
 			},
 			{
-				name: "Credential manifest not found",
+				name: "Credential template not found",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(0)
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(0)
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4VCRequest{CredentialTemplateId: lo.ToPtr("invalid")})
 					require.NoError(t, marshalErr)
@@ -608,14 +607,14 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "credential manifest not found")
+					require.Contains(t, err.Error(), "credential template not found")
 				},
 			},
 			{
 				name: "Service error",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateInteraction(gomock.Any()).Times(1).Return(nil, errors.New("service error"))
+					mockOIDC4VCSvc.EXPECT().InitiateOIDCInteraction(gomock.Any()).Times(1).Return(nil, errors.New("service error"))
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {

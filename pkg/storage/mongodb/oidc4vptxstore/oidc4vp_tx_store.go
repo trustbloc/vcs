@@ -25,8 +25,13 @@ const (
 
 type txDocument struct {
 	ID                     primitive.ObjectID     `bson:"_id,omitempty"`
-	OrganizationID         string                 `bson:"organizationID"`
+	ProfileID              string                 `bson:"profileIDID"`
 	PresentationDefinition map[string]interface{} `bson:"presentationDefinition"`
+	ReceivedClaims         map[string]interface{} `bson:"receivedClaims"`
+}
+
+type txUpdateDocument struct {
+	ReceivedClaims interface{} `bson:"receivedClaims"`
 }
 
 // TxStore manages profile in mongodb.
@@ -40,7 +45,7 @@ func NewTxStore(mongoClient *mongodb.Client) *TxStore {
 }
 
 // Create creates transaction document in a database.
-func (p *TxStore) Create(pd *presexch.PresentationDefinition, orgID string) (oidc4vp.TxID, error) {
+func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) (oidc4vp.TxID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -52,7 +57,7 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, orgID string) (oid
 	}
 
 	txDoc := &txDocument{
-		OrganizationID:         orgID,
+		ProfileID:              profileID,
 		PresentationDefinition: pdContent,
 	}
 
@@ -93,6 +98,42 @@ func (p *TxStore) Find(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	return txFromDocument(txDoc)
 }
 
+func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
+	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	collection := p.mongoClient.Database().Collection(txCollection)
+
+	id, err := txIDFromString(update.ID)
+	if err != nil {
+		return err
+	}
+
+	var receivedClaims map[string]interface{}
+
+	if update.ReceivedClaims != nil {
+		receivedClaims, err = mongodb.StructureToMap(update.ReceivedClaims)
+		if err != nil {
+			return fmt.Errorf("update tx doc: encode received claims %w", err)
+		}
+	}
+
+	//nolint: govet
+	result, err := collection.UpdateOne(ctxWithTimeout,
+		bson.D{{"_id", id}}, bson.D{{"$set", txUpdateDocument{
+			ReceivedClaims: receivedClaims,
+		}}})
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("profile with given id not found")
+	}
+
+	return nil
+}
+
 func txIDFromString(strID oidc4vp.TxID) (primitive.ObjectID, error) {
 	if strID == "" {
 		return primitive.NilObjectID, nil
@@ -114,9 +155,16 @@ func txFromDocument(txDoc *txDocument) (*oidc4vp.Transaction, error) {
 		return nil, fmt.Errorf("oidc4vp tx manager: pd deserialization failed: %w", err)
 	}
 
+	receivedClaims := &oidc4vp.ReceivedClaims{}
+	err = mongodb.MapToStructure(txDoc.ReceivedClaims, receivedClaims)
+	if err != nil {
+		return nil, fmt.Errorf("oidc4vp tx manager: eeceived claims deserialization failed: %w", err)
+	}
+
 	return &oidc4vp.Transaction{
 		ID:                     oidc4vp.TxID(txDoc.ID.Hex()),
-		OrganizationID:         txDoc.OrganizationID,
+		ProfileID:              txDoc.ProfileID,
 		PresentationDefinition: pd,
+		ReceivedClaims:         receivedClaims,
 	}, nil
 }

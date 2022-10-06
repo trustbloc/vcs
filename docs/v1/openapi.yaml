@@ -194,6 +194,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4VPResponse'
+
+  '/verifier/interactions/authorization-response':
+    post:
+      summary: Used by verifier applications to initiate OpenID presentation flow through VCS
+      operationId: check-authorization-response
+      tags:
+        - verifier
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                id_token:
+                  type: string
+                  description: ID Token serves as an authentication receipt and includes metadata about the VP Token.
+                vp_token:
+                  type: string
+                  description: VP Token includes one or more Verifiable Presentations.
+                state:
+                  type: string
+                  description: State from authorization request for correlation
+      responses:
+        '200':
+          description: Sucess
+        '500':
+          description: Failure
+
   /oidc/par:
     post:
       summary: Pushed Authorization Request

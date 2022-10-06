@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vptxstore_test
+package oidc4vptxstore
 
 import (
 	"context"
@@ -15,17 +15,18 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 )
 
 const (
@@ -44,7 +45,7 @@ func TestTxStore_Success(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
-	store := oidc4vptxstore.NewTxStore(client)
+	store := NewTxStore(client)
 	require.NotNil(t, store)
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -66,6 +67,27 @@ func TestTxStore_Success(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 	})
+
+	t.Run("Create tx then update", func(t *testing.T) {
+		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		err = store.Update(oidc4vp.TransactionUpdate{
+			ID: id,
+			ReceivedClaims: &oidc4vp.ReceivedClaims{
+				Credentials: map[string]*verifiable.Credential{"credID": {ID: "testID"}},
+			},
+		})
+		require.NoError(t, err)
+
+		tx, err := store.Find(id)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
+		require.Equal(t, "testID", tx.ReceivedClaims.Credentials["credID"].ID)
+	})
 }
 
 func TestTxStore_Fails(t *testing.T) {
@@ -78,7 +100,7 @@ func TestTxStore_Fails(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
-	store := oidc4vptxstore.NewTxStore(client)
+	store := NewTxStore(client)
 	require.NotNil(t, store)
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -97,6 +119,49 @@ func TestTxStore_Fails(t *testing.T) {
 	t.Run("Find not existing tx id", func(t *testing.T) {
 		_, err := store.Find("121212121212121212121212")
 		require.EqualError(t, err, oidc4vp.ErrDataNotFound.Error())
+	})
+
+	t.Run("Find update tx id", func(t *testing.T) {
+		err := store.Update(oidc4vp.TransactionUpdate{
+			ID: "invalid",
+		})
+		require.Contains(t, err.Error(), "tx invalid id")
+	})
+
+	t.Run("Find empty tx id", func(t *testing.T) {
+		err := store.Update(oidc4vp.TransactionUpdate{
+			ID: "",
+		})
+		require.Contains(t, err.Error(), "profile with given id not found")
+	})
+
+	t.Run("Find not existing tx id", func(t *testing.T) {
+		err := store.Update(oidc4vp.TransactionUpdate{
+			ID: "121212121212121212121212",
+		})
+		require.EqualError(t, err, "profile with given id not found")
+	})
+
+	t.Run("invalid doc content", func(t *testing.T) {
+		_, err := txFromDocument(&txDocument{
+			ID: primitive.ObjectID{},
+			PresentationDefinition: map[string]interface{}{
+				"frame": "invalid",
+			},
+		})
+
+		require.Error(t, err)
+	})
+
+	t.Run("invalid doc content", func(t *testing.T) {
+		_, err := txFromDocument(&txDocument{
+			ID: primitive.ObjectID{},
+			ReceivedClaims: map[string]interface{}{
+				"credentials": "invalid",
+			},
+		})
+
+		require.Error(t, err)
 	})
 }
 
