@@ -99,7 +99,7 @@ func (s *Service) DidConfig(
 	cred := &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
-			contextUrl,
+			"https://identity.foundation/.well-known/did-configuration/v1",
 		},
 		Types: []string{
 			"VerifiableCredential",

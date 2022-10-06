@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/cucumber/godog"
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
@@ -18,6 +19,7 @@ type Steps struct {
 	bddContext     *bddcontext.BDDContext
 	responseStatus int
 	responseBody   []byte
+	credType       string
 }
 
 // NewSteps returns new Steps context.
@@ -27,20 +29,34 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 
 // RegisterSteps registers VC scenario steps.
 func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
-	sc.Step(`^I request did config for "([^"]*)" with ID "([^"]*)"$`, s.httpGet)
-	//sc.Step(`^I receive response with status code "([^"]*)"$`, s.checkResponseStatus)
-	//sc.Step(`^response contains "([^"]*)" with value "([^"]*)"$`, s.checkResponseValue)
+	sc.Step(`^I request did config for "([^"]*)" with ID "([^"]*)" and type "([^"]*)"$`, s.httpGet)
+	sc.Step(`^I receive response with status code "([^"]*)" for didconfig$`, s.checkResponseStatus)
 }
 
-func (s *Steps) httpGet(profileType string, id string) error {
-	logger.Infof("I request did config : %v and id %v", string(profileType), id)
+func (s *Steps) checkResponseStatus(status string) error {
+	code, err := strconv.Atoi(status)
+	if err != nil {
+		return fmt.Errorf("invalid status: %w", err)
+	}
+
+	logger.Infof("checking response status %v", s.responseStatus)
+
+	if s.responseStatus != code {
+		return fmt.Errorf("expected %d, got %d", code, s.responseStatus)
+	}
+
+	return nil
+}
+
+func (s *Steps) httpGet(profileType string, id string, credType string) error {
+	s.credType = credType
 
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet,
 		fmt.Sprintf("http://localhost:8075/%s/profiles/%s/well-known/did-config",
 			profileType, id), http.NoBody)
 
 	req.Header.Add("X-API-Key", "rw_token")
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -56,16 +72,15 @@ func (s *Steps) httpGet(profileType string, id string) error {
 		}
 	}()
 
-	s.responseStatus = resp.StatusCode
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read response body: %w", err)
 	}
 
 	s.responseBody = body
+	s.responseStatus = resp.StatusCode
 
-	logger.Infof("body : %v", string(body))
+	logger.Infof("body : %v and status %v", string(body), s.responseStatus)
 
 	return nil
 }
