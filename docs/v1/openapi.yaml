@@ -114,6 +114,59 @@ paths:
                 type: object
       operationId: post-issue-credentials
       description: Issuer credentials.
+  /issuer/profiles/{profileID}/credentials/status/{statusID}:
+    get:
+      summary: Retrieves the credential status.
+      parameters:
+        - schema:
+            type: string
+          name: profileID
+          in: path
+          required: true
+          description: Issuer Profile ID.
+        - schema:
+            type: string
+          name: statusID
+          in: path
+          required: true
+          description: StatusID
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+      operationId: get-credentials-status
+      description: Retrieves the credential status.
+      tags:
+        - issuer
+  /issuer/profiles/{profileID}/credentials/status:
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Issuer Profile ID.
+    post:
+      summary: Updates credential status.
+      tags:
+        - issuer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCredentialStatusRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+      operationId: post-credentials-status
+      description: Updates credential status.
   '/issuer/profiles/{profileID}/interactions/initiate-oidc':
     parameters:
       - schema:
@@ -615,6 +668,34 @@ components:
           description: Credential in jws(string) or jsonld(object) formats.
       required:
         - credential
+    UpdateCredentialStatusRequest:
+      title: UpdateCredentialStatusRequest
+      x-tags:
+        - issuer
+      description: UpdateCredentialStatusRequest request struct for updating VC status.
+      properties:
+        credentialID:
+          type: string
+        credentialStatus:
+          $ref: '#/components/schemas/CredentialStatus'
+      required:
+        - credentialID
+        - credentialStatus
+      type: object
+    CredentialStatus:
+      title: CredentialStatus
+      x-tags:
+        - issuer
+      description: Credential status.
+      properties:
+        status:
+          type: string
+        type:
+          type: string
+      required:
+        - status
+        - type
+      type: object
     IssueCredentialOptions:
       title: IssueCredentialOptions
       x-tags:

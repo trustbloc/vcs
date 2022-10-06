@@ -23,13 +23,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -354,7 +354,7 @@ func Test_validateIssueCredOptions(t *testing.T) {
 			args: args{
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
-						Type: csl.StatusListCredential,
+						Type: credentialstatus.StatusListCredential,
 					},
 				},
 			},
@@ -366,7 +366,7 @@ func Test_validateIssueCredOptions(t *testing.T) {
 			args: args{
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
-						Type: csl.StatusList2021Entry,
+						Type: credentialstatus.StatusList2021Entry,
 					},
 					VerificationMethod: lo.ToPtr("did:trustbloc:abc"),
 					Created:            lo.ToPtr("02 Jan 06 15:04 MST"),
@@ -380,7 +380,7 @@ func Test_validateIssueCredOptions(t *testing.T) {
 			args: args{
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
-						Type: csl.StatusList2021Entry,
+						Type: credentialstatus.StatusList2021Entry,
 					},
 					VerificationMethod: lo.ToPtr("did:trustbloc:abc"),
 					Created:            lo.ToPtr("1979-05-27T07:32:00Z"),
@@ -636,6 +636,68 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 				tt.check(t, err)
 			})
 		}
+	})
+}
+
+func TestController_GetCredentialsStatus(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{}, nil)
+
+		mockVcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+		mockVcStatusManager.EXPECT().GetCredentialStatusURL(
+			gomock.Any(),
+			gomock.Any(),
+			"testStatusId").Return("https://example.com", nil)
+		mockVcStatusManager.EXPECT().GetRevocationListVC("https://example.com").Return(&verifiable.Credential{}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:      mockProfileSvc,
+			VcStatusManager: mockVcStatusManager,
+		})
+
+		c := echoContext()
+
+		err := controller.GetCredentialsStatus(c, "testId", "testStatusId")
+		require.NoError(t, err)
+	})
+
+	t.Run("Failed profile", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(nil, errors.New("some error"))
+
+		controller := NewController(&Config{
+			ProfileSvc: mockProfileSvc,
+		})
+
+		c := echoContext()
+
+		err := controller.GetCredentialsStatus(c, "testId", "testStatusId")
+		require.Error(t, err)
+	})
+
+	t.Run("Failed credential status url", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{}, nil)
+
+		mockVcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+		mockVcStatusManager.EXPECT().GetCredentialStatusURL(
+			gomock.Any(),
+			gomock.Any(),
+			"testStatusId").Return("", errors.New("some error"))
+
+		controller := NewController(&Config{
+			ProfileSvc:      mockProfileSvc,
+			VcStatusManager: mockVcStatusManager,
+		})
+
+		c := echoContext()
+
+		err := controller.GetCredentialsStatus(c, "testId", "testStatusId")
+		require.Error(t, err)
 	})
 }
 

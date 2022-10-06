@@ -50,11 +50,13 @@ func TestService_IssueCredential(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
 		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
-	mockVCStatusManager := NewMockvcStatusManager(gomock.NewController(t))
+	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&verifiable.TypedID{
 		ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 		Type: "JsonSchemaValidator2018",
 	}, nil)
+	mockVCStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+		Return("", nil)
 
 	t.Run("Success LDP", func(t *testing.T) {
 		t.Parallel()
@@ -226,12 +228,37 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
-	t.Run("Error VCStatusManager", func(t *testing.T) {
+	t.Run("Error VCStatusManager.CreateStatusID", func(t *testing.T) {
 		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
 
-		vcStatusManager := NewMockvcStatusManager(gomock.NewController(t))
+		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
+		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
+
+		service := New(&Config{
+			KMSRegistry:     kmsRegistry,
+			VCStatusManager: vcStatusManager,
+		})
+
+		verifiableCredentials, err := service.IssueCredential(
+			&verifiable.Credential{},
+			nil,
+			&profileapi.Issuer{
+				SigningDID: &profileapi.SigningDID{},
+				VCConfig: &profileapi.VCConfig{
+					Format: vcs.Ldp,
+				}})
+		require.Error(t, err)
+		require.Nil(t, verifiableCredentials)
+	})
+	t.Run("Error VCStatusManager.GetCredentialStatusURL", func(t *testing.T) {
+		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
+
+		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).
+			Return("", errors.New("some error"))
 
 		service := New(&Config{
 			KMSRegistry:     kmsRegistry,
@@ -253,8 +280,9 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
-		vcStatusManager := NewMockvcStatusManager(gomock.NewController(t))
+		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
+		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 
 		cr := NewMockvcCrypto(gomock.NewController(t))
 		cr.EXPECT().SignCredentialLDP(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
@@ -279,7 +307,7 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
-		vcStatusManager := NewMockvcStatusManager(gomock.NewController(t))
+		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
 		service := New(&Config{

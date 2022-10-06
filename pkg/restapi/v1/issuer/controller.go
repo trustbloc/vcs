@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4VCService=MockOIDC4VCService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4VCService=MockOIDC4VCService,vcStatusManager=MockVCStatusManager
 
 package issuer
 
@@ -22,12 +22,12 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -57,12 +57,18 @@ type oidc4VCService interface {
 	InitiateOIDCInteraction(req *oidc4vc.InitiateIssuanceRequest) (*oidc4vc.InitiateIssuanceInfo, error)
 }
 
+type vcStatusManager interface {
+	GetRevocationListVC(id string) (*verifiable.Credential, error)
+	GetCredentialStatusURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
+}
+
 type Config struct {
 	ProfileSvc             profileService
 	KMSRegistry            kmsRegistry
 	DocumentLoader         ld.DocumentLoader
 	IssueCredentialService issueCredentialService
 	OIDC4VCService         oidc4VCService
+	VcStatusManager        vcStatusManager
 }
 
 // Controller for Issuer Profile Management API.
@@ -72,6 +78,7 @@ type Controller struct {
 	documentLoader         ld.DocumentLoader
 	issueCredentialService issueCredentialService
 	oidc4VCService         oidc4VCService
+	vcStatusManager        vcStatusManager
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -82,6 +89,7 @@ func NewController(config *Config) *Controller {
 		documentLoader:         config.DocumentLoader,
 		issueCredentialService: config.IssueCredentialService,
 		oidc4VCService:         config.OIDC4VCService,
+		vcStatusManager:        config.VcStatusManager,
 	}
 }
 
@@ -104,7 +112,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, err
 	}
 
-	profile, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +146,7 @@ func validateIssueCredOptions(options *IssueCredentialOptions) ([]crypto.Signing
 	if options == nil {
 		return signingOpts, nil
 	}
-	if options.CredentialStatus.Type != "" && options.CredentialStatus.Type != cslstatus.StatusList2021Entry {
+	if options.CredentialStatus.Type != "" && options.CredentialStatus.Type != credentialstatus.StatusList2021Entry {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
 			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))
 	}
@@ -176,7 +184,7 @@ func (c *Controller) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx ech
 		return err
 	}
 
-	profile, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
 	if err != nil {
 		return err
 	}
@@ -253,7 +261,7 @@ func findCredentialTemplate(credentialTemplates []*verifiable.Credential, templa
 		errors.New("credential template not found"))
 }
 
-func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {
+func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error) {
 	profile, err := c.profileSvc.GetProfile(profileID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -264,6 +272,15 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profile
 		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
 	}
 
+	return profile, nil
+}
+
+func (c *Controller) accessOIDCProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {
+	profile, err := c.accessProfile(profileID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != oidcOrgID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
@@ -271,4 +288,26 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profile
 	}
 
 	return profile, nil
+}
+
+// GetCredentialsStatus retrieves the credential status.
+// GET /issuer/profiles/{profileID}/credentials/status/{statusID}.
+func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error {
+	profile, err := c.accessProfile(profileID)
+	if err != nil {
+		return err
+	}
+
+	statusURL, err := c.vcStatusManager.GetCredentialStatusURL(profile.URL, profile.ID, statusID)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.vcStatusManager.GetRevocationListVC(statusURL))
+}
+
+// PostCredentialsStatus updates credential status.
+// POST /issuer/profiles/{profileID}/credentials/status.
+func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) error {
+	return nil
 }

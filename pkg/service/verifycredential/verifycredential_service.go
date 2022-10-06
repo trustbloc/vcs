@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifycredential -source=verifycredential_service.go -mock_names vcStatusManager=MockVcStatusManager
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifycredential -source=verifycredential_service.go -mock_names revocationVCGetter=MockRevocationVCGetter
 
 package verifycredential
 
@@ -19,18 +19,18 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 const (
 	revokedMsg = "revoked"
 )
 
-type vcStatusManager interface {
-	GetRevocationListVC(statusURL string) (*verifiable.Credential, error)
+type revocationVCGetter interface {
+	GetRevocationVC(statusURL string) (*verifiable.Credential, error)
 }
 
 // CredentialsVerificationCheckResult resp containing failure check details.
@@ -50,22 +50,22 @@ type Options struct {
 }
 
 type Config struct {
-	VcStatusManager vcStatusManager
-	DocumentLoader  ld.DocumentLoader
-	VDR             vdrapi.Registry
+	RevocationVCGetter revocationVCGetter
+	DocumentLoader     ld.DocumentLoader
+	VDR                vdrapi.Registry
 }
 
 type Service struct {
-	vcStatusManager vcStatusManager
-	documentLoader  ld.DocumentLoader
-	vdr             vdrapi.Registry
+	revocationVCGetter revocationVCGetter
+	documentLoader     ld.DocumentLoader
+	vdr                vdrapi.Registry
 }
 
 func New(config *Config) *Service {
 	return &Service{
-		vcStatusManager: config.VcStatusManager,
-		documentLoader:  config.DocumentLoader,
-		vdr:             config.VDR,
+		revocationVCGetter: config.RevocationVCGetter,
+		documentLoader:     config.DocumentLoader,
+		vdr:                config.VDR,
 	}
 }
 
@@ -174,27 +174,28 @@ func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) 
 		return err
 	}
 
-	statusListIndex, err := strconv.Atoi(vcStatus.CustomFields[csl.StatusListIndex].(string))
+	statusListIndex, err := strconv.Atoi(vcStatus.CustomFields[credentialstatus.StatusListIndex].(string))
 	if err != nil {
 		return err
 	}
 
-	revocationListVC, err := s.vcStatusManager.GetRevocationListVC(
-		vcStatus.CustomFields[csl.StatusListCredential].(string))
+	revocationVC, err := s.revocationVCGetter.GetRevocationVC(
+		vcStatus.CustomFields[credentialstatus.StatusListCredential].(string))
 	if err != nil {
 		return err
 	}
 
-	if revocationListVC.Issuer.ID != issuer {
+	if revocationVC.Issuer.ID != issuer {
 		return fmt.Errorf("issuer of the credential do not match vc revocation list issuer")
 	}
 
-	credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
+	credSubject, ok := revocationVC.Subject.([]verifiable.Subject)
 	if !ok {
 		return fmt.Errorf("invalid subject field structure")
 	}
 
-	if credSubject[0].CustomFields[csl.StatusPurpose].(string) != vcStatus.CustomFields[csl.StatusPurpose].(string) {
+	if credSubject[0].CustomFields[credentialstatus.StatusPurpose].(string) !=
+		vcStatus.CustomFields[credentialstatus.StatusPurpose].(string) {
 		return fmt.Errorf("vc statusPurpose not matching statusListCredential statusPurpose")
 	}
 
@@ -220,19 +221,19 @@ func (s *Service) validateVCStatus(vcStatus *verifiable.TypedID) error {
 		return fmt.Errorf("vc status not exist")
 	}
 
-	if vcStatus.Type != csl.StatusList2021Entry {
+	if vcStatus.Type != credentialstatus.StatusList2021Entry {
 		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
 	}
 
-	if vcStatus.CustomFields[csl.StatusListIndex] == nil {
+	if vcStatus.CustomFields[credentialstatus.StatusListIndex] == nil {
 		return fmt.Errorf("statusListIndex field not exist in vc status")
 	}
 
-	if vcStatus.CustomFields[csl.StatusListCredential] == nil {
+	if vcStatus.CustomFields[credentialstatus.StatusListCredential] == nil {
 		return fmt.Errorf("statusListCredential field not exist in vc status")
 	}
 
-	if vcStatus.CustomFields[csl.StatusPurpose] == nil {
+	if vcStatus.CustomFields[credentialstatus.StatusPurpose] == nil {
 		return fmt.Errorf("statusPurpose field not exist in vc status")
 	}
 
