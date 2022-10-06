@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore
+//go:generate mockgen -destination oidc4vp_service_mocks_test.go -self_package mocks -package oidc4vp_test -source=oidc4vp_service.go -mock_names transactionManager=MockTransactionManager,events=MockEvents,kmsRegistry=MockKMSRegistry,requestObjectPublicStore=MockRequestObjectPublicStore,profileService=MockProfileService,presentationVerifier=MockPresentationVerifier
 
 package oidc4vp
 
@@ -17,11 +17,14 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
 var ErrDataNotFound = errors.New("data not found")
@@ -33,6 +36,8 @@ type InteractionInfo struct {
 
 type transactionManager interface {
 	CreateTransaction(presentationDefinition *presexch.PresentationDefinition) (*Transaction, string, error)
+	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
+	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
 }
 
 type events interface {
@@ -46,6 +51,17 @@ type requestObjectPublicStore interface {
 
 type kmsRegistry interface {
 	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
+}
+
+type profileService interface {
+	GetProfile(profileID profileapi.ID) (*profileapi.Verifier, error)
+}
+
+type presentationVerifier interface {
+	VerifyPresentation(
+		presentation *verifiable.Presentation,
+		opts *verifypresentation.Options,
+		profile *profileapi.Verifier) ([]verifypresentation.PresentationVerificationCheckResult, error)
 }
 
 type RequestObjectClaims struct {
@@ -77,6 +93,9 @@ type Config struct {
 	TransactionManager       transactionManager
 	RequestObjectPublicStore requestObjectPublicStore
 	KMSRegistry              kmsRegistry
+	DocumentLoader           ld.DocumentLoader
+	ProfileService           profileService
+	PresentationVerifier     presentationVerifier
 
 	RedirectURL   string
 	TokenLifetime time.Duration
@@ -87,6 +106,9 @@ type Service struct {
 	transactionManager       transactionManager
 	requestObjectPublicStore requestObjectPublicStore
 	kmsRegistry              kmsRegistry
+	documentLoader           ld.DocumentLoader
+	profileService           profileService
+	presentationVerifier     presentationVerifier
 
 	redirectURL   string
 	tokenLifetime time.Duration
@@ -105,6 +127,9 @@ func NewService(cfg *Config) *Service {
 		transactionManager:       cfg.TransactionManager,
 		requestObjectPublicStore: cfg.RequestObjectPublicStore,
 		kmsRegistry:              cfg.KMSRegistry,
+		documentLoader:           cfg.DocumentLoader,
+		profileService:           cfg.ProfileService,
+		presentationVerifier:     cfg.PresentationVerifier,
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
 	}
@@ -137,6 +162,48 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		AuthorizationRequest: "openid-vc://?request_uri=" + requestURI,
 		TxID:                 tx.ID,
 	}, nil
+}
+
+func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *verifiable.Presentation) error {
+	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(nonce)
+	if err != nil {
+		return fmt.Errorf("get tx by nonce failed: %w", err)
+	}
+
+	if !validNonce || tx.ID != txID {
+		return fmt.Errorf("invalid nonce")
+	}
+
+	profile, err := s.profileService.GetProfile(tx.ProfileID)
+	if err != nil {
+		return fmt.Errorf("inconsistent transaction state %w", err)
+	}
+
+	// TODO: should domain and challenge be verified?
+	vr, err := s.presentationVerifier.VerifyPresentation(vp, nil, profile)
+	if err != nil || len(vr) > 0 {
+		return fmt.Errorf("presentation verification failed")
+	}
+
+	return s.extractClaimData(tx, vp)
+}
+
+func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation) error {
+	credentials, err := tx.PresentationDefinition.Match(vp, s.documentLoader,
+		presexch.WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(s.documentLoader)))
+
+	if err != nil {
+		return fmt.Errorf("extract claims: match: %w", err)
+	}
+
+	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: credentials})
+	if err != nil {
+		return fmt.Errorf("extract claims: store: %w", err)
+	}
+
+	s.events.InteractionSucceed(tx.ID)
+
+	return nil
 }
 
 func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.PresentationDefinition,

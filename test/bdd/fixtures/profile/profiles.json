@@ -220,6 +220,11 @@
             "proof": true,
             "status": false
           }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "JsonWebSignature2020",
+          "keyType": "ECDSAP384DER",
+          "didMethod": "orb"
         }
       },
       "createDID": true,

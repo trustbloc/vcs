@@ -86,6 +86,12 @@ const (
 		"['issuer', 'verifier', 'holder', 'combined'] (default: combined)."
 	modeEnvKey = "VC_REST_MODE"
 
+	devModeFlagName      = "dev-mode"
+	devModeFlagShorthand = "d"
+	devModeFlagUsage     = "Developer mode expose some additional apis. Possible values: " +
+		"true, false (default: false)"
+	devModeEnvKey = "DEV_MODE"
+
 	databaseTypeFlagName      = "database-type"
 	databaseTypeEnvKey        = "DATABASE_TYPE"
 	databaseTypeFlagShorthand = "t"
@@ -169,6 +175,7 @@ type startupParameters struct {
 	contextProviderURLs  []string
 	contextEnableRemote  bool
 	tlsParameters        *tlsParameters
+	devMode              bool
 }
 
 type dbParameters struct {
@@ -255,6 +262,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	devMode, err := getDevMode(cmd)
+
+	if err != nil {
+		return nil, err
+	}
+
 	contextEnableRemote := false
 
 	if contextEnableRemoteConfig != "" {
@@ -277,7 +290,21 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		logLevel:             loggingLevel,
 		contextProviderURLs:  contextProviderURLs,
 		contextEnableRemote:  contextEnableRemote,
+		devMode:              devMode,
 	}, nil
+}
+
+func getDevMode(cmd *cobra.Command) (bool, error) {
+	mode, err := cmdutils.GetUserSetVarFromString(cmd, devModeFlagName, devModeEnvKey, true)
+	if err != nil {
+		return false, err
+	}
+
+	if len(mode) == 0 {
+		return false, nil
+	}
+
+	return strconv.ParseBool(mode)
 }
 
 func getMode(cmd *cobra.Command) (string, error) {
@@ -431,6 +458,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
+	startCmd.Flags().StringP(devModeFlagName, devModeFlagShorthand, "", devModeFlagUsage)
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)

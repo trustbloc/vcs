@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 )
 
 const (
@@ -26,13 +27,23 @@ type TxID string
 
 type Transaction struct {
 	ID                     TxID
-	OrganizationID         string
+	ProfileID              string
 	PresentationDefinition *presexch.PresentationDefinition
+	ReceivedClaims         *ReceivedClaims
+}
+
+type ReceivedClaims struct {
+	Credentials map[string]*verifiable.Credential `json:"credentials"`
+}
+
+type TransactionUpdate struct {
+	ID             TxID
+	ReceivedClaims *ReceivedClaims
 }
 
 type txStore interface {
-	Create(pd *presexch.PresentationDefinition, orgID string) (TxID, error)
-	SetNonce(txID TxID, nonce string) error
+	Create(pd *presexch.PresentationDefinition, profileID string) (TxID, error)
+	Update(update TransactionUpdate) error
 	Get(txID TxID) (*Transaction, error)
 }
 
@@ -58,8 +69,8 @@ func NewTxManager(store txNonceStore, txStore txStore, interactionLiveTime time.
 }
 
 // CreateTx creates transaction and generate one time access token.
-func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, orgID string) (*Transaction, string, error) {
-	txID, err := tm.txStore.Create(pd, orgID)
+func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error) {
+	txID, err := tm.txStore.Create(pd, profileID)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}
@@ -75,6 +86,10 @@ func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, orgID string)
 	}
 
 	return tx, nonce, nil
+}
+
+func (tm *TxManager) StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error {
+	return tm.txStore.Update(TransactionUpdate{ID: txID, ReceivedClaims: claims})
 }
 
 // Get transaction id.

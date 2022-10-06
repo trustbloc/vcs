@@ -26,8 +26,12 @@ services:
       - VC_REST_API_TOKEN=rw_token
       - VC_REST_REQUEST_TOKENS=csl=rw_token
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
+      - DEV_MODE=true
     ports:
       - "8075:8075"
+    depends_on:
+      - did-resolver.trustbloc.local
+      - sidetree
     entrypoint: ""
     command:  /bin/sh -c "sleep 5;vc-rest start"
     volumes:

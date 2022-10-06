@@ -40,6 +40,33 @@ paths:
       description: Returns server health check status.
       tags:
         - healthcheck
+  /{profileType}/profiles/{profileID}/well-known/did-config:
+    parameters:
+      - schema:
+          type: string
+        name: profileType
+        in: path
+        required: true
+        description: Profile Type
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile Id
+    get:
+      summary: Request did-config
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DidConfig'
+      operationId: did-config
+      description: Returns did-config.
+      tags:
+        - devapi
   '/issuer/profiles/{profileID}/credentials/issue':
     parameters:
       - schema:
@@ -167,6 +194,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4VPResponse'
+
+  '/verifier/interactions/authorization-response':
+    post:
+      summary: Used by verifier applications to initiate OpenID presentation flow through VCS
+      operationId: check-authorization-response
+      tags:
+        - verifier
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                id_token:
+                  type: string
+                  description: ID Token serves as an authentication receipt and includes metadata about the VP Token.
+                vp_token:
+                  type: string
+                  description: VP Token includes one or more Verifiable Presentations.
+                state:
+                  type: string
+                  description: State from authorization request for correlation
+      responses:
+        '200':
+          description: Sucess
+        '500':
+          description: Failure
+
   /oidc/par:
     post:
       summary: Pushed Authorization Request
@@ -377,6 +432,23 @@ components:
       required:
         - status
       description: Response model for health check status.
+    DidConfig:
+      title: DidConfigResponse
+      x-tags:
+        - devapi
+      type: object
+      properties:
+        "@context":
+          type: string
+          description: context.
+        linked_dids:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: object
+          description: Presentation in jws(string) or jsonld(object) formats
+      description: DID Config response.
     VerifyCredentialData:
       title: VerifyCredentialData
       x-tags:

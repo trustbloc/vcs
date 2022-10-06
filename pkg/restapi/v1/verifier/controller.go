@@ -13,8 +13,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
+	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -35,7 +39,29 @@ import (
 const (
 	verifierProfileSvcComponent  = "verifier.ProfileService"
 	verifyCredentialSvcComponent = "verifycredential.Service"
+
+	vpSubmissionProperty = "presentation_submission"
 )
+
+type authorizationResponse struct {
+	IDToken string
+	VPToken string
+	State   string
+}
+
+type IDTokenClaims struct {
+	VPToken struct {
+		PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
+	} `json:"_vp_token"`
+	Nonce string `json:"nonce"`
+	Exp   int64  `json:"exp"`
+}
+
+type VPTokenClaims struct {
+	VP    *verifiable.Presentation `json:"vp"`
+	Nonce string                   `json:"nonce"`
+	Exp   int64                    `json:"exp"`
+}
 
 type PresentationDefinition = json.RawMessage
 
@@ -64,6 +90,8 @@ type verifyPresentationSvc interface {
 type oidc4VPService interface {
 	InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
 		profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error)
+
+	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, nonce string, vp *verifiable.Presentation) error
 }
 
 type Config struct {
@@ -74,6 +102,7 @@ type Config struct {
 	DocumentLoader        ld.DocumentLoader
 	VDR                   vdrapi.Registry
 	OIDCVPService         oidc4VPService
+	JWTVerifier           jose.SignatureVerifier
 }
 
 // Controller for Verifier Profile Management API.
@@ -85,10 +114,16 @@ type Controller struct {
 	documentLoader        ld.DocumentLoader
 	vdr                   vdrapi.Registry
 	oidc4VPService        oidc4VPService
+	jwtVerifier           jose.SignatureVerifier
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
 func NewController(config *Config) *Controller {
+	if config.JWTVerifier == nil {
+		config.JWTVerifier = jwt.NewVerifier(jwt.KeyResolverFunc(
+			verifiable.NewVDRKeyResolver(config.VDR).PublicKeyFetcher()))
+	}
+
 	return &Controller{
 		verifyCredentialSvc:   config.VerifyCredentialSvc,
 		verifyPresentationSvc: config.VerifyPresentationSvc,
@@ -97,6 +132,7 @@ func NewController(config *Config) *Controller {
 		documentLoader:        config.DocumentLoader,
 		vdr:                   config.VDR,
 		oidc4VPService:        config.OIDCVPService,
+		jwtVerifier:           config.JWTVerifier,
 	}
 }
 
@@ -231,6 +267,145 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxId:                 string(result.TxID),
 	}, err
+}
+
+func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
+	authResp, err := validateAuthorizationResponse(ctx)
+	if err != nil {
+		return err
+	}
+
+	nonce, presentation, err := validateAuthorizationResponseTokens(authResp, c.jwtVerifier)
+	if err != nil {
+		return err
+	}
+
+	return c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State),
+		nonce, presentation)
+}
+
+func validateAuthorizationResponseTokens(authResp *authorizationResponse,
+	verifier jose.SignatureVerifier) (string, *verifiable.Presentation, error) {
+	idTokenClaims, err := validateIDToken(authResp.IDToken, verifier)
+	if err != nil {
+		return "", nil, err
+	}
+
+	vpTokenClaims, err := validateVPToken(authResp.VPToken, verifier)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if vpTokenClaims.Nonce != idTokenClaims.Nonce {
+		return "", nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
+			errors.New("nonce should be the same for both id_token and vp_token"))
+	}
+
+	presentation := vpTokenClaims.VP
+	if presentation.CustomFields == nil {
+		presentation.CustomFields = map[string]interface{}{}
+	}
+	presentation.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
+
+	return idTokenClaims.Nonce, presentation, nil
+}
+
+func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
+	idTokenClaims := &IDTokenClaims{}
+
+	err := verifyTokenSignature(rawJwt, idTokenClaims, verifier)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
+	}
+
+	if idTokenClaims.Exp < time.Now().Unix() {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token.exp", fmt.Errorf(
+			"token expired"))
+	}
+
+	if idTokenClaims.VPToken.PresentationSubmission == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue,
+			"id_token._vp_token.presentation_submission", fmt.Errorf(
+				"$_vp_token.presentation_submission is missed"))
+	}
+
+	return idTokenClaims, nil
+}
+func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenClaims, error) {
+	vpTokenClaims := &VPTokenClaims{}
+
+	err := verifyTokenSignature(rawJwt, vpTokenClaims, verifier)
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
+	}
+
+	if vpTokenClaims.Exp < time.Now().Unix() {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
+			"token expired"))
+	}
+
+	if vpTokenClaims.VP == nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", fmt.Errorf(
+			"$vp is missed"))
+	}
+
+	return vpTokenClaims, nil
+}
+
+func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) error {
+	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+	if err != nil {
+		return fmt.Errorf("parse JWT: %w", err)
+	}
+
+	err = jsonWebToken.DecodeClaims(claims)
+	if err != nil {
+		return fmt.Errorf("decode claims: %w", err)
+	}
+
+	return nil
+}
+
+func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {
+	req := ctx.Request()
+
+	err := req.ParseForm()
+	if err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "body", err)
+	}
+
+	res := &authorizationResponse{}
+
+	err = decodeFormValue(&res.IDToken, "id_token", req.PostForm)
+	if err != nil {
+		return nil, err
+	}
+
+	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
+	if err != nil {
+		return nil, err
+	}
+
+	err = decodeFormValue(&res.State, "state", req.PostForm)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func decodeFormValue(output *string, valName string, values url.Values) error {
+	val := values[valName]
+	if len(val) == 0 {
+		return resterr.NewValidationError(resterr.InvalidValue, valName, fmt.Errorf("value is missed"))
+	}
+
+	if len(val) > 1 {
+		return resterr.NewValidationError(resterr.InvalidValue, valName, fmt.Errorf("value is duplicated"))
+	}
+
+	*output = val[0]
+	return nil
 }
 
 func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Verifier, error) {
