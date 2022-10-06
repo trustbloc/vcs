@@ -8,7 +8,6 @@ package profile
 
 import (
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/cm"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
@@ -30,18 +29,19 @@ const (
 
 // Issuer profile.
 type Issuer struct {
-	ID                  ID                      `json:"id"`
-	Name                string                  `json:"name,omitempty"`
-	URL                 string                  `json:"url,omitempty"`
-	Active              bool                    `json:"active"`
-	OIDCConfig          *OIDC4VCConfig          `json:"oidcConfig"`
-	OrganizationID      string                  `json:"organizationID,omitempty"`
-	VCConfig            *VCConfig               `json:"vcConfig"`
-	KMSConfig           *vcskms.Config          `json:"kmsConfig"`
-	SigningDID          *SigningDID             `json:"signingDID"`
-	CredentialManifests []cm.CredentialManifest `json:"credentialManifests,omitempty"`
+	ID                  ID                       `json:"id"`
+	Name                string                   `json:"name,omitempty"`
+	URL                 string                   `json:"url,omitempty"`
+	Active              bool                     `json:"active"`
+	OIDCConfig          *OIDC4VCConfig           `json:"oidcConfig"`
+	OrganizationID      string                   `json:"organizationID,omitempty"`
+	VCConfig            *VCConfig                `json:"vcConfig"`
+	KMSConfig           *vcskms.Config           `json:"kmsConfig"`
+	SigningDID          *SigningDID              `json:"signingDID"`
+	CredentialTemplates []*verifiable.Credential `json:"credentialTemplates,omitempty"`
 }
 
+// OIDC4VCConfig is OIDC config for VC issuance.
 type OIDC4VCConfig struct {
 	IssuerWellKnown    string `json:"issuer_well_known"`
 	ClientID           string `json:"client_id"`
