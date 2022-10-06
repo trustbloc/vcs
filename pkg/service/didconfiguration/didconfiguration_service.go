@@ -88,15 +88,105 @@ func (s *Service) DidConfig(
 	ctx context.Context,
 	profileType ProfileType,
 	profileID string,
-	contextUrl string,
+	contextURL string,
 ) (*DidConfiguration, error) {
-	u, err := url.Parse(contextUrl)
+	u, parseErr := url.Parse(contextURL)
+
+	if parseErr != nil {
+		return nil, parseErr
+	}
+
+	cred := s.getBaseCredentials()
+
+	format := vcsverifiable.Ldp
+
+	var signer *vc.Signer
+
+	switch profileType {
+	case ProfileTypeVerifier:
+		profile, err := s.verifierProfileService.GetProfile(profileID)
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
+				err)
+		}
+		cred.Issuer = verifiable.Issuer{
+			ID: profile.SigningDID.DID,
+		}
+		cred.Subject = map[string]interface{}{
+			"id":     profile.SigningDID.DID, // todo nothing in JSON ???
+			"origin": fmt.Sprintf("%s://%s", u.Scheme, u.Hostname()),
+		}
+
+		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
+
+		if err != nil {
+			return nil, err
+		}
+
+		signer = &vc.Signer{
+			DID:           profile.SigningDID.DID,
+			Creator:       profile.SigningDID.Creator,
+			SignatureType: vcsverifiable.Ed25519Signature2018,
+			KeyType:       kms.SupportedKeyTypes()[0],
+			KMS:           kms,
+		}
+	case ProfileTypeIssuer:
+		profile, err := s.issuerProfileService.GetProfile(profileID)
+
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
+				err)
+		}
+
+		format = profile.VCConfig.Format
+
+		cred.Issuer = verifiable.Issuer{
+			ID: profile.SigningDID.DID,
+		}
+		cred.Subject = map[string]interface{}{
+			"id":     profile.SigningDID.DID,
+			"origin": fmt.Sprintf("%s://%s", u.Scheme, u.Hostname()),
+		}
+		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
+
+		if err != nil {
+			return nil, err
+		}
+
+		signer = &vc.Signer{
+			DID:                     profile.SigningDID.DID,
+			Creator:                 profile.SigningDID.Creator,
+			SignatureType:           profile.VCConfig.SigningAlgorithm,
+			KeyType:                 profile.VCConfig.KeyType,
+			KMS:                     kms,
+			SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
+		}
+	default:
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",
+			errors.New("profileType should be verifier or issuer"))
+	}
+
+	cred, err := s.issuerCredentialService.Sign(format, signer, cred, nil)
 
 	if err != nil {
 		return nil, err
 	}
 
-	cred := &verifiable.Credential{
+	resp := &DidConfiguration{
+		Context: contextURL,
+	}
+
+	if format == vcsverifiable.Jwt {
+		resp.LinkedDiDs = append(resp.LinkedDiDs, cred.JWT)
+	} else {
+		resp.LinkedDiDs = append(resp.LinkedDiDs, cred)
+	}
+
+	return resp, nil
+}
+
+func (s *Service) getBaseCredentials() *verifiable.Credential {
+	return &verifiable.Credential{
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://identity.foundation/.well-known/did-configuration/v1",
@@ -107,88 +197,4 @@ func (s *Service) DidConfig(
 		},
 		Issued: util.NewTime(time.Now().UTC()),
 	}
-
-	format := vcsverifiable.Ldp
-
-	var signer *vc.Signer
-
-	switch profileType {
-	case ProfileTypeVerifier:
-		if profile, err := s.verifierProfileService.GetProfile(profileID); err != nil {
-			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
-				err)
-		} else {
-			cred.Issuer = verifiable.Issuer{
-				ID: profile.SigningDID.DID,
-			}
-			cred.Subject = map[string]interface{}{
-				"id":     profile.SigningDID.DID, // todo nothing in JSON ???
-				"origin": fmt.Sprintf("%s://%s", u.Scheme, u.Hostname()),
-			}
-
-			kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
-
-			if err != nil {
-				return nil, err
-			}
-
-			signer = &vc.Signer{
-				DID:           profile.SigningDID.DID,
-				Creator:       profile.SigningDID.Creator,
-				SignatureType: vcsverifiable.Ed25519Signature2018,
-				KeyType:       kms.SupportedKeyTypes()[0],
-				KMS:           kms,
-			}
-		}
-	case ProfileTypeIssuer:
-		if profile, err := s.issuerProfileService.GetProfile(profileID); err != nil {
-			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
-				err)
-		} else {
-			format = profile.VCConfig.Format
-
-			cred.Issuer = verifiable.Issuer{
-				ID: profile.SigningDID.DID,
-			}
-			cred.Subject = map[string]interface{}{
-				"id":     profile.SigningDID.DID,
-				"origin": fmt.Sprintf("%s://%s", u.Scheme, u.Hostname()),
-			}
-			kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
-
-			if err != nil {
-				return nil, err
-			}
-
-			signer = &vc.Signer{
-				DID:                     profile.SigningDID.DID,
-				Creator:                 profile.SigningDID.Creator,
-				SignatureType:           profile.VCConfig.SigningAlgorithm,
-				KeyType:                 profile.VCConfig.KeyType,
-				KMS:                     kms,
-				SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
-			}
-		}
-	default:
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",
-			errors.New("profileType should be verifier or issuer"))
-	}
-
-	cred, err = s.issuerCredentialService.Sign(format, signer, cred, nil)
-
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &DidConfiguration{
-		Context: contextUrl,
-	}
-
-	if format == vcsverifiable.Jwt {
-		resp.LinkedDiDs = append(resp.LinkedDiDs, cred.JWT)
-	} else {
-		resp.LinkedDiDs = append(resp.LinkedDiDs, cred)
-	}
-
-	return resp, nil
 }

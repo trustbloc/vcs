@@ -24,7 +24,7 @@ type didConfigService interface {
 		ctx context.Context,
 		profileType didconfiguration.ProfileType,
 		profileID string,
-		contextUrl string,
+		contextURL string,
 	) (*didconfiguration.DidConfiguration, error)
 }
 
@@ -47,24 +47,24 @@ func NewController(
 // DidConfig requests well-known DID config.
 // GET /{profileType}/profiles/{profileID}/well-known/did-config.
 func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID string) error {
-	var contextUrl strings.Builder
+	var contextURL strings.Builder
 
 	if scheme := ctx.Request().URL.Scheme; len(scheme) > 0 {
-		contextUrl.WriteString(scheme + "://")
+		contextURL.WriteString(scheme + "://")
 	} else {
-		contextUrl.WriteString("https://")
+		contextURL.WriteString("https://")
 	}
 
 	if hostName := ctx.Request().URL.Hostname(); len(hostName) > 0 {
-		contextUrl.WriteString(hostName + "/")
+		contextURL.WriteString(hostName + "/")
 	} else {
-		contextUrl.WriteString("localhost")
+		contextURL.WriteString("localhost")
 	}
 
-	contextUrl.WriteString(ctx.Request().URL.Path)
+	contextURL.WriteString(ctx.Request().URL.Path)
 
 	return apiUtil.WriteOutput(ctx)(c.didConfigService.DidConfig(ctx.Request().Context(),
 		didconfiguration.ProfileType(strings.ToLower(profileType)),
 		profileID,
-		contextUrl.String()))
+		contextURL.String()))
 }
