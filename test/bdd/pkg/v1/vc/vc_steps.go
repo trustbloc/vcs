@@ -9,6 +9,7 @@ package vc
 import (
 	"context"
 	"crypto/tls"
+	"sync"
 
 	"github.com/cucumber/godog"
 
@@ -33,6 +34,7 @@ func getOrgAuthTokenKey(org string) string {
 
 // Steps is steps for VC BDD tests
 type Steps struct {
+	sync.RWMutex
 	bddContext *bddcontext.BDDContext
 	tlsConfig  *tls.Config
 }
