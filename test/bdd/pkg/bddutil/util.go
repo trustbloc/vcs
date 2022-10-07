@@ -348,9 +348,7 @@ func DocumentLoader() (*ld.DocumentLoader, error) {
 	return loader, nil
 }
 
-const oidcProviderURL = "https://localhost:4444"
-
-func IssueAccessToken(ctx context.Context, clientID, secret string, scopes []string) (string, error) {
+func IssueAccessToken(ctx context.Context, oidcProviderURL, clientID, secret string, scopes []string) (string, error) {
 	conf := clientcredentials.Config{
 		TokenURL:     oidcProviderURL + "/oauth2/token",
 		ClientID:     clientID,
