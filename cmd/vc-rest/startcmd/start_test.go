@@ -166,6 +166,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + contextEnableRemoteFlagName, "true",
 		"--" + profilePathFlag, file.Name(),
 		"--" + databaseURLFlagName, mongoDBConnString,
+		"--" + devModeFlagName, "true",
 	}
 	startCmd.SetArgs(args)
 
