@@ -71,8 +71,8 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) 
 	return oidc4vp.TxID(txID.Hex()), nil
 }
 
-// Find profile by give id.
-func (p *TxStore) Find(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
+// Get profile by give id.
+func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 

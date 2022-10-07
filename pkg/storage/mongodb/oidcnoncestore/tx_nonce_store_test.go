@@ -4,26 +4,33 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidctxstore_test
+package oidcnoncestore_test
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/go-redis/redis/v8"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/storage/redis/oidctxstore"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 )
 
 const (
-	redisDBHost        = "localhost:6379"
-	dockerRedisDBImage = "redis"
-	dockerRedisDBTag   = "7.0.4"
+	mongoDBConnString  = "mongodb://localhost:27023"
+	dockerMongoDBImage = "mongo"
+	dockerMongoDBTag   = "4.0.0"
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -32,7 +39,10 @@ func TestTxStore_Success(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	store := oidctxstore.New(createRedisClient(), 10*time.Second)
+	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	require.NoError(t, err)
+
+	store := oidcnoncestore.New(client)
 
 	t.Run("Set not exist", func(t *testing.T) {
 		isSet, err := store.SetIfNotExist("key", "value", 10*time.Second)
@@ -66,7 +76,7 @@ func TestTxStore_Success(t *testing.T) {
 
 		require.True(t, exists)
 		require.NoError(t, err)
-		require.Equal(t, "txID", data)
+		require.Equal(t, oidc4vp.TxID("txID"), data)
 	})
 
 	t.Run("Get exist and check if deleted", func(t *testing.T) {
@@ -78,7 +88,7 @@ func TestTxStore_Success(t *testing.T) {
 
 		require.True(t, exists)
 		require.NoError(t, err)
-		require.Equal(t, "txID", data)
+		require.Equal(t, oidc4vp.TxID("txID"), data)
 
 		_, exists, err = store.GetAndDelete("key3")
 
@@ -88,16 +98,14 @@ func TestTxStore_Success(t *testing.T) {
 }
 
 func TestTxStore_ConnectoinFail(t *testing.T) {
-	store := oidctxstore.New(createRedisClient(), 10*time.Second)
+	client, err := mongodb.New(mongoDBConnString, "testdb", 0)
+	require.NoError(t, err)
+
+	store := oidcnoncestore.New(client)
 
 	t.Run("Set fail", func(t *testing.T) {
 		_, err := store.SetIfNotExist("key", "txID", 10*time.Second)
-		require.Contains(t, err.Error(), "connection refused")
-	})
-
-	t.Run("Get fail", func(t *testing.T) {
-		_, _, err := store.GetAndDelete("key")
-		require.Contains(t, err.Error(), "connection refused")
+		require.Contains(t, err.Error(), "context deadline exceeded")
 	})
 }
 
@@ -108,37 +116,44 @@ func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 	require.NoError(t, err)
 
 	mongoDBResource, err := pool.RunWithOptions(&dctest.RunOptions{
-		Repository: dockerRedisDBImage,
-		Tag:        dockerRedisDBTag,
+		Repository: dockerMongoDBImage,
+		Tag:        dockerMongoDBTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"6379/tcp": {{HostIP: "", HostPort: "6379"}},
+			"27017/tcp": {{HostIP: "", HostPort: "27023"}},
 		},
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, waitForRedisDBToBeUp())
+	require.NoError(t, waitForMongoDBToBeUp())
 
 	return pool, mongoDBResource
 }
 
-func waitForRedisDBToBeUp() error {
+func waitForMongoDBToBeUp() error {
 	return backoff.Retry(pingMongoDB, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
 }
 
-func createRedisClient() *redis.Client {
-	return redis.NewClient(&redis.Options{
-		Addr:     redisDBHost,
-		Password: "", // no password set
-		DB:       0,
-	})
-}
-
 func pingMongoDB() error {
-	client := createRedisClient()
+	var err error
 
-	_, err := client.Ping(context.Background()).Result()
+	tM := reflect.TypeOf(bson.M{})
+	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
+	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
 
-	client.Close()
+	mongoClient, err := mongo.NewClient(clientOpts)
+	if err != nil {
+		return err
+	}
 
-	return err
+	err = mongoClient.Connect(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to connect to MongoDB: %w", err)
+	}
+
+	db := mongoClient.Database("test")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return db.Client().Ping(ctx, nil)
 }

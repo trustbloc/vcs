@@ -14,9 +14,10 @@ import (
 )
 
 type KMSSigner struct {
-	keyHandle interface{}
-	crypto    crypto
-	bbs       bool
+	keyHandle     interface{}
+	crypto        crypto
+	signatureType vcsverifiable.SignatureType
+	bbs           bool
 }
 
 type keyManager interface {
@@ -41,7 +42,9 @@ func NewKMSSigner(keyManager keyManager, c crypto, creator string,
 		return nil, err
 	}
 
-	return &KMSSigner{keyHandle: keyHandler, crypto: c, bbs: signatureType == vcsverifiable.BbsBlsSignature2020}, nil
+	return &KMSSigner{keyHandle: keyHandler, crypto: c,
+		signatureType: signatureType,
+		bbs:           signatureType == vcsverifiable.BbsBlsSignature2020}, nil
 }
 
 func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
@@ -58,7 +61,7 @@ func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
 }
 
 func (s *KMSSigner) Alg() string {
-	return ""
+	return s.signatureType.Name()
 }
 
 func (s *KMSSigner) textToLines(txt string) [][]byte {

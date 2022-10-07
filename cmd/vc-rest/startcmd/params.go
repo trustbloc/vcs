@@ -110,6 +110,7 @@ const (
 	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		commonEnvVarUsageText + databasePrefixEnvKey
 
+
 	// remote JSON-LD context provider url flag.
 	contextProviderFlagName  = "context-provider-url"
 	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
@@ -235,6 +236,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	if err != nil {
 		return nil, err
 	}
+
 
 	kmsParams, err := getKMSParameters(cmd)
 	if err != nil {

@@ -13,14 +13,14 @@ import (
 
 // InitiateOIDC4VPData defines model for InitiateOIDC4VPData.
 type InitiateOIDC4VPData struct {
-	PresentationDefinitionId *string `json:"presentation_definition_id,omitempty"`
+	PresentationDefinitionId *string `json:"presentationDefinitionId,omitempty"`
 	Purpose                  *string `json:"purpose,omitempty"`
 }
 
 // InitiateOIDC4VPResponse defines model for InitiateOIDC4VPResponse.
 type InitiateOIDC4VPResponse struct {
-	AuthorizationRequest string `json:"authorization_request"`
-	TxId                 string `json:"tx_id"`
+	AuthorizationRequest string `json:"authorizationRequest"`
+	TxID                 string `json:"txID"`
 }
 
 // Verify credential response containing failure check details.

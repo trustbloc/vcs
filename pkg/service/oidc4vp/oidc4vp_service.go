@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -35,13 +36,14 @@ type InteractionInfo struct {
 }
 
 type transactionManager interface {
-	CreateTransaction(presentationDefinition *presexch.PresentationDefinition) (*Transaction, string, error)
+	CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
 }
 
 type events interface {
 	InteractionInitiated(txID TxID)
+	InteractionCheckStarted(txID TxID)
 	InteractionSucceed(txID TxID)
 }
 
@@ -76,6 +78,7 @@ type VPToken struct {
 type RequestObject struct {
 	JTI          string                    `json:"jti"`
 	IAT          int64                     `json:"iat"`
+	ISS          string                    `json:"iss"`
 	ResponseType string                    `json:"response_type"`
 	ResponseMode string                    `json:"response_mode"`
 	Scope        string                    `json:"scope"`
@@ -96,6 +99,7 @@ type Config struct {
 	DocumentLoader           ld.DocumentLoader
 	ProfileService           profileService
 	PresentationVerifier     presentationVerifier
+	VDR                      vdrapi.Registry
 
 	RedirectURL   string
 	TokenLifetime time.Duration
@@ -109,6 +113,7 @@ type Service struct {
 	documentLoader           ld.DocumentLoader
 	profileService           profileService
 	presentationVerifier     presentationVerifier
+	vdr                      vdrapi.Registry
 
 	redirectURL   string
 	tokenLifetime time.Duration
@@ -132,6 +137,7 @@ func NewService(cfg *Config) *Service {
 		presentationVerifier:     cfg.PresentationVerifier,
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
+		vdr:                      cfg.VDR,
 	}
 }
 
@@ -141,7 +147,7 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, errors.New("profile signing did can't be nil")
 	}
 
-	tx, nonce, err := s.transactionManager.CreateTransaction(presentationDefinition)
+	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
 	}
@@ -181,8 +187,12 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(vp, nil, profile)
-	if err != nil || len(vr) > 0 {
-		return fmt.Errorf("presentation verification failed")
+	if err != nil {
+		return fmt.Errorf("presentation verification failed %w", err)
+	}
+
+	if len(vr) > 0 {
+		return fmt.Errorf("presentation verification failed %s", vr[0].Error)
 	}
 
 	return s.extractClaimData(tx, vp)
@@ -190,7 +200,10 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 
 func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation) error {
 	credentials, err := tx.PresentationDefinition.Match(vp, s.documentLoader,
-		presexch.WithCredentialOptions(verifiable.WithJSONLDDocumentLoader(s.documentLoader)))
+		presexch.WithCredentialOptions(
+			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
+			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher()),
+		))
 
 	if err != nil {
 		return fmt.Errorf("extract claims: match: %w", err)
@@ -220,7 +233,12 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 
 	ro := s.createRequestObject(presentationDefinition, vpFormats, tx, nonce, purpose, profile)
 
-	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.Creator, profile.OIDCConfig.ROSigningAlgorithm)
+	signingAlgorithm, err := vcsverifiable.GetJWTSignatureTypeByKey(profile.OIDCConfig.KeyType)
+	if err != nil {
+		return "", fmt.Errorf("initiate oidc interaction: get jwt signature type failed: %w", err)
+	}
+
+	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.Creator, signingAlgorithm)
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err)
 	}
@@ -229,7 +247,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 }
 
 func singRequestObject(ro *RequestObject, profile *profileapi.Verifier, vcsSigner vc.SignerAlgorithm) (string, error) {
-	signer := NewJWSSigner(profile.SigningDID.Creator, profile.OIDCConfig.ROSigningAlgorithm, vcsSigner)
+	signer := NewJWSSigner(profile.SigningDID.Creator, vcsSigner)
 
 	token, err := jwt.NewSigned(ro, nil, signer)
 	if err != nil {
@@ -274,6 +292,7 @@ func (s *Service) createRequestObject(
 	return &RequestObject{
 		JTI:          uuid.New().String(),
 		IAT:          now.Unix(),
+		ISS:          profile.SigningDID.DID,
 		ResponseType: "id_token",
 		ResponseMode: "post",
 		Scope:        "openid",
@@ -295,16 +314,14 @@ func (s *Service) createRequestObject(
 }
 
 type JWSSigner struct {
-	keyID            string
-	signingAlgorithm vcsverifiable.SignatureType
-	signer           vc.SignerAlgorithm
+	keyID  string
+	signer vc.SignerAlgorithm
 }
 
-func NewJWSSigner(keyID string, signingAlgorithm vcsverifiable.SignatureType, signer vc.SignerAlgorithm) *JWSSigner {
+func NewJWSSigner(keyID string, signer vc.SignerAlgorithm) *JWSSigner {
 	return &JWSSigner{
-		keyID:            keyID,
-		signingAlgorithm: signingAlgorithm,
-		signer:           signer,
+		keyID:  keyID,
+		signer: signer,
 	}
 }
 
@@ -317,6 +334,6 @@ func (s *JWSSigner) Sign(data []byte) ([]byte, error) {
 func (s *JWSSigner) Headers() jose.Headers {
 	return jose.Headers{
 		jose.HeaderKeyID:     s.keyID,
-		jose.HeaderAlgorithm: s.signingAlgorithm.Name(),
+		jose.HeaderAlgorithm: s.signer.Alg(),
 	}
 }

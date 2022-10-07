@@ -12,9 +12,12 @@ require (
 	github.com/cucumber/godog v0.12.5
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220930135433-5d09324e99bd
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9
+	github.com/piprate/json-gold v0.4.1
+	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/tidwall/gjson v1.14.0
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/vcs v0.1.8
@@ -54,7 +57,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc2.0.20220729203359-da1de2fa21ce // indirect
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9 // indirect
+	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20220606124520-53422361c38c // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
@@ -81,7 +84,6 @@ require (
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/piprate/json-gold v0.4.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect

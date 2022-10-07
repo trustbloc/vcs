@@ -57,13 +57,13 @@ func TestTxStore_Success(t *testing.T) {
 		require.NotNil(t, id)
 	})
 
-	t.Run("Create tx then find by id", func(t *testing.T) {
+	t.Run("Create tx then Get by id", func(t *testing.T) {
 		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
-		tx, err := store.Find(id)
+		tx, err := store.Get(id)
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 	})
@@ -82,7 +82,7 @@ func TestTxStore_Success(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		tx, err := store.Find(id)
+		tx, err := store.Get(id)
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
@@ -106,36 +106,36 @@ func TestTxStore_Fails(t *testing.T) {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
-	t.Run("Find invalid tx id", func(t *testing.T) {
-		_, err := store.Find("invalid")
+	t.Run("Get invalid tx id", func(t *testing.T) {
+		_, err := store.Get("invalid")
 		require.Contains(t, err.Error(), "tx invalid id")
 	})
 
-	t.Run("Find empty tx id", func(t *testing.T) {
-		_, err := store.Find("")
+	t.Run("Get empty tx id", func(t *testing.T) {
+		_, err := store.Get("")
 		require.Contains(t, err.Error(), oidc4vp.ErrDataNotFound.Error())
 	})
 
-	t.Run("Find not existing tx id", func(t *testing.T) {
-		_, err := store.Find("121212121212121212121212")
+	t.Run("Get not existing tx id", func(t *testing.T) {
+		_, err := store.Get("121212121212121212121212")
 		require.EqualError(t, err, oidc4vp.ErrDataNotFound.Error())
 	})
 
-	t.Run("Find update tx id", func(t *testing.T) {
+	t.Run("Get update tx id", func(t *testing.T) {
 		err := store.Update(oidc4vp.TransactionUpdate{
 			ID: "invalid",
 		})
 		require.Contains(t, err.Error(), "tx invalid id")
 	})
 
-	t.Run("Find empty tx id", func(t *testing.T) {
+	t.Run("Get empty tx id", func(t *testing.T) {
 		err := store.Update(oidc4vp.TransactionUpdate{
 			ID: "",
 		})
 		require.Contains(t, err.Error(), "profile with given id not found")
 	})
 
-	t.Run("Find not existing tx id", func(t *testing.T) {
+	t.Run("Get not existing tx id", func(t *testing.T) {
 		err := store.Update(oidc4vp.TransactionUpdate{
 			ID: "121212121212121212121212",
 		})

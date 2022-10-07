@@ -17,6 +17,7 @@ import (
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
+
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 )
 
@@ -26,13 +27,14 @@ const (
 
 // BDDContext is a global context shared between different test suites in bddtests
 type BDDContext struct {
-	Args              map[string]string
-	CreatedCredential []byte
-	CreatedProfile    *vcsstorage.IssuerProfile
-	VDRI              vdrapi.Registry
-	TLSConfig         *tls.Config
-	TestData          map[string][]byte
-	Data              map[string]interface{}
+	Args                  map[string]string
+	CreatedCredential     []byte
+	CreatedCredentialsSet [][]byte
+	CreatedProfile        *vcsstorage.IssuerProfile
+	VDRI                  vdrapi.Registry
+	TLSConfig             *tls.Config
+	TestData              map[string][]byte
+	Data                  map[string]interface{}
 }
 
 // NewBDDContext create new BDDContext

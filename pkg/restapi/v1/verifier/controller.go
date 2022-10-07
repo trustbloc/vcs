@@ -49,18 +49,21 @@ type authorizationResponse struct {
 	State   string
 }
 
+type IDTokenVPToken struct {
+	// TODO: use *presexch.PresentationSubmission instead of map[string]interface{}
+	PresentationSubmission map[string]interface{} `json:"presentation_submission"`
+}
+
 type IDTokenClaims struct {
-	VPToken struct {
-		PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-	} `json:"_vp_token"`
-	Nonce string `json:"nonce"`
-	Exp   int64  `json:"exp"`
+	VPToken IDTokenVPToken `json:"_vp_token"`
+	Nonce   string         `json:"nonce"`
+	Exp     int64          `json:"exp"`
 }
 
 type VPTokenClaims struct {
-	VP    *verifiable.Presentation `json:"vp"`
-	Nonce string                   `json:"nonce"`
-	Exp   int64                    `json:"exp"`
+	VP    json.RawMessage `json:"vp"`
+	Nonce string          `json:"nonce"`
+	Exp   int64           `json:"exp"`
 }
 
 type PresentationDefinition = json.RawMessage
@@ -265,7 +268,7 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 
 	return &InitiateOIDC4VPResponse{
 		AuthorizationRequest: result.AuthorizationRequest,
-		TxId:                 string(result.TxID),
+		TxID:                 string(result.TxID),
 	}, err
 }
 
@@ -275,7 +278,7 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		return err
 	}
 
-	nonce, presentation, err := validateAuthorizationResponseTokens(authResp, c.jwtVerifier)
+	nonce, presentation, err := c.validateAuthorizationResponseTokens(authResp)
 	if err != nil {
 		return err
 	}
@@ -284,14 +287,14 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		nonce, presentation)
 }
 
-func validateAuthorizationResponseTokens(authResp *authorizationResponse,
-	verifier jose.SignatureVerifier) (string, *verifiable.Presentation, error) {
-	idTokenClaims, err := validateIDToken(authResp.IDToken, verifier)
+func (c *Controller) validateAuthorizationResponseTokens(authResp *authorizationResponse) (
+	string, *verifiable.Presentation, error) {
+	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
 	if err != nil {
 		return "", nil, err
 	}
 
-	vpTokenClaims, err := validateVPToken(authResp.VPToken, verifier)
+	vpTokenClaims, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
 		return "", nil, err
 	}
@@ -301,7 +304,16 @@ func validateAuthorizationResponseTokens(authResp *authorizationResponse,
 			errors.New("nonce should be the same for both id_token and vp_token"))
 	}
 
-	presentation := vpTokenClaims.VP
+	presentation, err := verifiable.ParsePresentation(vpTokenClaims.VP,
+		verifiable.WithPresPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
+	)
+	if err != nil {
+		return "", nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+	}
+
 	if presentation.CustomFields == nil {
 		presentation.CustomFields = map[string]interface{}{}
 	}

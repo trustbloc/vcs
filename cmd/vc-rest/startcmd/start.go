@@ -11,17 +11,21 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/labstack/echo/v4"
 
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
-	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/api/spec"
+	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
@@ -32,13 +36,19 @@ import (
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
+	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 )
 
 const (
-	healthCheckEndpoint = "/healthcheck"
-	cslSize             = 1000
+	healthCheckEndpoint  = "/healthcheck"
+	oidc4VPCheckEndpoint = "/verifier/interactions/authorization-response"
+	cslSize              = 1000
 )
 
 var logger = log.New("vc-rest")
@@ -155,6 +165,13 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
+	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
+		conf.StartupParameters.dbParameters.databasePrefix+"vcs",
+		15*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
+	}
+
 	// Issuer Profile Management API
 	issuerProfileSvc, err := profilereader.NewIssuerReader(&profilereader.Config{
 		TLSConfig:   tlsConfig,
@@ -209,12 +226,37 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader:     conf.DocumentLoader,
 		VDR:                conf.VDR,
 	})
+	verifyPresentationSvc := verifypresentation.New(&verifypresentation.Config{
+		VcVerifier:     verifyCredentialSvc,
+		DocumentLoader: conf.DocumentLoader,
+		VDR:            conf.VDR,
+	})
+	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient)
+	oidcNonceStore := oidcnoncestore.New(mongodbClient)
+	requestObjStore := requestobjectstore.NewStore(mongodbClient)
+	//TODO: add parameter to specify live time of interaction request object
+	requestObjStoreEndpoint := conf.StartupParameters.hostURLExternal + "/request-object/"
+	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
+	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, requestObjStoreEndpoint)
+	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
+		Events:                   &events{},
+		TransactionManager:       oidc4vpTxManager,
+		RequestObjectPublicStore: requestObjectStoreService,
+		KMSRegistry:              kmsRegistry,
+		VDR:                      conf.VDR,
+		DocumentLoader:           conf.DocumentLoader,
+		ProfileService:           verifierProfileSvc,
+		PresentationVerifier:     verifyPresentationSvc,
+		RedirectURL:              conf.StartupParameters.hostURLExternal + oidc4VPCheckEndpoint,
+		TokenLifetime:            15 * time.Minute,
+	})
 	verifierController := verifierv1.NewController(&verifierv1.Config{
 		VerifyCredentialSvc: verifyCredentialSvc,
 		ProfileSvc:          verifierProfileSvc,
 		KMSRegistry:         kmsRegistry,
 		DocumentLoader:      conf.DocumentLoader,
 		VDR:                 conf.VDR,
+		OIDCVPService:       oidc4vpService,
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)
@@ -229,7 +271,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	if conf.StartupParameters.devMode {
 		devController := devapi.NewController(&devapi.Config{
 			DidConfigService:          didConfigSvc,
-			RequestObjectStoreService: nil, // todo pass correct instance
+			RequestObjectStoreService: requestObjectStoreService,
 		})
 
 		devapi.RegisterHandlers(e, devController)
@@ -279,4 +321,18 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	}
 
 	return true
+}
+
+type events struct {
+}
+
+func (e *events) InteractionInitiated(txID oidc4vp.TxID) {
+	logger.Infof("InteractionInitiated %s", txID)
+}
+func (e *events) InteractionCheckStarted(txID oidc4vp.TxID) {
+	logger.Infof("InteractionCheckStarted %s", txID)
+
+}
+func (e *events) InteractionSucceed(txID oidc4vp.TxID) {
+	logger.Infof("InteractionSucceed %s", txID)
 }

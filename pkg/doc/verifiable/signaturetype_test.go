@@ -132,6 +132,15 @@ func TestCrypto_ValidateSignatureKeyType(t *testing.T) {
 	})
 }
 
+func TestGetJWTSignatureTypeByKey(t *testing.T) {
+	sigType, err := GetJWTSignatureTypeByKey(kms.ED25519Type)
+	require.NoError(t, err)
+	require.Equal(t, EdDSA, sigType)
+
+	_, err = GetJWTSignatureTypeByKey("")
+	require.Error(t, err)
+}
+
 func TestGetSignatureTypeByName(t *testing.T) {
 	type args struct {
 		signatureType string
