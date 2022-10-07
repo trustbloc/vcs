@@ -15,14 +15,26 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	
+
 	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-func (e *Steps) createCredential(credential, vcFormat, profileName, organizationName, signatureRepresentation string) error {
+func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, signatureRepresentation string) error {
+	if err := e.createCredential(credentialServiceURL, credential, vcFormat, profileName, organizationName); err != nil {
+		return err
+	}
+
+	if vcFormat == "jwt_vc" {
+		return nil
+	}
+
+	return e.checkVC(e.bddContext.CreatedCredential, profileName, signatureRepresentation)
+}
+
+func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profileName, organizationName string) error {
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	template, ok := e.bddContext.TestData[credential]
@@ -57,7 +69,7 @@ func (e *Steps) createCredential(credential, vcFormat, profileName, organization
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(issueCredentialURLFormat, profileName)
+	endpointURL := fmt.Sprintf(issueCredentialURLFormat, issueCredentialURL, profileName)
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), e.tlsConfig)
@@ -77,11 +89,8 @@ func (e *Steps) createCredential(credential, vcFormat, profileName, organization
 	}
 
 	e.bddContext.CreatedCredential = respBytes[:len(respBytes)-1]
-	if vcFormat == "jwt_vc" {
-		return nil
-	}
 
-	return e.checkVC(respBytes, profileName, signatureRepresentation)
+	return nil
 }
 
 func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat string) (interface{}, error) {
@@ -101,7 +110,11 @@ func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat stri
 	}
 }
 
-func (e *Steps) verifyCredential(profileName, organizationName string) error {
+func (e *Steps) verifyVC(profileName, organizationName string) error {
+	return e.verifyCredential(credentialServiceURL, profileName, organizationName)
+}
+
+func (e *Steps) verifyCredential(verifyCredentialURL, profileName, organizationName string) error {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return err
@@ -122,7 +135,7 @@ func (e *Steps) verifyCredential(profileName, organizationName string) error {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, profileName)
+	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifyCredentialURL, profileName)
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(reqBytes), e.tlsConfig)

@@ -11,6 +11,7 @@ go 1.19
 require (
 	github.com/cucumber/godog v0.12.5
 	github.com/google/uuid v1.3.0
+	github.com/greenpau/go-calculator v1.0.1
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
