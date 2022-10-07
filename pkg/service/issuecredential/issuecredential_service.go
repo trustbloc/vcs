@@ -105,21 +105,28 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	// update credential issuer
 	vcutil.UpdateIssuer(credential, profile.SigningDID.DID, profile.Name, true)
 
-	var signedVC *verifiable.Credential
-
 	// sign the credential
-	switch profile.VCConfig.Format {
-	case vcsverifiable.Jwt:
-		signedVC, err = s.crypto.SignCredentialJWT(signer, credential, issuerSigningOpts...)
-	case vcsverifiable.Ldp:
-		signedVC, err = s.crypto.SignCredentialLDP(signer, credential, issuerSigningOpts...)
-	default:
-		err = fmt.Errorf("unknown signature format %s", profile.VCConfig.Format)
-	}
+	signedVC, err := s.Sign(profile.VCConfig.Format, signer, credential, issuerSigningOpts)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign credential: %w", err)
 	}
 
 	return signedVC, nil
+}
+
+func (s *Service) Sign(
+	format vcsverifiable.Format,
+	signer *vc.Signer,
+	credential *verifiable.Credential,
+	issuerSigningOpts []crypto.SigningOpts,
+) (*verifiable.Credential, error) {
+	switch format {
+	case vcsverifiable.Jwt:
+		return s.crypto.SignCredentialJWT(signer, credential, issuerSigningOpts...)
+	case vcsverifiable.Ldp:
+		return s.crypto.SignCredentialLDP(signer, credential, issuerSigningOpts...)
+	default:
+		return nil, fmt.Errorf("unknown signature format %s", format)
+	}
 }
