@@ -1,0 +1,338 @@
+package didconfiguration
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
+	"github.com/trustbloc/vcs/pkg/profile"
+)
+
+func TestDidConfiguration(t *testing.T) {
+	cases := []struct {
+		name            string
+		profileType     ProfileType
+		profileID       string
+		contextURL      string
+		verifierProfile *profile.Verifier
+		issuerProfile   *profile.Issuer
+		expectedFormat  vcsverifiable.Format
+		expectedSigner  *vc.Signer
+		expectedIssuer  string
+	}{
+		{
+			name:        "Get DID Config for Verifier with ldp",
+			contextURL:  "https://localhost",
+			profileID:   "verifier_profile",
+			profileType: ProfileTypeVerifier,
+			verifierProfile: &profile.Verifier{
+				SigningDID: &profile.SigningDID{
+					DID:     "sign_did",
+					Creator: "creator123",
+				},
+			},
+			expectedIssuer: "sign_did",
+			expectedFormat: vcsverifiable.Ldp,
+			expectedSigner: &vc.Signer{
+				DID:           "sign_did",
+				Creator:       "creator123",
+				SignatureType: vcsverifiable.Ed25519Signature2018,
+				KeyType:       kms.ED25519Type,
+			},
+		},
+		{
+			name:        "Get DID Config for Issuer with ldp",
+			contextURL:  "https://localhost",
+			profileID:   "issuer_profile",
+			profileType: ProfileTypeIssuer,
+			issuerProfile: &profile.Issuer{
+				SigningDID: &profile.SigningDID{
+					DID:     "sign_did",
+					Creator: "creator123",
+				},
+				VCConfig: &profile.VCConfig{
+					Format:                  vcsverifiable.Ldp,
+					SigningAlgorithm:        vcsverifiable.Ed25519Signature2018,
+					KeyType:                 kms.ED25519Type,
+					SignatureRepresentation: verifiable.SignatureJWS,
+				},
+			},
+			expectedIssuer: "sign_did",
+			expectedFormat: vcsverifiable.Ldp,
+			expectedSigner: &vc.Signer{
+				DID:           "sign_did",
+				Creator:       "creator123",
+				SignatureType: vcsverifiable.Ed25519Signature2018,
+				KeyType:       kms.ED25519Type,
+			},
+		},
+		{
+			name:        "Get DID Config for Issuer with ldp",
+			contextURL:  "https://localhost",
+			profileID:   "issuer_profile",
+			profileType: ProfileTypeIssuer,
+			issuerProfile: &profile.Issuer{
+				SigningDID: &profile.SigningDID{
+					DID:     "sign_did",
+					Creator: "creator123",
+				},
+				VCConfig: &profile.VCConfig{
+					Format:                  vcsverifiable.Jwt,
+					SigningAlgorithm:        vcsverifiable.Ed25519Signature2018,
+					KeyType:                 kms.ED25519Type,
+					SignatureRepresentation: verifiable.SignatureJWS,
+				},
+			},
+			expectedIssuer: "sign_did",
+			expectedFormat: vcsverifiable.Jwt,
+			expectedSigner: &vc.Signer{
+				DID:           "sign_did",
+				Creator:       "creator123",
+				SignatureType: vcsverifiable.Ed25519Signature2018,
+				KeyType:       kms.ED25519Type,
+			},
+		},
+	}
+
+	signedJwt := "signed_jwt"
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+			keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return([]kms.KeyType{
+				kms.ED25519Type,
+				kms.X25519ECDHKWType,
+			})
+
+			kmsRegistrySvc := NewMockKmsRegistry(gomock.NewController(t))
+			kmsRegistrySvc.EXPECT().GetKeyManager(gomock.Any()).Return(keyManager, nil)
+
+			verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
+			if testCase.verifierProfile != nil {
+				verifierProfileSvc.EXPECT().GetProfile(testCase.profileID).Return(testCase.verifierProfile, nil)
+			}
+
+			issuerProfilerSvc := NewMockIssuerProfileService(gomock.NewController(t))
+			if testCase.issuerProfile != nil {
+				issuerProfilerSvc.EXPECT().GetProfile(testCase.profileID).Return(testCase.issuerProfile, nil)
+			}
+
+			issueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+
+			issueCredentialSvc.EXPECT().Sign(testCase.expectedFormat, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(format vcsverifiable.Format,
+					signer *vc.Signer,
+					credential *verifiable.Credential,
+					issuerSigningOpts []crypto.SigningOpts,
+				) (*verifiable.Credential, error) {
+					assert.Equal(t, testCase.expectedSigner.DID, signer.DID)
+					assert.Equal(t, testCase.expectedSigner.Creator, signer.Creator)
+					assert.Equal(t, testCase.expectedSigner.SignatureType, signer.SignatureType)
+					assert.Equal(t, testCase.expectedSigner.KeyType, signer.KeyType)
+					assert.NotNil(t, signer.KMS)
+
+					assert.Equal(t, []string{
+						"https://www.w3.org/2018/credentials/v1",
+						"https://identity.foundation/.well-known/did-configuration/v1",
+					}, credential.Context)
+
+					assert.Equal(t, []string{
+						"VerifiableCredential",
+						"DomainLinkageCredential",
+					}, credential.Types)
+
+					assert.Equal(t, testCase.expectedIssuer, credential.Issuer.ID)
+
+					credential.JWT = signedJwt
+					credential.Proofs = []verifiable.Proof{{}}
+
+					return credential, nil
+				})
+
+			didConfigurationService := New(&Config{
+				VerifierProfileService:  verifierProfileSvc,
+				IssuerProfileService:    issuerProfilerSvc,
+				IssuerCredentialService: issueCredentialSvc,
+				KmsRegistry:             kmsRegistrySvc,
+			})
+
+			resp, err := didConfigurationService.DidConfig(context.TODO(),
+				testCase.profileType, testCase.profileID, testCase.contextURL)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assert.Equal(t, testCase.contextURL, resp.Context)
+
+			if testCase.expectedFormat == vcsverifiable.Ldp {
+				cred := resp.LinkedDiDs[0].(*verifiable.Credential)
+
+				assert.Len(t, cred.Proofs, 1)
+				assert.Equal(t, testCase.expectedIssuer, cred.Issuer.ID)
+			} else {
+				jws := resp.LinkedDiDs[0].(string)
+
+				assert.Equal(t, signedJwt, jws)
+			}
+		})
+	}
+}
+
+func TestDidConfigWithInvalidArgs(t *testing.T) {
+	cases := []struct {
+		name        string
+		contextURL  string
+		profileType ProfileType
+		errorText   string
+	}{
+		{
+			name:        "invalid context url",
+			contextURL:  "postgres://user:abc{DEf1=ghi@example.com:5432/db?sslmode=require",
+			profileType: ProfileTypeIssuer,
+			errorText:   "invalid userinfo",
+		},
+		{
+			name:        "invalid profile type",
+			contextURL:  "https://localhost",
+			profileType: "random_profile_type",
+			errorText:   "profileType should be verifier or issuer",
+		},
+		{
+			name:        "issuer profile not found",
+			contextURL:  "https://localhost",
+			profileType: ProfileTypeIssuer,
+			errorText:   "not found",
+		},
+		{
+			name:        "verifier profile not found",
+			contextURL:  "https://localhost",
+			profileType: ProfileTypeVerifier,
+			errorText:   "not found",
+		},
+	}
+
+	verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
+	verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("not found"))
+
+	issuerProfileSvc := NewMockIssuerProfileService(gomock.NewController(t))
+	issuerProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("not found"))
+
+	configService := New(&Config{
+		VerifierProfileService: verifierProfileSvc,
+		IssuerProfileService:   issuerProfileSvc,
+	})
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			resp, err := configService.DidConfig(context.TODO(),
+				testCase.profileType,
+				"123",
+				testCase.contextURL,
+			)
+
+			assert.Nil(t, resp)
+			assert.ErrorContains(t, err, testCase.errorText)
+		})
+	}
+}
+
+func TestKmsError(t *testing.T) {
+	cases := []struct {
+		name        string
+		profileType ProfileType
+	}{
+		{
+			name:        "can not request kms for issuer",
+			profileType: ProfileTypeIssuer,
+		},
+		{
+			name:        "can not request kms for verifier",
+			profileType: ProfileTypeVerifier,
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
+			issuerProfileSvc := NewMockIssuerProfileService(gomock.NewController(t))
+
+			if testCase.profileType == ProfileTypeVerifier {
+				verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Verifier{
+					SigningDID: &profile.SigningDID{},
+				}, nil)
+			} else {
+				issuerProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Issuer{
+					SigningDID: &profile.SigningDID{},
+					VCConfig:   &profile.VCConfig{},
+				}, nil)
+			}
+
+			kmsRegistrySvc := NewMockKmsRegistry(gomock.NewController(t))
+			kmsRegistrySvc.EXPECT().GetKeyManager(gomock.Any()).Return(nil, errors.New("kms error"))
+
+			configService := New(&Config{
+				VerifierProfileService: verifierProfileSvc,
+				IssuerProfileService:   issuerProfileSvc,
+				KmsRegistry:            kmsRegistrySvc,
+			})
+
+			conf, err := configService.DidConfig(
+				context.TODO(),
+				testCase.profileType,
+				"123",
+				"https://localhost",
+			)
+
+			assert.Nil(t, conf)
+			assert.ErrorContains(t, err, "kms error")
+		})
+	}
+}
+
+func TestWithSignError(t *testing.T) {
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return([]kms.KeyType{
+		kms.ED25519Type,
+		kms.X25519ECDHKWType,
+	})
+
+	kmsRegistrySvc := NewMockKmsRegistry(gomock.NewController(t))
+	kmsRegistrySvc.EXPECT().GetKeyManager(gomock.Any()).Return(keyManager, nil)
+
+	verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
+
+	verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Verifier{
+		SigningDID: &profile.SigningDID{},
+	}, nil)
+
+	issueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+
+	issueCredentialSvc.EXPECT().Sign(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		nil, errors.New("sign error"))
+
+	configService := New(&Config{
+		VerifierProfileService:  verifierProfileSvc,
+		KmsRegistry:             kmsRegistrySvc,
+		IssuerCredentialService: issueCredentialSvc,
+	})
+
+	cred, err := configService.DidConfig(
+		context.TODO(),
+		ProfileTypeVerifier,
+		"123",
+		"https://localhost",
+	)
+
+	assert.Nil(t, cred)
+	assert.ErrorContains(t, err, "sign error")
+}
