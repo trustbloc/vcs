@@ -220,6 +220,11 @@
             "proof": true,
             "status": false
           }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1IEEEP1363",
+          "didMethod": "orb"
         }
       },
       "createDID": true,
@@ -239,6 +244,11 @@
             "proof": true,
             "status": false
           }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "JsonWebSignature2020",
+          "keyType": "ECDSAP256DER",
+          "didMethod": "orb"
         }
       },
       "createDID": true,

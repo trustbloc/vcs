@@ -75,7 +75,7 @@ generate-test-keys: clean
 	@mkdir -p -p test/bdd/fixtures/keys/tls
 	@docker run -i --platform linux/amd64 --rm \
 		-v $(abspath .):/opt/workspace/vcs \
-		--entrypoint "/opt/workspace/vcs/scripts/generate_test_keys.sh" \
+		--entrypoint /opt/workspace/vcs/scripts/generate_test_keys.sh \
 		frapsoft/openssl
 
 .PHONY: open-api-spec
