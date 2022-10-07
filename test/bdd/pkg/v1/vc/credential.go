@@ -88,7 +88,9 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
+	e.Lock()
 	e.bddContext.CreatedCredential = respBytes[:len(respBytes)-1]
+	e.Unlock()
 
 	return nil
 }
@@ -120,7 +122,11 @@ func (e *Steps) verifyCredential(verifyCredentialURL, profileName, organizationN
 		return err
 	}
 
-	cred, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck(),
+	e.RLock()
+	createdCredential := e.bddContext.CreatedCredential
+	e.RUnlock()
+
+	cred, err := verifiable.ParseCredential(createdCredential, verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
 		return err
