@@ -24,6 +24,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	jsonld "github.com/piprate/json-gold/ld"
 	tlsutils "github.com/trustbloc/edge-core/pkg/utils/tls"
+
 	"github.com/trustbloc/vcs/pkg/ld"
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 	mongodbvcsprovider "github.com/trustbloc/vcs/pkg/storage/mongodbprovider"
