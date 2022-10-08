@@ -47,7 +47,6 @@ func TestEventBus_Publish(t *testing.T) {
 
 		go func() {
 			for msg := range msgChan {
-
 				mutex.Lock()
 				receivedMessages[msg.ID] = msg
 				mutex.Unlock()
@@ -145,7 +144,7 @@ func TestEventBus_Close(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 500; i++ {
-			if _, err := eb.Subscribe(nil, topic); err != nil {
+			if _, err := eb.Subscribe(context.TODO(), topic); err != nil {
 				if errors.Is(err, lifecycle.ErrNotStarted) {
 					return
 				}
