@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package event
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -25,14 +26,14 @@ func TestEventPublisher(t *testing.T) {
 	t.Run("success - return channel", func(t *testing.T) {
 		eventBus := NewEventBus(DefaultConfig())
 
-		ch1, err := eventBus.Subscribe(nil, topic)
+		ch1, err := eventBus.Subscribe(context.TODO(), topic)
 		require.NoError(t, err)
 
 		publisher := NewEventPublisher(eventBus)
 
 		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", source, eventType, []byte(jsonMsg))))
 
-		_, err = eventBus.Subscribe(nil, topic)
+		_, err = eventBus.Subscribe(context.TODO(), topic)
 		require.NoError(t, err)
 
 		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-2", source, eventType, []byte(jsonMsg))))
@@ -50,7 +51,7 @@ func TestEventPublisher(t *testing.T) {
 			case d := <-ch1:
 				go printChannelEvent("ch1", d)
 			case <-done:
-				fmt.Printf("exiting...")
+				fmt.Println("exiting...") //nolint: forbidigo
 
 				return
 			}
@@ -61,8 +62,8 @@ func TestEventPublisher(t *testing.T) {
 func printChannelEvent(ch string, e *spi.Event) {
 	eventBytes, err := json.Marshal(e)
 	if err != nil {
-		fmt.Printf(err.Error())
+		fmt.Println(err.Error()) //nolint:forbidigo
 	}
 
-	fmt.Printf("Channel: %s; Event: %s\n", ch, eventBytes)
+	fmt.Printf("Channel: %s; Event: %s\n", ch, eventBytes) //nolint:forbidigo
 }

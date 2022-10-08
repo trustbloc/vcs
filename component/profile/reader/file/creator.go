@@ -69,8 +69,8 @@ func newCreator(config *creatorConfig) *Creator {
 }
 
 // publicDID creates a new public DID given a key manager.
-func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) {
+func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcsverifiable.SignatureType,
+	keyType kms.KeyType, km KeysCreator, didDomain string) (*createResult, error) {
 	methods := map[profileapi.Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 		km KeysCreator, didDomain string) (*createResult, error){
 		profileapi.KeyDIDMethod: c.keyDID,
@@ -87,7 +87,7 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 }
 
 func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) {
+	km KeysCreator, didDomain string) (*createResult, error) { //nolint: unparam
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -155,7 +155,7 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 }
 
 func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) {
+	km KeysCreator, didDomain string) (*createResult, error) { //nolint: unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)

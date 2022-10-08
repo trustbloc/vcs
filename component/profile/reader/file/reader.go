@@ -34,7 +34,7 @@ const (
 
 var logger = log.New("vc-rest")
 
-// Config contain config
+// Config contain config.
 type Config struct {
 	KMSRegistry *vcskms.Registry
 	TLSConfig   *tls.Config
@@ -43,13 +43,11 @@ type Config struct {
 
 // IssuerReader read issuer profiles.
 type IssuerReader struct {
-	issuers   map[string]*profileapi.Issuer
-	verifiers map[string]*profileapi.Verifier
+	issuers map[string]*profileapi.Issuer
 }
 
 // VerifierReader read verifier profiles.
 type VerifierReader struct {
-	issuers   map[string]*profileapi.Issuer
 	verifiers map[string]*profileapi.Verifier
 }
 
@@ -74,7 +72,8 @@ type verifierProfile struct {
 
 // NewIssuerReader creates issuer Reader.
 func NewIssuerReader(config *Config) (*IssuerReader, error) {
-	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName, profilesFilePathEnvKey, false)
+	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName,
+		profilesFilePathEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +139,8 @@ func (p *IssuerReader) GetAllProfiles(orgID string) ([]*profileapi.Issuer, error
 
 // NewVerifierReader creates verifier Reader.
 func NewVerifierReader(config *Config) (*VerifierReader, error) {
-	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName, profilesFilePathEnvKey, false)
+	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName,
+		profilesFilePathEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
