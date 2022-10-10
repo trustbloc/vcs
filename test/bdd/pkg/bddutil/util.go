@@ -12,13 +12,14 @@ import (
 	"crypto/tls"
 	_ "embed" //nolint:gci // required for go:embed
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"

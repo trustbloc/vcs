@@ -8,7 +8,8 @@ package mongodbprovider
 
 import (
 	"encoding/json"
-	"errors"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"go.mongodb.org/mongo-driver/bson"

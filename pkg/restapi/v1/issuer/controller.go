@@ -10,10 +10,11 @@ SPDX-License-Identifier: Apache-2.0
 package issuer
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"

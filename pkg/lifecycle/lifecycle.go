@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package lifecycle
 
 import (
-	"errors"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
 
 	"github.com/trustbloc/edge-core/pkg/log"
 

@@ -9,10 +9,11 @@ package issuecredential
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"

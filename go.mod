@@ -28,12 +28,14 @@ require (
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.42.3-0.20220923124412-e98c0d745a0c
 	github.com/piprate/json-gold v0.4.1
+	github.com/pkg/errors v0.9.1
 	github.com/samber/lo v1.29.0
 	github.com/spf13/cobra v1.5.0
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.0
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/kms v0.1.9-0.20220927102932-412f152996fa
+	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b
 	go.mongodb.org/mongo-driver v1.10.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 )
@@ -124,7 +126,6 @@ require (
 	github.com/ory/x v0.0.477 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/pquerna/cachecontrol v0.1.0 // indirect
 	github.com/prometheus/client_golang v1.11.0 // indirect
@@ -139,14 +140,12 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/gjson v1.14.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

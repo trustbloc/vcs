@@ -2,8 +2,9 @@ package didconfiguration
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"

@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vptxstore
 
 import (
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"go.mongodb.org/mongo-driver/bson"

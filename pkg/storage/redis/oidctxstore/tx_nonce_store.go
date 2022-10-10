@@ -8,9 +8,10 @@ package oidctxstore
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/go-redis/redis/v8"
 

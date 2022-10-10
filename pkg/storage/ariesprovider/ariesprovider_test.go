@@ -8,8 +8,9 @@ package ariesprovider_test
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 

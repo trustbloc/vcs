@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package resterr
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"

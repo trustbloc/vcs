@@ -8,10 +8,11 @@ package oidc4vp_test
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"

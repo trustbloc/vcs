@@ -8,12 +8,13 @@ package event
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
 

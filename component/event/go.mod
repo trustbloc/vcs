@@ -7,6 +7,7 @@ go 1.19
 
 require (
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.0
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )

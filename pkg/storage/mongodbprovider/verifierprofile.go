@@ -8,7 +8,8 @@ package mongodbprovider //nolint:dupl // Similar code but different types
 
 import (
 	"encoding/json"
-	"errors"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage"

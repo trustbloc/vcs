@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package util
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/labstack/echo/v4"
 

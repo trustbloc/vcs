@@ -5,6 +5,8 @@ github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684 h
 github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684/go.mod h1:28aD9QTgVjeAl86vHNFwkOYwQwZiTrrODMpjE2PYz3M=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9 h1:Dzmx6uOElcBlpXZwIafb2SVeE0/wdSUEZJEROZ8tQl8=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9/go.mod h1:4bD5c5fj5K7rkQurVa/8I8+TfNcI4bxIBzaUNcxTOTg=
+github.com/pkg/errors v0.9.1 h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=
+github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

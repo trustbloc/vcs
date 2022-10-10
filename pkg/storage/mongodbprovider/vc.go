@@ -8,8 +8,9 @@ package mongodbprovider
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/storage"

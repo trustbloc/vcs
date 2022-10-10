@@ -8,8 +8,9 @@ package vcutil
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 

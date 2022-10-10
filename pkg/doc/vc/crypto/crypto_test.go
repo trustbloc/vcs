@@ -9,10 +9,11 @@ package crypto
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"

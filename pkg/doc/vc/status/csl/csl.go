@@ -7,10 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package csl
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsstorage "github.com/trustbloc/vcs/pkg/storage"

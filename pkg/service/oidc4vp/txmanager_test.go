@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp_test
 
 import (
-	"errors"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"

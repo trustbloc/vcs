@@ -7,9 +7,10 @@ SPDX-License-Identifier: Apache-2.0
 package signer
 
 import (
-	"errors"
 	"reflect"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/google/tink/go/keyset"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"

@@ -11,12 +11,13 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	_ "embed"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"

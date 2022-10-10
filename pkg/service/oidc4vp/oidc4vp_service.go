@@ -9,9 +9,10 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
-	"errors"
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"

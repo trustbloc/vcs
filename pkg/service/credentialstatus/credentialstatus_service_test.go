@@ -11,11 +11,12 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
-	"errors"
 	"io"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"

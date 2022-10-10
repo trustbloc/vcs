@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"

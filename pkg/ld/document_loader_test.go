@@ -7,8 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package ld_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	mockldstore "github.com/hyperledger/aries-framework-go/pkg/mock/ld"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"

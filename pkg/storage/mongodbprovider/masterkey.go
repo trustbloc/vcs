@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package mongodbprovider
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage"

@@ -9,8 +9,9 @@ package key_test
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
