@@ -67,6 +67,27 @@ paths:
       description: Returns did-config.
       tags:
         - devapi
+  /request-object/{uuid}:
+    parameters:
+      - schema:
+          type: string
+        name: uuid
+        in: path
+        required: true
+        description: uuid of request object
+    get:
+      summary: Request request object by uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestObject'
+      operationId: request-object-by-uuid
+      description: Returns request object.
+      tags:
+        - devapi
   '/issuer/profiles/{profileID}/credentials/issue':
     parameters:
       - schema:
@@ -448,6 +469,19 @@ components:
               - type: string
               - type: object
           description: Presentation in jws(string) or jsonld(object) formats
+      description: DID Config response.
+    RequestObject:
+      title: RequestObject
+      x-tags:
+        - devapi
+      type: object
+      properties:
+        "id":
+          type: string
+          description: id.
+        content:
+          type: string
+          description: Content of requested object
       description: DID Config response.
     VerifyCredentialData:
       title: VerifyCredentialData

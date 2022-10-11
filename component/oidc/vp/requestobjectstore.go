@@ -4,39 +4,57 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+//go:generate mockgen -destination requestobjectstore_mock.go -self_package mocks -package vp -source=requestobjectstore.go -mock_names requestObjectStoreRepository=MockRequestObjectStoreRepository
+
 package vp
 
 import (
-	"fmt"
 	"net/url"
-	"os"
-	"path/filepath"
+	"strings"
 
-	"github.com/google/uuid"
+	"github.com/trustbloc/vcs/pkg/service/requestobject"
 )
 
-type RequestObjectStore struct {
-	host string
-	root string
+type requestObjectStoreRepository interface {
+	Create(request requestobject.RequestObject) (*requestobject.RequestObject, error)
+	Find(id string) (*requestobject.RequestObject, error)
+	Delete(id string) error
 }
 
-func NewRequestObjectStore(host, root string) *RequestObjectStore {
+type RequestObjectStore struct {
+	repo    requestObjectStoreRepository
+	selfURI string
+}
+
+func NewRequestObjectStore(
+	repo requestObjectStoreRepository,
+	selfURI string,
+) *RequestObjectStore {
 	return &RequestObjectStore{
-		host: host,
-		root: root,
+		repo:    repo,
+		selfURI: selfURI,
 	}
 }
 
 func (s *RequestObjectStore) Publish(requestObject string) (string, error) {
-	fileName := uuid.NewString()
-	err := os.WriteFile(filepath.Join(s.root, fileName), []byte(requestObject), 0600)
+	resp, err := s.repo.Create(requestobject.RequestObject{
+		Content: requestObject,
+	})
+
 	if err != nil {
-		return "", fmt.Errorf("unable to write file: %w", err)
+		return "", err
 	}
 
-	return url.JoinPath(s.host, fileName)
+	return url.JoinPath(s.selfURI, resp.ID)
 }
 
-func (s *RequestObjectStore) Remove(fileName string) error {
-	return os.RemoveAll(filepath.Join(s.root, fileName))
+func (s *RequestObjectStore) Remove(id string) error {
+	splitResult := strings.Split(id, "/")
+	lastSegment := splitResult[len(splitResult)-1]
+
+	return s.repo.Delete(lastSegment)
+}
+
+func (s *RequestObjectStore) Get(id string) (*requestobject.RequestObject, error) {
+	return s.repo.Find(id)
 }
