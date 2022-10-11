@@ -17,3 +17,10 @@ Feature: Request DID Config
       | issuer      | i_myprofile_ud_es256_jwt  | jwt            |
       | verifier    | v_myprofile_ldp           | ldp            |
       | verifier    | v_myprofile_jwt           | jwt            |
+
+  Scenario Outline: Request Object Store
+    When I request object store with "<uuid>"
+    Then I receive response for object-store with status code "<statusCode>" and body "<body>"
+    Examples:
+      | uuid                      | statusCode  | body          |
+      | 63451f2358bde34a13b5d95b  | 500         | not found     |

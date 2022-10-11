@@ -20,8 +20,20 @@ type DidConfig struct {
 	LinkedDids *[]interface{} `json:"linked_dids,omitempty"`
 }
 
+// DID Config response.
+type RequestObject struct {
+	// Content of requested object
+	Content *string `json:"content,omitempty"`
+
+	// id.
+	Id *string `json:"id,omitempty"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Request request object by uuid
+	// (GET /request-object/{uuid})
+	RequestObjectByUuid(ctx echo.Context, uuid string) error
 	// Request did-config
 	// (GET /{profileType}/profiles/{profileID}/well-known/did-config)
 	DidConfig(ctx echo.Context, profileType string, profileID string) error
@@ -30,6 +42,22 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// RequestObjectByUuid converts echo context to params.
+func (w *ServerInterfaceWrapper) RequestObjectByUuid(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "uuid" -------------
+	var uuid string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "uuid", runtime.ParamLocationPath, ctx.Param("uuid"), &uuid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter uuid: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.RequestObjectByUuid(ctx, uuid)
+	return err
 }
 
 // DidConfig converts echo context to params.
@@ -84,6 +112,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.GET(baseURL+"/request-object/:uuid", wrapper.RequestObjectByUuid)
 	router.GET(baseURL+"/:profileType/profiles/:profileID/well-known/did-config", wrapper.DidConfig)
 
 }

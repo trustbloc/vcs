@@ -15,15 +15,22 @@ import (
 )
 
 const (
-	header          = "X-API-Key"
-	healthCheckPath = "/healthcheck"
+	header            = "X-API-Key"
+	healthCheckPath   = "/healthcheck"
+	requestObjectPath = "/request-object/"
 )
 
 // APIKeyAuth returns a middleware that authenticates requests using the API key from X-API-Key header.
 func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if strings.HasSuffix(strings.ToLower(c.Request().URL.Path), healthCheckPath) {
+			currentPath := strings.ToLower(c.Request().URL.Path)
+
+			if strings.HasSuffix(currentPath, healthCheckPath) {
+				return next(c)
+			}
+
+			if strings.HasPrefix(currentPath, requestObjectPath) {
 				return next(c)
 			}
 

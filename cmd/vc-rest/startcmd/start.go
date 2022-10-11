@@ -226,7 +226,8 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	if conf.StartupParameters.devMode {
 		devController := devapi.NewController(&devapi.Config{
-			DidConfigService: didConfigSvc,
+			DidConfigService:          didConfigSvc,
+			RequestObjectStoreService: nil, // todo pass correct instance
 		})
 
 		devapi.RegisterHandlers(e, devController)
