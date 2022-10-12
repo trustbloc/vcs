@@ -71,7 +71,7 @@ func (h *Subscriber) listen() {
 				return
 			}
 
-			logger.Debugf("received new event[%s]: %s", e.ID, string(e.Data))
+			logger.Debugf("received new event[%s]: %s", e.ID, string(*e.Data))
 
 			h.handleEvent(e)
 		}
@@ -79,7 +79,7 @@ func (h *Subscriber) listen() {
 }
 
 func (h *Subscriber) handleEvent(e *spi.Event) {
-	logger.Debugf("handling event [%s]: %s", e.ID, string(e.Data))
+	logger.Debugf("handling event [%s]: %s", e.ID, string(*e.Data))
 
 	err := h.handler(e)
 	if err != nil {

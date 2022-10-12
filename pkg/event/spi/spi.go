@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package spi
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -49,7 +50,7 @@ type Event struct {
 	Time *util.TimeWrapper `json:"time"`
 
 	// Data defines message(required).
-	Data Payload `json:"data"`
+	Data *json.RawMessage `json:"data"`
 }
 
 // Copy an event.
@@ -69,6 +70,8 @@ func (m *Event) Copy() *Event {
 func NewEvent(uuid string, source string, eventType EventType, payload Payload) *Event {
 	now := time.Now()
 
+	data := json.RawMessage(payload)
+
 	return &Event{
 		SpecVersion:     "1.0",
 		DataContentType: "application/json",
@@ -76,7 +79,7 @@ func NewEvent(uuid string, source string, eventType EventType, payload Payload) 
 		Source:          source,
 		Type:            eventType,
 		Time:            util.NewTime(now),
-		Data:            payload,
+		Data:            &data,
 	}
 }
 
