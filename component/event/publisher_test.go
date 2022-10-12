@@ -16,14 +16,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/component/event/mocks"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
+
+//go:generate counterfeiter -o ./mocks/publisher.gen.go --fake-name EventPublisher . eventPublisher
 
 func TestEventPublisher(t *testing.T) {
 	source, err := url.Parse("https://test.com")
 	require.NoError(t, err)
 
-	t.Run("success - return channel", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
 		eventBus := NewEventBus(DefaultConfig())
 
 		ch1, err := eventBus.Subscribe(context.TODO(), topic)
@@ -56,6 +59,17 @@ func TestEventPublisher(t *testing.T) {
 				return
 			}
 		}
+	})
+
+	t.Run("error - publish error", func(t *testing.T) {
+		eventBus := &mocks.EventPublisher{}
+		eventBus.PublishReturns(fmt.Errorf("publishing error"))
+
+		publisher := NewEventPublisher(eventBus)
+
+		err := publisher.Publish(topic, spi.NewEvent("id-1", source, eventType, []byte(jsonMsg)))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "publishing error")
 	})
 }
 
