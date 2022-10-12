@@ -18,14 +18,15 @@ import (
 )
 
 const (
-	credentialServiceURL      = "https://localhost:4455"
-	verifierProfileURL        = "%s/verifier/profiles"
-	verifierProfileURLFormat  = verifierProfileURL + "/%s"
-	verifyCredentialURLFormat = verifierProfileURLFormat + "/credentials/verify"
-	issuerProfileURL          = "%s/issuer/profiles"
-	issuerProfileURLFormat    = issuerProfileURL + "/%s"
-	issueCredentialURLFormat  = issuerProfileURLFormat + "/credentials/issue"
-	oidcProviderURL           = "https://localhost:4444"
+	credentialServiceURL            = "https://localhost:4455"
+	verifierProfileURL              = "%s/verifier/profiles"
+	verifierProfileURLFormat        = verifierProfileURL + "/%s"
+	verifyCredentialURLFormat       = verifierProfileURLFormat + "/credentials/verify"
+	issuerProfileURL                = "%s/issuer/profiles"
+	issuerProfileURLFormat          = issuerProfileURL + "/%s"
+	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
+	oidcProviderURL                 = "https://localhost:4444"
+	updateCredentialStatusURLFormat = credentialServiceURL + "/%s/credentials/status"
 )
 
 func getOrgAuthTokenKey(org string) string {

@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -179,7 +179,7 @@ func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation str
 		return err
 	}
 
-	err = checkCredentialStatusType(vcMap, csl.StatusList2021Entry)
+	err = checkCredentialStatusType(vcMap, credentialstatus.StatusList2021Entry)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func checkCredentialStatusType(vcMap map[string]interface{}, expected string) er
 	}
 
 	if credentialStatusType != expected {
-		return bddutil.ExpectedStringError(csl.StatusList2021Entry, credentialStatusType)
+		return bddutil.ExpectedStringError(credentialstatus.StatusList2021Entry, credentialStatusType)
 	}
 
 	return nil

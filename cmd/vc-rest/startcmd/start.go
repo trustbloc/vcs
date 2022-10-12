@@ -23,7 +23,6 @@ import (
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	cslstatus "github.com/trustbloc/vcs/pkg/doc/vc/status/csl"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -34,6 +33,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
+	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
 )
 
 const (
@@ -167,12 +167,12 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	vcCrypto := crypto.New(conf.VDR, conf.DocumentLoader)
 
-	vcStatusManager, err := cslstatus.New(conf.Storage.provider, cslSize, vcCrypto, conf.DocumentLoader)
+	vcStatusManager, err := credentialstatus.New(conf.Storage.provider, cslSize, vcCrypto, conf.DocumentLoader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
-	issuecredentialsvc := issuecredential.New(&issuecredential.Config{
+	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
 		VCStatusManager: vcStatusManager,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,
@@ -182,7 +182,8 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		ProfileSvc:             issuerProfileSvc,
 		KMSRegistry:            kmsRegistry,
 		DocumentLoader:         conf.DocumentLoader,
-		IssueCredentialService: issuecredentialsvc,
+		IssueCredentialService: issueCredentialSvc,
+		VcStatusManager:        vcStatusManager,
 	}))
 
 	// Verifier Profile Management API
@@ -196,16 +197,17 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, err
 	}
 
-	vcStatusManagerSvc := credentialstatus.New(&credentialstatus.Config{
+	revocationListGetterSvc := revocation.New(&revocation.Config{
 		VDR:            conf.VDR,
-		TLSConfig:      &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
+		TLSConfig:      tlsConfig,
 		RequestTokens:  conf.StartupParameters.requestTokens,
 		DocumentLoader: conf.DocumentLoader,
 	})
+
 	verifyCredentialSvc := verifycredential.New(&verifycredential.Config{
-		VcStatusManager: vcStatusManagerSvc,
-		DocumentLoader:  conf.DocumentLoader,
-		VDR:             conf.VDR,
+		RevocationVCGetter: revocationListGetterSvc,
+		DocumentLoader:     conf.DocumentLoader,
+		VDR:                conf.VDR,
 	})
 	verifierController := verifierv1.NewController(&verifierv1.Config{
 		VerifyCredentialSvc: verifyCredentialSvc,
@@ -220,7 +222,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	didConfigSvc := didconfiguration.New(&didconfiguration.Config{
 		VerifierProfileService:  verifierProfileSvc,
 		IssuerProfileService:    issuerProfileSvc,
-		IssuerCredentialService: issuecredentialsvc,
+		IssuerCredentialService: issueCredentialSvc,
 		KmsRegistry:             kmsRegistry,
 	})
 

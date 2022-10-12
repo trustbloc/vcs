@@ -17,6 +17,7 @@ import (
 const (
 	header            = "X-API-Key"
 	healthCheckPath   = "/healthcheck"
+	statusCheckPath   = "/credentials/status/"
 	requestObjectPath = "/request-object/"
 )
 
@@ -31,6 +32,10 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 			}
 
 			if strings.HasPrefix(currentPath, requestObjectPath) {
+				return next(c)
+			}
+
+			if strings.Contains(strings.ToLower(c.Request().URL.Path), statusCheckPath) {
 				return next(c)
 			}
 
