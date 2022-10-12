@@ -68,7 +68,7 @@ func TestSuccessCases(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, testBytes, retrievedBytes)
 	})
-	t.Run("Using VC store", func(t *testing.T) {
+	t.Run("Using VC LDP store", func(t *testing.T) {
 		vcStore, err := storageProvider.OpenVCStore()
 		require.NoError(t, err)
 
@@ -92,6 +92,32 @@ func TestSuccessCases(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, testVCID, vcAsMap["id"])
+	})
+	t.Run("Using VC JWT store", func(t *testing.T) {
+		vcStore, err := storageProvider.OpenVCStore()
+		require.NoError(t, err)
+
+		const testVCID = "TestVCID"
+
+		vc := &verifiable.Credential{ID: testVCID, JWT: "abc"}
+
+		const testProfileName = "TestProfileName"
+
+		err = vcStore.Put(testProfileName, vc)
+		require.NoError(t, err)
+
+		vcBytes, err := vcStore.Get(testProfileName, testVCID)
+		require.NoError(t, err)
+
+		// Unmarshal into a map instead of using verifiable.ParseCredential since that
+		// requires a lot of extra steps and dependencies.
+		var vcAsMap map[string]interface{}
+
+		err = json.Unmarshal(vcBytes, &vcAsMap)
+		require.NoError(t, err)
+
+		require.Equal(t, testVCID, vcAsMap["id"])
+		require.Equal(t, "abc", vcAsMap["jwt"])
 	})
 	t.Run("Using CSL store", func(t *testing.T) {
 		cslStore, err := storageProvider.OpenCSLStore()

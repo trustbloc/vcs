@@ -58,11 +58,18 @@ func (m *MongoDBVCSProvider) OpenVCStore() (storage.VCStore, error) {
 }
 
 func (m *MongoDBVCStore) Put(profileName string, vc *verifiable.Credential) error {
-	mongoDBDocument, err := mongodb.PrepareDataForBSONStorage(vc)
-	if err != nil {
-		return err
+	mongoDBDocument := map[string]interface{}{}
+	var err error
+	switch {
+	case vc.JWT != "":
+		mongoDBDocument[idFieldName] = vc.ID
+		mongoDBDocument[jwtFieldName] = vc.JWT
+	default:
+		mongoDBDocument, err = mongodb.PrepareDataForBSONStorage(vc)
+		if err != nil {
+			return err
+		}
 	}
-
 	mongoDBDocument[profileNameMongoDBFieldName] = profileName
 
 	filter := bson.M{idFieldName: vc.ID, profileNameMongoDBFieldName: profileName}

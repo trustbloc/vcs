@@ -10,4 +10,5 @@ const (
 	mongoDBDocumentIDFieldName = "_id"
 	idFieldName                = "id"
 	nameFieldName              = "name"
+	jwtFieldName               = "jwt"
 )

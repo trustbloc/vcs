@@ -20,6 +20,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/storage"
 )
 
 type vcStatusManager interface {
@@ -42,20 +43,28 @@ type Config struct {
 	VCStatusManager vcStatusManager
 	Crypto          vcCrypto
 	KMSRegistry     kmsRegistry
+	StorageProvider storage.Provider
 }
 
 type Service struct {
 	vcStatusManager vcStatusManager
 	crypto          vcCrypto
 	kmsRegistry     kmsRegistry
+	vcStore         storage.VCStore
 }
 
-func New(config *Config) *Service {
+func New(config *Config) (*Service, error) {
+	vcStore, err := config.StorageProvider.OpenVCStore()
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		vcStatusManager: config.VCStatusManager,
 		crypto:          config.Crypto,
 		kmsRegistry:     config.KMSRegistry,
-	}
+		vcStore:         vcStore,
+	}, nil
 }
 
 func (s *Service) IssueCredential(credential *verifiable.Credential,
@@ -103,9 +112,14 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 
 	// sign the credential
 	signedVC, err := s.Sign(profile.VCConfig.Format, signer, credential, issuerSigningOpts)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign credential: %w", err)
+	}
+
+	// Store to DB
+	err = s.vcStore.Put(profile.Name, signedVC)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store credential: %w", err)
 	}
 
 	return signedVC, nil
