@@ -7,10 +7,24 @@ SPDX-License-Identifier: Apache-2.0
 package spi
 
 import (
-	"net/url"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+)
+
+const (
+	// VerifierEventTopic verifier topic name.
+	VerifierEventTopic = "vcs-verifier"
+)
+
+// EventType event type.
+type EventType string
+
+const (
+	// VerifierOIDCInteractionInitiated verifier oidc event.
+	VerifierOIDCInteractionInitiated = "oidc_interaction_initiated"
+	// VerifierOIDCInteractionSucceeded verifier oidc event.
+	VerifierOIDCInteractionSucceeded = "oidc_interaction_succeeded"
 )
 
 type Payload []byte
@@ -26,7 +40,7 @@ type Event struct {
 	Source string `json:"source"`
 
 	// Type defines event type(required).
-	Type string `json:"type"`
+	Type EventType `json:"type"`
 
 	// DataContentType is data content type(required).
 	DataContentType string `json:"datacontenttype"`
@@ -52,14 +66,14 @@ func (m *Event) Copy() *Event {
 }
 
 // NewEvent creates a new Event.
-func NewEvent(uuid string, source *url.URL, eventType string, payload Payload) *Event {
+func NewEvent(uuid string, source string, eventType EventType, payload Payload) *Event {
 	now := time.Now()
 
 	return &Event{
 		SpecVersion:     "1.0",
 		DataContentType: "application/json",
 		ID:              uuid,
-		Source:          source.String(),
+		Source:          source,
 		Type:            eventType,
 		Time:            util.NewTime(now),
 		Data:            payload,

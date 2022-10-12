@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
@@ -35,16 +37,14 @@ type InteractionInfo struct {
 	TxID                 TxID
 }
 
+type eventService interface {
+	Publish(topic string, messages ...*spi.Event) error
+}
+
 type transactionManager interface {
 	CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
-}
-
-type events interface {
-	InteractionInitiated(txID TxID)
-	InteractionCheckStarted(txID TxID)
-	InteractionSucceed(txID TxID)
 }
 
 type requestObjectPublicStore interface {
@@ -92,12 +92,12 @@ type RequestObject struct {
 }
 
 type Config struct {
-	Events                   events
 	TransactionManager       transactionManager
 	RequestObjectPublicStore requestObjectPublicStore
 	KMSRegistry              kmsRegistry
 	DocumentLoader           ld.DocumentLoader
 	ProfileService           profileService
+	EventSvc                 eventService
 	PresentationVerifier     presentationVerifier
 	VDR                      vdrapi.Registry
 
@@ -106,7 +106,7 @@ type Config struct {
 }
 
 type Service struct {
-	events                   events
+	eventSvc                 eventService
 	transactionManager       transactionManager
 	requestObjectPublicStore requestObjectPublicStore
 	kmsRegistry              kmsRegistry
@@ -126,9 +126,13 @@ type RequestObjectRegistration struct {
 	ClientPurpose               string           `json:"client_purpose"`
 }
 
+type eventPayload struct {
+	TxID string `json:"txID"`
+}
+
 func NewService(cfg *Config) *Service {
 	return &Service{
-		events:                   cfg.Events,
+		eventSvc:                 cfg.EventSvc,
 		transactionManager:       cfg.TransactionManager,
 		requestObjectPublicStore: cfg.RequestObjectPublicStore,
 		kmsRegistry:              cfg.KMSRegistry,
@@ -139,6 +143,17 @@ func NewService(cfg *Config) *Service {
 		tokenLifetime:            cfg.TokenLifetime,
 		vdr:                      cfg.VDR,
 	}
+}
+
+func (s *Service) sendEvent(tx *Transaction, source string, eventType spi.EventType) error {
+	payload, err := json.Marshal(eventPayload{
+		TxID: string(tx.ID),
+	})
+	if err != nil {
+		return err
+	}
+
+	return s.eventSvc.Publish(spi.VerifierEventTopic, spi.NewEvent(uuid.NewString(), source, eventType, payload))
 }
 
 func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
@@ -152,7 +167,9 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
 	}
 
-	s.events.InteractionInitiated(tx.ID)
+	if errSendEvent := s.sendEvent(tx, profile.URL, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
+		return nil, errSendEvent
+	}
 
 	token, err := s.createRequestObjectJWT(presentationDefinition, tx, nonce, purpose, profile)
 	if err != nil {
@@ -195,10 +212,10 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 		return fmt.Errorf("presentation verification failed %s", vr[0].Error)
 	}
 
-	return s.extractClaimData(tx, vp)
+	return s.extractClaimData(tx, vp, profile)
 }
 
-func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation) error {
+func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation, profile *profileapi.Verifier) error {
 	credentials, err := tx.PresentationDefinition.Match(vp, s.documentLoader,
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
@@ -214,7 +231,9 @@ func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation)
 		return fmt.Errorf("extract claims: store: %w", err)
 	}
 
-	s.events.InteractionSucceed(tx.ID)
+	if err := s.sendEvent(tx, profile.URL, spi.VerifierOIDCInteractionSucceeded); err != nil {
+		return err
+	}
 
 	return nil
 }

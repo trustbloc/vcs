@@ -23,6 +23,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -47,6 +48,10 @@ type profileService interface {
 	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
 }
 
+type eventService interface {
+	Publish(topic string, messages ...*spi.Event) error
+}
+
 type issueCredentialService interface {
 	IssueCredential(credential *verifiable.Credential,
 		issuerSigningOpts []crypto.SigningOpts,
@@ -63,6 +68,7 @@ type vcStatusManager interface {
 }
 
 type Config struct {
+	EventSvc               eventService
 	ProfileSvc             profileService
 	KMSRegistry            kmsRegistry
 	DocumentLoader         ld.DocumentLoader
