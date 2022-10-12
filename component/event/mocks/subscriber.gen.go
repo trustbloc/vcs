@@ -27,7 +27,7 @@ type EventSubscriber struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *EventSubscriber) Subscribe(arg1 context.Context, arg2 string) (<-chan *spi.Event, error) {
+func (fake *EventSubscriber) Subscribe(arg1 context.Context, arg2 string, _ ...spi.Option) (<-chan *spi.Event, error) {
 	fake.subscribeMutex.Lock()
 	ret, specificReturn := fake.subscribeReturnsOnCall[len(fake.subscribeArgsForCall)]
 	fake.subscribeArgsForCall = append(fake.subscribeArgsForCall, struct {

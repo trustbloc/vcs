@@ -10,7 +10,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -30,12 +29,7 @@ const (
 )
 
 func TestEventBus_Publish(t *testing.T) {
-	source, err := url.Parse(sourceURL)
-	require.NoError(t, err)
-
-	cfg := DefaultConfig()
-
-	eb := NewEventBus(cfg)
+	eb := NewEventBus(Config{})
 	require.NotNil(t, eb)
 
 	t.Run("success", func(t *testing.T) {
@@ -53,7 +47,7 @@ func TestEventBus_Publish(t *testing.T) {
 			}
 		}()
 
-		msg := spi.NewEvent(uuid, source, eventType, []byte(jsonMsg))
+		msg := spi.NewEvent(uuid, sourceURL, eventType, []byte(jsonMsg))
 
 		require.NoError(t, eb.Publish(topic, msg))
 
@@ -68,7 +62,7 @@ func TestEventBus_Publish(t *testing.T) {
 	})
 
 	t.Run("success - no subscribers", func(t *testing.T) {
-		msg := spi.NewEvent(uuid, source, eventType, []byte("{}"))
+		msg := spi.NewEvent(uuid, sourceURL, eventType, []byte("{}"))
 
 		require.NoError(t, eb.PublishWithOpts("no-subscribers-topic", msg, spi.WithDeliveryDelay(5*time.Second)))
 
@@ -79,11 +73,8 @@ func TestEventBus_Publish(t *testing.T) {
 }
 
 func TestEventBus_Error(t *testing.T) {
-	source, err := url.Parse(sourceURL)
-	require.NoError(t, err)
-
 	t.Run("error - subscribe when closed", func(t *testing.T) {
-		eb := NewEventBus(DefaultConfig())
+		eb := NewEventBus(Config{})
 		require.NotNil(t, eb)
 		require.NoError(t, eb.Close())
 
@@ -93,20 +84,17 @@ func TestEventBus_Error(t *testing.T) {
 	})
 
 	t.Run("error - publish when closed", func(t *testing.T) {
-		eb := NewEventBus(DefaultConfig())
+		eb := NewEventBus(Config{})
 		require.NotNil(t, eb)
 		require.NoError(t, eb.Close())
 
-		err := eb.Publish(topic, spi.NewEvent(uuid, source, eventType, []byte(jsonMsg)))
+		err := eb.Publish(topic, spi.NewEvent(uuid, sourceURL, eventType, []byte(jsonMsg)))
 		require.True(t, errors.Is(err, lifecycle.ErrNotStarted))
 	})
 }
 
 func TestEventBus_Close(t *testing.T) {
-	source, err := url.Parse(sourceURL)
-	require.NoError(t, err)
-
-	eb := NewEventBus(DefaultConfig())
+	eb := NewEventBus(Config{})
 	require.NotNil(t, eb)
 
 	msgChan, err := eb.Subscribe(context.Background(), topic)
@@ -128,7 +116,7 @@ func TestEventBus_Close(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 250; i++ {
-			msg := spi.NewEvent(fmt.Sprintf("%s-%d", uuid, i), source, eventType, []byte(jsonMsg))
+			msg := spi.NewEvent(fmt.Sprintf("%s-%d", uuid, i), sourceURL, eventType, []byte(jsonMsg))
 
 			if err := eb.PublishWithOpts(topic, msg); err != nil {
 				if errors.Is(err, lifecycle.ErrNotStarted) {
@@ -168,7 +156,7 @@ func TestEventBus_Close(t *testing.T) {
 }
 
 func TestEventBus_IsConnected(t *testing.T) {
-	eb := NewEventBus(DefaultConfig())
+	eb := NewEventBus(Config{})
 	require.NotNil(t, eb)
 
 	require.True(t, eb.IsConnected())

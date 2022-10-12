@@ -13,28 +13,26 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo/v4"
-
-	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
-	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
-
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
+	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/api/spec"
+	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -43,6 +41,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 )
 
 const (
@@ -172,6 +171,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
 	}
 
+	// Create event service
+	eventSvc, err := event.Initialize(event.Config{
+		TLSConfig: tlsConfig,
+		CMD:       cmd,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	// Issuer Profile Management API
 	issuerProfileSvc, err := profilereader.NewIssuerReader(&profilereader.Config{
 		TLSConfig:   tlsConfig,
@@ -196,6 +204,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	})
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
+		EventSvc:               eventSvc,
 		ProfileSvc:             issuerProfileSvc,
 		KMSRegistry:            kmsRegistry,
 		DocumentLoader:         conf.DocumentLoader,
@@ -239,7 +248,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
 	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, requestObjStoreEndpoint)
 	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
-		Events:                   &events{},
+		EventSvc:                 eventSvc,
 		TransactionManager:       oidc4vpTxManager,
 		RequestObjectPublicStore: requestObjectStoreService,
 		KMSRegistry:              kmsRegistry,
@@ -321,18 +330,4 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	}
 
 	return true
-}
-
-type events struct {
-}
-
-func (e *events) InteractionInitiated(txID oidc4vp.TxID) {
-	logger.Infof("InteractionInitiated %s", txID)
-}
-func (e *events) InteractionCheckStarted(txID oidc4vp.TxID) {
-	logger.Infof("InteractionCheckStarted %s", txID)
-
-}
-func (e *events) InteractionSucceed(txID oidc4vp.TxID) {
-	logger.Infof("InteractionSucceed %s", txID)
 }

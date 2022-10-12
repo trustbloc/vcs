@@ -16,6 +16,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0
 	go.mongodb.org/mongo-driver v1.10.1
 )
@@ -147,6 +148,7 @@ require (
 
 replace (
 	github.com/trustbloc/vcs => ../..
+	github.com/trustbloc/vcs/component/event => ../../component/event
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 

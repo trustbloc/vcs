@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
+
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -49,9 +51,6 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
 		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
-	events := NewMockEvents(gomock.NewController(t))
-	events.EXPECT().InteractionInitiated(gomock.Any()).AnyTimes()
-
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any()).AnyTimes().Return(&oidc4vp.Transaction{
 		ID:                     "TxID1",
@@ -64,7 +63,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	})
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
-		Events:                   events,
+		EventSvc:                 &mockEvent{},
 		TransactionManager:       txManager,
 		RequestObjectPublicStore: requestObjectPublicStore,
 		KMSRegistry:              kmsRegistry,
@@ -115,7 +114,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		txManagerErr.EXPECT().CreateTx(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, "", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:                   events,
+			EventSvc:                 &mockEvent{},
 			TransactionManager:       txManagerErr,
 			RequestObjectPublicStore: requestObjectPublicStore,
 			KMSRegistry:              kmsRegistry,
@@ -133,7 +132,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		requestObjectPublicStoreErr.EXPECT().Publish(gomock.Any()).AnyTimes().Return("", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:                   events,
+			EventSvc:                 &mockEvent{},
 			TransactionManager:       txManager,
 			RequestObjectPublicStore: requestObjectPublicStoreErr,
 			KMSRegistry:              kmsRegistry,
@@ -151,7 +150,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:                   events,
+			EventSvc:                 &mockEvent{},
 			TransactionManager:       txManager,
 			RequestObjectPublicStore: requestObjectPublicStore,
 			KMSRegistry:              kmsRegistry,
@@ -191,11 +190,10 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	events := NewMockEvents(gomock.NewController(t))
 	vp, pd, loader := newVPWithPD(t)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
-		Events:               events,
+		EventSvc:             &mockEvent{},
 		TransactionManager:   txManager,
 		PresentationVerifier: presentationVerifier,
 		ProfileService:       profileService,
@@ -218,8 +216,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	presentationVerifier.EXPECT().VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil, nil)
 
-	events.EXPECT().InteractionSucceed(oidc4vp.TxID("txID1")).AnyTimes()
-
 	t.Run("Success", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
 
@@ -232,7 +228,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			Return(nil, false, errors.New("invalid nonce1"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:               events,
+			EventSvc:             &mockEvent{},
 			TransactionManager:   errTxManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
@@ -256,7 +252,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			errors.New("get profile error"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:               events,
+			EventSvc:             &mockEvent{},
 			TransactionManager:   txManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       errProfileService,
@@ -273,7 +269,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errPresentationVerifier.EXPECT().VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 			Return(nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:               events,
+			EventSvc:             &mockEvent{},
 			TransactionManager:   txManager,
 			PresentationVerifier: errPresentationVerifier,
 			ProfileService:       profileService,
@@ -303,7 +299,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			Return(errors.New("store error"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
-			Events:               events,
+			EventSvc:             &mockEvent{},
 			TransactionManager:   errTxManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
@@ -346,6 +342,18 @@ func (m *mockVCSKeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK,
 }
 func (m *mockVCSKeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
 	return "", nil, nil
+}
+
+type mockEvent struct {
+	err error
+}
+
+func (m *mockEvent) Publish(topic string, messages ...*spi.Event) error {
+	if m.err != nil {
+		return m.err
+	}
+
+	return nil
 }
 
 func newVPWithPD(t *testing.T) (*verifiable.Presentation, *presexch.PresentationDefinition, *ld.DocumentLoader) {

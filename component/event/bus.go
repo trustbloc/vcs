@@ -8,9 +8,11 @@ package event
 
 import (
 	"context"
+	"crypto/tls"
 	"sync"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/spf13/cobra"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/lifecycle"
@@ -24,16 +26,8 @@ const (
 
 // Config holds the configuration for the publisher/subscriber.
 type Config struct {
-
-	// BufferSize is the size of the Go channel buffer for a subscription.
-	BufferSize int
-}
-
-// DefaultConfig returns the default configuration.
-func DefaultConfig() Config {
-	return Config{
-		BufferSize: defaultBufferSize,
-	}
+	TLSConfig *tls.Config
+	CMD       *cobra.Command
 }
 
 // Bus implements a publisher/subscriber using Go channels. This implementation
@@ -61,7 +55,7 @@ func NewEventBus(cfg Config) *Bus {
 	m := &Bus{
 		Config:      cfg,
 		subscribers: make(map[string][]chan *spi.Event),
-		publishChan: make(chan *entry, cfg.BufferSize),
+		publishChan: make(chan *entry, defaultBufferSize),
 		doneChan:    make(chan struct{}),
 	}
 
@@ -114,13 +108,7 @@ func (b *Bus) stop() {
 
 // Subscribe subscribes to a topic and returns the Go channel over which messages
 // are sent. The returned channel will be closed when Close() is called on this struct.
-func (b *Bus) Subscribe(ctx context.Context, topic string) (<-chan *spi.Event, error) {
-	return b.SubscribeWithOpts(ctx, topic)
-}
-
-// SubscribeWithOpts subscribes to a topic and returns the Go channel over which messages
-// are sent. The returned channel will be closed when Close() is called on this struct.
-func (b *Bus) SubscribeWithOpts(_ context.Context, topic string, _ ...spi.Option) (<-chan *spi.Event, error) {
+func (b *Bus) Subscribe(_ context.Context, topic string, _ ...spi.Option) (<-chan *spi.Event, error) {
 	if b.State() != lifecycle.StateStarted {
 		return nil, lifecycle.ErrNotStarted
 	}
@@ -130,7 +118,7 @@ func (b *Bus) SubscribeWithOpts(_ context.Context, topic string, _ ...spi.Option
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
-	msgChan := make(chan *spi.Event, b.BufferSize)
+	msgChan := make(chan *spi.Event, defaultBufferSize)
 
 	b.subscribers[topic] = append(b.subscribers[topic], msgChan)
 

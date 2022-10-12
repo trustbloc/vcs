@@ -9,7 +9,6 @@ package event
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"testing"
 	"time"
 
@@ -22,11 +21,8 @@ import (
 //go:generate counterfeiter -o ./mocks/subscriber.gen.go --fake-name EventSubscriber . eventSubscriber
 
 func TestEventSubscriber(t *testing.T) {
-	source, err := url.Parse("https://test.com")
-	require.NoError(t, err)
-
 	t.Run("success", func(t *testing.T) {
-		eventBus := NewEventBus(DefaultConfig())
+		eventBus := NewEventBus(Config{})
 
 		subscriber, err := NewEventSubscriber(eventBus, topic, printEvent)
 		require.NoError(t, err)
@@ -35,15 +31,15 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", source, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-2", source, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-3", source, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-2", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-3", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 	})
 
 	t.Run("error - event bus stopped/channel closed error", func(t *testing.T) {
-		eventBus := NewEventBus(DefaultConfig())
+		eventBus := NewEventBus(Config{})
 
 		subscriber, err := NewEventSubscriber(eventBus, topic, printEvent)
 		require.NoError(t, err)
@@ -52,7 +48,7 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", source, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 
@@ -62,7 +58,7 @@ func TestEventSubscriber(t *testing.T) {
 	})
 
 	t.Run("error - event handler error", func(t *testing.T) {
-		eventBus := NewEventBus(DefaultConfig())
+		eventBus := NewEventBus(Config{})
 
 		subscriber, err := NewEventSubscriber(eventBus, topic, errorEvent)
 		require.NoError(t, err)
@@ -71,7 +67,7 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", source, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 	})

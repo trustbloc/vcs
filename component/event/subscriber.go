@@ -19,7 +19,7 @@ type (
 )
 
 type eventSubscriber interface {
-	Subscribe(ctx context.Context, topic string) (<-chan *spi.Event, error)
+	Subscribe(ctx context.Context, topic string, _ ...spi.Option) (<-chan *spi.Event, error)
 }
 
 // Subscriber implements an event subscriber.
