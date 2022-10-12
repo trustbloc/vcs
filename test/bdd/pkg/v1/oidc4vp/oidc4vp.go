@@ -26,7 +26,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 type initiateOIDC4VPResponse struct {
@@ -82,30 +81,11 @@ type VPTokenClaims struct {
 }
 
 func (e *Steps) initiateInteraction(profileName, organizationName string) error {
-	loader, err := bddutil.DocumentLoader()
-	if err != nil {
-		return err
-	}
-
-	cred, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(loader))
-	if err != nil {
-		return err
-	}
-
-	req := &model.VerifyCredentialData{
-		Credential: cred,
-	}
-
-	reqBytes, err := json.Marshal(req)
-	if err != nil {
-		return err
-	}
 
 	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, profileName)
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
-		bytes.NewBuffer(reqBytes), e.tlsConfig)
+		nil, e.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -119,8 +99,6 @@ func (e *Steps) initiateInteraction(profileName, organizationName string) error 
 	if resp.StatusCode != http.StatusOK {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
-
-	print("resp:" + string(respBytes))
 
 	result := &initiateOIDC4VPResponse{}
 
@@ -137,8 +115,6 @@ func (e *Steps) initiateInteraction(profileName, organizationName string) error 
 func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
 	endpointURL := strings.TrimPrefix(e.authorizationRequest, "openid-vc://?request_uri=")
 
-	print("endpointURL :" + endpointURL)
-
 	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "", "", nil, e.tlsConfig)
 	if err != nil {
 		return err
@@ -154,7 +130,6 @@ func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	print("resp:" + string(respBytes))
 
 	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
 		verifiable.NewVDRKeyResolver(e.ariesServices.vdrRegistry).PublicKeyFetcher()))
