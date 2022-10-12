@@ -11,6 +11,7 @@ services:
     image: ${VC_REST_IMAGE}:latest
     environment:
       - VC_REST_HOST_URL=0.0.0.0:8075
+      - VC_REST_HOST_URL_EXTERNAL=https://localhost:4455
       - VC_REST_PROFILES_FILE_PATH=/profile/profiles.json
       - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
       - DATABASE_TYPE=mongodb
@@ -33,10 +34,11 @@ services:
       - did-resolver.trustbloc.local
       - sidetree
     entrypoint: ""
-    command:  /bin/sh -c "sleep 5;vc-rest start"
+    command: /bin/sh -c "sleep 5;vc-rest start"
     volumes:
       - ./keys/tls:/etc/tls
       - ./profile:/profile/
+      - ./nginx-config/data:/request-objects
     networks:
       - bdd_net
 
@@ -66,7 +68,7 @@ services:
       - DID_REST_DID_DOMAIN=testnet.orb.local
     ports:
       - ${DID_RESOLVER_PORT}:${DID_RESOLVER_PORT}
-    command:  start
+    command: start
     volumes:
       - ./keys/tls:/etc/tls
       - ./did-resolver/config.json:/opt/did-resolver/config.json

@@ -1,5 +1,5 @@
 {
-  "issuers":[
+  "issuers": [
     {
       "issuer": {
         "id": "i_myprofile_ud_P256k1",
@@ -206,7 +206,7 @@
       "createDID": true
     }
   ],
-  "verifiers":[
+  "verifiers": [
     {
       "verifier": {
         "id": "v_myprofile_ldp",
@@ -216,16 +216,84 @@
         "active": true,
         "checks": {
           "credential": {
-            "format": ["ldp"],
+            "format": [
+              "ldp"
+            ],
             "proof": true,
             "status": true
+          },
+          "presentation": {
+            "format": [
+              "ldp",
+              "jwt"
+            ],
+            "proof": false
           }
         },
         "oidcConfig": {
           "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
           "keyType": "ECDSASecp256k1IEEEP1363",
           "didMethod": "orb"
-        }
+        },
+        "presentationDefinitions": [
+          {
+            "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
+            "format": {
+              "ldp_vc": {
+                "proof_type": [
+                  "JsonWebSignature2020",
+                  "Ed25519Signature2018",
+                  "EcdsaSecp256k1Signature2019",
+                  "RsaSignature2018"
+                ]
+              },
+              "ldp_vp": {
+                "proof_type": [
+                  "JsonWebSignature2020",
+                  "Ed25519Signature2018",
+                  "EcdsaSecp256k1Signature2019",
+                  "RsaSignature2018"
+                ]
+              },
+              "ldp": {
+                "proof_type": [
+                  "JsonWebSignature2020",
+                  "Ed25519Signature2018",
+                  "EcdsaSecp256k1Signature2019",
+                  "RsaSignature2018"
+                ]
+              }
+            },
+            "input_descriptors": [
+              {
+                "id": "degree",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential",
+                    "required": false
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type",
+                        "$.vc.credentialSubject.degree.type"
+                      ],
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "createDID": true,
       "didDomain": "https://testnet.orb.local",
@@ -240,7 +308,9 @@
         "active": true,
         "checks": {
           "credential": {
-            "format": ["jwt"],
+            "format": [
+              "jwt"
+            ],
             "proof": true,
             "status": false
           }

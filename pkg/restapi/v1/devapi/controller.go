@@ -12,6 +12,7 @@ package devapi
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -69,5 +70,9 @@ func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { 
 		ctx.Response().Status = 404
 	}
 
-	return apiUtil.WriteOutput(ctx)(record, err)
+	if err != nil {
+		return err
+	}
+
+	return ctx.String(http.StatusOK, record.Content)
 }

@@ -20,15 +20,6 @@ type DidConfig struct {
 	LinkedDids *[]interface{} `json:"linked_dids,omitempty"`
 }
 
-// DID Config response.
-type RequestObject struct {
-	// Content of requested object
-	Content *string `json:"content,omitempty"`
-
-	// id.
-	Id *string `json:"id,omitempty"`
-}
-
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Request request object by uuid

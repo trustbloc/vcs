@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/cucumber/godog"
+	"github.com/rdumont/assistdog"
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -62,6 +63,9 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.verifyVC)
 	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
+
+	s.Step(`^New verifiable credentials is created from table:$`,
+		e.createCredentialsFromTable)
 }
 
 func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
@@ -73,5 +77,34 @@ func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
 
 	e.bddContext.Args[getOrgAuthTokenKey(org)] = accessToken
 
+	return nil
+}
+
+type createVCParams struct {
+	IssuerProfile   string
+	VerifierProfile string
+	Organization    string
+	Credential      string
+	VCFormat        string
+	SignatureHolder string
+}
+
+func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
+	params, err := assistdog.NewDefault().CreateSlice(&createVCParams{}, table)
+	if err != nil {
+		return err
+	}
+
+	allCreds := make([][]byte, 0)
+
+	for _, p := range params.([]*createVCParams) {
+		err = e.createCredential(credentialServiceURL, p.Credential, p.VCFormat, p.IssuerProfile, p.Organization)
+		if err != nil {
+			return err
+		}
+		allCreds = append(allCreds, e.bddContext.CreatedCredential)
+	}
+
+	e.bddContext.CreatedCredentialsSet = allCreds
 	return nil
 }

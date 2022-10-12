@@ -505,15 +505,23 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
 
-		vpToken := generateToken(t, &VPTokenClaims{
-			VP:    &verifiable.Presentation{},
+		vpToken := generateToken(t, &vpTokenClaims{
+			VP: &verifiable.Presentation{
+				Context: []string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://identity.foundation/presentation-exchange/submission/v1",
+				},
+				Type: []string{
+					"VerifiablePresentation",
+					"PresentationSubmission",
+				},
+			},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
@@ -525,12 +533,52 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		ctx := createContextApplicationForm([]byte(body))
 
 		c := NewController(&Config{
-			OIDCVPService: oidc4VPService,
-			JWTVerifier:   sVerifier,
+			OIDCVPService:  oidc4VPService,
+			JWTVerifier:    sVerifier,
+			DocumentLoader: testutil.DocumentLoader(t),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
 		require.NoError(t, err)
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		vpToken := generateToken(t, &vpTokenClaims{
+			VP: &verifiable.Presentation{
+				Context: []string{
+					"https://www.w3.org/2018/credentials/v1",
+					"https://identity.foundation/presentation-exchange/submission/v1",
+				},
+				Type: []string{
+					"VerifiablePresentation",
+					"PresentationSubmission",
+				},
+			},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKey)
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			JWTVerifier:    sVerifier,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		_, vp, err := c.validateAuthorizationResponseTokens(&authorizationResponse{
+			IDToken: idToken,
+			VPToken: vpToken,
+			State:   "txid",
+		})
+
+		require.NoError(t, err)
+		require.Contains(t, vp.Type, "PresentationSubmission")
 	})
 
 	t.Run("Presentation submission missed", func(t *testing.T) {
@@ -539,7 +587,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
 
-		vpToken := generateToken(t, &VPTokenClaims{
+		vpToken := generateToken(t, &vpTokenClaims{
 			VP:    &verifiable.Presentation{},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
@@ -563,14 +611,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 	t.Run("Nonce different", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
 
-		vpToken := generateToken(t, &VPTokenClaims{
+		vpToken := generateToken(t, &vpTokenClaims{
 			VP:    &verifiable.Presentation{},
 			Nonce: "bbb",
 			Exp:   time.Now().Unix() + 1000,
@@ -594,14 +641,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 	t.Run("ID token expired", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   0,
 		}, privKey)
 
-		vpToken := generateToken(t, &VPTokenClaims{
+		vpToken := generateToken(t, &vpTokenClaims{
 			VP:    &verifiable.Presentation{},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
@@ -628,14 +674,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		require.NoError(t, err)
 
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKeyOther)
 
-		vpToken := generateToken(t, &VPTokenClaims{
+		vpToken := generateToken(t, &vpTokenClaims{
 			VP:    &verifiable.Presentation{},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
@@ -659,14 +704,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 	t.Run("VP token expired", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
 
-		vpToken := generateToken(t, &VPTokenClaims{
+		vpToken := generateToken(t, &vpTokenClaims{
 			VP:    &verifiable.Presentation{},
 			Nonce: "aaa",
 			Exp:   0,
@@ -693,14 +737,13 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		require.NoError(t, err)
 
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
 
-		vpToken := generateToken(t, &VPTokenClaims{
+		vpToken := generateToken(t, &vpTokenClaims{
 			VP:    &verifiable.Presentation{},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
@@ -724,9 +767,8 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 	t.Run("VP token invalid signature", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
-			VPToken: struct {
-				PresentationSubmission *presexch.PresentationSubmission `json:"presentation_submission"`
-			}{PresentationSubmission: &presexch.PresentationSubmission{}},
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
 			Nonce: "aaa",
 			Exp:   time.Now().Unix() + 1000,
 		}, privKey)
@@ -1280,6 +1322,13 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		requireSystemError(t, "oidc4VPService", "InitiateOidcInteraction", err)
 	})
+}
+
+type vpTokenClaims struct {
+	VP    *verifiable.Presentation `json:"vp"`
+	Nonce string                   `json:"nonce"`
+	Exp   int64                    `json:"exp"`
+	Iss   string                   `json:"iss"`
 }
 
 // nolint:gochecknoglobals

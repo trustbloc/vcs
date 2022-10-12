@@ -12,11 +12,10 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.6.1
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220930135433-5d09324e99bd
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e
@@ -27,6 +26,7 @@ require (
 	github.com/labstack/echo/v4 v4.8.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.42.3-0.20220923124412-e98c0d745a0c
+	github.com/pborman/uuid v1.2.1
 	github.com/piprate/json-gold v0.4.1
 	github.com/samber/lo v1.29.0
 	github.com/spf13/cobra v1.5.0
@@ -34,6 +34,7 @@ require (
 	github.com/stretchr/testify v1.8.0
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/kms v0.1.9-0.20220927102932-412f152996fa
+	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b
 	go.mongodb.org/mongo-driver v1.10.0
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8
 )
@@ -56,7 +57,6 @@ require (
 	github.com/dave/jennifer v1.5.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/cli v20.10.14+incompatible // indirect
 	github.com/docker/docker v20.10.9+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -122,7 +122,6 @@ require (
 	github.com/ory/go-convenience v0.1.0 // indirect
 	github.com/ory/viper v1.7.5 // indirect
 	github.com/ory/x v0.0.477 // indirect
-	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -139,14 +138,12 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/stretchr/objx v0.4.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/gjson v1.14.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

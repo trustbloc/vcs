@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package requestobjectstore
 
 import (
@@ -59,7 +65,7 @@ func TestObjectStore(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
-	store := NewTxStore(client)
+	store := NewStore(client)
 	require.NotNil(t, store)
 
 	defer func() {
@@ -145,7 +151,7 @@ func TestTimeouts(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb2", 5)
 	require.NoError(t, err)
 
-	store := NewTxStore(client)
+	store := NewStore(client)
 	require.NotNil(t, store)
 
 	defer func() {

@@ -37,5 +37,44 @@
     "authorizer": {
       "handler": "allow"
     }
+  },
+  {
+    "id": "dev-interactions-authorization-response",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/verifier/interactions/authorization-response",
+      "methods": ["POST"]
+    },
+    "authenticators": [{
+      "handler": "noop"
+    }],
+    "mutators": [{
+      "handler": "noop"
+    }],
+    "authorizer": {
+      "handler": "allow"
+    }
+  },
+
+  {
+    "id": "dev-request-object",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/request-object/<.*>",
+      "methods": ["GET"]
+    },
+    "authenticators": [{
+      "handler": "noop"
+    }],
+    "mutators": [{
+      "handler": "noop"
+    }],
+    "authorizer": {
+      "handler": "allow"
+    }
   }
 ]

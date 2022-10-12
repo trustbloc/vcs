@@ -1,8 +1,8 @@
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684 h1:1CskfXl2ayCNzcbRkfz1lzYkYHohB72FC/2WZM9nfh4=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684/go.mod h1:28aD9QTgVjeAl86vHNFwkOYwQwZiTrrODMpjE2PYz3M=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20220930135433-5d09324e99bd h1:/MXfMauEPjnwM33SLbiNtVlQO4UFTuHuhuL/dVeu9q8=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20220930135433-5d09324e99bd/go.mod h1:bypk9kaZKKrWzeZg9DgGWIc73Il21NB+uw0DhkaHgV4=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9 h1:Dzmx6uOElcBlpXZwIafb2SVeE0/wdSUEZJEROZ8tQl8=
 github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9/go.mod h1:4bD5c5fj5K7rkQurVa/8I8+TfNcI4bxIBzaUNcxTOTg=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

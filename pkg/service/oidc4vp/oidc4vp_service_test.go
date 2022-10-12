@@ -53,7 +53,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	events.EXPECT().InteractionInitiated(gomock.Any()).AnyTimes()
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
-	txManager.EXPECT().CreateTransaction(gomock.Any()).AnyTimes().Return(&oidc4vp.Transaction{
+	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any()).AnyTimes().Return(&oidc4vp.Transaction{
 		ID:                     "TxID1",
 		ProfileID:              "test4",
 		PresentationDefinition: &presexch.PresentationDefinition{},
@@ -82,7 +82,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		Active:         true,
 		OrganizationID: "test4",
 		OIDCConfig: &profileapi.OIDC4VPConfig{
-			ROSigningAlgorithm: "EdDSA",
+			KeyType: kms.ED25519Type,
 		},
 		SigningDID: &profileapi.SigningDID{
 			DID:     "did:test:acde",
@@ -112,7 +112,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 	t.Run("Tx create failed", func(t *testing.T) {
 		txManagerErr := NewMockTransactionManager(gomock.NewController(t))
-		txManagerErr.EXPECT().CreateTransaction(gomock.Any()).AnyTimes().Return(nil, "", errors.New("fail"))
+		txManagerErr.EXPECT().CreateTx(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, "", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			Events:                   events,
@@ -164,10 +164,21 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.Nil(t, info)
 	})
 
-	t.Run("Invalid key type", func(t *testing.T) {
+	t.Run("Invalid key", func(t *testing.T) {
 		incorrectProfile := &profileapi.Verifier{}
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.SigningDID.Creator = "invalid"
+
+		info, err := s.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", incorrectProfile)
+
+		require.Error(t, err)
+		require.Nil(t, info)
+	})
+
+	t.Run("Invalid key type", func(t *testing.T) {
+		incorrectProfile := &profileapi.Verifier{}
+		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
+		incorrectProfile.OIDCConfig.KeyType = "invalid"
 
 		info, err := s.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", incorrectProfile)
 

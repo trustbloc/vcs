@@ -1,11 +1,15 @@
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/trustbloc/edge-service/component/profile/reader/file
 
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20220921220826-52d9990bb684
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20220930135433-5d09324e99bd
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/spf13/cobra v1.5.0
+	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 
@@ -78,7 +82,6 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372 // indirect
 	github.com/trustbloc/kms v0.1.9-0.20220927102932-412f152996fa // indirect
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect

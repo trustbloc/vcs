@@ -85,6 +85,17 @@ func GetSignatureTypeByName(signatureType string) (SignatureType, error) {
 	return "", fmt.Errorf("unsupported siganture type %q", signatureType)
 }
 
+func GetJWTSignatureTypeByKey(keyType kms.KeyType) (SignatureType, error) {
+	for _, supportedSignature := range signatureTypes {
+		for _, supportedKeyType := range supportedSignature.SupportedKeyTypes {
+			if supportedKeyType == keyType && supportedSignature.VCFormat == Jwt {
+				return supportedSignature.SignatureType, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("unsupported jwt key type %q", keyType)
+}
+
 func ValidateSignatureKeyType(signatureType SignatureType, keyType string) (kms.KeyType, error) {
 	for _, supportedSignature := range signatureTypes {
 		if supportedSignature.SignatureType == signatureType {

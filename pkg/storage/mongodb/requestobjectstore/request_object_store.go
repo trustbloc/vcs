@@ -32,8 +32,8 @@ type mongoDocument struct {
 	Content string
 }
 
-// NewTxStore creates Store.
-func NewTxStore(mongoClient *mongodb.Client) *Store {
+// NewStore creates Store.
+func NewStore(mongoClient *mongodb.Client) *Store {
 	return &Store{mongoClient: mongoClient}
 }
 
