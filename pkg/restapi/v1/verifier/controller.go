@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -42,6 +43,8 @@ const (
 
 	vpSubmissionProperty = "presentation_submission"
 )
+
+var logger = log.New("oidc4vp")
 
 type authorizationResponse struct {
 	IDToken string
@@ -225,6 +228,8 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 }
 
 func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string) error {
+	logger.Infof("InitiateOidcInteraction begin")
+
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
 		return err
@@ -266,6 +271,7 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
 	}
 
+	logger.Infof("InitiateOidcInteraction success")
 	return &InitiateOIDC4VPResponse{
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxID:                 string(result.TxID),
@@ -273,6 +279,7 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 }
 
 func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
+	logger.Infof("CheckAuthorizationResponse begin")
 	authResp, err := validateAuthorizationResponse(ctx)
 	if err != nil {
 		return err
@@ -283,8 +290,11 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		return err
 	}
 
-	return c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State),
+	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State),
 		nonce, presentation)
+
+	logger.Infof("CheckAuthorizationResponse end")
+	return err
 }
 
 func (c *Controller) validateAuthorizationResponseTokens(authResp *authorizationResponse) (
@@ -394,15 +404,21 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
+	logger.Infof("AuthorizationResponse id_token=%s", res.IDToken)
+
 	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
+	logger.Infof("AuthorizationResponse vp_token=%s", res.VPToken)
+
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Infof("AuthorizationResponse state=%s", res.State)
 
 	return res, nil
 }
