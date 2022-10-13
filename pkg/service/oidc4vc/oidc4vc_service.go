@@ -27,7 +27,7 @@ const (
 var logger = log.New("oidc4vc")
 
 type transactionStorage interface {
-	Store(data *TransactionData) (*Transaction, error)
+	Store(ctx context.Context, data *TransactionData) (*Transaction, error)
 }
 
 type httpClient interface {
@@ -55,7 +55,10 @@ func NewService(config *Config) (*Service, error) {
 }
 
 // InitiateOidcInteraction prepares initiate issuance URL for starting OIDC interaction.
-func (s *Service) InitiateOidcInteraction(req *InitiateIssuanceRequest) (*InitiateIssuanceInfo, error) {
+func (s *Service) InitiateOidcInteraction(
+	ctx context.Context,
+	req *InitiateIssuanceRequest,
+) (*InitiateIssuanceInfo, error) {
 	data := &TransactionData{
 		CredentialTemplate:   req.CredentialTemplate,
 		ClaimEndpoint:        req.ClaimEndpoint,
@@ -77,24 +80,24 @@ func (s *Service) InitiateOidcInteraction(req *InitiateIssuanceRequest) (*Initia
 		data.Scope = []string{defaultScope}
 	}
 
-	tx, err := s.store.Store(data)
+	tx, err := s.store.Store(ctx, data)
 	if err != nil {
 		return nil, fmt.Errorf("store transaction: %w", err)
 	}
 
 	return &InitiateIssuanceInfo{
-		InitiateIssuanceURL: s.buildInitiateIssuanceURL(req),
+		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req),
 		TxID:                string(tx.ID),
 	}, nil
 }
 
-func (s *Service) buildInitiateIssuanceURL(req *InitiateIssuanceRequest) string {
+func (s *Service) buildInitiateIssuanceURL(ctx context.Context, req *InitiateIssuanceRequest) string {
 	var initiateIssuanceURL string
 
 	if req.ClientInitiateIssuanceURL != "" {
 		initiateIssuanceURL = req.ClientInitiateIssuanceURL
 	} else if req.ClientWellKnownURL != "" {
-		c, err := s.fetchWellKnownConfig(req.ClientWellKnownURL)
+		c, err := s.fetchWellKnownConfig(ctx, req.ClientWellKnownURL)
 		if err != nil {
 			logger.Errorf("Failed to fetch well-known config: %s", err)
 		} else {
@@ -118,8 +121,8 @@ type wellKnownConfig struct {
 	InitiateIssuanceEndpoint string `json:"initiate_issuance_endpoint"`
 }
 
-func (s *Service) fetchWellKnownConfig(url string) (*wellKnownConfig, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, http.NoBody)
+func (s *Service) fetchWellKnownConfig(ctx context.Context, url string) (*wellKnownConfig, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create well-known request: %w", err)
 	}
