@@ -31,6 +31,7 @@ type TransactionData struct {
 	ResponseType         string
 	Scope                []string
 	AuthorizationDetails *AuthorizationDetails
+	OpState              string
 }
 
 // AuthorizationDetails parameter is used to convey the details about VC the wallet wants to obtain.

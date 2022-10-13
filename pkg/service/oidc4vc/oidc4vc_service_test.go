@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -40,7 +41,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		{
 			name: "Success",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
 					ID:     "txID",
 					TxData: oidc4vc.TransactionData{},
 				}, nil)
@@ -65,7 +66,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		{
 			name: "Client initiate issuance URL takes precedence over client_wellknown parameter",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
 					ID:     "txID",
 					TxData: oidc4vc.TransactionData{},
 				}, nil)
@@ -87,7 +88,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		{
 			name: "Custom initiate issuance URL when fail to do well-known request",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
 					ID:     "txID",
 					TxData: oidc4vc.TransactionData{},
 				}, nil)
@@ -108,7 +109,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		{
 			name: "Custom initiate issuance URL when fail to decode well-known config",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
 					ID:     "txID",
 					TxData: oidc4vc.TransactionData{},
 				}, nil)
@@ -132,7 +133,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		{
 			name: "Fail to store transaction",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any()).Return(nil, fmt.Errorf("store error"))
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("store error"))
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
@@ -159,7 +160,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			resp, err := svc.InitiateOidcInteraction(issuanceReq)
+			resp, err := svc.InitiateOidcInteraction(context.TODO(), issuanceReq)
 			tt.check(t, resp, err)
 		})
 	}
