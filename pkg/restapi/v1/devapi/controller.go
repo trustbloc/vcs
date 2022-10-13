@@ -15,12 +15,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/labstack/echo/v4"
 
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 )
+
+var logger = log.New("oidc4vp")
 
 type didConfigService interface {
 	DidConfig(
@@ -64,6 +67,7 @@ func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID s
 // RequestObjectByUuid Receive request object by uuid.
 // GET /request-object/{uuid}.
 func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { //nolint:stylecheck,revive
+	logger.Infof("RequestObjectByUuid begin %s", uuid)
 	record, err := c.requestObjectStoreService.Get(uuid)
 
 	if errors.Is(err, requestobject.ErrDataNotFound) {
@@ -74,5 +78,6 @@ func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { 
 		return err
 	}
 
+	logger.Infof("RequestObjectByUuid end")
 	return ctx.String(http.StatusOK, record.Content)
 }

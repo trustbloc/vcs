@@ -17,6 +17,7 @@ var logger = log.New("rest-err")
 
 func HTTPErrorHandler(err error, c echo.Context) {
 	code, message := processError(err)
+	logger.Errorf("%s -> [%d] %s", c.Request().RequestURI, code, message)
 	sendResponse(c, code, message)
 }
 

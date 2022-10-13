@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -61,7 +62,7 @@ type ariesServices struct {
 }
 
 func (e *Steps) createWallet() error {
-	e.walletUserID = "testUserID"
+	e.walletUserID = "testUserID" + uuid.NewString()
 	e.walletPassphrase = "passphrase122334"
 
 	services, err := CreateAgentServices(e.tlsConfig)
