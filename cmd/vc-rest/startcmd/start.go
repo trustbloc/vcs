@@ -197,11 +197,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
 	}
 
-	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
+	issueCredentialSvc, err := issuecredential.New(&issuecredential.Config{
 		VCStatusManager: vcStatusManager,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,
+		StorageProvider: conf.Storage.provider,
 	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new issue credential service: %w", err)
+	}
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:               eventSvc,

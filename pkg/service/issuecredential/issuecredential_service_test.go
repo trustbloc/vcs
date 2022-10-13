@@ -36,6 +36,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 )
 
 func TestService_IssueCredential(t *testing.T) {
@@ -108,11 +109,13 @@ func TestService_IssueCredential(t *testing.T) {
 						crypto := vccrypto.New(
 							&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
-						service := New(&Config{
+						service, err := New(&Config{
 							VCStatusManager: mockVCStatusManager,
 							Crypto:          crypto,
 							KMSRegistry:     kmsRegistry,
+							StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 						})
+						require.NoError(t, err)
 
 						verifiableCredentials, err := service.IssueCredential(
 							&verifiable.Credential{},
@@ -171,11 +174,13 @@ func TestService_IssueCredential(t *testing.T) {
 				crypto := vccrypto.New(
 					&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
-				service := New(&Config{
+				service, err := New(&Config{
 					VCStatusManager: mockVCStatusManager,
 					Crypto:          crypto,
 					KMSRegistry:     kmsRegistry,
+					StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 				})
+				require.NoError(t, err)
 
 				verifiableCredentials, err := service.IssueCredential(
 					&verifiable.Credential{
@@ -213,13 +218,24 @@ func TestService_IssueCredential(t *testing.T) {
 		}
 	})
 
-	t.Run("Error kmsRegistry", func(t *testing.T) {
-		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
-
-		service := New(&Config{
-			KMSRegistry: kmsRegistry,
+	t.Run("Error open VC store", func(t *testing.T) {
+		service, err := New(&Config{
+			StorageProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
+				ErrOpenStoreHandle: errors.New("some error"),
+			}),
 		})
+		require.Nil(t, service)
+		require.Error(t, err)
+	})
+	t.Run("Error kmsRegistry", func(t *testing.T) {
+		registry := NewMockKMSRegistry(gomock.NewController(t))
+		registry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+
+		service, err := New(&Config{
+			KMSRegistry:     registry,
+			StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
+		})
+		require.NoError(t, err)
 
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
@@ -229,17 +245,19 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Nil(t, verifiableCredentials)
 	})
 	t.Run("Error VCStatusManager.CreateStatusID", func(t *testing.T) {
-		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
+		registry := NewMockKMSRegistry(gomock.NewController(t))
+		registry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
 		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 
-		service := New(&Config{
-			KMSRegistry:     kmsRegistry,
+		service, err := New(&Config{
+			KMSRegistry:     registry,
 			VCStatusManager: vcStatusManager,
+			StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 		})
+		require.NoError(t, err)
 
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
@@ -253,17 +271,19 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Nil(t, verifiableCredentials)
 	})
 	t.Run("Error VCStatusManager.GetCredentialStatusURL", func(t *testing.T) {
-		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
+		registry := NewMockKMSRegistry(gomock.NewController(t))
+		registry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return("", errors.New("some error"))
 
-		service := New(&Config{
-			KMSRegistry:     kmsRegistry,
+		service, err := New(&Config{
+			KMSRegistry:     registry,
 			VCStatusManager: vcStatusManager,
+			StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 		})
+		require.NoError(t, err)
 
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
@@ -286,11 +306,13 @@ func TestService_IssueCredential(t *testing.T) {
 
 		cr := NewMockvcCrypto(gomock.NewController(t))
 		cr.EXPECT().SignCredentialLDP(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
-		service := New(&Config{
+		service, err := New(&Config{
 			KMSRegistry:     kmRegistry,
 			VCStatusManager: vcStatusManager,
 			Crypto:          cr,
+			StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 		})
+		require.NoError(t, err)
 
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
@@ -310,11 +332,13 @@ func TestService_IssueCredential(t *testing.T) {
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
 
-		service := New(&Config{
+		service, err := New(&Config{
 			KMSRegistry:     kmRegistry,
 			VCStatusManager: vcStatusManager,
 			Crypto:          nil,
+			StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 		})
+		require.NoError(t, err)
 
 		verifiableCredentials, err := service.IssueCredential(
 			&verifiable.Credential{},
@@ -326,6 +350,43 @@ func TestService_IssueCredential(t *testing.T) {
 				}})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unknown signature format")
+		require.Nil(t, verifiableCredentials)
+	})
+	t.Run("Error store", func(t *testing.T) {
+		keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:trustblock:abc", keyID)
+		crypto := vccrypto.New(
+			&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
+
+		service, err := New(&Config{
+			VCStatusManager: mockVCStatusManager,
+			Crypto:          crypto,
+			KMSRegistry:     kmsRegistry,
+			StorageProvider: ariesprovider.New(&ariesmockstorage.MockStoreProvider{
+				Store: &ariesmockstorage.MockStore{
+					ErrPut: errors.New("some error"),
+				},
+			}),
+		})
+		require.NoError(t, err)
+
+		verifiableCredentials, err := service.IssueCredential(
+			&verifiable.Credential{},
+			nil,
+			&profileapi.Issuer{
+				VCConfig: &profileapi.VCConfig{
+					SigningAlgorithm:        vcs.JSONWebSignature2020,
+					SignatureRepresentation: verifiable.SignatureProofValue,
+					Format:                  vcs.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID:     didDoc.ID,
+					Creator: didDoc.VerificationMethod[0].ID,
+				}},
+		)
+		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
 }
