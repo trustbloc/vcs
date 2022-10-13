@@ -314,6 +314,7 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 		return "", nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
 
+	presentation.JWT = authResp.VPToken
 	if presentation.CustomFields == nil {
 		presentation.CustomFields = map[string]interface{}{}
 	}
