@@ -88,6 +88,15 @@ type IssueCredentialOptions struct {
 	VerificationMethod *string `json:"verificationMethod,omitempty"`
 }
 
+// Model for Pushed Authorization Response.
+type PushedAuthorizationResponse struct {
+	// A JSON number that represents the lifetime of the request URI in seconds as a positive integer. The request URI lifetime is at the discretion of the authorization server but will typically be relatively short (e.g., between 5 and 600 seconds).
+	ExpiresIn int `json:"expires_in"`
+
+	// The request URI corresponding to the authorization request posted. This URI is a single-use reference to the respective request data in the subsequent authorization request.
+	RequestUri string `json:"request_uri"`
+}
+
 // UpdateCredentialStatusRequest request struct for updating VC status.
 type UpdateCredentialStatusRequest struct {
 	CredentialID string `json:"credentialID"`
@@ -128,6 +137,9 @@ type ServerInterface interface {
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/interactions/initiate-oidc)
 	PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context, profileID string) error
+	// Pushed Authorization Request
+	// (POST /issuer/profiles/{profileID}/interactions/push-authorization-request)
+	PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest(ctx echo.Context, profileID string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -207,6 +219,22 @@ func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDInteractionsInitiate
 	return err
 }
 
+// PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest(ctx, profileID)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -239,5 +267,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)
 	router.POST(baseURL+"/issuer/profiles/:profileID/interactions/initiate-oidc", wrapper.PostIssuerProfilesProfileIDInteractionsInitiateOidc)
+	router.POST(baseURL+"/issuer/profiles/:profileID/interactions/push-authorization-request", wrapper.PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest)
 
 }

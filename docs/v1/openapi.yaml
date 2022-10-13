@@ -189,6 +189,37 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4VCRequest'
       tags:
         - issuer
+  '/issuer/profiles/{profileID}/interactions/push-authorization-request':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+    post:
+      summary: Pushed Authorization Request
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushedAuthorizationResponse'
+      operationId: post-issuer-profiles-profileID-interactions-push-authorization-request
+      description: Used by VCS OIDC public endpoints to push authorization requests (PAR) and to get request URI back for OIDC authorization request redirects.
+      parameters: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                authorization_details:
+                  type: string
+                op_state:
+                  type: string
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -291,10 +322,9 @@ paths:
           description: Sucess
         '500':
           description: Failure
-
   /oidc/par:
     post:
-      summary: Pushed Authorization Request
+      summary: OIDC Pushed Authorization Request
       tags:
         - oidc4vc
       responses:
@@ -358,11 +388,11 @@ paths:
         description: ''
   /oidc/authorize:
     get:
-      summary: Authorization Request
+      summary: OIDC Authorization Request
       responses:
         '302':
           description: Found
-          headers: { }
+          headers: {}
           content:
             application/x-www-form-urlencoded:
               schema:
@@ -439,10 +469,10 @@ paths:
           description: 'String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  op_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.'
       tags:
         - oidc4vc
-    parameters: [ ]
+    parameters: []
   /oidc/token:
     post:
-      summary: Token Request
+      summary: OIDC Token Request
       tags:
         - oidc4vc
       operationId: post-oidc-token
@@ -724,46 +754,6 @@ components:
           type: string
       required:
         - type
-    AuthorizationDetailsParam:
-      title: AuthorizationDetailsParam
-      x-tags:
-        - oidc4vc
-      type: object
-      description: Model for the credential details the wallet wants to obtain.
-      properties:
-        type:
-          type: string
-          description: JSON string that determines the authorization details type. MUST be set to openid_credential for this flow.
-        credential_type:
-          type: string
-          description: JSON string denoting the type of the requested Credential.
-        format:
-          type: string
-          description: JSON string representing a format in which the Credential is requested to be issued. Valid values defined by this flow are jwt_vc and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
-        locations:
-          description: An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
-          type: array
-          items:
-            type: string
-      required:
-        - type
-        - credential_type
-    PushedAuthorizationResponse:
-      title: PushedAuthorizationResponse
-      x-tags:
-        - oidc4vc
-      type: object
-      description: Model for Pushed Authorization Response.
-      properties:
-        request_uri:
-          type: string
-          description: The request URI corresponding to the authorization request posted. This URI is a single-use reference to the respective request data in the subsequent authorization request.
-        expires_in:
-          type: integer
-          description: 'A JSON number that represents the lifetime of the request URI in seconds as a positive integer. The request URI lifetime is at the discretion of the authorization server but will typically be relatively short (e.g., between 5 and 600 seconds).'
-      required:
-        - request_uri
-        - expires_in
     InitiateOIDC4VPData:
       title: InitiateOIDC4VPData
       type: object
@@ -783,37 +773,6 @@ components:
       required:
         - authorizationRequest
         - txID
-    AccessTokenResponse:
-      title: AccessTokenResponse
-      x-tags:
-        - oidc4vc
-      type: object
-      description: Model for Access Token Response.
-      properties:
-        access_token:
-          type: string
-          description: The access token issued by the authorization server.
-        token_type:
-          type: string
-          description: The type of the token issued.
-        expires_in:
-          type: integer
-          description: The lifetime in seconds of the access token.
-        refresh_token:
-          type: string
-          description: 'The refresh token, which can be used to obtain new access tokens.'
-        scope:
-          type: string
-          description: 'OPTIONAL, if identical to the scope requested by the client; otherwise, REQUIRED.'
-        c_nonce:
-          type: string
-          description: String containing a nonce to be used to create a proof of possession of key material when requesting a credential.
-        c_nonce_expires_in:
-          description: Integer denoting the lifetime in seconds of the c_nonce.
-          type: integer
-      required:
-        - access_token
-        - token_type
     InitiateOIDC4VCRequest:
       title: InitiateOIDC4VCRequest
       type: object
@@ -866,4 +825,51 @@ components:
         - tx_id
       x-tags:
         - issuer
-  securitySchemes: { }
+    PushedAuthorizationResponse:
+      title: PushedAuthorizationResponse
+      x-tags:
+        - oidc4vc
+      type: object
+      description: Model for Pushed Authorization Response.
+      properties:
+        request_uri:
+          type: string
+          description: The request URI corresponding to the authorization request posted. This URI is a single-use reference to the respective request data in the subsequent authorization request.
+        expires_in:
+          type: integer
+          description: 'A JSON number that represents the lifetime of the request URI in seconds as a positive integer. The request URI lifetime is at the discretion of the authorization server but will typically be relatively short (e.g., between 5 and 600 seconds).'
+      required:
+        - request_uri
+        - expires_in
+    AccessTokenResponse:
+      title: AccessTokenResponse
+      x-tags:
+        - oidc4vc
+      type: object
+      description: Model for Access Token Response.
+      properties:
+        access_token:
+          type: string
+          description: The access token issued by the authorization server.
+        token_type:
+          type: string
+          description: The type of the token issued.
+        expires_in:
+          type: integer
+          description: The lifetime in seconds of the access token.
+        refresh_token:
+          type: string
+          description: 'The refresh token, which can be used to obtain new access tokens.'
+        scope:
+          type: string
+          description: 'OPTIONAL, if identical to the scope requested by the client; otherwise, REQUIRED.'
+        c_nonce:
+          type: string
+          description: String containing a nonce to be used to create a proof of possession of key material when requesting a credential.
+        c_nonce_expires_in:
+          description: Integer denoting the lifetime in seconds of the c_nonce.
+          type: integer
+      required:
+        - access_token
+        - token_type
+  securitySchemes: {}

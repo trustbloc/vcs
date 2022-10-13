@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -639,71 +640,285 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 	})
 }
 
-func TestController_GetCredentialsStatus(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&profileapi.Issuer{}, nil)
+func TestController_PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest(t *testing.T) {
+	var (
+		mockProfileSvc = NewMockProfileService(gomock.NewController(t))
+		mockOIDC4VCSvc = NewMockOIDC4VCService(gomock.NewController(t))
+		c              echo.Context
+	)
 
-		mockVcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		mockVcStatusManager.EXPECT().GetCredentialStatusURL(
-			gomock.Any(),
-			gomock.Any(),
-			"testStatusId").Return("https://example.com", nil)
-		mockVcStatusManager.EXPECT().GetRevocationListVC("https://example.com").Return(&verifiable.Credential{}, nil)
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, err error)
+	}{
+		{
+			name: "Success",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID:      orgID,
+					ID:                  "profileID",
+					Active:              true,
+					OIDCConfig:          &profileapi.OIDC4VCConfig{},
+					VCConfig:            &profileapi.VCConfig{Format: vcsverifiable.Ldp},
+					CredentialTemplates: []*verifiable.Credential{},
+				}, nil)
 
-		controller := NewController(&Config{
-			ProfileSvc:      mockProfileSvc,
-			VcStatusManager: mockVcStatusManager,
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(1).
+					Return(&oidc4vc.PushedAuthorizationResponse{}, nil)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "Missing authorization",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(0)
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm),
+					withOrgID(""))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "missing authorization")
+			},
+		},
+		{
+			name: "Get profile error",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("get profile error"))
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "get profile error")
+			},
+		},
+		{
+			name: "Profile is not active",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         false,
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "profile should be active")
+			},
+		},
+		{
+			name: "OIDC is not configured",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "OIDC not configured")
+			},
+		},
+		{
+			name: "VC is not configured",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+					OIDCConfig:     &profileapi.OIDC4VCConfig{},
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "VC not configured")
+			},
+		},
+		{
+			name: "invalid authorization_details",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+					OIDCConfig:     &profileapi.OIDC4VCConfig{},
+					VCConfig:       &profileapi.VCConfig{Format: vcsverifiable.Ldp},
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", "invalid")
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid authorization_details.type",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+					OIDCConfig:     &profileapi.OIDC4VCConfig{},
+					VCConfig:       &profileapi.VCConfig{Format: vcsverifiable.Ldp},
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"invalid"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "type should be 'openid_credential'")
+			},
+		},
+		{
+			name: "invalid authorization_details.format",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+					OIDCConfig:     &profileapi.OIDC4VCConfig{},
+					VCConfig:       &profileapi.VCConfig{Format: vcsverifiable.Ldp},
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "unsupported vc format")
+			},
+		},
+		{
+			name: "format not supported by profile",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+					OIDCConfig:     &profileapi.OIDC4VCConfig{},
+					VCConfig:       &profileapi.VCConfig{Format: vcsverifiable.Jwt},
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(0)
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "format not supported by profile")
+			},
+		},
+		{
+			name: "service error",
+			setup: func() {
+				mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(&profileapi.Issuer{
+					OrganizationID: orgID,
+					ID:             "profileID",
+					Active:         true,
+					OIDCConfig:     &profileapi.OIDC4VCConfig{},
+					VCConfig:       &profileapi.VCConfig{Format: vcsverifiable.Ldp},
+				}, nil)
+
+				mockOIDC4VCSvc.EXPECT().HandlePAR(gomock.Any(), gomock.Any()).Times(1).
+					Return(nil, errors.New("service error"))
+
+				q := url.Values{}
+				q.Set("op_state", "eyJhbGciOiJSU0Et")
+				q.Set("authorization_details", `{"credential_type":"https://did.example.org/healthCard","locations":[],"type":"openid_credential"}`) //nolint:lll
+
+				c = echoContext(withRequestBody([]byte(q.Encode())), withContentType(echo.MIMEApplicationForm))
+			},
+			check: func(t *testing.T, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "service error")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			controller := NewController(&Config{
+				ProfileSvc:     mockProfileSvc,
+				OIDC4VCService: mockOIDC4VCSvc,
+			})
+
+			err := controller.PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest(c, "profileID")
+			tt.check(t, err)
 		})
-
-		c := echoContext()
-
-		err := controller.GetCredentialsStatus(c, "testId", "testStatusId")
-		require.NoError(t, err)
-	})
-
-	t.Run("Failed profile", func(t *testing.T) {
-		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(nil, errors.New("some error"))
-
-		controller := NewController(&Config{
-			ProfileSvc: mockProfileSvc,
-		})
-
-		c := echoContext()
-
-		err := controller.GetCredentialsStatus(c, "testId", "testStatusId")
-		require.Error(t, err)
-	})
-
-	t.Run("Failed credential status url", func(t *testing.T) {
-		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
-			Return(&profileapi.Issuer{}, nil)
-
-		mockVcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		mockVcStatusManager.EXPECT().GetCredentialStatusURL(
-			gomock.Any(),
-			gomock.Any(),
-			"testStatusId").Return("", errors.New("some error"))
-
-		controller := NewController(&Config{
-			ProfileSvc:      mockProfileSvc,
-			VcStatusManager: mockVcStatusManager,
-		})
-
-		c := echoContext()
-
-		err := controller.GetCredentialsStatus(c, "testId", "testStatusId")
-		require.Error(t, err)
-	})
+	}
 }
 
 type options struct {
 	orgID       string
 	requestBody []byte
+	contentType string
 }
 
 type contextOpt func(*options)
@@ -720,9 +935,16 @@ func withRequestBody(body []byte) contextOpt {
 	}
 }
 
+func withContentType(contentType string) contextOpt { //nolint:unparam
+	return func(o *options) {
+		o.contentType = contentType
+	}
+}
+
 func echoContext(opts ...contextOpt) echo.Context {
 	o := &options{
-		orgID: orgID,
+		orgID:       orgID,
+		contentType: echo.MIMEApplicationJSON,
 	}
 
 	for _, fn := range opts {
@@ -738,7 +960,7 @@ func echoContext(opts ...contextOpt) echo.Context {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/", body)
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	req.Header.Set(echo.HeaderContentType, o.contentType)
 
 	if o.orgID != "" {
 		req.Header.Set("X-User", o.orgID)

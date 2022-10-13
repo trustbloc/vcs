@@ -10,6 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 package issuer
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
@@ -60,6 +62,10 @@ type issueCredentialService interface {
 
 type oidc4VCService interface {
 	InitiateOIDCInteraction(req *oidc4vc.InitiateIssuanceRequest) (*oidc4vc.InitiateIssuanceInfo, error)
+	HandlePAR(
+		req *oidc4vc.PushedAuthorizationRequest,
+		profile *profileapi.Issuer,
+	) (*oidc4vc.PushedAuthorizationResponse, error)
 }
 
 type vcStatusManager interface {
@@ -265,6 +271,125 @@ func findCredentialTemplate(credentialTemplates []*verifiable.Credential, templa
 
 	return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
 		errors.New("credential template not found"))
+}
+
+// PushedAuthorizationRequest is a model for PAR.
+type PushedAuthorizationRequest struct {
+	AuthorizationDetails string `form:"authorization_details"`
+	OpState              string `form:"op_state"`
+}
+
+// PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest handles Pushed Authorization Request.
+// (POST /issuer/profiles/{profileID}/interactions/push-authorization-request).
+func (c *Controller) PostIssuerProfilesProfileIDInteractionsPushAuthorizationRequest(
+	ctx echo.Context,
+	profileID string,
+) error {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
+	if err != nil {
+		return err
+	}
+
+	var req PushedAuthorizationRequest
+
+	if err = ctx.Bind(&req); err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "request", err)
+	}
+
+	return util.WriteOutput(ctx)(c.handlePAR(req.AuthorizationDetails, req.OpState, profile))
+}
+
+func (c *Controller) handlePAR(
+	authorizationDetails string,
+	opState string,
+	profile *profileapi.Issuer,
+) (*PushedAuthorizationResponse, error) {
+	if !profile.Active {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.Active",
+			errors.New("profile should be active"))
+	}
+
+	if profile.OIDCConfig == nil {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.OIDCConfig",
+			errors.New("OIDC not configured"))
+	}
+
+	if profile.VCConfig == nil {
+		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.VCConfig",
+			errors.New("VC not configured"))
+	}
+
+	ad, err := validateAuthorizationDetails(authorizationDetails, profile)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.oidc4VCService.HandlePAR(&oidc4vc.PushedAuthorizationRequest{
+		AuthorizationDetails: ad,
+		OpState:              opState,
+	}, profile)
+	if err != nil {
+		return nil, resterr.NewSystemError("OIDC4VCService", "HandlePAR", err)
+	}
+
+	return &PushedAuthorizationResponse{
+		RequestUri: resp.RequestURI,
+	}, nil
+}
+
+// AuthorizationDetailsParam is a model for the credential details param the wallet wants to obtain.
+type AuthorizationDetailsParam struct {
+	Type           string    `json:"type"`
+	CredentialType string    `json:"credential_type"`
+	Format         *string   `json:"format,omitempty"`
+	Locations      *[]string `json:"locations,omitempty"`
+}
+
+func validateAuthorizationDetails(
+	authorizationDetails string,
+	profile *profileapi.Issuer,
+) (*oidc4vc.AuthorizationDetails, error) {
+	var param AuthorizationDetailsParam
+
+	if err := json.Unmarshal([]byte(authorizationDetails), &param); err != nil {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
+	}
+
+	if param.Type != "openid_credential" {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
+			errors.New("type should be 'openid_credential'"))
+	}
+
+	var (
+		vcFormat vcsverifiable.Format
+		err      error
+	)
+
+	if param.Format != nil {
+		vcFormat, err = common.ValidateVCFormat(common.VCFormat(*param.Format))
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
+		}
+
+		if vcFormat != profile.VCConfig.Format {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format",
+				errors.New("format not supported by profile"))
+		}
+	} else {
+		vcFormat = profile.VCConfig.Format
+	}
+
+	return &oidc4vc.AuthorizationDetails{
+		Type:           param.Type,
+		CredentialType: param.CredentialType, // TODO: Check if credential type is supported by the profile
+		Format:         vcFormat,
+		Locations:      lo.FromPtr(param.Locations),
+	}, nil
 }
 
 func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error) {

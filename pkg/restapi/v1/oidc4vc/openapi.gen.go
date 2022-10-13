@@ -82,13 +82,13 @@ type GetOidcAuthorizeParams struct {
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Authorization Request
+	// OIDC Authorization Request
 	// (GET /oidc/authorize)
 	GetOidcAuthorize(ctx echo.Context, params GetOidcAuthorizeParams) error
-	// Pushed Authorization Request
+	// OIDC Pushed Authorization Request
 	// (POST /oidc/par)
 	PostOidcPar(ctx echo.Context) error
-	// Token Request
+	// OIDC Token Request
 	// (POST /oidc/token)
 	PostOidcToken(ctx echo.Context) error
 }
