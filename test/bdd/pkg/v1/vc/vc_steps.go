@@ -27,7 +27,7 @@ const (
 	issuerProfileURLFormat          = issuerProfileURL + "/%s"
 	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
 	oidcProviderURL                 = "https://localhost:4444"
-	updateCredentialStatusURLFormat = credentialServiceURL + "/%s/credentials/status"
+	updateCredentialStatusURLFormat = issuerProfileURLFormat + "/credentials/status"
 )
 
 func getOrgAuthTokenKey(org string) string {
@@ -61,6 +61,10 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.issueVC)
 	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyVC)
+	s.Step(`^V1 verifiable credential is revoked under "([^"]*)" profile for organization "([^"]*)"$`,
+		e.revokeVC)
+	s.Step(`^V1 verifiable credential is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
+		e.verifyRevokedVC)
 	s.Step(`^"([^"]*)" users request to create a vc and verify it "([^"]*)" with profiles issuer "([^"]*)" verify "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
 		e.stressTestForMultipleUsers)
 
@@ -81,10 +85,10 @@ func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
 }
 
 type createVCParams struct {
-	IssuerProfile   string
-	Organization    string
-	Credential      string
-	VCFormat        string
+	IssuerProfile string
+	Organization  string
+	Credential    string
+	VCFormat      string
 }
 
 func (e *Steps) createCredentialsFromTable(table *godog.Table) error {

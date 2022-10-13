@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package didconfiguration -source=didconfiguration_service.go -mock_names kmsRegistry=MockKmsRegistry,verifierProfileService=MockVerifierProfileService,issuerProfileService=MockIssuerProfileService,issueCredentialService=MockIssueCredentialService
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package didconfiguration -source=didconfiguration_service.go -mock_names kmsRegistry=MockKmsRegistry,verifierProfileService=MockVerifierProfileService,issuerProfileService=MockIssuerProfileService,vcCrypto=MockVCCrypto
 
 package didconfiguration
 
@@ -43,13 +43,9 @@ type kmsRegistry interface {
 	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
 }
 
-type issueCredentialService interface {
-	Sign(
-		format vcsverifiable.Format,
-		signer *vc.Signer,
-		credential *verifiable.Credential,
-		issuerSigningOpts []crypto.SigningOpts,
-	) (*verifiable.Credential, error)
+type vcCrypto interface {
+	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
+		opts ...crypto.SigningOpts) (*verifiable.Credential, error)
 }
 
 type ProfileType string
@@ -60,17 +56,17 @@ const (
 )
 
 type Config struct {
-	VerifierProfileService  verifierProfileService
-	IssuerProfileService    issuerProfileService
-	IssuerCredentialService issueCredentialService
-	KmsRegistry             kmsRegistry
+	VerifierProfileService verifierProfileService
+	IssuerProfileService   issuerProfileService
+	Crypto                 vcCrypto
+	KmsRegistry            kmsRegistry
 }
 
 type Service struct {
-	verifierProfileService  verifierProfileService
-	issuerProfileService    issuerProfileService
-	issuerCredentialService issueCredentialService
-	kmsRegistry             kmsRegistry
+	verifierProfileService verifierProfileService
+	issuerProfileService   issuerProfileService
+	vcCrypto               vcCrypto
+	kmsRegistry            kmsRegistry
 }
 
 type DidConfiguration struct {
@@ -82,10 +78,10 @@ func New(
 	config *Config,
 ) *Service {
 	return &Service{
-		verifierProfileService:  config.VerifierProfileService,
-		issuerProfileService:    config.IssuerProfileService,
-		issuerCredentialService: config.IssuerCredentialService,
-		kmsRegistry:             config.KmsRegistry,
+		verifierProfileService: config.VerifierProfileService,
+		issuerProfileService:   config.IssuerProfileService,
+		vcCrypto:               config.Crypto,
+		kmsRegistry:            config.KmsRegistry,
 	}
 }
 
@@ -131,6 +127,7 @@ func (s *Service) DidConfig(
 		}
 
 		signer = &vc.Signer{
+			Format:        format,
 			DID:           profile.SigningDID.DID,
 			Creator:       profile.SigningDID.Creator,
 			SignatureType: profile.OIDCConfig.ROSigningAlgorithm,
@@ -160,6 +157,7 @@ func (s *Service) DidConfig(
 		}
 
 		signer = &vc.Signer{
+			Format:                  format,
 			DID:                     profile.SigningDID.DID,
 			Creator:                 profile.SigningDID.Creator,
 			SignatureType:           profile.VCConfig.SigningAlgorithm,
@@ -171,8 +169,7 @@ func (s *Service) DidConfig(
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",
 			errors.New("profileType should be verifier or issuer"))
 	}
-
-	cred, err := s.issuerCredentialService.Sign(format, signer, cred, nil)
+	cred, err := s.vcCrypto.SignCredential(signer, cred, []crypto.SigningOpts{}...)
 
 	if err != nil {
 		return nil, err

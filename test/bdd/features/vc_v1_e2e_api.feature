@@ -15,6 +15,8 @@ Feature: Using VC REST API
   Scenario Outline: Store, retrieve, verify credential and presentation using different kind of profiles
     Given   V1 New verifiable credential is created from "<credential>" in "<vcFormat>" format under "<issuerProfile>" profile for organization "<organization>" with signature representation "<signatureHolder>"
     And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "<organization>"
+    Then   V1 verifiable credential is revoked under "<issuerProfile>" profile for organization "<organization>"
+    And   V1 verifiable credential is unable to be verified under "<verifierProfile>" profile for organization "<organization>"
 
     Examples:
       | issuerProfile             | verifierProfile | organization | credential                      | vcFormat | signatureHolder |

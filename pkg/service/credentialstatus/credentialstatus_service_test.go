@@ -220,6 +220,103 @@ func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 }
 
 func TestCredentialStatusList_RevokeVC(t *testing.T) {
+	t.Run("UpdateVCStatus success", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		provider := ariesprovider.New(ariesmockstorage.NewMockStoreProvider())
+		s, err := New(provider, 2,
+			vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
+		require.NoError(t, err)
+
+		profile := getTestProfile()
+		status, err := s.CreateStatusID(profile, "localhost:8080/status")
+		require.NoError(t, err)
+
+		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+
+		cred.ID = credID
+		cred.Status = status
+		store, err := provider.OpenVCStore()
+		require.NoError(t, err)
+
+		err = store.Put("testprofile", cred)
+		require.NoError(t, err)
+
+		require.NoError(t, s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "true"))
+
+		revocationListVC, err := s.GetRevocationListVC(status.CustomFields[StatusListCredential].(string))
+		require.NoError(t, err)
+		revocationListIndex, err := strconv.Atoi(status.CustomFields[StatusListIndex].(string))
+		require.NoError(t, err)
+
+		credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
+		require.True(t, ok)
+		require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+		bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+		require.NoError(t, err)
+		bitSet, err := bitString.Get(revocationListIndex)
+		require.NoError(t, err)
+		require.True(t, bitSet)
+	})
+
+	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
+		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+			nil, nil)
+		require.NoError(t, err)
+
+		err = s.UpdateVCStatus(getTestProfile(), "testprofile", "testId", "true")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "data not found")
+	})
+
+	t.Run("UpdateVCStatus ParseCredential error", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		provider := ariesprovider.New(ariesmockstorage.NewMockStoreProvider())
+		s, err := New(provider, 2,
+			vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
+		require.NoError(t, err)
+
+		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+
+		cred.Context = append([]string{}, cred.Context[1:]...)
+		store, err := provider.OpenVCStore()
+		require.NoError(t, err)
+
+		err = store.Put("testprofile", cred)
+		require.NoError(t, err)
+
+		err = s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "true")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "verifiable credential is not valid")
+	})
+	t.Run("UpdateVCStatus ParseBool error", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		provider := ariesprovider.New(ariesmockstorage.NewMockStoreProvider())
+		s, err := New(provider, 2,
+			vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
+		require.NoError(t, err)
+
+		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		require.NoError(t, err)
+
+		store, err := provider.OpenVCStore()
+		require.NoError(t, err)
+
+		err = store.Put("testprofile", cred)
+		require.NoError(t, err)
+
+		err = s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "invalid")
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid syntax")
+	})
+
 	t.Run("test vc status not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
@@ -527,6 +624,7 @@ func TestPrepareSigningOpts(t *testing.T) {
 
 func getTestProfile() *vc.Signer {
 	return &vc.Signer{
+		Format:        vcsverifiable.Ldp,
 		DID:           "did:test:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",
@@ -536,6 +634,7 @@ func getTestProfile() *vc.Signer {
 
 func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
 	return &vc.Signer{
+		Format:        vcsverifiable.Ldp,
 		DID:           "did:test:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:test:abc#key1",

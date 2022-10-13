@@ -61,13 +61,14 @@ const (
 )
 
 type crypto interface {
-	SignCredentialLDP(dataProfile *vc.Signer, vc *verifiable.Credential,
+	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
 // Service implement spec https://w3c-ccg.github.io/vc-status-rl-2020/.
 type Service struct {
-	store          vcsstorage.CSLStore
+	cslStore       vcsstorage.CSLStore
+	vcStore        vcsstorage.VCStore
 	listSize       int
 	crypto         crypto
 	documentLoader ld.DocumentLoader
@@ -83,12 +84,17 @@ type credentialSubject struct {
 // New returns new Credential Status List.
 func New(provider vcsstorage.Provider, listSize int, c crypto,
 	loader ld.DocumentLoader) (*Service, error) {
-	store, err := provider.OpenCSLStore()
+	cslStore, err := provider.OpenCSLStore()
 	if err != nil {
 		return nil, err
 	}
 
-	return &Service{store: store, listSize: listSize, crypto: c, documentLoader: loader}, nil
+	vcStore, err := provider.OpenVCStore()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Service{cslStore: cslStore, vcStore: vcStore, listSize: listSize, crypto: c, documentLoader: loader}, nil
 }
 
 // CreateStatusID creates status ID.
@@ -104,7 +110,7 @@ func (s *Service) CreateStatusID(profile *vc.Signer,
 	cslWrapper.Size++
 	cslWrapper.RevocationListIndex++
 
-	if err = s.store.PutCSLWrapper(cslWrapper); err != nil {
+	if err = s.cslStore.PutCSLWrapper(cslWrapper); err != nil {
 		return nil, fmt.Errorf("failed to store csl in store: %w", err)
 	}
 
@@ -113,7 +119,7 @@ func (s *Service) CreateStatusID(profile *vc.Signer,
 
 		id++
 
-		if err := s.store.UpdateLatestListID(id); err != nil {
+		if err := s.cslStore.UpdateLatestListID(id); err != nil {
 			return nil, fmt.Errorf("failed to store latest list ID in store: %w", err)
 		}
 	}
@@ -127,6 +133,26 @@ func (s *Service) CreateStatusID(profile *vc.Signer,
 			StatusListCredential: cslWrapper.VC.ID,
 		},
 	}, nil
+}
+
+func (s *Service) UpdateVCStatus(signer *vc.Signer, profileName, credentialID, status string) error {
+	vcBytes, err := s.vcStore.Get(profileName, credentialID)
+	if err != nil {
+		return err
+	}
+
+	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+	if err != nil {
+		return err
+	}
+
+	statusValue, err := strconv.ParseBool(status)
+	if err != nil {
+		return err
+	}
+
+	return s.UpdateVC(credential, signer, statusValue)
 }
 
 // UpdateVC updates vc.
@@ -180,7 +206,7 @@ func (s *Service) UpdateVC(v *verifiable.Credential,
 	// remove all proofs because we are updating VC
 	cslWrapper.VC.Proofs = nil
 
-	signedCredential, err := s.crypto.SignCredentialLDP(profile, cslWrapper.VC, signOpts...)
+	signedCredential, err := s.crypto.SignCredential(profile, cslWrapper.VC, signOpts...)
 	if err != nil {
 		return err
 	}
@@ -192,7 +218,7 @@ func (s *Service) UpdateVC(v *verifiable.Credential,
 
 	cslWrapper.VCByte = signedCredentialBytes
 
-	return s.store.PutCSLWrapper(cslWrapper)
+	return s.cslStore.PutCSLWrapper(cslWrapper)
 }
 
 func (s *Service) GetCredentialStatusURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
@@ -233,7 +259,7 @@ func (s *Service) GetRevocationListVC(id string) (*verifiable.Credential, error)
 }
 
 func (s *Service) getCSLWrapper(id string) (*vcsstorage.CSLWrapper, error) {
-	cslWrapper, err := s.store.GetCSLWrapper(id)
+	cslWrapper, err := s.cslStore.GetCSLWrapper(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get csl from store: %w", err)
 	}
@@ -251,10 +277,10 @@ func (s *Service) getCSLWrapper(id string) (*vcsstorage.CSLWrapper, error) {
 func (s *Service) getLatestCSLWrapper(profile *vc.Signer,
 	url string) (*vcsstorage.CSLWrapper, error) {
 	// get latest id
-	id, err := s.store.GetLatestListID()
+	id, err := s.cslStore.GetLatestListID()
 	if err != nil { //nolint: nestif
 		if errors.Is(err, ariesstorage.ErrDataNotFound) {
-			if errPut := s.store.UpdateLatestListID(1); errPut != nil {
+			if errPut := s.cslStore.UpdateLatestListID(1); errPut != nil {
 				return nil, fmt.Errorf("failed to store latest list ID in store: %w", errPut)
 			}
 
@@ -341,12 +367,7 @@ func (s *Service) createVC(vcID string,
 		return nil, err
 	}
 
-	signedCredential, err := s.crypto.SignCredentialLDP(profile, credential, signOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return signedCredential, nil
+	return s.crypto.SignCredential(profile, credential, signOpts...)
 }
 
 // prepareSigningOpts prepares signing opts from recently issued proof of given credential.

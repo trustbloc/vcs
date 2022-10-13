@@ -27,6 +27,7 @@ type Signer struct {
 	Creator                 string
 	SignatureType           vcsverifiable.SignatureType
 	KeyType                 kms.KeyType
+	Format                  vcsverifiable.Format               // VC format - LDP/JWT.
 	SignatureRepresentation verifiable.SignatureRepresentation // For LDP only.
 	KMS                     keyManager
 }

@@ -275,10 +275,10 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	verifierv1.RegisterHandlers(e, verifierController)
 
 	didConfigSvc := didconfiguration.New(&didconfiguration.Config{
-		VerifierProfileService:  verifierProfileSvc,
-		IssuerProfileService:    issuerProfileSvc,
-		IssuerCredentialService: issueCredentialSvc,
-		KmsRegistry:             kmsRegistry,
+		VerifierProfileService: verifierProfileSvc,
+		IssuerProfileService:   issuerProfileSvc,
+		Crypto:                 vcCrypto,
+		KmsRegistry:            kmsRegistry,
 	})
 
 	if conf.StartupParameters.devMode {

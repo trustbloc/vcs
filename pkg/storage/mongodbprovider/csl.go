@@ -48,15 +48,13 @@ func (m *MongoDBCSLStore) PutCSLWrapper(cslWrapper *storage.CSLWrapper) error {
 	}
 
 	// Save space in the database by using the VC ID name as the MongoDB document _id field
-	// and removing the ID from the VC JSON.
+	// and removing the ID from the VC JSON-LD.
 	mongoDBDocument[mongoDBDocumentIDFieldName] = vcID
 
 	vcMap, ok := mongoDBDocument["vc"].(map[string]interface{})
-	if !ok {
-		return errors.New("prepared MongoDB document missing VC or couldn't be asserted as a map")
+	if ok {
+		delete(vcMap, idFieldName)
 	}
-
-	delete(vcMap, idFieldName)
 
 	filter := bson.M{mongoDBDocumentIDFieldName: cslWrapper.VC.ID}
 
@@ -73,11 +71,9 @@ func (m *MongoDBCSLStore) GetCSLWrapper(id string) (*storage.CSLWrapper, error) 
 	}
 
 	vcMap, ok := mongoDBDocument["vc"].(map[string]interface{})
-	if !ok {
-		return nil, errors.New("MongoDB document missing VC or couldn't be asserted as a map")
+	if ok {
+		vcMap[idFieldName] = mongoDBDocument[mongoDBDocumentIDFieldName]
 	}
-
-	vcMap[idFieldName] = mongoDBDocument[mongoDBDocumentIDFieldName]
 
 	cslWrapperBytes, err := json.Marshal(mongoDBDocument)
 	if err != nil {

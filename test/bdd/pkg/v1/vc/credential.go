@@ -27,11 +27,32 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 		return err
 	}
 
+	credBytes := e.bddContext.CreatedCredential
+	checkProof := true
+
 	if vcFormat == "jwt_vc" {
-		return nil
+		loader, err := bddutil.DocumentLoader()
+		if err != nil {
+			return fmt.Errorf("create document loader: %w", err)
+		}
+
+		cred, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		if err != nil {
+			return err
+		}
+
+		cred.JWT = ""
+
+		credBytes, err = cred.MarshalJSON()
+		if err != nil {
+			return fmt.Errorf("cred marshal error: %w", err)
+		}
+
+		checkProof = false
 	}
 
-	return e.checkVC(e.bddContext.CreatedCredential, profileName, signatureRepresentation)
+	return e.checkVC(credBytes, profileName, signatureRepresentation, checkProof)
 }
 
 func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profileName, organizationName string) error {
@@ -113,10 +134,40 @@ func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat stri
 }
 
 func (e *Steps) verifyVC(profileName, organizationName string) error {
-	return e.verifyCredential(credentialServiceURL, profileName, organizationName)
+	result, err := e.getVerificationResult(credentialServiceURL, profileName, organizationName)
+	if err != nil {
+		return err
+	}
+
+	if result.Checks != nil {
+		return fmt.Errorf("credential verification failed")
+	}
+
+	return nil
 }
 
-func (e *Steps) verifyCredential(verifyCredentialURL, profileName, organizationName string) error {
+func (e *Steps) verifyRevokedVC(profileName, organizationName string) error {
+	result, err := e.getVerificationResult(credentialServiceURL, profileName, organizationName)
+	if err != nil {
+		return err
+	}
+
+	checks := *result.Checks
+
+	expectedCheck := model.VerifyCredentialCheckResult{
+		Check:              "credentialStatus",
+		Error:              "revoked",
+		VerificationMethod: "",
+	}
+
+	if checks[0] != expectedCheck {
+		return fmt.Errorf("vc is not revoked. Cheks: %+v", checks)
+	}
+
+	return nil
+}
+
+func (e *Steps) revokeVC(profileName, organizationName string) error {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return err
@@ -132,22 +183,28 @@ func (e *Steps) verifyCredential(verifyCredentialURL, profileName, organizationN
 		return err
 	}
 
-	req := &model.VerifyCredentialData{
-		Credential: cred,
+	req := &model.UpdateCredentialStatusRequest{
+		CredentialID: cred.ID,
+		CredentialStatus: model.CredentialStatus{
+			Status: "true",
+			Type:   "StatusList2021Entry",
+		},
 	}
 
-	reqBytes, err := json.Marshal(req)
+	requestBytes, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifyCredentialURL, profileName)
+	endpointURL := fmt.Sprintf(updateCredentialStatusURLFormat, credentialServiceURL, profileName)
+
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
-		bytes.NewBuffer(reqBytes), e.tlsConfig)
+		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
 		return err
 	}
+
 	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
@@ -159,21 +216,64 @@ func (e *Steps) verifyCredential(verifyCredentialURL, profileName, organizationN
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	payload := map[string]interface{}{}
-
-	err = json.Unmarshal(respBytes, &payload)
-	if err != nil {
-		return err
-	}
-
-	if len(payload) > 0 {
-		return fmt.Errorf("credential verification failed")
-	}
-
 	return nil
 }
 
-func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation string) error {
+func (e *Steps) getVerificationResult(
+	verifyCredentialURL, profileName, organizationName string) (*model.VerifyCredentialResponse, error) {
+	loader, err := bddutil.DocumentLoader()
+	if err != nil {
+		return nil, err
+	}
+
+	e.RLock()
+	createdCredential := e.bddContext.CreatedCredential
+	e.RUnlock()
+
+	cred, err := verifiable.ParseCredential(createdCredential, verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(loader))
+	if err != nil {
+		return nil, err
+	}
+
+	req := &model.VerifyCredentialData{
+		Credential: cred,
+	}
+
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+
+	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifyCredentialURL, profileName)
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
+		bytes.NewBuffer(reqBytes), e.tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	}
+
+	payload := &model.VerifyCredentialResponse{}
+
+	err = json.Unmarshal(respBytes, &payload)
+	if err != nil {
+		return nil, err
+	}
+
+	return payload, nil
+}
+
+func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation string, checkProof bool) error {
 	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
 		return err
@@ -189,7 +289,11 @@ func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation str
 		return err
 	}
 
-	return e.checkSignatureHolder(vcMap, signatureRepresentation)
+	if checkProof {
+		return e.checkSignatureHolder(vcMap, signatureRepresentation)
+	}
+
+	return nil
 }
 
 func (e *Steps) checkSignatureHolder(vcMap map[string]interface{},
