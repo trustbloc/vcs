@@ -19,8 +19,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
-	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 const (
@@ -121,7 +122,7 @@ func DBParams(cmd *cobra.Command) (*DBParameters, error) {
 }
 
 // InitStore provider.
-func InitStore(params *DBParameters, logger log.Logger) (storage.Provider, error) {
+func InitStore(params *DBParameters, logger *log.Log) (storage.Provider, error) {
 	driver, url, err := parseURL(params.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse %s: %w", params.URL, err)
@@ -171,16 +172,15 @@ func parseURL(u string) (string, string, error) {
 	return driver, dsn, nil
 }
 
-func retry(task func() error, numRetries uint64, logger log.Logger) error {
+func retry(task func() error, numRetries uint64, logger *log.Log) error {
 	const sleep = 1 * time.Second
 
 	return backoff.RetryNotify(
 		task,
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), numRetries),
 		func(retryErr error, t time.Duration) {
-			logger.Warnf(
-				"failed to connect to storage, will sleep for %s before trying again : %s\n",
-				t, retryErr)
+			logger.Warn("Failed to connect to storage, will sleep before trying again.",
+				log.WithSleep(t), log.WithError(retryErr))
 		},
 	)
 }

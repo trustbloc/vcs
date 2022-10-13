@@ -14,9 +14,9 @@ import (
 	"strconv"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/tidwall/gjson"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
@@ -54,7 +54,7 @@ func (s *Steps) httpGet(url string) error {
 
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Errorf("Failed to close response body: %s\n", closeErr.Error())
+			logger.Error("Failed to close response body", log.WithError(closeErr))
 		}
 	}()
 

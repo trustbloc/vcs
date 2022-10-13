@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package vc_devapi
 
 import (
@@ -8,8 +14,8 @@ import (
 	"strconv"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
@@ -39,7 +45,7 @@ func (s *Steps) checkResponseStatus(status string) error {
 		return fmt.Errorf("invalid status: %w", err)
 	}
 
-	logger.Infof("checking response status %v", s.responseStatus)
+	logger.Info("Checking response status", log.WithHTTPStatus(s.responseStatus))
 
 	if s.responseStatus != code {
 		return fmt.Errorf("expected %d, got %d", code, s.responseStatus)
@@ -75,7 +81,7 @@ func (s *Steps) httpGet(url string, withAuth bool) error {
 
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Errorf("Failed to close response body: %s\n", closeErr.Error())
+			logger.Error("Failed to close response body", log.WithError(closeErr))
 		}
 	}()
 
@@ -87,7 +93,8 @@ func (s *Steps) httpGet(url string, withAuth bool) error {
 	s.responseBody = body
 	s.responseStatus = resp.StatusCode
 
-	logger.Infof("body : %v and status %v", string(body), s.responseStatus)
+	logger.Info("httpGet content", log.WithAdditionalMessage(fmt.Sprintf("body: %s", string(body))),
+		log.WithHTTPStatus(s.responseStatus))
 
 	return nil
 }

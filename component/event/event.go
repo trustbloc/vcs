@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package event
 
 import (
-	"encoding/json"
-
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
@@ -27,15 +26,10 @@ func Initialize(cfg Config) (*Bus, error) {
 }
 
 func handleEvent(e *spi.Event) error {
-	eventBytes, err := json.Marshal(e)
-	if err != nil {
-		return err
-	}
-
 	// TODO add logic to handle events needed to reach webhook
 
 	// if event not need to reach webhook we just log it
-	logger.Infof("Event: %s\n", eventBytes) //nolint: forbidigo
+	logger.Info("handling event", log.WithEvent(e))
 
 	return nil
 }

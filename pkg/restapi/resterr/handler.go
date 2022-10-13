@@ -7,17 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package resterr
 
 import (
+	"fmt"
 	"net/http"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/labstack/echo/v4"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("rest-err")
 
 func HTTPErrorHandler(err error, c echo.Context) {
 	code, message := processError(err)
-	logger.Errorf("%s -> [%d] %s", c.Request().RequestURI, code, message)
+	logger.Error("HTTP Error Handler", log.WithHostURL(c.Request().RequestURI), log.WithHTTPStatus(code),
+		log.WithAdditionalMessage(fmt.Sprintf("%s", message)))
 	sendResponse(c, code, message)
 }
 
@@ -25,13 +28,13 @@ func sendResponse(c echo.Context, code int, message interface{}) {
 	var err error
 	if !c.Response().Committed {
 		if c.Request().Method == http.MethodHead {
-			logger.Errorf("head error msg: %v", message)
+			logger.Error("head error msg", log.WithError(fmt.Errorf("%v", message)))
 			err = c.NoContent(code)
 		} else {
 			err = c.JSON(code, message)
 		}
 		if err != nil {
-			logger.Errorf("write http response: %s", err.Error())
+			logger.Error("write http response", log.WithError(err))
 		}
 	}
 }

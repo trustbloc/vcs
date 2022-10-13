@@ -17,11 +17,11 @@ import (
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
-	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/oidc/vp"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
@@ -307,7 +307,7 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 		}
 	}
 
-	logger.Infof("Starting vc-rest server on host %s", conf.StartupParameters.hostURL)
+	logger.Info("Starting vc-rest server on host", log.WithHostURL(conf.StartupParameters.hostURL))
 
 	if conf.StartupParameters.tlsParameters.serveKeyPath != "" &&
 		conf.StartupParameters.tlsParameters.serveCertPath != "" {

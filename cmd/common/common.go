@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package common
 
-import "github.com/trustbloc/edge-core/pkg/log"
+import "github.com/trustbloc/vcs/internal/pkg/log"
 
 const (
 	// LogLevelFlagName is the flag name used for setting the default log level.
@@ -22,19 +22,20 @@ const (
 )
 
 // SetDefaultLogLevel sets the default log level.
-func SetDefaultLogLevel(logger log.Logger, userLogLevel string) {
+func SetDefaultLogLevel(logger *log.Log, userLogLevel string) {
 	logLevel, err := log.ParseLevel(userLogLevel)
 	if err != nil {
-		logger.Warnf(`%s is not a valid logging level. It must be one of the following: `+
-			log.ParseString(log.CRITICAL)+", "+
-			log.ParseString(log.ERROR)+", "+
-			log.ParseString(log.WARNING)+", "+
-			log.ParseString(log.INFO)+", "+
-			log.ParseString(log.DEBUG)+". Defaulting to info.", userLogLevel)
+		logger.Warn(`User log level is not a valid. It must be one of the following: `+
+			log.PANIC.String()+", "+
+			log.FATAL.String()+", "+
+			log.ERROR.String()+", "+
+			log.WARNING.String()+", "+
+			log.INFO.String()+", "+
+			log.DEBUG.String()+". Defaulting to info.", log.WithUserLogLevel(userLogLevel))
 
 		logLevel = log.INFO
 	} else if logLevel == log.DEBUG {
-		logger.Infof(`Log level set to "debug". Performance may be adversely impacted.`)
+		logger.Info(`Log level set to "debug". Performance may be adversely impacted.`)
 	}
 
 	log.SetLevel("", logLevel)

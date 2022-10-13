@@ -13,8 +13,9 @@ import (
 	"time"
 
 	"github.com/greenpau/go-calculator"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("vc-steps")
@@ -93,7 +94,7 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 		return err
 	}
 
-	logger.Infof("userReq :%d concurrencyReq: %d", totalRequests, concurrencyReq)
+	logger.Info("Multi users test", log.WithTotalRequests(totalRequests), log.WithConcurrencyRequests(concurrencyReq))
 
 	createPool := bddutil.NewWorkerPool(concurrencyReq, logger)
 
@@ -116,7 +117,7 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 
 	createPool.Stop()
 
-	logger.Infof("got created vc %d responses for %d requests", len(createPool.Responses()), totalRequests)
+	logger.Info("Got vc requests and created responses", log.WithResponses(len(createPool.Responses())), log.WithTotalRequests(totalRequests))
 
 	if len(createPool.Responses()) != totalRequests {
 		return fmt.Errorf("expecting created key store %d responses but got %d", totalRequests, len(createPool.Responses()))
