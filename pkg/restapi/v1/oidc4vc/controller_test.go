@@ -7,9 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc_test
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
@@ -28,6 +31,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
+	oidc4vcapi "github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
 const (
@@ -57,6 +61,113 @@ var store = &storage.MemoryStore{
 	RefreshTokenRequestIDs: map[string]string{},
 	IssuerPublicKeys:       map[string]storage.IssuerPublicKeys{},
 	PARSessions:            map[string]fosite.AuthorizeRequester{},
+}
+
+func TestPushedAuthorizedRequest(t *testing.T) {
+	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+
+	srv := testServer(t, withOIDC4VCService(mockOIDC4VCService))
+	defer srv.Close()
+
+	var (
+		oauthClient *oauth2.Config
+		ad          string
+	)
+
+	tests := []struct {
+		name       string
+		setup      func()
+		statusCode int
+	}{
+		{
+			name: "success",
+			setup: func() {
+				oauthClient = newOAuth2Client(srv.URL)
+
+				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(oidc4vcapi.TxID("txID"), nil)
+
+				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}` //nolint:lll
+			},
+			statusCode: http.StatusCreated,
+		},
+		{
+			name: "service error",
+			setup: func() {
+				oauthClient = newOAuth2Client(srv.URL)
+
+				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(oidc4vcapi.TxID(""), errors.New("service error"))
+			},
+			statusCode: http.StatusInternalServerError,
+		},
+		{
+			name: "invalid client",
+			setup: func() {
+				oauthClient = newOAuth2Client(srv.URL, withClientID("invalid-client"))
+				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","locations":[]}` //nolint:lll
+			},
+			statusCode: http.StatusUnauthorized,
+		},
+		{
+			name: "fail to unmarshal authorization_details",
+			setup: func() {
+				oauthClient = newOAuth2Client(srv.URL)
+				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				ad = "invalid json"
+			},
+			statusCode: http.StatusInternalServerError,
+		},
+		{
+			name: "invalid authorization_details.type",
+			setup: func() {
+				oauthClient = newOAuth2Client(srv.URL)
+				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				ad = `{"type":"invalid","credential_type":"https://did.example.org/healthCard","locations":[]}`
+			},
+			statusCode: http.StatusInternalServerError,
+		},
+		{
+			name: "invalid authorization_details.format",
+			setup: func() {
+				oauthClient = newOAuth2Client(srv.URL)
+				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[]}` //nolint:lll
+			},
+			statusCode: http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			query := url.Values{}
+			query.Set("client_id", oauthClient.ClientID)
+			query.Set("client_secret", oauthClient.ClientSecret)
+			query.Set("response_type", "code")
+			query.Set("state", nonce())
+			query.Set("scope", strings.Join(oauthClient.Scopes, " "))
+			query.Set("redirect_uri", oauthClient.RedirectURL)
+			query.Set("authorization_details", ad)
+
+			req, err := http.NewRequest(http.MethodPost, srv.URL+"/oidc/par", strings.NewReader(query.Encode()))
+			require.NoError(t, err)
+
+			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			defer func() {
+				if closeErr := resp.Body.Close(); closeErr != nil {
+					t.Logf("Failed to close response body: %s", closeErr)
+				}
+			}()
+
+			require.Equal(t, tt.statusCode, resp.StatusCode)
+		})
+	}
 }
 
 func TestAuthorizeRequest(t *testing.T) {
@@ -177,66 +288,11 @@ func TestTokenRequest(t *testing.T) {
 	}
 }
 
-func TestPushedAuthorizedRequest(t *testing.T) {
-	srv := testServer(t)
-	defer srv.Close()
-
-	var oauthClient *oauth2.Config
-
-	tests := []struct {
-		name       string
-		setup      func()
-		statusCode int
-	}{
-		{
-			name: "success",
-			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL)
-			},
-			statusCode: http.StatusCreated,
-		},
-		{
-			name: "invalid client",
-			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL, withClientID("invalid-client"))
-			},
-			statusCode: http.StatusUnauthorized,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
-
-			query := url.Values{}
-			query.Set("client_id", oauthClient.ClientID)
-			query.Set("client_secret", oauthClient.ClientSecret)
-			query.Set("response_type", "code")
-			query.Set("state", nonce())
-			query.Set("scope", strings.Join(oauthClient.Scopes, " "))
-			query.Set("redirect_uri", oauthClient.RedirectURL)
-
-			// pushed authorization request
-			req, err := http.NewRequest(http.MethodPost, srv.URL+"/oidc/par", strings.NewReader(query.Encode()))
-			require.NoError(t, err)
-
-			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-			resp, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-
-			defer func() {
-				if closeErr := resp.Body.Close(); closeErr != nil {
-					t.Logf("Failed to close response body: %s", closeErr)
-				}
-			}()
-
-			require.Equal(t, tt.statusCode, resp.StatusCode)
-		})
-	}
-}
-
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
-	srv := testServer(t)
+	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	srv := testServer(t, withOIDC4VCService(mockOIDC4VCService))
 	defer srv.Close()
 
 	oauthClient := newOAuth2Client(srv.URL)
@@ -281,7 +337,10 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 }
 
 func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
-	srv := testServer(t)
+	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Return(oidc4vcapi.TxID("txID"), nil)
+
+	srv := testServer(t, withOIDC4VCService(mockOIDC4VCService))
 	defer srv.Close()
 
 	oauthClient := newOAuth2Client(srv.URL)
@@ -293,9 +352,11 @@ func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
 	query.Set("state", nonce())
 	query.Set("scope", strings.Join(oauthClient.Scopes, " "))
 	query.Set("redirect_uri", oauthClient.RedirectURL)
+	query.Set("authorization_details", `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","locations":[]}`) //nolint:lll
 
 	// pushed authorization request
-	req, err := http.NewRequest(http.MethodPost, srv.URL+"/oidc/par", strings.NewReader(query.Encode()))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/oidc/par",
+		strings.NewReader(query.Encode()))
 	require.NoError(t, err)
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -335,11 +396,45 @@ func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// TODO: exchange authorization code for access token using oauthClient.Exchange() method
+	_, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	// exchange authorization code for access token
+	token, err := oauthClient.Exchange(
+		context.Background(),
+		resp.Request.URL.Query().Get("code"),
+		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
+	)
+	require.NoError(t, err)
+	require.NotEmpty(t, token.AccessToken)
 }
 
-func testServer(t *testing.T) *httptest.Server {
+type oidc4VCService interface {
+	HandlePAR(ctx context.Context, opState string, ad *oidc4vcapi.AuthorizationDetails) (oidc4vcapi.TxID, error)
+}
+
+// serverOptions to customize test server.
+type serverOptions struct {
+	oidc4VCService oidc4VCService
+}
+
+// ServerOpt configures test server options.
+type ServerOpt func(options *serverOptions)
+
+func withOIDC4VCService(svc oidc4VCService) ServerOpt {
+	return func(o *serverOptions) {
+		o.oidc4VCService = svc
+	}
+}
+
+func testServer(t *testing.T, opts ...ServerOpt) *httptest.Server {
 	t.Helper()
+
+	op := &serverOptions{}
+
+	for _, fn := range opts {
+		fn(op)
+	}
 
 	e := echo.New()
 
@@ -364,7 +459,10 @@ func testServer(t *testing.T) *httptest.Server {
 		compose.PushedAuthorizeHandlerFactory,
 	)
 
-	controller, err := oidc4vc.NewController(&oidc4vc.Config{OAuth2Provider: oauth2Provider})
+	controller, err := oidc4vc.NewController(&oidc4vc.Config{
+		OAuth2Provider: oauth2Provider,
+		OIDC4VCService: op.oidc4VCService,
+	})
 	require.NoError(t, err)
 
 	oidc4vc.RegisterHandlers(e, controller)
@@ -406,22 +504,22 @@ func testServer(t *testing.T) *httptest.Server {
 	return srv
 }
 
-// options to customize OAuth2 client.
-type options struct {
+// clientOptions to customize OAuth2 client.
+type clientOptions struct {
 	clientID string
 }
 
-// Opt configures OAuth2 client options.
-type Opt func(*options)
+// ClientOpt configures OAuth2 client options.
+type ClientOpt func(*clientOptions)
 
-func withClientID(clientID string) Opt {
-	return func(o *options) {
+func withClientID(clientID string) ClientOpt {
+	return func(o *clientOptions) {
 		o.clientID = clientID
 	}
 }
 
-func newOAuth2Client(serverURL string, opts ...Opt) *oauth2.Config {
-	op := &options{
+func newOAuth2Client(serverURL string, opts ...ClientOpt) *oauth2.Config {
+	op := &clientOptions{
 		clientID: testClientID,
 	}
 
