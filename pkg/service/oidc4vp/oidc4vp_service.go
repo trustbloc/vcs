@@ -205,17 +205,19 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(vp, nil, profile)
 	if err != nil {
-		return fmt.Errorf("presentation verification failed %w", err)
+		return fmt.Errorf("presentation verification failed: %w", err)
 	}
 
 	if len(vr) > 0 {
-		return fmt.Errorf("presentation verification failed %s", vr[0].Error)
+		return fmt.Errorf("presentation verification failed: %s", vr[0].Error)
 	}
 
 	return s.extractClaimData(tx, vp, profile)
 }
 
 func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation, profile *profileapi.Verifier) error {
+	// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
+	vp.JWT = ""
 	credentials, err := tx.PresentationDefinition.Match(vp, s.documentLoader,
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),

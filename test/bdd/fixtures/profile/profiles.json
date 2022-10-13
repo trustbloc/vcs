@@ -227,7 +227,7 @@
               "ldp",
               "jwt"
             ],
-            "proof": false
+            "proof": true
           }
         },
         "oidcConfig": {
@@ -271,8 +271,7 @@
                 "purpose": "We can only hire with bachelor degree.",
                 "schema": [
                   {
-                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential",
-                    "required": false
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
                   }
                 ],
                 "constraints": {
@@ -313,13 +312,52 @@
             ],
             "proof": true,
             "status": false
+          },
+          "presentation": {
+            "format": [
+              "ldp",
+              "jwt"
+            ],
+            "proof": true
           }
         },
         "oidcConfig": {
           "roSigningAlgorithm": "JsonWebSignature2020",
           "keyType": "ECDSAP256DER",
           "didMethod": "orb"
-        }
+        },
+        "presentationDefinitions": [
+          {
+            "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
+            "input_descriptors": [
+              {
+                "id": "degree",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type",
+                        "$.vc.credentialSubject.degree.type"
+                      ],
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
       },
       "createDID": true,
       "didDomain": "https://testnet.orb.local",

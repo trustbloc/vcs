@@ -62,14 +62,19 @@ func (s *Service) VerifyPresentation(
 	presentation *verifiable.Presentation,
 	opts *Options,
 	profile *profileapi.Verifier) ([]PresentationVerificationCheckResult, error) {
-	vpBytes, err := json.Marshal(presentation)
-	if err != nil {
-		return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
-	}
-
 	var result []PresentationVerificationCheckResult
 
 	if profile.Checks.Presentation.Proof {
+		vpBytes := []byte(presentation.JWT)
+		var err error
+
+		if presentation.JWT == "" {
+			vpBytes, err = json.Marshal(presentation)
+			if err != nil {
+				return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
+			}
+		}
+
 		err = s.validatePresentationProof(vpBytes, opts)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
@@ -80,7 +85,7 @@ func (s *Service) VerifyPresentation(
 	}
 
 	if profile.Checks.Credential.Proof {
-		err = s.validateCredentialsProof(presentation)
+		err := s.validateCredentialsProof(presentation)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -90,7 +95,7 @@ func (s *Service) VerifyPresentation(
 	}
 
 	if profile.Checks.Credential.Status {
-		err = s.validateCredentialsStatus(presentation)
+		err := s.validateCredentialsStatus(presentation)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -113,8 +118,10 @@ func (s *Service) validatePresentationProof(vpBytes []byte, opts *Options) error
 	if err != nil {
 		return fmt.Errorf("verifiable presentation proof validation error : %w", err)
 	}
-
-	return s.validateProofData(vp, opts)
+	if vp.JWT == "" {
+		return s.validateProofData(vp, opts)
+	}
+	return nil
 }
 
 func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) error {

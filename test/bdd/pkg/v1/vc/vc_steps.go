@@ -82,11 +82,9 @@ func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
 
 type createVCParams struct {
 	IssuerProfile   string
-	VerifierProfile string
 	Organization    string
 	Credential      string
 	VCFormat        string
-	SignatureHolder string
 }
 
 func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
