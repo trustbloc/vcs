@@ -7,7 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package file
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -35,6 +39,18 @@ var signatureTypeToDidVerificationMethod = map[vcsverifiable.SignatureType]strin
 	vcsverifiable.ES256:  crypto.JSONWebKey2020,
 	vcsverifiable.ES384:  crypto.JSONWebKey2020,
 	vcsverifiable.PS256:  crypto.JSONWebKey2020,
+}
+
+type uniRegistrarRequest struct {
+	DIDDocument *json.RawMessage `json:"didDocument,omitempty"`
+}
+
+type uniRegistrarResponse struct {
+	DIDDocumentMetadata didDocumentMetadata `json:"didDocumentMetadata,omitempty"`
+}
+
+type didDocumentMetadata struct {
+	LongFormDid string `json:"longFormDid,omitempty"`
 }
 
 // createResult contains created did, update and recovery keys.
@@ -76,6 +92,7 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 		profileapi.KeyDIDMethod: c.keyDID,
 		profileapi.OrbDIDMethod: c.createDID,
 		profileapi.WebDIDMethod: c.webDID,
+		"ion":                   c.ionDID,
 	}
 
 	methodFn, supported := methods[method]
@@ -195,6 +212,61 @@ func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, key
 		creator:        creator,
 		updateKeyURL:   r.updateKeyURL,
 		recoveryKeyURL: r.recoveryKeyURL,
+	}, nil
+}
+
+func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
+	km KeysCreator, didDomain string) (*createResult, error) {
+	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
+	if err != nil {
+		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)
+	}
+
+	vm := verMethod[0]
+	vm.ID = "#" + vm.ID
+
+	didDoc := &did.Doc{
+		VerificationMethod: []did.VerificationMethod{*vm},
+		AssertionMethod:    []did.Verification{{VerificationMethod: did.VerificationMethod{ID: vm.ID}}},
+	}
+
+	b, err := didDoc.JSONBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	a := json.RawMessage(b)
+
+	req, err := json.Marshal(uniRegistrarRequest{DIDDocument: &a})
+
+	// TODO https://github.com/hyperledger/aries-framework-go-ext/issues/288
+	resp, err := http.DefaultClient.Post("https://uniregistrar.io/1.0/create?method=ion", "application/json", bytes.NewReader(req))
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if errClose := resp.Body.Close(); errClose != nil {
+			fmt.Println(err.Error())
+		}
+	}()
+
+	payload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body failed: %w", err)
+	}
+
+	uniRegistrarResponse := &uniRegistrarResponse{}
+
+	if err := json.Unmarshal(payload, uniRegistrarResponse); err != nil {
+		return nil, err
+	}
+
+	longFormDID := strings.ReplaceAll(uniRegistrarResponse.DIDDocumentMetadata.LongFormDid, "test:", "")
+
+	return &createResult{
+		didID:   longFormDID,
+		creator: longFormDID + vm.ID,
 	}, nil
 }
 
