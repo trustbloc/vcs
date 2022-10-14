@@ -17,9 +17,9 @@ import (
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
-	"github.com/trustbloc/edge-core/pkg/log"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
+	"github.com/trustbloc/vcs/internal/pkg/log" //nolint:typecheck
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -119,7 +119,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 			}
 		}
 
-		logger.Infof("create issuer profile successfully %s", v.Data.ID)
+		logger.Info("create issuer profile successfully", log.WithID(v.Data.ID))
 
 		r.issuers[v.Data.ID] = v.Data
 	}
@@ -188,7 +188,7 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 			}
 		}
 
-		logger.Infof("create verifier profile successfully %s", v.Data.ID)
+		logger.Info("create verifier profile successfully", log.WithID(v.Data.ID))
 
 		r.verifiers[v.Data.ID] = v.Data
 	}

@@ -14,10 +14,10 @@ import (
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
+	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
-
-	"github.com/trustbloc/vcs/cmd/common"
 )
 
 // kms params
@@ -109,7 +109,6 @@ const (
 	databasePrefixEnvKey    = "DATABASE_PREFIX"
 	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		commonEnvVarUsageText + databasePrefixEnvKey
-
 
 	// remote JSON-LD context provider url flag.
 	contextProviderFlagName  = "context-provider-url"
@@ -236,7 +235,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	if err != nil {
 		return nil, err
 	}
-
 
 	kmsParams, err := getKMSParameters(cmd)
 	if err != nil {
@@ -448,7 +446,7 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 		case splitRequestTokenLength:
 			tokens[split[0]] = split[1]
 		default:
-			logger.Warnf("invalid token '%s'", token)
+			logger.Warn("invalid token", log.WithToken(token))
 		}
 	}
 

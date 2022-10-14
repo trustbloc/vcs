@@ -16,7 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
-	"github.com/trustbloc/edge-core/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("vcs-revocation-service")
@@ -100,13 +101,13 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 	defer func() {
 		err = resp.Body.Close()
 		if err != nil {
-			logger.Warnf("failed to close response body")
+			logger.Warn("failed to close response body")
 		}
 	}()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		logger.Warnf("failed to read response body for status %d: %s", resp.StatusCode, err)
+		logger.Warn("Unable to read response", log.WithHTTPStatus(resp.StatusCode), log.WithError(err))
 	}
 
 	if resp.StatusCode != status {

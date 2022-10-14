@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 const (
@@ -99,7 +99,7 @@ func (s *Service) buildInitiateIssuanceURL(ctx context.Context, req *InitiateIss
 	} else if req.ClientWellKnownURL != "" {
 		c, err := s.fetchWellKnownConfig(ctx, req.ClientWellKnownURL)
 		if err != nil {
-			logger.Errorf("Failed to fetch well-known config: %s", err)
+			logger.Error("Failed to fetch well-known config", log.WithError(err))
 		} else {
 			initiateIssuanceURL = c.InitiateIssuanceEndpoint
 		}
@@ -134,7 +134,7 @@ func (s *Service) fetchWellKnownConfig(ctx context.Context, url string) (*wellKn
 
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Errorf("Failed to close response body: %s", closeErr)
+			logger.Error("Failed to close response body: %s", log.WithError(closeErr))
 		}
 	}()
 

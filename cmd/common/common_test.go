@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 const testLogModuleName = "test"

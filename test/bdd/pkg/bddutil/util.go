@@ -28,9 +28,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	"github.com/trustbloc/edge-core/pkg/log"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("bddutil")
@@ -179,7 +180,7 @@ func AreEqualJSON(b1, b2 []byte) (bool, error) {
 func CloseResponseBody(respBody io.Closer) {
 	err := respBody.Close()
 	if err != nil {
-		logger.Errorf("Failed to close response body: %s", err.Error())
+		logger.Error("Failed to close response body", log.WithError(err))
 	}
 }
 

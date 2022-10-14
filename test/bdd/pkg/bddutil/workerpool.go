@@ -9,7 +9,7 @@ package bddutil
 import (
 	"sync"
 
-	"github.com/trustbloc/edge-core/pkg/log"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 // Request is a request that's submitted to the worker pool for processing.
@@ -32,11 +32,11 @@ type WorkerPool struct {
 	wgResp    sync.WaitGroup
 	wg        *sync.WaitGroup
 	responses []*Response
-	logger    log.Logger
+	logger    *log.Log
 }
 
 // NewWorkerPool returns a new worker pool with the given number of workers.
-func NewWorkerPool(num int, logger log.Logger) *WorkerPool {
+func NewWorkerPool(num int, logger *log.Log) *WorkerPool {
 	reqChan := make(chan Request)
 	respChan := make(chan *Response)
 	workers := make([]*worker, num)
@@ -73,19 +73,19 @@ func (p *WorkerPool) Start() {
 func (p *WorkerPool) Stop() {
 	close(p.reqChan)
 
-	p.logger.Infof("Waiting %d for workers to finish...", len(p.workers))
+	p.logger.Info("Waiting for workers to finish...", log.WithWorkers(len(p.workers)))
 
 	p.wg.Wait()
 
-	p.logger.Infof("... all %d workers finished.", len(p.workers))
+	p.logger.Info("... all workers finished.", log.WithWorkers(len(p.workers)))
 
 	close(p.respChan)
 
-	p.logger.Infof("Waiting for listener to finish...")
+	p.logger.Info("Waiting for listener to finish...")
 
 	p.wgResp.Wait()
 
-	p.logger.Infof("... listener finished.")
+	p.logger.Info("... listener finished.")
 }
 
 // Submit submits a request for processing.
@@ -103,7 +103,7 @@ func (p *WorkerPool) listen() {
 		p.responses = append(p.responses, resp)
 	}
 
-	p.logger.Infof("Exiting listener")
+	p.logger.Info("Exiting listener")
 
 	p.wgResp.Done()
 }

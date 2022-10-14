@@ -11,9 +11,9 @@ import (
 	"crypto/tls"
 	"sync"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/spf13/cobra"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/lifecycle"
 )
@@ -82,15 +82,15 @@ func (b *Bus) IsConnected() bool {
 }
 
 func (b *Bus) stop() {
-	logger.Infof("stopping publisher/subscriber...")
+	logger.Info("stopping publisher/subscriber...")
 
 	b.doneChan <- struct{}{}
 
-	logger.Debugf("... waiting for publisher to stop...")
+	logger.Debug("... waiting for publisher to stop...")
 
 	<-b.doneChan
 
-	logger.Debugf("... closing subscriber channels...")
+	logger.Debug("... closing subscriber channels...")
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -103,7 +103,7 @@ func (b *Bus) stop() {
 
 	b.subscribers = nil
 
-	logger.Infof("... publisher/subscriber stopped.")
+	logger.Info("... publisher/subscriber stopped.")
 }
 
 // Subscribe subscribes to a topic and returns the Go channel over which messages
@@ -113,7 +113,7 @@ func (b *Bus) Subscribe(_ context.Context, topic string, _ ...spi.Option) (<-cha
 		return nil, lifecycle.ErrNotStarted
 	}
 
-	logger.Debugf("subscribing to topic [%s]", topic)
+	logger.Debug("subscribing to topic", log.WithTopic(topic))
 
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
@@ -155,7 +155,7 @@ func (b *Bus) processMessages() {
 		case <-b.doneChan:
 			b.doneChan <- struct{}{}
 
-			logger.Debugf("... publisher has stopped")
+			logger.Debug("... publisher has stopped")
 
 			return
 		}
@@ -168,7 +168,7 @@ func (b *Bus) publish(entry *entry) {
 	b.mutex.RUnlock()
 
 	if len(subscribers) == 0 {
-		logger.Debugf("no subscribers for topic [%s]", entry.topic)
+		logger.Debug("no subscribers for topic", log.WithTopic(entry.topic))
 
 		return
 	}
@@ -177,7 +177,7 @@ func (b *Bus) publish(entry *entry) {
 		for _, m := range entry.messages {
 			msg := m.Copy()
 
-			logger.Debugf("publishing message [%s]", msg)
+			logger.Debug("publishing message", log.WithEvent(msg))
 
 			subscriber <- msg
 		}

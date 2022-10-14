@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/lifecycle"
 )
@@ -43,7 +44,7 @@ func NewEventSubscriber(sub eventSubscriber, topic string, handler eventHandler)
 		lifecycle.WithStart(h.start),
 	)
 
-	logger.Debugf("subscribing to topic: %s", topic)
+	logger.Debug("subscribing to topic", log.WithTopic(topic))
 
 	ch, err := sub.Subscribe(context.Background(), topic)
 	if err != nil {
@@ -60,18 +61,18 @@ func (h *Subscriber) start() {
 }
 
 func (h *Subscriber) listen() {
-	logger.Debugf("starting event listener...")
+	logger.Debug("starting event listener...")
 
 	for { //nolint:gosimple
 		select {
 		case e, ok := <-h.eventChan:
 			if !ok {
-				logger.Infof("event channel closed")
+				logger.Info("event channel closed")
 
 				return
 			}
 
-			logger.Debugf("received new event[%s]: %s", e.ID, string(*e.Data))
+			logger.Debug("received new event", log.WithID(e.ID), log.WithEvent(e))
 
 			h.handleEvent(e)
 		}
@@ -79,10 +80,10 @@ func (h *Subscriber) listen() {
 }
 
 func (h *Subscriber) handleEvent(e *spi.Event) {
-	logger.Debugf("handling event [%s]: %s", e.ID, string(*e.Data))
+	logger.Debug("handling subscriber event ", log.WithID(e.ID), log.WithEvent(e))
 
 	err := h.handler(e)
 	if err != nil {
-		logger.Errorf("failed to handle event[%s]: %s", e.ID, err.Error())
+		logger.Error("failed to handle event", log.WithID(e.ID), log.WithError(err))
 	}
 }

@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vp"
@@ -93,11 +93,11 @@ func beforeSuiteHook() {
 
 	dockerComposeUp := []string{"docker-compose", "-f", composeFilePath, "up", "--force-recreate", "-d"}
 
-	logger.Infof("Running %s", strings.Join(dockerComposeUp, " "))
+	logger.Info("Running ", log.WithDockerComposeCmd(strings.Join(dockerComposeUp, " ")))
 
 	cmd := exec.Command(dockerComposeUp[0], dockerComposeUp[1:]...) //nolint:gosec
 	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Fatalf("%s: %s", err.Error(), string(out))
+		logger.Fatal(fmt.Sprintf("%s: %s", err.Error(), string(out)))
 	}
 
 	testSleep := 60
@@ -105,14 +105,15 @@ func beforeSuiteHook() {
 	if os.Getenv("TEST_SLEEP") != "" {
 		s, err := strconv.Atoi(os.Getenv("TEST_SLEEP"))
 		if err != nil {
-			logger.Errorf("invalid 'TEST_SLEEP' value: %w", err)
+			logger.Error("invalid 'TEST_SLEEP'", log.WithError(err))
 		} else {
 			testSleep = s
 		}
 	}
 
-	logger.Infof("*** testSleep=%d\n\n", testSleep)
-	time.Sleep(time.Second * time.Duration(testSleep))
+	sleepD := time.Second * time.Duration(testSleep)
+	logger.Info("*** testSleep", log.WithSleep(sleepD))
+	time.Sleep(sleepD)
 }
 
 func afterSuiteHook() {
@@ -122,11 +123,11 @@ func afterSuiteHook() {
 
 	dockerComposeDown := []string{"docker-compose", "-f", composeFilePath, "down"}
 
-	logger.Infof("Running %s", strings.Join(dockerComposeDown, " "))
+	logger.Info(fmt.Sprintf("Running %s", strings.Join(dockerComposeDown, " ")))
 
 	cmd := exec.Command(dockerComposeDown[0], dockerComposeDown[1:]...) //nolint:gosec
 	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Fatalf("%s: %s", err.Error(), string(out))
+		logger.Fatal(fmt.Sprintf("%s: %s", err.Error(), string(out)))
 	}
 }
 

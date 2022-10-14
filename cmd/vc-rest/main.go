@@ -23,9 +23,9 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	"github.com/trustbloc/edge-core/pkg/log"
 
 	"github.com/trustbloc/vcs/cmd/vc-rest/startcmd"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("vc-rest")
@@ -41,6 +41,6 @@ func main() {
 	rootCmd.AddCommand(startcmd.GetStartCmd())
 
 	if err := rootCmd.Execute(); err != nil {
-		logger.Fatalf("Failed to run vc-rest: %s", err.Error())
+		logger.Fatal("Failed to run vc-rest", log.WithError(err))
 	}
 }

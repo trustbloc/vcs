@@ -10,9 +10,8 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/trustbloc/edge-core/pkg/log"
-
 	orberrors "github.com/trustbloc/orb/pkg/errors"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("lifecycle")
@@ -84,16 +83,16 @@ func New(name string, opts ...Opt) *Lifecycle {
 // Start starts the service.
 func (h *Lifecycle) Start() {
 	if !atomic.CompareAndSwapUint32(&h.state, StateNotStarted, StateStarting) {
-		logger.Debugf("[%s] Service already started", h.name)
+		logger.Debug("Service already started", log.WithName(h.name))
 
 		return
 	}
 
-	logger.Debugf("[%s] Starting service ...", h.name)
+	logger.Debug("Starting service ...", log.WithName(h.name))
 
 	h.start()
 
-	logger.Debugf("[%s] ... service started", h.name)
+	logger.Debug("... service started", log.WithName(h.name))
 
 	atomic.StoreUint32(&h.state, StateStarted)
 }
@@ -101,16 +100,16 @@ func (h *Lifecycle) Start() {
 // Stop stops the service.
 func (h *Lifecycle) Stop() {
 	if !atomic.CompareAndSwapUint32(&h.state, StateStarted, StateStopped) {
-		logger.Debugf("[%s] Service already stopped", h.name)
+		logger.Debug("Service already stopped", log.WithName(h.name))
 
 		return
 	}
 
-	logger.Debugf("[%s] Stopping service ...", h.name)
+	logger.Debug("Stopping service ...", log.WithName(h.name))
 
 	h.stop()
 
-	logger.Debugf("[%s] ... service stopped", h.name)
+	logger.Debug("... service stopped", log.WithName(h.name))
 }
 
 // State returns the state of the service.

@@ -12,7 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 func TestDBParams(t *testing.T) {

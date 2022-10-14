@@ -22,13 +22,13 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
-	"github.com/trustbloc/edge-core/pkg/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 const (
@@ -162,7 +162,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
 		"--" + requestTokensFlagName, "token1=tk1", "--" + requestTokensFlagName, "token2=tk2",
-		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ParseString(log.ERROR),
+		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ERROR.String(),
 		"--" + contextEnableRemoteFlagName, "true",
 		"--" + profilePathFlag, file.Name(),
 		"--" + databaseURLFlagName, mongoDBConnString,
