@@ -56,9 +56,11 @@ func TestStandardFields(t *testing.T) {
 
 		id := "123"
 		name := "Joe"
+		command := "some command"
 		topic := "some topic"
 		msg := "Some message"
 		hostURL := "https://localhost:8080"
+		responseBody := "response body"
 		token := "someToken"
 		totalRequests := 10
 		responses := 9
@@ -86,9 +88,11 @@ func TestStandardFields(t *testing.T) {
 			WithUserLogLevel(DEBUG.String()),
 			WithID(id),
 			WithName(name),
+			WithCommand(command),
 			WithTopic(topic),
 			WithAdditionalMessage(msg),
 			WithHostURL(hostURL),
+			WithResponseBody(responseBody),
 			WithToken(token),
 			WithTotalRequests(totalRequests),
 			WithResponses(responses),
@@ -109,9 +113,11 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, `DEBUG`, l.UserLogLevel)
 		require.Equal(t, id, l.ID)
 		require.Equal(t, name, l.Name)
+		require.Equal(t, command, l.Command)
 		require.Equal(t, topic, l.Topic)
 		require.Equal(t, msg, l.Msg)
 		require.Equal(t, hostURL, l.HostURL)
+		require.Equal(t, responseBody, l.ResponseBody)
 		require.Equal(t, token, l.Token)
 		require.Equal(t, totalRequests, l.TotalRequests)
 		require.Equal(t, responses, l.Responses)
@@ -155,9 +161,11 @@ type logData struct {
 	UserLogLevel        string      `json:"userLogLevel"`
 	ID                  string      `json:"id"`
 	Name                string      `json:"name"`
+	Command             string      `json:"command"`
 	Topic               string      `json:"topic"`
 	AdditionalMessage   string      `json:"additionalMessage"`
 	HostURL             string      `json:"hostURL"`
+	ResponseBody        string      `json:"responseBody"`
 	Token               string      `json:"token"`
 	TotalRequests       int         `json:"totalRequests"`
 	Responses           int         `json:"responses"`

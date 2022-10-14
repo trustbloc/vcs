@@ -134,7 +134,7 @@ func (s *Service) fetchWellKnownConfig(ctx context.Context, url string) (*wellKn
 
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Error("Failed to close response body: %s", log.WithError(closeErr))
+			logger.Error("Failed to close response body", log.WithError(closeErr))
 		}
 	}()
 
