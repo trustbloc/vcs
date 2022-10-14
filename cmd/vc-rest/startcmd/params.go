@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
 	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/internal/pkg/log"
+	cmdutils "github.com/trustbloc/vcs/internal/pkg/utils/cmd"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 )

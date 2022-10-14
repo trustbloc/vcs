@@ -20,11 +20,13 @@ fi
 }
 
 # Running vcs unit tests
+echo "vcs unit tests..."
 PKGS=`go list github.com/trustbloc/vcs/... 2> /dev/null | \
                                                   grep -v /mocks`
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
-
+echo "... done"
+echo "vc-rest unit tests..."
 # Running vc-rest unit tests
 cd cmd/vc-rest
 PKGS=`go list github.com/trustbloc/vcs/cmd/vc-rest/... 2> /dev/null | \
@@ -34,9 +36,13 @@ amend_coverage_file
 cd "$pwd"
 
 # Running event unit tests
+echo "... done"
+echo "event unit tests..."
 cd component/event
 PKGS=`go list github.com/trustbloc/vcs/component/event/... 2> /dev/null | \
                                                  grep -v /mocks`
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+
+echo "... done all unit-tests"
 cd "$pwd"
