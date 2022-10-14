@@ -97,7 +97,7 @@ func beforeSuiteHook() {
 
 	cmd := exec.Command(dockerComposeUp[0], dockerComposeUp[1:]...) //nolint:gosec
 	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Fatal(fmt.Sprintf("%s: %s", err.Error(), string(out)))
+		logger.Fatal("bdd test beforeSuiteHook", log.WithCommand(string(out)), log.WithError(err))
 	}
 
 	testSleep := 60
@@ -127,7 +127,7 @@ func afterSuiteHook() {
 
 	cmd := exec.Command(dockerComposeDown[0], dockerComposeDown[1:]...) //nolint:gosec
 	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Fatal(fmt.Sprintf("%s: %s", err.Error(), string(out)))
+		logger.Fatal("bdd test afterSuiteHook", log.WithCommand(string(out)), log.WithError(err))
 	}
 }
 

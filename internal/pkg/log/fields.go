@@ -18,7 +18,9 @@ const (
 	FieldUserLogLevel        = "userLogLevel"
 	FieldID                  = "id"
 	FieldName                = "name"
+	FieldCommand             = "command"
 	FieldHTTPStatus          = "httpStatus"
+	FieldResponseBody        = "responseBody"
 	FieldTopic               = "topic"
 	FieldAdditionalMessage   = "additionalMessage"
 	FieldHostURL             = "hostURL"
@@ -71,9 +73,19 @@ func WithName(name string) zap.Field {
 	return zap.String(FieldName, name)
 }
 
+// WithCommand sets the command field.
+func WithCommand(command string) zap.Field {
+	return zap.String(FieldCommand, command)
+}
+
 // WithHTTPStatus sets the http-status field.
 func WithHTTPStatus(value int) zap.Field {
 	return zap.Int(FieldHTTPStatus, value)
+}
+
+// WithResponseBody sets the response body field.
+func WithResponseBody(value string) zap.Field {
+	return zap.String(FieldResponseBody, value)
 }
 
 // WithTopic sets the topic field.
