@@ -316,7 +316,7 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 		return "", nil, err
 	}
 
-	logger.Infof("authresp vp token: ", authResp.IDToken)
+	logger.Infof("authresp vp token: ", authResp.VPToken)
 
 	vpTokenClaims, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
