@@ -154,7 +154,8 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registr
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom || method == didMethodORB || method == didMethodKey
+		method == didMethodWeb || method == didMethodFactom || method == didMethodORB ||
+		method == didMethodKey || method == didMethodION
 }
 
 func createJSONLDDocumentLoader(ldStore *ld.StoreProvider, rootCAs *x509.CertPool,
