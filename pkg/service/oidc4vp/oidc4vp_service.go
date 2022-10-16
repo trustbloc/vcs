@@ -22,6 +22,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -29,6 +30,8 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
+
+var logger = log.New("oidc4vp-service")
 
 var ErrDataNotFound = errors.New("data not found")
 
@@ -202,6 +205,13 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}
 
+	vpBytes, err := vp.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	logger.Info("vp string: %s", log.WithJSON(string(vpBytes)))
+
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(vp, nil, profile)
 	if err != nil {
@@ -209,7 +219,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 	}
 
 	if len(vr) > 0 {
-		return fmt.Errorf("presentation verification failed: %s", vr[0].Error)
+		return fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
 	}
 
 	return s.extractClaimData(tx, vp, profile)
