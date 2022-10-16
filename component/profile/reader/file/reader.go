@@ -17,9 +17,9 @@ import (
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
-	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
-	"github.com/trustbloc/vcs/internal/pkg/log" //nolint:typecheck
+	"github.com/trustbloc/vcs/internal/pkg/log"                //nolint:typecheck
+	cmdutils "github.com/trustbloc/vcs/internal/pkg/utils/cmd" //nolint:typecheck
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )

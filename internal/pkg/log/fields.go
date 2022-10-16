@@ -35,6 +35,7 @@ const (
 	FieldSleep               = "sleep"
 	FieldEvent               = "event"
 	FieldDockerComposeCmd    = "dockerComposeCmd"
+	FieldCertPoolSize        = "certPoolSize"
 )
 
 // ObjectMarshaller uses reflection to marshal an object's fields.
@@ -156,4 +157,8 @@ func WithEvent(event interface{}) zap.Field {
 // WithDockerComposeCmd sets the docker compose command field.
 func WithDockerComposeCmd(cmd string) zap.Field {
 	return zap.String(FieldDockerComposeCmd, cmd)
+}
+
+func WithCertPoolSize(poolSize int) zap.Field {
+	return zap.Int(FieldCertPoolSize, poolSize)
 }

@@ -19,9 +19,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/spf13/cobra"
-	cmdutils "github.com/trustbloc/edge-core/pkg/utils/cmd"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
+	cmdutils "github.com/trustbloc/vcs/internal/pkg/utils/cmd"
 )
 
 const (

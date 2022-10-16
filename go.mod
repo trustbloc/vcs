@@ -32,7 +32,6 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.0
-	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372
 	github.com/trustbloc/kms v0.1.9-0.20220927102932-412f152996fa
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b
 	go.mongodb.org/mongo-driver v1.10.0
@@ -145,6 +144,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
+	github.com/trustbloc/edge-core v0.1.8 // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

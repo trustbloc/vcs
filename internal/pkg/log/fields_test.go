@@ -82,6 +82,7 @@ func TestStandardFields(t *testing.T) {
 			"--force-recreate",
 			"-d",
 		}, " ")
+		certPoolSize := 3
 
 		logger.Info("Some message",
 			WithHTTPStatus(http.StatusNotFound),
@@ -104,6 +105,7 @@ func TestStandardFields(t *testing.T) {
 			WithSleep(sleep),
 			WithEvent(event),
 			WithDockerComposeCmd(dockerComposeCmd),
+			WithCertPoolSize(certPoolSize),
 		)
 
 		t.Logf(stdOut.String())
@@ -129,6 +131,7 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, sleep.String(), l.Sleep)
 		require.Equal(t, event, l.Event)
 		require.Equal(t, dockerComposeCmd, l.DockerComposeCmd)
+		require.Equal(t, certPoolSize, l.CertPoolSize)
 	})
 
 	t.Run("json fields 2", func(t *testing.T) {
@@ -177,6 +180,7 @@ type logData struct {
 	Sleep               string      `json:"sleep"`
 	Event               *mockObject `json:"event"`
 	DockerComposeCmd    string      `json:"dockerComposeCmd"`
+	CertPoolSize        int         `json:"certPoolSize"`
 }
 
 func unmarshalLogData(t *testing.T, b []byte) *logData {
