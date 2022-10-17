@@ -48,6 +48,7 @@ type transactionManager interface {
 	CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
+	Get(txID TxID) (*Transaction, error)
 }
 
 type requestObjectPublicStore interface {
@@ -106,6 +107,11 @@ type Config struct {
 
 	RedirectURL   string
 	TokenLifetime time.Duration
+}
+
+type CredentialMetadata struct {
+	Type        string      `json:"type"`
+	SubjectData interface{} `json:"subjectData"`
 }
 
 type Service struct {
@@ -225,6 +231,27 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 	}
 
 	return s.extractClaimData(tx, vp, profile)
+}
+
+func (s *Service) GetTx(id TxID) (*Transaction, error) {
+	return s.transactionManager.Get(id)
+}
+
+func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata {
+	result := map[string]CredentialMetadata{}
+
+	for _, cred := range tx.ReceivedClaims.Credentials {
+		credType := "ldp"
+		if cred.JWT != "" {
+			credType = "jwt"
+		}
+		result[cred.ID] = CredentialMetadata{
+			Type:        credType,
+			SubjectData: cred.Subject,
+		}
+	}
+
+	return result
 }
 
 func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation, profile *profileapi.Verifier) error {

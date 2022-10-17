@@ -32,9 +32,11 @@ Feature: Using OIDC4VP REST API
     And Wallet verify authorization request and decode claims
     And Wallet looks for credential that match authorization
     And Wallet send authorization response
+    And Verifier form organization "test_org" requests interactions claims
 
   Scenario: Initiate, check authorization response for jwt verifier
     Given OIDC4VP interaction initiated under "v_myprofile_jwt" profile for organization "test_org"
     And Wallet verify authorization request and decode claims
     And Wallet looks for credential that match authorization
     And Wallet send authorization response
+    And Verifier form organization "test_org" requests interactions claims

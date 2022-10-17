@@ -17,10 +17,12 @@ import (
 )
 
 const (
-	credentialServiceURL             = "https://localhost:4455"
-	verifierProfileURL               = credentialServiceURL + "/verifier/profiles"
-	verifierProfileURLFormat         = verifierProfileURL + "/%s"
-	initiateOidcInteractionURLFormat = verifierProfileURLFormat + "/interactions/initiate-oidc"
+	credentialServiceURL               = "https://localhost:4455"
+	oidc4vpWebhookURL                  = "http://localhost:8180/checktopics"
+	verifierProfileURL                 = credentialServiceURL + "/verifier/profiles"
+	verifierProfileURLFormat           = verifierProfileURL + "/%s"
+	initiateOidcInteractionURLFormat   = verifierProfileURLFormat + "/interactions/initiate-oidc"
+	retrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
 
 func getOrgAuthTokenKey(org string) string {
@@ -39,6 +41,7 @@ type Steps struct {
 	walletDidID          string
 	walletDidKeyID       string
 	authorizationRequest string
+	transactionID        string
 	requestPresentation  *verifiable.Presentation
 	requestObject        *RequestObject
 }
@@ -59,6 +62,8 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^User saves credentials into wallet$`, e.saveCredentialsInWallet)
 	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.initiateInteraction)
+	s.Step(`^Verifier form organization "([^"]*)" requests interactions claims$`,
+		e.retrieveInteractionsClaim)
 
 	s.Step(`^Wallet verify authorization request and decode claims$`, e.verifyAuthorizationRequestAndDecodeClaims)
 	s.Step("^Wallet looks for credential that match authorization$", e.queryCredentialFromWallet)

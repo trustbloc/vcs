@@ -42,6 +42,15 @@ services:
     networks:
       - bdd_net
 
+  vcs.webhook.example.com:
+    container_name: vcs.webhook.example.com
+    image: ${SAMPLE_WEBHOOK_IMAGE}:${SAMPLE_WEBHOOK_IMAGE_TAG}
+    environment:
+      - WEBHOOK_PORT=8180
+    ports:
+      - 8180:8180
+    networks:
+      - bdd_net
 
   aws-kms:
     container_name: aws-kms

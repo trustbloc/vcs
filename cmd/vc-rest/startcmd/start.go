@@ -244,7 +244,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader: conf.DocumentLoader,
 		VDR:            conf.VDR,
 	})
-	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient)
+	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, conf.DocumentLoader)
 	oidcNonceStore := oidcnoncestore.New(mongodbClient)
 	requestObjStore := requestobjectstore.NewStore(mongodbClient)
 	//TODO: add parameter to specify live time of interaction request object

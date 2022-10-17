@@ -8,6 +8,7 @@ VC_REST_PATH=cmd/vc-rest
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
+WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 MOCK_VERSION 	?=v1.6.0
 
 # OpenAPI spec
@@ -60,8 +61,21 @@ vc-rest-docker: generate
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
+.PHONY: sample-webhook
+sample-webhook:
+	@echo "Building sample webhook server"
+	@mkdir -p ./build/bin
+	@go build -o ./build/bin/webhook-server test/bdd/webhook/main.go
+
+.PHONY: sample-webhook-docker
+sample-webhook-docker:
+	@echo "Building sample webhook server docker image"
+	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(WEBHOOK_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) .
+
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker generate-test-keys
+bdd-test: clean vc-rest-docker sample-webhook-docker generate-test-keys
 	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test

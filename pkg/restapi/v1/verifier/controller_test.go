@@ -796,6 +796,92 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	})
 }
 
+func TestController_RetrieveInteractionsClaim(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+			Times(1).Return(&oidc4vp.Transaction{
+			ProfileID: "p1",
+		}, nil)
+
+		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{})
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+			Return(&profileapi.Verifier{
+				ID:             "p1",
+				OrganizationID: "orgID1",
+				Checks:         verificationChecks,
+			}, nil)
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		require.NoError(t, err)
+	})
+
+	t.Run("Tx not fount", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+			Times(1).Return(nil, oidc4vp.ErrDataNotFound)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		requireValidationError(t, resterr.DoesntExist, "txID", err)
+	})
+
+	t.Run("Get Tx system error", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+			Times(1).Return(nil, errors.New("system error"))
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		requireSystemError(t, "oidc4vp.Service", "GetTx", err)
+	})
+
+	t.Run("GetProfile failed", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+			Times(1).Return(&oidc4vp.Transaction{
+			ProfileID: "p1",
+		}, nil)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+			Return(nil, errors.New("data not found"))
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		requireValidationError(t, resterr.DoesntExist, "profile", err)
+	})
+}
+
 func TestController_validateAuthorizationResponse(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		body := "vp_token=toke1&" +
@@ -1160,6 +1246,9 @@ func TestController_AuthFailed(t *testing.T) {
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
 		err := controller.InitiateOidcInteraction(c, "testId")
+		requireAuthError(t, err)
+
+		err = controller.RetrieveInteractionsClaim(c, "testId")
 		requireAuthError(t, err)
 	})
 

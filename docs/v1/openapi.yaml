@@ -322,6 +322,29 @@ paths:
           description: Sucess
         '500':
           description: Failure
+
+  '/verifier/interactions/{txID}/claim':
+    parameters:
+      - schema:
+          type: string
+        name: txID
+        in: path
+        required: true
+        description: ID of transaction
+    get:
+      summary: Used by verifier applications to get claims obtained during oidc4vp interaction.
+      operationId: retrieve-interactions-claim
+      tags:
+        - verifier
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                description: 'JSON claim containing credential subject'
+
   /oidc/par:
     post:
       summary: OIDC Pushed Authorization Request

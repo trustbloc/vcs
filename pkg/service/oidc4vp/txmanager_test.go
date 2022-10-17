@@ -157,6 +157,19 @@ func TestTxManager_Get(t *testing.T) {
 
 		require.Contains(t, err.Error(), "test error 333")
 	})
+
+	t.Run("Fail Get 2", func(t *testing.T) {
+		store := NewMockTxStore(gomock.NewController(t))
+		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(nil, oidc4vp.ErrDataNotFound)
+
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, 100*time.Second)
+
+		_, err := manager.Get("txID")
+
+		require.Contains(t, err.Error(), "data not found")
+	})
 }
 
 func TestTxManagerStoreReceivedClaims(t *testing.T) {

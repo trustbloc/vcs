@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp_test
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,6 +40,13 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
+)
+
+var (
+	//go:embed testdata/university_degree.jsonld
+	sampleVCJsonLD string
+	//go:embed testdata/university_degree.jwt
+	sampleVCJWT string
 )
 
 func TestService_InitiateOidcInteraction(t *testing.T) {
@@ -309,6 +317,67 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		err := withError.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
 
 		require.Contains(t, err.Error(), "store error")
+	})
+}
+
+func TestService_GetTx(t *testing.T) {
+	txManager := NewMockTransactionManager(gomock.NewController(t))
+	txManager.EXPECT().Get(oidc4vp.TxID("test")).Times(1).Return(&oidc4vp.Transaction{
+		ProfileID: "testP1",
+	}, nil)
+
+	svc := oidc4vp.NewService(&oidc4vp.Config{
+		TransactionManager: txManager,
+	})
+
+	t.Run("Success", func(t *testing.T) {
+		tx, err := svc.GetTx("test")
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Equal(t, "testP1", tx.ProfileID)
+	})
+}
+
+func TestService_RetrieveClaims(t *testing.T) {
+	svc := oidc4vp.NewService(&oidc4vp.Config{})
+	loader := testutil.DocumentLoader(t)
+
+	t.Run("Success JWT", func(t *testing.T) {
+		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
+			verifiable.WithJSONLDDocumentLoader(loader),
+			verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+
+		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
+				"id": jwtvc,
+			}}})
+
+		require.NotNil(t, claims)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]verifiable.Subject)
+
+		require.True(t, ok)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
+	})
+
+	t.Run("Success JsonLD", func(t *testing.T) {
+		ldvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
+			verifiable.WithJSONLDDocumentLoader(loader),
+			verifiable.WithDisabledProofCheck())
+
+		require.NoError(t, err)
+
+		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
+				"id": ldvc,
+			}}})
+
+		require.NotNil(t, claims)
+		subjects, ok := claims["http://example.gov/credentials/3732"].SubjectData.([]verifiable.Subject)
+
+		require.True(t, ok)
+		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
 	})
 }
 

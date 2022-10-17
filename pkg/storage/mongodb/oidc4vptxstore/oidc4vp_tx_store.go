@@ -7,10 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vptxstore
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	jsonld "github.com/piprate/json-gold/ld"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -27,21 +30,22 @@ type txDocument struct {
 	ID                     primitive.ObjectID     `bson:"_id,omitempty"`
 	ProfileID              string                 `bson:"profileIDID"`
 	PresentationDefinition map[string]interface{} `bson:"presentationDefinition"`
-	ReceivedClaims         map[string]interface{} `bson:"receivedClaims"`
+	ReceivedClaims         map[string][]byte      `bson:"receivedClaims"`
 }
 
 type txUpdateDocument struct {
-	ReceivedClaims interface{} `bson:"receivedClaims"`
+	ReceivedClaims map[string][]byte `bson:"receivedClaims"`
 }
 
 // TxStore manages profile in mongodb.
 type TxStore struct {
-	mongoClient *mongodb.Client
+	mongoClient    *mongodb.Client
+	documentLoader jsonld.DocumentLoader
 }
 
 // NewTxStore creates TxStore.
-func NewTxStore(mongoClient *mongodb.Client) *TxStore {
-	return &TxStore{mongoClient: mongoClient}
+func NewTxStore(mongoClient *mongodb.Client, documentLoader jsonld.DocumentLoader) *TxStore {
+	return &TxStore{mongoClient: mongoClient, documentLoader: documentLoader}
 }
 
 // Create creates transaction document in a database.
@@ -95,7 +99,7 @@ func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 		return nil, fmt.Errorf("tx find failed: %w", err)
 	}
 
-	return txFromDocument(txDoc)
+	return txFromDocument(txDoc, p.documentLoader)
 }
 
 func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
@@ -109,12 +113,14 @@ func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
 		return err
 	}
 
-	var receivedClaims map[string]interface{}
+	receivedClaims := map[string][]byte{}
 
 	if update.ReceivedClaims != nil {
-		receivedClaims, err = mongodb.StructureToMap(update.ReceivedClaims)
-		if err != nil {
-			return fmt.Errorf("update tx doc: encode received claims %w", err)
+		for key, cred := range update.ReceivedClaims.Credentials {
+			receivedClaims[key], err = json.Marshal(cred)
+			if err != nil {
+				return fmt.Errorf("update tx doc: encode received claims %w", err)
+			}
 		}
 	}
 
@@ -147,7 +153,7 @@ func txIDFromString(strID oidc4vp.TxID) (primitive.ObjectID, error) {
 	return id, nil
 }
 
-func txFromDocument(txDoc *txDocument) (*oidc4vp.Transaction, error) {
+func txFromDocument(txDoc *txDocument, documentLoader jsonld.DocumentLoader) (*oidc4vp.Transaction, error) {
 	pd := &presexch.PresentationDefinition{}
 
 	err := mongodb.MapToStructure(txDoc.PresentationDefinition, pd)
@@ -155,10 +161,18 @@ func txFromDocument(txDoc *txDocument) (*oidc4vp.Transaction, error) {
 		return nil, fmt.Errorf("oidc4vp tx manager: pd deserialization failed: %w", err)
 	}
 
-	receivedClaims := &oidc4vp.ReceivedClaims{}
-	err = mongodb.MapToStructure(txDoc.ReceivedClaims, receivedClaims)
-	if err != nil {
-		return nil, fmt.Errorf("oidc4vp tx manager: eeceived claims deserialization failed: %w", err)
+	receivedClaims := &oidc4vp.ReceivedClaims{
+		Credentials: map[string]*verifiable.Credential{},
+	}
+
+	for key, cred := range txDoc.ReceivedClaims {
+		receivedClaims.Credentials[key], err = verifiable.ParseCredential(cred,
+			verifiable.WithJSONLDDocumentLoader(documentLoader),
+			verifiable.WithDisabledProofCheck())
+
+		if err != nil {
+			return nil, fmt.Errorf("oidc4vp tx manager: received claims deserialization failed: %w", err)
+		}
 	}
 
 	return &oidc4vp.Transaction{
