@@ -7,6 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package event
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
@@ -25,11 +30,44 @@ func Initialize(cfg Config) (*Bus, error) {
 	return eventBus, nil
 }
 
-func handleEvent(e *spi.Event) error {
-	// TODO add logic to handle events needed to reach webhook
+type eventPayload struct {
+	WebHook string `json:"webHook"`
+}
 
-	// if event not need to reach webhook we just log it
+func handleEvent(e *spi.Event) error { //nolint:gocognit
 	logger.Info("handling event", log.WithEvent(e))
+
+	//nolint:nestif
+	if e.Type == spi.VerifierOIDCInteractionInitiated || e.Type == spi.VerifierOIDCInteractionSucceeded {
+		payload := &eventPayload{}
+
+		if err := json.Unmarshal(*e.Data, payload); err != nil {
+			return err
+		}
+
+		if payload.WebHook != "" {
+			req, err := json.Marshal(e)
+			if err != nil {
+				return err
+			}
+
+			//nolint:noctx
+			resp, err := http.DefaultClient.Post(payload.WebHook, "application/json", bytes.NewReader(req))
+			if err != nil {
+				return err
+			}
+
+			defer func() {
+				if errClose := resp.Body.Close(); errClose != nil {
+					logger.Error("error close", log.WithError(errClose))
+				}
+			}()
+
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("%s webhook return %d", payload.WebHook, resp.StatusCode)
+			}
+		}
+	}
 
 	return nil
 }

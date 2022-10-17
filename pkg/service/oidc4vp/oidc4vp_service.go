@@ -130,7 +130,8 @@ type RequestObjectRegistration struct {
 }
 
 type eventPayload struct {
-	TxID string `json:"txID"`
+	TxID    string `json:"txID"`
+	WebHook string `json:"webHook,omitempty"`
 }
 
 func NewService(cfg *Config) *Service {
@@ -148,15 +149,16 @@ func NewService(cfg *Config) *Service {
 	}
 }
 
-func (s *Service) sendEvent(tx *Transaction, source string, eventType spi.EventType) error {
+func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {
 	payload, err := json.Marshal(eventPayload{
-		TxID: string(tx.ID),
+		TxID:    string(tx.ID),
+		WebHook: profile.WebHook,
 	})
 	if err != nil {
 		return err
 	}
 
-	return s.eventSvc.Publish(spi.VerifierEventTopic, spi.NewEvent(uuid.NewString(), source, eventType, payload))
+	return s.eventSvc.Publish(spi.VerifierEventTopic, spi.NewEvent(uuid.NewString(), profile.URL, eventType, payload))
 }
 
 func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
@@ -170,7 +172,7 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
 	}
 
-	if errSendEvent := s.sendEvent(tx, profile.URL, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
+	if errSendEvent := s.sendEvent(tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -243,7 +245,7 @@ func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation,
 		return fmt.Errorf("extract claims: store: %w", err)
 	}
 
-	if err := s.sendEvent(tx, profile.URL, spi.VerifierOIDCInteractionSucceeded); err != nil {
+	if err := s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
 	}
 
