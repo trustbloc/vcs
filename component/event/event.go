@@ -20,7 +20,7 @@ import (
 func Initialize(cfg Config) (*Bus, error) {
 	eventBus := NewEventBus(cfg)
 
-	subscriber, err := NewEventSubscriber(eventBus, spi.VerifierEventTopic, handleEvent)
+	subscriber, err := NewEventSubscriber(eventBus, spi.VerifierEventTopic, eventBus.handleEvent)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ type eventPayload struct {
 	WebHook string `json:"webHook"`
 }
 
-func handleEvent(e *spi.Event) error { //nolint:gocognit
+func (b *Bus) handleEvent(e *spi.Event) error { //nolint:gocognit
 	logger.Info("handling event", log.WithEvent(e))
 
 	//nolint:nestif
@@ -51,8 +51,10 @@ func handleEvent(e *spi.Event) error { //nolint:gocognit
 				return err
 			}
 
+			httpClient := http.Client{Transport: &http.Transport{TLSClientConfig: b.TLSConfig}}
+
 			//nolint:noctx
-			resp, err := http.DefaultClient.Post(payload.WebHook, "application/json", bytes.NewReader(req))
+			resp, err := httpClient.Post(payload.WebHook, "application/json", bytes.NewReader(req))
 			if err != nil {
 				return err
 			}
