@@ -81,7 +81,7 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 			return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
 		}
 
-		err = s.ValidateCredentialProof(vcBytes, opts.Challenge, opts.Domain, false)
+		err = s.ValidateCredentialProof(vcBytes, opts.Challenge, opts.Domain, false, credential.JWT != "")
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "proof",
@@ -102,20 +102,28 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 	return result, nil
 }
 
-func (s *Service) parseAndVerifyVCStrictMode(vcBytes []byte) (*verifiable.Credential, error) {
+func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Credential, error) {
+	opts := make([]verifiable.CredentialOpt, 0)
+
+	opts = append(opts, verifiable.WithPublicKeyFetcher(
+		verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+	),
+		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+
+	if !isJWT {
+		opts = append(opts, verifiable.WithStrictValidation())
+	}
+
 	cred, err := verifiable.ParseCredential(
 		vcBytes,
-		verifiable.WithPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-		),
-		verifiable.WithStrictValidation(),
-		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 	)
 	return cred, err
 }
 
-func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation bool) error { // nolint: lll,gocyclo
-	credential, err := s.parseAndVerifyVCStrictMode(vcByte)
+// ValidateCredentialProof validate credential proof.
+func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation,
+	isJWT bool) error { // nolint: lll,gocyclo
+	credential, err := s.parseAndVerifyVC(vcByte, isJWT)
 	if err != nil {
 		return fmt.Errorf("verifiable credential proof validation error : %w", err)
 	}
