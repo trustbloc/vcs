@@ -2,8 +2,8 @@ github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46t
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20221017124705-a3afb8a3c6c3 h1:xOw2ArFPvi2MMjUdJQLJfrOR9F7HGHA9ygzzKTROZzI=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20221017124705-a3afb8a3c6c3/go.mod h1:bypk9kaZKKrWzeZg9DgGWIc73Il21NB+uw0DhkaHgV4=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20221017192441-2b9ca433f743 h1:4vDUWvDuFeGSpRC72JPZ+8SoCzcUPNaMJiuX4ba6mmA=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20221017192441-2b9ca433f743/go.mod h1:bypk9kaZKKrWzeZg9DgGWIc73Il21NB+uw0DhkaHgV4=
 github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANytuPF1OarO4DADm73n8=
 github.com/inconshreveable/mousetrap v1.0.1 h1:U3uMjPSQEBMNp1lFxmllqCPM6P5u/Xq7Pgzkat/bFNc=
 github.com/inconshreveable/mousetrap v1.0.1/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
