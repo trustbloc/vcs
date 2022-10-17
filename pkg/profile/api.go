@@ -71,6 +71,7 @@ type Verifier struct {
 	KMSConfig               *vcskms.Config                     `json:"kmsConfig,omitempty"`
 	SigningDID              *SigningDID                        `json:"signingDID,omitempty"`
 	PresentationDefinitions []*presexch.PresentationDefinition `json:"presentationDefinitions,omitempty"`
+	WebHook                 string                             `json:"webHook,omitempty"`
 }
 
 // OIDC4VPConfig store config for verifier did that used to sign request object in oidc4vp process.
