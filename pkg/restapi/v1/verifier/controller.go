@@ -342,6 +342,9 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 	if presentation.CustomFields == nil {
 		presentation.CustomFields = map[string]interface{}{}
 	}
+
+	presentation.Context = append(presentation.Context, presexch.PresentationSubmissionJSONLDContextIRI)
+	presentation.Type = append(presentation.Type, presexch.PresentationSubmissionJSONLDType)
 	presentation.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
 
 	return idTokenClaims.Nonce, presentation, nil
