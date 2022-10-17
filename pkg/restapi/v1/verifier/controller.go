@@ -128,13 +128,6 @@ type Controller struct {
 	jwtVerifier           jose.SignatureVerifier
 }
 
-type signatureVerifierNil struct {
-}
-
-func (s *signatureVerifierNil) Verify(joseHeaders jose.Headers, payload, signingInput, signature []byte) error {
-	return nil
-}
-
 // NewController creates a new controller for Verifier Profile Management API.
 func NewController(config *Config) *Controller {
 	if config.JWTVerifier == nil {
@@ -347,10 +340,7 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 	string, *verifiable.Presentation, error) {
 	logger.Infof("authresp id token: ", authResp.IDToken)
 
-	// TODO jwtVerifier resolve did from iss but this not the case for idToken
-	// https://identity.foundation/jwt-vc-presentation-profile/#id-token-validation
-	// for now will not verify
-	idTokenClaims, err := validateIDToken(authResp.IDToken, &signatureVerifierNil{})
+	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
 	if err != nil {
 		return "", nil, err
 	}

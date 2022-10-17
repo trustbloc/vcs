@@ -669,39 +669,38 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			"id_token.exp", err)
 	})
 
-	// TODO enable test
-	// t.Run("ID token invalid signature", func(t *testing.T) {
-	//	_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
-	//	require.NoError(t, err)
-	//
-	//	idToken := generateToken(t, &IDTokenClaims{
-	//		VPToken: IDTokenVPToken{
-	//			PresentationSubmission: map[string]interface{}{}},
-	//		Nonce: "aaa",
-	//		Exp:   time.Now().Unix() + 1000,
-	//	}, privKeyOther)
-	//
-	//	vpToken := generateToken(t, &vpTokenClaims{
-	//		VP:    &verifiable.Presentation{},
-	//		Nonce: "aaa",
-	//		Exp:   time.Now().Unix() + 1000,
-	//	}, privKeyOther)
-	//
-	//	body := "vp_token=" + vpToken +
-	//		"&id_token=" + idToken +
-	//		"&state=txid"
-	//
-	//	ctx := createContextApplicationForm([]byte(body))
-	//
-	//	c := NewController(&Config{
-	//		OIDCVPService: oidc4VPService,
-	//		JWTVerifier:   sVerifier,
-	//	})
-	//
-	//	err = c.CheckAuthorizationResponse(ctx)
-	//	requireValidationError(t, resterr.InvalidValue,
-	//		"id_token", err)
-	// })
+	t.Run("ID token invalid signature", func(t *testing.T) {
+		_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		idToken := generateToken(t, &IDTokenClaims{
+			VPToken: IDTokenVPToken{
+				PresentationSubmission: map[string]interface{}{}},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKeyOther)
+
+		vpToken := generateToken(t, &vpTokenClaims{
+			VP:    &verifiable.Presentation{},
+			Nonce: "aaa",
+			Exp:   time.Now().Unix() + 1000,
+		}, privKeyOther)
+
+		body := "vp_token=" + vpToken +
+			"&id_token=" + idToken +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		c := NewController(&Config{
+			OIDCVPService: oidc4VPService,
+			JWTVerifier:   sVerifier,
+		})
+
+		err = c.CheckAuthorizationResponse(ctx)
+		requireValidationError(t, resterr.InvalidValue,
+			"id_token", err)
+	})
 
 	t.Run("VP token expired", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{

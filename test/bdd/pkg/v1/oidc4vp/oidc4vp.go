@@ -207,7 +207,7 @@ func (e *Steps) sendAuthorizedResponse() error {
 		},
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
-		Iss:   e.walletDidID,
+		Iss:   "https://self-issued.me/v2/openid-vc",
 	}
 
 	e.requestPresentation.CustomFields["presentation_submission"] = nil
