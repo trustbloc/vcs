@@ -257,6 +257,14 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation, profile *profileapi.Verifier) error {
 	// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
 	vp.JWT = ""
+
+	bytes, err := vp.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	logger.Info("extractClaimData vp", log.WithJSON(string(bytes)))
+
 	credentials, err := tx.PresentationDefinition.Match(vp, s.documentLoader,
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
