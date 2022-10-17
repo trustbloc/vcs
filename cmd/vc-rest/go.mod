@@ -7,7 +7,7 @@ module github.com/trustbloc/vcs/cmd/vc-rest
 require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221016113546-fc30798e267d
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221017124705-a3afb8a3c6c3
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.0
