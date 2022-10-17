@@ -40,6 +40,7 @@ import (
 const (
 	verifierProfileSvcComponent  = "verifier.ProfileService"
 	verifyCredentialSvcComponent = "verifycredential.Service"
+	oidc4vpSvcComponent          = "oidc4vp.Service"
 
 	vpSubmissionProperty = "presentation_submission"
 )
@@ -98,6 +99,10 @@ type oidc4VPService interface {
 		profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error)
 
 	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, nonce string, vp *verifiable.Presentation) error
+
+	GetTx(id oidc4vp.TxID) (*oidc4vp.Transaction, error)
+
+	RetrieveClaims(tx *oidc4vp.Transaction) map[string]oidc4vp.CredentialMetadata
 }
 
 type Config struct {
@@ -302,6 +307,40 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 
 	logger.Infof("CheckAuthorizationResponse end")
 	return err
+}
+
+func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) error {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	tx, err := c.accessOIDC4VPTx(txID)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.accessProfile(tx.ProfileID, oidcOrgID)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.oidc4VPService.RetrieveClaims(tx), nil)
+}
+
+func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) {
+	tx, err := c.oidc4VPService.GetTx(oidc4vp.TxID(txID))
+
+	if err != nil {
+		if errors.Is(err, oidc4vp.ErrDataNotFound) {
+			return nil, resterr.NewValidationError(resterr.DoesntExist, "txID",
+				fmt.Errorf("transaction with given id %s, doesn't exist", txID))
+		}
+
+		return nil, resterr.NewSystemError(oidc4vpSvcComponent, "GetTx", err)
+	}
+
+	return tx, nil
 }
 
 func (c *Controller) validateAuthorizationResponseTokens(authResp *authorizationResponse) (

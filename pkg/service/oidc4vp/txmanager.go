@@ -11,6 +11,7 @@ package oidc4vp
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
@@ -95,6 +96,10 @@ func (tm *TxManager) StoreReceivedClaims(txID TxID, claims *ReceivedClaims) erro
 // Get transaction id.
 func (tm *TxManager) Get(txID TxID) (*Transaction, error) {
 	tx, err := tm.txStore.Get(txID)
+	if errors.Is(err, ErrDataNotFound) {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("oidc get tx by id failed: %w", err)
 	}

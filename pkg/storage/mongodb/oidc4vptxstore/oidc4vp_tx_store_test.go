@@ -8,6 +8,7 @@ package oidc4vptxstore
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"reflect"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -33,6 +35,13 @@ const (
 	mongoDBConnString  = "mongodb://localhost:27021"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
+)
+
+var (
+	//go:embed testdata/university_degree.jsonld
+	sampleVCJsonLD string
+	//go:embed testdata/university_degree.jwt
+	sampleVCJWT string
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -45,7 +54,7 @@ func TestTxStore_Success(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
-	store := NewTxStore(client)
+	store := NewTxStore(client, testutil.DocumentLoader(t))
 	require.NotNil(t, store)
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -68,16 +77,21 @@ func TestTxStore_Success(t *testing.T) {
 		require.NotNil(t, tx)
 	})
 
-	t.Run("Create tx then update", func(t *testing.T) {
+	t.Run("Create tx then update with jwt vc", func(t *testing.T) {
 		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
+		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+			verifiable.WithDisabledProofCheck())
+		require.NoError(t, err)
+
 		err = store.Update(oidc4vp.TransactionUpdate{
 			ID: id,
 			ReceivedClaims: &oidc4vp.ReceivedClaims{
-				Credentials: map[string]*verifiable.Credential{"credID": {ID: "testID"}},
+				Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
 			},
 		})
 		require.NoError(t, err)
@@ -86,7 +100,33 @@ func TestTxStore_Success(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
-		require.Equal(t, "testID", tx.ReceivedClaims.Credentials["credID"].ID)
+		require.Equal(t, "http://example.gov/credentials/3732", tx.ReceivedClaims.Credentials["credID"].ID)
+	})
+
+	t.Run("Create tx then update with ld vc", func(t *testing.T) {
+		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+			verifiable.WithDisabledProofCheck())
+		require.NoError(t, err)
+
+		err = store.Update(oidc4vp.TransactionUpdate{
+			ID: id,
+			ReceivedClaims: &oidc4vp.ReceivedClaims{
+				Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
+			},
+		})
+		require.NoError(t, err)
+
+		tx, err := store.Get(id)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
+		require.Equal(t, "http://example.gov/credentials/3732", tx.ReceivedClaims.Credentials["credID"].ID)
 	})
 }
 
@@ -100,7 +140,7 @@ func TestTxStore_Fails(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
-	store := NewTxStore(client)
+	store := NewTxStore(client, testutil.DocumentLoader(t))
 	require.NotNil(t, store)
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -148,7 +188,7 @@ func TestTxStore_Fails(t *testing.T) {
 			PresentationDefinition: map[string]interface{}{
 				"frame": "invalid",
 			},
-		})
+		}, testutil.DocumentLoader(t))
 
 		require.Error(t, err)
 	})
@@ -156,10 +196,10 @@ func TestTxStore_Fails(t *testing.T) {
 	t.Run("invalid doc content", func(t *testing.T) {
 		_, err := txFromDocument(&txDocument{
 			ID: primitive.ObjectID{},
-			ReceivedClaims: map[string]interface{}{
-				"credentials": "invalid",
+			ReceivedClaims: map[string][]byte{
+				"credentials": []byte("invalid"),
 			},
-		})
+		}, testutil.DocumentLoader(t))
 
 		require.Error(t, err)
 	})

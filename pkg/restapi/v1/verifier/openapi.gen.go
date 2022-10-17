@@ -113,6 +113,9 @@ type ServerInterface interface {
 	// Used by verifier applications to initiate OpenID presentation flow through VCS
 	// (POST /verifier/interactions/authorization-response)
 	CheckAuthorizationResponse(ctx echo.Context) error
+	// Used by verifier applications to get claims obtained during oidc4vp interaction.
+	// (GET /verifier/interactions/{txID}/claim)
+	RetrieveInteractionsClaim(ctx echo.Context, txID string) error
 	// Verify credential
 	// (POST /verifier/profiles/{profileID}/credentials/verify)
 	PostVerifyCredentials(ctx echo.Context, profileID string) error
@@ -135,6 +138,22 @@ func (w *ServerInterfaceWrapper) CheckAuthorizationResponse(ctx echo.Context) er
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.CheckAuthorizationResponse(ctx)
+	return err
+}
+
+// RetrieveInteractionsClaim converts echo context to params.
+func (w *ServerInterfaceWrapper) RetrieveInteractionsClaim(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "txID" -------------
+	var txID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "txID", runtime.ParamLocationPath, ctx.Param("txID"), &txID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter txID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.RetrieveInteractionsClaim(ctx, txID)
 	return err
 }
 
@@ -215,6 +234,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/verifier/interactions/authorization-response", wrapper.CheckAuthorizationResponse)
+	router.GET(baseURL+"/verifier/interactions/:txID/claim", wrapper.RetrieveInteractionsClaim)
 	router.POST(baseURL+"/verifier/profiles/:profileID/credentials/verify", wrapper.PostVerifyCredentials)
 	router.POST(baseURL+"/verifier/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateOidcInteraction)
 	router.POST(baseURL+"/verifier/profiles/:profileID/presentations/verify", wrapper.PostVerifyPresentation)

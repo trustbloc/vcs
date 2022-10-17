@@ -9,6 +9,7 @@ package oidc4vp
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,6 +27,15 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+)
+
+const (
+	// retry options to pull topics from webhook
+	// pullTopicsWaitInMilliSec is time in milliseconds to wait before retry.
+	pullTopicsWaitInMilliSec = 200
+	// pullTopicsAttemptsBeforeFail total number of retries where
+	// total time shouldn't exceed 5 seconds.
+	pullTopicsAttemptsBeforeFail = 5000 / pullTopicsWaitInMilliSec
 )
 
 type initiateOIDC4VPResponse struct {
@@ -80,8 +90,29 @@ type VPTokenClaims struct {
 	Iss   string                   `json:"iss"`
 }
 
-func (e *Steps) initiateInteraction(profileName, organizationName string) error {
+type Event struct {
+	// ID identifies the event(required).
+	ID string `json:"id"`
 
+	// Source is URI for producer(required).
+	Source string `json:"source"`
+
+	// Type defines event type(required).
+	Type string `json:"type"`
+
+	// DataContentType is data content type(required).
+	DataContentType string `json:"datacontenttype"`
+
+	// Data defines message(required).
+	Data *EventPayload `json:"data"`
+}
+
+type EventPayload struct {
+	TxID    string `json:"txID"`
+	WebHook string `json:"webHook,omitempty"`
+}
+
+func (e *Steps) initiateInteraction(profileName, organizationName string) error {
 	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, profileName)
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
@@ -108,6 +139,7 @@ func (e *Steps) initiateInteraction(profileName, organizationName string) error 
 	}
 
 	e.authorizationRequest = result.AuthorizationRequest
+	e.transactionID = result.TxId
 
 	return nil
 }
@@ -129,7 +161,6 @@ func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
 	if resp.StatusCode != http.StatusOK {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
-
 
 	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
 		verifiable.NewVDRKeyResolver(e.ariesServices.vdrRegistry).PublicKeyFetcher()))
@@ -228,6 +259,69 @@ func (e *Steps) sendAuthorizedResponse() error {
 	}
 
 	return nil
+}
+
+func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
+	txID, err := e.waitForEvent()
+	if err != nil {
+		return err
+	}
+
+	endpointURL := fmt.Sprintf(retrieveInteractionsClaimURLFormat, txID)
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "application/json", token, //nolint: bodyclose
+		nil, e.tlsConfig)
+	if err != nil {
+		return err
+	}
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	}
+
+	return nil
+}
+
+func (e *Steps) waitForEvent() (string, error) {
+	incoming := &Event{}
+
+	for i := 0; i < pullTopicsAttemptsBeforeFail; {
+
+		resp, err := bddutil.HTTPSDo(http.MethodGet, oidc4vpWebhookURL, "application/json", "", //nolint: bodyclose
+			nil, e.tlsConfig)
+		if err != nil {
+			return "", err
+		}
+		defer bddutil.CloseResponseBody(resp.Body)
+
+		respBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return "", bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		}
+
+		err = json.Unmarshal(respBytes, incoming)
+		if err != nil {
+			return "", err
+		}
+
+		if incoming.Type == "oidc_interaction_succeeded" {
+			return incoming.Data.TxID, nil
+		}
+
+		i++
+		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
+	}
+	return "", errors.New("webhook waiting timeout exited")
 }
 
 func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) error {
