@@ -269,7 +269,7 @@ func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation,
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher()),
-		))
+		), presexch.WithDisableSchemaValidation())
 
 	if err != nil {
 		return fmt.Errorf("extract claims: match: %w", err)
