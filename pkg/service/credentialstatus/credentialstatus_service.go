@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -401,7 +402,7 @@ func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccryp
 	}
 
 	// add verification method option only when it is not matching profile creator
-	if vm != profile.Creator {
+	if !strings.HasPrefix(profile.Creator, "did:key") && vm != profile.Creator {
 		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
 	}
 
