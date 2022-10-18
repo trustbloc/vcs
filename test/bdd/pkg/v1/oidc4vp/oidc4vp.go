@@ -219,12 +219,12 @@ func (e *Steps) sendAuthorizedResponse() error {
 		Iss:   e.walletDidID,
 	}
 
-	idTokenJWS, err := singToken(idToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
+	idTokenJWS, err := signToken(idToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
 	if err != nil {
 		return fmt.Errorf("sign id_token: %w", err)
 	}
 
-	vpTokenJWS, err := singToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
+	vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
 	if err != nil {
 		return fmt.Errorf("sign vp_token: %w", err)
 	}
@@ -338,7 +338,7 @@ func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.Signa
 	return nil
 }
 
-func singToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
+func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	km kms.KeyManager) (string, error) {
 
 	signr, err := signer.NewKMSSigner(km, crpt, didKeyID, "ES384")

@@ -23,7 +23,7 @@ import (
 )
 
 type vcVerifier interface {
-	ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation bool) error
+	ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error
 	ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error
 }
 
@@ -178,7 +178,7 @@ func (s *Service) validateCredentialsProof(vp *verifiable.Presentation) error {
 			return err
 		}
 
-		err = s.vcVerifier.ValidateCredentialProof(vcBytes, "", "", true)
+		err = s.vcVerifier.ValidateCredentialProof(vcBytes, "", "", true, vp.JWT != "")
 		if err != nil {
 			return err
 		}
