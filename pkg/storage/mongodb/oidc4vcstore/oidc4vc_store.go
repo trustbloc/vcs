@@ -1,5 +1,5 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -133,8 +133,8 @@ func (s *Store) Create(
 	insertedID := result.InsertedID.(primitive.ObjectID) //nolint: errcheck
 
 	return &oidc4vc.Transaction{
-		ID:     oidc4vc.TxID(insertedID.Hex()),
-		TxData: *data,
+		ID:              oidc4vc.TxID(insertedID.Hex()),
+		TransactionData: *data,
 	}, nil
 }
 

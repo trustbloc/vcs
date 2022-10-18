@@ -40,7 +40,7 @@ paths:
       description: Returns server health check status.
       tags:
         - healthcheck
-  /{profileType}/profiles/{profileID}/well-known/did-config:
+  '/{profileType}/profiles/{profileID}/well-known/did-config':
     parameters:
       - schema:
           type: string
@@ -67,7 +67,7 @@ paths:
       description: Returns did-config.
       tags:
         - devapi
-  /request-object/{uuid}:
+  '/request-object/{uuid}':
     parameters:
       - schema:
           type: string
@@ -110,7 +110,7 @@ paths:
                 type: object
       operationId: post-issue-credentials
       description: Issuer credentials.
-  /issuer/profiles/{profileID}/credentials/status/{statusID}:
+  '/issuer/profiles/{profileID}/credentials/status/{statusID}':
     get:
       summary: Retrieves the credential status.
       parameters:
@@ -137,7 +137,7 @@ paths:
       description: Retrieves the credential status.
       tags:
         - issuer
-  /issuer/profiles/{profileID}/credentials/status:
+  '/issuer/profiles/{profileID}/credentials/status':
     parameters:
       - schema:
           type: string
@@ -189,37 +189,6 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4VCRequest'
       tags:
         - issuer
-  '/issuer/profiles/{profileID}/interactions/push-authorization-request':
-    parameters:
-      - schema:
-          type: string
-        name: profileID
-        in: path
-        required: true
-    post:
-      summary: Pushed Authorization Request
-      tags:
-        - issuer
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PushedAuthorizationResponse'
-      operationId: post-issuer-profiles-profileID-interactions-push-authorization-request
-      description: Used by VCS OIDC public endpoints to push authorization requests (PAR) and to get request URI back for OIDC authorization request redirects.
-      parameters: []
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                authorization_details:
-                  type: string
-                op_state:
-                  type: string
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -295,8 +264,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4VPResponse'
-
-  '/verifier/interactions/authorization-response':
+  /verifier/interactions/authorization-response:
     post:
       summary: Used by verifier applications to initiate OpenID presentation flow through VCS
       operationId: check-authorization-response
@@ -561,7 +529,7 @@ components:
         - devapi
       type: object
       properties:
-        "@context":
+        '@context':
           type: string
           description: context.
         linked_dids:
@@ -578,7 +546,7 @@ components:
         - devapi
       type: object
       properties:
-        "id":
+        id:
           type: string
           description: id.
         content:

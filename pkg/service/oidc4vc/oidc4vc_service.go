@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStorage=MockTransactionStorage,httpClient=MockHTTPClient
+//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,httpClient=MockHTTPClient
 
 package oidc4vc
 
@@ -16,6 +16,7 @@ import (
 	"net/url"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 const (
@@ -26,8 +27,9 @@ const (
 
 var logger = log.New("oidc4vc")
 
-type transactionStorage interface {
+type transactionStore interface {
 	Store(ctx context.Context, data *TransactionData) (*Transaction, error)
+	GetByOpState(ctx context.Context, opState string) (*Transaction, error)
 }
 
 type httpClient interface {
@@ -36,29 +38,30 @@ type httpClient interface {
 
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStorage transactionStorage
-	HTTPClient         httpClient
+	TransactionStore transactionStore
+	HTTPClient       httpClient
 }
 
 // Service implements OIDC for VC issuance functionality.
 type Service struct {
-	store      transactionStorage
+	store      transactionStore
 	httpClient httpClient
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{
-		store:      config.TransactionStorage,
+		store:      config.TransactionStore,
 		httpClient: config.HTTPClient,
 	}, nil
 }
 
-// InitiateOidcInteraction prepares initiate issuance URL for starting OIDC interaction.
-func (s *Service) InitiateOidcInteraction(
+// InitiateInteraction creates credential issuance transaction and builds initiate issuance URL.
+func (s *Service) InitiateInteraction(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
-) (*InitiateIssuanceInfo, error) {
+	profile *profileapi.Issuer,
+) (*InitiateIssuanceResponse, error) {
 	data := &TransactionData{
 		CredentialTemplate:   req.CredentialTemplate,
 		ClaimEndpoint:        req.ClaimEndpoint,
@@ -66,6 +69,7 @@ func (s *Service) InitiateOidcInteraction(
 		ResponseType:         req.ResponseType,
 		Scope:                req.Scope,
 		AuthorizationDetails: req.AuthorizationDetails,
+		OpState:              req.OpState,
 	}
 
 	if data.GrantType == "" {
@@ -82,24 +86,29 @@ func (s *Service) InitiateOidcInteraction(
 
 	tx, err := s.store.Store(ctx, data)
 	if err != nil {
-		return nil, fmt.Errorf("store transaction: %w", err)
+		return nil, fmt.Errorf("store tx: %w", err)
 	}
 
-	return &InitiateIssuanceInfo{
-		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req),
-		TxID:                string(tx.ID),
+	return &InitiateIssuanceResponse{
+		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, profile),
+		TxID:                tx.ID,
 	}, nil
 }
 
-func (s *Service) buildInitiateIssuanceURL(ctx context.Context, req *InitiateIssuanceRequest) string {
+func (s *Service) buildInitiateIssuanceURL(
+	ctx context.Context,
+	req *InitiateIssuanceRequest,
+	profile *profileapi.Issuer,
+) string {
 	var initiateIssuanceURL string
 
 	if req.ClientInitiateIssuanceURL != "" {
 		initiateIssuanceURL = req.ClientInitiateIssuanceURL
 	} else if req.ClientWellKnownURL != "" {
-		c, err := s.fetchWellKnownConfig(ctx, req.ClientWellKnownURL)
+		c, err := s.getClientWellKnownConfig(ctx, req.ClientWellKnownURL)
 		if err != nil {
-			logger.Error("Failed to fetch well-known config", log.WithError(err))
+			logger.Error(fmt.Sprintf("Failed to get well-known config from %q", req.ClientWellKnownURL),
+				log.WithError(err))
 		} else {
 			initiateIssuanceURL = c.InitiateIssuanceEndpoint
 		}
@@ -110,26 +119,22 @@ func (s *Service) buildInitiateIssuanceURL(ctx context.Context, req *InitiateIss
 	}
 
 	q := url.Values{}
-	q.Set("issuer", req.CredentialTemplate.Issuer.ID)
-	q.Set("credential_type", req.CredentialTemplate.Types[0])
-	q.Set("op_state", req.OpState) // TODO: Correlate op_state with txID.
+	q.Set("issuer", profile.ID)
+	q.Set("credential_type", req.AuthorizationDetails.CredentialType)
+	q.Set("op_state", req.OpState)
 
 	return initiateIssuanceURL + "?" + q.Encode()
 }
 
-type wellKnownConfig struct {
-	InitiateIssuanceEndpoint string `json:"initiate_issuance_endpoint"`
-}
-
-func (s *Service) fetchWellKnownConfig(ctx context.Context, url string) (*wellKnownConfig, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+func (s *Service) getClientWellKnownConfig(ctx context.Context, wellKnownURL string) (*ClientWellKnownConfig, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wellKnownURL, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("create well-known request: %w", err)
+		return nil, fmt.Errorf("create well-known config req: %w", err)
 	}
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("do well-known request: %w", err)
+		return nil, fmt.Errorf("do well-known config req: %w", err)
 	}
 
 	defer func() {
@@ -138,13 +143,30 @@ func (s *Service) fetchWellKnownConfig(ctx context.Context, url string) (*wellKn
 		}
 	}()
 
-	var config wellKnownConfig
+	var config ClientWellKnownConfig
 
 	if resp.StatusCode == http.StatusOK {
 		if err = json.NewDecoder(resp.Body).Decode(&config); err != nil {
-			return nil, fmt.Errorf("decode well-known config: %w", err)
+			return nil, fmt.Errorf("unmarshal well-known config: %w", err)
 		}
 	}
 
 	return &config, nil
+}
+
+func (s *Service) HandlePAR(ctx context.Context, opState string, ad *AuthorizationDetails) (TxID, error) {
+	tx, err := s.store.GetByOpState(ctx, opState)
+	if err != nil {
+		return "", fmt.Errorf("get transaction by opstate: %w", err)
+	}
+
+	if ad.CredentialType != tx.AuthorizationDetails.CredentialType {
+		return "", fmt.Errorf("authorization details credential type mismatch")
+	}
+
+	if ad.Format != tx.AuthorizationDetails.Format {
+		return "", fmt.Errorf("authorization details format mismatch")
+	}
+
+	return tx.ID, nil
 }
