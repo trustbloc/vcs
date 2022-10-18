@@ -639,6 +639,267 @@ func TestController_PostIssuerProfilesProfileIDInteractionsInitiateOidc(t *testi
 	})
 }
 
+func TestController_PostCredentialsStatus(t *testing.T) {
+	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+	keyManager := mocks.NewMockVCSKeyManager(gomock.NewController(t))
+	keyManager.EXPECT().SupportedKeyTypes().AnyTimes().Return(ariesSupportedKeyTypes)
+
+	kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
+
+	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+	mockVCStatusManager.EXPECT().UpdateVCStatus(
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+	t.Run("Success", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig:       &profileapi.VCConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+			}, nil)
+
+		controller := NewController(&Config{
+			KMSRegistry:     kmsRegistry,
+			ProfileSvc:      mockProfileSvc,
+			DocumentLoader:  testutil.DocumentLoader(t),
+			VcStatusManager: mockVCStatusManager,
+		})
+
+		c := echoContext(withRequestBody(
+			[]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)))
+
+		err := controller.PostCredentialsStatus(c, "testId")
+		require.NoError(t, err)
+	})
+
+	t.Run("Failed", func(t *testing.T) {
+		controller := NewController(&Config{})
+		c := echoContext(withRequestBody([]byte("abc")))
+		err := controller.PostCredentialsStatus(c, "testId")
+
+		requireValidationError(t, "invalid-value", "requestBody", err)
+	})
+}
+
+func TestController_UpdateCredentialStatus(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig:       &profileapi.VCConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+			}, nil)
+
+		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
+
+		mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+		mockVCStatusManager.EXPECT().UpdateVCStatus(
+			gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+
+		controller := NewController(&Config{
+			KMSRegistry:     kmsRegistry,
+			ProfileSvc:      mockProfileSvc,
+			DocumentLoader:  testutil.DocumentLoader(t),
+			VcStatusManager: mockVCStatusManager,
+		})
+
+		body := &UpdateCredentialStatusRequest{
+			CredentialID: "1",
+			CredentialStatus: CredentialStatus{
+				Type: "StatusList2021Entry",
+			},
+		}
+
+		err := controller.updateCredentialStatus(echoContext(), body, "testId")
+		require.NoError(t, err)
+	})
+
+	t.Run("Failed", func(t *testing.T) {
+		type fields struct {
+			getProfileSvc      func() profileService
+			getVCStatusManager func() vcStatusManager
+			getKMSRegistry     func() kmsRegistry
+		}
+		type args struct {
+			ctx       echo.Context
+			body      *UpdateCredentialStatusRequest
+			profileID string
+		}
+		tests := []struct {
+			name    string
+			fields  fields
+			args    args
+			wantErr string
+		}{
+			{
+				name: "Missing authorization",
+				fields: fields{
+					getProfileSvc: func() profileService {
+						return nil
+					},
+					getVCStatusManager: func() vcStatusManager {
+						return nil
+					},
+					getKMSRegistry: func() kmsRegistry {
+						return nil
+					},
+				},
+				args: args{
+					ctx:       echoContext(withOrgID("")),
+					body:      &UpdateCredentialStatusRequest{},
+					profileID: "test",
+				},
+				wantErr: "missing authorization",
+			},
+			{
+				name: "Profile doesn't exist",
+				fields: fields{
+					getProfileSvc: func() profileService {
+						mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+						mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+							Return(nil, errors.New("not found"))
+						return mockProfileSvc
+					},
+					getVCStatusManager: func() vcStatusManager {
+						return nil
+					},
+					getKMSRegistry: func() kmsRegistry {
+						return nil
+					},
+				},
+				args: args{
+					ctx:       echoContext(),
+					body:      &UpdateCredentialStatusRequest{},
+					profileID: "testId",
+				},
+				wantErr: "profile with given id testId, dosn't exists",
+			},
+			{
+				name: "KMS registry error",
+				fields: fields{
+					getProfileSvc: func() profileService {
+						mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+						mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+							Return(&profileapi.Issuer{
+								OrganizationID: orgID,
+								ID:             "testId",
+								VCConfig:       &profileapi.VCConfig{},
+								SigningDID:     &profileapi.SigningDID{},
+							}, nil)
+						return mockProfileSvc
+					},
+					getKMSRegistry: func() kmsRegistry {
+						kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+						kmsRegistry.EXPECT().GetKeyManager(
+							gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+						return kmsRegistry
+					},
+					getVCStatusManager: func() vcStatusManager {
+						return nil
+					},
+				},
+				args: args{
+					ctx:       echoContext(),
+					body:      &UpdateCredentialStatusRequest{},
+					profileID: "testId",
+				},
+				wantErr: "failed to get kms",
+			},
+			{
+				name: "Not supported cred type",
+				fields: fields{
+					getProfileSvc: func() profileService {
+						mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+						mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+							Return(&profileapi.Issuer{
+								OrganizationID: orgID,
+								ID:             "testId",
+								VCConfig:       &profileapi.VCConfig{},
+								SigningDID:     &profileapi.SigningDID{},
+							}, nil)
+						return mockProfileSvc
+					},
+					getKMSRegistry: func() kmsRegistry {
+						kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+						kmsRegistry.EXPECT().GetKeyManager(
+							gomock.Any()).AnyTimes().Return(nil, nil)
+						return kmsRegistry
+					},
+					getVCStatusManager: func() vcStatusManager {
+						return nil
+					},
+				},
+				args: args{
+					ctx: echoContext(),
+					body: &UpdateCredentialStatusRequest{
+						CredentialStatus: CredentialStatus{
+							Type: "invalid",
+						},
+					},
+					profileID: "testId",
+				},
+				wantErr: "credential status invalid not supported",
+			},
+			{
+				name: "UpdateVCStatus error",
+				fields: fields{
+					getProfileSvc: func() profileService {
+						mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+						mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+							Return(&profileapi.Issuer{
+								OrganizationID: orgID,
+								ID:             "testId",
+								VCConfig:       &profileapi.VCConfig{},
+								SigningDID:     &profileapi.SigningDID{},
+							}, nil)
+						return mockProfileSvc
+					},
+					getKMSRegistry: func() kmsRegistry {
+						kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
+						kmsRegistry.EXPECT().GetKeyManager(
+							gomock.Any()).AnyTimes().Return(nil, nil)
+						return kmsRegistry
+					},
+					getVCStatusManager: func() vcStatusManager {
+						mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
+						mockVCStatusManager.EXPECT().UpdateVCStatus(
+							gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+							Return(errors.New("some error"))
+						return mockVCStatusManager
+					},
+				},
+				args: args{
+					ctx: echoContext(),
+					body: &UpdateCredentialStatusRequest{
+						CredentialStatus: CredentialStatus{
+							Type: "StatusList2021Entry",
+						},
+					},
+					profileID: "testId",
+				},
+				wantErr: "system-error[VCStatusManager, UpdateVCStatus]: some error",
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				c := &Controller{
+					profileSvc:      tt.fields.getProfileSvc(),
+					vcStatusManager: tt.fields.getVCStatusManager(),
+					kmsRegistry:     tt.fields.getKMSRegistry(),
+				}
+				err := c.updateCredentialStatus(tt.args.ctx, tt.args.body, tt.args.profileID)
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantErr)
+			})
+		}
+	})
+}
+
 type options struct {
 	orgID       string
 	requestBody []byte

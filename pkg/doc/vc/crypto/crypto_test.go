@@ -41,7 +41,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			testutil.DocumentLoader(t),
 		)
 
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			getTestSigner(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
@@ -181,7 +181,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					vcSigner = tc.vcSigner
 				}
 
-				signedVC, err := c.SignCredentialLDP(
+				signedVC, err := c.signCredentialLDP(
 					vcSigner, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 					tc.signingOpts...)
 
@@ -227,7 +227,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		)
 		p := getTestSigner()
 		p.Creator = "wrongValue"
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "verificationMethod value wrongValue should be in did#keyID format")
@@ -239,7 +239,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			getTestSignerWithCrypto(
 				&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}),
 			&verifiable.Credential{ID: "http://example.edu/credentials/1872"})
@@ -254,7 +254,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 		p := getTestSigner()
 
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose("invalid"))
 		require.Error(t, err)
@@ -268,7 +268,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 		p := getTestSigner()
 
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
@@ -281,7 +281,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 
 		p := getTestSigner()
 
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
 			WithPurpose(CapabilityInvocation))
 		require.NoError(t, err)
@@ -296,7 +296,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		signedVC, err := c.SignCredentialLDP(
+		signedVC, err := c.signCredentialLDP(
 			&vc.Signer{
 				DID:           "did:trustbloc:abc",
 				SignatureType: "BbsBlsSignature2020",
@@ -683,7 +683,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				vdr:            tt.fields.getVDR(),
 				documentLoader: testutil.DocumentLoader(t),
 			}
-			got, err := c.SignCredentialJWT(tt.args.signerData, tt.args.getVC(), tt.args.opts...)
+			got, err := c.signCredentialJWT(tt.args.signerData, tt.args.getVC(), tt.args.opts...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SignCredentialJWT() error = %v, wantErr %v", err, tt.wantErr)
 				return

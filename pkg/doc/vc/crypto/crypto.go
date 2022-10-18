@@ -150,8 +150,20 @@ type Crypto struct {
 	documentLoader ld.DocumentLoader
 }
 
-// SignCredentialLDP adds verifiable.LinkedDataProofContext to the vc.
-func (c *Crypto) SignCredentialLDP(
+func (c *Crypto) SignCredential(
+	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
+	switch signerData.Format {
+	case vcsverifiable.Jwt:
+		return c.signCredentialJWT(signerData, vc, opts...)
+	case vcsverifiable.Ldp:
+		return c.signCredentialLDP(signerData, vc, opts...)
+	default:
+		return nil, fmt.Errorf("unknown signature format %s", signerData.Format)
+	}
+}
+
+// signCredentialLDP adds verifiable.LinkedDataProofContext to the VC.
+func (c *Crypto) signCredentialLDP(
 	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
@@ -178,8 +190,8 @@ func (c *Crypto) SignCredentialLDP(
 	return vc, nil
 }
 
-// SignCredentialJWT returns vc in JWT format including the signature section.
-func (c *Crypto) SignCredentialJWT(
+// signCredentialJWT returns vc in JWT format including the signature section.
+func (c *Crypto) signCredentialJWT(
 	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts

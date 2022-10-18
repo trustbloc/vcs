@@ -305,7 +305,7 @@ func TestService_IssueCredential(t *testing.T) {
 		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 
 		cr := NewMockvcCrypto(gomock.NewController(t))
-		cr.EXPECT().SignCredentialLDP(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
+		cr.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
 		service, err := New(&Config{
 			KMSRegistry:     kmRegistry,
 			VCStatusManager: vcStatusManager,
@@ -331,11 +331,20 @@ func TestService_IssueCredential(t *testing.T) {
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
+		vcStatusManager.EXPECT().GetCredentialStatusURL(
+			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return("", nil)
+
+		keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+		require.NoError(t, err)
+
+		didDoc := createDIDDoc("did:trustblock:abc", keyID)
+		crypto := vccrypto.New(
+			&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
 		service, err := New(&Config{
 			KMSRegistry:     kmRegistry,
 			VCStatusManager: vcStatusManager,
-			Crypto:          nil,
+			Crypto:          crypto,
 			StorageProvider: ariesprovider.New(ariesmockstorage.NewMockStoreProvider()),
 		})
 		require.NoError(t, err)

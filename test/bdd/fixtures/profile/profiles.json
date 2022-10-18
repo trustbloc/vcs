@@ -183,10 +183,12 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "ldp",
-          "didMethod": "key"
+          "didMethod": "orb"
         }
       },
-      "createDID": true
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
     },
     {
       "issuer": {
@@ -200,10 +202,12 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "key"
+          "didMethod": "orb"
         }
       },
-      "createDID": true
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
     }
   ],
   "verifiers": [
@@ -313,7 +317,7 @@
               "jwt"
             ],
             "proof": true,
-            "status": false
+            "status": true
           },
           "presentation": {
             "format": [

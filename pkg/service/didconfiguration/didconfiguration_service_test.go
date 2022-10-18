@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package didconfiguration
 
 import (
@@ -131,13 +137,13 @@ func TestDidConfiguration(t *testing.T) {
 				issuerProfilerSvc.EXPECT().GetProfile(testCase.profileID).Return(testCase.issuerProfile, nil)
 			}
 
-			issueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+			cryptoSvc := NewMockVCCrypto(gomock.NewController(t))
 
-			issueCredentialSvc.EXPECT().Sign(testCase.expectedFormat, gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-				func(format vcsverifiable.Format,
+			cryptoSvc.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(
 					signer *vc.Signer,
 					credential *verifiable.Credential,
-					issuerSigningOpts []crypto.SigningOpts,
+					issuerSigningOpts ...crypto.SigningOpts,
 				) (*verifiable.Credential, error) {
 					assert.Equal(t, testCase.expectedSigner.DID, signer.DID)
 					assert.Equal(t, testCase.expectedSigner.Creator, signer.Creator)
@@ -164,10 +170,10 @@ func TestDidConfiguration(t *testing.T) {
 				})
 
 			didConfigurationService := New(&Config{
-				VerifierProfileService:  verifierProfileSvc,
-				IssuerProfileService:    issuerProfilerSvc,
-				IssuerCredentialService: issueCredentialSvc,
-				KmsRegistry:             kmsRegistrySvc,
+				VerifierProfileService: verifierProfileSvc,
+				IssuerProfileService:   issuerProfilerSvc,
+				Crypto:                 cryptoSvc,
+				KmsRegistry:            kmsRegistrySvc,
 			})
 
 			resp, err := didConfigurationService.DidConfig(context.TODO(),
@@ -340,15 +346,15 @@ func TestWithSignError(t *testing.T) {
 		Checks:     &profile.VerificationChecks{},
 	}, nil)
 
-	issueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
+	cryptoSvc := NewMockVCCrypto(gomock.NewController(t))
 
-	issueCredentialSvc.EXPECT().Sign(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+	cryptoSvc.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil, errors.New("sign error"))
 
 	configService := New(&Config{
-		VerifierProfileService:  verifierProfileSvc,
-		KmsRegistry:             kmsRegistrySvc,
-		IssuerCredentialService: issueCredentialSvc,
+		VerifierProfileService: verifierProfileSvc,
+		KmsRegistry:            kmsRegistrySvc,
+		Crypto:                 cryptoSvc,
 	})
 
 	cred, err := configService.DidConfig(

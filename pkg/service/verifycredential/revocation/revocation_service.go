@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package revocation
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -114,5 +115,5 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 		return nil, fmt.Errorf("failed to read response body for status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return body, nil
+	return bytes.Trim(body, "\n"), nil
 }

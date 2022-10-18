@@ -195,9 +195,13 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 
 	startTime = time.Now()
 
-	err = r.steps.verifyCredential(r.verifyUrl, r.verifyProfileName, r.organizationName)
+	res, err := r.steps.getVerificationResult(r.verifyUrl, r.verifyProfileName, r.organizationName)
 	if err != nil {
 		return nil, err
+	}
+
+	if res.Checks != nil {
+		return nil, fmt.Errorf("credential verification failed")
 	}
 
 	perfInfo.verifyVCHTTPTime = time.Since(startTime).Milliseconds()

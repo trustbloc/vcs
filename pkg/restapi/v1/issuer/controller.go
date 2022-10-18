@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -69,6 +70,7 @@ type oidc4VCService interface {
 type vcStatusManager interface {
 	GetRevocationListVC(id string) (*verifiable.Credential, error)
 	GetCredentialStatusURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
+	UpdateVCStatus(signer *vc.Signer, profileName, CredentialID, status string) error
 }
 
 type Config struct {
@@ -324,5 +326,55 @@ func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, st
 // PostCredentialsStatus updates credential status.
 // POST /issuer/profiles/{profileID}/credentials/status.
 func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) error {
+	var body UpdateCredentialStatusRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	if err := c.updateCredentialStatus(ctx, &body, profileID); err != nil {
+		return err
+	}
+
+	return ctx.NoContent(http.StatusOK)
+}
+
+func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCredentialStatusRequest,
+	profileID string) error {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
+	if err != nil {
+		return err
+	}
+
+	keyManager, err := c.kmsRegistry.GetKeyManager(profile.KMSConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get kms: %w", err)
+	}
+
+	if body.CredentialStatus.Type != credentialstatus.StatusList2021Entry {
+		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
+			fmt.Errorf("credential status %s not supported", body.CredentialStatus.Type))
+	}
+
+	signer := &vc.Signer{
+		Format:                  profile.VCConfig.Format,
+		DID:                     profile.SigningDID.DID,
+		Creator:                 profile.SigningDID.Creator,
+		SignatureType:           profile.VCConfig.SigningAlgorithm,
+		KeyType:                 profile.VCConfig.KeyType,
+		KMS:                     keyManager,
+		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
+	}
+
+	err = c.vcStatusManager.UpdateVCStatus(signer, profile.Name, body.CredentialID, body.CredentialStatus.Status)
+	if err != nil {
+		return resterr.NewSystemError("VCStatusManager", "UpdateVCStatus", err)
+	}
+
 	return nil
 }

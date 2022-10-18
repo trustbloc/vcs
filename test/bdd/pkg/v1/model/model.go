@@ -217,3 +217,34 @@ type PresentationChecks struct {
 	Proof  bool
 	Format []string
 }
+
+// UpdateCredentialStatusRequest request struct for updating VC status.
+type UpdateCredentialStatusRequest struct {
+	CredentialID string `json:"credentialID"`
+
+	// Credential status.
+	CredentialStatus CredentialStatus `json:"credentialStatus"`
+}
+
+// CredentialStatus Credential status.
+type CredentialStatus struct {
+	Status string `json:"status"`
+	Type   string `json:"type"`
+}
+
+// VerifyCredentialResponse is a model for response of credentials verification.
+type VerifyCredentialResponse struct {
+	Checks *[]VerifyCredentialCheckResult `json:"checks,omitempty"`
+}
+
+// VerifyCredentialCheckResult verify credential response containing failure check details.
+type VerifyCredentialCheckResult struct {
+	// Check title.
+	Check string `json:"check"`
+
+	// Error message.
+	Error string `json:"error"`
+
+	// Verification method.
+	VerificationMethod string `json:"verificationMethod"`
+}
