@@ -209,6 +209,8 @@ services:
     environment:
       - DSN=mysql://thirdpartyoidc:thirdpartyoidc-secret-pw@tcp(mysql:3306)/thirdpartyoidc?max_conns=20&max_idle_conns=4
       - URLS_SELF_ISSUER=https://oidc-provider.example.com:4444/
+      - URLS_CONSENT=https://localhost:8099/consent
+      - URLS_LOGIN=https://localhost:8099/login
       - SECRETS_SYSTEM=testSecretsSystem
       - OIDC_SUBJECT_TYPES_SUPPORTED=public
       - OIDC_SUBJECT_TYPE_PAIRWISE_SALT=testSecretsSystem
@@ -223,6 +225,22 @@ services:
       - ./hydra-config/hydra_configure.sh:/tmp/hydra_configure.sh
     depends_on:
       - mysql
+    networks:
+      - bdd_net
+
+  mock-login-consent.example.com: # login/consent mock server for OIDC4VC issuance flow
+    container_name: mock-login-consent.example.com
+    image: vcs/mock-login-consent:latest
+    environment:
+      - LISTEN_ADDR=:8099
+      - HYDRA_ADMIN_URL=https://oidc-provider.example.com:4445
+      - TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
+      - TLS_KEY_PATH=/etc/tls/ec-key.pem
+      - ROOT_CA_CERTS_PATH=/etc/tls/ec-cacert.pem
+    ports:
+      - "8099:8099"
+    volumes:
+      - ./keys/tls:/etc/tls
     networks:
       - bdd_net
 

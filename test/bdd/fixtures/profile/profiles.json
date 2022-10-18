@@ -204,6 +204,30 @@
         }
       },
       "createDID": true
+    },
+    {
+      "issuer": {
+        "id": "issuer_oidc4vc",
+        "name": "issuer_oidc4vc",
+        "organizationID": "test_org",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSASecp256k1IEEEP1363",
+          "format": "ldp",
+          "didMethod": "orb"
+        },
+        "oidcConfig": {
+          "client_id": "issuer_oidc4vc",
+          "client_secret_handle": "issuer-oidc4vc-secret",
+          "issuer_well_known": "https://oidc-provider.example.com:4445/.well-known/openid-configuration"
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
     }
   ],
   "verifiers": [

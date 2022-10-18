@@ -74,8 +74,15 @@ sample-webhook-docker:
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
+.PHONY: mock-login-consent-docker
+mock-login-consent-docker:
+	@echo "Building mock login consent server"
+	@docker build -f ./images/mocks/loginconsent/Dockerfile --no-cache -t  vcs/mock-login-consent:latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) test/bdd/loginconsent
+
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker sample-webhook-docker generate-test-keys
+bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker generate-test-keys
 	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test
