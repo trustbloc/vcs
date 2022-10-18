@@ -641,7 +641,8 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 				tt.args.getVcByte(),
 				tt.args.proofChallenge,
 				tt.args.proofDomain,
-				tt.args.vcInVPValidation); (err != nil) != tt.wantErr {
+				tt.args.vcInVPValidation,
+				true); (err != nil) != tt.wantErr {
 				t.Errorf("ValidateCredentialProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

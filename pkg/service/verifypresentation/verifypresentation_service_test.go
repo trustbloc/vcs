@@ -94,6 +94,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
+						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					mockVerifier.EXPECT().ValidateVCStatus(
 						gomock.Any(),
@@ -246,6 +247,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
@@ -654,6 +656,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
+						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
@@ -674,6 +677,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
