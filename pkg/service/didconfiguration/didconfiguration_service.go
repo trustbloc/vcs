@@ -25,10 +25,11 @@ import (
 )
 
 const (
-	didConfigurationContextURL    = "https://identity.foundation/.well-known/did-configuration/v1" //nolint:gosec
-	w3CredentialsURL              = "https://www.w3.org/2018/credentials/v1"                       //nolint:gosec
-	vcTypeVerifiableCredential    = "VerifiableCredential"                                         //nolint:gosec
-	vcTypeDomainLinkageCredential = "DomainLinkageCredential"                                      //nolint:gosec
+	//nolint:gosec
+	didConfigurationContextURL    = "https://identity.foundation/.well-known/did-configuration/v1"
+	w3CredentialsURL              = "https://www.w3.org/2018/credentials/v1" //nolint:gosec
+	vcTypeVerifiableCredential    = "VerifiableCredential"                   //nolint:gosec
+	vcTypeDomainLinkageCredential = "DomainLinkageCredential"                //nolint:gosec
 )
 
 type verifierProfileService interface {
