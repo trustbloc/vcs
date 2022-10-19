@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -233,8 +232,8 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	}
 
 	if difDidOrigin != "" {
-		didDoc.Service = []did.Service{{ID: uuid.NewString(), Type: "LinkedDomains",
-			ServiceEndpoint: model.NewDIDCommV1Endpoint(difDidOrigin)}}
+		didDoc.Service = []did.Service{{ID: "LinkedDomains", Type: "LinkedDomains",
+			ServiceEndpoint: model.NewDIDCommV1Endpoint(difDidOrigin + "/")}}
 	}
 
 	b, err := didDoc.JSONBytes()
