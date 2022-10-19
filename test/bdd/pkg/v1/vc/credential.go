@@ -110,7 +110,7 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 	}
 
 	e.Lock()
-	e.bddContext.CreatedCredential = respBytes[:len(respBytes)-1]
+	e.bddContext.CreatedCredential = respBytes
 	e.Unlock()
 
 	return nil

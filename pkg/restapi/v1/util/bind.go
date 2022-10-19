@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package util
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -30,6 +31,12 @@ func WriteOutput(ctx echo.Context) func(output interface{}, err error) error {
 		if err != nil {
 			return err
 		}
-		return ctx.JSON(http.StatusOK, output)
+
+		b, err := json.Marshal(output)
+		if err != nil {
+			return err
+		}
+
+		return ctx.JSONBlob(http.StatusOK, b)
 	}
 }
