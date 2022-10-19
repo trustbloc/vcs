@@ -187,6 +187,8 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, err
 	}
 
+	logger.Info("request object jwt", log.WithJSON(token))
+
 	requestURI, err := s.requestObjectPublicStore.Publish(token)
 	if err != nil {
 		return nil, fmt.Errorf("fail publish request object: %w", err)
