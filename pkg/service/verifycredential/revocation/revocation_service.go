@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package revocation
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
@@ -75,18 +74,13 @@ func (s *Service) GetRevocationVC(statusURL string) (*verifiable.Credential, err
 }
 
 func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
-	vc, err := verifiable.ParseCredential(
+	return verifiable.ParseCredential(
 		vcBytes,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
 		),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return vc, nil
 }
 
 func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) ([]byte, error) {
@@ -115,5 +109,5 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 		return nil, fmt.Errorf("failed to read response body for status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return bytes.Trim(body, "\n"), nil
+	return body, nil
 }
