@@ -14,7 +14,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -86,9 +88,9 @@ func newCreator(config *creatorConfig) *Creator {
 
 // publicDID creates a new public DID given a key manager.
 func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcsverifiable.SignatureType,
-	keyType kms.KeyType, km KeysCreator, didDomain string) (*createResult, error) {
+	keyType kms.KeyType, km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
 	methods := map[profileapi.Method]func(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-		km KeysCreator, didDomain string) (*createResult, error){
+		km KeysCreator, didDomain, difDidOrigin string) (*createResult, error){
 		profileapi.KeyDIDMethod: c.keyDID,
 		profileapi.OrbDIDMethod: c.createDID,
 		profileapi.WebDIDMethod: c.webDID,
@@ -100,11 +102,11 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 		return nil, fmt.Errorf("unsupported did method: %s", method)
 	}
 
-	return methodFn(verificationMethodType, keyType, km, didDomain)
+	return methodFn(verificationMethodType, keyType, km, didDomain, difDidOrigin)
 }
 
 func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) { //nolint: unparam
+	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint: unparam
 	methods, err := newVerMethods(3, km, verificationMethodType, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
@@ -172,7 +174,7 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 }
 
 func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) { //nolint: unparam
+	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint: unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
@@ -196,8 +198,8 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 }
 
 func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) {
-	r, err := c.createDID(verificationMethodType, keyType, km, didDomain)
+	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
+	r, err := c.createDID(verificationMethodType, keyType, km, didDomain, difDidOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +218,7 @@ func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, key
 }
 
 func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain string) (*createResult, error) {
+	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)
@@ -228,6 +230,11 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	didDoc := &did.Doc{
 		VerificationMethod: []did.VerificationMethod{*vm},
 		AssertionMethod:    []did.Verification{{VerificationMethod: did.VerificationMethod{ID: vm.ID}}},
+	}
+
+	if difDidOrigin != "" {
+		didDoc.Service = []did.Service{{ID: uuid.NewString(), Type: "LinkedDomains",
+			ServiceEndpoint: model.NewDIDCommV1Endpoint(difDidOrigin)}}
 	}
 
 	b, err := didDoc.JSONBytes()

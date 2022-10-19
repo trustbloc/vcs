@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -106,7 +107,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 			}
 
 			createResult, err := didCreator.publicDID(v.Data.VCConfig.DIDMethod,
-				v.Data.VCConfig.SigningAlgorithm, v.Data.VCConfig.KeyType, keyCreator, v.DidDomain)
+				v.Data.VCConfig.SigningAlgorithm, v.Data.VCConfig.KeyType, keyCreator, v.DidDomain, "")
 			if err != nil {
 				return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 			}
@@ -166,7 +167,6 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 			if err != nil {
 				return nil, err
 			}
-
 			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr))})
 
 			keyCreator, err := config.KMSRegistry.GetKeyManager(v.Data.KMSConfig)
@@ -174,8 +174,19 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 				return nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
 			}
 
+			difDIDOrigin := ""
+			if v.Data.WebHook != "" {
+				u, err := url.Parse(v.Data.WebHook)
+				if err != nil {
+					return nil, err
+				}
+
+				difDIDOrigin = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+			}
+
 			createResult, err := didCreator.publicDID(v.Data.OIDCConfig.DIDMethod,
-				v.Data.OIDCConfig.ROSigningAlgorithm, v.Data.OIDCConfig.KeyType, keyCreator, v.DidDomain)
+				v.Data.OIDCConfig.ROSigningAlgorithm, v.Data.OIDCConfig.KeyType, keyCreator, v.DidDomain,
+				difDIDOrigin)
 			if err != nil {
 				return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
 			}
