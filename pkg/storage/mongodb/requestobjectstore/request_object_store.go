@@ -14,6 +14,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -28,8 +29,9 @@ type Store struct {
 }
 
 type mongoDocument struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty"`
-	Content string
+	ID                       primitive.ObjectID     `bson:"_id,omitempty"`
+	Content                  string                 `bson:"content"`
+	AccessRequestObjectEvent map[string]interface{} `bson:"accessRequestObjectEvent"`
 }
 
 // NewStore creates Store.
@@ -44,9 +46,15 @@ func (p *Store) Create(request requestobject.RequestObject) (*requestobject.Requ
 
 	collection := p.mongoClient.Database().Collection(txCollection)
 
+	event, err := mongodb.StructureToMap(request.AccessRequestObjectEvent)
+	if err != nil {
+		return nil, fmt.Errorf("create doc: %w", err)
+	}
+
 	obj := &mongoDocument{
-		ID:      primitive.ObjectID{},
-		Content: request.Content,
+		ID:                       primitive.ObjectID{},
+		Content:                  request.Content,
+		AccessRequestObjectEvent: event,
 	}
 
 	result, err := collection.InsertOne(ctxWithTimeout, obj)
@@ -85,9 +93,17 @@ func (p *Store) Find(id string) (*requestobject.RequestObject, error) {
 		return nil, fmt.Errorf("tx find failed: %w", err)
 	}
 
+	event := &spi.Event{}
+
+	err = mongodb.MapToStructure(txDoc.AccessRequestObjectEvent, event)
+	if err != nil {
+		return nil, fmt.Errorf("access request object event deserialization failed: %w", err)
+	}
+
 	return &requestobject.RequestObject{
-		ID:      txDoc.ID.Hex(),
-		Content: txDoc.Content,
+		ID:                       txDoc.ID.Hex(),
+		Content:                  txDoc.Content,
+		AccessRequestObjectEvent: event,
 	}, nil
 }
 

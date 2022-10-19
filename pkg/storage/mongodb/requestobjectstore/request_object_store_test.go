@@ -8,6 +8,7 @@ package requestobjectstore
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -84,8 +86,21 @@ func TestObjectStore(t *testing.T) {
 	t.Run("Create and find by id", func(t *testing.T) {
 		u := uuid.New()
 
+		eventData := json.RawMessage(`{"test":"test"}`)
+
+		expectedEvent := spi.Event{
+			SpecVersion:     "test1",
+			ID:              "test2",
+			Source:          "test2",
+			Type:            "test4",
+			DataContentType: "test5",
+			Time:            nil,
+			Data:            &eventData,
+		}
+
 		resp, err := store.Create(requestobject.RequestObject{
-			Content: u,
+			Content:                  u,
+			AccessRequestObjectEvent: &expectedEvent,
 		})
 
 		assert.NoError(t, err)
@@ -94,6 +109,11 @@ func TestObjectStore(t *testing.T) {
 
 		assert.NoError(t, err2)
 		assert.Equal(t, u, resp2.Content)
+
+		if !reflect.DeepEqual(resp2.AccessRequestObjectEvent.Data, expectedEvent.Data) {
+			t.Errorf("ValidateCredential() got = %v, want %v",
+				resp2.AccessRequestObjectEvent, expectedEvent)
+		}
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {

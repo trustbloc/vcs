@@ -24,6 +24,8 @@ type EventType string
 const (
 	// VerifierOIDCInteractionInitiated verifier oidc event.
 	VerifierOIDCInteractionInitiated = "oidc_interaction_initiated"
+	// VerifierOIDCInteractionQRScanned verifier oidc event.
+	VerifierOIDCInteractionQRScanned = "oidc_interaction_qr_scanned"
 	// VerifierOIDCInteractionSucceeded verifier oidc event.
 	VerifierOIDCInteractionSucceeded = "oidc_interaction_succeeded"
 )
