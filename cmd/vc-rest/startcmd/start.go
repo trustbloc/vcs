@@ -250,7 +250,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	//TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.hostURLExternal + "/request-object/"
 	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
-	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, requestObjStoreEndpoint)
+	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc, requestObjStoreEndpoint)
 	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 eventSvc,
 		TransactionManager:       oidc4vpTxManager,

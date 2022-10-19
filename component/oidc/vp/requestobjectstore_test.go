@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 )
 
@@ -35,15 +36,18 @@ func TestRequestObjectStore(t *testing.T) {
 
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
 		repo.EXPECT().Create(requestobject.RequestObject{
-			Content: strData,
+			Content:                  strData,
+			AccessRequestObjectEvent: &spi.Event{},
 		}).Return(&requestobject.RequestObject{
 			ID:      randomID,
 			Content: strData,
 		}, nil)
 
-		store := NewRequestObjectStore(repo, uri)
+		eventSvc := NewMockEventService(gomock.NewController(t))
 
-		finalURI, err := store.Publish(string(dataBytes))
+		store := NewRequestObjectStore(repo, eventSvc, uri)
+
+		finalURI, err := store.Publish(string(dataBytes), &spi.Event{})
 
 		assert.NoError(t, err)
 
@@ -56,9 +60,11 @@ func TestRequestObjectStore(t *testing.T) {
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
 		repo.EXPECT().Create(gomock.Any()).Return(nil, errors.New(errorStr))
 
-		store := NewRequestObjectStore(repo, uri)
+		eventSvc := NewMockEventService(gomock.NewController(t))
 
-		finalURI, err := store.Publish(string(dataBytes))
+		store := NewRequestObjectStore(repo, eventSvc, uri)
+
+		finalURI, err := store.Publish(string(dataBytes), &spi.Event{})
 		assert.Empty(t, finalURI)
 		assert.ErrorContains(t, err, errorStr)
 	})
@@ -70,12 +76,46 @@ func TestRequestObjectStore(t *testing.T) {
 			ID: id,
 		}, nil)
 
-		store := NewRequestObjectStore(repo, uri)
+		eventSvc := NewMockEventService(gomock.NewController(t))
+		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+
+		store := NewRequestObjectStore(repo, eventSvc, uri)
 
 		resp, err := store.Get(id)
 
 		assert.NoError(t, err)
 		assert.Equal(t, id, resp.ID)
+	})
+
+	t.Run("Get store failed", func(t *testing.T) {
+		id := "21342315231w"
+		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
+		repo.EXPECT().Find(gomock.Any()).Return(nil, errors.New("store failed"))
+
+		eventSvc := NewMockEventService(gomock.NewController(t))
+
+		store := NewRequestObjectStore(repo, eventSvc, uri)
+
+		_, err := store.Get(id)
+
+		assert.Error(t, err)
+	})
+
+	t.Run("Get publish event failed", func(t *testing.T) {
+		id := "21342315231w"
+		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
+		repo.EXPECT().Find(gomock.Any()).Return(&requestobject.RequestObject{
+			ID: id,
+		}, nil)
+
+		eventSvc := NewMockEventService(gomock.NewController(t))
+		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("publish failed"))
+
+		store := NewRequestObjectStore(repo, eventSvc, uri)
+
+		_, err := store.Get(id)
+
+		assert.Error(t, err)
 	})
 }
 
@@ -103,7 +143,9 @@ func TestDelete(t *testing.T) {
 			repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
 			repo.EXPECT().Delete(testCase.expectedID).Return(nil)
 
-			store := NewRequestObjectStore(repo, "")
+			eventSvc := NewMockEventService(gomock.NewController(t))
+
+			store := NewRequestObjectStore(repo, eventSvc, "")
 
 			assert.NoError(t, store.Remove(testCase.path))
 		})

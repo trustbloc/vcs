@@ -52,7 +52,7 @@ type transactionManager interface {
 }
 
 type requestObjectPublicStore interface {
-	Publish(requestObject string) (string, error)
+	Publish(requestObject string, accessRequestObjectEvent *spi.Event) (string, error)
 }
 
 type kmsRegistry interface {
@@ -110,7 +110,8 @@ type Config struct {
 }
 
 type CredentialMetadata struct {
-	Type        string      `json:"type"`
+	Format      string      `json:"format"`
+	Type        []string    `json:"type"`
 	SubjectData interface{} `json:"subjectData"`
 }
 
@@ -155,16 +156,25 @@ func NewService(cfg *Config) *Service {
 	}
 }
 
-func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {
+func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
+	eventType spi.EventType) (*spi.Event, error) {
 	payload, err := json.Marshal(eventPayload{
 		TxID:    string(tx.ID),
 		WebHook: profile.WebHook,
 	})
 	if err != nil {
+		return nil, err
+	}
+	return spi.NewEvent(uuid.NewString(), profile.URL, eventType, payload), nil
+}
+
+func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {
+	event, err := s.createEvent(tx, profile, eventType)
+	if err != nil {
 		return err
 	}
 
-	return s.eventSvc.Publish(spi.VerifierEventTopic, spi.NewEvent(uuid.NewString(), profile.URL, eventType, payload))
+	return s.eventSvc.Publish(spi.VerifierEventTopic, event)
 }
 
 func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
@@ -187,9 +197,14 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, err
 	}
 
+	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned)
+	if err != nil {
+		return nil, err
+	}
+
 	logger.Info("request object jwt", log.WithJSON(token))
 
-	requestURI, err := s.requestObjectPublicStore.Publish(token)
+	requestURI, err := s.requestObjectPublicStore.Publish(token, accessRequestObjectEvent)
 	if err != nil {
 		return nil, fmt.Errorf("fail publish request object: %w", err)
 	}
@@ -248,7 +263,8 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 			credType = "jwt"
 		}
 		result[cred.ID] = CredentialMetadata{
-			Type:        credType,
+			Format:      credType,
+			Type:        cred.Types,
 			SubjectData: cred.Subject,
 		}
 	}

@@ -162,6 +162,11 @@ func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
+	_, err = e.waitForEvent("oidc_interaction_qr_scanned")
+	if err != nil {
+		return err
+	}
+
 	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
 		verifiable.NewVDRKeyResolver(e.ariesServices.vdrRegistry).PublicKeyFetcher()))
 
@@ -262,7 +267,7 @@ func (e *Steps) sendAuthorizedResponse() error {
 }
 
 func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
-	txID, err := e.waitForEvent()
+	txID, err := e.waitForEvent("oidc_interaction_succeeded")
 	if err != nil {
 		return err
 	}
@@ -288,7 +293,7 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 	return nil
 }
 
-func (e *Steps) waitForEvent() (string, error) {
+func (e *Steps) waitForEvent(eventType string) (string, error) {
 	incoming := &Event{}
 
 	for i := 0; i < pullTopicsAttemptsBeforeFail; {
@@ -314,7 +319,7 @@ func (e *Steps) waitForEvent() (string, error) {
 			return "", err
 		}
 
-		if incoming.Type == "oidc_interaction_succeeded" {
+		if incoming.Type == eventType {
 			return incoming.Data.TxID, nil
 		}
 

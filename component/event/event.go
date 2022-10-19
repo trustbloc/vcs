@@ -38,7 +38,9 @@ func (b *Bus) handleEvent(e *spi.Event) error { //nolint:gocognit
 	logger.Info("handling event", log.WithEvent(e))
 
 	//nolint:nestif
-	if e.Type == spi.VerifierOIDCInteractionInitiated || e.Type == spi.VerifierOIDCInteractionSucceeded {
+	if e.Type == spi.VerifierOIDCInteractionInitiated ||
+		e.Type == spi.VerifierOIDCInteractionSucceeded ||
+		e.Type == spi.VerifierOIDCInteractionQRScanned {
 		payload := &eventPayload{}
 
 		if err := json.Unmarshal(*e.Data, payload); err != nil {
