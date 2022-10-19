@@ -44,7 +44,7 @@ type AuthorizationDetails struct {
 
 // InitiateIssuanceRequest is the request used by the Issuer to initiate the OIDC VC issuance interaction.
 type InitiateIssuanceRequest struct {
-	CredentialTemplate        *verifiable.Credential
+	CredentialTemplateID      string
 	ClientInitiateIssuanceURL string
 	ClientWellKnownURL        string
 	ClaimEndpoint             string
@@ -52,7 +52,6 @@ type InitiateIssuanceRequest struct {
 	ResponseType              string
 	Scope                     []string
 	OpState                   string
-	AuthorizationDetails      *AuthorizationDetails
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.

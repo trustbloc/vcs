@@ -27,12 +27,7 @@ func TestService_InitiateInteraction(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
-		credentialTemplate   = &verifiable.Credential{
-			ID:     "templateID",
-			Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
-			Issuer: verifiable.Issuer{ID: "issuerID"},
-		}
-		issuanceReq *oidc4vc.InitiateIssuanceRequest
+		issuanceReq          *oidc4vc.InitiateIssuanceRequest
 	)
 
 	tests := []struct {
@@ -44,8 +39,12 @@ func TestService_InitiateInteraction(t *testing.T) {
 			name: "Success",
 			setup: func() {
 				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
-					ID:              "txID",
-					TransactionData: oidc4vc.TransactionData{},
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						CredentialTemplate: &verifiable.Credential{
+							ID: "templateID",
+						},
+					},
 				}, nil)
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
 					Body: io.NopCloser(strings.NewReader(
@@ -54,11 +53,10 @@ func TestService_InitiateInteraction(t *testing.T) {
 				}, nil)
 
 				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplate:   credentialTemplate,
+					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   "https://wallet.example.com/.well-known/openid-configuration",
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 					OpState:              "eyJhbGciOiJSU0Et",
-					AuthorizationDetails: &oidc4vc.AuthorizationDetails{CredentialType: "UniversityDegreeCredential"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
@@ -67,21 +65,53 @@ func TestService_InitiateInteraction(t *testing.T) {
 			},
 		},
 		{
-			name: "Client initiate issuance URL takes precedence over client_wellknown parameter",
+			name: "Credential template ID is required",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
-					ID:              "txID",
-					TransactionData: oidc4vc.TransactionData{},
-				}, nil)
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Times(0)
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplate:        credentialTemplate,
+					CredentialTemplateID:      "",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateIDRequired)
+			},
+		},
+		{
+			name: "Credential template not found",
+			setup: func() {
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Times(0)
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+					CredentialTemplateID:      "templateID3",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateNotFound)
+			},
+		},
+		{
+			name: "Client initiate issuance URL takes precedence over client well-known parameter",
+			setup: func() {
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClientWellKnownURL:        "https://wallet.example.com/.well-known/openid-configuration",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
-					AuthorizationDetails:      &oidc4vc.AuthorizationDetails{CredentialType: "UniversityDegreeCredential"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
@@ -92,18 +122,14 @@ func TestService_InitiateInteraction(t *testing.T) {
 		{
 			name: "Custom initiate issuance URL when fail to do well-known request",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
-					ID:              "txID",
-					TransactionData: oidc4vc.TransactionData{},
-				}, nil)
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(nil, fmt.Errorf("well-known request error"))
 
 				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplate:   credentialTemplate,
+					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   "https://wallet.example.com/.well-known/openid-configuration",
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 					OpState:              "eyJhbGciOiJSU0Et",
-					AuthorizationDetails: &oidc4vc.AuthorizationDetails{CredentialType: "UniversityDegreeCredential"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
@@ -114,21 +140,17 @@ func TestService_InitiateInteraction(t *testing.T) {
 		{
 			name: "Custom initiate issuance URL when fail to decode well-known config",
 			setup: func() {
-				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
-					ID:              "txID",
-					TransactionData: oidc4vc.TransactionData{},
-				}, nil)
+				mockTransactionStore.EXPECT().Store(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
 					Body:       io.NopCloser(strings.NewReader("invalid json")),
 					StatusCode: http.StatusOK,
 				}, nil)
 
 				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplate:   credentialTemplate,
+					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   "https://wallet.example.com/.well-known/openid-configuration",
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
 					OpState:              "eyJhbGciOiJSU0Et",
-					AuthorizationDetails: &oidc4vc.AuthorizationDetails{CredentialType: "UniversityDegreeCredential"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
@@ -143,11 +165,10 @@ func TestService_InitiateInteraction(t *testing.T) {
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 
 				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplate:        credentialTemplate,
+					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
 					OpState:                   "eyJhbGciOiJSU0Et",
-					AuthorizationDetails:      &oidc4vc.AuthorizationDetails{CredentialType: "UniversityDegreeCredential"},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
@@ -162,12 +183,24 @@ func TestService_InitiateInteraction(t *testing.T) {
 			tt.setup()
 
 			svc, err := oidc4vc.NewService(&oidc4vc.Config{
-				TransactionStore: mockTransactionStore,
-				HTTPClient:       mockHTTPClient,
+				TransactionStore:    mockTransactionStore,
+				HTTPClient:          mockHTTPClient,
+				IssuerVCSPublicHost: "https://vcs.pb.example.com/oidc",
 			})
 			require.NoError(t, err)
 
-			resp, err := svc.InitiateInteraction(context.TODO(), issuanceReq, &profileapi.Issuer{})
+			resp, err := svc.InitiateInteraction(context.Background(), issuanceReq, &profileapi.Issuer{
+				CredentialTemplates: []*verifiable.Credential{
+					{
+						ID:    "templateID",
+						Types: []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					},
+					{
+						ID:    "templateID2",
+						Types: []string{"VerifiableCredential", "PermanentResidentCard"},
+					},
+				},
+			})
 			tt.check(t, resp, err)
 		})
 	}

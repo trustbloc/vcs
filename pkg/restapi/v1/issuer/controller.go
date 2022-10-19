@@ -64,6 +64,7 @@ type oidc4VCService interface {
 	InitiateInteraction(
 		ctx context.Context,
 		req *oidc4vc.InitiateIssuanceRequest,
+		profile *profileapi.Issuer,
 	) (*oidc4vc.InitiateIssuanceResponse, error)
 }
 
@@ -225,13 +226,8 @@ func (c *Controller) initiateOidcInteraction(
 			errors.New("OIDC not configured"))
 	}
 
-	t, err := findCredentialTemplate(profile.CredentialTemplates, lo.FromPtr(req.CredentialTemplateId))
-	if err != nil {
-		return nil, err
-	}
-
 	issuanceReq := &oidc4vc.InitiateIssuanceRequest{
-		CredentialTemplate:        t,
+		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
 		ClaimEndpoint:             lo.FromPtr(req.ClaimEndpoint),
@@ -241,41 +237,20 @@ func (c *Controller) initiateOidcInteraction(
 		OpState:                   lo.FromPtr(req.OpState),
 	}
 
-	resp, err := c.oidc4VCService.InitiateInteraction(ctx, issuanceReq)
+	resp, err := c.oidc4VCService.InitiateInteraction(ctx, issuanceReq, profile)
 	if err != nil {
-		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateOIDCInteraction", err)
+		if errors.Is(err, oidc4vc.ErrCredentialTemplateNotFound) ||
+			errors.Is(err, oidc4vc.ErrCredentialTemplateIDRequired) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
+		}
+
+		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateInteraction", err)
 	}
 
 	return &InitiateOIDC4VCResponse{
 		InitiateIssuanceUrl: resp.InitiateIssuanceURL,
 		TxId:                string(resp.TxID),
 	}, nil
-}
-
-func findCredentialTemplate(
-	credentialTemplates []*verifiable.Credential,
-	templateID string,
-) (*verifiable.Credential, error) {
-	// profile should define at least one credential template
-	if len(credentialTemplates) == 0 || credentialTemplates[0].ID == "" {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.CredentialTemplates",
-			errors.New("credential template not configured"))
-	}
-
-	// credential_template_id param is required if profile has more than one credential template defined
-	if len(credentialTemplates) > 1 && templateID == "" {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
-			errors.New("credential template id is required"))
-	}
-
-	for _, t := range credentialTemplates {
-		if t.ID == templateID {
-			return t, nil
-		}
-	}
-
-	return nil, resterr.NewValidationError(resterr.ConditionNotMet, "credential_template_id",
-		errors.New("credential template not found"))
 }
 
 func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error) {
