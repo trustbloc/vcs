@@ -198,7 +198,7 @@ func (s *Service) getBaseCredentials() *verifiable.Credential {
 			vcTypeVerifiableCredential,
 			vcTypeDomainLinkageCredential,
 		},
-		Issued:  util.NewTime(time.Now().UTC()),
-		Expired: util.NewTime(time.Now().UTC().AddDate(1, 0, 0)),
+		Issued:  util.NewTime(time.Now()),
+		Expired: util.NewTime(time.Now().AddDate(1, 0, 0)),
 	}
 }
