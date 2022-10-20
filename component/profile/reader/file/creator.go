@@ -229,6 +229,7 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	didDoc := &did.Doc{
 		VerificationMethod: []did.VerificationMethod{*vm},
 		AssertionMethod:    []did.Verification{{VerificationMethod: did.VerificationMethod{ID: vm.ID}}},
+		Authentication:     []did.Verification{{VerificationMethod: did.VerificationMethod{ID: vm.ID}}},
 	}
 
 	if difDidOrigin != "" {
