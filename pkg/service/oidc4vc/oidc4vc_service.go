@@ -11,9 +11,13 @@ package oidc4vc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -38,14 +42,16 @@ type httpClient interface {
 
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStore transactionStore
-	HTTPClient       httpClient
+	TransactionStore    transactionStore
+	HTTPClient          httpClient
+	IssuerVCSPublicHost string
 }
 
 // Service implements OIDC for VC issuance functionality.
 type Service struct {
-	store      transactionStore
-	httpClient httpClient
+	store               transactionStore
+	httpClient          httpClient
+	issuerVCSPublicHost string
 }
 
 // NewService returns a new Service instance.
@@ -62,14 +68,18 @@ func (s *Service) InitiateInteraction(
 	req *InitiateIssuanceRequest,
 	profile *profileapi.Issuer,
 ) (*InitiateIssuanceResponse, error) {
+	template, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
+	if err != nil {
+		return nil, err
+	}
+
 	data := &TransactionData{
-		CredentialTemplate:   req.CredentialTemplate,
-		ClaimEndpoint:        req.ClaimEndpoint,
-		GrantType:            req.GrantType,
-		ResponseType:         req.ResponseType,
-		Scope:                req.Scope,
-		AuthorizationDetails: req.AuthorizationDetails,
-		OpState:              req.OpState,
+		CredentialTemplate: template,
+		ClaimEndpoint:      req.ClaimEndpoint,
+		GrantType:          req.GrantType,
+		ResponseType:       req.ResponseType,
+		Scope:              req.Scope,
+		OpState:            req.OpState,
 	}
 
 	if data.GrantType == "" {
@@ -90,15 +100,39 @@ func (s *Service) InitiateInteraction(
 	}
 
 	return &InitiateIssuanceResponse{
-		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, profile),
+		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, template, tx.ID),
 		TxID:                tx.ID,
 	}, nil
+}
+
+func findCredentialTemplate(
+	credentialTemplates []*verifiable.Credential,
+	templateID string,
+) (*verifiable.Credential, error) {
+	// profile should define at least one credential template
+	if len(credentialTemplates) == 0 || credentialTemplates[0].ID == "" {
+		return nil, errors.New("credential template not configured for profile")
+	}
+
+	// credential template ID is required if profile has more than one credential template defined
+	if len(credentialTemplates) > 1 && templateID == "" {
+		return nil, ErrCredentialTemplateIDRequired
+	}
+
+	for _, t := range credentialTemplates {
+		if t.ID == templateID {
+			return t, nil
+		}
+	}
+
+	return nil, ErrCredentialTemplateNotFound
 }
 
 func (s *Service) buildInitiateIssuanceURL(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
-	profile *profileapi.Issuer,
+	template *verifiable.Credential,
+	txID TxID,
 ) string {
 	var initiateIssuanceURL string
 
@@ -119,11 +153,23 @@ func (s *Service) buildInitiateIssuanceURL(
 	}
 
 	q := url.Values{}
-	q.Set("issuer", profile.ID)
-	q.Set("credential_type", req.AuthorizationDetails.CredentialType)
+	q.Set("issuer", s.issuerVCSPublicHost+"/"+string(txID))
+	q.Set("credential_type", getCredentialType(template))
 	q.Set("op_state", req.OpState)
 
 	return initiateIssuanceURL + "?" + q.Encode()
+}
+
+func getCredentialType(template *verifiable.Credential) string {
+	for _, t := range template.Types {
+		if strings.EqualFold(t, "VerifiableCredential") {
+			continue
+		}
+
+		return strings.ToLower(t)
+	}
+
+	return ""
 }
 
 func (s *Service) getClientWellKnownConfig(ctx context.Context, wellKnownURL string) (*ClientWellKnownConfig, error) {

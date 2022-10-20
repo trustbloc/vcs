@@ -8,4 +8,8 @@ package oidc4vc
 
 import "errors"
 
-var ErrDataNotFound = errors.New("data not found")
+var (
+	ErrDataNotFound                 = errors.New("data not found")
+	ErrCredentialTemplateNotFound   = errors.New("credential template not found")
+	ErrCredentialTemplateIDRequired = errors.New("credential template ID is required")
+)
