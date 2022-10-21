@@ -216,6 +216,10 @@ func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, key
 	}, nil
 }
 
+type serviceEndpointData struct {
+	Origins []string `json:"origins"`
+}
+
 func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
 	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
@@ -234,7 +238,7 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 
 	if difDidOrigin != "" {
 		didDoc.Service = []did.Service{{ID: "LinkedDomains", Type: "LinkedDomains",
-			ServiceEndpoint: model.NewDIDCommV1Endpoint(difDidOrigin + "/")}}
+			ServiceEndpoint: model.NewDIDCoreEndpoint(&serviceEndpointData{Origins: []string{difDidOrigin + "/"}})}}
 	}
 
 	b, err := didDoc.JSONBytes()
@@ -247,7 +251,8 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	req, err := json.Marshal(uniRegistrarRequest{DIDDocument: &a})
 
 	// TODO https://github.com/hyperledger/aries-framework-go-ext/issues/288
-	resp, err := http.DefaultClient.Post("https://uniregistrar.io/1.0/create?method=ion", "application/json", bytes.NewReader(req))
+	resp, err := http.DefaultClient.Post("https://uniregistrar.io/1.0/create?method=ion",
+		"application/json", bytes.NewReader(req))
 	if err != nil {
 		return nil, err
 	}

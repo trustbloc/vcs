@@ -6,7 +6,7 @@ module github.com/trustbloc/edge-service/component/profile/reader/file
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221017192441-2b9ca433f743
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221020091035-247f0446a0ea
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/spf13/cobra v1.6.0
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
