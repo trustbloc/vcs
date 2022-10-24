@@ -341,16 +341,15 @@
           },
           "presentation": {
             "format": [
-              "ldp",
               "jwt"
             ],
             "proof": true
           }
         },
         "oidcConfig": {
-          "roSigningAlgorithm": "JsonWebSignature2020",
-          "keyType": "ECDSAP256DER",
-          "didMethod": "orb"
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1IEEEP1363",
+          "didMethod": "ion"
         },
         "presentationDefinitions": [
           {
@@ -385,9 +384,7 @@
           }
         ]
       },
-      "createDID": true,
-      "didDomain": "https://testnet.orb.local",
-      "didServiceAuthToken": "tk1"
+      "createDID": true
     }
   ]
 }

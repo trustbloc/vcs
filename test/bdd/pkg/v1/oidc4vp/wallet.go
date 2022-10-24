@@ -46,6 +46,7 @@ const (
 	didMethodFactom     = "factom"
 	didMethodORB        = "orb"
 	didMethodKey        = "key"
+	didMethodION        = "ion"
 	universalResolver   = "http://did-resolver.trustbloc.local:8072/1.0/identifiers"
 	contextProviderURL  = "https://file-server.trustbloc.local:10096/ld-contexts.json"
 	didDomain           = "https://testnet.orb.local"
@@ -281,7 +282,8 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registr
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
 	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom || method == didMethodORB || method == didMethodKey
+		method == didMethodWeb || method == didMethodFactom || method == didMethodORB ||
+		method == didMethodKey || method == didMethodION
 }
 
 type webVDR struct {

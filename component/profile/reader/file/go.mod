@@ -82,7 +82,7 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
 	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372 // indirect
-	github.com/trustbloc/kms v0.1.9-0.20220927102932-412f152996fa // indirect
+	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 // indirect
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc2.0.20220729143551-6cda4cea3bf5 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect
