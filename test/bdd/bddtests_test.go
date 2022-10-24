@@ -21,6 +21,7 @@ import (
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vc"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vp"
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
 	vc_devapi "github.com/trustbloc/vcs/test/bdd/pkg/vc-devapi"
@@ -145,6 +146,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	features := []feature{
 		common.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
+		oidc4vc.NewSteps(bddContext),
 		oidc4vp.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 		vc_devapi.NewSteps(bddContext),
