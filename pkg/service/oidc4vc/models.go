@@ -7,9 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
+	"net/url"
+	"time"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/ory/fosite"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/profile"
 )
 
 // TxID defines type for transaction ID.
@@ -25,13 +30,21 @@ type Transaction struct {
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
-	CredentialTemplate   *verifiable.Credential
-	ClaimEndpoint        string
-	GrantType            string
-	ResponseType         string
-	Scope                []string
-	AuthorizationDetails *AuthorizationDetails
-	OpState              string
+	OIDC4VCConfig                  profile.OIDC4VCConfig
+	CredentialTemplate             *verifiable.Credential
+	ClaimEndpoint                  string
+	GrantType                      string
+	ResponseType                   string
+	Scope                          []string
+	AuthorizationDetails           *AuthorizationDetails
+	OpState                        string
+	InternalAuthorizationResponder *InternalAuthorizationResponder
+}
+
+type InternalAuthorizationResponder struct {
+	RedirectURI       *url.URL
+	RespondMode       fosite.ResponseModeType
+	AuthorizeResponse fosite.AuthorizeResponse
 }
 
 // AuthorizationDetails are the details for VC issuance.
@@ -62,4 +75,14 @@ type InitiateIssuanceResponse struct {
 
 type ClientWellKnownConfig struct {
 	InitiateIssuanceEndpoint string `json:"initiate_issuance_endpoint"`
+}
+
+type InsertOptions struct {
+	TTL time.Duration
+}
+
+func WithDocumentTTL(ttl time.Duration) func(insertOptions *InsertOptions) {
+	return func(insertOptions *InsertOptions) {
+		insertOptions.TTL = ttl
+	}
 }

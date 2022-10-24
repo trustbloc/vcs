@@ -22,6 +22,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
 
+	"github.com/trustbloc/vcs/component/privateapi"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -66,6 +67,10 @@ type oidc4VCService interface {
 		req *oidc4vc.InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
 	) (*oidc4vc.InitiateIssuanceResponse, error)
+	PrepareClaimDataAuthZ(
+		ctx context.Context,
+		req privateapi.PrepareClaimDataAuthZRequest,
+	) (*privateapi.PrepareClaimDataAuthZResponse, error)
 }
 
 type vcStatusManager interface {
@@ -312,6 +317,18 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 	}
 
 	return ctx.NoContent(http.StatusOK)
+}
+
+// PrepareClaimDataAuthzRequest prepare claims authz request.
+// POST /issuer/interactions/prepare-claim-data-authz-request.
+func (c *Controller) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
+	var body privateapi.PrepareClaimDataAuthZRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.oidc4VCService.PrepareClaimDataAuthZ(ctx.Request().Context(), body))
 }
 
 func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCredentialStatusRequest,

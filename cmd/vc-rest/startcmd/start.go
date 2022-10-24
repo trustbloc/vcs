@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package startcmd
 
 import (
+	"context"
 	"crypto/subtle"
 	"crypto/tls"
 	"fmt"
@@ -21,6 +22,7 @@ import (
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/oidc/vp"
+	"github.com/trustbloc/vcs/component/privateapi"
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
@@ -34,11 +36,13 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
+	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
@@ -207,6 +211,26 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new issue credential service: %w", err)
 	}
 
+	oidc4vcStore, err := oidc4vcstore.New(context.Background(), mongodbClient)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new oidc4 vc store: %w", err)
+	}
+
+	privateAPIClient := privateapi.NewClient(conf.StartupParameters.hostURL, http.DefaultClient)
+
+	oidc4vcService, err := oidc4vc.NewService(&oidc4vc.Config{
+		TransactionStore:       oidc4vcStore,
+		IssuerVCSPublicHost:    conf.StartupParameters.hostURL,
+		PrivateAPIClient:       privateAPIClient,
+		IssuerWellKnownService: oidc4vc.NewDefaultIssuerWellKnownService[oidc4vc.IssuerWellKnown](http.DefaultClient),
+		ClientWellKnownService: oidc4vc.NewDefaultIssuerWellKnownService[oidc4vc.ClientWellKnown](http.DefaultClient),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new oidc4 vc service: %w", err)
+	}
+
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:               eventSvc,
 		ProfileSvc:             issuerProfileSvc,
@@ -214,6 +238,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader:         conf.DocumentLoader,
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        vcStatusManager,
+		OIDC4VCService:         oidc4vcService,
 	}))
 
 	// Verifier Profile Management API

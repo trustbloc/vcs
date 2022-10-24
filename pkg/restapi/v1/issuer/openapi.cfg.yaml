@@ -15,3 +15,4 @@ import-mapping:
 output-options:
   include-tags:
     - issuer
+    - private

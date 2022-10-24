@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -27,6 +29,11 @@ var _ ServerInterface = (*Controller)(nil) // make sure Controller implements Se
 
 type oidc4VCService interface {
 	HandlePAR(ctx context.Context, opState string, ad *oidc4vc.AuthorizationDetails) (oidc4vc.TxID, error)
+	HandleAuthorize(
+		ctx context.Context,
+		opState string,
+		responder oidc4vc.InternalAuthorizationResponder,
+	) (string, error)
 }
 
 // Config holds configuration options for Controller.
@@ -125,12 +132,14 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 	req := e.Request()
 	ctx := req.Context()
 
+	if params.OpState == nil || len(*params.OpState) == 0 {
+		return apiUtil.WriteOutput(e)(nil, errors.New("op_state is required"))
+	}
+
 	ar, err := c.oauth2Provider.NewAuthorizeRequest(ctx, req)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
-
-	// TODO: login and get consent from the user
 
 	session, ok := ar.GetSession().(*oidc4vc.Session)
 	if !ok {
@@ -144,9 +153,24 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	c.oauth2Provider.WriteAuthorizeResponse(ctx, e.Response().Writer, ar, resp)
+	issuerRedirectURL, issuerErr := c.oidc4VCService.HandleAuthorize(
+		ctx,
+		*params.OpState,
+		oidc4vc.InternalAuthorizationResponder{
+			RedirectURI: ar.GetRedirectURI(),
+			RespondMode: ar.GetResponseMode(),
+			AuthorizeResponse: fosite.AuthorizeResponse{
+				Header:     resp.GetHeader(),
+				Parameters: resp.GetParameters(),
+			},
+		},
+	)
 
-	return nil
+	if issuerErr != nil {
+		return apiUtil.WriteOutput(e)(nil, issuerErr)
+	}
+
+	return e.Redirect(http.StatusSeeOther, issuerRedirectURL)
 }
 
 // PostOidcToken handles Token Request (POST /oidc/token).
