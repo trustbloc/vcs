@@ -56,31 +56,23 @@ func (c *Controller) PostOidcPar(e echo.Context) error {
 
 	ar, err := c.oauth2Provider.NewPushedAuthorizeRequest(ctx, req)
 	if err != nil {
-		c.oauth2Provider.WritePushedAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	var par PushedAuthorizationRequest
 
 	if err = e.Bind(&par); err != nil {
-		c.oauth2Provider.WritePushedAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	ad, err := validateAuthorizationDetails(par.AuthorizationDetails)
 	if err != nil {
-		c.oauth2Provider.WritePushedAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	txID, err := c.oidc4VCService.HandlePAR(ctx, par.OpState, ad)
 	if err != nil {
-		c.oauth2Provider.WritePushedAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	session := &oidc4vc.Session{
@@ -90,9 +82,7 @@ func (c *Controller) PostOidcPar(e echo.Context) error {
 
 	resp, err := c.oauth2Provider.NewPushedAuthorizeResponse(ctx, ar, session)
 	if err != nil {
-		c.oauth2Provider.WritePushedAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	c.oauth2Provider.WritePushedAuthorizeResponse(ctx, e.Response().Writer, ar, resp)
@@ -137,9 +127,7 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 
 	ar, err := c.oauth2Provider.NewAuthorizeRequest(ctx, req)
 	if err != nil {
-		c.oauth2Provider.WriteAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	// TODO: login and get consent from the user
@@ -153,9 +141,7 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, session)
 	if err != nil {
-		c.oauth2Provider.WriteAuthorizeError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
 	c.oauth2Provider.WriteAuthorizeResponse(ctx, e.Response().Writer, ar, resp)
@@ -174,16 +160,12 @@ func (c *Controller) PostOidcToken(e echo.Context) error {
 
 	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, session)
 	if err != nil {
-		c.oauth2Provider.WriteAccessError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
 	resp, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
-		c.oauth2Provider.WriteAccessError(ctx, e.Response().Writer, ar, err)
-
-		return nil
+		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, resp)

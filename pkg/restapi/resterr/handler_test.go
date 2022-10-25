@@ -7,11 +7,13 @@ SPDX-License-Identifier: Apache-2.0
 package resterr
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )
@@ -74,6 +76,20 @@ func TestHTTPErrorHandler(t *testing.T) {
 		ctx, rec := createContext(http.MethodHead)
 
 		HTTPErrorHandler(errors.New("test"), ctx)
+		require.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("Fosite", func(t *testing.T) {
+		ctx, rec := createContext(http.MethodGet)
+
+		mockFositeErrWriter := NewMockFositeErrorWriter(gomock.NewController(t))
+		mockFositeErrWriter.EXPECT().WriteIntrospectionError(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Do(
+			func(ctx context.Context, rw http.ResponseWriter, err error) {
+				rw.WriteHeader(http.StatusInternalServerError)
+			})
+		err := NewFositeError(FositeIntrospectionError, ctx, mockFositeErrWriter, errors.New("some error"))
+
+		HTTPErrorHandler(err, ctx)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }

@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
 	oidc4vcapi "github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
@@ -437,6 +438,7 @@ func testServer(t *testing.T, opts ...ServerOpt) *httptest.Server {
 	}
 
 	e := echo.New()
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler
 
 	config := new(fosite.Config)
 	config.EnforcePKCE = true

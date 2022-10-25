@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package resterr
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -18,6 +19,14 @@ import (
 var logger = log.New("rest-err")
 
 func HTTPErrorHandler(err error, c echo.Context) {
+	var fositeError *FositeError
+	if errors.As(err, &fositeError) {
+		err = fositeError.Write()
+		if err == nil {
+			return
+		}
+	}
+
 	code, message := processError(err)
 	logger.Error("HTTP Error Handler", log.WithHostURL(c.Request().RequestURI), log.WithHTTPStatus(code),
 		log.WithAdditionalMessage(fmt.Sprintf("%s", message)))
