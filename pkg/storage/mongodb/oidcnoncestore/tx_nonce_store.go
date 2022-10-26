@@ -13,6 +13,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -23,9 +24,9 @@ const (
 )
 
 type nonceDocument struct {
-	ID     string       `bson:"_id,omitempty"`
-	TxID   oidc4vp.TxID `bson:"txID"`
-	Expire int64        `bson:"expire"`
+	ID       string       `bson:"_id,omitempty"`
+	TxID     oidc4vp.TxID `bson:"txID"`
+	ExpireAt time.Time    `bson:"expireAt"`
 }
 
 // TxNonceStore stores oidc transactions in mongo.
@@ -34,10 +35,35 @@ type TxNonceStore struct {
 }
 
 // New creates TxNonceStore.
-func New(mongoClient *mongodb.Client) *TxNonceStore {
-	return &TxNonceStore{
+func New(mongoClient *mongodb.Client) (*TxNonceStore, error) {
+	s := &TxNonceStore{
 		mongoClient: mongoClient,
 	}
+
+	if err := s.migrate(); err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (ts *TxNonceStore) migrate() error {
+	ctxWithTimeout, cancel := ts.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	if _, err := ts.mongoClient.Database().Collection(nonceCollection).Indexes().
+		CreateMany(ctxWithTimeout, []mongo.IndexModel{
+			{ // ttl index https://www.mongodb.com/community/forums/t/ttl-index-internals/4086/2
+				Keys: map[string]interface{}{
+					"expireAt": 1,
+				},
+				Options: options.Index().SetExpireAfterSeconds(0),
+			},
+		}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetAndDelete get and then delete transaction by one time token.
@@ -51,7 +77,7 @@ func (ts *TxNonceStore) GetAndDelete(nonce string) (oidc4vp.TxID, bool, error) {
 
 	err := collection.FindOneAndDelete(ctxWithTimeout, bson.M{"_id": nonce}).Decode(doc)
 
-	if errors.Is(err, mongo.ErrNoDocuments) || doc.Expire < time.Now().Unix() {
+	if errors.Is(err, mongo.ErrNoDocuments) || doc.ExpireAt.Before(time.Now().UTC()) {
 		return "", false, nil
 	}
 
@@ -70,9 +96,9 @@ func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiratio
 	collection := ts.mongoClient.Database().Collection(nonceCollection)
 
 	doc := &nonceDocument{
-		ID:     nonce,
-		TxID:   txID,
-		Expire: time.Now().Add(expiration).Unix(),
+		ID:       nonce,
+		TxID:     txID,
+		ExpireAt: time.Now().Add(expiration),
 	}
 
 	_, err := collection.InsertOne(ctxWithTimeout, doc)

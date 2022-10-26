@@ -16,6 +16,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -42,7 +43,8 @@ func TestTxStore_Success(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
-	store := oidcnoncestore.New(client)
+	store, err := oidcnoncestore.New(client)
+	assert.NoError(t, err)
 
 	t.Run("Set not exist", func(t *testing.T) {
 		isSet, err := store.SetIfNotExist("key", "value", 10*time.Second)
@@ -101,10 +103,8 @@ func TestTxStore_ConnectoinFail(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", 0)
 	require.NoError(t, err)
 
-	store := oidcnoncestore.New(client)
-
 	t.Run("Set fail", func(t *testing.T) {
-		_, err := store.SetIfNotExist("key", "txID", 10*time.Second)
+		_, err = oidcnoncestore.New(client)
 		require.Contains(t, err.Error(), "context deadline exceeded")
 	})
 }
