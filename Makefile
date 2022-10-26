@@ -9,7 +9,7 @@ VC_REST_PATH=cmd/vc-rest
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
-MOCK_VERSION 	?=v1.6.0
+MOCK_VERSION 	?=v1.7.0-rc.1
 
 # OpenAPI spec
 SWAGGER_DOCKER_IMG =quay.io/goswagger/swagger

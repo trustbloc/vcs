@@ -4,61 +4,70 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,httpClient=MockHTTPClient
+//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,httpClient=MockHTTPClient,privateAPIClient=MockPrivateAPIClient,wellKnownService=MockWellKnownService
 
 package oidc4vc
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapiclient"
 )
 
 const (
 	defaultGrantType    = "authorization_code"
 	defaultResponseType = "token"
 	defaultScope        = "openid"
+	defaultCallbackPath = "/callback"
 )
 
 var logger = log.New("oidc4vc")
 
 type transactionStore interface {
-	Store(ctx context.Context, data *TransactionData) (*Transaction, error)
-	GetByOpState(ctx context.Context, opState string) (*Transaction, error)
+	Create(ctx context.Context, data *TransactionData, params ...func(insertOptions *InsertOptions)) (*Transaction, error)
+	FindByOpState(ctx context.Context, opState string) (*Transaction, error)
+	Update(ctx context.Context, tx *Transaction) error
 }
 
-type httpClient interface {
-	Do(req *http.Request) (*http.Response, error)
+type wellKnownService[T any] interface {
+	GetWellKnownConfiguration(
+		ctx context.Context,
+		url string,
+	) (*T, error)
 }
 
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStore    transactionStore
-	HTTPClient          httpClient
-	IssuerVCSPublicHost string
+	TransactionStore       transactionStore
+	IssuerVCSPublicHost    string
+	IssuerWellKnownService wellKnownService[IssuerWellKnown]
+	ClientWellKnownService wellKnownService[ClientWellKnown]
 }
 
 // Service implements OIDC for VC issuance functionality.
 type Service struct {
-	store               transactionStore
-	httpClient          httpClient
-	issuerVCSPublicHost string
+	store                  transactionStore
+	issuerVCSPublicHost    string
+	issuerWellKnownService wellKnownService[IssuerWellKnown]
+	clientWellKnownService wellKnownService[ClientWellKnown]
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{
-		store:      config.TransactionStore,
-		httpClient: config.HTTPClient,
+		store:                  config.TransactionStore,
+		issuerWellKnownService: config.IssuerWellKnownService,
+		clientWellKnownService: config.ClientWellKnownService,
+		issuerVCSPublicHost:    config.IssuerVCSPublicHost,
 	}, nil
 }
 
@@ -74,12 +83,14 @@ func (s *Service) InitiateInteraction(
 	}
 
 	data := &TransactionData{
+		OIDC4VCConfig:      *profile.OIDCConfig,
 		CredentialTemplate: template,
 		ClaimEndpoint:      req.ClaimEndpoint,
 		GrantType:          req.GrantType,
 		ResponseType:       req.ResponseType,
 		Scope:              req.Scope,
-		OpState:            req.OpState,
+		//AuthorizationDetails: req.AuthorizationDetails,
+		OpState: req.OpState,
 	}
 
 	if data.GrantType == "" {
@@ -94,7 +105,7 @@ func (s *Service) InitiateInteraction(
 		data.Scope = []string{defaultScope}
 	}
 
-	tx, err := s.store.Store(ctx, data)
+	tx, err := s.store.Create(ctx, data)
 	if err != nil {
 		return nil, fmt.Errorf("store tx: %w", err)
 	}
@@ -128,6 +139,52 @@ func findCredentialTemplate(
 	return nil, ErrCredentialTemplateNotFound
 }
 
+func (s *Service) PrepareClaimDataAuthZ(
+	ctx context.Context,
+	req restapiclient.PrepareClaimDataAuthorizationRequest,
+) (*restapiclient.PrepareClaimDataAuthorizationResponse, error) {
+	tx, err := s.store.FindByOpState(ctx, req.OpState)
+
+	if err != nil {
+		return nil, err
+	}
+
+	wellKnown, wellKnownErr := s.issuerWellKnownService.GetWellKnownConfiguration(
+		ctx,
+		tx.OIDC4VCConfig.IssuerWellKnown,
+	)
+
+	if wellKnownErr != nil {
+		return nil, wellKnownErr
+	}
+
+	redirectURI, redirectErr := url.JoinPath(s.issuerVCSPublicHost, defaultCallbackPath)
+
+	if redirectErr != nil {
+		return nil, redirectErr
+	}
+
+	issuerOauthConfig := &oauth2.Config{
+		ClientID:     tx.OIDC4VCConfig.ClientID,
+		ClientSecret: tx.OIDC4VCConfig.ClientSecretHandle,
+		RedirectURL:  redirectURI,
+		Scopes:       tx.Scope,
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  wellKnown.TokenEndpoint,
+			AuthURL:   wellKnown.AuthorizationEndpoint,
+			AuthStyle: oauth2.AuthStyleAutoDetect,
+		},
+	}
+
+	if updateErr := s.store.Update(ctx, tx); updateErr != nil {
+		return nil, updateErr
+	}
+
+	return &restapiclient.PrepareClaimDataAuthorizationResponse{
+		RedirectURI: issuerOauthConfig.AuthCodeURL(req.OpState),
+	}, nil
+}
+
 func (s *Service) buildInitiateIssuanceURL(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
@@ -139,7 +196,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	if req.ClientInitiateIssuanceURL != "" {
 		initiateIssuanceURL = req.ClientInitiateIssuanceURL
 	} else if req.ClientWellKnownURL != "" {
-		c, err := s.getClientWellKnownConfig(ctx, req.ClientWellKnownURL)
+		c, err := s.clientWellKnownService.GetWellKnownConfiguration(ctx, req.ClientWellKnownURL)
 		if err != nil {
 			logger.Error(fmt.Sprintf("Failed to get well-known config from %q", req.ClientWellKnownURL),
 				log.WithError(err))
@@ -172,36 +229,8 @@ func getCredentialType(template *verifiable.Credential) string {
 	return ""
 }
 
-func (s *Service) getClientWellKnownConfig(ctx context.Context, wellKnownURL string) (*ClientWellKnownConfig, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wellKnownURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("create well-known config req: %w", err)
-	}
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("do well-known config req: %w", err)
-	}
-
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Error("Failed to close response body", log.WithError(closeErr))
-		}
-	}()
-
-	var config ClientWellKnownConfig
-
-	if resp.StatusCode == http.StatusOK {
-		if err = json.NewDecoder(resp.Body).Decode(&config); err != nil {
-			return nil, fmt.Errorf("unmarshal well-known config: %w", err)
-		}
-	}
-
-	return &config, nil
-}
-
 func (s *Service) HandlePAR(ctx context.Context, opState string, ad *AuthorizationDetails) (TxID, error) {
-	tx, err := s.store.GetByOpState(ctx, opState)
+	tx, err := s.store.FindByOpState(ctx, opState)
 	if err != nil {
 		return "", fmt.Errorf("get transaction by opstate: %w", err)
 	}

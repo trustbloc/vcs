@@ -88,6 +88,16 @@ type IssueCredentialOptions struct {
 	VerificationMethod *string `json:"verificationMethod,omitempty"`
 }
 
+// Model for Prepare Claim Data AuthZ Request
+type PrepareClaimDataAuthZRequest struct {
+	OpState *string `json:"op_state,omitempty"`
+}
+
+// PrepareClaimDataAuthZResponse defines model for PrepareClaimDataAuthZResponse.
+type PrepareClaimDataAuthZResponse struct {
+	RedirectUri *string `json:"redirect_uri,omitempty"`
+}
+
 // UpdateCredentialStatusRequest request struct for updating VC status.
 type UpdateCredentialStatusRequest struct {
 	CredentialID string `json:"credentialID"`
@@ -95,6 +105,9 @@ type UpdateCredentialStatusRequest struct {
 	// Credential status.
 	CredentialStatus CredentialStatus `json:"credentialStatus"`
 }
+
+// PrepareClaimDataAuthzRequestJSONBody defines parameters for PrepareClaimDataAuthzRequest.
+type PrepareClaimDataAuthzRequestJSONBody = PrepareClaimDataAuthZRequest
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
@@ -104,6 +117,9 @@ type PostCredentialsStatusJSONBody = UpdateCredentialStatusRequest
 
 // PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONBody defines parameters for PostIssuerProfilesProfileIDInteractionsInitiateOidc.
 type PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONBody = InitiateOIDC4VCRequest
+
+// PrepareClaimDataAuthzRequestJSONRequestBody defines body for PrepareClaimDataAuthzRequest for application/json ContentType.
+type PrepareClaimDataAuthzRequestJSONRequestBody = PrepareClaimDataAuthzRequestJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
@@ -116,6 +132,9 @@ type PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONRequestBody = PostIs
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Prepare oauth uri for issuer provider
+	// (POST /issuer/interactions/prepare-claim-data-authz-request)
+	PrepareClaimDataAuthzRequest(ctx echo.Context) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
@@ -133,6 +152,15 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// PrepareClaimDataAuthzRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PrepareClaimDataAuthzRequest(ctx)
+	return err
 }
 
 // PostIssueCredentials converts echo context to params.
@@ -235,6 +263,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
+	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareClaimDataAuthzRequest)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)

@@ -189,6 +189,25 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4VCRequest'
       tags:
         - issuer
+  /issuer/interactions/prepare-claim-data-authz-request:
+    post:
+      summary: Prepare oauth uri for issuer provider
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrepareClaimDataAuthZResponse'
+      operationId: prepare-claim-data-authz-request
+      description: Part of private api. Is used to prepare oauth uri for client redirect
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrepareClaimDataAuthZRequest'
+      tags:
+        - issuer
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -503,6 +522,29 @@ paths:
                 - code
                 - code_verifier
         description: ''
+  /oidc/callback:
+    get:
+      summary: OIDC Callback
+      tags:
+        - oidc4vc
+      operationId: oidc-callback
+      description: OIDC callback for handling response from issuer's OIDC provider and continue our OIDC authorize flow.
+      responses:
+        '303':
+          description: Redirect
+      parameters:
+        - schema:
+            type: string
+          name: code
+          in: query
+          required: true
+          description: auth code for issuer provider
+        - schema:
+            type: string
+          name: state
+          in: query
+          required: true
+          description: state
 components:
   schemas:
     HealthCheckResponse:
@@ -764,6 +806,28 @@ components:
       required:
         - authorizationRequest
         - txID
+    PrepareClaimDataAuthZRequest:
+      title: PrepareClaimDataAuthZRequest
+      type: object
+      description: Model for Prepare Claim Data AuthZ Request
+      properties:
+        op_state:
+          type: string
+    PrepareClaimResponder:
+      type: object
+      properties:
+        redirect_uri:
+          type: object
+        respond_mode:
+          type: string
+        authorize_response:
+          type: object
+    PrepareClaimDataAuthZResponse:
+      title: Model for Prepare Claim Data AuthZ Response
+      type: object
+      properties:
+        redirect_uri:
+          type: string
     InitiateOIDC4VCRequest:
       title: InitiateOIDC4VCRequest
       type: object

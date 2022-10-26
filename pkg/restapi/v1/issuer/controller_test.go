@@ -8,6 +8,7 @@ package issuer
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -29,6 +31,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
@@ -864,6 +867,35 @@ func TestController_UpdateCredentialStatus(t *testing.T) {
 				require.ErrorContains(t, err, tt.wantErr)
 			})
 		}
+	})
+}
+
+func TestPrepareClaimDataAuth(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mock := NewMockOIDC4VCService(gomock.NewController(t))
+		mock.EXPECT().PrepareClaimDataAuthZ(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req restapiclient.PrepareClaimDataAuthorizationRequest,
+			) (*restapiclient.PrepareClaimDataAuthorizationResponse, error) {
+				assert.Equal(t, "123", req.OpState)
+
+				return &restapiclient.PrepareClaimDataAuthorizationResponse{
+					RedirectURI: "https://trust/redirect",
+				}, nil
+			})
+		c := &Controller{
+			oidc4VCService: mock,
+		}
+
+		ctx := echoContext(withRequestBody([]byte(`{"op_state" : "123", "responder" : {"respond_mode": "query"}}`)))
+		assert.NoError(t, c.PrepareClaimDataAuthzRequest(ctx))
+	})
+
+	t.Run("json decode error", func(t *testing.T) {
+		c := &Controller{}
+		ctx := echoContext(withRequestBody([]byte(`invalid json`)))
+		assert.ErrorContains(t, c.PrepareClaimDataAuthzRequest(ctx), "invalid character")
 	})
 }
 
