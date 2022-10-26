@@ -96,7 +96,7 @@ func TestStore(t *testing.T) {
 			OpState: id,
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert, WithDocumentTTL(1*time.Millisecond))
+		resp1, err1 := store.Create(context.Background(), toInsert, oidc4vc.WithDocumentTTL(1*time.Millisecond))
 		assert.NoError(t, err1)
 		assert.NotNil(t, resp1)
 
@@ -109,8 +109,8 @@ func TestStore(t *testing.T) {
 		id := uuid.New().String()
 
 		cred := &verifiable.Credential{}
-		err := json.Unmarshal([]byte(vc), cred)
-		assert.NoError(t, err)
+		err2 := json.Unmarshal([]byte(vc), cred)
+		assert.NoError(t, err2)
 
 		toInsert := &oidc4vc.TransactionData{
 			CredentialTemplate:   cred,
@@ -128,7 +128,8 @@ func TestStore(t *testing.T) {
 
 		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
 		assert.NoError(t, err2)
-		assert.Equal(t, toInsert, resp2)
+		assert.NotEmpty(t, resp2.ID)
+		assert.Equal(t, *toInsert, resp2.TransactionData)
 	})
 
 	t.Run("create multiple instances", func(t *testing.T) {
@@ -146,6 +147,34 @@ func TestStore(t *testing.T) {
 		}
 
 		wg.Wait()
+	})
+
+	t.Run("Test Update", func(t *testing.T) {
+		id := uuid.NewString()
+
+		toInsert := &oidc4vc.TransactionData{
+			CredentialTemplate:   nil,
+			ClaimEndpoint:        "432",
+			GrantType:            "342",
+			ResponseType:         "123",
+			Scope:                []string{"213", "321"},
+			AuthorizationDetails: &oidc4vc.AuthorizationDetails{Type: "321"},
+			OpState:              id,
+		}
+
+		resp, createErr := store.Create(context.TODO(), toInsert)
+		if createErr != nil {
+			assert.NoError(t, createErr)
+		}
+
+		assert.NoError(t, err)
+
+		resp.ClaimEndpoint = "test_endpoint"
+
+		assert.NoError(t, store.Update(context.TODO(), resp))
+		found, err2 := store.FindByOpState(context.TODO(), id)
+		assert.NoError(t, err2)
+		assert.Equal(t, resp.ClaimEndpoint, found.ClaimEndpoint)
 	})
 
 	t.Run("find non existing document", func(t *testing.T) {
@@ -190,6 +219,11 @@ func TestWithTimeouts(t *testing.T) {
 
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")
+	})
+
+	t.Run("Update InvalidKey", func(t *testing.T) {
+		err := store.Update(context.TODO(), &oidc4vc.Transaction{ID: "1"})
+		assert.ErrorContains(t, err, "the provided hex string is not a valid ObjectID")
 	})
 }
 

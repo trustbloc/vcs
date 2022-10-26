@@ -30,6 +30,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
@@ -66,6 +67,10 @@ type oidc4VCService interface {
 		req *oidc4vc.InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
 	) (*oidc4vc.InitiateIssuanceResponse, error)
+	PrepareClaimDataAuthZ(
+		ctx context.Context,
+		req restapiclient.PrepareClaimDataAuthorizationRequest,
+	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error)
 }
 
 type vcStatusManager interface {
@@ -312,6 +317,18 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 	}
 
 	return ctx.NoContent(http.StatusOK)
+}
+
+// PrepareClaimDataAuthzRequest prepare claims authz request.
+// POST /issuer/interactions/prepare-claim-data-authz-request.
+func (c *Controller) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
+	var body restapiclient.PrepareClaimDataAuthorizationRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.oidc4VCService.PrepareClaimDataAuthZ(ctx.Request().Context(), body))
 }
 
 func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCredentialStatusRequest,

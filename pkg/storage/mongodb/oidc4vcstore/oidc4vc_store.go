@@ -40,10 +40,6 @@ type mongoDocument struct {
 	AuthorizationDetails *oidc4vc.AuthorizationDetails
 }
 
-type InsertOptions struct {
-	ttl time.Duration
-}
-
 // Store stores oidc transactions in mongo.
 type Store struct {
 	mongoClient *mongodb.Client
@@ -87,35 +83,21 @@ func (s *Store) migrate(ctx context.Context) error {
 func (s *Store) Create(
 	ctx context.Context,
 	data *oidc4vc.TransactionData,
-	params ...func(insertOptions *InsertOptions),
+	params ...func(insertOptions *oidc4vc.InsertOptions),
 ) (*oidc4vc.Transaction, error) {
-	insertCfg := &InsertOptions{}
+	insertCfg := &oidc4vc.InsertOptions{}
 	for _, p := range params {
 		p(insertCfg)
 	}
 
-	obj := &mongoDocument{
-		ExpireAt:             time.Now().UTC().Add(defaultExpiration),
-		OpState:              data.OpState,
-		ClaimEndpoint:        data.ClaimEndpoint,
-		GrantType:            data.GrantType,
-		ResponseType:         data.ResponseType,
-		Scope:                data.Scope,
-		AuthorizationDetails: data.AuthorizationDetails,
+	obj, err := s.mapTransactionDataToMongoDocument(data)
+
+	if err != nil {
+		return nil, err
 	}
 
-	if data.CredentialTemplate != nil {
-		cred, marshalErr := data.CredentialTemplate.MarshalJSON()
-
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-
-		obj.CredentialTemplate = cred
-	}
-
-	if insertCfg.ttl > 0 {
-		obj.ExpireAt = time.Now().UTC().Add(insertCfg.ttl)
+	if insertCfg.TTL > 0 {
+		obj.ExpireAt = time.Now().UTC().Add(insertCfg.TTL)
 	}
 
 	collection := s.mongoClient.Database().Collection(collectionName)
@@ -138,7 +120,7 @@ func (s *Store) Create(
 	}, nil
 }
 
-func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.TransactionData, error) {
+func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Transaction, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
@@ -160,7 +142,7 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 		return nil, oidc4vc.ErrDataNotFound
 	}
 
-	mapped := &oidc4vc.TransactionData{
+	mapped := oidc4vc.TransactionData{
 		ClaimEndpoint:        doc.ClaimEndpoint,
 		GrantType:            doc.GrantType,
 		ResponseType:         doc.ResponseType,
@@ -178,11 +160,53 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 		mapped.CredentialTemplate = cred
 	}
 
-	return mapped, nil
+	return &oidc4vc.Transaction{
+		ID:              oidc4vc.TxID(doc.ID.Hex()),
+		TransactionData: mapped,
+	}, nil
 }
 
-func WithDocumentTTL(ttl time.Duration) func(insertOptions *InsertOptions) {
-	return func(insertOptions *InsertOptions) {
-		insertOptions.ttl = ttl
+func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
+	collection := s.mongoClient.Database().Collection(collectionName)
+
+	id, err := primitive.ObjectIDFromHex(string(tx.ID))
+	if err != nil {
+		return err
 	}
+
+	doc, errMap := s.mapTransactionDataToMongoDocument(&tx.TransactionData)
+	if errMap != nil {
+		return errMap
+	}
+
+	doc.ID = id
+	_, err = collection.UpdateByID(ctx, id, bson.M{
+		"$set": doc,
+	})
+
+	return err
+}
+
+func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData) (*mongoDocument, error) {
+	obj := &mongoDocument{
+		ExpireAt:             time.Now().UTC().Add(defaultExpiration),
+		OpState:              data.OpState,
+		ClaimEndpoint:        data.ClaimEndpoint,
+		GrantType:            data.GrantType,
+		ResponseType:         data.ResponseType,
+		Scope:                data.Scope,
+		AuthorizationDetails: data.AuthorizationDetails,
+	}
+
+	if data.CredentialTemplate != nil {
+		cred, marshalErr := data.CredentialTemplate.MarshalJSON()
+
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
+
+		obj.CredentialTemplate = cred
+	}
+
+	return obj, nil
 }

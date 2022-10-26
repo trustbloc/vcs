@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -21,17 +22,20 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
 	fositeoauth2 "github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/storage"
 	"github.com/ory/fosite/token/hmac"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/restapiclient"
 	oidc4vcapi "github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -172,7 +176,15 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 }
 
 func TestAuthorizeRequest(t *testing.T) {
-	srv := testServer(t)
+	oidcService := NewMockOIDC4VCService(gomock.NewController(t))
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	srv := testServer(t,
+		withOIDC4VCService(oidcService),
+		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
 	defer srv.Close()
 
 	var authCodeURL string
@@ -185,19 +197,30 @@ func TestAuthorizeRequest(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
+				opState := uuid.NewString()
 				params := []oauth2.AuthCodeOption{
 					oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 					oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+					oauth2.SetAuthURLParam("op_state", opState),
 				}
+
+				interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
+					&restapiclient.PrepareClaimDataAuthorizationRequest{
+						OpState: opState,
+					}).Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
+					RedirectURI: "http://redirect",
+				}, nil)
+				oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).Return(nil)
 				authCodeURL = newOAuth2Client(srv.URL).AuthCodeURL(nonce(), params...)
 			},
-			statusCode: http.StatusOK,
+			statusCode: http.StatusSeeOther,
 		},
 		{
 			name: "invalid client",
 			setup: func() {
 				params := []oauth2.AuthCodeOption{
 					oauth2.SetAuthURLParam("code_challenge", ""),
+					oauth2.SetAuthURLParam("op_state", uuid.NewString()),
 				}
 
 				authCodeURL = newOAuth2Client(srv.URL, withClientID("invalid-client")).AuthCodeURL(nonce(), params...)
@@ -205,7 +228,7 @@ func TestAuthorizeRequest(t *testing.T) {
 			statusCode: http.StatusUnauthorized,
 		},
 		{
-			name: "missing code challenge",
+			name: "missing op state",
 			setup: func() {
 				params := []oauth2.AuthCodeOption{
 					oauth2.SetAuthURLParam("code_challenge", ""),
@@ -213,14 +236,20 @@ func TestAuthorizeRequest(t *testing.T) {
 
 				authCodeURL = newOAuth2Client(srv.URL).AuthCodeURL(nonce(), params...)
 			},
-			statusCode: http.StatusNotAcceptable,
+			statusCode: http.StatusInternalServerError,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			resp, err := http.Get(authCodeURL)
+			cl := http.Client{
+				CheckRedirect: func(req *http.Request, via []*http.Request) error {
+					return http.ErrUseLastResponse
+				},
+			}
+
+			resp, err := cl.Get(authCodeURL)
 			require.NoError(t, err)
 			require.Equal(t, tt.statusCode, resp.StatusCode)
 		})
@@ -238,24 +267,6 @@ func TestTokenRequest(t *testing.T) {
 		setup      func()
 		statusCode int
 	}{
-		{
-			name: "success",
-			setup: func() {
-				params := []oauth2.AuthCodeOption{
-					oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-					oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-				}
-
-				authCodeURL := newOAuth2Client(srv.URL).AuthCodeURL(nonce(), params...)
-
-				resp, err := http.Get(authCodeURL)
-				require.NoError(t, err)
-				require.Equal(t, http.StatusOK, resp.StatusCode)
-
-				authCode = resp.Request.URL.Query().Get("code")
-			},
-			statusCode: http.StatusOK,
-		},
 		{
 			name: "invalid authorization code",
 			setup: func() {
@@ -292,8 +303,41 @@ func TestTokenRequest(t *testing.T) {
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
 	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
 
-	srv := testServer(t, withOIDC4VCService(mockOIDC4VCService))
+	opState := uuid.NewString()
+
+	redirectURL := fmt.Sprintf("https://trust/redirect?id=%v", uuid.NewString())
+
+	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
+		&restapiclient.PrepareClaimDataAuthorizationRequest{
+			OpState: opState,
+		}).Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
+		RedirectURI: redirectURL,
+	}, nil)
+
+	oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, auth oidc4vc.AuthResponder) error {
+			assert.Equal(t, "query", auth.RespondMode)
+
+			assert.Empty(t, auth.AuthorizeResponse.Header)
+			assert.Len(t, auth.AuthorizeResponse.Parameters, 3)
+			assert.NotEmpty(t, auth.AuthorizeResponse.Parameters["code"])
+			assert.NotEmpty(t, auth.AuthorizeResponse.Parameters["state"])
+			assert.Equal(t, []string{""}, auth.AuthorizeResponse.Parameters["scope"])
+
+			assert.NotNil(t, auth.RedirectURI)
+
+			return nil
+		})
+
+	srv := testServer(t,
+		withOIDC4VCService(mockOIDC4VCService),
+		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
+
 	defer srv.Close()
 
 	oauthClient := newOAuth2Client(srv.URL)
@@ -301,47 +345,46 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	params := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("op_state", opState),
 	}
 
 	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
 
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
 	// get authorization code
-	resp, err := http.Get(authCodeURL)
+	resp, err := cl.Get(authCodeURL)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// exchange authorization code for access token
-	resp, err = http.PostForm(srv.URL+"/oidc/token", url.Values{
-		"code":          {resp.Request.URL.Query().Get("code")},
-		"grant_type":    {"authorization_code"},
-		"client_id":     {testClientID},
-		"client_secret": {"foobar"},
-		"redirect_uri":  {srv.URL + "/callback"},
-		"code_verifier": {"xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"},
-	})
-	require.NoError(t, err)
-
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			t.Logf("Failed to close response body: %s", closeErr)
-		}
-	}()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	token := oauth2.Token{}
-	require.NoError(t, json.Unmarshal(body, &token))
-	require.NotEmpty(t, token.AccessToken)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	require.Equal(t, redirectURL, resp.Header.Get("location"))
 }
 
 func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
+	opState := uuid.NewString()
+	randURI := fmt.Sprintf("https://external-oidc-provider.com/%v", opState)
+
 	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
 	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Return(oidc4vcapi.TxID("txID"), nil)
 
-	srv := testServer(t, withOIDC4VCService(mockOIDC4VCService))
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
+		Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
+			RedirectURI: randURI,
+		}, nil)
+	oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).Return(nil)
+
+	srv := testServer(t,
+		withOIDC4VCService(mockOIDC4VCService),
+		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
+
 	defer srv.Close()
 
 	oauthClient := newOAuth2Client(srv.URL)
@@ -390,33 +433,147 @@ func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
 	query.Set("code_challenge_method", "S256")
 	query.Set("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8")
 	query.Set("code", nonce())
+	query.Set("op_state", opState)
 
 	authCodeURL := srv.URL + "/oidc/authorize?" + query.Encode()
 
-	resp, err = http.Get(authCodeURL)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
 
-	_, err = io.ReadAll(resp.Body)
+	resp, err = cl.Get(authCodeURL)
 	require.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	require.Equal(t, randURI, resp.Header.Get("location"))
+}
 
-	// exchange authorization code for access token
-	token, err := oauthClient.Exchange(
-		context.Background(),
-		resp.Request.URL.Query().Get("code"),
-		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
+func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
+	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	opState := uuid.NewString()
+	code := uuid.NewString()
+
+	srv := testServer(t,
+		withOIDC4VCService(mockOIDC4VCService),
+		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
 	)
+	defer srv.Close()
+	//
+	issuerOuathURL := "https://issuer"
+	var oidcResponder *oidc4vc.AuthResponder
+
+	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
+		&restapiclient.PrepareClaimDataAuthorizationRequest{
+			OpState: opState,
+		}).DoAndReturn(func(
+		ctx context.Context,
+		req *restapiclient.PrepareClaimDataAuthorizationRequest,
+	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error) {
+		issuerOAuthClient := newOAuth2Client(issuerOuathURL)
+		issuerOAuthClient.RedirectURL = srv.URL + "/oidc/token"
+
+		return &restapiclient.PrepareClaimDataAuthorizationResponse{
+			RedirectURI: issuerOAuthClient.AuthCodeURL(opState),
+		}, nil
+	})
+
+	oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, auth oidc4vc.AuthResponder) error {
+			oidcResponder = &auth
+
+			return nil
+		})
+
+	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), &restapiclient.StoreAuthorizationCodeRequest{
+		OpState: opState,
+		Code:    code,
+	}).Return(&restapiclient.StoreAuthorizationCodeResponse{}, nil)
+
+	oidc4VcStateStorageMock.EXPECT().GetAuth(gomock.Any(), opState).DoAndReturn(
+		func(ctx context.Context, state string) (*oidc4vc.AuthResponder, error) {
+			return oidcResponder, nil
+		},
+	)
+
+	oauthClient := newOAuth2Client(srv.URL)
+
+	params := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("op_state", opState),
+	}
+
+	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
+
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	// get authorization code
+	resp, err := cl.Get(authCodeURL)
+	assert.NoError(t, err)
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+
+	issuerRedirectURL := resp.Header.Get("location")
+	expectedRedirectURLToOurOidcCallback := url.QueryEscape(srv.URL + "/oidc/token")
+	assert.Equal(t,
+		fmt.Sprintf("https://issuer/oidc/authorize?client_id=test-client&redirect_uri=%v"+
+			"&response_type=code&scope=openid&state=%v", expectedRedirectURLToOurOidcCallback, opState),
+		issuerRedirectURL)
+
+	successCallback := fmt.Sprintf("%s/oidc/callback?state=%s&code=%s", srv.URL, opState, code)
+	resp, err = cl.Get(successCallback)
+	tokenURL := resp.Header.Get("location")
+	assert.NoError(t, err)
+	assert.Contains(t, tokenURL, "?code=ory_ac_")
+
 	require.NoError(t, err)
-	require.NotEmpty(t, token.AccessToken)
+
+	parsed, err := url.Parse(resp.Header.Get("location"))
+	assert.NoError(t, err)
+
+	authCode := parsed.Query().Get("code")
+	tok, err := oauthClient.Exchange(context.TODO(), authCode,
+		oauth2.SetAuthURLParam("state", parsed.Query().Get("state")),
+		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"))
+	assert.NoError(t, err)
+	assert.NotEmpty(t, tok.AccessToken)
 }
 
 type oidc4VCService interface {
 	HandlePAR(ctx context.Context, opState string, ad *oidc4vcapi.AuthorizationDetails) (oidc4vcapi.TxID, error)
 }
 
+type credentialInteractionAPIClient interface {
+	PrepareClaimDataAuthorization(
+		ctx context.Context,
+		req *restapiclient.PrepareClaimDataAuthorizationRequest,
+	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error)
+	StoreAuthorizationCode(
+		ctx context.Context,
+		req *restapiclient.StoreAuthorizationCodeRequest,
+	) (*restapiclient.StoreAuthorizationCodeResponse, error)
+}
+
+type oidc4VCStateStorage interface {
+	StoreAuth(ctx context.Context, auth oidc4vc.AuthResponder) error
+	GetAuth(ctx context.Context, state string) (*oidc4vc.AuthResponder, error)
+}
+
 // serverOptions to customize test server.
 type serverOptions struct {
-	oidc4VCService oidc4VCService
+	oidc4VCService       oidc4VCService
+	interactionAPIClient credentialInteractionAPIClient
+	oidc4VCStateStorage  oidc4VCStateStorage
 }
 
 // ServerOpt configures test server options.
@@ -425,6 +582,18 @@ type ServerOpt func(options *serverOptions)
 func withOIDC4VCService(svc oidc4VCService) ServerOpt {
 	return func(o *serverOptions) {
 		o.oidc4VCService = svc
+	}
+}
+
+func withCredentialInteractionAPIClient(svc credentialInteractionAPIClient) ServerOpt {
+	return func(o *serverOptions) {
+		o.interactionAPIClient = svc
+	}
+}
+
+func withOidc4VCStateStorage(svc oidc4VCStateStorage) ServerOpt {
+	return func(o *serverOptions) {
+		o.oidc4VCStateStorage = svc
 	}
 }
 
@@ -462,8 +631,10 @@ func testServer(t *testing.T, opts ...ServerOpt) *httptest.Server {
 	)
 
 	controller, err := oidc4vc.NewController(&oidc4vc.Config{
-		OAuth2Provider: oauth2Provider,
-		OIDC4VCService: op.oidc4VCService,
+		OAuth2Provider:                 oauth2Provider,
+		OIDC4VCService:                 op.oidc4VCService,
+		CredentialInteractionAPIClient: op.interactionAPIClient,
+		OIDC4VCStateStorage:            op.oidc4VCStateStorage,
 	})
 	require.NoError(t, err)
 

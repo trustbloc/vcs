@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
@@ -20,6 +21,8 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -29,23 +32,49 @@ type oidc4VCService interface {
 	HandlePAR(ctx context.Context, opState string, ad *oidc4vc.AuthorizationDetails) (oidc4vc.TxID, error)
 }
 
+type oidc4VCStateStorage interface {
+	StoreAuth(ctx context.Context, auth AuthResponder) error
+	GetAuth(ctx context.Context, state string) (*AuthResponder, error)
+}
+
+type credentialInteractionAPIClient interface {
+	// PrepareClaimDataAuthorization performs claim data issuance authorization on behalf of
+	// resource owner (wallet user) for authorization code flow.
+	PrepareClaimDataAuthorization(
+		ctx context.Context,
+		req *restapiclient.PrepareClaimDataAuthorizationRequest,
+	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error)
+
+	// StoreAuthorizationCode persists authorization code from issuer's OIDC provider.
+	StoreAuthorizationCode(
+		ctx context.Context,
+		req *restapiclient.StoreAuthorizationCodeRequest,
+	) (*restapiclient.StoreAuthorizationCodeResponse, error)
+}
+
 // Config holds configuration options for Controller.
 type Config struct {
-	OAuth2Provider fosite.OAuth2Provider
-	OIDC4VCService oidc4VCService
+	OAuth2Provider                 fosite.OAuth2Provider
+	OIDC4VCService                 oidc4VCService
+	CredentialInteractionAPIClient credentialInteractionAPIClient
+	OIDC4VCStateStorage            oidc4VCStateStorage
 }
 
 // Controller for OpenID for VC Issuance API.
 type Controller struct {
-	oauth2Provider fosite.OAuth2Provider
-	oidc4VCService oidc4VCService
+	oauth2Provider                 fosite.OAuth2Provider
+	oidc4VCService                 oidc4VCService
+	credentialInteractionAPIClient credentialInteractionAPIClient
+	oidc4VCStateStorage            oidc4VCStateStorage
 }
 
 // NewController creates a new Controller instance.
 func NewController(config *Config) (*Controller, error) {
 	return &Controller{
-		oauth2Provider: config.OAuth2Provider,
-		oidc4VCService: config.OIDC4VCService,
+		oauth2Provider:                 config.OAuth2Provider,
+		oidc4VCService:                 config.OIDC4VCService,
+		credentialInteractionAPIClient: config.CredentialInteractionAPIClient,
+		oidc4VCStateStorage:            config.OIDC4VCStateStorage,
 	}, nil
 }
 
@@ -125,12 +154,16 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 	req := e.Request()
 	ctx := req.Context()
 
+	if params.OpState == nil || len(*params.OpState) == 0 {
+		return apiUtil.WriteOutput(e)(nil, errors.New("op_state is required"))
+	}
+
 	ar, err := c.oauth2Provider.NewAuthorizeRequest(ctx, req)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	// TODO: login and get consent from the user
+	ar.(*fosite.AuthorizeRequest).State = *params.OpState
 
 	session, ok := ar.GetSession().(*oidc4vc.Session)
 	if !ok {
@@ -144,7 +177,59 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	c.oauth2Provider.WriteAuthorizeResponse(ctx, e.Response().Writer, ar, resp)
+	authZResponse, authZErr := c.credentialInteractionAPIClient.PrepareClaimDataAuthorization(
+		ctx,
+		&restapiclient.PrepareClaimDataAuthorizationRequest{
+			OpState: *params.OpState,
+		},
+	)
+	if authZErr != nil {
+		return authZErr
+	}
+
+	if storeErr := c.oidc4VCStateStorage.StoreAuth(ctx, AuthResponder{
+		RedirectURI: ar.GetRedirectURI(),
+		RespondMode: string(ar.GetResponseMode()),
+		AuthorizeResponse: AuthResponse{
+			Header:     resp.GetHeader(),
+			Parameters: resp.GetParameters(),
+		},
+	}); storeErr != nil {
+		return storeErr
+	}
+
+	return e.Redirect(http.StatusSeeOther, authZResponse.RedirectURI)
+}
+
+// OidcCallback handles oidc callback (GET /oidc/callback).
+func (c *Controller) OidcCallback(e echo.Context, params OidcCallbackParams) error {
+	req := e.Request()
+	ctx := req.Context()
+
+	_, authZErr := c.credentialInteractionAPIClient.StoreAuthorizationCode(ctx,
+		&restapiclient.StoreAuthorizationCodeRequest{
+			OpState: params.State,
+			Code:    params.Code,
+		})
+	if authZErr != nil {
+		return authZErr
+	}
+
+	resp, err := c.oidc4VCStateStorage.GetAuth(ctx, params.State)
+	if err != nil {
+		return apiUtil.WriteOutput(e)(nil, err)
+	}
+
+	responder := &fosite.AuthorizeResponse{}
+	responder.Header = resp.AuthorizeResponse.Header
+	responder.Parameters = resp.AuthorizeResponse.Parameters
+
+	c.oauth2Provider.WriteAuthorizeResponse(ctx, e.Response().Writer, &fosite.AuthorizeRequest{
+		RedirectURI:         resp.RedirectURI,
+		ResponseMode:        fosite.ResponseModeType(resp.RespondMode),
+		DefaultResponseMode: fosite.ResponseModeType(resp.RespondMode),
+		State:               params.State,
+	}, responder)
 
 	return nil
 }

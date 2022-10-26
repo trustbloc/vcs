@@ -80,11 +80,23 @@ type GetOidcAuthorizeParams struct {
 	OpState *string `form:"op_state,omitempty" json:"op_state,omitempty"`
 }
 
+// OidcCallbackParams defines parameters for OidcCallback.
+type OidcCallbackParams struct {
+	// auth code for issuer provider
+	Code string `form:"code" json:"code"`
+
+	// state
+	State string `form:"state" json:"state"`
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// OIDC Authorization Request
 	// (GET /oidc/authorize)
 	GetOidcAuthorize(ctx echo.Context, params GetOidcAuthorizeParams) error
+	// OIDC Callback
+	// (GET /oidc/callback)
+	OidcCallback(ctx echo.Context, params OidcCallbackParams) error
 	// OIDC Pushed Authorization Request
 	// (POST /oidc/par)
 	PostOidcPar(ctx echo.Context) error
@@ -186,6 +198,31 @@ func (w *ServerInterfaceWrapper) GetOidcAuthorize(ctx echo.Context) error {
 	return err
 }
 
+// OidcCallback converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcCallback(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OidcCallbackParams
+	// ------------- Required query parameter "code" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "code", ctx.QueryParams(), &params.Code)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter code: %s", err))
+	}
+
+	// ------------- Required query parameter "state" -------------
+
+	err = runtime.BindQueryParameter("form", true, true, "state", ctx.QueryParams(), &params.State)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter state: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OidcCallback(ctx, params)
+	return err
+}
+
 // PostOidcPar converts echo context to params.
 func (w *ServerInterfaceWrapper) PostOidcPar(ctx echo.Context) error {
 	var err error
@@ -233,6 +270,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/oidc/authorize", wrapper.GetOidcAuthorize)
+	router.GET(baseURL+"/oidc/callback", wrapper.OidcCallback)
 	router.POST(baseURL+"/oidc/par", wrapper.PostOidcPar)
 	router.POST(baseURL+"/oidc/token", wrapper.PostOidcToken)
 
