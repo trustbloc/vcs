@@ -8,6 +8,7 @@ package storage
 
 import (
 	"encoding/json"
+	"net/url"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -103,4 +104,25 @@ type CSLWrapper struct {
 	RevocationListIndex int                    `json:"revocationListIndex"`
 	ListID              int                    `json:"listID"`
 	VC                  *verifiable.Credential `json:"-"`
+}
+
+type OIDC4AuthorizationState struct {
+	RedirectURI       *url.URL          `json:"redirect_uri"`
+	RespondMode       string            `json:"respond_mode"`
+	AuthorizeResponse OIDC4AuthResponse `json:"authorize_response"`
+}
+
+type OIDC4AuthResponse struct {
+	Header     map[string][]string
+	Parameters map[string][]string
+}
+
+type InsertOptions struct {
+	TTL time.Duration
+}
+
+func WithDocumentTTL(ttl time.Duration) func(insertOptions *InsertOptions) {
+	return func(insertOptions *InsertOptions) {
+		insertOptions.TTL = ttl
+	}
 }

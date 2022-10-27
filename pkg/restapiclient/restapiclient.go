@@ -15,7 +15,9 @@ import (
 )
 
 const (
-	prepareClaimDataAuthEndpoint = "/issuer/interactions/prepare-claim-data-authz-request"
+	prepareClaimDataAuthEndpoint   = "/issuer/interactions/prepare-claim-data-authz-request"
+	storeAuthorizationCodeEndpoint = "/issuer/interactions/store-authorization-code"
+	pushAuthorizationEndpoint      = "/issuer/interactions/push-authorization"
 )
 
 type httpClient interface {
@@ -37,7 +39,7 @@ func NewClient(
 	}
 }
 
-func (c *Client) PrepareClaimDataAuthZ(
+func (c *Client) PrepareClaimDataAuthorization(
 	ctx context.Context,
 	req *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
@@ -46,6 +48,32 @@ func (c *Client) PrepareClaimDataAuthZ(
 		c.client,
 		http.MethodPost,
 		fmt.Sprintf("%s%s", c.hostURI, prepareClaimDataAuthEndpoint),
+		req,
+	)
+}
+
+func (c *Client) StoreAuthorizationCode(
+	ctx context.Context,
+	req *StoreAuthorizationCodeRequest,
+) (*StoreAuthorizationCodeResponse, error) {
+	return sendInternal[StoreAuthorizationCodeRequest, StoreAuthorizationCodeResponse](
+		ctx,
+		c.client,
+		http.MethodPost,
+		fmt.Sprintf("%s%s", c.hostURI, storeAuthorizationCodeEndpoint),
+		req,
+	)
+}
+
+func (c *Client) PushAuthorizationRequest(
+	ctx context.Context,
+	req *PushAuthorizationRequest,
+) (*PushAuthorizationResponse, error) {
+	return sendInternal[PushAuthorizationRequest, PushAuthorizationResponse](
+		ctx,
+		c.client,
+		http.MethodPost,
+		fmt.Sprintf("%s%s", c.hostURI, pushAuthorizationEndpoint),
 		req,
 	)
 }

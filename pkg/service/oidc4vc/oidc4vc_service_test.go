@@ -427,7 +427,7 @@ func TestPrepareClaimDataAuthZ(t *testing.T) {
 	resp, err := svc.PrepareClaimDataAuthZ(context.TODO(), req)
 	assert.NoError(t, err)
 
-	assert.Equal(t, fmt.Sprintf("%v?client_id=%v&redirect_uri=callback&"+
+	assert.Equal(t, fmt.Sprintf("%v?client_id=%v&redirect_uri=oidc%%2Fredirect&"+
 		"response_type=code&state=%v", issuerWellAuthEndpoint, storeTx.TransactionData.OIDC4VCConfig.ClientID,
 		opState), resp.RedirectURI)
 }

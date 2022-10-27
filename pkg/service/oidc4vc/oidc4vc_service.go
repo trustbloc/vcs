@@ -21,21 +21,34 @@ import (
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapiclient"
+	"github.com/trustbloc/vcs/pkg/storage"
 )
 
 const (
 	defaultGrantType    = "authorization_code"
 	defaultResponseType = "token"
 	defaultScope        = "openid"
-	defaultCallbackPath = "/callback"
+	defaultCallbackPath = "/oidc/redirect"
 )
 
 var logger = log.New("oidc4vc")
 
 type transactionStore interface {
-	Create(ctx context.Context, data *TransactionData, params ...func(insertOptions *InsertOptions)) (*Transaction, error)
-	FindByOpState(ctx context.Context, opState string) (*Transaction, error)
-	Update(ctx context.Context, tx *Transaction) error
+	Create(
+		ctx context.Context,
+		data *TransactionData,
+		params ...func(insertOptions *storage.InsertOptions),
+	) (*Transaction, error)
+
+	FindByOpState(
+		ctx context.Context,
+		opState string,
+	) (*Transaction, error)
+
+	Update(
+		ctx context.Context,
+		tx *Transaction,
+	) error
 }
 
 type wellKnownService[T any] interface {

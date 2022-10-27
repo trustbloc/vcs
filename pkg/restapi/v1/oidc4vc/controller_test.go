@@ -36,7 +36,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/restapiclient"
-	oidc4vcapi "github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	storage2 "github.com/trustbloc/vcs/pkg/storage"
 )
 
 const (
@@ -50,7 +50,7 @@ var store = &storage.MemoryStore{
 		testClientID: &fosite.DefaultClient{
 			ID:            testClientID,
 			Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
-			RedirectURIs:  []string{"/callback"},
+			RedirectURIs:  []string{"/redirect"},
 			ResponseTypes: []string{"code"},
 			GrantTypes:    []string{"authorization_code"},
 			Scopes:        []string{"openid"},
@@ -69,9 +69,8 @@ var store = &storage.MemoryStore{
 }
 
 func TestPushedAuthorizedRequest(t *testing.T) {
-	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-
-	srv := testServer(t, withOIDC4VCService(mockOIDC4VCService))
+	client := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	srv := testServer(t, withIssuerInteractionAPIClient(client))
 	defer srv.Close()
 
 	var (
@@ -89,8 +88,10 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 			setup: func() {
 				oauthClient = newOAuth2Client(srv.URL)
 
-				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(oidc4vcapi.TxID("txID"), nil)
+				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).
+					Return(&restapiclient.PushAuthorizationResponse{
+						TxID: "txID",
+					}, nil)
 
 				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}` //nolint:lll
 			},
@@ -101,8 +102,8 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 			setup: func() {
 				oauthClient = newOAuth2Client(srv.URL)
 
-				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(oidc4vcapi.TxID(""), errors.New("service error"))
+				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("service error"))
 			},
 			statusCode: http.StatusInternalServerError,
 		},
@@ -110,7 +111,7 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 			name: "invalid client",
 			setup: func() {
 				oauthClient = newOAuth2Client(srv.URL, withClientID("invalid-client"))
-				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","locations":[]}` //nolint:lll
 			},
 			statusCode: http.StatusUnauthorized,
@@ -119,7 +120,7 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 			name: "fail to unmarshal authorization_details",
 			setup: func() {
 				oauthClient = newOAuth2Client(srv.URL)
-				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 				ad = "invalid json"
 			},
 			statusCode: http.StatusInternalServerError,
@@ -128,7 +129,7 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 			name: "invalid authorization_details.type",
 			setup: func() {
 				oauthClient = newOAuth2Client(srv.URL)
-				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 				ad = `{"type":"invalid","credential_type":"https://did.example.org/healthCard","locations":[]}`
 			},
 			statusCode: http.StatusInternalServerError,
@@ -137,7 +138,7 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 			name: "invalid authorization_details.format",
 			setup: func() {
 				oauthClient = newOAuth2Client(srv.URL)
-				mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[]}` //nolint:lll
 			},
 			statusCode: http.StatusInternalServerError,
@@ -176,13 +177,11 @@ func TestPushedAuthorizedRequest(t *testing.T) {
 }
 
 func TestAuthorizeRequest(t *testing.T) {
-	oidcService := NewMockOIDC4VCService(gomock.NewController(t))
 	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
 	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
 
 	srv := testServer(t,
-		withOIDC4VCService(oidcService),
-		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
 		withOidc4VCStateStorage(oidc4VcStateStorageMock),
 	)
 	defer srv.Close()
@@ -210,7 +209,9 @@ func TestAuthorizeRequest(t *testing.T) {
 					}).Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
 					RedirectURI: "http://redirect",
 				}, nil)
-				oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).Return(nil)
+				oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), opState, gomock.Any()).
+					Return(nil)
+
 				authCodeURL = newOAuth2Client(srv.URL).AuthCodeURL(nonce(), params...)
 			},
 			statusCode: http.StatusSeeOther,
@@ -284,7 +285,7 @@ func TestTokenRequest(t *testing.T) {
 				"grant_type":    {"authorization_code"},
 				"client_id":     {testClientID},
 				"client_secret": {"foobar"},
-				"redirect_uri":  {srv.URL + "/callback"},
+				"redirect_uri":  {srv.URL + "/redirect"},
 				"code_verifier": {"xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"},
 			})
 			require.NoError(t, err)
@@ -301,8 +302,6 @@ func TestTokenRequest(t *testing.T) {
 }
 
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
-	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
 	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
 
@@ -310,6 +309,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	redirectURL := fmt.Sprintf("https://trust/redirect?id=%v", uuid.NewString())
 
+	interactionAPIClientMock.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
 		&restapiclient.PrepareClaimDataAuthorizationRequest{
 			OpState: opState,
@@ -317,8 +317,13 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		RedirectURI: redirectURL,
 	}, nil)
 
-	oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, auth oidc4vc.AuthResponder) error {
+	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), opState, gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			ctx context.Context,
+			opState string,
+			auth storage2.OIDC4AuthorizationState,
+			params ...func(options *storage2.InsertOptions),
+		) error {
 			assert.Equal(t, "query", auth.RespondMode)
 
 			assert.Empty(t, auth.AuthorizeResponse.Header)
@@ -333,8 +338,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		})
 
 	srv := testServer(t,
-		withOIDC4VCService(mockOIDC4VCService),
-		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
 		withOidc4VCStateStorage(oidc4VcStateStorageMock),
 	)
 
@@ -367,21 +371,22 @@ func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
 	opState := uuid.NewString()
 	randURI := fmt.Sprintf("https://external-oidc-provider.com/%v", opState)
 
-	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Return(oidc4vcapi.TxID("txID"), nil)
-
 	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
 	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
 
+	interactionAPIClientMock.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).
+		Return(&restapiclient.PushAuthorizationResponse{
+			TxID: "txID",
+		}, nil)
 	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
 		Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
 			RedirectURI: randURI,
 		}, nil)
-	oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).Return(nil)
+	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(nil)
 
 	srv := testServer(t,
-		withOIDC4VCService(mockOIDC4VCService),
-		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
 		withOidc4VCStateStorage(oidc4VcStateStorageMock),
 	)
 
@@ -450,9 +455,6 @@ func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
 }
 
 func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
-	mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-	mockOIDC4VCService.EXPECT().HandlePAR(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
 	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
 	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
 
@@ -460,14 +462,13 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 	code := uuid.NewString()
 
 	srv := testServer(t,
-		withOIDC4VCService(mockOIDC4VCService),
-		withCredentialInteractionAPIClient(interactionAPIClientMock),
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
 		withOidc4VCStateStorage(oidc4VcStateStorageMock),
 	)
 	defer srv.Close()
 	//
 	issuerOuathURL := "https://issuer"
-	var oidcResponder *oidc4vc.AuthResponder
+	var oidcResponder *storage2.OIDC4AuthorizationState
 
 	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
 		&restapiclient.PrepareClaimDataAuthorizationRequest{
@@ -484,20 +485,26 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 		}, nil
 	})
 
-	oidc4VcStateStorageMock.EXPECT().StoreAuth(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, auth oidc4vc.AuthResponder) error {
-			oidcResponder = &auth
+	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), opState, gomock.Any(), gomock.Any()).
+		DoAndReturn(
+			func(
+				ctx context.Context,
+				opState string,
+				auth storage2.OIDC4AuthorizationState,
+				params ...func(options *storage2.InsertOptions),
+			) error {
+				oidcResponder = &auth
 
-			return nil
-		})
+				return nil
+			})
 
 	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), &restapiclient.StoreAuthorizationCodeRequest{
 		OpState: opState,
 		Code:    code,
 	}).Return(&restapiclient.StoreAuthorizationCodeResponse{}, nil)
 
-	oidc4VcStateStorageMock.EXPECT().GetAuth(gomock.Any(), opState).DoAndReturn(
-		func(ctx context.Context, state string) (*oidc4vc.AuthResponder, error) {
+	oidc4VcStateStorageMock.EXPECT().GetAuthorizationState(gomock.Any(), opState).DoAndReturn(
+		func(ctx context.Context, state string) (*storage2.OIDC4AuthorizationState, error) {
 			return oidcResponder, nil
 		},
 	)
@@ -530,7 +537,7 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 			"&response_type=code&scope=openid&state=%v", expectedRedirectURLToOurOidcCallback, opState),
 		issuerRedirectURL)
 
-	successCallback := fmt.Sprintf("%s/oidc/callback?state=%s&code=%s", srv.URL, opState, code)
+	successCallback := fmt.Sprintf("%s/oidc/redirect?state=%s&code=%s", srv.URL, opState, code)
 	resp, err = cl.Get(successCallback)
 	tokenURL := resp.Header.Get("location")
 	assert.NoError(t, err)
@@ -549,11 +556,133 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 	assert.NotEmpty(t, tok.AccessToken)
 }
 
-type oidc4VCService interface {
-	HandlePAR(ctx context.Context, opState string, ad *oidc4vcapi.AuthorizationDetails) (oidc4vcapi.TxID, error)
+func TestAuthPrepareAuthErr(t *testing.T) {
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	opState := uuid.NewString()
+	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("auth err"))
+
+	srv := testServer(t,
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
+	defer srv.Close()
+
+	oauthClient := newOAuth2Client(srv.URL)
+
+	params := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("op_state", opState),
+	}
+
+	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
+
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := cl.Get(authCodeURL)
+	assert.NoError(t, err)
+	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
 }
 
-type credentialInteractionAPIClient interface {
+func TestAuthWithFailStorage(t *testing.T) {
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	opState := uuid.NewString()
+	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
+		Return(&restapiclient.PrepareClaimDataAuthorizationResponse{}, nil)
+	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(errors.New("storage error"))
+
+	srv := testServer(t,
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
+	defer srv.Close()
+
+	oauthClient := newOAuth2Client(srv.URL)
+
+	params := []oauth2.AuthCodeOption{
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("op_state", opState),
+	}
+
+	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
+
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := cl.Get(authCodeURL)
+	assert.NoError(t, err)
+	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
+}
+
+func TestCallbackWithStoreCodeApiError(t *testing.T) {
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	opState := uuid.NewString()
+	code := uuid.NewString()
+
+	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("api error"))
+
+	srv := testServer(t,
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
+	defer srv.Close()
+
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := cl.Get(fmt.Sprintf("%s/oidc/redirect?state=%s&code=%v", srv.URL, opState, code))
+	assert.NoError(t, err)
+	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
+}
+
+func TestCallbackWithRestoreStateError(t *testing.T) {
+	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
+	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
+
+	opState := uuid.NewString()
+	code := uuid.NewString()
+
+	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), gomock.Any()).
+		Return(&restapiclient.StoreAuthorizationCodeResponse{}, nil)
+	oidc4VcStateStorageMock.EXPECT().GetAuthorizationState(gomock.Any(), opState).
+		Return(nil, errors.New("storage error"))
+
+	srv := testServer(t,
+		withIssuerInteractionAPIClient(interactionAPIClientMock),
+		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+	)
+	defer srv.Close()
+
+	cl := http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := cl.Get(fmt.Sprintf("%s/oidc/redirect?state=%s&code=%v", srv.URL, opState, code))
+	assert.NoError(t, err)
+	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
+}
+
+type interactionAPIClient interface {
 	PrepareClaimDataAuthorization(
 		ctx context.Context,
 		req *restapiclient.PrepareClaimDataAuthorizationRequest,
@@ -562,30 +691,32 @@ type credentialInteractionAPIClient interface {
 		ctx context.Context,
 		req *restapiclient.StoreAuthorizationCodeRequest,
 	) (*restapiclient.StoreAuthorizationCodeResponse, error)
+	PushAuthorizationRequest(
+		ctx context.Context,
+		req *restapiclient.PushAuthorizationRequest,
+	) (*restapiclient.PushAuthorizationResponse, error)
 }
 
 type oidc4VCStateStorage interface {
-	StoreAuth(ctx context.Context, auth oidc4vc.AuthResponder) error
-	GetAuth(ctx context.Context, state string) (*oidc4vc.AuthResponder, error)
+	StoreAuthorizationState(
+		ctx context.Context,
+		opState string,
+		auth storage2.OIDC4AuthorizationState,
+		params ...func(insertOptions *storage2.InsertOptions),
+	) error
+	GetAuthorizationState(ctx context.Context, opState string) (*storage2.OIDC4AuthorizationState, error)
 }
 
 // serverOptions to customize test server.
 type serverOptions struct {
-	oidc4VCService       oidc4VCService
-	interactionAPIClient credentialInteractionAPIClient
+	interactionAPIClient interactionAPIClient
 	oidc4VCStateStorage  oidc4VCStateStorage
 }
 
 // ServerOpt configures test server options.
 type ServerOpt func(options *serverOptions)
 
-func withOIDC4VCService(svc oidc4VCService) ServerOpt {
-	return func(o *serverOptions) {
-		o.oidc4VCService = svc
-	}
-}
-
-func withCredentialInteractionAPIClient(svc credentialInteractionAPIClient) ServerOpt {
+func withIssuerInteractionAPIClient(svc interactionAPIClient) ServerOpt {
 	return func(o *serverOptions) {
 		o.interactionAPIClient = svc
 	}
@@ -630,47 +761,20 @@ func testServer(t *testing.T, opts ...ServerOpt) *httptest.Server {
 		compose.PushedAuthorizeHandlerFactory,
 	)
 
-	controller, err := oidc4vc.NewController(&oidc4vc.Config{
+	controller := oidc4vc.NewController(&oidc4vc.Config{
 		OAuth2Provider:                 oauth2Provider,
-		OIDC4VCService:                 op.oidc4VCService,
 		CredentialInteractionAPIClient: op.interactionAPIClient,
 		OIDC4VCStateStorage:            op.oidc4VCStateStorage,
 	})
-	require.NoError(t, err)
 
 	oidc4vc.RegisterHandlers(e, controller)
-
-	// TODO: Add callback/redirect handler in production code
-	e.GET("/callback", func(c echo.Context) error {
-		q := c.Request().URL.Query()
-
-		if q.Get("code") == "" && q.Get("error") == "" {
-			require.NotEmpty(t, q.Get("code"))
-			require.NotEmpty(t, q.Get("error"))
-		}
-
-		if q.Get("code") != "" {
-			if _, err = c.Response().Write([]byte("code: ok")); err != nil {
-				t.Logf("Failed to write response: %s", err)
-			}
-		}
-
-		if q.Get("error") != "" {
-			c.Response().WriteHeader(http.StatusNotAcceptable)
-			if _, err = c.Response().Write([]byte("error: " + q.Get("error"))); err != nil {
-				t.Logf("Failed to write response: %s", err)
-			}
-		}
-
-		return nil
-	})
 
 	srv := httptest.NewServer(e)
 
 	for _, client := range store.Clients {
 		c, ok := client.(*fosite.DefaultClient)
 		if ok {
-			c.RedirectURIs[0] = srv.URL + "/callback"
+			c.RedirectURIs[0] = srv.URL + "/redirect"
 		}
 	}
 
@@ -703,7 +807,7 @@ func newOAuth2Client(serverURL string, opts ...ClientOpt) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID:     op.clientID,
 		ClientSecret: "foobar",
-		RedirectURL:  serverURL + "/callback",
+		RedirectURL:  serverURL + "/redirect",
 		Scopes:       []string{"openid"},
 		Endpoint: oauth2.Endpoint{
 			TokenURL:  serverURL + "/oidc/token",

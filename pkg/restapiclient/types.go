@@ -20,4 +20,15 @@ type StoreAuthorizationCodeRequest struct {
 }
 
 type StoreAuthorizationCodeResponse struct {
+	Success bool `json:"success"`
+}
+
+type PushAuthorizationRequest struct {
+	OpState        string `json:"op_state"`
+	CredentialType string `json:"credential_type"`
+	Format         string `json:"format"`
+}
+
+type PushAuthorizationResponse struct {
+	TxID string `json:"tx_id"`
 }

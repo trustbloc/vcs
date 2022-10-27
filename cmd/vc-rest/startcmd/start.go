@@ -31,7 +31,9 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
+	oidc4vc2 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
+	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -41,6 +43,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
@@ -222,10 +225,22 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		IssuerWellKnownService: oidc4vc.NewDefaultIssuerWellKnownService[oidc4vc.IssuerWellKnown](http.DefaultClient),
 		ClientWellKnownService: oidc4vc.NewDefaultIssuerWellKnownService[oidc4vc.ClientWellKnown](http.DefaultClient),
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4 vc service: %w", err)
 	}
+
+	oidc4StateStore, err := oidc4vcstatestore.New(context.Background(), mongodbClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new oidc4vcstatestore: %w", err)
+	}
+
+	restApiClient := restapiclient.NewClient(conf.StartupParameters.hostURL, http.DefaultClient)
+
+	oidc4vc2.RegisterHandlers(e, oidc4vc2.NewController(&oidc4vc2.Config{
+		OAuth2Provider:                 nil,
+		CredentialInteractionAPIClient: restApiClient,
+		OIDC4VCStateStorage:            oidc4StateStore,
+	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:               eventSvc,
