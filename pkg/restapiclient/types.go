@@ -20,6 +20,7 @@ type StoreAuthorizationCodeRequest struct {
 }
 
 type StoreAuthorizationCodeResponse struct {
+	Success bool `json:"success"`
 }
 
 type PushAuthorizationRequest struct {
