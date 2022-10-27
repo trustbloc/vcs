@@ -4,11 +4,10 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vcstore
+package oidc4vcstatestore
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
@@ -33,31 +31,9 @@ import (
 )
 
 const (
-	mongoDBConnString  = "mongodb://localhost:27024"
+	mongoDBConnString  = "mongodb://localhost:27027"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
-	vc                 = `
-{ 
-   "@context":[ 
-      "https://www.w3.org/2018/credentials/v1", 
-	  "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-   ],
-   "id":"http://example.edu/credentials/1989",
-   "type":"VerifiableCredential",
-   "credentialSubject":{ 
-      "id":"did:example:iuajk1f712ebc6f1c276e12ec21"
-   },
-   "issuer":{ 
-      "id":"did:example:09s12ec712ebc6f1c671ebfeb1f",
-      "name":"Example University"
-   },
-   "issuanceDate":"2020-01-01T10:54:01Z",
-   "credentialStatus":{ 
-      "id":"https://example.gov/status/65",
-      "type":"CredentialStatusList2017"
-   }
-}
-`
 )
 
 func TestStore(t *testing.T) {
@@ -77,31 +53,25 @@ func TestStore(t *testing.T) {
 	t.Run("try insert duplicate op_state", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4vc.TransactionData{
-			OpState: id,
-		}
+		toInsert := storage.OIDC4AuthorizationState{}
 
-		resp1, err1 := store.Create(context.Background(), toInsert)
+		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert)
 		assert.NoError(t, err1)
-		assert.NotEmpty(t, resp1)
 
-		resp2, err2 := store.Create(context.Background(), toInsert)
-		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
-		assert.Empty(t, resp2)
+		err2 := store.StoreAuthorizationState(context.Background(), id, toInsert)
+		assert.ErrorContains(t, err2, "duplicate key error collection")
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4vc.TransactionData{
-			OpState: id,
-		}
+		toInsert := storage.OIDC4AuthorizationState{}
 
-		resp1, err1 := store.Create(context.Background(), toInsert, storage.WithDocumentTTL(1*time.Millisecond))
+		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert,
+			storage.WithDocumentTTL(1*time.Millisecond))
 		assert.NoError(t, err1)
-		assert.NotNil(t, resp1)
 
-		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
+		resp2, err2 := store.GetAuthorizationState(context.Background(), id)
 		assert.Nil(t, resp2)
 		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
 	})
@@ -109,28 +79,16 @@ func TestStore(t *testing.T) {
 	t.Run("test insert and find", func(t *testing.T) {
 		id := uuid.New().String()
 
-		cred := &verifiable.Credential{}
-		err2 := json.Unmarshal([]byte(vc), cred)
-		assert.NoError(t, err2)
-
-		toInsert := &oidc4vc.TransactionData{
-			CredentialTemplate:   cred,
-			ClaimEndpoint:        "432",
-			GrantType:            "342",
-			ResponseType:         "123",
-			Scope:                []string{"213", "321"},
-			AuthorizationDetails: &oidc4vc.AuthorizationDetails{Type: "321"},
-			OpState:              id,
+		toInsert := storage.OIDC4AuthorizationState{
+			RespondMode: "random",
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert)
+		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert)
 		assert.NoError(t, err1)
-		assert.NotNil(t, resp1)
 
-		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
+		resp2, err2 := store.GetAuthorizationState(context.Background(), id)
 		assert.NoError(t, err2)
-		assert.NotEmpty(t, resp2.ID)
-		assert.Equal(t, *toInsert, resp2.TransactionData)
+		assert.Equal(t, toInsert, *resp2)
 	})
 
 	t.Run("create multiple instances", func(t *testing.T) {
@@ -150,38 +108,10 @@ func TestStore(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("Test Update", func(t *testing.T) {
-		id := uuid.NewString()
-
-		toInsert := &oidc4vc.TransactionData{
-			CredentialTemplate:   nil,
-			ClaimEndpoint:        "432",
-			GrantType:            "342",
-			ResponseType:         "123",
-			Scope:                []string{"213", "321"},
-			AuthorizationDetails: &oidc4vc.AuthorizationDetails{Type: "321"},
-			OpState:              id,
-		}
-
-		resp, createErr := store.Create(context.TODO(), toInsert)
-		if createErr != nil {
-			assert.NoError(t, createErr)
-		}
-
-		assert.NoError(t, err)
-
-		resp.ClaimEndpoint = "test_endpoint"
-
-		assert.NoError(t, store.Update(context.TODO(), resp))
-		found, err2 := store.FindByOpState(context.TODO(), id)
-		assert.NoError(t, err2)
-		assert.Equal(t, resp.ClaimEndpoint, found.ClaimEndpoint)
-	})
-
 	t.Run("find non existing document", func(t *testing.T) {
 		id := uuid.New().String()
 
-		resp, err2 := store.FindByOpState(context.Background(), id)
+		resp, err2 := store.GetAuthorizationState(context.Background(), id)
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
 	})
@@ -209,22 +139,14 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		resp, err := store.Create(ctx, &oidc4vc.TransactionData{})
-
-		assert.Empty(t, resp)
+		err := store.StoreAuthorizationState(ctx, uuid.NewString(), storage.OIDC4AuthorizationState{})
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
-		resp, err := store.FindByOpState(ctx, "111")
-
+		resp, err := store.GetAuthorizationState(ctx, "111")
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")
-	})
-
-	t.Run("Update InvalidKey", func(t *testing.T) {
-		err := store.Update(context.TODO(), &oidc4vc.Transaction{ID: "1"})
-		assert.ErrorContains(t, err, "the provided hex string is not a valid ObjectID")
 	})
 }
 
@@ -238,7 +160,7 @@ func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 		Repository: dockerMongoDBImage,
 		Tag:        dockerMongoDBTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"27017/tcp": {{HostIP: "", HostPort: "27024"}},
+			"27017/tcp": {{HostIP: "", HostPort: "27027"}},
 		},
 	})
 	require.NoError(t, err)

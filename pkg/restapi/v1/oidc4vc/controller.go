@@ -24,17 +24,22 @@ import (
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/storage"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
-type oidc4VCService interface {
-	HandlePAR(ctx context.Context, opState string, ad *oidc4vc.AuthorizationDetails) (oidc4vc.TxID, error)
-}
-
 type oidc4VCStateStorage interface {
-	StoreAuth(ctx context.Context, auth AuthResponder) error
-	GetAuth(ctx context.Context, state string) (*AuthResponder, error)
+	StoreAuthorizationState(
+		ctx context.Context,
+		opState string,
+		auth storage.OIDC4AuthorizationState,
+		params ...func(insertOptions *storage.InsertOptions),
+	) error
+	GetAuthorizationState(
+		ctx context.Context,
+		opState string,
+	) (*storage.OIDC4AuthorizationState, error)
 }
 
 type credentialInteractionAPIClient interface {
@@ -50,12 +55,17 @@ type credentialInteractionAPIClient interface {
 		ctx context.Context,
 		req *restapiclient.StoreAuthorizationCodeRequest,
 	) (*restapiclient.StoreAuthorizationCodeResponse, error)
+
+	// PushAuthorizationRequest Validate PAR data
+	PushAuthorizationRequest(
+		ctx context.Context,
+		req *restapiclient.PushAuthorizationRequest,
+	) (*restapiclient.PushAuthorizationResponse, error)
 }
 
 // Config holds configuration options for Controller.
 type Config struct {
 	OAuth2Provider                 fosite.OAuth2Provider
-	OIDC4VCService                 oidc4VCService
 	CredentialInteractionAPIClient credentialInteractionAPIClient
 	OIDC4VCStateStorage            oidc4VCStateStorage
 }
@@ -63,19 +73,17 @@ type Config struct {
 // Controller for OpenID for VC Issuance API.
 type Controller struct {
 	oauth2Provider                 fosite.OAuth2Provider
-	oidc4VCService                 oidc4VCService
 	credentialInteractionAPIClient credentialInteractionAPIClient
 	oidc4VCStateStorage            oidc4VCStateStorage
 }
 
 // NewController creates a new Controller instance.
-func NewController(config *Config) (*Controller, error) {
+func NewController(config *Config) *Controller {
 	return &Controller{
 		oauth2Provider:                 config.OAuth2Provider,
-		oidc4VCService:                 config.OIDC4VCService,
 		credentialInteractionAPIClient: config.CredentialInteractionAPIClient,
 		oidc4VCStateStorage:            config.OIDC4VCStateStorage,
-	}, nil
+	}
 }
 
 // PostOidcPar handles Pushed Authorization Request for OIDC4VC (POST /oidc/par).
@@ -99,17 +107,17 @@ func (c *Controller) PostOidcPar(e echo.Context) error {
 		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	txID, err := c.oidc4VCService.HandlePAR(ctx, par.OpState, ad)
+	_, err = c.credentialInteractionAPIClient.PushAuthorizationRequest(ctx, &restapiclient.PushAuthorizationRequest{
+		OpState:        par.OpState,
+		CredentialType: ad.CredentialType,
+		Format:         string(ad.Format),
+	})
+
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
-	session := &oidc4vc.Session{
-		DefaultSession: new(fosite.DefaultSession),
-		TxID:           txID,
-	}
-
-	resp, err := c.oauth2Provider.NewPushedAuthorizeResponse(ctx, ar, session)
+	resp, err := c.oauth2Provider.NewPushedAuthorizeResponse(ctx, ar, new(fosite.DefaultSession))
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositePARError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
@@ -165,18 +173,6 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 
 	ar.(*fosite.AuthorizeRequest).State = *params.OpState
 
-	session, ok := ar.GetSession().(*oidc4vc.Session)
-	if !ok {
-		session = &oidc4vc.Session{
-			DefaultSession: new(fosite.DefaultSession),
-		}
-	}
-
-	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, session)
-	if err != nil {
-		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
-	}
-
 	authZResponse, authZErr := c.credentialInteractionAPIClient.PrepareClaimDataAuthorization(
 		ctx,
 		&restapiclient.PrepareClaimDataAuthorizationRequest{
@@ -187,22 +183,31 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 		return authZErr
 	}
 
-	if storeErr := c.oidc4VCStateStorage.StoreAuth(ctx, AuthResponder{
-		RedirectURI: ar.GetRedirectURI(),
-		RespondMode: string(ar.GetResponseMode()),
-		AuthorizeResponse: AuthResponse{
-			Header:     resp.GetHeader(),
-			Parameters: resp.GetParameters(),
-		},
-	}); storeErr != nil {
+	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, new(fosite.DefaultSession))
+
+	if err != nil {
+		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
+	}
+
+	if storeErr := c.oidc4VCStateStorage.StoreAuthorizationState(
+		ctx,
+		*params.OpState,
+		storage.OIDC4AuthorizationState{
+			RedirectURI: ar.GetRedirectURI(),
+			RespondMode: string(ar.GetResponseMode()),
+			AuthorizeResponse: storage.OIDC4AuthResponse{
+				Header:     resp.GetHeader(),
+				Parameters: resp.GetParameters(),
+			},
+		}); storeErr != nil {
 		return storeErr
 	}
 
 	return e.Redirect(http.StatusSeeOther, authZResponse.RedirectURI)
 }
 
-// OidcCallback handles oidc callback (GET /oidc/callback).
-func (c *Controller) OidcCallback(e echo.Context, params OidcCallbackParams) error {
+// OidcRedirect handles oidc callback (GET /oidc/redirect).
+func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) error {
 	req := e.Request()
 	ctx := req.Context()
 
@@ -215,7 +220,7 @@ func (c *Controller) OidcCallback(e echo.Context, params OidcCallbackParams) err
 		return authZErr
 	}
 
-	resp, err := c.oidc4VCStateStorage.GetAuth(ctx, params.State)
+	resp, err := c.oidc4VCStateStorage.GetAuthorizationState(ctx, params.State)
 	if err != nil {
 		return apiUtil.WriteOutput(e)(nil, err)
 	}
@@ -239,11 +244,7 @@ func (c *Controller) PostOidcToken(e echo.Context) error {
 	req := e.Request()
 	ctx := req.Context()
 
-	session := &oidc4vc.Session{
-		DefaultSession: new(fosite.DefaultSession),
-	}
-
-	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, session)
+	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, new(fosite.DefaultSession))
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}

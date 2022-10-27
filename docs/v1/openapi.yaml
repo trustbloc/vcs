@@ -522,13 +522,13 @@ paths:
                 - code
                 - code_verifier
         description: ''
-  /oidc/callback:
+  /oidc/redirect:
     get:
-      summary: OIDC Callback
+      summary: OIDC Redirect
       tags:
         - oidc4vc
-      operationId: oidc-callback
-      description: OIDC callback for handling response from issuer's OIDC provider and continue our OIDC authorize flow.
+      operationId: oidc-redirect
+      description: OIDC redirect for handling response from issuer's OIDC provider and continue our OIDC authorize flow.
       responses:
         '303':
           description: Redirect

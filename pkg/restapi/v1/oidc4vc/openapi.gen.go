@@ -80,8 +80,8 @@ type GetOidcAuthorizeParams struct {
 	OpState *string `form:"op_state,omitempty" json:"op_state,omitempty"`
 }
 
-// OidcCallbackParams defines parameters for OidcCallback.
-type OidcCallbackParams struct {
+// OidcRedirectParams defines parameters for OidcRedirect.
+type OidcRedirectParams struct {
 	// auth code for issuer provider
 	Code string `form:"code" json:"code"`
 
@@ -94,12 +94,12 @@ type ServerInterface interface {
 	// OIDC Authorization Request
 	// (GET /oidc/authorize)
 	GetOidcAuthorize(ctx echo.Context, params GetOidcAuthorizeParams) error
-	// OIDC Callback
-	// (GET /oidc/callback)
-	OidcCallback(ctx echo.Context, params OidcCallbackParams) error
 	// OIDC Pushed Authorization Request
 	// (POST /oidc/par)
 	PostOidcPar(ctx echo.Context) error
+	// OIDC Redirect
+	// (GET /oidc/redirect)
+	OidcRedirect(ctx echo.Context, params OidcRedirectParams) error
 	// OIDC Token Request
 	// (POST /oidc/token)
 	PostOidcToken(ctx echo.Context) error
@@ -198,12 +198,21 @@ func (w *ServerInterfaceWrapper) GetOidcAuthorize(ctx echo.Context) error {
 	return err
 }
 
-// OidcCallback converts echo context to params.
-func (w *ServerInterfaceWrapper) OidcCallback(ctx echo.Context) error {
+// PostOidcPar converts echo context to params.
+func (w *ServerInterfaceWrapper) PostOidcPar(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostOidcPar(ctx)
+	return err
+}
+
+// OidcRedirect converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcRedirect(ctx echo.Context) error {
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params OidcCallbackParams
+	var params OidcRedirectParams
 	// ------------- Required query parameter "code" -------------
 
 	err = runtime.BindQueryParameter("form", true, true, "code", ctx.QueryParams(), &params.Code)
@@ -219,16 +228,7 @@ func (w *ServerInterfaceWrapper) OidcCallback(ctx echo.Context) error {
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.OidcCallback(ctx, params)
-	return err
-}
-
-// PostOidcPar converts echo context to params.
-func (w *ServerInterfaceWrapper) PostOidcPar(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostOidcPar(ctx)
+	err = w.Handler.OidcRedirect(ctx, params)
 	return err
 }
 
@@ -270,8 +270,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/oidc/authorize", wrapper.GetOidcAuthorize)
-	router.GET(baseURL+"/oidc/callback", wrapper.OidcCallback)
 	router.POST(baseURL+"/oidc/par", wrapper.PostOidcPar)
+	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)
 	router.POST(baseURL+"/oidc/token", wrapper.PostOidcToken)
 
 }

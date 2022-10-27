@@ -19,6 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -83,9 +84,9 @@ func (s *Store) migrate(ctx context.Context) error {
 func (s *Store) Create(
 	ctx context.Context,
 	data *oidc4vc.TransactionData,
-	params ...func(insertOptions *oidc4vc.InsertOptions),
+	params ...func(insertOptions *storage.InsertOptions),
 ) (*oidc4vc.Transaction, error) {
-	insertCfg := &oidc4vc.InsertOptions{}
+	insertCfg := &storage.InsertOptions{}
 	for _, p := range params {
 		p(insertCfg)
 	}

@@ -8,7 +8,6 @@ package oidc4vc
 
 import (
 	"net/url"
-	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/ory/fosite"
@@ -74,14 +73,4 @@ type InitiateIssuanceResponse struct {
 
 type ClientWellKnownConfig struct {
 	InitiateIssuanceEndpoint string `json:"initiate_issuance_endpoint"`
-}
-
-type InsertOptions struct {
-	TTL time.Duration
-}
-
-func WithDocumentTTL(ttl time.Duration) func(insertOptions *InsertOptions) {
-	return func(insertOptions *InsertOptions) {
-		insertOptions.TTL = ttl
-	}
 }
