@@ -17,7 +17,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -31,7 +30,7 @@ type mongoDocument struct {
 	ExpireAt time.Time          `bson:"expireAt"`
 
 	OpState string `bson:"opState,omitempty"`
-	State   storage.OIDC4AuthorizationState
+	State   oidc4vc.OIDC4AuthorizationState
 }
 
 // Store stores oidc transactions in mongo.
@@ -77,10 +76,10 @@ func (s *Store) migrate(ctx context.Context) error {
 func (s *Store) StoreAuthorizationState(
 	ctx context.Context,
 	opState string,
-	data storage.OIDC4AuthorizationState,
-	params ...func(insertOptions *storage.InsertOptions),
+	data oidc4vc.OIDC4AuthorizationState,
+	params ...func(insertOptions *oidc4vc.InsertOptions),
 ) error {
-	insertCfg := &storage.InsertOptions{}
+	insertCfg := &oidc4vc.InsertOptions{}
 	for _, p := range params {
 		p(insertCfg)
 	}
@@ -97,7 +96,7 @@ func (s *Store) StoreAuthorizationState(
 	return err
 }
 
-func (s *Store) GetAuthorizationState(ctx context.Context, opState string) (*storage.OIDC4AuthorizationState, error) {
+func (s *Store) GetAuthorizationState(ctx context.Context, opState string) (*oidc4vc.OIDC4AuthorizationState, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
@@ -122,7 +121,7 @@ func (s *Store) GetAuthorizationState(ctx context.Context, opState string) (*sto
 
 func (s *Store) mapTransactionDataToMongoDocument(
 	opState string,
-	data storage.OIDC4AuthorizationState,
+	data oidc4vc.OIDC4AuthorizationState,
 ) *mongoDocument {
 	return &mongoDocument{
 		ExpireAt: time.Now().UTC().Add(defaultExpiration),

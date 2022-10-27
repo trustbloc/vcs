@@ -26,7 +26,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -53,7 +52,7 @@ func TestStore(t *testing.T) {
 	t.Run("try insert duplicate op_state", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := storage.OIDC4AuthorizationState{}
+		toInsert := oidc4vc.OIDC4AuthorizationState{}
 
 		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert)
 		assert.NoError(t, err1)
@@ -65,10 +64,10 @@ func TestStore(t *testing.T) {
 	t.Run("test expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := storage.OIDC4AuthorizationState{}
+		toInsert := oidc4vc.OIDC4AuthorizationState{}
 
 		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert,
-			storage.WithDocumentTTL(-2*time.Second))
+			oidc4vc.WithDocumentTTL(-2*time.Second))
 		assert.NoError(t, err1)
 
 		resp2, err2 := store.GetAuthorizationState(context.Background(), id)
@@ -79,7 +78,7 @@ func TestStore(t *testing.T) {
 	t.Run("test insert and find", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := storage.OIDC4AuthorizationState{
+		toInsert := oidc4vc.OIDC4AuthorizationState{
 			RespondMode: "random",
 		}
 
@@ -139,7 +138,7 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err := store.StoreAuthorizationState(ctx, uuid.NewString(), storage.OIDC4AuthorizationState{})
+		err := store.StoreAuthorizationState(ctx, uuid.NewString(), oidc4vc.OIDC4AuthorizationState{})
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 

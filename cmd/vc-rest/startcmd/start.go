@@ -45,11 +45,13 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstore"
 )
 
 const (
@@ -200,20 +202,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	vcCrypto := crypto.New(conf.VDR, conf.DocumentLoader)
 
-	vcStatusManager, err := credentialstatus.New(conf.Storage.provider, cslSize, vcCrypto, conf.DocumentLoader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new csl status: %w", err)
-	}
+	cslStore := cslstore.NewStore(mongodbClient)
+	vcStore := vcstore.NewStore(mongodbClient)
+	vcStatusManager := credentialstatus.New(cslStore, vcStore, cslSize, vcCrypto, conf.DocumentLoader)
 
-	issueCredentialSvc, err := issuecredential.New(&issuecredential.Config{
+	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
+		VCStore:         vcStore,
 		VCStatusManager: vcStatusManager,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,
-		StorageProvider: conf.Storage.provider,
 	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new issue credential service: %w", err)
-	}
 
 	oidc4vcStore, err := oidc4vcstore.New(context.Background(), mongodbClient)
 

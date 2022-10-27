@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"testing"
@@ -21,16 +22,13 @@ import (
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
-	"github.com/trustbloc/vcs/pkg/storage/ariesprovider"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
-	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/spi/storage"
 	"github.com/stretchr/testify/require"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -42,43 +40,32 @@ import (
 const (
 	credID               = "http://example.edu/credentials/1872"
 	universityDegreeCred = `{
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1",
-    "https://www.w3.org/2018/credentials/examples/v1",
- 	"https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-  ],
-  "type": [
-    "VerifiableCredential",
-    "UniversityDegreeCredential"
-  ],
-  "id": "http://example.gov/credentials/3732",
-  "issuanceDate": "2020-03-16T22:37:26.544Z",
-  "issuer": {
-    "id": "did:example:oakek12as93mas91220dapop092",
-    "name": "University"
-  },
-  "credentialSubject": {
-    "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
-    "degree": {
-      "type": "BachelorDegree",
-      "degree": "MIT"
-    },
-    "name": "Jayden Doe",
-    "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-  }
+ "@context": [
+   "https://www.w3.org/2018/credentials/v1",
+   "https://www.w3.org/2018/credentials/examples/v1",
+	"https://trustbloc.github.io/context/vc/examples-v1.jsonld"
+ ],
+ "type": [
+   "VerifiableCredential",
+   "UniversityDegreeCredential"
+ ],
+ "id": "http://example.gov/credentials/3732",
+ "issuanceDate": "2020-03-16T22:37:26.544Z",
+ "issuer": {
+   "id": "did:example:oakek12as93mas91220dapop092",
+   "name": "University"
+ },
+ "credentialSubject": {
+   "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
+   "degree": {
+     "type": "BachelorDegree",
+     "degree": "MIT"
+   },
+   "name": "Jayden Doe",
+   "spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
+ }
 }`
 )
-
-func TestCredentialStatusList_New(t *testing.T) {
-	t.Run("test error from open store", func(t *testing.T) {
-		s, err := New(ariesprovider.New(&ariesmockstorage.MockStoreProvider{
-			ErrOpenStoreHandle: fmt.Errorf("error open"),
-		}), 0, nil, nil)
-		require.Error(t, err)
-		require.Nil(t, s)
-		require.Contains(t, err.Error(), "error open")
-	})
-}
 
 func validateVCStatus(t *testing.T, s *Service, id string, index int) {
 	t.Helper()
@@ -115,10 +102,9 @@ func validateVCStatus(t *testing.T, s *Service, id string, index int) {
 func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		validateVCStatus(t, s, "localhost:8080/status/1", 0)
 		validateVCStatus(t, s, "localhost:8080/status/1", 1)
@@ -127,12 +113,11 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 	t.Run("test error from get latest id from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-			ErrGet: fmt.Errorf("get error"),
-		}}), 1,
+		s := New(newMockCSLStore(func(store *mockCSLStore) {
+			store.getLatestListIDErr = errors.New("some error")
+		}), newMockVCStore(), 1,
 			vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader), loader)
-		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
@@ -142,13 +127,12 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 	t.Run("test error from put latest id to store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(&ariesmockstorage.MockStoreProvider{Store: &ariesmockstorage.MockStore{
-			ErrGet: storage.ErrDataNotFound,
-			ErrPut: fmt.Errorf("put error"),
-		}}), 1,
+		s := New(newMockCSLStore(
+			func(store *mockCSLStore) {
+				store.createLatestListIDErr = errors.New("some error")
+			}), newMockVCStore(), 1,
 			vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader), loader)
-		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
@@ -158,20 +142,12 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 	t.Run("test error from store csl list in store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(&storeProvider{store: &mockStore{
-			getFunc: func(k string) ([]byte, error) {
-				return nil, storage.ErrDataNotFound
-			},
-			putFunc: func(k string, v []byte) error {
-				if k == "localhost:8080/status/1" {
-					return fmt.Errorf("put error")
-				}
-				return nil
-			},
-		}}), 1,
+		s := New(newMockCSLStore(
+			func(store *mockCSLStore) {
+				store.createErr = errors.New("some error")
+			}), newMockVCStore(), 1,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
@@ -181,20 +157,12 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 
 	t.Run("test error from put latest id to store after store new list", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(&storeProvider{store: &mockStore{
-			getFunc: func(k string) ([]byte, error) {
-				return nil, storage.ErrDataNotFound
-			},
-			putFunc: func(k string, v []byte) error {
-				if k == "LatestListID" && string(v) == `2` {
-					return fmt.Errorf("put error")
-				}
-				return nil
-			},
-		}}), 1,
+		s := New(newMockCSLStore(
+			func(store *mockCSLStore) {
+				store.updateLatestListIDErr = errors.New("some error")
+			}), newMockVCStore(), 1,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.Error(t, err)
@@ -206,12 +174,13 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 	t.Run("test error getting csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(&storeProvider{store: &mockStore{getFunc: func(k string) ([]byte, error) {
-			return nil, fmt.Errorf("get error")
-		}}}), 2,
+		s := New(newMockCSLStore(
+			func(store *mockCSLStore) {
+				store.findErr = errors.New("some error")
+			}), newMockVCStore(), 2,
 			vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader), loader)
-		require.NoError(t, err)
+
 		csl, err := s.GetRevocationListVC("1")
 		require.Error(t, err)
 		require.Nil(t, csl)
@@ -222,11 +191,10 @@ func TestCredentialStatusList_GetRevocationListVC(t *testing.T) {
 func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("UpdateVCStatus success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		provider := ariesprovider.New(ariesmockstorage.NewMockStoreProvider())
-		s, err := New(provider, 2,
+		vcStore := newMockVCStore()
+		s := New(newMockCSLStore(), vcStore, 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		profile := getTestProfile()
 		status, err := s.CreateStatusID(profile, "localhost:8080/status")
@@ -238,10 +206,8 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		cred.ID = credID
 		cred.Status = status
-		store, err := provider.OpenVCStore()
-		require.NoError(t, err)
 
-		err = store.Put("testprofile", cred)
+		err = vcStore.Put("testprofile", cred)
 		require.NoError(t, err)
 
 		require.NoError(t, s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "true"))
@@ -262,54 +228,47 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	})
 
 	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			nil, nil)
-		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(getTestProfile(), "testprofile", "testId", "true")
+		err := s.UpdateVCStatus(getTestProfile(), "testprofile", "testId", "true")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "data not found")
 	})
 
 	t.Run("UpdateVCStatus ParseCredential error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		provider := ariesprovider.New(ariesmockstorage.NewMockStoreProvider())
-		s, err := New(provider, 2,
+		vcStore := newMockVCStore()
+		s := New(newMockCSLStore(), vcStore, 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
 		cred.Context = append([]string{}, cred.Context[1:]...)
-		store, err := provider.OpenVCStore()
-		require.NoError(t, err)
 
-		err = store.Put("testprofile", cred)
+		err = vcStore.Put("testprofile", cred)
 		require.NoError(t, err)
 
 		err = s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "true")
 		require.Error(t, err)
 		require.ErrorContains(t, err, "verifiable credential is not valid")
 	})
+
 	t.Run("UpdateVCStatus ParseBool error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		provider := ariesprovider.New(ariesmockstorage.NewMockStoreProvider())
-		s, err := New(provider, 2,
+		vcStore := newMockVCStore()
+		s := New(newMockCSLStore(), vcStore, 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
 
-		store, err := provider.OpenVCStore()
-		require.NoError(t, err)
-
-		err = store.Put("testprofile", cred)
+		err = vcStore.Put("testprofile", cred)
 		require.NoError(t, err)
 
 		err = s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "invalid")
@@ -319,10 +278,10 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -336,10 +295,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status type not supported", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -354,10 +312,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -372,10 +329,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -392,10 +348,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status statusListCredential wrong value type", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -412,10 +367,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test statusPurpose not exist", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -432,10 +386,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 		require.NoError(t, err)
@@ -465,14 +418,13 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test error get csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(&storeProvider{store: &mockStore{getFunc: func(k string) ([]byte, error) {
-			return nil, fmt.Errorf("get error")
-		}}}), 2,
+		s := New(newMockCSLStore(func(store *mockCSLStore) {
+			store.findErr = errors.New("some error")
+		}), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
-		err = s.UpdateVC(&verifiable.Credential{
+		err := s.UpdateVC(&verifiable.Credential{
 			ID: credID,
 			Status: &verifiable.TypedID{
 				ID: "test", Type: StatusList2021Entry,
@@ -489,12 +441,11 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test error from sign status credential", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s, err := New(ariesprovider.New(ariesmockstorage.NewMockStoreProvider()), 2,
+		s := New(newMockCSLStore(), newMockVCStore(), 2,
 			vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader), loader)
-		require.NoError(t, err)
 
-		_, err = s.CreateStatusID(getTestSignerWithCrypto(
+		_, err := s.CreateStatusID(getTestSignerWithCrypto(
 			&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}), "localhost:8080/status")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
@@ -519,77 +470,77 @@ func TestPrepareSigningOpts(t *testing.T) {
 			{
 				name: "prepare proofvalue signing opts",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"proofPurpose": "assertionMethod",
-        				"proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdCJDRptPkBuqAQ",
-        				"type": "Ed25519Signature2018",
-        				"verificationMethod": "did:trustbloc:testnet.trustbloc.local#key-1"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"proofPurpose": "assertionMethod",
+       				"proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:trustbloc:testnet.trustbloc.local#key-1"
+   				}`,
 			},
 			{
 				name: "prepare jws signing opts",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"proofPurpose": "assertionMethod",
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-        				"type": "Ed25519Signature2018",
-        				"verificationMethod": "did:creator#key-1"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"proofPurpose": "assertionMethod",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:creator#key-1"
+   				}`,
 				count: 3,
 			},
 			{
 				name: "prepare signing opts from proof with 3 required properties",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-        				"type": "Ed25519Signature2018",
-        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
 			},
 			{
 				name: "prepare signing opts from proof with 2 required properties",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
 			},
 			{
 				name: "prepare signing opts from proof with 1 required property",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ"
+   				}`,
 			},
 			{
 				name: "prepare jws signing opts - invalid purpose",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"proofPurpose": {},
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-        				"type": "Ed25519Signature2018",
-        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"proofPurpose": {},
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
 				err: "invalid 'proofPurpose' type",
 			},
 			{
 				name: "prepare jws signing opts - invalid signature type",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-        				"type": {},
-        				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": {},
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
 				err: "invalid 'type' type",
 			},
 			{
 				name: "prepare jws signing opts - invalid signature type",
 				proof: `{
-        				"created": "2020-04-17T04:17:48Z",
-        				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-        				"type": {},
-        				"verificationMethod": {}
-    				}`,
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": {},
+       				"verificationMethod": {}
+   				}`,
 				err: "invalid 'verificationMethod' type",
 			},
 		}
@@ -642,6 +593,101 @@ func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
 	}
 }
 
+type mockCSLStore struct {
+	createErr             error
+	findErr               error
+	getLatestListIDErr    error
+	createLatestListIDErr error
+	updateLatestListIDErr error
+	latestListID          int
+	s                     map[string]*CSLWrapper
+}
+
+func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
+	s := &mockCSLStore{
+		latestListID: -1,
+		s:            map[string]*CSLWrapper{},
+	}
+	for _, f := range opts {
+		f(s)
+	}
+	return s
+}
+
+func (m *mockCSLStore) Upsert(cslWrapper *CSLWrapper) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+
+	m.s[cslWrapper.VC.ID] = cslWrapper
+	return nil
+}
+
+func (m *mockCSLStore) Get(id string) (*CSLWrapper, error) {
+	if m.findErr != nil {
+		return nil, m.findErr
+	}
+
+	w, ok := m.s[id]
+	if !ok {
+		return nil, ErrDataNotFound
+	}
+
+	return w, nil
+}
+func (m *mockCSLStore) CreateLatestListID(id int) error {
+	if m.createLatestListIDErr != nil {
+		return m.createLatestListIDErr
+	}
+
+	m.latestListID = id
+
+	return nil
+}
+
+func (m *mockCSLStore) UpdateLatestListID(id int) error {
+	if m.updateLatestListIDErr != nil {
+		return m.updateLatestListIDErr
+	}
+	return m.CreateLatestListID(id)
+}
+
+func (m *mockCSLStore) GetLatestListID() (int, error) {
+	if m.getLatestListIDErr != nil {
+		return -1, m.getLatestListIDErr
+	}
+
+	if m.latestListID == -1 {
+		return -1, ErrDataNotFound
+	}
+
+	return m.latestListID, nil
+}
+
+type mockVCStore struct {
+	s map[string]*verifiable.Credential
+}
+
+func newMockVCStore() *mockVCStore {
+	return &mockVCStore{
+		s: map[string]*verifiable.Credential{},
+	}
+}
+
+func (m *mockVCStore) Get(profileName, vcID string) ([]byte, error) {
+	v, ok := m.s[fmt.Sprintf("%s_%s", profileName, vcID)]
+	if !ok {
+		return nil, errors.New("data not found")
+	}
+
+	return v.MarshalJSON()
+}
+
+func (m *mockVCStore) Put(profileName string, vc *verifiable.Credential) error {
+	m.s[fmt.Sprintf("%s_%s", profileName, vc.ID)] = vc
+	return nil
+}
+
 type mockKMS struct {
 	crypto ariescrypto.Crypto
 }
@@ -652,100 +698,6 @@ func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.Signat
 	}
 
 	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType)
-}
-
-// storeProvider mock store provider.
-type storeProvider struct {
-	store *mockStore
-}
-
-// OpenStore opens and returns a store for given name space.
-func (p *storeProvider) OpenStore(name string) (storage.Store, error) {
-	return p.store, nil
-}
-
-// GetOpenStores is not implemented.
-func (p *storeProvider) GetOpenStores() []storage.Store {
-	panic("implement me")
-}
-
-// SetStoreConfig always return a nil error.
-func (p *storeProvider) SetStoreConfig(name string, config storage.StoreConfiguration) error {
-	return nil
-}
-
-// GetStoreConfig is not implemented.
-func (p *storeProvider) GetStoreConfig(name string) (storage.StoreConfiguration, error) {
-	panic("implement me")
-}
-
-// Close closes all stores created under this store provider.
-func (p *storeProvider) CloseStore(name string) error {
-	return nil
-}
-
-// Close closes all stores created under this store provider.
-func (p *storeProvider) Close() error {
-	return nil
-}
-
-// mockStore mock store.
-type mockStore struct {
-	putFunc func(k string, v []byte) error
-	getFunc func(k string) ([]byte, error)
-}
-
-// Put stores the key and the record.
-func (s *mockStore) Put(k string, v []byte, tags ...storage.Tag) error {
-	if s.putFunc != nil {
-		return s.putFunc(k, v)
-	}
-
-	return nil
-}
-
-// GetTags is not implemented.
-func (s *mockStore) GetTags(key string) ([]storage.Tag, error) {
-	panic("implement me")
-}
-
-// Batch is not implemented.
-func (s *mockStore) Batch(operations []storage.Operation) error {
-	panic("implement me")
-}
-
-// Flush is not implemented.
-func (s *mockStore) Flush() error {
-	panic("implement me")
-}
-
-// Close is not implemented.
-func (s *mockStore) Close() error {
-	panic("implement me")
-}
-
-// GetBulk gets bulk.
-func (s *mockStore) GetBulk(k ...string) ([][]byte, error) {
-	return nil, nil
-}
-
-// Get fetches the record based on key.
-func (s *mockStore) Get(k string) ([]byte, error) {
-	if s.getFunc != nil {
-		return s.getFunc(k)
-	}
-
-	return nil, nil
-}
-
-// Query queries the store for data based on the provided query string, the format of
-// which will be dependent on what the underlying store requires.
-func (s *mockStore) Query(expression string, _ ...storage.QueryOption) (storage.Iterator, error) {
-	return nil, nil
-}
-
-func (s *mockStore) Delete(k string) error {
-	panic("implement me")
 }
 
 func createDIDDoc(didID string) *did.Doc { //nolint:unparam

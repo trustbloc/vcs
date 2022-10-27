@@ -13,7 +13,6 @@ import (
 	"fmt"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
-	"github.com/trustbloc/vcs/pkg/storage"
 )
 
 const (
@@ -28,7 +27,7 @@ type transactionStore interface {
 	Create(
 		ctx context.Context,
 		data *TransactionData,
-		params ...func(insertOptions *storage.InsertOptions),
+		params ...func(insertOptions *InsertOptions),
 	) (*Transaction, error)
 
 	FindByOpState(

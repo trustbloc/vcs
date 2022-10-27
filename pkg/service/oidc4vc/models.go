@@ -7,6 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
+	"net/url"
+	"time"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -99,4 +102,19 @@ type IssuerAuthorizationRequestParameters struct {
 	ResponseType string
 	Scope        string
 	State        string
+}
+
+type OIDC4AuthorizationState struct {
+	RedirectURI       *url.URL          `json:"redirect_uri"`
+	RespondMode       string            `json:"respond_mode"`
+	AuthorizeResponse OIDC4AuthResponse `json:"authorize_response"`
+}
+
+type OIDC4AuthResponse struct {
+	Header     map[string][]string
+	Parameters map[string][]string
+}
+
+type InsertOptions struct {
+	TTL time.Duration
 }
