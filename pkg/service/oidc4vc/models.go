@@ -7,13 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
-	"net/url"
-
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/ory/fosite"
-
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/profile"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 // TxID defines type for transaction ID.
@@ -29,28 +24,36 @@ type Transaction struct {
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
-	OIDC4VCConfig        profile.OIDC4VCConfig
-	CredentialTemplate   *verifiable.Credential
-	ClaimEndpoint        string
-	GrantType            string
-	ResponseType         string
-	Scope                []string
-	AuthorizationDetails *AuthorizationDetails
-	OpState              string
+	CredentialTemplate                 *profileapi.CredentialTemplate
+	AuthorizationEndpoint              string
+	PushedAuthorizationRequestEndpoint string
+	TokenEndpoint                      string
+	ClaimEndpoint                      string
+	ClientID                           string
+	GrantType                          string
+	ResponseType                       string
+	Scope                              []string
+	AuthorizationDetails               *AuthorizationDetails
+	OpState                            string
 }
 
-type InternalAuthorizationResponder struct {
-	RedirectURI       *url.URL
-	RespondMode       fosite.ResponseModeType
-	AuthorizeResponse fosite.AuthorizeResponse
-}
-
-// AuthorizationDetails are the details for VC issuance.
+// AuthorizationDetails are the VC-related details for VC issuance.
 type AuthorizationDetails struct {
-	Type           string //
+	Type           string
 	CredentialType string
 	Format         vcsverifiable.Format
 	Locations      []string
+}
+
+// OIDCConfiguration represents an OIDC configuration from well-know endpoint (/.well-known/openid-configuration).
+type OIDCConfiguration struct {
+	AuthorizationEndpoint              string   `json:"authorization_endpoint"`
+	PushedAuthorizationRequestEndpoint string   `json:"pushed_authorization_request_endpoint"`
+	TokenEndpoint                      string   `json:"token_endpoint"`
+	ResponseTypesSupported             []string `json:"response_types_supported"`
+	ScopesSupported                    []string `json:"scopes_supported"`
+	GrantTypesSupported                []string `json:"grant_types_supported"`
+	InitiateIssuanceEndpoint           string   `json:"initiate_issuance_endpoint"`
 }
 
 // InitiateIssuanceRequest is the request used by the Issuer to initiate the OIDC VC issuance interaction.
@@ -73,4 +76,27 @@ type InitiateIssuanceResponse struct {
 
 type ClientWellKnownConfig struct {
 	InitiateIssuanceEndpoint string `json:"initiate_issuance_endpoint"`
+}
+
+type PrepareClaimDataAuthorizationRequest struct {
+	ResponseType         string
+	RedirectURI          string
+	Scope                string
+	OpState              string
+	AuthorizationDetails *AuthorizationDetails
+}
+
+type PrepareClaimDataAuthorizationResponse struct {
+	AuthorizationParameters            *IssuerAuthorizationRequestParameters
+	AuthorizationEndpoint              string
+	PushedAuthorizationRequestEndpoint string
+	TxID                               TxID
+}
+
+type IssuerAuthorizationRequestParameters struct {
+	ClientID     string
+	RedirectURI  string
+	ResponseType string
+	Scope        string
+	State        string
 }

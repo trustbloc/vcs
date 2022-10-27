@@ -72,7 +72,7 @@ func (s *Steps) setIssuerProfile() error {
 		OIDCConfig: &profileapi.OIDC4VCConfig{
 			ClientID:           "issuer_oidc4vc",
 			ClientSecretHandle: "issuer-oidc4vc-secret",
-			IssuerWellKnown:    "https://oidc-provider.example.com:4445/.well-known/openid-configuration",
+			IssuerWellKnownURL: "https://oidc-provider.example.com:4445/.well-known/openid-configuration",
 		},
 		VCConfig: &profileapi.VCConfig{
 			Format:                  vcsverifiable.Ldp,

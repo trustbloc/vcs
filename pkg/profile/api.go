@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package profile
 
 import (
+	"encoding/json"
+
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -29,21 +31,29 @@ const (
 
 // Issuer profile.
 type Issuer struct {
-	ID                  ID                       `json:"id"`
-	Name                string                   `json:"name,omitempty"`
-	URL                 string                   `json:"url,omitempty"`
-	Active              bool                     `json:"active"`
-	OIDCConfig          *OIDC4VCConfig           `json:"oidcConfig"`
-	OrganizationID      string                   `json:"organizationID,omitempty"`
-	VCConfig            *VCConfig                `json:"vcConfig"`
-	KMSConfig           *vcskms.Config           `json:"kmsConfig"`
-	SigningDID          *SigningDID              `json:"signingDID"`
-	CredentialTemplates []*verifiable.Credential `json:"credentialTemplates,omitempty"`
+	ID                  ID                    `json:"id"`
+	Name                string                `json:"name,omitempty"`
+	URL                 string                `json:"url,omitempty"`
+	Active              bool                  `json:"active"`
+	OIDCConfig          *OIDC4VCConfig        `json:"oidcConfig"`
+	OrganizationID      string                `json:"organizationID,omitempty"`
+	VCConfig            *VCConfig             `json:"vcConfig"`
+	KMSConfig           *vcskms.Config        `json:"kmsConfig"`
+	SigningDID          *SigningDID           `json:"signingDID"`
+	CredentialTemplates []*CredentialTemplate `json:"credentialTemplates,omitempty"`
 }
 
-// OIDC4VCConfig is OIDC config for VC issuance.
+type CredentialTemplate struct {
+	Contexts          []string        `json:"contexts"`
+	ID                string          `json:"id"`
+	Type              string          `json:"type"`
+	Issuer            string          `json:"issuer"`
+	CredentialSubject json.RawMessage `json:"credentialSubject"`
+}
+
+// OIDC4VCConfig is issuer's OIDC configuration used during OIDC4VC issuance flow.
 type OIDC4VCConfig struct {
-	IssuerWellKnown    string `json:"issuer_well_known"`
+	IssuerWellKnownURL string `json:"issuer_well_known"`
 	ClientID           string `json:"client_id"`
 	ClientSecretHandle string `json:"client_secret_handle"`
 }

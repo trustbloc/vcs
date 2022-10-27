@@ -8,7 +8,6 @@ package oidc4vcstore
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sync"
@@ -17,7 +16,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -36,28 +35,6 @@ const (
 	mongoDBConnString  = "mongodb://localhost:27024"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
-	vc                 = `
-{ 
-   "@context":[ 
-      "https://www.w3.org/2018/credentials/v1", 
-	  "https://trustbloc.github.io/context/vc/examples-v1.jsonld"
-   ],
-   "id":"http://example.edu/credentials/1989",
-   "type":"VerifiableCredential",
-   "credentialSubject":{ 
-      "id":"did:example:iuajk1f712ebc6f1c276e12ec21"
-   },
-   "issuer":{ 
-      "id":"did:example:09s12ec712ebc6f1c671ebfeb1f",
-      "name":"Example University"
-   },
-   "issuanceDate":"2020-01-01T10:54:01Z",
-   "credentialStatus":{ 
-      "id":"https://example.gov/status/65",
-      "type":"CredentialStatusList2017"
-   }
-}
-`
 )
 
 func TestStore(t *testing.T) {
@@ -109,12 +86,13 @@ func TestStore(t *testing.T) {
 	t.Run("test insert and find", func(t *testing.T) {
 		id := uuid.New().String()
 
-		cred := &verifiable.Credential{}
-		err2 := json.Unmarshal([]byte(vc), cred)
-		assert.NoError(t, err2)
-
 		toInsert := &oidc4vc.TransactionData{
-			CredentialTemplate:   cred,
+			CredentialTemplate: &profileapi.CredentialTemplate{
+				Contexts: []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
+				ID:       "templateID",
+				Type:     "PermanentResidentCard",
+				Issuer:   "test_issuer",
+			},
 			ClaimEndpoint:        "432",
 			GrantType:            "342",
 			ResponseType:         "123",

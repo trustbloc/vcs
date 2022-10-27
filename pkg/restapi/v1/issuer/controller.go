@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4VCService=MockOIDC4VCService,vcStatusManager=MockVCStatusManager
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4vcService=MockOIDC4VCService,vcStatusManager=MockVCStatusManager
 
 package issuer
 
@@ -29,8 +29,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
@@ -61,16 +61,17 @@ type issueCredentialService interface {
 		profile *profileapi.Issuer) (*verifiable.Credential, error)
 }
 
-type oidc4VCService interface {
-	InitiateInteraction(
+type oidc4vcService interface {
+	InitiateIssuance(
 		ctx context.Context,
 		req *oidc4vc.InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
 	) (*oidc4vc.InitiateIssuanceResponse, error)
-	PrepareClaimDataAuthZ(
+
+	PrepareClaimDataAuthorizationRequest(
 		ctx context.Context,
-		req restapiclient.PrepareClaimDataAuthorizationRequest,
-	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error)
+		req *oidc4vc.PrepareClaimDataAuthorizationRequest,
+	) (*oidc4vc.PrepareClaimDataAuthorizationResponse, error)
 }
 
 type vcStatusManager interface {
@@ -85,7 +86,7 @@ type Config struct {
 	KMSRegistry            kmsRegistry
 	DocumentLoader         ld.DocumentLoader
 	IssueCredentialService issueCredentialService
-	OIDC4VCService         oidc4VCService
+	OIDC4VCService         oidc4vcService
 	VcStatusManager        vcStatusManager
 }
 
@@ -95,7 +96,7 @@ type Controller struct {
 	kmsRegistry            kmsRegistry
 	documentLoader         ld.DocumentLoader
 	issueCredentialService issueCredentialService
-	oidc4VCService         oidc4VCService
+	oidc4vcService         oidc4vcService
 	vcStatusManager        vcStatusManager
 }
 
@@ -106,7 +107,7 @@ func NewController(config *Config) *Controller {
 		kmsRegistry:            config.KMSRegistry,
 		documentLoader:         config.DocumentLoader,
 		issueCredentialService: config.IssueCredentialService,
-		oidc4VCService:         config.OIDC4VCService,
+		oidc4vcService:         config.OIDC4VCService,
 		vcStatusManager:        config.VcStatusManager,
 	}
 }
@@ -213,24 +214,14 @@ func (c *Controller) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx ech
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.initiateOidcInteraction(ctx.Request().Context(), &body, profile))
+	return util.WriteOutput(ctx)(c.initiateIssuance(ctx.Request().Context(), &body, profile))
 }
 
-func (c *Controller) initiateOidcInteraction(
+func (c *Controller) initiateIssuance(
 	ctx context.Context,
 	req *InitiateOIDC4VCRequest,
 	profile *profileapi.Issuer,
 ) (*InitiateOIDC4VCResponse, error) {
-	if !profile.Active {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.Active",
-			errors.New("profile should be active"))
-	}
-
-	if profile.OIDCConfig == nil {
-		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.OIDCConfig",
-			errors.New("OIDC not configured"))
-	}
-
 	issuanceReq := &oidc4vc.InitiateIssuanceRequest{
 		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
@@ -242,14 +233,14 @@ func (c *Controller) initiateOidcInteraction(
 		OpState:                   lo.FromPtr(req.OpState),
 	}
 
-	resp, err := c.oidc4VCService.InitiateInteraction(ctx, issuanceReq, profile)
+	resp, err := c.oidc4vcService.InitiateIssuance(ctx, issuanceReq, profile)
 	if err != nil {
 		if errors.Is(err, oidc4vc.ErrCredentialTemplateNotFound) ||
 			errors.Is(err, oidc4vc.ErrCredentialTemplateIDRequired) {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
 		}
 
-		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateInteraction", err)
+		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateIssuance", err)
 	}
 
 	return &InitiateOIDC4VCResponse{
@@ -319,18 +310,6 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 	return ctx.NoContent(http.StatusOK)
 }
 
-// PrepareClaimDataAuthzRequest prepare claims authz request.
-// POST /issuer/interactions/prepare-claim-data-authz-request.
-func (c *Controller) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
-	var body restapiclient.PrepareClaimDataAuthorizationRequest
-
-	if err := util.ReadBody(ctx, &body); err != nil {
-		return err
-	}
-
-	return util.WriteOutput(ctx)(c.oidc4VCService.PrepareClaimDataAuthZ(ctx.Request().Context(), body))
-}
-
 func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCredentialStatusRequest,
 	profileID string) error {
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
@@ -369,4 +348,76 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 	}
 
 	return nil
+}
+
+// PrepareClaimDataAuthzRequest prepares claim data authorization request.
+// POST /issuer/interactions/prepare-claim-data-authz-request.
+func (c *Controller) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
+	var body PrepareClaimDataAuthorizationRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.prepareClaimDataAuthorizationRequest(ctx.Request().Context(), &body))
+}
+
+func (c *Controller) prepareClaimDataAuthorizationRequest(
+	ctx context.Context,
+	body *PrepareClaimDataAuthorizationRequest,
+) (*PrepareClaimDataAuthorizationResponse, error) {
+	ad, err := validateAuthorizationDetails(body.AuthorizationDetails)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.oidc4vcService.PrepareClaimDataAuthorizationRequest(ctx,
+		&oidc4vc.PrepareClaimDataAuthorizationRequest{
+			ResponseType:         body.ResponseType,
+			RedirectURI:          lo.FromPtr(body.RedirectUri),
+			Scope:                lo.FromPtr(body.Scope),
+			OpState:              body.OpState,
+			AuthorizationDetails: ad,
+		},
+	)
+	if err != nil {
+		return nil, resterr.NewSystemError("OIDC4VCService", "PrepareClaimDataAuthorizationRequest", err)
+	}
+
+	return &PrepareClaimDataAuthorizationResponse{
+		AuthorizationRequest: IssuerAuthorizationRequestParameters{
+			ClientId:     resp.AuthorizationParameters.ClientID,
+			RedirectUri:  resp.AuthorizationParameters.RedirectURI,
+			ResponseType: resp.AuthorizationParameters.ResponseType,
+			Scope:        resp.AuthorizationParameters.Scope,
+			State:        resp.AuthorizationParameters.State,
+		},
+		AuthorizationEndpoint:              lo.ToPtr(resp.AuthorizationEndpoint),
+		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
+		TxId:                               string(resp.TxID),
+	}, nil
+}
+
+func validateAuthorizationDetails(details *AuthorizationDetails) (*oidc4vc.AuthorizationDetails, error) {
+	if details.Type != "openid_credential" {
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
+			errors.New("type should be 'openid_credential'"))
+	}
+
+	ad := &oidc4vc.AuthorizationDetails{
+		Type:           details.Type,
+		CredentialType: details.CredentialType,
+		Locations:      lo.FromPtr(details.Locations),
+	}
+
+	if details.Format != nil {
+		vcFormat, err := common.ValidateVCFormat(common.VCFormat(*details.Format))
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
+		}
+
+		ad.Format = vcFormat
+	}
+
+	return ad, nil
 }
