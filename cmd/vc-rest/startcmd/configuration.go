@@ -22,12 +22,11 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
+	ariesapi "github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
 
 	tlsutils "github.com/trustbloc/vcs/internal/pkg/utils/tls"
 	"github.com/trustbloc/vcs/pkg/ld"
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
-	mongodbvcsprovider "github.com/trustbloc/vcs/pkg/storage/mongodbprovider"
 )
 
 // mode in which to run the vc-rest service
@@ -56,7 +55,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 		return nil, err
 	}
 
-	storeProviders, err := createStoreProviders(parameters)
+	edgeStoreProviders, err := createEdgeStoreProviders(parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +66,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 		return nil, err
 	}
 
-	ldStore, err := ld.NewStoreProvider(storeProviders.provider)
+	ldStore, err := ld.NewStoreProvider(edgeStoreProviders.provider)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +79,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 
 	return &Configuration{
 		RootCAs:           rootCAs,
-		Storage:           storeProviders,
+		Storage:           edgeStoreProviders,
 		VDR:               vdr,
 		DocumentLoader:    loader,
 		LDContextStore:    ldStore,
@@ -89,15 +88,15 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 }
 
 type vcStorageProviders struct {
-	provider vcsstorage.Provider
+	provider ariesapi.Provider
 }
 
-func createStoreProviders(parameters *startupParameters) (*vcStorageProviders, error) {
+func createEdgeStoreProviders(parameters *startupParameters) (*vcStorageProviders, error) {
 	var edgeServiceProvs vcStorageProviders
 
 	var err error
 
-	edgeServiceProvs.provider, err = createMainStoreProvider(parameters)
+	edgeServiceProvs.provider, err = createEdgeStoreProvider(parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -105,16 +104,12 @@ func createStoreProviders(parameters *startupParameters) (*vcStorageProviders, e
 	return &edgeServiceProvs, nil
 }
 
-func createMainStoreProvider(parameters *startupParameters) (vcsstorage.Provider, error) { //nolint: dupl
+func createEdgeStoreProvider(parameters *startupParameters) (ariesapi.Provider, error) { //nolint: dupl
 	switch {
 	case strings.EqualFold(parameters.dbParameters.databaseType, databaseTypeMongoDBOption):
-		mongoDBProvider, err := ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
+		return ariesmongodbstorage.NewProvider(parameters.dbParameters.databaseURL,
 			ariesmongodbstorage.WithDBPrefix(parameters.dbParameters.databasePrefix))
-		if err != nil {
-			return nil, err
-		}
 
-		return mongodbvcsprovider.New(mongoDBProvider), nil
 	default:
 		return nil, fmt.Errorf("%s is not a valid database type."+
 			" run start --help to see the available options", parameters.dbParameters.databaseType)

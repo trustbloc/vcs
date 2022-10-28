@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,vcStore=MockVCStore
 
 package issuecredential
 
@@ -19,8 +19,11 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
-	"github.com/trustbloc/vcs/pkg/storage"
 )
+
+type vcStore interface {
+	Put(profileName string, vc *verifiable.Credential) error
+}
 
 type vcStatusManager interface {
 	CreateStatusID(vcSigner *vc.Signer, url string) (*verifiable.TypedID, error)
@@ -38,30 +41,25 @@ type kmsRegistry interface {
 
 type Config struct {
 	VCStatusManager vcStatusManager
+	VCStore         vcStore
 	Crypto          vcCrypto
 	KMSRegistry     kmsRegistry
-	StorageProvider storage.Provider
 }
 
 type Service struct {
 	vcStatusManager vcStatusManager
 	crypto          vcCrypto
 	kmsRegistry     kmsRegistry
-	vcStore         storage.VCStore
+	vcStore         vcStore
 }
 
-func New(config *Config) (*Service, error) {
-	vcStore, err := config.StorageProvider.OpenVCStore()
-	if err != nil {
-		return nil, err
-	}
-
+func New(config *Config) *Service {
 	return &Service{
 		vcStatusManager: config.VCStatusManager,
 		crypto:          config.Crypto,
 		kmsRegistry:     config.KMSRegistry,
-		vcStore:         vcStore,
-	}, nil
+		vcStore:         config.VCStore,
+	}
 }
 
 func (s *Service) IssueCredential(credential *verifiable.Credential,

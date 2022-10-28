@@ -18,7 +18,6 @@ import (
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -87,9 +86,9 @@ func (s *Store) migrate(ctx context.Context) error {
 func (s *Store) Create(
 	ctx context.Context,
 	data *oidc4vc.TransactionData,
-	params ...func(insertOptions *storage.InsertOptions),
+	params ...func(insertOptions *oidc4vc.InsertOptions),
 ) (*oidc4vc.Transaction, error) {
-	insertCfg := &storage.InsertOptions{}
+	insertCfg := &oidc4vc.InsertOptions{}
 	for _, p := range params {
 		p(insertCfg)
 	}

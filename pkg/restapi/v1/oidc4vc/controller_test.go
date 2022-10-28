@@ -36,7 +36,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/restapiclient"
-	storage2 "github.com/trustbloc/vcs/pkg/storage"
+	oidc4vcservice "github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
 const (
@@ -321,8 +321,8 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		DoAndReturn(func(
 			ctx context.Context,
 			opState string,
-			auth storage2.OIDC4AuthorizationState,
-			params ...func(options *storage2.InsertOptions),
+			auth oidc4vcservice.OIDC4AuthorizationState,
+			params ...func(options *oidc4vcservice.InsertOptions),
 		) error {
 			assert.Equal(t, "query", auth.RespondMode)
 
@@ -468,7 +468,7 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 	defer srv.Close()
 	//
 	issuerOuathURL := "https://issuer"
-	var oidcResponder *storage2.OIDC4AuthorizationState
+	var oidcResponder *oidc4vcservice.OIDC4AuthorizationState
 
 	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
 		&restapiclient.PrepareClaimDataAuthorizationRequest{
@@ -490,8 +490,8 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 			func(
 				ctx context.Context,
 				opState string,
-				auth storage2.OIDC4AuthorizationState,
-				params ...func(options *storage2.InsertOptions),
+				auth oidc4vcservice.OIDC4AuthorizationState,
+				params ...func(options *oidc4vcservice.InsertOptions),
 			) error {
 				oidcResponder = &auth
 
@@ -504,7 +504,7 @@ func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
 	}).Return(&restapiclient.StoreAuthorizationCodeResponse{}, nil)
 
 	oidc4VcStateStorageMock.EXPECT().GetAuthorizationState(gomock.Any(), opState).DoAndReturn(
-		func(ctx context.Context, state string) (*storage2.OIDC4AuthorizationState, error) {
+		func(ctx context.Context, state string) (*oidc4vcservice.OIDC4AuthorizationState, error) {
 			return oidcResponder, nil
 		},
 	)
@@ -701,10 +701,10 @@ type oidc4VCStateStorage interface {
 	StoreAuthorizationState(
 		ctx context.Context,
 		opState string,
-		auth storage2.OIDC4AuthorizationState,
-		params ...func(insertOptions *storage2.InsertOptions),
+		auth oidc4vcservice.OIDC4AuthorizationState,
+		params ...func(insertOptions *oidc4vcservice.InsertOptions),
 	) error
-	GetAuthorizationState(ctx context.Context, opState string) (*storage2.OIDC4AuthorizationState, error)
+	GetAuthorizationState(ctx context.Context, opState string) (*oidc4vcservice.OIDC4AuthorizationState, error)
 }
 
 // serverOptions to customize test server.

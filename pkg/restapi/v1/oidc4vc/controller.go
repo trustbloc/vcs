@@ -24,7 +24,6 @@ import (
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage"
 )
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
@@ -33,13 +32,13 @@ type oidc4VCStateStorage interface {
 	StoreAuthorizationState(
 		ctx context.Context,
 		opState string,
-		auth storage.OIDC4AuthorizationState,
-		params ...func(insertOptions *storage.InsertOptions),
+		auth oidc4vc.OIDC4AuthorizationState,
+		params ...func(insertOptions *oidc4vc.InsertOptions),
 	) error
 	GetAuthorizationState(
 		ctx context.Context,
 		opState string,
-	) (*storage.OIDC4AuthorizationState, error)
+	) (*oidc4vc.OIDC4AuthorizationState, error)
 }
 
 type credentialInteractionAPIClient interface {
@@ -192,10 +191,10 @@ func (c *Controller) GetOidcAuthorize(e echo.Context, params GetOidcAuthorizePar
 	if storeErr := c.oidc4VCStateStorage.StoreAuthorizationState(
 		ctx,
 		*params.OpState,
-		storage.OIDC4AuthorizationState{
+		oidc4vc.OIDC4AuthorizationState{
 			RedirectURI: ar.GetRedirectURI(),
 			RespondMode: string(ar.GetResponseMode()),
-			AuthorizeResponse: storage.OIDC4AuthResponse{
+			AuthorizeResponse: oidc4vc.OIDC4AuthResponse{
 				Header:     resp.GetHeader(),
 				Parameters: resp.GetParameters(),
 			},

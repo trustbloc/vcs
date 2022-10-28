@@ -27,7 +27,6 @@ import (
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -74,7 +73,7 @@ func TestStore(t *testing.T) {
 			OpState: id,
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert, storage.WithDocumentTTL(-1*time.Second))
+		resp1, err1 := store.Create(context.Background(), toInsert, oidc4vc.WithDocumentTTL(-1*time.Second))
 		assert.NoError(t, err1)
 		assert.NotNil(t, resp1)
 

@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 
 	tlsutils "github.com/trustbloc/vcs/internal/pkg/utils/tls"
-	vcsstorage "github.com/trustbloc/vcs/pkg/storage"
 )
 
 const (
@@ -30,7 +29,6 @@ type BDDContext struct {
 	Args                  map[string]string
 	CreatedCredential     []byte
 	CreatedCredentialsSet [][]byte
-	CreatedProfile        *vcsstorage.IssuerProfile
 	VDRI                  vdrapi.Registry
 	TLSConfig             *tls.Config
 	TestData              map[string][]byte
