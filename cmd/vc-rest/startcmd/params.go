@@ -150,6 +150,11 @@ const (
 	requestTokensFlagUsage = "Tokens used for http request " +
 		commonEnvVarUsageText + requestTokensEnvKey
 
+	oAuthSecretFlagName      = "oauth-secret"
+	oAuthSecretFlagShorthand = "o"
+	oAuthSecretFlagUsage     = "oauth global secret, any string. Example: secret-for-signing-and-verifying-signatures"
+	oAuthSecretFlagEnvKey    = "VC_OAUTH_SECRET"
+
 	databaseTypeMongoDBOption = "mongodb"
 
 	didMethodVeres   = "v1"
@@ -178,6 +183,7 @@ type startupParameters struct {
 	contextEnableRemote  bool
 	tlsParameters        *tlsParameters
 	devMode              bool
+	oAuthSecret          string
 }
 
 type dbParameters struct {
@@ -206,6 +212,11 @@ type kmsParameters struct {
 // nolint: gocyclo,funlen
 func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	hostURL, err := cmdutils.GetUserSetVarFromString(cmd, hostURLFlagName, hostURLEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	oAuthSecret, err := cmdutils.GetUserSetVarFromString(cmd, oAuthSecretFlagName, oAuthSecretFlagEnvKey, false)
 	if err != nil {
 		return nil, err
 	}
@@ -293,6 +304,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		contextProviderURLs:  contextProviderURLs,
 		contextEnableRemote:  contextEnableRemote,
 		devMode:              devMode,
+		oAuthSecret:          oAuthSecret,
 	}, nil
 }
 
@@ -456,6 +468,7 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
+	startCmd.Flags().StringP(oAuthSecretFlagName, oAuthSecretFlagShorthand, "", oAuthSecretFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)

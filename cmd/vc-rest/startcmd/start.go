@@ -237,8 +237,13 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	restApiClient := restapiclient.NewClient(conf.StartupParameters.hostURL, http.DefaultClient)
 
+	provider, err := bootstrapOAuthProvider(context.Background(), conf.StartupParameters.oAuthSecret, mongodbClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate new oauth provder: %w", err)
+	}
+
 	oidc4vc2.RegisterHandlers(e, oidc4vc2.NewController(&oidc4vc2.Config{
-		OAuth2Provider:                 nil,
+		OAuth2Provider:                 provider,
 		CredentialInteractionAPIClient: restApiClient,
 		OIDC4VCStateStorage:            oidc4StateStore,
 	}))

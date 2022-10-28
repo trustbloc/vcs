@@ -68,7 +68,7 @@ func TestStore(t *testing.T) {
 		toInsert := storage.OIDC4AuthorizationState{}
 
 		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert,
-			storage.WithDocumentTTL(1*time.Millisecond))
+			storage.WithDocumentTTL(-2*time.Second))
 		assert.NoError(t, err1)
 
 		resp2, err2 := store.GetAuthorizationState(context.Background(), id)

@@ -28,6 +28,7 @@ services:
       - VC_REST_REQUEST_TOKENS=csl=rw_token
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - VC_REST_DEV_MODE=true
+      - VC_OAUTH_SECRET=secret-string
     ports:
       - "8075:8075"
     depends_on:

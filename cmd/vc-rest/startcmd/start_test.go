@@ -67,6 +67,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		args := []string{
 			"--" + hostURLFlagName, "test",
 			"--" + databaseTypeFlagName, "",
+			"--" + oAuthSecretFlagName, "secret",
 		}
 		startCmd.SetArgs(args)
 
@@ -80,6 +81,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
+			"--" + oAuthSecretFlagName, "test",
 			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + modeFlagName, "",
 		}
@@ -90,11 +92,27 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Contains(t, err.Error(), "mode value is empty")
 	})
 
+	t.Run("test blank mode oauth secret", func(t *testing.T) {
+		startCmd := GetStartCmd()
+
+		args := []string{
+			"--" + hostURLFlagName, "test",
+			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + modeFlagName, "",
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Neither oauth-secret (command line flag) nor VC_OAUTH_SECRET")
+	})
+
 	t.Run("invalid mode", func(t *testing.T) {
 		startCmd := GetStartCmd()
 
 		args := []string{
 			"--" + hostURLFlagName, "test",
+			"--" + oAuthSecretFlagName, "test",
 			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + modeFlagName, "invalid",
 		}
@@ -158,6 +176,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",
+		"--" + oAuthSecretFlagName, "secret",
 		"--" + kmsTypeFlagName, "web",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + tokenFlagName, "tk1",
@@ -192,6 +211,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",
+		"--" + oAuthSecretFlagName, "secret",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
@@ -386,6 +406,9 @@ func setEnvVars(t *testing.T, databaseType, filePath string) {
 	t.Helper()
 
 	err := os.Setenv(hostURLEnvKey, "localhost:8080")
+	require.NoError(t, err)
+
+	err = os.Setenv(oAuthSecretFlagEnvKey, "totally-secret-value")
 	require.NoError(t, err)
 
 	err = os.Setenv(databaseTypeEnvKey, databaseType)

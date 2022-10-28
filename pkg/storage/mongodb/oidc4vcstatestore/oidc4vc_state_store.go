@@ -87,7 +87,7 @@ func (s *Store) StoreAuthorizationState(
 
 	obj := s.mapTransactionDataToMongoDocument(opState, data)
 
-	if insertCfg.TTL > 0 {
+	if insertCfg.TTL != 0 {
 		obj.ExpireAt = time.Now().UTC().Add(insertCfg.TTL)
 	}
 
