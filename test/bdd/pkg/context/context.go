@@ -35,6 +35,7 @@ type BDDContext struct {
 	TLSConfig             *tls.Config
 	TestData              map[string][]byte
 	Data                  map[string]interface{}
+	CredentialSubject     string
 }
 
 // NewBDDContext create new BDDContext

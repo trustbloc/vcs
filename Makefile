@@ -9,6 +9,7 @@ VC_REST_PATH=cmd/vc-rest
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
+OPENAPIGEN_VERSION 					?=v1.11.0
 MOCK_VERSION 	?=v1.7.0-rc.1
 
 # OpenAPI spec
@@ -37,7 +38,7 @@ checks: license lint open-api-spec
 .PHONY: generate
 generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
-	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@latest
+	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...
 
 .PHONY: lint

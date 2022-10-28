@@ -500,7 +500,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	})
 
 	oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPService.EXPECT().VerifyOIDCVerifiablePresentation(oidc4vp.TxID("txid"), "aaa", gomock.Any()).
+	oidc4VPService.EXPECT().VerifyOIDCVerifiablePresentation(oidc4vp.TxID("txid"), gomock.Any()).
 		AnyTimes().Return(nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -571,14 +571,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
 
-		_, vp, err := c.validateAuthorizationResponseTokens(&authorizationResponse{
+		processedVPToken, err := c.validateAuthorizationResponseTokens(&authorizationResponse{
 			IDToken: idToken,
 			VPToken: vpToken,
 			State:   "txid",
 		})
 
 		require.NoError(t, err)
-		require.Contains(t, vp.Type, "PresentationSubmission")
+		require.Contains(t, processedVPToken.Presentation.Type, "PresentationSubmission")
 	})
 
 	t.Run("Presentation submission missed", func(t *testing.T) {
@@ -702,7 +702,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			"id_token", err)
 	})
 
-	t.Run("VP token expired", func(t *testing.T) {
+	t.Run("Presentation token expired", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},
@@ -732,7 +732,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			"vp_token.exp", err)
 	})
 
-	t.Run("VP token invalid signature", func(t *testing.T) {
+	t.Run("Presentation token invalid signature", func(t *testing.T) {
 		_, privKeyOther, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
 
@@ -765,7 +765,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			"vp_token", err)
 	})
 
-	t.Run("VP token invalid signature", func(t *testing.T) {
+	t.Run("Presentation token invalid signature", func(t *testing.T) {
 		idToken := generateToken(t, &IDTokenClaims{
 			VPToken: IDTokenVPToken{
 				PresentationSubmission: map[string]interface{}{}},

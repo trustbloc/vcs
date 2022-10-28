@@ -252,6 +252,7 @@
               "ldp",
               "jwt"
             ],
+            "vcSubject": true,
             "proof": true
           }
         },
@@ -343,6 +344,7 @@
             "format": [
               "jwt"
             ],
+            "vcSubject": true,
             "proof": true
           }
         },

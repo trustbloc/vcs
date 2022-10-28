@@ -15,6 +15,7 @@ import (
 	"time"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
@@ -297,7 +298,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		TransactionManager:       oidc4vpTxManager,
 		RequestObjectPublicStore: requestObjectStoreService,
 		KMSRegistry:              kmsRegistry,
-		VDR:                      conf.VDR,
+		PublicKeyFetcher:         verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher(),
 		DocumentLoader:           conf.DocumentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,

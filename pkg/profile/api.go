@@ -89,8 +89,9 @@ type VerificationChecks struct {
 
 // PresentationChecks are checks to be performed during presentation verification.
 type PresentationChecks struct {
-	Proof  bool                   `json:"proof,omitempty"`
-	Format []vcsverifiable.Format `json:"format,omitempty"`
+	Proof     bool                   `json:"proof,omitempty"`
+	VCSubject bool                   `json:"vcSubject,omitempty"`
+	Format    []vcsverifiable.Format `json:"format,omitempty"`
 }
 
 // CredentialChecks are checks to be performed during credential verification.

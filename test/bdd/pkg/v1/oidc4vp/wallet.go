@@ -98,6 +98,7 @@ func (e *Steps) createWallet() error {
 	}
 
 	e.walletDidID = createRes.DidID
+	e.bddContext.CredentialSubject = createRes.DidID
 	e.walletDidKeyID = createRes.KeyID
 
 	return nil

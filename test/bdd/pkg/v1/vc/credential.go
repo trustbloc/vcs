@@ -14,6 +14,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -75,6 +76,15 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 	}
 
 	cred.ID = uuid.New().URN()
+
+	subjs, ok := cred.Subject.([]verifiable.Subject)
+	if !ok {
+		return fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
+	}
+
+	if e.bddContext.CredentialSubject != "" {
+		subjs[0].ID = e.bddContext.CredentialSubject
+	}
 
 	reqData, err := getIssueCredentialRequestData(cred, vcFormat)
 	if err != nil {
@@ -397,4 +407,16 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
+}
+
+type unsecuredJWTSigner struct{}
+
+func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
+	return []byte(""), nil
+}
+
+func (s unsecuredJWTSigner) Headers() jose.Headers {
+	return map[string]interface{}{
+		jose.HeaderAlgorithm: "none",
+	}
 }

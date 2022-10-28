@@ -14,6 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
+
 	"github.com/trustbloc/vcs/pkg/event/spi"
 
 	"github.com/golang/mock/gomock"
@@ -197,10 +203,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 }
 
 func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
+	agent := newAgent(t)
+
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	vp, pd, loader := newVPWithPD(t)
+	vp, pd, pubKeyFetcher, loader := newVPWithPD(t, agent)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
@@ -208,6 +216,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		PresentationVerifier: presentationVerifier,
 		ProfileService:       profileService,
 		DocumentLoader:       loader,
+		PublicKeyFetcher:     pubKeyFetcher,
 	})
 
 	txManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
@@ -216,20 +225,41 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		PresentationDefinition: pd,
 	}, true, nil)
 
-	txManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).Return(nil)
+	txManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
 
 	profileService.EXPECT().GetProfile("testP1").AnyTimes().Return(&profileapi.Verifier{
 		ID:     "testP1",
 		Active: true,
+		Checks: &profileapi.VerificationChecks{
+			Presentation: &profileapi.PresentationChecks{
+				VCSubject: true,
+			},
+		},
 	}, nil)
 
 	presentationVerifier.EXPECT().VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil, nil)
 
 	t.Run("Success", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
+		err := s.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			})
 
 		require.NoError(t, err)
+	})
+
+	t.Run("VC subject is not much with vp signer", func(t *testing.T) {
+		err := s.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example1:ebfeb1f712ebc6f1c276e12ec21",
+			})
+
+		require.Contains(t, err.Error(), "is not much with vp signer")
 	})
 
 	t.Run("Invalid Nonce", func(t *testing.T) {
@@ -245,13 +275,23 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
+		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			})
 
 		require.Contains(t, err.Error(), "invalid nonce1")
 	})
 
 	t.Run("Invalid Nonce 2", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID2", "nonce1", vp)
+		err := s.VerifyOIDCVerifiablePresentation("txID2",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			})
 
 		require.Contains(t, err.Error(), "invalid nonce")
 	})
@@ -269,7 +309,12 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
+		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			})
 
 		require.Contains(t, err.Error(), "get profile error")
 	})
@@ -286,18 +331,26 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
+		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			})
 
 		require.Contains(t, err.Error(), "verification failed")
 	})
 
 	t.Run("Match failed", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID1", "nonce1", &verifiable.Presentation{})
-
+		err := s.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: &verifiable.Presentation{},
+			})
 		require.Contains(t, err.Error(), "match:")
 	})
 
-	t.Run("Invalid Nonce", func(t *testing.T) {
+	t.Run("Store error", func(t *testing.T) {
 		errTxManager := NewMockTransactionManager(gomock.NewController(t))
 		errTxManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
 			ID:                     "txID1",
@@ -314,9 +367,15 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
+			PublicKeyFetcher:     pubKeyFetcher,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1", "nonce1", vp)
+		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+			&oidc4vp.ProcessedVPToken{
+				Nonce:        "nonce1",
+				Presentation: vp,
+				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			})
 
 		require.Contains(t, err.Error(), "store error")
 	})
@@ -427,12 +486,13 @@ func (m *mockEvent) Publish(topic string, messages ...*spi.Event) error {
 	return nil
 }
 
-func newVPWithPD(t *testing.T) (*verifiable.Presentation, *presexch.PresentationDefinition, *ld.DocumentLoader) {
+func newVPWithPD(t *testing.T, agent *context.Provider) (
+	*verifiable.Presentation, *presexch.PresentationDefinition, verifiable.PublicKeyFetcher, *ld.DocumentLoader) {
 	uri := randomURI()
 
 	customType := "CustomType"
 
-	expected := newVC([]string{uri})
+	expected, pubKeyFetcher := newSignedJWTVC(t, agent, []string{uri})
 	expected.Types = append(expected.Types, customType)
 
 	defs := &presexch.PresentationDefinition{
@@ -452,7 +512,7 @@ func newVPWithPD(t *testing.T) (*verifiable.Presentation, *presexch.Presentation
 			Path: "$.verifiableCredential[0]",
 		}}},
 		expected,
-	), defs, docLoader
+	), defs, pubKeyFetcher, docLoader
 }
 
 func newVP(t *testing.T, submission *presexch.PresentationSubmission,
@@ -481,7 +541,7 @@ func newVC(ctx []string) *verifiable.Credential {
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{
-			"id": uuid.New().String(),
+			"id": "did:example123:ebfeb1f712ebc6f1c276e12ec21",
 		},
 	}
 
@@ -490,6 +550,41 @@ func newVC(ctx []string) *verifiable.Credential {
 	}
 
 	return cred
+}
+
+func newSignedJWTVC(t *testing.T,
+	agent *context.Provider, ctx []string) (*verifiable.Credential, verifiable.PublicKeyFetcher) {
+	t.Helper()
+
+	vc := newVC(ctx)
+
+	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
+	require.NoError(t, err)
+
+	signer := suite.NewCryptoSigner(agent.Crypto(), kh)
+
+	pubKey, kt, err := agent.KMS().ExportPubKeyBytes(keyID)
+	require.NoError(t, err)
+	require.Equal(t, kms.ED25519Type, kt)
+
+	pubKeyFetcher := verifiable.SingleKey(pubKey, kms.ED25519)
+
+	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
+
+	vc.Issuer = verifiable.Issuer{ID: issuer}
+
+	claims, err := vc.JWTClaims(false)
+	require.NoError(t, err)
+
+	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kms.ED25519Type)
+	require.NoError(t, err)
+
+	jws, err := claims.MarshalJWS(jwsAlgo, signer, verMethod)
+	require.NoError(t, err)
+
+	vc.JWT = jws
+
+	return vc, pubKeyFetcher
 }
 
 func randomURI() string {
@@ -520,6 +615,18 @@ func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) 
 	})
 
 	return loader
+}
+
+func newAgent(t *testing.T) *context.Provider {
+	t.Helper()
+
+	a, err := aries.New(aries.WithStoreProvider(mem.NewProvider()))
+	require.NoError(t, err)
+
+	ctx, err := a.Context()
+	require.NoError(t, err)
+
+	return ctx
 }
 
 func toMap(t *testing.T, v interface{}) map[string]interface{} {
