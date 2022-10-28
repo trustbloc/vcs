@@ -8,16 +8,15 @@ package oidc4vcstore
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/storage"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -33,7 +32,7 @@ type mongoDocument struct {
 	ExpireAt time.Time          `bson:"expireAt"`
 
 	OpState              string `bson:"opState,omitempty"`
-	CredentialTemplate   []byte
+	CredentialTemplate   *profileapi.CredentialTemplate
 	ClaimEndpoint        string
 	GrantType            string
 	ResponseType         string
@@ -144,21 +143,13 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 	}
 
 	mapped := oidc4vc.TransactionData{
+		CredentialTemplate:   doc.CredentialTemplate,
 		ClaimEndpoint:        doc.ClaimEndpoint,
 		GrantType:            doc.GrantType,
 		ResponseType:         doc.ResponseType,
 		Scope:                doc.Scope,
 		AuthorizationDetails: doc.AuthorizationDetails,
 		OpState:              doc.OpState,
-	}
-
-	if len(doc.CredentialTemplate) > 0 {
-		cred := &verifiable.Credential{}
-		if unmarshalErr := json.Unmarshal(doc.CredentialTemplate, cred); unmarshalErr != nil {
-			return nil, unmarshalErr
-		}
-
-		mapped.CredentialTemplate = cred
 	}
 
 	return &oidc4vc.Transaction{
@@ -188,26 +179,16 @@ func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
 	return err
 }
 
+//nolint:unparam
 func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData) (*mongoDocument, error) {
-	obj := &mongoDocument{
+	return &mongoDocument{
 		ExpireAt:             time.Now().UTC().Add(defaultExpiration),
 		OpState:              data.OpState,
+		CredentialTemplate:   data.CredentialTemplate,
 		ClaimEndpoint:        data.ClaimEndpoint,
 		GrantType:            data.GrantType,
 		ResponseType:         data.ResponseType,
 		Scope:                data.Scope,
 		AuthorizationDetails: data.AuthorizationDetails,
-	}
-
-	if data.CredentialTemplate != nil {
-		cred, marshalErr := data.CredentialTemplate.MarshalJSON()
-
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-
-		obj.CredentialTemplate = cred
-	}
-
-	return obj, nil
+	}, nil
 }

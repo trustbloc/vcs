@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4vc_test -source=controller.go -mock_names oidc4VCService=MockOIDC4VCService
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4vc_test -source=controller.go -mock_names oidc4vcService=MockOIDC4VCService
 
 package oidc4vc
 

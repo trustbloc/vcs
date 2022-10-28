@@ -11,6 +11,21 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// Model for the credential details the wallet wants to obtain.
+type AuthorizationDetails struct {
+	// JSON string denoting the type of the requested Credential.
+	CredentialType string `json:"credential_type"`
+
+	// JSON string representing a format in which the Credential is requested to be issued. Valid values defined by this flow are jwt_vc and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+	Format *string `json:"format,omitempty"`
+
+	// An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
+	Locations *[]string `json:"locations,omitempty"`
+
+	// JSON string that determines the authorization details type. MUST be set to openid_credential for this flow.
+	Type string `json:"type"`
+}
+
 // Credential status.
 type CredentialStatus struct {
 	Status string `json:"status"`
@@ -88,14 +103,40 @@ type IssueCredentialOptions struct {
 	VerificationMethod *string `json:"verificationMethod,omitempty"`
 }
 
-// Model for Prepare Claim Data AuthZ Request
-type PrepareClaimDataAuthZRequest struct {
-	OpState *string `json:"op_state,omitempty"`
+// Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
+type IssuerAuthorizationRequestParameters struct {
+	ClientId     string `json:"client_id"`
+	RedirectUri  string `json:"redirect_uri"`
+	ResponseType string `json:"response_type"`
+	Scope        string `json:"scope"`
+	State        string `json:"state"`
 }
 
-// PrepareClaimDataAuthZResponse defines model for PrepareClaimDataAuthZResponse.
-type PrepareClaimDataAuthZResponse struct {
-	RedirectUri *string `json:"redirect_uri,omitempty"`
+// Model for Prepare Claim Data Authorization Request
+type PrepareClaimDataAuthorizationRequest struct {
+	// Model for the credential details the wallet wants to obtain.
+	AuthorizationDetails *AuthorizationDetails `json:"authorization_details,omitempty"`
+	OpState              string                `json:"op_state"`
+	RedirectUri          *string               `json:"redirect_uri,omitempty"`
+
+	// Value MUST be set to "code".
+	ResponseType string  `json:"response_type"`
+	Scope        *string `json:"scope,omitempty"`
+}
+
+// Model for Prepare Claim Data Authorization Response.
+type PrepareClaimDataAuthorizationResponse struct {
+	// Issuer's OIDC provider authorization endpoint.
+	AuthorizationEndpoint *string `json:"authorization_endpoint,omitempty"`
+
+	// Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
+	AuthorizationRequest IssuerAuthorizationRequestParameters `json:"authorization_request"`
+
+	// Issuer's OIDC provider PAR endpoint.
+	PushedAuthorizationRequestEndpoint *string `json:"pushed_authorization_request_endpoint,omitempty"`
+
+	// Transaction ID to correlate upcoming authorization response.
+	TxId string `json:"tx_id"`
 }
 
 // UpdateCredentialStatusRequest request struct for updating VC status.
@@ -107,7 +148,7 @@ type UpdateCredentialStatusRequest struct {
 }
 
 // PrepareClaimDataAuthzRequestJSONBody defines parameters for PrepareClaimDataAuthzRequest.
-type PrepareClaimDataAuthzRequestJSONBody = PrepareClaimDataAuthZRequest
+type PrepareClaimDataAuthzRequestJSONBody = PrepareClaimDataAuthorizationRequest
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
@@ -132,7 +173,7 @@ type PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONRequestBody = PostIs
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Prepare oauth uri for issuer provider
+	// Prepare Claim Data Authorization Request
 	// (POST /issuer/interactions/prepare-claim-data-authz-request)
 	PrepareClaimDataAuthzRequest(ctx echo.Context) error
 	// Issue credential

@@ -9,202 +9,14 @@ package oidc4vc_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
-
-func TestService_InitiateInteraction(t *testing.T) {
-	var (
-		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
-		mockWellKnownService = NewMockWellKnownService[oidc4vc.ClientWellKnown](gomock.NewController(t))
-		issuanceReq          *oidc4vc.InitiateIssuanceRequest
-	)
-
-	tests := []struct {
-		name  string
-		setup func()
-		check func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error)
-	}{
-		{
-			name: "Success",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
-					ID: "txID",
-					TransactionData: oidc4vc.TransactionData{
-						CredentialTemplate: &verifiable.Credential{
-							ID: "templateID",
-						},
-					},
-				}, nil)
-				mockWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), gomock.Any()).Return(
-					&oidc4vc.ClientWellKnown{
-						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
-					}, nil)
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   "https://wallet.example.com/.well-known/openid-configuration",
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.NoError(t, err)
-				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
-			},
-		},
-		{
-			name: "Credential template ID is required",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID:      "",
-					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
-					OpState:                   "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateIDRequired)
-			},
-		},
-		{
-			name: "Credential template not found",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID3",
-					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
-					OpState:                   "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateNotFound)
-			},
-		},
-		{
-			name: "Client initiate issuance URL takes precedence over client well-known parameter",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
-					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClientWellKnownURL:        "https://wallet.example.com/.well-known/openid-configuration",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
-					OpState:                   "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.NoError(t, err)
-				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
-			},
-		},
-		{
-			name: "Custom initiate issuance URL when fail to do well-known request",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
-				mockWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("invalid json"))
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   "https://wallet.example.com/.well-known/openid-configuration",
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.NoError(t, err)
-				require.Contains(t, resp.InitiateIssuanceURL, "openid-initiate-issuance://")
-			},
-		},
-		{
-			name: "Custom initiate issuance URL when fail to decode well-known config",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
-				mockWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("invalid json"))
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   "https://wallet.example.com/.well-known/openid-configuration",
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.NoError(t, err)
-				require.Contains(t, resp.InitiateIssuanceURL, "openid-initiate-issuance://")
-			},
-		},
-		{
-			name: "Fail to store transaction",
-			setup: func() {
-				mockTransactionStore.EXPECT().Create(
-					gomock.Any(),
-					gomock.Any(),
-					gomock.Any(),
-				).Return(nil, fmt.Errorf("store error"))
-
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
-					CredentialTemplateID:      "templateID",
-					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
-					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
-					OpState:                   "eyJhbGciOiJSU0Et",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
-				require.Nil(t, resp)
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "store error")
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.setup()
-
-			svc, err := oidc4vc.NewService(&oidc4vc.Config{
-				TransactionStore:       mockTransactionStore,
-				ClientWellKnownService: mockWellKnownService,
-				IssuerVCSPublicHost:    "https://vcs.pb.example.com/oidc",
-			})
-			require.NoError(t, err)
-
-			resp, err := svc.InitiateInteraction(context.Background(), issuanceReq, &profileapi.Issuer{
-				OIDCConfig: &profileapi.OIDC4VCConfig{},
-				CredentialTemplates: []*verifiable.Credential{
-					{
-						ID:    "templateID",
-						Types: []string{"VerifiableCredential", "UniversityDegreeCredential"},
-					},
-					{
-						ID:    "templateID2",
-						Types: []string{"VerifiableCredential", "PermanentResidentCard"},
-					},
-				},
-			})
-			tt.check(t, resp, err)
-		})
-	}
-}
 
 func TestService_HandlePAR(t *testing.T) {
 	var (
@@ -302,132 +114,66 @@ func TestService_HandlePAR(t *testing.T) {
 	}
 }
 
-func TestPrepareClaimDataAuthZFailState(t *testing.T) {
-	errStr := "invalid opState"
+func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
+	var (
+		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		req                  *oidc4vc.PrepareClaimDataAuthorizationRequest
+	)
 
-	store := NewMockTransactionStore(gomock.NewController(t))
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New(errStr))
-	svc, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore: store,
-	})
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error)
+	}{
+		{
+			name: "Success",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						AuthorizationDetails: &oidc4vc.AuthorizationDetails{
+							CredentialType: "UniversityDegreeCredential",
+							Format:         vcsverifiable.Ldp,
+						},
+					},
+				}, nil)
 
-	assert.NoError(t, err)
-	resp, err := svc.PrepareClaimDataAuthZ(context.TODO(), restapiclient.PrepareClaimDataAuthorizationRequest{})
-	assert.Nil(t, resp)
-	assert.ErrorContains(t, err, errStr)
-}
+				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
+					OpState: "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Fail to get transaction by opState",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
+					nil, errors.New("store error"))
 
-func TestPrepareClaimDataAuthZFailWellKnown(t *testing.T) {
-	errStr := "invalid wellKnown"
-
-	store := NewMockTransactionStore(gomock.NewController(t))
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
-
-	issuerWellKnownService := NewMockWellKnownService[oidc4vc.IssuerWellKnown](gomock.NewController(t))
-	issuerWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), gomock.Any()).
-		Return(nil, errors.New(errStr))
-
-	svc, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore:       store,
-		IssuerWellKnownService: issuerWellKnownService,
-	})
-
-	assert.NoError(t, err)
-	resp, err := svc.PrepareClaimDataAuthZ(context.TODO(), restapiclient.PrepareClaimDataAuthorizationRequest{})
-	assert.Nil(t, resp)
-	assert.ErrorContains(t, err, errStr)
-}
-
-func TestPrepareClaimDataAuthZFailRedirectUri(t *testing.T) {
-	store := NewMockTransactionStore(gomock.NewController(t))
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
-
-	issuerWellKnownService := NewMockWellKnownService[oidc4vc.IssuerWellKnown](gomock.NewController(t))
-	issuerWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), gomock.Any()).
-		Return(&oidc4vc.IssuerWellKnown{}, nil)
-
-	svc, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore:       store,
-		IssuerVCSPublicHost:    "postgres://user:abc{DEf1=ghi@example.com:5432/db?sslmode=require",
-		IssuerWellKnownService: issuerWellKnownService,
-	})
-
-	assert.NoError(t, err)
-	resp, err := svc.PrepareClaimDataAuthZ(context.TODO(), restapiclient.PrepareClaimDataAuthorizationRequest{})
-	assert.Nil(t, resp)
-	assert.ErrorContains(t, err, "net/url: invalid userinfo")
-}
-
-func TestPrepareClaimDataAuthZFailStoreUpdate(t *testing.T) {
-	errStr := "invalid store"
-
-	store := NewMockTransactionStore(gomock.NewController(t))
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
-
-	issuerWellKnownService := NewMockWellKnownService[oidc4vc.IssuerWellKnown](gomock.NewController(t))
-	issuerWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), gomock.Any()).
-		Return(&oidc4vc.IssuerWellKnown{}, nil)
-
-	svc, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore:       store,
-		IssuerWellKnownService: issuerWellKnownService,
-	})
-
-	store.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New(errStr))
-
-	assert.NoError(t, err)
-	resp, err := svc.PrepareClaimDataAuthZ(context.TODO(), restapiclient.PrepareClaimDataAuthorizationRequest{})
-	assert.Nil(t, resp)
-	assert.ErrorContains(t, err, errStr)
-}
-
-func TestPrepareClaimDataAuthZ(t *testing.T) {
-	store := NewMockTransactionStore(gomock.NewController(t))
-	issuerWellKnownService := NewMockWellKnownService[oidc4vc.IssuerWellKnown](gomock.NewController(t))
-	issuerWellKnownURL := "https://truest/.well_known"
-	issuerWellTokenEndpoint := "https://truest/token_endpoint"
-	issuerWellAuthEndpoint := "https://truest/auth_endpoint"
-
-	svc, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore:       store,
-		IssuerWellKnownService: issuerWellKnownService,
-	})
-
-	opState := uuid.NewString()
-	assert.NoError(t, err)
-
-	req := restapiclient.PrepareClaimDataAuthorizationRequest{
-		OpState: opState,
-	}
-
-	storeTx := &oidc4vc.Transaction{
-		ID: oidc4vc.TxID("213456"),
-		TransactionData: oidc4vc.TransactionData{
-			OIDC4VCConfig: profileapi.OIDC4VCConfig{
-				IssuerWellKnown: issuerWellKnownURL,
-				ClientID:        "123",
+				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
+					OpState: "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorContains(t, err, "store error")
+				require.Nil(t, resp)
 			},
 		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
 
-	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(storeTx, nil)
-	issuerWellKnownService.EXPECT().GetWellKnownConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-		&oidc4vc.IssuerWellKnown{
-			TokenEndpoint:         issuerWellTokenEndpoint,
-			AuthorizationEndpoint: issuerWellAuthEndpoint,
-		}, nil)
+			svc, err := oidc4vc.NewService(&oidc4vc.Config{
+				TransactionStore: mockTransactionStore,
+			})
+			require.NoError(t, err)
 
-	store.EXPECT().Update(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, tx *oidc4vc.Transaction) error {
-			assert.Equal(t, storeTx.ID, tx.ID)
-
-			return nil
+			resp, err := svc.PrepareClaimDataAuthorizationRequest(context.Background(), req)
+			tt.check(t, resp, err)
 		})
-
-	resp, err := svc.PrepareClaimDataAuthZ(context.TODO(), req)
-	assert.NoError(t, err)
-
-	assert.Equal(t, fmt.Sprintf("%v?client_id=%v&redirect_uri=oidc%%2Fredirect&"+
-		"response_type=code&state=%v", issuerWellAuthEndpoint, storeTx.TransactionData.OIDC4VCConfig.ClientID,
-		opState), resp.RedirectURI)
+	}
 }

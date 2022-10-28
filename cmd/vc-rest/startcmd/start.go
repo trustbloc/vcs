@@ -43,6 +43,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
+	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstore"
@@ -221,10 +222,9 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	oidc4vcService, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore:       oidc4vcStore,
-		IssuerVCSPublicHost:    conf.StartupParameters.hostURL,
-		IssuerWellKnownService: oidc4vc.NewDefaultIssuerWellKnownService[oidc4vc.IssuerWellKnown](http.DefaultClient),
-		ClientWellKnownService: oidc4vc.NewDefaultIssuerWellKnownService[oidc4vc.ClientWellKnown](http.DefaultClient),
+		TransactionStore:    oidc4vcStore,
+		IssuerVCSPublicHost: conf.StartupParameters.hostURL,
+		WellKnownService:    wellknown.NewService(http.DefaultClient),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4 vc service: %w", err)

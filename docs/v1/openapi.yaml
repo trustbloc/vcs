@@ -191,21 +191,21 @@ paths:
         - issuer
   /issuer/interactions/prepare-claim-data-authz-request:
     post:
-      summary: Prepare oauth uri for issuer provider
+      summary: Prepare Claim Data Authorization Request
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PrepareClaimDataAuthZResponse'
+                $ref: '#/components/schemas/PrepareClaimDataAuthorizationResponse'
       operationId: prepare-claim-data-authz-request
-      description: Part of private api. Is used to prepare oauth uri for client redirect
+      description: Prepares OAuth Authorization Request parameters to issuer OIDC provider.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PrepareClaimDataAuthZRequest'
+              $ref: '#/components/schemas/PrepareClaimDataAuthorizationRequest'
       tags:
         - issuer
   '/verifier/profiles/{profileID}/credentials/verify':
@@ -309,7 +309,6 @@ paths:
           description: Sucess
         '500':
           description: Failure
-
   '/verifier/interactions/{txID}/claim':
     parameters:
       - schema:
@@ -330,8 +329,7 @@ paths:
             application/json:
               schema:
                 type: object
-                description: 'JSON claim containing credential subject'
-
+                description: JSON claim containing credential subject
   /oidc/par:
     post:
       summary: OIDC Pushed Authorization Request
@@ -806,28 +804,95 @@ components:
       required:
         - authorizationRequest
         - txID
-    PrepareClaimDataAuthZRequest:
-      title: PrepareClaimDataAuthZRequest
+    PrepareClaimDataAuthorizationRequest:
+      title: PrepareClaimDataAuthorizationRequest
       type: object
-      description: Model for Prepare Claim Data AuthZ Request
+      description: Model for Prepare Claim Data Authorization Request
+      x-tags:
+        - issuer
       properties:
+        response_type:
+          type: string
+          description: Value MUST be set to "code".
+        scope:
+          type: string
+        redirect_uri:
+          type: string
+        authorization_details:
+          $ref: '#/components/schemas/AuthorizationDetails'
         op_state:
           type: string
-    PrepareClaimResponder:
+      required:
+        - response_type
+        - op_state
+    PrepareClaimDataAuthorizationResponse:
+      title: PrepareClaimDataAuthorizationResponse
       type: object
+      description: Model for Prepare Claim Data Authorization Response.
+      x-tags:
+        - issuer
       properties:
-        redirect_uri:
-          type: object
-        respond_mode:
+        authorization_request:
+          $ref: '#/components/schemas/IssuerAuthorizationRequestParameters'
+        authorization_endpoint:
           type: string
-        authorize_response:
-          type: object
-    PrepareClaimDataAuthZResponse:
-      title: Model for Prepare Claim Data AuthZ Response
+          description: Issuer's OIDC provider authorization endpoint.
+        pushed_authorization_request_endpoint:
+          type: string
+          description: Issuer's OIDC provider PAR endpoint.
+        tx_id:
+          type: string
+          description: Transaction ID to correlate upcoming authorization response.
+      required:
+        - authorization_request
+        - tx_id
+    AuthorizationDetails:
+      title: AuthorizationDetails
+      x-tags:
+        - issuer
       type: object
+      description: Model for the credential details the wallet wants to obtain.
       properties:
+        type:
+          type: string
+          description: JSON string that determines the authorization details type. MUST be set to openid_credential for this flow.
+        credential_type:
+          type: string
+          description: JSON string denoting the type of the requested Credential.
+        format:
+          type: string
+          description: JSON string representing a format in which the Credential is requested to be issued. Valid values defined by this flow are jwt_vc and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+        locations:
+          description: An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
+          type: array
+          items:
+            type: string
+      required:
+        - type
+        - credential_type
+    IssuerAuthorizationRequestParameters:
+      title: IssuerAuthorizationRequestParameters
+      x-tags:
+        - issuer
+      type: object
+      description: Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
+      properties:
+        response_type:
+          type: string
+        client_id:
+          type: string
         redirect_uri:
           type: string
+        scope:
+          type: string
+        state:
+          type: string
+      required:
+        - response_type
+        - client_id
+        - redirect_uri
+        - scope
+        - state
     InitiateOIDC4VCRequest:
       title: InitiateOIDC4VCRequest
       type: object
