@@ -98,7 +98,7 @@ type oidc4VPService interface {
 	InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
 		profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error)
 
-	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, nonce string, vp *verifiable.Presentation) error
+	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, token *oidc4vp.ProcessedVPToken) error
 
 	GetTx(id oidc4vp.TxID) (*oidc4vp.Transaction, error)
 
@@ -290,13 +290,12 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		return err
 	}
 
-	nonce, presentation, err := c.validateAuthorizationResponseTokens(authResp)
+	processedToken, err := c.validateAuthorizationResponseTokens(authResp)
 	if err != nil {
 		return err
 	}
 
-	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State),
-		nonce, presentation)
+	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State), processedToken)
 
 	logger.Infof("CheckAuthorizationResponse end")
 	return err
@@ -337,23 +336,23 @@ func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) 
 }
 
 func (c *Controller) validateAuthorizationResponseTokens(authResp *authorizationResponse) (
-	string, *verifiable.Presentation, error) {
+	*oidc4vp.ProcessedVPToken, error) {
 	logger.Infof("authresp id token: ", authResp.IDToken)
 
 	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	logger.Infof("authresp vp token: ", authResp.VPToken)
 
-	vpTokenClaims, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
+	vpTokenClaims, signer, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
 
 	if vpTokenClaims.Nonce != idTokenClaims.Nonce {
-		return "", nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
 			errors.New("nonce should be the same for both id_token and vp_token"))
 	}
 
@@ -364,7 +363,7 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
 	)
 	if err != nil {
-		return "", nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
 
 	presentation.JWT = authResp.VPToken
@@ -376,13 +375,17 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 	presentation.Type = append(presentation.Type, presexch.PresentationSubmissionJSONLDType)
 	presentation.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
 
-	return idTokenClaims.Nonce, presentation, nil
+	return &oidc4vp.ProcessedVPToken{
+		Nonce:        idTokenClaims.Nonce,
+		Presentation: presentation,
+		Signer:       signer,
+	}, nil
 }
 
 func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
 	idTokenClaims := &IDTokenClaims{}
 
-	err := verifyTokenSignature(rawJwt, idTokenClaims, verifier)
+	_, err := verifyTokenSignature(rawJwt, idTokenClaims, verifier)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
 	}
@@ -400,39 +403,41 @@ func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenCl
 
 	return idTokenClaims, nil
 }
-func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenClaims, error) {
+func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenClaims, string, error) {
 	vpTokenClaims := &VPTokenClaims{}
 
-	err := verifyTokenSignature(rawJwt, vpTokenClaims, verifier)
+	signer, err := verifyTokenSignature(rawJwt, vpTokenClaims, verifier)
 	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
+		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
 	}
 
 	if vpTokenClaims.Exp < time.Now().Unix() {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
+		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
 			"token expired"))
 	}
 
 	if vpTokenClaims.VP == nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", fmt.Errorf(
+		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", fmt.Errorf(
 			"$vp is missed"))
 	}
 
-	return vpTokenClaims, nil
+	return vpTokenClaims, signer, nil
 }
 
-func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) error {
+func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) (string, error) {
 	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
-		return fmt.Errorf("parse JWT: %w", err)
+		return "", fmt.Errorf("parse JWT: %w", err)
 	}
 
 	err = jsonWebToken.DecodeClaims(claims)
 	if err != nil {
-		return fmt.Errorf("decode claims: %w", err)
+		return "", fmt.Errorf("decode claims: %w", err)
 	}
 
-	return nil
+	kid, _ := jsonWebToken.Headers.KeyID()
+
+	return strings.Split(kid, "#")[0], nil
 }
 
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {

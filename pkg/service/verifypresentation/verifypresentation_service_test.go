@@ -370,7 +370,7 @@ func TestService_validatePresentationProof(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Error invalid VP",
+			name: "Error invalid Presentation",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
 					return vdr

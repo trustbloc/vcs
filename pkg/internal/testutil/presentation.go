@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// SignedVP returns signed VP represented by vpBytes.
+// SignedVP returns signed Presentation represented by vpBytes.
 func SignedVP(
 	t *testing.T,
 	vpBytes []byte,

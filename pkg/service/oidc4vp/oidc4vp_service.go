@@ -19,7 +19,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
@@ -103,7 +102,7 @@ type Config struct {
 	ProfileService           profileService
 	EventSvc                 eventService
 	PresentationVerifier     presentationVerifier
-	VDR                      vdrapi.Registry
+	PublicKeyFetcher         verifiable.PublicKeyFetcher
 
 	RedirectURL   string
 	TokenLifetime time.Duration
@@ -115,6 +114,12 @@ type CredentialMetadata struct {
 	SubjectData interface{} `json:"subjectData"`
 }
 
+type ProcessedVPToken struct {
+	Nonce        string
+	Signer       string
+	Presentation *verifiable.Presentation
+}
+
 type Service struct {
 	eventSvc                 eventService
 	transactionManager       transactionManager
@@ -123,7 +128,7 @@ type Service struct {
 	documentLoader           ld.DocumentLoader
 	profileService           profileService
 	presentationVerifier     presentationVerifier
-	vdr                      vdrapi.Registry
+	publicKeyFetcher         verifiable.PublicKeyFetcher
 
 	redirectURL   string
 	tokenLifetime time.Duration
@@ -141,6 +146,10 @@ type eventPayload struct {
 	WebHook string `json:"webHook,omitempty"`
 }
 
+type jwtVCClaims struct {
+	Sub string `json:"sub"`
+}
+
 func NewService(cfg *Config) *Service {
 	return &Service{
 		eventSvc:                 cfg.EventSvc,
@@ -152,7 +161,7 @@ func NewService(cfg *Config) *Service {
 		presentationVerifier:     cfg.PresentationVerifier,
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
-		vdr:                      cfg.VDR,
+		publicKeyFetcher:         cfg.PublicKeyFetcher,
 	}
 }
 
@@ -215,8 +224,8 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 	}, nil
 }
 
-func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *verifiable.Presentation) error {
-	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(nonce)
+func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVPToken) error {
+	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(token.Nonce)
 	if err != nil {
 		return fmt.Errorf("get tx by nonce failed: %w", err)
 	}
@@ -230,7 +239,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}
 
-	vpBytes, err := vp.MarshalJSON()
+	vpBytes, err := token.Presentation.MarshalJSON()
 	if err != nil {
 		return err
 	}
@@ -238,7 +247,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 	logger.Info("vp string: %s", log.WithJSON(string(vpBytes)))
 
 	// TODO: should domain and challenge be verified?
-	vr, err := s.presentationVerifier.VerifyPresentation(vp, nil, profile)
+	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
 	if err != nil {
 		return fmt.Errorf("presentation verification failed: %w", err)
 	}
@@ -247,7 +256,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, nonce string, vp *
 		return fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
 	}
 
-	return s.extractClaimData(tx, vp, profile)
+	return s.extractClaimData(tx, token, profile)
 }
 
 func (s *Service) GetTx(id TxID) (*Transaction, error) {
@@ -272,25 +281,32 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 	return result
 }
 
-func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation, profile *profileapi.Verifier) error {
+func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, profile *profileapi.Verifier) error {
 	// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
-	vp.JWT = ""
+	token.Presentation.JWT = ""
 
-	bytes, err := vp.MarshalJSON()
+	bytes, err := token.Presentation.MarshalJSON()
 	if err != nil {
 		return err
 	}
 
 	logger.Info("extractClaimData vp", log.WithJSON(string(bytes)))
 
-	credentials, err := tx.PresentationDefinition.Match(vp, s.documentLoader,
+	credentials, err := tx.PresentationDefinition.Match(token.Presentation, s.documentLoader,
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithPublicKeyFetcher(verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher()),
+			verifiable.WithPublicKeyFetcher(s.publicKeyFetcher),
 		), presexch.WithDisableSchemaValidation())
 
 	if err != nil {
 		return fmt.Errorf("extract claims: match: %w", err)
+	}
+
+	if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
+		err = checkVCSubject(credentials, token)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: credentials})
@@ -298,10 +314,43 @@ func (s *Service) extractClaimData(tx *Transaction, vp *verifiable.Presentation,
 		return fmt.Errorf("extract claims: store: %w", err)
 	}
 
-	if err := s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
+	if err = s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func checkVCSubject(credentials map[string]*verifiable.Credential, token *ProcessedVPToken) error {
+	for _, cred := range credentials {
+		var subjectID string
+		subjectID, err := verifiable.SubjectID(cred.Subject)
+		if err != nil {
+			return fmt.Errorf("fail to parse credential as jwt: %w", err)
+		}
+
+		if cred.JWT != "" {
+			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
+			credToken, credErr := jwt.Parse(cred.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+			if credErr != nil {
+				return fmt.Errorf("fail to parse credential as jwt: %w", credErr)
+			}
+
+			claims := &jwtVCClaims{}
+
+			credErr = credToken.DecodeClaims(claims)
+			if credErr != nil {
+				return fmt.Errorf("fail to decode credential claims: %w", credErr)
+			}
+
+			subjectID = claims.Sub
+		}
+
+		if token.Signer != subjectID {
+			return fmt.Errorf("vc subject(%s) is not much with vp signer(%s)",
+				subjectID, token.Signer)
+		}
+	}
 	return nil
 }
 
@@ -422,4 +471,12 @@ func (s *JWSSigner) Headers() jose.Headers {
 		jose.HeaderKeyID:     s.keyID,
 		jose.HeaderAlgorithm: s.signer.Alg(),
 	}
+}
+
+// noVerifier is used when no JWT signature verification is needed.
+// To be used with precaution.
+type noVerifier struct{}
+
+func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
+	return nil
 }
