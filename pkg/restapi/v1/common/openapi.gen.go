@@ -41,6 +41,21 @@ const (
 	LdpVp VPFormat = "ldp_vp"
 )
 
+// Model to convey the details about the Credentials the Client wants to obtain.
+type AuthorizationDetails struct {
+	// String denoting the type of the requested Credential.
+	CredentialType string `json:"credential_type"`
+
+	// String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+	Format *string `json:"format,omitempty"`
+
+	// An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
+	Locations *[]string `json:"locations,omitempty"`
+
+	// String that determines the authorization details type. MUST be set to "openid_credential" for OIDC4VC.
+	Type string `json:"type"`
+}
+
 // DID method of the DID to be used for signing.
 type DIDMethod string
 
@@ -77,17 +92,23 @@ type VPFormat string
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/5xTUW/TMBD+K9Y9gZS1E+MpbyMbUrUWqpVlD2hCjnNNvDo+Y1/aVVP/O7LTjUELGrxE",
-	"zp3v+z5//vwIijpHFi0HyB8hqBY7mZYXk4sZckt1/KkxKK8da7KQx5boUk/QUnCLIlaYRIWiD1iLJXkR",
-	"dGO1bUaQAdq+g/wrkK8ggw3G7wq3cJcBbx1CDoG9tg3sMriaLQqyS90c0s6oRpOwr2YLodKu3svYjSzO",
-	"k0PPGpP8upp7XOqHQ5ihHpXXkmUlw150tRWGlDRi1YWIdyCtrr6k0u+AsfpfcDfX00O0m+tptPIfwdDW",
-	"jrTlQ7zo1VP36GhA5ZGnpFZXuJ1Lbo9YJrmNooatUcrqlbr4r46tujDgMAnlUTIKaWsRmPyQqRVuw8sE",
-	"JbLnDMlNOJKhXQYev/faYx1HUjfu0mxw8GMfsOdJqu5RMWTwcMKyCXFKh9Cjh7tdBmXxkXwnj1i76J0j",
-	"z1iLsoi57CT/ovZ+w9/WCjIwtYuLFyqeQY94Vs5fQTj/I6F7InSvI4yGabukI9fk+8AfDClRFgsRBvJ4",
-	"UTVa1tKI6JK0ari1NXq91Cq9R9EHbRtxe1aIsjg5n0+ENGQbsdHcis8O7eTifVkI54lJ0fCoB8vHCQa9",
-	"0JbRS5XQ0titNAZThI1WaEPKlZVdPMu5k6rFk3ejU8ig9wZyaJldyMfjzWYzkqk9It+M97NhPJ0Ul58W",
-	"l3FmxA+cwrr3qqCuIyuiTyFJK9PRZGVQFD9Pv0C/1grFm7JYvIUM1ujDYNzpKCrZZUAOrXQacjgbnSZx",
-	"TnIbILe9MbsfAQAA//8SqhQnfgUAAA==",
+	"H4sIAAAAAAAC/5RVwW7bOBD9lQFPLaA6wXZPvmXlLmAk2QZ14h62RUCRY4s1RWrJkRVvkX9fDGklTiwv",
+	"0oshk5w3M28eH38K5ZvWO3QUxfSniKrGRqbPi45qH8y/kox3MyRpbFrXGFUwLa+Kqbj2Gi2QB+XdFndA",
+	"NYLOh0FWvqO0UgbU6MhIG/N/a9AR9NJR5GBfkTRuIgrRBt9iIIMpl3qKu6ddi8fpFxSMW4NG54k/GJxP",
+	"gl+l74D/dBgJ9UEJnCajiZjCxWMhVj40kk4mCNgGjBzv1iAhnwbjoK+Nql/1CCYeJCYPFYKJsUM9gaW0",
+	"RsNW2g4jaFwZhxqqHXyez8rflyXIgPCjp/utAuk0WN3eb9UE5hweQEkHAVddxJRSHo5oSAkmt742W3Tw",
+	"zGDmhUH31SvfVJ5rdZ4gdm3rA6EeZcd6lXKMCODCgQxB7pjxHMAjlgTSWt9HkKDysMlDbFGZVRbJAPk8",
+	"qei7oBAihi2Gd/F9Rhim+kKOsEiHGLMxjkB22qBTCYWCUcy7VAojq2uDLnJXhrBJDRy1t19IfTz/PyGF",
+	"1JxGwtAYh3FkEIP+GWYC13eLW1ZAxMTBN+FbdEbfP0/mm+CRDBIYGcBjIXi4JqAW07/zbnF0Ob4XggxZ",
+	"Dhy9u0+wvvqBirjR2Xx2jVR7fdztbD6DJu0NE+KVLOYuYlIRRLN2xq25ZHRdw8X5UIlC9Mi/G9ylql7z",
+	"fXm9KL1bmfUpP2Hsy+sFm8rKrLuQ+ji2B13dBFyZh2OYvM6Va0myknFfdLVLwrOwaeKo0nV1Ozr8272p",
+	"/DLc3ZerY7S7L1dM5S+CodOtN27EpZirYXc0NKIKSFdebS5xdyOpHqFMUp0uaTrKpWzeWBf9L2ObJmYc",
+	"fiQCSsomFMmHrKkN7uKhglKyJw3JPo5oaOxGHOj/WWCvRV+Ihw8k15GjkicH8f2xEMvyz1MPwGCMsCz3",
+	"zvmi2mzWohDZqg+reAId4Wx584aENycTtkPC9m0JmTDjVn5kTKGL9If1CpblYngGDp8NZkmyt/LUthjM",
+	"yuydu4vsh18/lrAsP1zczEFa79bQG6rhc4tuPuMXrQ2evPL5UmfKzxIMBjCOMEiV0FLYV2ktJglbo9DF",
+	"pCsnm2RqrVQ1fvhtci4K0QUrpqImauP07Kzv+4lM2xMf1mf72Hh2NS8//bX4xDETekiWN3BV+qbxLnl0",
+	"TKUtU2uysi+ecn5ojEJ4tywX70UhthhiJu58wpU8FsnPZWvEVHycnKfiWkl1FFPXWfv4XwAAAP//1iFJ",
+	"vGIJAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

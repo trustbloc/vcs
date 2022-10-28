@@ -10,6 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221025163359-bee1ddf86975
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
@@ -79,7 +80,6 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc2.0.20220729203359-da1de2fa21ce // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85 // indirect
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect

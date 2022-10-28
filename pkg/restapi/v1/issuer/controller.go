@@ -68,6 +68,12 @@ type oidc4vcService interface {
 		profile *profileapi.Issuer,
 	) (*oidc4vc.InitiateIssuanceResponse, error)
 
+	PushAuthorizationDetails(
+		ctx context.Context,
+		opState string,
+		ad *oidc4vc.AuthorizationDetails,
+	) error
+
 	PrepareClaimDataAuthorizationRequest(
 		ctx context.Context,
 		req *oidc4vc.PrepareClaimDataAuthorizationRequest,
@@ -195,89 +201,6 @@ func validateIssueCredOptions(options *IssueCredentialOptions) ([]crypto.Signing
 	return signingOpts, nil
 }
 
-// PostIssuerProfilesProfileIDInteractionsInitiateOidc initiates OIDC Credential Issuance.
-// POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
-func (c *Controller) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context, profileID string) error {
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
-	if err != nil {
-		return err
-	}
-
-	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
-	if err != nil {
-		return err
-	}
-
-	var body InitiateOIDC4VCRequest
-
-	if err = util.ReadBody(ctx, &body); err != nil {
-		return err
-	}
-
-	return util.WriteOutput(ctx)(c.initiateIssuance(ctx.Request().Context(), &body, profile))
-}
-
-func (c *Controller) initiateIssuance(
-	ctx context.Context,
-	req *InitiateOIDC4VCRequest,
-	profile *profileapi.Issuer,
-) (*InitiateOIDC4VCResponse, error) {
-	issuanceReq := &oidc4vc.InitiateIssuanceRequest{
-		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
-		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
-		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
-		ClaimEndpoint:             lo.FromPtr(req.ClaimEndpoint),
-		GrantType:                 lo.FromPtr(req.GrantType),
-		ResponseType:              lo.FromPtr(req.ResponseType),
-		Scope:                     lo.FromPtr(req.Scope),
-		OpState:                   lo.FromPtr(req.OpState),
-	}
-
-	resp, err := c.oidc4vcService.InitiateIssuance(ctx, issuanceReq, profile)
-	if err != nil {
-		if errors.Is(err, oidc4vc.ErrCredentialTemplateNotFound) ||
-			errors.Is(err, oidc4vc.ErrCredentialTemplateIDRequired) {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
-		}
-
-		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateIssuance", err)
-	}
-
-	return &InitiateOIDC4VCResponse{
-		InitiateIssuanceUrl: resp.InitiateIssuanceURL,
-		TxId:                string(resp.TxID),
-	}, nil
-}
-
-func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error) {
-	profile, err := c.profileSvc.GetProfile(profileID)
-	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-				fmt.Errorf("profile with given id %s, dosn't exists", profileID))
-		}
-
-		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
-	}
-
-	return profile, nil
-}
-
-func (c *Controller) accessOIDCProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {
-	profile, err := c.accessProfile(profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Profiles of other organization is not visible.
-	if profile.OrganizationID != oidcOrgID {
-		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("profile with given id %s, dosn't exists", profileID))
-	}
-
-	return profile, nil
-}
-
 // GetCredentialsStatus retrieves the credential status.
 // GET /issuer/profiles/{profileID}/credentials/status/{statusID}.
 func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error {
@@ -350,6 +273,89 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 	return nil
 }
 
+// PostIssuerProfilesProfileIDInteractionsInitiateOidc initiates OIDC4VC issuance flow.
+// POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
+func (c *Controller) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context, profileID string) error {
+	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	if err != nil {
+		return err
+	}
+
+	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
+	if err != nil {
+		return err
+	}
+
+	var body InitiateOIDC4VCRequest
+
+	if err = util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.initiateIssuance(ctx.Request().Context(), &body, profile))
+}
+
+func (c *Controller) initiateIssuance(
+	ctx context.Context,
+	req *InitiateOIDC4VCRequest,
+	profile *profileapi.Issuer,
+) (*InitiateOIDC4VCResponse, error) {
+	issuanceReq := &oidc4vc.InitiateIssuanceRequest{
+		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
+		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
+		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
+		ClaimEndpoint:             lo.FromPtr(req.ClaimEndpoint),
+		GrantType:                 lo.FromPtr(req.GrantType),
+		ResponseType:              lo.FromPtr(req.ResponseType),
+		Scope:                     lo.FromPtr(req.Scope),
+		OpState:                   lo.FromPtr(req.OpState),
+	}
+
+	resp, err := c.oidc4vcService.InitiateIssuance(ctx, issuanceReq, profile)
+	if err != nil {
+		if errors.Is(err, oidc4vc.ErrCredentialTemplateNotFound) ||
+			errors.Is(err, oidc4vc.ErrCredentialTemplateIDRequired) {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
+		}
+
+		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateIssuance", err)
+	}
+
+	return &InitiateOIDC4VCResponse{
+		InitiateIssuanceUrl: resp.InitiateIssuanceURL,
+		TxId:                string(resp.TxID),
+	}, nil
+}
+
+// PostIssuerInteractionsPushAuthorizationRequest updates authorization details.
+// (POST /issuer/interactions/push-authorization-request).
+func (c *Controller) PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Context) error {
+	var body PushAuthorizationDetailsRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	ad, err := common.ValidateAuthorizationDetails(&body.AuthorizationDetails)
+	if err != nil {
+		return err
+	}
+
+	if err = c.oidc4vcService.PushAuthorizationDetails(ctx.Request().Context(), body.OpState, ad); err != nil {
+		if errors.Is(err, oidc4vc.ErrCredentialTypeNotSupported) {
+			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type", err)
+		}
+
+		if errors.Is(err, oidc4vc.ErrCredentialFormatNotSupported) {
+			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
+		}
+
+		return resterr.NewSystemError("OIDC4VCService", "PushAuthorizationRequest", err)
+	}
+
+	return ctx.NoContent(http.StatusOK)
+}
+
 // PrepareClaimDataAuthzRequest prepares claim data authorization request.
 // POST /issuer/interactions/prepare-claim-data-authz-request.
 func (c *Controller) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
@@ -366,7 +372,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	body *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
-	ad, err := validateAuthorizationDetails(body.AuthorizationDetails)
+	ad, err := common.ValidateAuthorizationDetails(body.AuthorizationDetails)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +380,6 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	resp, err := c.oidc4vcService.PrepareClaimDataAuthorizationRequest(ctx,
 		&oidc4vc.PrepareClaimDataAuthorizationRequest{
 			ResponseType:         body.ResponseType,
-			RedirectURI:          lo.FromPtr(body.RedirectUri),
 			Scope:                lo.FromPtr(body.Scope),
 			OpState:              body.OpState,
 			AuthorizationDetails: ad,
@@ -387,7 +392,6 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	return &PrepareClaimDataAuthorizationResponse{
 		AuthorizationRequest: IssuerAuthorizationRequestParameters{
 			ClientId:     resp.AuthorizationParameters.ClientID,
-			RedirectUri:  resp.AuthorizationParameters.RedirectURI,
 			ResponseType: resp.AuthorizationParameters.ResponseType,
 			Scope:        resp.AuthorizationParameters.Scope,
 			State:        resp.AuthorizationParameters.State,
@@ -398,26 +402,31 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	}, nil
 }
 
-func validateAuthorizationDetails(details *AuthorizationDetails) (*oidc4vc.AuthorizationDetails, error) {
-	if details.Type != "openid_credential" {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
-			errors.New("type should be 'openid_credential'"))
-	}
-
-	ad := &oidc4vc.AuthorizationDetails{
-		Type:           details.Type,
-		CredentialType: details.CredentialType,
-		Locations:      lo.FromPtr(details.Locations),
-	}
-
-	if details.Format != nil {
-		vcFormat, err := common.ValidateVCFormat(common.VCFormat(*details.Format))
-		if err != nil {
-			return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
+func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error) {
+	profile, err := c.profileSvc.GetProfile(profileID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+				fmt.Errorf("profile with given id %s, dosn't exists", profileID))
 		}
 
-		ad.Format = vcFormat
+		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
 	}
 
-	return ad, nil
+	return profile, nil
+}
+
+func (c *Controller) accessOIDCProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {
+	profile, err := c.accessProfile(profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Profiles of other organization is not visible.
+	if profile.OrganizationID != oidcOrgID {
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+			fmt.Errorf("profile with given id %s, dosn't exists", profileID))
+	}
+
+	return profile, nil
 }

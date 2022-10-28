@@ -28,6 +28,7 @@ type Transaction struct {
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	CredentialTemplate                 *profileapi.CredentialTemplate
+	CredentialFormat                   vcsverifiable.Format
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
@@ -77,13 +78,8 @@ type InitiateIssuanceResponse struct {
 	TxID                TxID
 }
 
-type ClientWellKnownConfig struct {
-	InitiateIssuanceEndpoint string `json:"initiate_issuance_endpoint"`
-}
-
 type PrepareClaimDataAuthorizationRequest struct {
 	ResponseType         string
-	RedirectURI          string
 	Scope                string
 	OpState              string
 	AuthorizationDetails *AuthorizationDetails

@@ -11,6 +11,7 @@ package oidc4vc
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
 )
@@ -68,19 +69,59 @@ func NewService(config *Config) (*Service, error) {
 	}, nil
 }
 
+func (s *Service) PushAuthorizationDetails(
+	ctx context.Context,
+	opState string,
+	ad *AuthorizationDetails,
+) error {
+	tx, err := s.store.FindByOpState(ctx, opState)
+	if err != nil {
+		return fmt.Errorf("find tx by op state: %w", err)
+	}
+
+	if err = s.updateAuthorizationDetails(ctx, ad, tx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s *Service) PrepareClaimDataAuthorizationRequest(
 	ctx context.Context,
 	req *PrepareClaimDataAuthorizationRequest,
 ) (*PrepareClaimDataAuthorizationResponse, error) {
 	tx, err := s.store.FindByOpState(ctx, req.OpState)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("find tx by op state: %w", err)
+	}
+
+	if req.ResponseType != tx.ResponseType {
+		return nil, ErrResponseTypeMismatch
+	}
+
+	isScopeValid := false
+
+	for _, scope := range tx.Scope {
+		if scope == req.Scope {
+			isScopeValid = true
+
+			break
+		}
+	}
+
+	if !isScopeValid {
+		return nil, ErrInvalidScope
+	}
+
+	if req.AuthorizationDetails != nil {
+		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
+			return nil, err
+		}
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
 		AuthorizationParameters: &IssuerAuthorizationRequestParameters{
 			ClientID:     tx.ClientID,
-			RedirectURI:  req.RedirectURI,
 			ResponseType: req.ResponseType,
 			Scope:        req.Scope,
 		},
@@ -90,19 +131,24 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}, nil
 }
 
-func (s *Service) HandlePAR(ctx context.Context, opState string, ad *AuthorizationDetails) (TxID, error) {
-	tx, err := s.store.FindByOpState(ctx, opState)
-	if err != nil {
-		return "", fmt.Errorf("get transaction by opstate: %w", err)
+func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *AuthorizationDetails, tx *Transaction) error {
+	if tx.CredentialTemplate == nil {
+		return ErrCredentialTemplateNotConfigured
 	}
 
-	if ad.CredentialType != tx.AuthorizationDetails.CredentialType {
-		return "", fmt.Errorf("authorization details credential type mismatch")
+	if !strings.EqualFold(ad.CredentialType, tx.CredentialTemplate.Type) {
+		return ErrCredentialTypeNotSupported
 	}
 
-	if ad.Format != tx.AuthorizationDetails.Format {
-		return "", fmt.Errorf("authorization details format mismatch")
+	if ad.Format != tx.CredentialFormat {
+		return ErrCredentialFormatNotSupported
 	}
 
-	return tx.ID, nil
+	tx.AuthorizationDetails = ad
+
+	if err := s.store.Update(ctx, tx); err != nil {
+		return fmt.Errorf("update tx: %w", err)
+	}
+
+	return nil
 }
