@@ -74,7 +74,7 @@ func TestStore(t *testing.T) {
 			OpState: id,
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert, storage.WithDocumentTTL(1*time.Millisecond))
+		resp1, err1 := store.Create(context.Background(), toInsert, storage.WithDocumentTTL(-1*time.Second))
 		assert.NoError(t, err1)
 		assert.NotNil(t, resp1)
 
@@ -88,17 +88,27 @@ func TestStore(t *testing.T) {
 
 		toInsert := &oidc4vc.TransactionData{
 			CredentialTemplate: &profileapi.CredentialTemplate{
-				Contexts: []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
-				ID:       "templateID",
-				Type:     "PermanentResidentCard",
-				Issuer:   "test_issuer",
+				Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
+				ID:                "templateID",
+				Type:              "PermanentResidentCard",
+				Issuer:            "test_issuer",
+				CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
 			},
-			ClaimEndpoint:        "432",
-			GrantType:            "342",
-			ResponseType:         "123",
-			Scope:                []string{"213", "321"},
-			AuthorizationDetails: &oidc4vc.AuthorizationDetails{Type: "321"},
-			OpState:              id,
+			AuthorizationEndpoint:              "authEndpoint",
+			PushedAuthorizationRequestEndpoint: "pushedAuth",
+			TokenEndpoint:                      "tokenEndpoint",
+			ClaimEndpoint:                      "432",
+			ClientID:                           "321",
+			GrantType:                          "342",
+			ResponseType:                       "123",
+			Scope:                              []string{"213", "321"},
+			AuthorizationDetails: &oidc4vc.AuthorizationDetails{
+				Type:           "321",
+				CredentialType: "fdsfsd",
+				Format:         "vxcxzcz",
+				Locations:      []string{"loc1", "loc2"},
+			},
+			OpState: id,
 		}
 
 		resp1, err1 := store.Create(context.Background(), toInsert)
@@ -204,6 +214,27 @@ func TestWithTimeouts(t *testing.T) {
 		err := store.Update(context.TODO(), &oidc4vc.Transaction{ID: "1"})
 		assert.ErrorContains(t, err, "the provided hex string is not a valid ObjectID")
 	})
+}
+
+func TestMigrate(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+
+	defer func() {
+		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	client, err := mongodb.New(mongoDBConnString, "testdb2", 1)
+	assert.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	store, err := New(ctx, client)
+	assert.Nil(t, store)
+	assert.ErrorContains(t, err, "context canceled")
+
+	defer func() {
+		require.NoError(t, client.Close(), "failed to close mongodb client")
+	}()
 }
 
 func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {

@@ -31,13 +31,17 @@ type mongoDocument struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
 	ExpireAt time.Time          `bson:"expireAt"`
 
-	OpState              string `bson:"opState,omitempty"`
-	CredentialTemplate   *profileapi.CredentialTemplate
-	ClaimEndpoint        string
-	GrantType            string
-	ResponseType         string
-	Scope                []string
-	AuthorizationDetails *oidc4vc.AuthorizationDetails
+	OpState                            string `bson:"opState,omitempty"`
+	CredentialTemplate                 *profileapi.CredentialTemplate
+	ClaimEndpoint                      string
+	GrantType                          string
+	ResponseType                       string
+	Scope                              []string
+	AuthorizationEndpoint              string
+	PushedAuthorizationRequestEndpoint string
+	TokenEndpoint                      string
+	AuthorizationDetails               *oidc4vc.AuthorizationDetails
+	ClientID                           string
 }
 
 // Store stores oidc transactions in mongo.
@@ -90,13 +94,9 @@ func (s *Store) Create(
 		p(insertCfg)
 	}
 
-	obj, err := s.mapTransactionDataToMongoDocument(data)
+	obj := s.mapTransactionDataToMongoDocument(data)
 
-	if err != nil {
-		return nil, err
-	}
-
-	if insertCfg.TTL > 0 {
+	if insertCfg.TTL != 0 {
 		obj.ExpireAt = time.Now().UTC().Add(insertCfg.TTL)
 	}
 
@@ -143,13 +143,17 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 	}
 
 	mapped := oidc4vc.TransactionData{
-		CredentialTemplate:   doc.CredentialTemplate,
-		ClaimEndpoint:        doc.ClaimEndpoint,
-		GrantType:            doc.GrantType,
-		ResponseType:         doc.ResponseType,
-		Scope:                doc.Scope,
-		AuthorizationDetails: doc.AuthorizationDetails,
-		OpState:              doc.OpState,
+		CredentialTemplate:                 doc.CredentialTemplate,
+		AuthorizationEndpoint:              doc.AuthorizationEndpoint,
+		PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
+		TokenEndpoint:                      doc.TokenEndpoint,
+		ClaimEndpoint:                      doc.ClaimEndpoint,
+		ClientID:                           doc.ClientID,
+		GrantType:                          doc.GrantType,
+		ResponseType:                       doc.ResponseType,
+		Scope:                              doc.Scope,
+		AuthorizationDetails:               doc.AuthorizationDetails,
+		OpState:                            doc.OpState,
 	}
 
 	return &oidc4vc.Transaction{
@@ -166,10 +170,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
 		return err
 	}
 
-	doc, errMap := s.mapTransactionDataToMongoDocument(&tx.TransactionData)
-	if errMap != nil {
-		return errMap
-	}
+	doc := s.mapTransactionDataToMongoDocument(&tx.TransactionData)
 
 	doc.ID = id
 	_, err = collection.UpdateByID(ctx, id, bson.M{
@@ -179,16 +180,19 @@ func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
 	return err
 }
 
-//nolint:unparam
-func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData) (*mongoDocument, error) {
+func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData) *mongoDocument {
 	return &mongoDocument{
-		ExpireAt:             time.Now().UTC().Add(defaultExpiration),
-		OpState:              data.OpState,
-		CredentialTemplate:   data.CredentialTemplate,
-		ClaimEndpoint:        data.ClaimEndpoint,
-		GrantType:            data.GrantType,
-		ResponseType:         data.ResponseType,
-		Scope:                data.Scope,
-		AuthorizationDetails: data.AuthorizationDetails,
-	}, nil
+		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
+		OpState:                            data.OpState,
+		CredentialTemplate:                 data.CredentialTemplate,
+		ClaimEndpoint:                      data.ClaimEndpoint,
+		GrantType:                          data.GrantType,
+		ResponseType:                       data.ResponseType,
+		Scope:                              data.Scope,
+		AuthorizationEndpoint:              data.AuthorizationEndpoint,
+		PushedAuthorizationRequestEndpoint: data.PushedAuthorizationRequestEndpoint,
+		TokenEndpoint:                      data.TokenEndpoint,
+		AuthorizationDetails:               data.AuthorizationDetails,
+		ClientID:                           data.ClientID,
+	}
 }
