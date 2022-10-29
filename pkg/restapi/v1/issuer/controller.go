@@ -273,9 +273,9 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 	return nil
 }
 
-// PostIssuerProfilesProfileIDInteractionsInitiateOidc initiates OIDC4VC issuance flow.
+// InitiateCredentialIssuance initiates OIDC4VC issuance flow.
 // POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
-func (c *Controller) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context, profileID string) error {
+func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID string) error {
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
 		return err
@@ -327,9 +327,9 @@ func (c *Controller) initiateIssuance(
 	}, nil
 }
 
-// PostIssuerInteractionsPushAuthorizationRequest updates authorization details.
+// PushAuthorizationDetails updates authorization details.
 // (POST /issuer/interactions/push-authorization-request).
-func (c *Controller) PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Context) error {
+func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 	var body PushAuthorizationDetailsRequest
 
 	if err := util.ReadBody(ctx, &body); err != nil {
@@ -356,9 +356,9 @@ func (c *Controller) PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Con
 	return ctx.NoContent(http.StatusOK)
 }
 
-// PrepareClaimDataAuthzRequest prepares claim data authorization request.
+// PrepareAuthorizationRequest prepares claim data authorization request.
 // POST /issuer/interactions/prepare-claim-data-authz-request.
-func (c *Controller) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
+func (c *Controller) PrepareAuthorizationRequest(ctx echo.Context) error {
 	var body PrepareClaimDataAuthorizationRequest
 
 	if err := util.ReadBody(ctx, &body); err != nil {
@@ -390,13 +390,13 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		AuthorizationRequest: IssuerAuthorizationRequestParameters{
+		AuthorizationRequest: OAuthParameters{
 			ClientId:     resp.AuthorizationParameters.ClientID,
+			ClientSecret: resp.AuthorizationParameters.ClientSecret,
 			ResponseType: resp.AuthorizationParameters.ResponseType,
 			Scope:        resp.AuthorizationParameters.Scope,
-			State:        resp.AuthorizationParameters.State,
 		},
-		AuthorizationEndpoint:              lo.ToPtr(resp.AuthorizationEndpoint),
+		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
 		TxId:                               string(resp.TxID),
 	}, nil

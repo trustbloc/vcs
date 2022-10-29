@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
-	"net/url"
 	"time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -34,6 +33,7 @@ type TransactionData struct {
 	TokenEndpoint                      string
 	ClaimEndpoint                      string
 	ClientID                           string
+	ClientSecret                       string
 	GrantType                          string
 	ResponseType                       string
 	Scope                              []string
@@ -78,37 +78,26 @@ type InitiateIssuanceResponse struct {
 	TxID                TxID
 }
 
+// PrepareClaimDataAuthorizationRequest is the request to prepare the claim data authorization request.
 type PrepareClaimDataAuthorizationRequest struct {
 	ResponseType         string
-	Scope                string
+	Scope                []string
 	OpState              string
 	AuthorizationDetails *AuthorizationDetails
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
-	AuthorizationParameters            *IssuerAuthorizationRequestParameters
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
+	AuthorizationParameters            *OAuthParameters
 	TxID                               TxID
 }
 
-type IssuerAuthorizationRequestParameters struct {
+type OAuthParameters struct {
 	ClientID     string
-	RedirectURI  string
+	ClientSecret string
 	ResponseType string
-	Scope        string
-	State        string
-}
-
-type OIDC4AuthorizationState struct {
-	RedirectURI       *url.URL          `json:"redirect_uri"`
-	RespondMode       string            `json:"respond_mode"`
-	AuthorizeResponse OIDC4AuthResponse `json:"authorize_response"`
-}
-
-type OIDC4AuthResponse struct {
-	Header     map[string][]string
-	Parameters map[string][]string
+	Scope        []string
 }
 
 type InsertOptions struct {

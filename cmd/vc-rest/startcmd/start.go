@@ -34,7 +34,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4vc2 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
-	"github.com/trustbloc/vcs/pkg/restapiclient"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -233,7 +232,10 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new oidc4vcstatestore: %w", err)
 	}
 
-	restApiClient := restapiclient.NewClient(conf.StartupParameters.hostURL, http.DefaultClient)
+	issuerInteractionClient, err := issuerv1.NewClient(conf.StartupParameters.hostURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create issuer interaction client: %w", err)
+	}
 
 	provider, err := bootstrapOAuthProvider(context.Background(), conf.StartupParameters.oAuthSecret, mongodbClient)
 	if err != nil {
@@ -241,9 +243,10 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	oidc4vc2.RegisterHandlers(e, oidc4vc2.NewController(&oidc4vc2.Config{
-		OAuth2Provider:                 provider,
-		CredentialInteractionAPIClient: restApiClient,
-		OIDC4VCStateStorage:            oidc4StateStore,
+		OAuth2Provider:          provider,
+		StateStore:              oidc4StateStore,
+		IssuerInteractionClient: issuerInteractionClient,
+		IssuerVCSPublicHost:     conf.StartupParameters.hostURL,
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{

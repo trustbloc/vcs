@@ -100,6 +100,7 @@ func TestStore(t *testing.T) {
 			TokenEndpoint:                      "tokenEndpoint",
 			ClaimEndpoint:                      "432",
 			ClientID:                           "321",
+			ClientSecret:                       "secret",
 			GrantType:                          "342",
 			ResponseType:                       "123",
 			Scope:                              []string{"213", "321"},
