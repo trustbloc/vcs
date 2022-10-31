@@ -91,7 +91,11 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:                   "eyJhbGciOiJSU0Et",
 				}
 
-				profile = &profileapi.Issuer{Active: false}
+				profile = &profileapi.Issuer{
+					Active:     false,
+					OIDCConfig: &profileapi.OIDC4VCConfig{},
+					VCConfig:   &profileapi.VCConfig{},
+				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
@@ -108,11 +112,34 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:                   "eyJhbGciOiJSU0Et",
 				}
 
-				profile = &profileapi.Issuer{Active: true}
+				profile = &profileapi.Issuer{
+					Active:   true,
+					VCConfig: &profileapi.VCConfig{},
+				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
 				require.ErrorIs(t, err, oidc4vc.ErrAuthorizedCodeFlowNotSupported)
+			},
+		},
+		{
+			name: "VC options not configured",
+			setup: func() {
+				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+					CredentialTemplateID:      "templateID",
+					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
+					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
+					OpState:                   "eyJhbGciOiJSU0Et",
+				}
+
+				profile = &profileapi.Issuer{
+					Active:     true,
+					OIDCConfig: &profileapi.OIDC4VCConfig{},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+				require.Nil(t, resp)
+				require.ErrorIs(t, err, oidc4vc.ErrVCOptionsNotConfigured)
 			},
 		},
 		{
@@ -130,6 +157,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				profile = &profileapi.Issuer{
 					Active:     true,
 					OIDCConfig: &profileapi.OIDC4VCConfig{},
+					VCConfig:   &profileapi.VCConfig{},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {

@@ -15,10 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
-func TestService_HandlePAR(t *testing.T) {
+func TestService_PushAuthorizationDetails(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		ad                   *oidc4vc.AuthorizationDetails
@@ -27,18 +28,54 @@ func TestService_HandlePAR(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func()
-		check func(t *testing.T, txID oidc4vc.TxID, err error)
+		check func(t *testing.T, err error)
 	}{
 		{
 			name: "Success",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
 					ID: "txID",
 					TransactionData: oidc4vc.TransactionData{
-						AuthorizationDetails: &oidc4vc.AuthorizationDetails{
-							CredentialType: "UniversityDegreeCredential",
-							Format:         vcsverifiable.Ldp,
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
 						},
+						CredentialFormat: vcsverifiable.Ldp,
+					},
+				}, nil)
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+
+				ad = &oidc4vc.AuthorizationDetails{
+					CredentialType: "universitydegreecredential",
+					Format:         vcsverifiable.Ldp,
+				}
+			},
+			check: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "Fail to find transaction by op state",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
+					nil, errors.New("find tx error"))
+
+				ad = &oidc4vc.AuthorizationDetails{
+					CredentialType: "UniversityDegreeCredential",
+					Format:         vcsverifiable.Ldp,
+				}
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "find tx by op state")
+			},
+		},
+		{
+			name: "Credential template not configured",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						CredentialFormat: vcsverifiable.Ldp,
 					},
 				}, nil)
 
@@ -47,21 +84,20 @@ func TestService_HandlePAR(t *testing.T) {
 					Format:         vcsverifiable.Ldp,
 				}
 			},
-			check: func(t *testing.T, txID oidc4vc.TxID, err error) {
-				require.NoError(t, err)
-				require.Equal(t, oidc4vc.TxID("txID"), txID)
+			check: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateNotConfigured)
 			},
 		},
 		{
-			name: "Credential type mismatch",
+			name: "Credential type not supported",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
 					ID: "txID",
 					TransactionData: oidc4vc.TransactionData{
-						AuthorizationDetails: &oidc4vc.AuthorizationDetails{
-							CredentialType: "UniversityDegreeCredential",
-							Format:         vcsverifiable.Ldp,
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
 						},
+						CredentialFormat: vcsverifiable.Ldp,
 					},
 				}, nil)
 
@@ -70,21 +106,20 @@ func TestService_HandlePAR(t *testing.T) {
 					Format:         vcsverifiable.Ldp,
 				}
 			},
-			check: func(t *testing.T, txID oidc4vc.TxID, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "credential type mismatch")
+			check: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, oidc4vc.ErrCredentialTypeNotSupported)
 			},
 		},
 		{
-			name: "Credential format mismatch",
+			name: "Credential format not supported",
 			setup: func() {
-				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
 					ID: "txID",
 					TransactionData: oidc4vc.TransactionData{
-						AuthorizationDetails: &oidc4vc.AuthorizationDetails{
-							CredentialType: "UniversityDegreeCredential",
-							Format:         vcsverifiable.Ldp,
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
 						},
+						CredentialFormat: vcsverifiable.Ldp,
 					},
 				}, nil)
 
@@ -93,9 +128,32 @@ func TestService_HandlePAR(t *testing.T) {
 					Format:         vcsverifiable.Jwt,
 				}
 			},
-			check: func(t *testing.T, txID oidc4vc.TxID, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "format mismatch")
+			check: func(t *testing.T, err error) {
+				require.ErrorIs(t, err, oidc4vc.ErrCredentialFormatNotSupported)
+			},
+		},
+		{
+			name: "Fail to update transaction",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						CredentialFormat: vcsverifiable.Ldp,
+					},
+				}, nil)
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
+
+				ad = &oidc4vc.AuthorizationDetails{
+					CredentialType: "UniversityDegreeCredential",
+					Format:         vcsverifiable.Ldp,
+				}
+			},
+			check: func(t *testing.T, err error) {
+				require.ErrorContains(t, err, "update tx")
 			},
 		},
 	}
@@ -108,8 +166,8 @@ func TestService_HandlePAR(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			resp, err := svc.HandlePAR(context.Background(), "opState", ad)
-			tt.check(t, resp, err)
+			err = svc.PushAuthorizationDetails(context.Background(), "opState", ad)
+			tt.check(t, err)
 		})
 	}
 }
@@ -131,15 +189,25 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
 					ID: "txID",
 					TransactionData: oidc4vc.TransactionData{
-						AuthorizationDetails: &oidc4vc.AuthorizationDetails{
-							CredentialType: "UniversityDegreeCredential",
-							Format:         vcsverifiable.Ldp,
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
 						},
+						CredentialFormat: vcsverifiable.Ldp,
+						ResponseType:     "code",
+						Scope:            []string{"openid"},
 					},
 				}, nil)
 
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+
 				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
-					OpState: "opState",
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        "openid",
+					AuthorizationDetails: &oidc4vc.AuthorizationDetails{
+						CredentialType: "UniversityDegreeCredential",
+						Format:         vcsverifiable.Ldp,
+					},
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
@@ -148,18 +216,98 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			},
 		},
 		{
-			name: "Fail to get transaction by opState",
+			name: "Response type mismatch",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						ResponseType: "code",
+						Scope:        []string{"openid"},
+					},
+				}, nil)
+
+				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
+					ResponseType: "invalid",
+					Scope:        "openid",
+					OpState:      "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorIs(t, err, oidc4vc.ErrResponseTypeMismatch)
+			},
+		},
+		{
+			name: "Invalid scope",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						ResponseType: "code",
+						Scope:        []string{"openid", "profile"},
+					},
+				}, nil)
+
+				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
+					ResponseType: "code",
+					Scope:        "invalid",
+					OpState:      "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorIs(t, err, oidc4vc.ErrInvalidScope)
+			},
+		},
+		{
+			name: "Fail to find transaction by op state",
 			setup: func() {
 				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
-					nil, errors.New("store error"))
+					nil, errors.New("find tx error"))
 
 				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
 					OpState: "opState",
 				}
 			},
 			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
-				require.ErrorContains(t, err, "store error")
+				require.ErrorContains(t, err, "find tx by op state")
 				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Fail to update transaction",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						CredentialFormat: vcsverifiable.Ldp,
+						ResponseType:     "code",
+						Scope:            []string{"openid"},
+					},
+				}, nil)
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
+
+				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        "openid",
+					AuthorizationDetails: &oidc4vc.AuthorizationDetails{
+						CredentialType: "UniversityDegreeCredential",
+						Format:         vcsverifiable.Ldp,
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorContains(t, err, "update tx")
+				require.Empty(t, resp)
 			},
 		},
 	}

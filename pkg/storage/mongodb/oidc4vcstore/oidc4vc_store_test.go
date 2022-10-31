@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -93,6 +94,7 @@ func TestStore(t *testing.T) {
 				Issuer:            "test_issuer",
 				CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
 			},
+			CredentialFormat:                   vcsverifiable.Ldp,
 			AuthorizationEndpoint:              "authEndpoint",
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
 			TokenEndpoint:                      "tokenEndpoint",
@@ -142,6 +144,7 @@ func TestStore(t *testing.T) {
 
 		toInsert := &oidc4vc.TransactionData{
 			CredentialTemplate:   nil,
+			CredentialFormat:     vcsverifiable.Jwt,
 			ClaimEndpoint:        "432",
 			GrantType:            "342",
 			ResponseType:         "123",

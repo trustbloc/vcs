@@ -189,6 +189,21 @@ paths:
               $ref: '#/components/schemas/InitiateOIDC4VCRequest'
       tags:
         - issuer
+  /issuer/interactions/push-authorization-request:
+    post:
+      summary: Push Authorization Details
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+      operationId: post-issuer-interactions-push-authorization-request
+      description: Used by VCS OIDC public PAR endpoint to update transaction with authorization details.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushAuthorizationDetailsRequest'
   /issuer/interactions/prepare-claim-data-authz-request:
     post:
       summary: Prepare Claim Data Authorization Request
@@ -547,8 +562,6 @@ components:
   schemas:
     HealthCheckResponse:
       title: HealthCheckResponse
-      x-stoplight:
-        id: 7jusxlmcr31g5
       x-tags:
         - healthcheck
       type: object
@@ -816,10 +829,8 @@ components:
           description: Value MUST be set to "code".
         scope:
           type: string
-        redirect_uri:
-          type: string
         authorization_details:
-          $ref: '#/components/schemas/AuthorizationDetails'
+          $ref: ./common.yaml#/components/schemas/AuthorizationDetails
         op_state:
           type: string
       required:
@@ -846,30 +857,6 @@ components:
       required:
         - authorization_request
         - tx_id
-    AuthorizationDetails:
-      title: AuthorizationDetails
-      x-tags:
-        - issuer
-      type: object
-      description: Model for the credential details the wallet wants to obtain.
-      properties:
-        type:
-          type: string
-          description: JSON string that determines the authorization details type. MUST be set to openid_credential for this flow.
-        credential_type:
-          type: string
-          description: JSON string denoting the type of the requested Credential.
-        format:
-          type: string
-          description: JSON string representing a format in which the Credential is requested to be issued. Valid values defined by this flow are jwt_vc and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
-        locations:
-          description: An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
-          type: array
-          items:
-            type: string
-      required:
-        - type
-        - credential_type
     IssuerAuthorizationRequestParameters:
       title: IssuerAuthorizationRequestParameters
       x-tags:
@@ -881,8 +868,6 @@ components:
           type: string
         client_id:
           type: string
-        redirect_uri:
-          type: string
         scope:
           type: string
         state:
@@ -890,7 +875,6 @@ components:
       required:
         - response_type
         - client_id
-        - redirect_uri
         - scope
         - state
     InitiateOIDC4VCRequest:
@@ -992,4 +976,18 @@ components:
       required:
         - access_token
         - token_type
+    PushAuthorizationDetailsRequest:
+      title: PushAuthorizationDetailsRequest
+      x-tags:
+        - issuer
+      type: object
+      description: Model for Push Authorization Details request.
+      properties:
+        op_state:
+          type: string
+        authorization_details:
+          $ref: ./common.yaml#/components/schemas/AuthorizationDetails
+      required:
+        - op_state
+        - authorization_details
   securitySchemes: {}

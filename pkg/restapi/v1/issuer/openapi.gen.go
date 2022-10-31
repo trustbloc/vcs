@@ -9,22 +9,8 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
+	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
-
-// Model for the credential details the wallet wants to obtain.
-type AuthorizationDetails struct {
-	// JSON string denoting the type of the requested Credential.
-	CredentialType string `json:"credential_type"`
-
-	// JSON string representing a format in which the Credential is requested to be issued. Valid values defined by this flow are jwt_vc and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
-	Format *string `json:"format,omitempty"`
-
-	// An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
-	Locations *[]string `json:"locations,omitempty"`
-
-	// JSON string that determines the authorization details type. MUST be set to openid_credential for this flow.
-	Type string `json:"type"`
-}
 
 // Credential status.
 type CredentialStatus struct {
@@ -106,7 +92,6 @@ type IssueCredentialOptions struct {
 // Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
 type IssuerAuthorizationRequestParameters struct {
 	ClientId     string `json:"client_id"`
-	RedirectUri  string `json:"redirect_uri"`
 	ResponseType string `json:"response_type"`
 	Scope        string `json:"scope"`
 	State        string `json:"state"`
@@ -114,10 +99,9 @@ type IssuerAuthorizationRequestParameters struct {
 
 // Model for Prepare Claim Data Authorization Request
 type PrepareClaimDataAuthorizationRequest struct {
-	// Model for the credential details the wallet wants to obtain.
-	AuthorizationDetails *AuthorizationDetails `json:"authorization_details,omitempty"`
-	OpState              string                `json:"op_state"`
-	RedirectUri          *string               `json:"redirect_uri,omitempty"`
+	// Model to convey the details about the Credentials the Client wants to obtain.
+	AuthorizationDetails *externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
+	OpState              string                             `json:"op_state"`
 
 	// Value MUST be set to "code".
 	ResponseType string  `json:"response_type"`
@@ -139,6 +123,13 @@ type PrepareClaimDataAuthorizationResponse struct {
 	TxId string `json:"tx_id"`
 }
 
+// Model for Push Authorization Details request.
+type PushAuthorizationDetailsRequest struct {
+	// Model to convey the details about the Credentials the Client wants to obtain.
+	AuthorizationDetails externalRef0.AuthorizationDetails `json:"authorization_details"`
+	OpState              string                            `json:"op_state"`
+}
+
 // UpdateCredentialStatusRequest request struct for updating VC status.
 type UpdateCredentialStatusRequest struct {
 	CredentialID string `json:"credentialID"`
@@ -149,6 +140,9 @@ type UpdateCredentialStatusRequest struct {
 
 // PrepareClaimDataAuthzRequestJSONBody defines parameters for PrepareClaimDataAuthzRequest.
 type PrepareClaimDataAuthzRequestJSONBody = PrepareClaimDataAuthorizationRequest
+
+// PostIssuerInteractionsPushAuthorizationRequestJSONBody defines parameters for PostIssuerInteractionsPushAuthorizationRequest.
+type PostIssuerInteractionsPushAuthorizationRequestJSONBody = PushAuthorizationDetailsRequest
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
@@ -161,6 +155,9 @@ type PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONBody = InitiateOIDC4
 
 // PrepareClaimDataAuthzRequestJSONRequestBody defines body for PrepareClaimDataAuthzRequest for application/json ContentType.
 type PrepareClaimDataAuthzRequestJSONRequestBody = PrepareClaimDataAuthzRequestJSONBody
+
+// PostIssuerInteractionsPushAuthorizationRequestJSONRequestBody defines body for PostIssuerInteractionsPushAuthorizationRequest for application/json ContentType.
+type PostIssuerInteractionsPushAuthorizationRequestJSONRequestBody = PostIssuerInteractionsPushAuthorizationRequestJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
@@ -176,6 +173,9 @@ type ServerInterface interface {
 	// Prepare Claim Data Authorization Request
 	// (POST /issuer/interactions/prepare-claim-data-authz-request)
 	PrepareClaimDataAuthzRequest(ctx echo.Context) error
+	// Push Authorization Details
+	// (POST /issuer/interactions/push-authorization-request)
+	PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Context) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
@@ -201,6 +201,15 @@ func (w *ServerInterfaceWrapper) PrepareClaimDataAuthzRequest(ctx echo.Context) 
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PrepareClaimDataAuthzRequest(ctx)
+	return err
+}
+
+// PostIssuerInteractionsPushAuthorizationRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.PostIssuerInteractionsPushAuthorizationRequest(ctx)
 	return err
 }
 
@@ -305,6 +314,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareClaimDataAuthzRequest)
+	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PostIssuerInteractionsPushAuthorizationRequest)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)

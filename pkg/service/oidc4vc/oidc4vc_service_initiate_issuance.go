@@ -29,6 +29,10 @@ func (s *Service) InitiateIssuance(
 		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
 
+	if profile.VCConfig == nil {
+		return nil, ErrVCOptionsNotConfigured
+	}
+
 	template, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
 	if err != nil {
 		return nil, err
@@ -41,6 +45,7 @@ func (s *Service) InitiateIssuance(
 
 	data := &TransactionData{
 		CredentialTemplate:                 template,
+		CredentialFormat:                   profile.VCConfig.Format,
 		AuthorizationEndpoint:              oidcConfig.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: oidcConfig.PushedAuthorizationRequestEndpoint,
 		TokenEndpoint:                      oidcConfig.TokenEndpoint,

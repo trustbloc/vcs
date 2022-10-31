@@ -16,6 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -32,6 +33,7 @@ type mongoDocument struct {
 
 	OpState                            string `bson:"opState,omitempty"`
 	CredentialTemplate                 *profileapi.CredentialTemplate
+	CredentialFormat                   vcsverifiable.Format
 	ClaimEndpoint                      string
 	GrantType                          string
 	ResponseType                       string
@@ -143,6 +145,7 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 
 	mapped := oidc4vc.TransactionData{
 		CredentialTemplate:                 doc.CredentialTemplate,
+		CredentialFormat:                   doc.CredentialFormat,
 		AuthorizationEndpoint:              doc.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
 		TokenEndpoint:                      doc.TokenEndpoint,
@@ -184,6 +187,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData)
 		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
 		OpState:                            data.OpState,
 		CredentialTemplate:                 data.CredentialTemplate,
+		CredentialFormat:                   data.CredentialFormat,
 		ClaimEndpoint:                      data.ClaimEndpoint,
 		GrantType:                          data.GrantType,
 		ResponseType:                       data.ResponseType,
