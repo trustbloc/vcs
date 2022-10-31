@@ -78,6 +78,12 @@ type oidc4vcService interface {
 		ctx context.Context,
 		req *oidc4vc.PrepareClaimDataAuthorizationRequest,
 	) (*oidc4vc.PrepareClaimDataAuthorizationResponse, error)
+
+	StoreAuthCode(
+		ctx context.Context,
+		opState string,
+		code string,
+	) (oidc4vc.TxID, error)
 }
 
 type vcStatusManager interface {
@@ -429,4 +435,16 @@ func (c *Controller) accessOIDCProfile(profileID string, oidcOrgID string) (*pro
 	}
 
 	return profile, nil
+}
+
+// StoreAuthorizationCodeRequest Stores authorization code from issuer oauth provider.
+// POST /issuer/interactions/store-authorization-code.
+func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
+	var body StoreAuthorizationCodeRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.oidc4vcService.StoreAuthCode(ctx.Request().Context(), body.OpState, body.Code))
 }

@@ -137,6 +137,17 @@ type PushAuthorizationDetailsRequest struct {
 	OpState              string                            `json:"op_state"`
 }
 
+// Model for storing auth code from issuer oauth
+type StoreAuthorizationCodeRequest struct {
+	Code    string `json:"code"`
+	OpState string `json:"op_state"`
+}
+
+// Response model for storing auth code from issuer oauth
+type StoreAuthorizationCodeResponse struct {
+	TxId *string `json:"tx_id,omitempty"`
+}
+
 // UpdateCredentialStatusRequest request struct for updating VC status.
 type UpdateCredentialStatusRequest struct {
 	CredentialID string `json:"credentialID"`
@@ -150,6 +161,9 @@ type PrepareAuthorizationRequestJSONBody = PrepareClaimDataAuthorizationRequest
 
 // PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
 type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
+
+// StoreAuthorizationCodeRequestJSONBody defines parameters for StoreAuthorizationCodeRequest.
+type StoreAuthorizationCodeRequestJSONBody = StoreAuthorizationCodeRequest
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
@@ -165,6 +179,9 @@ type PrepareAuthorizationRequestJSONRequestBody = PrepareAuthorizationRequestJSO
 
 // PushAuthorizationDetailsJSONRequestBody defines body for PushAuthorizationDetails for application/json ContentType.
 type PushAuthorizationDetailsJSONRequestBody = PushAuthorizationDetailsJSONBody
+
+// StoreAuthorizationCodeRequestJSONRequestBody defines body for StoreAuthorizationCodeRequest for application/json ContentType.
+type StoreAuthorizationCodeRequestJSONRequestBody = StoreAuthorizationCodeRequestJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
@@ -258,6 +275,11 @@ type ClientInterface interface {
 
 	PushAuthorizationDetails(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// StoreAuthorizationCodeRequest request with any body
+	StoreAuthorizationCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StoreAuthorizationCodeRequest(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -315,6 +337,30 @@ func (c *Client) PushAuthorizationDetailsWithBody(ctx context.Context, contentTy
 
 func (c *Client) PushAuthorizationDetails(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPushAuthorizationDetailsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StoreAuthorizationCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStoreAuthorizationCodeRequestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) StoreAuthorizationCodeRequest(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStoreAuthorizationCodeRequestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -470,6 +516,46 @@ func NewPushAuthorizationDetailsRequestWithBody(server string, contentType strin
 	}
 
 	operationPath := fmt.Sprintf("/issuer/interactions/push-authorization-request")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewStoreAuthorizationCodeRequestRequest calls the generic StoreAuthorizationCodeRequest builder with application/json body
+func NewStoreAuthorizationCodeRequestRequest(server string, body StoreAuthorizationCodeRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStoreAuthorizationCodeRequestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStoreAuthorizationCodeRequestRequestWithBody generates requests for StoreAuthorizationCodeRequest with any type of body
+func NewStoreAuthorizationCodeRequestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/store-authorization-code")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -724,6 +810,11 @@ type ClientWithResponsesInterface interface {
 
 	PushAuthorizationDetailsWithResponse(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error)
 
+	// StoreAuthorizationCodeRequest request with any body
+	StoreAuthorizationCodeRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StoreAuthorizationCodeRequestResponse, error)
+
+	StoreAuthorizationCodeRequestWithResponse(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StoreAuthorizationCodeRequestResponse, error)
+
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
 
@@ -780,6 +871,28 @@ func (r PushAuthorizationDetailsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PushAuthorizationDetailsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type StoreAuthorizationCodeRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *StoreAuthorizationCodeResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r StoreAuthorizationCodeRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StoreAuthorizationCodeRequestResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -908,6 +1021,23 @@ func (c *ClientWithResponses) PushAuthorizationDetailsWithResponse(ctx context.C
 	return ParsePushAuthorizationDetailsResponse(rsp)
 }
 
+// StoreAuthorizationCodeRequestWithBodyWithResponse request with arbitrary body returning *StoreAuthorizationCodeRequestResponse
+func (c *ClientWithResponses) StoreAuthorizationCodeRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StoreAuthorizationCodeRequestResponse, error) {
+	rsp, err := c.StoreAuthorizationCodeRequestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStoreAuthorizationCodeRequestResponse(rsp)
+}
+
+func (c *ClientWithResponses) StoreAuthorizationCodeRequestWithResponse(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StoreAuthorizationCodeRequestResponse, error) {
+	rsp, err := c.StoreAuthorizationCodeRequest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStoreAuthorizationCodeRequestResponse(rsp)
+}
+
 // PostIssueCredentialsWithBodyWithResponse request with arbitrary body returning *PostIssueCredentialsResponse
 func (c *ClientWithResponses) PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error) {
 	rsp, err := c.PostIssueCredentialsWithBody(ctx, profileID, contentType, body, reqEditors...)
@@ -1005,6 +1135,32 @@ func ParsePushAuthorizationDetailsResponse(rsp *http.Response) (*PushAuthorizati
 	response := &PushAuthorizationDetailsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseStoreAuthorizationCodeRequestResponse parses an HTTP response from a StoreAuthorizationCodeRequestWithResponse call
+func ParseStoreAuthorizationCodeRequestResponse(rsp *http.Response) (*StoreAuthorizationCodeRequestResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StoreAuthorizationCodeRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest StoreAuthorizationCodeResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -1122,6 +1278,9 @@ type ServerInterface interface {
 	// Push Authorization Details
 	// (POST /issuer/interactions/push-authorization-request)
 	PushAuthorizationDetails(ctx echo.Context) error
+	// Stores authorization code from issuer oauth provider
+	// (POST /issuer/interactions/store-authorization-code)
+	StoreAuthorizationCodeRequest(ctx echo.Context) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
@@ -1156,6 +1315,15 @@ func (w *ServerInterfaceWrapper) PushAuthorizationDetails(ctx echo.Context) erro
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PushAuthorizationDetails(ctx)
+	return err
+}
+
+// StoreAuthorizationCodeRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) StoreAuthorizationCodeRequest(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.StoreAuthorizationCodeRequest(ctx)
 	return err
 }
 
@@ -1261,6 +1429,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareAuthorizationRequest)
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
+	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)

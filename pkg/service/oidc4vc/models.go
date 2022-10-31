@@ -38,6 +38,7 @@ type TransactionData struct {
 	ResponseType                       string
 	Scope                              []string
 	AuthorizationDetails               *AuthorizationDetails
+	IssuerAuthCode                     string
 	OpState                            string
 }
 
