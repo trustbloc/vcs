@@ -9,6 +9,7 @@ package kms
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -65,13 +66,19 @@ type crypto interface {
 	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
 }
 
+type metricsProvider interface {
+	SignCount()
+	SignTime(value time.Duration)
+}
+
 type KeyManager struct {
 	keyManager keyManager
 	crypto     crypto
 	kmsType    Type
+	metrics    metricsProvider
 }
 
-func NewAriesKeyManager(cfg *Config) (*KeyManager, error) {
+func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, error) {
 	switch cfg.KMSType {
 	case Local:
 		km, cr, err := createLocalKMS(cfg)
@@ -83,12 +90,14 @@ func NewAriesKeyManager(cfg *Config) (*KeyManager, error) {
 			kmsType:    cfg.KMSType,
 			keyManager: km,
 			crypto:     cr,
+			metrics:    metrics,
 		}, nil
 	case Web:
 		return &KeyManager{
 			kmsType:    cfg.KMSType,
 			keyManager: webkms.New(cfg.Endpoint, cfg.HTTPClient),
 			crypto:     webcrypto.New(cfg.Endpoint, cfg.HTTPClient),
+			metrics:    metrics,
 		}, nil
 	case AWS:
 		awsSession, err := session.NewSession(&aws.Config{
@@ -106,6 +115,7 @@ func NewAriesKeyManager(cfg *Config) (*KeyManager, error) {
 			kmsType:    cfg.KMSType,
 			keyManager: awsSvc,
 			crypto:     awsSvc,
+			metrics:    metrics,
 		}, nil
 	}
 
@@ -164,7 +174,7 @@ func (km *KeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{},
 
 func (km *KeyManager) NewVCSigner(
 	creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
-	return signer.NewKMSSigner(km.keyManager, km.crypto, creator, signatureType)
+	return signer.NewKMSSigner(km.keyManager, km.crypto, creator, signatureType, km.metrics)
 }
 
 func createLocalSecretLock(keyPath string) (secretlock.Service, error) {

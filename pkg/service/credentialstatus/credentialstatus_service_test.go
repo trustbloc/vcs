@@ -697,7 +697,7 @@ func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.Signat
 		m.crypto = &cryptomock.Crypto{}
 	}
 
-	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType)
+	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType, nil)
 }
 
 func createDIDDoc(didID string) *did.Doc { //nolint:unparam

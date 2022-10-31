@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -155,6 +156,15 @@ const (
 	oAuthSecretFlagUsage     = "oauth global secret, any string. Example: secret-for-signing-and-verifying-signatures"
 	oAuthSecretFlagEnvKey    = "VC_OAUTH_SECRET"
 
+	metricsProviderFlagName         = "metrics-provider-name"
+	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
+	allowedMetricsProviderFlagUsage = "The metrics provider name (for example: 'prometheus' etc.). " +
+		commonEnvVarUsageText + metricsProviderEnvKey
+
+	promHttpUrlFlagName             = "prom-http-url"
+	promHttpUrlEnvKey               = "VC_PROM_HTTP_URL"
+	allowedPromHttpUrlFlagNameUsage = "URL that exposes the prometheus metrics endpoint. Format: HostName:Port. "
+
 	databaseTypeMongoDBOption = "mongodb"
 
 	didMethodVeres   = "v1"
@@ -170,20 +180,26 @@ const (
 )
 
 type startupParameters struct {
-	hostURL              string
-	hostURLExternal      string
-	universalResolverURL string
-	mode                 string
-	dbParameters         *dbParameters
-	kmsParameters        *kmsParameters
-	token                string
-	requestTokens        map[string]string
-	logLevel             string
-	contextProviderURLs  []string
-	contextEnableRemote  bool
-	tlsParameters        *tlsParameters
-	devMode              bool
-	oAuthSecret          string
+	hostURL                         string
+	hostURLExternal                 string
+	universalResolverURL            string
+	mode                            string
+	dbParameters                    *dbParameters
+	kmsParameters                   *kmsParameters
+	token                           string
+	requestTokens                   map[string]string
+	logLevel                        string
+	contextProviderURLs             []string
+	contextEnableRemote             bool
+	tlsParameters                   *tlsParameters
+	devMode                         bool
+	oAuthSecret                     string
+	metricsProviderName             string
+	prometheusMetricsProviderParams *prometheusMetricsProviderParams
+}
+
+type prometheusMetricsProviderParams struct {
+	url string
 }
 
 type dbParameters struct {
@@ -217,6 +233,19 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	oAuthSecret, err := cmdutils.GetUserSetVarFromString(cmd, oAuthSecretFlagName, oAuthSecretFlagEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	metricsProviderName, err := getMetricsProviderName(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	var prometheusMetricsProviderParams *prometheusMetricsProviderParams
+	if metricsProviderName == "prometheus" {
+		prometheusMetricsProviderParams, err = getPrometheusMetricsProviderParams(cmd)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -291,21 +320,41 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	return &startupParameters{
-		hostURL:              hostURL,
-		hostURLExternal:      hostURLExternal,
-		universalResolverURL: universalResolverURL,
-		mode:                 mode,
-		dbParameters:         dbParams,
-		kmsParameters:        kmsParams,
-		tlsParameters:        tlsParameters,
-		token:                token,
-		requestTokens:        requestTokens,
-		logLevel:             loggingLevel,
-		contextProviderURLs:  contextProviderURLs,
-		contextEnableRemote:  contextEnableRemote,
-		devMode:              devMode,
-		oAuthSecret:          oAuthSecret,
+		hostURL:                         hostURL,
+		hostURLExternal:                 hostURLExternal,
+		universalResolverURL:            universalResolverURL,
+		mode:                            mode,
+		dbParameters:                    dbParams,
+		kmsParameters:                   kmsParams,
+		tlsParameters:                   tlsParameters,
+		token:                           token,
+		requestTokens:                   requestTokens,
+		logLevel:                        loggingLevel,
+		contextProviderURLs:             contextProviderURLs,
+		contextEnableRemote:             contextEnableRemote,
+		devMode:                         devMode,
+		oAuthSecret:                     oAuthSecret,
+		metricsProviderName:             metricsProviderName,
+		prometheusMetricsProviderParams: prometheusMetricsProviderParams,
 	}, nil
+}
+
+func getMetricsProviderName(cmd *cobra.Command) (string, error) {
+	metricsProvider, err := cmdutils.GetUserSetVarFromString(cmd, metricsProviderFlagName, metricsProviderEnvKey, true)
+	if err != nil {
+		return "", err
+	}
+
+	return metricsProvider, nil
+}
+
+func getPrometheusMetricsProviderParams(cmd *cobra.Command) (*prometheusMetricsProviderParams, error) {
+	promMetricsUrl, err := cmdutils.GetUserSetVarFromString(cmd, promHttpUrlFlagName, promHttpUrlEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return &prometheusMetricsProviderParams{url: promMetricsUrl}, nil
 }
 
 func getDevMode(cmd *cobra.Command) (bool, error) {
@@ -421,6 +470,25 @@ func supportedKmsType(kmsType kms.Type) bool {
 	return true
 }
 
+func getDuration(cmd *cobra.Command, flagName, envKey string,
+	defaultDuration time.Duration) (time.Duration, error) {
+	timeoutStr, err := cmdutils.GetUserSetVarFromString(cmd, flagName, envKey, true)
+	if err != nil {
+		return -1, err
+	}
+
+	if timeoutStr == "" {
+		return defaultDuration, nil
+	}
+
+	timeout, err := time.ParseDuration(timeoutStr)
+	if err != nil {
+		return -1, fmt.Errorf("invalid value [%s]: %w", timeoutStr, err)
+	}
+
+	return timeout, nil
+}
+
 func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
 	databaseType, err := cmdutils.GetUserSetVarFromString(cmd, databaseTypeFlagName,
 		databaseTypeEnvKey, false)
@@ -495,5 +563,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(kmsRegionFlagName, "", kmsRegionFlagUsage)
 	startCmd.Flags().StringP(tlsCertificateFlagName, "", "", tlsCertificateFlagUsage)
 	startCmd.Flags().StringP(tlsKeyFlagName, "", "", tlsKeyFlagUsage)
+	startCmd.Flags().StringP(metricsProviderFlagName, "", "", allowedMetricsProviderFlagUsage)
+	startCmd.Flags().StringP(promHttpUrlFlagName, "", "", allowedPromHttpUrlFlagNameUsage)
 	profilereader.AddFlags(startCmd)
 }

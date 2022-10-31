@@ -17,6 +17,7 @@ import (
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )
 
 func TestKMSSigner_Alg(t *testing.T) {
@@ -134,6 +135,7 @@ func TestKMSSigner_Sign(t *testing.T) {
 				keyHandle: tt.fields.keyHandle,
 				crypto:    tt.fields.getCrypto(),
 				bbs:       tt.fields.bbs,
+				metrics:   &noopMetricsProvider.NoMetrics{},
 			}
 			got, err := s.Sign(tt.args.data)
 			if (err != nil) != tt.wantErr {
@@ -231,6 +233,7 @@ func TestNewKMSSigner(t *testing.T) {
 				crypto:        &mockcrypto.Crypto{},
 				signatureType: vcsverifiable.Ed25519Signature2018,
 				bbs:           false,
+				metrics:       &noopMetricsProvider.NoMetrics{},
 			},
 			wantErr: false,
 		},
@@ -250,6 +253,7 @@ func TestNewKMSSigner(t *testing.T) {
 				crypto:        &mockcrypto.Crypto{},
 				signatureType: vcsverifiable.BbsBlsSignature2020,
 				bbs:           true,
+				metrics:       &noopMetricsProvider.NoMetrics{},
 			},
 			wantErr: false,
 		},
@@ -284,7 +288,7 @@ func TestNewKMSSigner(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewKMSSigner(tt.args.keyManager, tt.args.c, tt.args.creator, tt.args.signatureType)
+			got, err := NewKMSSigner(tt.args.keyManager, tt.args.c, tt.args.creator, tt.args.signatureType, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewKMSSigner() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -8,16 +8,26 @@ package signer
 
 import (
 	"strings"
+	"time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
+	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )
 
+type metricsProvider interface {
+	SignCount()
+	SignTime(value time.Duration)
+}
+
+// KMSSigner to crypto sign a message.
+// Note: do not create an instance of KMSSigner directly. Use NewKMSSigner() instead.
 type KMSSigner struct {
 	keyHandle     interface{}
 	crypto        crypto
 	signatureType vcsverifiable.SignatureType
 	bbs           bool
+	metrics       metricsProvider
 }
 
 type keyManager interface {
@@ -30,24 +40,39 @@ type crypto interface {
 }
 
 func NewKMSSigner(keyManager keyManager, c crypto, creator string,
-	signatureType vcsverifiable.SignatureType) (*KMSSigner, error) {
+	signatureType vcsverifiable.SignatureType, metrics metricsProvider) (*KMSSigner, error) {
 	// creator will contain didID#keyID
 	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)
 	if err != nil {
 		return nil, err
 	}
 
-	keyHandler, err := keyManager.Get(keyID)
+	kh, err := keyManager.Get(keyID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &KMSSigner{keyHandle: keyHandler, crypto: c,
+	if metrics == nil {
+		metrics = &noopMetricsProvider.NoMetrics{}
+	}
+
+	return &KMSSigner{
+		keyHandle: kh, crypto: c,
 		signatureType: signatureType,
-		bbs:           signatureType == vcsverifiable.BbsBlsSignature2020}, nil
+		bbs:           signatureType == vcsverifiable.BbsBlsSignature2020,
+		metrics:       metrics,
+	}, nil
 }
 
 func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
+	startTime := time.Now()
+
+	defer func() {
+		s.metrics.SignTime(time.Since(startTime))
+	}()
+
+	s.metrics.SignCount()
+
 	if s.bbs {
 		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)
 	}

@@ -48,7 +48,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			DBType:            "mem",
 			DBURL:             "",
 			DBPrefix:          "",
-		})
+		}, nil)
 
 		require.NotNil(t, km)
 		require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			DBType:            "mongodb",
 			DBURL:             mongoDBConnString,
 			DBPrefix:          "test",
-		})
+		}, nil)
 
 		require.NotNil(t, km)
 		require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			DBType:            "mem",
 			DBURL:             "",
 			DBPrefix:          "",
-		})
+		}, nil)
 
 		require.Contains(t, err.Error(), "no such file or directory")
 	})
@@ -110,7 +110,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 			DBType:            "incorrect",
 			DBURL:             "",
 			DBPrefix:          "",
-		})
+		}, nil)
 
 		require.Contains(t, err.Error(), "not supported database type")
 	})
@@ -122,7 +122,7 @@ func TestNewWebKeyManager(t *testing.T) {
 			KMSType:    kms.Web,
 			HTTPClient: &http.Client{},
 			Endpoint:   "url",
-		})
+		}, nil)
 
 		require.NotNil(t, km)
 		require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestNewAWSKeyManager(t *testing.T) {
 			KMSType:    kms.AWS,
 			HTTPClient: &http.Client{},
 			Endpoint:   "url",
-		})
+		}, nil)
 
 		require.NotNil(t, km)
 		require.NoError(t, err)

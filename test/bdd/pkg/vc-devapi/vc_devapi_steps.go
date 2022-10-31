@@ -93,7 +93,7 @@ func (s *Steps) httpGet(url string, withAuth bool) error {
 	s.responseBody = body
 	s.responseStatus = resp.StatusCode
 
-	logger.Info("vc_devapi httpGet content", log.WithResponseBody(string(body)), log.WithHTTPStatus(s.responseStatus))
+	logger.Info("vc_devapi httpGet content", log.WithResponseBody(body), log.WithHTTPStatus(s.responseStatus))
 
 	return nil
 }
