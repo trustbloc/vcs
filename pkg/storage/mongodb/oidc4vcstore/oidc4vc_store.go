@@ -43,6 +43,7 @@ type mongoDocument struct {
 	TokenEndpoint                      string
 	AuthorizationDetails               *oidc4vc.AuthorizationDetails
 	ClientID                           string
+	ClientSecret                       string
 }
 
 // Store stores oidc transactions in mongo.
@@ -151,6 +152,7 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 		TokenEndpoint:                      doc.TokenEndpoint,
 		ClaimEndpoint:                      doc.ClaimEndpoint,
 		ClientID:                           doc.ClientID,
+		ClientSecret:                       doc.ClientSecret,
 		GrantType:                          doc.GrantType,
 		ResponseType:                       doc.ResponseType,
 		Scope:                              doc.Scope,
@@ -197,5 +199,6 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData)
 		TokenEndpoint:                      data.TokenEndpoint,
 		AuthorizationDetails:               data.AuthorizationDetails,
 		ClientID:                           data.ClientID,
+		ClientSecret:                       data.ClientSecret,
 	}
 }

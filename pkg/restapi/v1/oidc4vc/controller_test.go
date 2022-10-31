@@ -1,5 +1,5 @@
 /*
-Copyright SecureKey Technologies Inc. All Rights Reserved.
+Copyright Avast Software. All Rights Reserved.
 
 SPDX-License-Identifier: Apache-2.0
 */
@@ -7,823 +7,594 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc_test
 
 import (
+	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
-	"github.com/ory/fosite/compose"
-	fositeoauth2 "github.com/ory/fosite/handler/oauth2"
-	"github.com/ory/fosite/storage"
-	"github.com/ory/fosite/token/hmac"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/restapiclient"
-	oidc4vcservice "github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 )
 
-const (
-	testClientID = "test-client"
-	nonceLength  = 15
-)
-
-//nolint:gochecknoglobals
-var store = &storage.MemoryStore{
-	Clients: map[string]fosite.Client{
-		testClientID: &fosite.DefaultClient{
-			ID:            testClientID,
-			Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
-			RedirectURIs:  []string{"/redirect"},
-			ResponseTypes: []string{"code"},
-			GrantTypes:    []string{"authorization_code"},
-			Scopes:        []string{"openid"},
-		},
-	},
-	AuthorizeCodes:         map[string]storage.StoreAuthorizeCode{},
-	IDSessions:             make(map[string]fosite.Requester),
-	AccessTokens:           map[string]fosite.Requester{},
-	RefreshTokens:          map[string]storage.StoreRefreshToken{},
-	PKCES:                  map[string]fosite.Requester{},
-	Users:                  make(map[string]storage.MemoryUserRelation),
-	AccessTokenRequestIDs:  map[string]string{},
-	RefreshTokenRequestIDs: map[string]string{},
-	IssuerPublicKeys:       map[string]storage.IssuerPublicKeys{},
-	PARSessions:            map[string]fosite.AuthorizeRequester{},
-}
-
-func TestPushedAuthorizedRequest(t *testing.T) {
-	client := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	srv := testServer(t, withIssuerInteractionAPIClient(client))
-	defer srv.Close()
-
+//nolint:lll
+func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 	var (
-		oauthClient *oauth2.Config
-		ad          string
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		q                     url.Values
 	)
 
 	tests := []struct {
-		name       string
-		setup      func()
-		statusCode int
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
 	}{
 		{
 			name: "success",
 			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL)
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).Return(&fosite.PushedAuthorizeResponse{}, nil)
+				mockOAuthProvider.EXPECT().WritePushedAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 
-				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).
-					Return(&restapiclient.PushAuthorizationResponse{
-						TxID: "txID",
+				mockInteractionClient.EXPECT().PushAuthorizationDetails(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer(nil)),
 					}, nil)
 
-				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}` //nolint:lll
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
 			},
-			statusCode: http.StatusCreated,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+			},
 		},
 		{
-			name: "service error",
+			name: "invalid pushed authorize request",
 			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL)
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil, errors.New("par error"))
+				q = url.Values{}
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "par error")
+			},
+		},
+		{
+			name: "fail to unmarshal authorization details",
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
 
-				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("service error"))
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", "invalid")
 			},
-			statusCode: http.StatusInternalServerError,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "invalid-value[authorization_details]")
+			},
 		},
 		{
-			name: "invalid client",
+			name: "fail to validate authorization details",
 			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL, withClientID("invalid-client"))
-				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
-				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","locations":[]}` //nolint:lll
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
+
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", `{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
 			},
-			statusCode: http.StatusUnauthorized,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "type should be 'openid_credential'")
+			},
 		},
 		{
-			name: "fail to unmarshal authorization_details",
+			name: "fail to push authorization details",
 			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL)
-				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
-				ad = "invalid json"
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
+				mockInteractionClient.EXPECT().PushAuthorizationDetails(gomock.Any(), gomock.Any()).Return(nil, errors.New("push authorization details error"))
+
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
 			},
-			statusCode: http.StatusInternalServerError,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "push authorization details error")
+			},
 		},
 		{
-			name: "invalid authorization_details.type",
+			name: "invalid status code for push authorization details",
 			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL)
-				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
-				ad = `{"type":"invalid","credential_type":"https://did.example.org/healthCard","locations":[]}`
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
+
+				mockInteractionClient.EXPECT().PushAuthorizationDetails(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusInternalServerError,
+						Body:       io.NopCloser(bytes.NewBuffer(nil)),
+					}, nil)
+
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
 			},
-			statusCode: http.StatusInternalServerError,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "push authorization details: status code")
+			},
 		},
 		{
-			name: "invalid authorization_details.format",
+			name: "fail to create new pushed authorize response",
 			setup: func() {
-				oauthClient = newOAuth2Client(srv.URL)
-				client.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
-				ad = `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[]}` //nolint:lll
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{}, nil)
+				mockOAuthProvider.EXPECT().NewPushedAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("new pushed authorize response error"))
+
+				mockInteractionClient.EXPECT().PushAuthorizationDetails(gomock.Any(), gomock.Any()).Return(
+					&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer(nil)),
+					}, nil)
+
+				q = url.Values{}
+				q.Add("op_state", "opState")
+				q.Add("authorization_details", `{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`)
 			},
-			statusCode: http.StatusInternalServerError,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "new pushed authorize response error")
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			query := url.Values{}
-			query.Set("client_id", oauthClient.ClientID)
-			query.Set("client_secret", oauthClient.ClientSecret)
-			query.Set("response_type", "code")
-			query.Set("state", nonce())
-			query.Set("scope", strings.Join(oauthClient.Scopes, " "))
-			query.Set("redirect_uri", oauthClient.RedirectURL)
-			query.Set("authorization_details", ad)
+			controller := oidc4vc.NewController(&oidc4vc.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				IssuerInteractionClient: mockInteractionClient,
+				IssuerVCSPublicHost:     "https://issuer.example.com",
+			})
 
-			req, err := http.NewRequest(http.MethodPost, srv.URL+"/oidc/par", strings.NewReader(query.Encode()))
-			require.NoError(t, err)
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(q.Encode()))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 
-			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			rec := httptest.NewRecorder()
 
-			resp, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-
-			defer func() {
-				if closeErr := resp.Body.Close(); closeErr != nil {
-					t.Logf("Failed to close response body: %s", closeErr)
-				}
-			}()
-
-			require.Equal(t, tt.statusCode, resp.StatusCode)
+			err := controller.OidcPushedAuthorizationRequest(echo.New().NewContext(req, rec))
+			tt.check(t, rec, err)
 		})
 	}
 }
 
-func TestAuthorizeRequest(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+//nolint:lll
+func TestController_OidcAuthorize(t *testing.T) {
+	var (
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockStateStore        = NewMockStateStore(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		params                oidc4vc.OidcAuthorizeParams
 	)
-	defer srv.Close()
-
-	var authCodeURL string
 
 	tests := []struct {
-		name       string
-		setup      func()
-		statusCode int
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
 	}{
 		{
 			name: "success",
 			setup: func() {
-				opState := uuid.NewString()
-				params := []oauth2.AuthCodeOption{
-					oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-					oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-					oauth2.SetAuthURLParam("op_state", opState),
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
 				}
 
-				interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
-					&restapiclient.PrepareClaimDataAuthorizationRequest{
-						OpState: opState,
-					}).Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
-					RedirectURI: "http://redirect",
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
 				}, nil)
-				oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), opState, gomock.Any()).
-					Return(nil)
 
-				authCodeURL = newOAuth2Client(srv.URL).AuthCodeURL(nonce(), params...)
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						assert.Equal(t, params.OpState, ar.(*fosite.AuthorizeRequest).State)
+
+						return &fosite.AuthorizeResponse{}, nil
+					})
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), params.OpState, gomock.Any()).Return(nil)
 			},
-			statusCode: http.StatusSeeOther,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusSeeOther, rec.Code)
+				require.NotEmpty(t, rec.Header().Get("Location"))
+			},
 		},
 		{
-			name: "invalid client",
+			name: "invalid authorize request",
 			setup: func() {
-				params := []oauth2.AuthCodeOption{
-					oauth2.SetAuthURLParam("code_challenge", ""),
-					oauth2.SetAuthURLParam("op_state", uuid.NewString()),
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
 				}
 
-				authCodeURL = newOAuth2Client(srv.URL, withClientID("invalid-client")).AuthCodeURL(nonce(), params...)
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(nil, errors.New("authorize error"))
 			},
-			statusCode: http.StatusUnauthorized,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "authorize error")
+			},
 		},
 		{
-			name: "missing op state",
+			name: "prepare claim data authorization",
 			setup: func() {
-				params := []oauth2.AuthCodeOption{
-					oauth2.SetAuthURLParam("code_challenge", ""),
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
 				}
 
-				authCodeURL = newOAuth2Client(srv.URL).AuthCodeURL(nonce(), params...)
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return nil, errors.New("prepare claim data authorization error")
+					})
 			},
-			statusCode: http.StatusInternalServerError,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "prepare claim data authorization")
+			},
+		},
+		{
+			name: "invalid status code for prepare claim data authorization",
+			setup: func() {
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewBuffer(nil)),
+						}, nil
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "prepare claim data authorization: status code")
+			},
+		},
+		{
+			name: "fail to create authorize response",
+			setup: func() {
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						assert.Equal(t, params.OpState, ar.(*fosite.AuthorizeRequest).State)
+
+						return nil, errors.New("create authorize response error")
+					})
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "create authorize response error")
+			},
+		},
+		{
+			name: "fail to save authorize state",
+			setup: func() {
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						ar fosite.AuthorizeRequester,
+						session fosite.Session,
+					) (fosite.AuthorizeResponder, error) {
+						assert.Equal(t, params.OpState, ar.(*fosite.AuthorizeRequest).State)
+
+						return &fosite.AuthorizeResponse{}, nil
+					})
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest: issuer.OAuthParameters{},
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), params.OpState, gomock.Any()).Return(
+					errors.New("save state error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "save authorize state")
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			cl := http.Client{
-				CheckRedirect: func(req *http.Request, via []*http.Request) error {
-					return http.ErrUseLastResponse
-				},
-			}
+			controller := oidc4vc.NewController(&oidc4vc.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				StateStore:              mockStateStore,
+				IssuerInteractionClient: mockInteractionClient,
+				IssuerVCSPublicHost:     "https://issuer.example.com",
+			})
 
-			resp, err := cl.Get(authCodeURL)
-			require.NoError(t, err)
-			require.Equal(t, tt.statusCode, resp.StatusCode)
+			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+
+			rec := httptest.NewRecorder()
+
+			err := controller.OidcAuthorize(echo.New().NewContext(req, rec), params)
+			tt.check(t, rec, err)
 		})
 	}
 }
 
-func TestTokenRequest(t *testing.T) {
-	srv := testServer(t)
-	defer srv.Close()
-
-	var authCode string
+//nolint:lll
+func TestController_OidcRedirect(t *testing.T) {
+	var (
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockStateStore        = NewMockStateStore(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		params                oidc4vc.OidcRedirectParams
+	)
 
 	tests := []struct {
-		name       string
-		setup      func()
-		statusCode int
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
 	}{
 		{
-			name: "invalid authorization code",
+			name: "success",
 			setup: func() {
-				authCode = "invalid-code"
+				params = oidc4vc.OidcRedirectParams{
+					Code:  "code",
+					State: "state",
+				}
+
+				redirectURI := &url.URL{Scheme: "https", Host: "example.com", Path: "redirect"}
+
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4vcstatestore.AuthorizeState{
+					RedirectURI: redirectURI,
+				}, nil)
+
+				mockOAuthProvider.EXPECT().WriteAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Do(func(
+						ctx context.Context,
+						rw http.ResponseWriter,
+						ar fosite.AuthorizeRequester,
+						responder fosite.AuthorizeResponder,
+					) {
+						assert.Equal(t, redirectURI, ar.GetRedirectURI())
+						assert.Equal(t, params.State, ar.GetState())
+					})
 			},
-			statusCode: http.StatusBadRequest,
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "fail to get authorize state",
+			setup: func() {
+				params = oidc4vc.OidcRedirectParams{
+					Code:  "code",
+					State: "state",
+				}
+
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(nil, errors.New("get state error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "get state error")
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			resp, err := http.PostForm(srv.URL+"/oidc/token", url.Values{
-				"code":          {authCode},
-				"grant_type":    {"authorization_code"},
-				"client_id":     {testClientID},
-				"client_secret": {"foobar"},
-				"redirect_uri":  {srv.URL + "/redirect"},
-				"code_verifier": {"xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"},
+			controller := oidc4vc.NewController(&oidc4vc.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				StateStore:              mockStateStore,
+				IssuerInteractionClient: mockInteractionClient,
+				IssuerVCSPublicHost:     "https://issuer.example.com",
 			})
-			require.NoError(t, err)
 
-			defer func() {
-				if closeErr := resp.Body.Close(); closeErr != nil {
-					t.Logf("Failed to close response body: %s", closeErr)
-				}
-			}()
+			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 
-			require.Equal(t, tt.statusCode, resp.StatusCode)
+			rec := httptest.NewRecorder()
+
+			err := controller.OidcRedirect(echo.New().NewContext(req, rec), params)
+			tt.check(t, rec, err)
 		})
 	}
 }
 
-func TestAuthorizeCodeGrantFlow(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	opState := uuid.NewString()
-
-	redirectURL := fmt.Sprintf("https://trust/redirect?id=%v", uuid.NewString())
-
-	interactionAPIClientMock.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
-	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
-		&restapiclient.PrepareClaimDataAuthorizationRequest{
-			OpState: opState,
-		}).Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
-		RedirectURI: redirectURL,
-	}, nil)
-
-	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), opState, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(
-			ctx context.Context,
-			opState string,
-			auth oidc4vcservice.OIDC4AuthorizationState,
-			params ...func(options *oidc4vcservice.InsertOptions),
-		) error {
-			assert.Equal(t, "query", auth.RespondMode)
-
-			assert.Empty(t, auth.AuthorizeResponse.Header)
-			assert.Len(t, auth.AuthorizeResponse.Parameters, 3)
-			assert.NotEmpty(t, auth.AuthorizeResponse.Parameters["code"])
-			assert.NotEmpty(t, auth.AuthorizeResponse.Parameters["state"])
-			assert.Equal(t, []string{""}, auth.AuthorizeResponse.Parameters["scope"])
-
-			assert.NotNil(t, auth.RedirectURI)
-
-			return nil
-		})
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
+func TestController_OidcToken(t *testing.T) {
+	var (
+		mockOAuthProvider = NewMockOAuth2Provider(gomock.NewController(t))
 	)
 
-	defer srv.Close()
-
-	oauthClient := newOAuth2Client(srv.URL)
-
-	params := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-		oauth2.SetAuthURLParam("op_state", opState),
-	}
-
-	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	// get authorization code
-	resp, err := cl.Get(authCodeURL)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
-	require.Equal(t, redirectURL, resp.Header.Get("location"))
-}
-
-func TestAuthorizeCodeGrantFlowWithPAR(t *testing.T) {
-	opState := uuid.NewString()
-	randURI := fmt.Sprintf("https://external-oidc-provider.com/%v", opState)
-
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	interactionAPIClientMock.EXPECT().PushAuthorizationRequest(gomock.Any(), gomock.Any()).
-		Return(&restapiclient.PushAuthorizationResponse{
-			TxID: "txID",
-		}, nil)
-	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
-		Return(&restapiclient.PrepareClaimDataAuthorizationResponse{
-			RedirectURI: randURI,
-		}, nil)
-	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil)
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
-	)
-
-	defer srv.Close()
-
-	oauthClient := newOAuth2Client(srv.URL)
-
-	query := url.Values{}
-	query.Set("client_id", oauthClient.ClientID)
-	query.Set("client_secret", oauthClient.ClientSecret)
-	query.Set("response_type", "code")
-	query.Set("state", nonce())
-	query.Set("scope", strings.Join(oauthClient.Scopes, " "))
-	query.Set("redirect_uri", oauthClient.RedirectURL)
-	query.Set("authorization_details", `{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","locations":[]}`) //nolint:lll
-
-	// pushed authorization request
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL+"/oidc/par",
-		strings.NewReader(query.Encode()))
-	require.NoError(t, err)
-
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			t.Logf("Failed to close response body: %s", closeErr)
-		}
-	}()
-
-	require.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-
-	m := map[string]interface{}{}
-	require.NoError(t, json.Unmarshal(body, &m))
-
-	requestURI, _ := m["request_uri"].(string)
-	require.NotEmpty(t, requestURI)
-
-	// get authorization code
-	query = url.Values{}
-	query.Set("request_uri", requestURI)
-	query.Set("client_id", oauthClient.ClientID)
-	query.Set("response_type", "code")
-	query.Set("code_challenge_method", "S256")
-	query.Set("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8")
-	query.Set("code", nonce())
-	query.Set("op_state", opState)
-
-	authCodeURL := srv.URL + "/oidc/authorize?" + query.Encode()
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	resp, err = cl.Get(authCodeURL)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
-	require.Equal(t, randURI, resp.Header.Get("location"))
-}
-
-func TestAuthorizeCodeGrantFlowWithAuthZ(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	opState := uuid.NewString()
-	code := uuid.NewString()
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
-	)
-	defer srv.Close()
-	//
-	issuerOuathURL := "https://issuer"
-	var oidcResponder *oidc4vcservice.OIDC4AuthorizationState
-
-	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(),
-		&restapiclient.PrepareClaimDataAuthorizationRequest{
-			OpState: opState,
-		}).DoAndReturn(func(
-		ctx context.Context,
-		req *restapiclient.PrepareClaimDataAuthorizationRequest,
-	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error) {
-		issuerOAuthClient := newOAuth2Client(issuerOuathURL)
-		issuerOAuthClient.RedirectURL = srv.URL + "/oidc/token"
-
-		return &restapiclient.PrepareClaimDataAuthorizationResponse{
-			RedirectURI: issuerOAuthClient.AuthCodeURL(opState),
-		}, nil
-	})
-
-	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), opState, gomock.Any(), gomock.Any()).
-		DoAndReturn(
-			func(
-				ctx context.Context,
-				opState string,
-				auth oidc4vcservice.OIDC4AuthorizationState,
-				params ...func(options *oidc4vcservice.InsertOptions),
-			) error {
-				oidcResponder = &auth
-
-				return nil
-			})
-
-	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), &restapiclient.StoreAuthorizationCodeRequest{
-		OpState: opState,
-		Code:    code,
-	}).Return(&restapiclient.StoreAuthorizationCodeResponse{}, nil)
-
-	oidc4VcStateStorageMock.EXPECT().GetAuthorizationState(gomock.Any(), opState).DoAndReturn(
-		func(ctx context.Context, state string) (*oidc4vcservice.OIDC4AuthorizationState, error) {
-			return oidcResponder, nil
-		},
-	)
-
-	oauthClient := newOAuth2Client(srv.URL)
-
-	params := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-		oauth2.SetAuthURLParam("op_state", opState),
-	}
-
-	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	// get authorization code
-	resp, err := cl.Get(authCodeURL)
-	assert.NoError(t, err)
-	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
-
-	issuerRedirectURL := resp.Header.Get("location")
-	expectedRedirectURLToOurOidcCallback := url.QueryEscape(srv.URL + "/oidc/token")
-	assert.Equal(t,
-		fmt.Sprintf("https://issuer/oidc/authorize?client_id=test-client&redirect_uri=%v"+
-			"&response_type=code&scope=openid&state=%v", expectedRedirectURLToOurOidcCallback, opState),
-		issuerRedirectURL)
-
-	successCallback := fmt.Sprintf("%s/oidc/redirect?state=%s&code=%s", srv.URL, opState, code)
-	resp, err = cl.Get(successCallback)
-	tokenURL := resp.Header.Get("location")
-	assert.NoError(t, err)
-	assert.Contains(t, tokenURL, "?code=ory_ac_")
-
-	require.NoError(t, err)
-
-	parsed, err := url.Parse(resp.Header.Get("location"))
-	assert.NoError(t, err)
-
-	authCode := parsed.Query().Get("code")
-	tok, err := oauthClient.Exchange(context.TODO(), authCode,
-		oauth2.SetAuthURLParam("state", parsed.Query().Get("state")),
-		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"))
-	assert.NoError(t, err)
-	assert.NotEmpty(t, tok.AccessToken)
-}
-
-func TestAuthPrepareAuthErr(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	opState := uuid.NewString()
-	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
-		Return(nil, errors.New("auth err"))
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
-	)
-	defer srv.Close()
-
-	oauthClient := newOAuth2Client(srv.URL)
-
-	params := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-		oauth2.SetAuthURLParam("op_state", opState),
-	}
-
-	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := cl.Get(authCodeURL)
-	assert.NoError(t, err)
-	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
-}
-
-func TestAuthWithFailStorage(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	opState := uuid.NewString()
-	interactionAPIClientMock.EXPECT().PrepareClaimDataAuthorization(gomock.Any(), gomock.Any()).
-		Return(&restapiclient.PrepareClaimDataAuthorizationResponse{}, nil)
-	oidc4VcStateStorageMock.EXPECT().StoreAuthorizationState(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(errors.New("storage error"))
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
-	)
-	defer srv.Close()
-
-	oauthClient := newOAuth2Client(srv.URL)
-
-	params := []oauth2.AuthCodeOption{
-		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-		oauth2.SetAuthURLParam("op_state", opState),
-	}
-
-	authCodeURL := oauthClient.AuthCodeURL(nonce(), params...)
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	resp, err := cl.Get(authCodeURL)
-	assert.NoError(t, err)
-	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
-}
-
-func TestCallbackWithStoreCodeApiError(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	opState := uuid.NewString()
-	code := uuid.NewString()
-
-	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), gomock.Any()).
-		Return(nil, errors.New("api error"))
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
-	)
-	defer srv.Close()
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	resp, err := cl.Get(fmt.Sprintf("%s/oidc/redirect?state=%s&code=%v", srv.URL, opState, code))
-	assert.NoError(t, err)
-	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
-}
-
-func TestCallbackWithRestoreStateError(t *testing.T) {
-	interactionAPIClientMock := NewMockcredentialInteractionAPIClient(gomock.NewController(t))
-	oidc4VcStateStorageMock := NewMockoidc4VCStateStorage(gomock.NewController(t))
-
-	opState := uuid.NewString()
-	code := uuid.NewString()
-
-	interactionAPIClientMock.EXPECT().StoreAuthorizationCode(gomock.Any(), gomock.Any()).
-		Return(&restapiclient.StoreAuthorizationCodeResponse{}, nil)
-	oidc4VcStateStorageMock.EXPECT().GetAuthorizationState(gomock.Any(), opState).
-		Return(nil, errors.New("storage error"))
-
-	srv := testServer(t,
-		withIssuerInteractionAPIClient(interactionAPIClientMock),
-		withOidc4VCStateStorage(oidc4VcStateStorageMock),
-	)
-	defer srv.Close()
-
-	cl := http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-
-	resp, err := cl.Get(fmt.Sprintf("%s/oidc/redirect?state=%s&code=%v", srv.URL, opState, code))
-	assert.NoError(t, err)
-	assert.Equal(t, resp.StatusCode, http.StatusInternalServerError)
-}
-
-type interactionAPIClient interface {
-	PrepareClaimDataAuthorization(
-		ctx context.Context,
-		req *restapiclient.PrepareClaimDataAuthorizationRequest,
-	) (*restapiclient.PrepareClaimDataAuthorizationResponse, error)
-	StoreAuthorizationCode(
-		ctx context.Context,
-		req *restapiclient.StoreAuthorizationCodeRequest,
-	) (*restapiclient.StoreAuthorizationCodeResponse, error)
-	PushAuthorizationRequest(
-		ctx context.Context,
-		req *restapiclient.PushAuthorizationRequest,
-	) (*restapiclient.PushAuthorizationResponse, error)
-}
-
-type oidc4VCStateStorage interface {
-	StoreAuthorizationState(
-		ctx context.Context,
-		opState string,
-		auth oidc4vcservice.OIDC4AuthorizationState,
-		params ...func(insertOptions *oidc4vcservice.InsertOptions),
-	) error
-	GetAuthorizationState(ctx context.Context, opState string) (*oidc4vcservice.OIDC4AuthorizationState, error)
-}
-
-// serverOptions to customize test server.
-type serverOptions struct {
-	interactionAPIClient interactionAPIClient
-	oidc4VCStateStorage  oidc4VCStateStorage
-}
-
-// ServerOpt configures test server options.
-type ServerOpt func(options *serverOptions)
-
-func withIssuerInteractionAPIClient(svc interactionAPIClient) ServerOpt {
-	return func(o *serverOptions) {
-		o.interactionAPIClient = svc
-	}
-}
-
-func withOidc4VCStateStorage(svc oidc4VCStateStorage) ServerOpt {
-	return func(o *serverOptions) {
-		o.oidc4VCStateStorage = svc
-	}
-}
-
-func testServer(t *testing.T, opts ...ServerOpt) *httptest.Server {
-	t.Helper()
-
-	op := &serverOptions{}
-
-	for _, fn := range opts {
-		fn(op)
-	}
-
-	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler
-
-	config := new(fosite.Config)
-	config.EnforcePKCE = true
-
-	var hmacStrategy = &fositeoauth2.HMACSHAStrategy{
-		Enigma: &hmac.HMACStrategy{
-			Config: &fosite.Config{
-				GlobalSecret: []byte("secret-for-signing-and-verifying-signatures"),
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
+	}{
+		{
+			name: "success",
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&fosite.AccessRequest{}, nil)
+
+				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
+					&fosite.AccessResponse{}, nil)
+
+				mockOAuthProvider.EXPECT().WriteAccessResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
 			},
 		},
-		Config: &fosite.Config{
-			AuthorizeCodeLifespan: time.Minute,
-			AccessTokenLifespan:   time.Hour,
+		{
+			name: "fail to create new access request",
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					nil, errors.New("new access request error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "new access request error")
+			},
+		},
+		{
+			name: "fail to create new access response",
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&fosite.AccessRequest{}, nil)
+
+				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
+					nil, errors.New("new access response error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "new access response error")
+			},
 		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
 
-	oauth2Provider := compose.Compose(config, store, hmacStrategy,
-		compose.OAuth2AuthorizeExplicitFactory,
-		compose.OAuth2PKCEFactory,
-		compose.PushedAuthorizeHandlerFactory,
-	)
+			controller := oidc4vc.NewController(&oidc4vc.Config{
+				OAuth2Provider: mockOAuthProvider,
+			})
 
-	controller := oidc4vc.NewController(&oidc4vc.Config{
-		OAuth2Provider:                 oauth2Provider,
-		CredentialInteractionAPIClient: op.interactionAPIClient,
-		OIDC4VCStateStorage:            op.oidc4VCStateStorage,
-	})
+			req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 
-	oidc4vc.RegisterHandlers(e, controller)
+			rec := httptest.NewRecorder()
 
-	srv := httptest.NewServer(e)
-
-	for _, client := range store.Clients {
-		c, ok := client.(*fosite.DefaultClient)
-		if ok {
-			c.RedirectURIs[0] = srv.URL + "/redirect"
-		}
+			err := controller.OidcToken(echo.New().NewContext(req, rec))
+			tt.check(t, rec, err)
+		})
 	}
-
-	return srv
-}
-
-// clientOptions to customize OAuth2 client.
-type clientOptions struct {
-	clientID string
-}
-
-// ClientOpt configures OAuth2 client options.
-type ClientOpt func(*clientOptions)
-
-func withClientID(clientID string) ClientOpt {
-	return func(o *clientOptions) {
-		o.clientID = clientID
-	}
-}
-
-func newOAuth2Client(serverURL string, opts ...ClientOpt) *oauth2.Config {
-	op := &clientOptions{
-		clientID: testClientID,
-	}
-
-	for _, fn := range opts {
-		fn(op)
-	}
-
-	return &oauth2.Config{
-		ClientID:     op.clientID,
-		ClientSecret: "foobar",
-		RedirectURL:  serverURL + "/redirect",
-		Scopes:       []string{"openid"},
-		Endpoint: oauth2.Endpoint{
-			TokenURL:  serverURL + "/oidc/token",
-			AuthURL:   serverURL + "/oidc/authorize",
-			AuthStyle: oauth2.AuthStyleInHeader,
-		},
-	}
-}
-
-func nonce() string {
-	b := make([]byte, nonceLength)
-
-	_, err := rand.Read(b)
-	if err != nil {
-		panic(err)
-	}
-
-	return base64.RawURLEncoding.EncodeToString(b)
 }

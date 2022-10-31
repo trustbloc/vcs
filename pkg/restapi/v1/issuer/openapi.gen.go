@@ -4,8 +4,15 @@
 package issuer
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
@@ -90,31 +97,31 @@ type IssueCredentialOptions struct {
 }
 
 // Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
-type IssuerAuthorizationRequestParameters struct {
-	ClientId     string `json:"client_id"`
-	ResponseType string `json:"response_type"`
-	Scope        string `json:"scope"`
-	State        string `json:"state"`
+type OAuthParameters struct {
+	ClientId     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret"`
+	ResponseType string   `json:"response_type"`
+	Scope        []string `json:"scope"`
 }
 
-// Model for Prepare Claim Data Authorization Request
+// Model for Prepare Claim Data Authorization Request.
 type PrepareClaimDataAuthorizationRequest struct {
 	// Model to convey the details about the Credentials the Client wants to obtain.
 	AuthorizationDetails *externalRef0.AuthorizationDetails `json:"authorization_details,omitempty"`
 	OpState              string                             `json:"op_state"`
 
 	// Value MUST be set to "code".
-	ResponseType string  `json:"response_type"`
-	Scope        *string `json:"scope,omitempty"`
+	ResponseType string    `json:"response_type"`
+	Scope        *[]string `json:"scope,omitempty"`
 }
 
 // Model for Prepare Claim Data Authorization Response.
 type PrepareClaimDataAuthorizationResponse struct {
 	// Issuer's OIDC provider authorization endpoint.
-	AuthorizationEndpoint *string `json:"authorization_endpoint,omitempty"`
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
 
 	// Model with key value pairs containing parameters to build OIDC core authorization request (RFC6749) for Issuer OIDC provider to perform wallet user authorization grant.
-	AuthorizationRequest IssuerAuthorizationRequestParameters `json:"authorization_request"`
+	AuthorizationRequest OAuthParameters `json:"authorization_request"`
 
 	// Issuer's OIDC provider PAR endpoint.
 	PushedAuthorizationRequestEndpoint *string `json:"pushed_authorization_request_endpoint,omitempty"`
@@ -138,11 +145,11 @@ type UpdateCredentialStatusRequest struct {
 	CredentialStatus CredentialStatus `json:"credentialStatus"`
 }
 
-// PrepareClaimDataAuthzRequestJSONBody defines parameters for PrepareClaimDataAuthzRequest.
-type PrepareClaimDataAuthzRequestJSONBody = PrepareClaimDataAuthorizationRequest
+// PrepareAuthorizationRequestJSONBody defines parameters for PrepareAuthorizationRequest.
+type PrepareAuthorizationRequestJSONBody = PrepareClaimDataAuthorizationRequest
 
-// PostIssuerInteractionsPushAuthorizationRequestJSONBody defines parameters for PostIssuerInteractionsPushAuthorizationRequest.
-type PostIssuerInteractionsPushAuthorizationRequestJSONBody = PushAuthorizationDetailsRequest
+// PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
+type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
@@ -150,14 +157,14 @@ type PostIssueCredentialsJSONBody = IssueCredentialData
 // PostCredentialsStatusJSONBody defines parameters for PostCredentialsStatus.
 type PostCredentialsStatusJSONBody = UpdateCredentialStatusRequest
 
-// PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONBody defines parameters for PostIssuerProfilesProfileIDInteractionsInitiateOidc.
-type PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONBody = InitiateOIDC4VCRequest
+// InitiateCredentialIssuanceJSONBody defines parameters for InitiateCredentialIssuance.
+type InitiateCredentialIssuanceJSONBody = InitiateOIDC4VCRequest
 
-// PrepareClaimDataAuthzRequestJSONRequestBody defines body for PrepareClaimDataAuthzRequest for application/json ContentType.
-type PrepareClaimDataAuthzRequestJSONRequestBody = PrepareClaimDataAuthzRequestJSONBody
+// PrepareAuthorizationRequestJSONRequestBody defines body for PrepareAuthorizationRequest for application/json ContentType.
+type PrepareAuthorizationRequestJSONRequestBody = PrepareAuthorizationRequestJSONBody
 
-// PostIssuerInteractionsPushAuthorizationRequestJSONRequestBody defines body for PostIssuerInteractionsPushAuthorizationRequest for application/json ContentType.
-type PostIssuerInteractionsPushAuthorizationRequestJSONRequestBody = PostIssuerInteractionsPushAuthorizationRequestJSONBody
+// PushAuthorizationDetailsJSONRequestBody defines body for PushAuthorizationDetails for application/json ContentType.
+type PushAuthorizationDetailsJSONRequestBody = PushAuthorizationDetailsJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
@@ -165,17 +172,956 @@ type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
 // PostCredentialsStatusJSONRequestBody defines body for PostCredentialsStatus for application/json ContentType.
 type PostCredentialsStatusJSONRequestBody = PostCredentialsStatusJSONBody
 
-// PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONRequestBody defines body for PostIssuerProfilesProfileIDInteractionsInitiateOidc for application/json ContentType.
-type PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONRequestBody = PostIssuerProfilesProfileIDInteractionsInitiateOidcJSONBody
+// InitiateCredentialIssuanceJSONRequestBody defines body for InitiateCredentialIssuance for application/json ContentType.
+type InitiateCredentialIssuanceJSONRequestBody = InitiateCredentialIssuanceJSONBody
+
+// RequestEditorFn  is the function signature for the RequestEditor callback function
+type RequestEditorFn func(ctx context.Context, req *http.Request) error
+
+// Doer performs HTTP requests.
+//
+// The standard http.Client implements this interface.
+type HttpRequestDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// Client which conforms to the OpenAPI3 specification for this service.
+type Client struct {
+	// The endpoint of the server conforming to this interface, with scheme,
+	// https://api.deepmap.com for example. This can contain a path relative
+	// to the server, such as https://api.deepmap.com/dev-test, and all the
+	// paths in the swagger spec will be appended to the server.
+	Server string
+
+	// Doer for performing requests, typically a *http.Client with any
+	// customized settings, such as certificate chains.
+	Client HttpRequestDoer
+
+	// A list of callbacks for modifying requests which are generated before sending over
+	// the network.
+	RequestEditors []RequestEditorFn
+}
+
+// ClientOption allows setting custom parameters during construction
+type ClientOption func(*Client) error
+
+// Creates a new Client, with reasonable defaults
+func NewClient(server string, opts ...ClientOption) (*Client, error) {
+	// create a client with sane default values
+	client := Client{
+		Server: server,
+	}
+	// mutate client and add all optional params
+	for _, o := range opts {
+		if err := o(&client); err != nil {
+			return nil, err
+		}
+	}
+	// ensure the server URL always has a trailing slash
+	if !strings.HasSuffix(client.Server, "/") {
+		client.Server += "/"
+	}
+	// create httpClient, if not already present
+	if client.Client == nil {
+		client.Client = &http.Client{}
+	}
+	return &client, nil
+}
+
+// WithHTTPClient allows overriding the default Doer, which is
+// automatically created using http.Client. This is useful for tests.
+func WithHTTPClient(doer HttpRequestDoer) ClientOption {
+	return func(c *Client) error {
+		c.Client = doer
+		return nil
+	}
+}
+
+// WithRequestEditorFn allows setting up a callback function, which will be
+// called right before sending the request. This can be used to mutate the request.
+func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
+	return func(c *Client) error {
+		c.RequestEditors = append(c.RequestEditors, fn)
+		return nil
+	}
+}
+
+// The interface specification for the client above.
+type ClientInterface interface {
+	// PrepareAuthorizationRequest request with any body
+	PrepareAuthorizationRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PrepareAuthorizationRequest(ctx context.Context, body PrepareAuthorizationRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PushAuthorizationDetails request with any body
+	PushAuthorizationDetailsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PushAuthorizationDetails(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostIssueCredentials request with any body
+	PostIssueCredentialsWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostIssueCredentials(ctx context.Context, profileID string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostCredentialsStatus request with any body
+	PostCredentialsStatusWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostCredentialsStatus(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetCredentialsStatus request
+	GetCredentialsStatus(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// InitiateCredentialIssuance request with any body
+	InitiateCredentialIssuanceWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	InitiateCredentialIssuance(ctx context.Context, profileID string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) PrepareAuthorizationRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareAuthorizationRequestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PrepareAuthorizationRequest(ctx context.Context, body PrepareAuthorizationRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPrepareAuthorizationRequestRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PushAuthorizationDetailsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPushAuthorizationDetailsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PushAuthorizationDetails(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPushAuthorizationDetailsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostIssueCredentialsWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIssueCredentialsRequestWithBody(c.Server, profileID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostIssueCredentials(ctx context.Context, profileID string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostIssueCredentialsRequest(c.Server, profileID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostCredentialsStatusWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostCredentialsStatusRequestWithBody(c.Server, profileID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostCredentialsStatus(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostCredentialsStatusRequest(c.Server, profileID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetCredentialsStatus(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCredentialsStatusRequest(c.Server, profileID, statusID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateCredentialIssuanceWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateCredentialIssuanceRequestWithBody(c.Server, profileID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InitiateCredentialIssuance(ctx context.Context, profileID string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInitiateCredentialIssuanceRequest(c.Server, profileID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// NewPrepareAuthorizationRequestRequest calls the generic PrepareAuthorizationRequest builder with application/json body
+func NewPrepareAuthorizationRequestRequest(server string, body PrepareAuthorizationRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPrepareAuthorizationRequestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPrepareAuthorizationRequestRequestWithBody generates requests for PrepareAuthorizationRequest with any type of body
+func NewPrepareAuthorizationRequestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/prepare-claim-data-authz-request")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPushAuthorizationDetailsRequest calls the generic PushAuthorizationDetails builder with application/json body
+func NewPushAuthorizationDetailsRequest(server string, body PushAuthorizationDetailsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPushAuthorizationDetailsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPushAuthorizationDetailsRequestWithBody generates requests for PushAuthorizationDetails with any type of body
+func NewPushAuthorizationDetailsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/push-authorization-request")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostIssueCredentialsRequest calls the generic PostIssueCredentials builder with application/json body
+func NewPostIssueCredentialsRequest(server string, profileID string, body PostIssueCredentialsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostIssueCredentialsRequestWithBody(server, profileID, "application/json", bodyReader)
+}
+
+// NewPostIssueCredentialsRequestWithBody generates requests for PostIssueCredentials with any type of body
+func NewPostIssueCredentialsRequestWithBody(server string, profileID string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/credentials/issue", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewPostCredentialsStatusRequest calls the generic PostCredentialsStatus builder with application/json body
+func NewPostCredentialsStatusRequest(server string, profileID string, body PostCredentialsStatusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostCredentialsStatusRequestWithBody(server, profileID, "application/json", bodyReader)
+}
+
+// NewPostCredentialsStatusRequestWithBody generates requests for PostCredentialsStatus with any type of body
+func NewPostCredentialsStatusRequestWithBody(server string, profileID string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/credentials/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetCredentialsStatusRequest generates requests for GetCredentialsStatus
+func NewGetCredentialsStatusRequest(server string, profileID string, statusID string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "statusID", runtime.ParamLocationPath, statusID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/credentials/status/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewInitiateCredentialIssuanceRequest calls the generic InitiateCredentialIssuance builder with application/json body
+func NewInitiateCredentialIssuanceRequest(server string, profileID string, body InitiateCredentialIssuanceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewInitiateCredentialIssuanceRequestWithBody(server, profileID, "application/json", bodyReader)
+}
+
+// NewInitiateCredentialIssuanceRequestWithBody generates requests for InitiateCredentialIssuance with any type of body
+func NewInitiateCredentialIssuanceRequestWithBody(server string, profileID string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/interactions/initiate-oidc", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
+	for _, r := range c.RequestEditors {
+		if err := r(ctx, req); err != nil {
+			return err
+		}
+	}
+	for _, r := range additionalEditors {
+		if err := r(ctx, req); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ClientWithResponses builds on ClientInterface to offer response payloads
+type ClientWithResponses struct {
+	ClientInterface
+}
+
+// NewClientWithResponses creates a new ClientWithResponses, which wraps
+// Client with return type handling
+func NewClientWithResponses(server string, opts ...ClientOption) (*ClientWithResponses, error) {
+	client, err := NewClient(server, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &ClientWithResponses{client}, nil
+}
+
+// WithBaseURL overrides the baseURL.
+func WithBaseURL(baseURL string) ClientOption {
+	return func(c *Client) error {
+		newBaseURL, err := url.Parse(baseURL)
+		if err != nil {
+			return err
+		}
+		c.Server = newBaseURL.String()
+		return nil
+	}
+}
+
+// ClientWithResponsesInterface is the interface specification for the client with responses above.
+type ClientWithResponsesInterface interface {
+	// PrepareAuthorizationRequest request with any body
+	PrepareAuthorizationRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PrepareAuthorizationRequestResponse, error)
+
+	PrepareAuthorizationRequestWithResponse(ctx context.Context, body PrepareAuthorizationRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareAuthorizationRequestResponse, error)
+
+	// PushAuthorizationDetails request with any body
+	PushAuthorizationDetailsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error)
+
+	PushAuthorizationDetailsWithResponse(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error)
+
+	// PostIssueCredentials request with any body
+	PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
+
+	PostIssueCredentialsWithResponse(ctx context.Context, profileID string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
+
+	// PostCredentialsStatus request with any body
+	PostCredentialsStatusWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error)
+
+	PostCredentialsStatusWithResponse(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error)
+
+	// GetCredentialsStatus request
+	GetCredentialsStatusWithResponse(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*GetCredentialsStatusResponse, error)
+
+	// InitiateCredentialIssuance request with any body
+	InitiateCredentialIssuanceWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
+
+	InitiateCredentialIssuanceWithResponse(ctx context.Context, profileID string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
+}
+
+type PrepareAuthorizationRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PrepareClaimDataAuthorizationResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PrepareAuthorizationRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PrepareAuthorizationRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PushAuthorizationDetailsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PushAuthorizationDetailsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PushAuthorizationDetailsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostIssueCredentialsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+}
+
+// Status returns HTTPResponse.Status
+func (r PostIssueCredentialsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostIssueCredentialsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostCredentialsStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+}
+
+// Status returns HTTPResponse.Status
+func (r PostCredentialsStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostCredentialsStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetCredentialsStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCredentialsStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCredentialsStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type InitiateCredentialIssuanceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *InitiateOIDC4VCResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r InitiateCredentialIssuanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InitiateCredentialIssuanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// PrepareAuthorizationRequestWithBodyWithResponse request with arbitrary body returning *PrepareAuthorizationRequestResponse
+func (c *ClientWithResponses) PrepareAuthorizationRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PrepareAuthorizationRequestResponse, error) {
+	rsp, err := c.PrepareAuthorizationRequestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareAuthorizationRequestResponse(rsp)
+}
+
+func (c *ClientWithResponses) PrepareAuthorizationRequestWithResponse(ctx context.Context, body PrepareAuthorizationRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*PrepareAuthorizationRequestResponse, error) {
+	rsp, err := c.PrepareAuthorizationRequest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePrepareAuthorizationRequestResponse(rsp)
+}
+
+// PushAuthorizationDetailsWithBodyWithResponse request with arbitrary body returning *PushAuthorizationDetailsResponse
+func (c *ClientWithResponses) PushAuthorizationDetailsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error) {
+	rsp, err := c.PushAuthorizationDetailsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePushAuthorizationDetailsResponse(rsp)
+}
+
+func (c *ClientWithResponses) PushAuthorizationDetailsWithResponse(ctx context.Context, body PushAuthorizationDetailsJSONRequestBody, reqEditors ...RequestEditorFn) (*PushAuthorizationDetailsResponse, error) {
+	rsp, err := c.PushAuthorizationDetails(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePushAuthorizationDetailsResponse(rsp)
+}
+
+// PostIssueCredentialsWithBodyWithResponse request with arbitrary body returning *PostIssueCredentialsResponse
+func (c *ClientWithResponses) PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error) {
+	rsp, err := c.PostIssueCredentialsWithBody(ctx, profileID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIssueCredentialsResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostIssueCredentialsWithResponse(ctx context.Context, profileID string, body PostIssueCredentialsJSONRequestBody, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error) {
+	rsp, err := c.PostIssueCredentials(ctx, profileID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostIssueCredentialsResponse(rsp)
+}
+
+// PostCredentialsStatusWithBodyWithResponse request with arbitrary body returning *PostCredentialsStatusResponse
+func (c *ClientWithResponses) PostCredentialsStatusWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error) {
+	rsp, err := c.PostCredentialsStatusWithBody(ctx, profileID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostCredentialsStatusResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostCredentialsStatusWithResponse(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error) {
+	rsp, err := c.PostCredentialsStatus(ctx, profileID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostCredentialsStatusResponse(rsp)
+}
+
+// GetCredentialsStatusWithResponse request returning *GetCredentialsStatusResponse
+func (c *ClientWithResponses) GetCredentialsStatusWithResponse(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*GetCredentialsStatusResponse, error) {
+	rsp, err := c.GetCredentialsStatus(ctx, profileID, statusID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCredentialsStatusResponse(rsp)
+}
+
+// InitiateCredentialIssuanceWithBodyWithResponse request with arbitrary body returning *InitiateCredentialIssuanceResponse
+func (c *ClientWithResponses) InitiateCredentialIssuanceWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error) {
+	rsp, err := c.InitiateCredentialIssuanceWithBody(ctx, profileID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateCredentialIssuanceResponse(rsp)
+}
+
+func (c *ClientWithResponses) InitiateCredentialIssuanceWithResponse(ctx context.Context, profileID string, body InitiateCredentialIssuanceJSONRequestBody, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error) {
+	rsp, err := c.InitiateCredentialIssuance(ctx, profileID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInitiateCredentialIssuanceResponse(rsp)
+}
+
+// ParsePrepareAuthorizationRequestResponse parses an HTTP response from a PrepareAuthorizationRequestWithResponse call
+func ParsePrepareAuthorizationRequestResponse(rsp *http.Response) (*PrepareAuthorizationRequestResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PrepareAuthorizationRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PrepareClaimDataAuthorizationResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePushAuthorizationDetailsResponse parses an HTTP response from a PushAuthorizationDetailsWithResponse call
+func ParsePushAuthorizationDetailsResponse(rsp *http.Response) (*PushAuthorizationDetailsResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PushAuthorizationDetailsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParsePostIssueCredentialsResponse parses an HTTP response from a PostIssueCredentialsWithResponse call
+func ParsePostIssueCredentialsResponse(rsp *http.Response) (*PostIssueCredentialsResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostIssueCredentialsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostCredentialsStatusResponse parses an HTTP response from a PostCredentialsStatusWithResponse call
+func ParsePostCredentialsStatusResponse(rsp *http.Response) (*PostCredentialsStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostCredentialsStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetCredentialsStatusResponse parses an HTTP response from a GetCredentialsStatusWithResponse call
+func ParseGetCredentialsStatusResponse(rsp *http.Response) (*GetCredentialsStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCredentialsStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInitiateCredentialIssuanceResponse parses an HTTP response from a InitiateCredentialIssuanceWithResponse call
+func ParseInitiateCredentialIssuanceResponse(rsp *http.Response) (*InitiateCredentialIssuanceResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InitiateCredentialIssuanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest InitiateOIDC4VCResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Prepare Claim Data Authorization Request
 	// (POST /issuer/interactions/prepare-claim-data-authz-request)
-	PrepareClaimDataAuthzRequest(ctx echo.Context) error
+	PrepareAuthorizationRequest(ctx echo.Context) error
 	// Push Authorization Details
 	// (POST /issuer/interactions/push-authorization-request)
-	PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Context) error
+	PushAuthorizationDetails(ctx echo.Context) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
@@ -187,7 +1133,7 @@ type ServerInterface interface {
 	GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/interactions/initiate-oidc)
-	PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context, profileID string) error
+	InitiateCredentialIssuance(ctx echo.Context, profileID string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -195,21 +1141,21 @@ type ServerInterfaceWrapper struct {
 	Handler ServerInterface
 }
 
-// PrepareClaimDataAuthzRequest converts echo context to params.
-func (w *ServerInterfaceWrapper) PrepareClaimDataAuthzRequest(ctx echo.Context) error {
+// PrepareAuthorizationRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) PrepareAuthorizationRequest(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PrepareClaimDataAuthzRequest(ctx)
+	err = w.Handler.PrepareAuthorizationRequest(ctx)
 	return err
 }
 
-// PostIssuerInteractionsPushAuthorizationRequest converts echo context to params.
-func (w *ServerInterfaceWrapper) PostIssuerInteractionsPushAuthorizationRequest(ctx echo.Context) error {
+// PushAuthorizationDetails converts echo context to params.
+func (w *ServerInterfaceWrapper) PushAuthorizationDetails(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostIssuerInteractionsPushAuthorizationRequest(ctx)
+	err = w.Handler.PushAuthorizationDetails(ctx)
 	return err
 }
 
@@ -269,8 +1215,8 @@ func (w *ServerInterfaceWrapper) GetCredentialsStatus(ctx echo.Context) error {
 	return err
 }
 
-// PostIssuerProfilesProfileIDInteractionsInitiateOidc converts echo context to params.
-func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx echo.Context) error {
+// InitiateCredentialIssuance converts echo context to params.
+func (w *ServerInterfaceWrapper) InitiateCredentialIssuance(ctx echo.Context) error {
 	var err error
 	// ------------- Path parameter "profileID" -------------
 	var profileID string
@@ -281,7 +1227,7 @@ func (w *ServerInterfaceWrapper) PostIssuerProfilesProfileIDInteractionsInitiate
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostIssuerProfilesProfileIDInteractionsInitiateOidc(ctx, profileID)
+	err = w.Handler.InitiateCredentialIssuance(ctx, profileID)
 	return err
 }
 
@@ -313,11 +1259,11 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
-	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareClaimDataAuthzRequest)
-	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PostIssuerInteractionsPushAuthorizationRequest)
+	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareAuthorizationRequest)
+	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)
-	router.POST(baseURL+"/issuer/profiles/:profileID/interactions/initiate-oidc", wrapper.PostIssuerProfilesProfileIDInteractionsInitiateOidc)
+	router.POST(baseURL+"/issuer/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 
 }

@@ -44,8 +44,8 @@ type PushedAuthorizationResponse struct {
 	RequestUri string `json:"request_uri"`
 }
 
-// GetOidcAuthorizeParams defines parameters for GetOidcAuthorize.
-type GetOidcAuthorizeParams struct {
+// OidcAuthorizeParams defines parameters for OidcAuthorize.
+type OidcAuthorizeParams struct {
 	// Value MUST be set to "code".
 	ResponseType string `form:"response_type" json:"response_type"`
 
@@ -77,7 +77,7 @@ type GetOidcAuthorizeParams struct {
 	UserHint *string `form:"user_hint,omitempty" json:"user_hint,omitempty"`
 
 	// String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  op_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.
-	OpState *string `form:"op_state,omitempty" json:"op_state,omitempty"`
+	OpState string `form:"op_state" json:"op_state"`
 }
 
 // OidcRedirectParams defines parameters for OidcRedirect.
@@ -93,16 +93,16 @@ type OidcRedirectParams struct {
 type ServerInterface interface {
 	// OIDC Authorization Request
 	// (GET /oidc/authorize)
-	GetOidcAuthorize(ctx echo.Context, params GetOidcAuthorizeParams) error
+	OidcAuthorize(ctx echo.Context, params OidcAuthorizeParams) error
 	// OIDC Pushed Authorization Request
 	// (POST /oidc/par)
-	PostOidcPar(ctx echo.Context) error
+	OidcPushedAuthorizationRequest(ctx echo.Context) error
 	// OIDC Redirect
 	// (GET /oidc/redirect)
 	OidcRedirect(ctx echo.Context, params OidcRedirectParams) error
 	// OIDC Token Request
 	// (POST /oidc/token)
-	PostOidcToken(ctx echo.Context) error
+	OidcToken(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -110,12 +110,12 @@ type ServerInterfaceWrapper struct {
 	Handler ServerInterface
 }
 
-// GetOidcAuthorize converts echo context to params.
-func (w *ServerInterfaceWrapper) GetOidcAuthorize(ctx echo.Context) error {
+// OidcAuthorize converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcAuthorize(ctx echo.Context) error {
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetOidcAuthorizeParams
+	var params OidcAuthorizeParams
 	// ------------- Required query parameter "response_type" -------------
 
 	err = runtime.BindQueryParameter("form", true, true, "response_type", ctx.QueryParams(), &params.ResponseType)
@@ -186,24 +186,24 @@ func (w *ServerInterfaceWrapper) GetOidcAuthorize(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter user_hint: %s", err))
 	}
 
-	// ------------- Optional query parameter "op_state" -------------
+	// ------------- Required query parameter "op_state" -------------
 
-	err = runtime.BindQueryParameter("form", true, false, "op_state", ctx.QueryParams(), &params.OpState)
+	err = runtime.BindQueryParameter("form", true, true, "op_state", ctx.QueryParams(), &params.OpState)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter op_state: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.GetOidcAuthorize(ctx, params)
+	err = w.Handler.OidcAuthorize(ctx, params)
 	return err
 }
 
-// PostOidcPar converts echo context to params.
-func (w *ServerInterfaceWrapper) PostOidcPar(ctx echo.Context) error {
+// OidcPushedAuthorizationRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcPushedAuthorizationRequest(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostOidcPar(ctx)
+	err = w.Handler.OidcPushedAuthorizationRequest(ctx)
 	return err
 }
 
@@ -232,12 +232,12 @@ func (w *ServerInterfaceWrapper) OidcRedirect(ctx echo.Context) error {
 	return err
 }
 
-// PostOidcToken converts echo context to params.
-func (w *ServerInterfaceWrapper) PostOidcToken(ctx echo.Context) error {
+// OidcToken converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcToken(ctx echo.Context) error {
 	var err error
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostOidcToken(ctx)
+	err = w.Handler.OidcToken(ctx)
 	return err
 }
 
@@ -269,9 +269,9 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 		Handler: si,
 	}
 
-	router.GET(baseURL+"/oidc/authorize", wrapper.GetOidcAuthorize)
-	router.POST(baseURL+"/oidc/par", wrapper.PostOidcPar)
+	router.GET(baseURL+"/oidc/authorize", wrapper.OidcAuthorize)
+	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)
 	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)
-	router.POST(baseURL+"/oidc/token", wrapper.PostOidcToken)
+	router.POST(baseURL+"/oidc/token", wrapper.OidcToken)
 
 }

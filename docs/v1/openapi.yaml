@@ -8,7 +8,7 @@ openapi: 3.0.0
 info:
   title: Verifiable Credential Service (VCS)
   version: 0.2.0
-  description: TrustBloc VCS support credential issuance and verification using W3C VC-API along with OpenID4VC protocol for issuer/verifer interaction with Wallet.
+  description: TrustBloc VCS support credential issuance and verification using W3C VC-API along with OpenID4VC protocol for issuer/verifier interaction with Wallet.
   license:
     name: Apache-2.0
     url: 'https://www.apache.org/licenses/LICENSE-2.0.txt'
@@ -180,7 +180,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InitiateOIDC4VCResponse'
-      operationId: post-issuer-profiles-profileID-interactions-initiate-oidc
+      operationId: initiate-credential-issuance
       description: Used by the issuer to initiate OIDCI credential issuance interaction in VCS. The response contains initiate issuance URL which can be used to initiate the flow from issuer applications.
       requestBody:
         content:
@@ -197,7 +197,7 @@ paths:
       responses:
         '200':
           description: OK
-      operationId: post-issuer-interactions-push-authorization-request
+      operationId: push-authorization-details
       description: Used by VCS OIDC public PAR endpoint to update transaction with authorization details.
       requestBody:
         content:
@@ -214,8 +214,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PrepareClaimDataAuthorizationResponse'
-      operationId: prepare-claim-data-authz-request
-      description: Prepares OAuth Authorization Request parameters to issuer OIDC provider.
+      operationId: prepare-authorization-request
+      description: Prepares OAuth Authorization Request parameters for issuer OIDC provider.
       requestBody:
         content:
           application/json:
@@ -363,7 +363,7 @@ paths:
           description: Request Entity Too Large
         '429':
           description: Too Many Requests
-      operationId: post-oidc-par
+      operationId: oidc-pushed-authorization-request
       description: Client sends OAuth authorization request directly to authorization server and gets request URI in response that can be used as reference to the data in subsequent request to authorization endpoint.
       requestBody:
         content:
@@ -429,7 +429,7 @@ paths:
                     description: REQUIRED if the "state" parameter was present in the client authorization request. The exact value received from the client.
                 required:
                   - code
-      operationId: get-oidc-authorize
+      operationId: oidc-authorize
       description: 'OAuth 2.0 Authorization Request, which requests to grant access to the Credential endpoint.'
       parameters:
         - schema:
@@ -490,6 +490,7 @@ paths:
           in: query
           name: op_state
           description: 'String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  op_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.'
+          required: true
       tags:
         - oidc4vc
     parameters: []
@@ -498,7 +499,7 @@ paths:
       summary: OIDC Token Request
       tags:
         - oidc4vc
-      operationId: post-oidc-token
+      operationId: oidc-token
       description: Issues access token and optionally a refresh token for the exchange of authorization code that client has obtained after successful authorization response.
       responses:
         '200':
@@ -820,7 +821,7 @@ components:
     PrepareClaimDataAuthorizationRequest:
       title: PrepareClaimDataAuthorizationRequest
       type: object
-      description: Model for Prepare Claim Data Authorization Request
+      description: Model for Prepare Claim Data Authorization Request.
       x-tags:
         - issuer
       properties:
@@ -828,7 +829,9 @@ components:
           type: string
           description: Value MUST be set to "code".
         scope:
-          type: string
+          type: array
+          items:
+            type: string
         authorization_details:
           $ref: ./common.yaml#/components/schemas/AuthorizationDetails
         op_state:
@@ -844,7 +847,7 @@ components:
         - issuer
       properties:
         authorization_request:
-          $ref: '#/components/schemas/IssuerAuthorizationRequestParameters'
+          $ref: '#/components/schemas/OAuthParameters'
         authorization_endpoint:
           type: string
           description: Issuer's OIDC provider authorization endpoint.
@@ -856,9 +859,10 @@ components:
           description: Transaction ID to correlate upcoming authorization response.
       required:
         - authorization_request
+        - authorization_endpoint
         - tx_id
-    IssuerAuthorizationRequestParameters:
-      title: IssuerAuthorizationRequestParameters
+    OAuthParameters:
+      title: OAuthParameters
       x-tags:
         - issuer
       type: object
@@ -868,15 +872,17 @@ components:
           type: string
         client_id:
           type: string
+        client_secret:
+          type: string
         scope:
-          type: string
-        state:
-          type: string
+          type: array
+          items:
+            type: string
       required:
         - response_type
         - client_id
+        - client_secret
         - scope
-        - state
     InitiateOIDC4VCRequest:
       title: InitiateOIDC4VCRequest
       type: object

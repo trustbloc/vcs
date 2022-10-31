@@ -52,25 +52,25 @@ func TestStore(t *testing.T) {
 	t.Run("try insert duplicate op_state", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := oidc4vc.OIDC4AuthorizationState{}
+		toInsert := &AuthorizeState{}
 
-		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert)
+		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert)
 		assert.NoError(t, err1)
 
-		err2 := store.StoreAuthorizationState(context.Background(), id, toInsert)
+		err2 := store.SaveAuthorizeState(context.Background(), id, toInsert)
 		assert.ErrorContains(t, err2, "duplicate key error collection")
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := oidc4vc.OIDC4AuthorizationState{}
+		toInsert := &AuthorizeState{}
 
-		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert,
+		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert,
 			oidc4vc.WithDocumentTTL(-2*time.Second))
 		assert.NoError(t, err1)
 
-		resp2, err2 := store.GetAuthorizationState(context.Background(), id)
+		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp2)
 		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
 	})
@@ -78,16 +78,16 @@ func TestStore(t *testing.T) {
 	t.Run("test insert and find", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := oidc4vc.OIDC4AuthorizationState{
+		toInsert := &AuthorizeState{
 			RespondMode: "random",
 		}
 
-		err1 := store.StoreAuthorizationState(context.Background(), id, toInsert)
+		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert)
 		assert.NoError(t, err1)
 
-		resp2, err2 := store.GetAuthorizationState(context.Background(), id)
+		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.NoError(t, err2)
-		assert.Equal(t, toInsert, *resp2)
+		assert.Equal(t, toInsert, resp2)
 	})
 
 	t.Run("create multiple instances", func(t *testing.T) {
@@ -110,7 +110,7 @@ func TestStore(t *testing.T) {
 	t.Run("find non existing document", func(t *testing.T) {
 		id := uuid.New().String()
 
-		resp, err2 := store.GetAuthorizationState(context.Background(), id)
+		resp, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
 	})
@@ -138,12 +138,12 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err := store.StoreAuthorizationState(ctx, uuid.NewString(), oidc4vc.OIDC4AuthorizationState{})
+		err := store.SaveAuthorizeState(ctx, uuid.NewString(), &AuthorizeState{})
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
-		resp, err := store.GetAuthorizationState(ctx, "111")
+		resp, err := store.GetAuthorizeState(ctx, "111")
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})

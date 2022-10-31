@@ -194,7 +194,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 						CredentialFormat: vcsverifiable.Ldp,
 						ResponseType:     "code",
-						Scope:            []string{"openid"},
+						Scope:            []string{"openid", "profile", "address"},
 					},
 				}, nil)
 
@@ -203,7 +203,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
 					ResponseType: "code",
-					Scope:        "openid",
+					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4vc.AuthorizationDetails{
 						CredentialType: "UniversityDegreeCredential",
 						Format:         vcsverifiable.Ldp,
@@ -231,7 +231,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
 					ResponseType: "invalid",
-					Scope:        "openid",
+					Scope:        []string{"openid"},
 					OpState:      "opState",
 				}
 			},
@@ -255,7 +255,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
 					ResponseType: "code",
-					Scope:        "invalid",
+					Scope:        []string{"openid", "profile", "address"},
 					OpState:      "opState",
 				}
 			},
@@ -298,7 +298,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				req = &oidc4vc.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
 					ResponseType: "code",
-					Scope:        "openid",
+					Scope:        []string{"openid"},
 					AuthorizationDetails: &oidc4vc.AuthorizationDetails{
 						CredentialType: "UniversityDegreeCredential",
 						Format:         vcsverifiable.Ldp,

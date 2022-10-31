@@ -30,15 +30,15 @@ type mongoDocument struct {
 	ExpireAt time.Time          `bson:"expireAt"`
 
 	OpState string `bson:"opState,omitempty"`
-	State   oidc4vc.OIDC4AuthorizationState
+	State   *AuthorizeState
 }
 
-// Store stores oidc transactions in mongo.
+// Store stores OIDC4VC authorize request/response state in mongo.
 type Store struct {
 	mongoClient *mongodb.Client
 }
 
-// New creates TxNonceStore.
+// New creates a new instance of Store.
 func New(ctx context.Context, mongoClient *mongodb.Client) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
@@ -73,10 +73,10 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) StoreAuthorizationState(
+func (s *Store) SaveAuthorizeState(
 	ctx context.Context,
 	opState string,
-	data oidc4vc.OIDC4AuthorizationState,
+	data *AuthorizeState,
 	params ...func(insertOptions *oidc4vc.InsertOptions),
 ) error {
 	insertCfg := &oidc4vc.InsertOptions{}
@@ -96,7 +96,7 @@ func (s *Store) StoreAuthorizationState(
 	return err
 }
 
-func (s *Store) GetAuthorizationState(ctx context.Context, opState string) (*oidc4vc.OIDC4AuthorizationState, error) {
+func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*AuthorizeState, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
@@ -104,10 +104,11 @@ func (s *Store) GetAuthorizationState(ctx context.Context, opState string) (*oid
 	err := collection.FindOne(ctx, bson.M{
 		"opState": opState,
 	}).Decode(&doc)
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, oidc4vc.ErrDataNotFound
-	}
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, oidc4vc.ErrDataNotFound
+		}
+
 		return nil, err
 	}
 
@@ -116,12 +117,12 @@ func (s *Store) GetAuthorizationState(ctx context.Context, opState string) (*oid
 		return nil, oidc4vc.ErrDataNotFound
 	}
 
-	return &doc.State, nil
+	return doc.State, nil
 }
 
 func (s *Store) mapTransactionDataToMongoDocument(
 	opState string,
-	data oidc4vc.OIDC4AuthorizationState,
+	data *AuthorizeState,
 ) *mongoDocument {
 	return &mongoDocument{
 		ExpireAt: time.Now().UTC().Add(defaultExpiration),

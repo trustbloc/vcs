@@ -99,12 +99,20 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		return nil, ErrResponseTypeMismatch
 	}
 
-	isScopeValid := false
+	isScopeValid := true
 
-	for _, scope := range tx.Scope {
-		if scope == req.Scope {
-			isScopeValid = true
+	for _, scope := range req.Scope {
+		found := false
 
+		for _, v := range tx.Scope {
+			if v == scope {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			isScopeValid = false
 			break
 		}
 	}
@@ -120,8 +128,9 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		AuthorizationParameters: &IssuerAuthorizationRequestParameters{
+		AuthorizationParameters: &OAuthParameters{
 			ClientID:     tx.ClientID,
+			ClientSecret: tx.ClientSecret,
 			ResponseType: req.ResponseType,
 			Scope:        req.Scope,
 		},
