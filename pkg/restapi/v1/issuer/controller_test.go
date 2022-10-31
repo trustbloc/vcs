@@ -12,12 +12,14 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/labstack/echo/v4"
@@ -988,6 +990,30 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "service error")
+	})
+}
+
+func TestController_StoreAuthZCode(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		opState := uuid.NewString()
+		code := uuid.NewString()
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().StoreAuthCode(gomock.Any(), opState, code).Return(oidc4vc.TxID("1234"), nil)
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := fmt.Sprintf(`{"op_state":"%s","code":"%s"}`, opState, code) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.StoreAuthorizationCodeRequest(ctx))
+	})
+	t.Run("invalid body", func(t *testing.T) {
+		c := &Controller{}
+
+		req := "{" //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.StoreAuthorizationCodeRequest(ctx), "unexpected EOF")
 	})
 }
 

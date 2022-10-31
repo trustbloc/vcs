@@ -223,6 +223,25 @@ paths:
               $ref: '#/components/schemas/PrepareClaimDataAuthorizationRequest'
       tags:
         - issuer
+  /issuer/interactions/store-authorization-code:
+    post:
+      summary: Stores authorization code from issuer oauth provider
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreAuthorizationCodeResponse'
+      operationId: store-authorization-code-request
+      description: Stores authorization code from issuer oauth provider.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreAuthorizationCodeRequest'
+      tags:
+        - issuer
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -839,6 +858,29 @@ components:
       required:
         - response_type
         - op_state
+    StoreAuthorizationCodeRequest:
+      title: StoreAuthorizationCodeRequest
+      type: object
+      description: Model for storing auth code from issuer oauth
+      x-tags:
+        - issuer
+      properties:
+        op_state:
+          type: string
+        code:
+          type: string
+      required:
+        - op_state
+        - code
+    StoreAuthorizationCodeResponse:
+      title: StoreAuthorizationCodeResponse
+      type: object
+      description: Response model for storing auth code from issuer oauth
+      x-tags:
+        - issuer
+      properties:
+        tx_id:
+          type: string
     PrepareClaimDataAuthorizationResponse:
       title: PrepareClaimDataAuthorizationResponse
       type: object

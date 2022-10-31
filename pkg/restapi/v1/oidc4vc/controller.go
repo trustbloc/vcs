@@ -232,12 +232,20 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 	req := e.Request()
 	ctx := req.Context()
 
-	// TODO: Define issuer private API to store authorization code into tx and use issuerInteractionClient to call it.
-
 	resp, err := c.stateStore.GetAuthorizeState(ctx, params.State)
 	if err != nil {
 		return apiutil.WriteOutput(e)(nil, err)
 	}
+
+	storeResp, storeErr := c.issuerInteractionClient.StoreAuthorizationCodeRequest(ctx,
+		issuer.StoreAuthorizationCodeRequestJSONRequestBody{
+			Code:    params.Code,
+			OpState: params.State,
+		})
+	if storeErr != nil {
+		return storeErr
+	}
+	_ = storeResp.Body.Close()
 
 	responder := &fosite.AuthorizeResponse{}
 	responder.Header = resp.Header

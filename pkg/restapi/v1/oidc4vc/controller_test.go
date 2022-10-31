@@ -476,6 +476,12 @@ func TestController_OidcRedirect(t *testing.T) {
 				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4vcstatestore.AuthorizeState{
 					RedirectURI: redirectURI,
 				}, nil)
+				mockInteractionClient.EXPECT().StoreAuthorizationCodeRequest(
+					gomock.Any(),
+					issuer.StoreAuthorizationCodeRequest{
+						Code:    params.Code,
+						OpState: params.State,
+					}).Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
 
 				mockOAuthProvider.EXPECT().WriteAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Do(func(
@@ -491,6 +497,30 @@ func TestController_OidcRedirect(t *testing.T) {
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "fail to store code",
+			setup: func() {
+				params = oidc4vc.OidcRedirectParams{
+					Code:  "code",
+					State: "state",
+				}
+
+				redirectURI := &url.URL{Scheme: "https", Host: "example.com", Path: "redirect"}
+
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4vcstatestore.AuthorizeState{
+					RedirectURI: redirectURI,
+				}, nil)
+				mockInteractionClient.EXPECT().StoreAuthorizationCodeRequest(
+					gomock.Any(),
+					issuer.StoreAuthorizationCodeRequest{
+						Code:    params.Code,
+						OpState: params.State,
+					}).Return(nil, errors.New("random error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "random error")
 			},
 		},
 		{
