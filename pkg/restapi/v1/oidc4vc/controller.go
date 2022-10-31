@@ -11,14 +11,12 @@ package oidc4vc
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
-	"github.com/ory/fosite/token/hmac"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
@@ -30,15 +28,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 )
 
-const (
-	nonceLength = 15
-)
-
-//nolint:gochecknoglobals
-var (
-	_   ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
-	b64                 = base64.URLEncoding.WithPadding(base64.NoPadding)
-)
+var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
 // StateStore stores authorization request/response state.
 type StateStore interface {
@@ -217,14 +207,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return fmt.Errorf("save authorize state: %w", err)
 	}
 
-	nonce, err := hmac.RandomBytes(nonceLength)
-	if err != nil {
-		return fmt.Errorf("generate nonce: %w", err)
-	}
-
-	redirectURI := oauthConfig.AuthCodeURL(b64.EncodeToString(nonce))
-
-	return e.Redirect(http.StatusSeeOther, redirectURI)
+	return e.Redirect(http.StatusSeeOther, oauthConfig.AuthCodeURL(params.OpState))
 }
 
 // OidcRedirect handles OIDC redirect (GET /oidc/redirect).
