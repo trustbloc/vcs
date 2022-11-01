@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	nonceCollection = "oidcnoncestore"
+	nonceCollection = "oidc4vpnoncestore"
 )
 
 type nonceDocument struct {

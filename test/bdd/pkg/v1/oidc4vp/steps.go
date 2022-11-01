@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -31,19 +30,17 @@ func getOrgAuthTokenKey(org string) string {
 
 // Steps is steps for VC BDD tests
 type Steps struct {
-	bddContext           *bddcontext.BDDContext
-	tlsConfig            *tls.Config
-	wallet               *wallet.Wallet
-	ariesServices        *ariesServices
-	walletPassphrase     string
-	walletToken          string
-	walletUserID         string
-	walletDidID          string
-	walletDidKeyID       string
-	authorizationRequest string
-	transactionID        string
-	requestPresentation  *verifiable.Presentation
-	requestObject        *RequestObject
+	bddContext          *bddcontext.BDDContext
+	tlsConfig           *tls.Config
+	wallet              *wallet.Wallet
+	ariesServices       *ariesServices
+	walletPassphrase    string
+	walletToken         string
+	walletUserID        string
+	walletDidID         string
+	walletDidKeyID      string
+	vpFlowExecutor      *VPFlowExecutor
+
 }
 
 // NewSteps returns new agent from client SDK
@@ -69,4 +66,6 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step("^Wallet looks for credential that match authorization$", e.queryCredentialFromWallet)
 	s.Step("^Wallet send authorization response$", e.sendAuthorizedResponse)
 
+	s.Step(`^"([^"]*)" users execute oidc4vp flow with init "([^"]*)" url, with retrieve "([^"]*)" url, for verify profile "([^"]*)" and org id "([^"]*)" using "([^"]*)" concurrent requests$`,
+		e.stressTestForMultipleUsers)
 }

@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -51,6 +52,7 @@ const (
 	contextProviderURL  = "https://file-server.trustbloc.local:10096/ld-contexts.json"
 	didDomain           = "https://testnet.orb.local"
 	didServiceAuthToken = "tk1"
+	vdrResolveMaxRetry = 10
 )
 
 type ariesServices struct {
@@ -92,7 +94,9 @@ func (e *Steps) createWallet() error {
 		return err
 	}
 
-	createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrpkg.New(vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New())), e.ariesServices.kms)
+	vdrRegistry := vdrpkg.New(vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))
+
+	createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, e.ariesServices.kms)
 	if err != nil {
 		return err
 	}
@@ -100,6 +104,16 @@ func (e *Steps) createWallet() error {
 	e.walletDidID = createRes.DidID
 	e.bddContext.CredentialSubject = createRes.DidID
 	e.walletDidKeyID = createRes.KeyID
+
+	for i := 1; i <= vdrResolveMaxRetry; i++ {
+		_, err = vdrRegistry.Resolve(e.walletDidID)
+		println("walletDidID", e.walletDidID)
+		if err == nil {
+			break
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 
 	return nil
 }
