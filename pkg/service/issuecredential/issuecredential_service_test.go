@@ -478,7 +478,7 @@ type mockVCSKeyManager struct {
 }
 
 func (m *mockVCSKeyManager) NewVCSigner(creator string, signatureType vcs.SignatureType) (vc.SignerAlgorithm, error) {
-	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType)
+	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType, nil)
 }
 
 func (m *mockVCSKeyManager) SupportedKeyTypes() []kms.KeyType {

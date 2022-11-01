@@ -60,7 +60,7 @@ func TestStandardFields(t *testing.T) {
 		topic := "some topic"
 		msg := "Some message"
 		hostURL := "https://localhost:8080"
-		responseBody := "response body"
+		responseBody := []byte("response body")
 		token := "someToken"
 		totalRequests := 10
 		responses := 9
@@ -70,6 +70,7 @@ func TestStandardFields(t *testing.T) {
 		json := "{\"some\":\"json object\"}"
 		jsonResolution := "json/resolution"
 		sleep := time.Second * 10
+		duration := time.Second * 20
 		event := &mockObject{
 			Field1: "event1",
 			Field2: 123,
@@ -103,6 +104,7 @@ func TestStandardFields(t *testing.T) {
 			WithJSON(json),
 			WithJSONResolution(jsonResolution),
 			WithSleep(sleep),
+			WithDuration(duration),
 			WithEvent(event),
 			WithDockerComposeCmd(dockerComposeCmd),
 			WithCertPoolSize(certPoolSize),
@@ -119,7 +121,7 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, topic, l.Topic)
 		require.Equal(t, msg, l.Msg)
 		require.Equal(t, hostURL, l.HostURL)
-		require.Equal(t, responseBody, l.ResponseBody)
+		require.EqualValues(t, responseBody, l.ResponseBody)
 		require.Equal(t, token, l.Token)
 		require.Equal(t, totalRequests, l.TotalRequests)
 		require.Equal(t, responses, l.Responses)
@@ -178,6 +180,7 @@ type logData struct {
 	JSON                string      `json:"json"`
 	JSONResolution      string      `json:"jsonResolution"`
 	Sleep               string      `json:"sleep"`
+	Duration            string      `json:"duration"`
 	Event               *mockObject `json:"event"`
 	DockerComposeCmd    string      `json:"dockerComposeCmd"`
 	CertPoolSize        int         `json:"certPoolSize"`

@@ -26,6 +26,9 @@ import (
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
+	metricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics"
+	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
+	promMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/prometheus"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
@@ -126,9 +129,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 		},
 	}
 }
-
-// buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
-func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, error) {
+func createEcho() *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -138,6 +139,19 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
 	e.Use(echomw.CORS())
+
+	return e
+}
+
+// buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
+func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, error) {
+	e := createEcho()
+	eMetrics := createEcho()
+
+	metrics, err := NewMetrics(conf.StartupParameters)
+	if err != nil {
+		return nil, err
+	}
 
 	if conf.StartupParameters.token != "" {
 		e.Use(mw.APIKeyAuth(conf.StartupParameters.token))
@@ -166,7 +180,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DBType:            conf.StartupParameters.dbParameters.databaseType,
 		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
 		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
-	})
+	}, metrics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default kms: %w", err)
 	}
@@ -338,7 +352,41 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		devapi.RegisterHandlers(e, devController)
 	}
 
+	metricsProvider, err := NewMetricsProvider(conf.StartupParameters, eMetrics)
+	if err != nil {
+		return nil, err
+	}
+
+	if metricsProvider != nil {
+		err = metricsProvider.Create()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return e, nil
+}
+
+func NewMetrics(parameters *startupParameters) (metricsProvider.Metrics, error) {
+	switch parameters.metricsProviderName {
+	case "prometheus":
+		return promMetricsProvider.GetMetrics(), nil
+	default:
+		return noopMetricsProvider.GetMetrics(), nil
+	}
+}
+
+func NewMetricsProvider(parameters *startupParameters, e *echo.Echo) (metricsProvider.Provider, error) {
+	switch parameters.metricsProviderName {
+	case "prometheus":
+		metricsHttpServer := &http.Server{
+			Addr:    parameters.prometheusMetricsProviderParams.url,
+			Handler: e,
+		}
+		return promMetricsProvider.NewPrometheusProvider(metricsHttpServer), nil
+	default:
+		return nil, nil
+	}
 }
 
 func startServer(conf *Configuration, opts ...StartOpts) error {

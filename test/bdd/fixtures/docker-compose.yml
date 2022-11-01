@@ -29,8 +29,11 @@ services:
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - VC_REST_DEV_MODE=true
       - VC_OAUTH_SECRET=secret-string
+      - VC_METRICS_PROVIDER_NAME=prometheus
+      - VC_PROM_HTTP_URL=localhost:48127
     ports:
       - "8075:8075"
+      - "48127:48127"
     depends_on:
       - did-resolver.trustbloc.local
       - sidetree
@@ -269,6 +272,16 @@ services:
     volumes:
       - ./nginx-config/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx-config/data:/var/www/data
+    networks:
+      - bdd_net
+
+  metrics.example.com:
+    container_name: metrics.example.com
+    image: prom/prometheus
+    ports:
+      - 9095:9090
+    volumes:
+      - ./prometheus-config/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - bdd_net
 

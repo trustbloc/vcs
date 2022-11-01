@@ -218,7 +218,7 @@ func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.Signa
 func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	km kms.KeyManager) (string, error) {
 
-	signr, err := signer.NewKMSSigner(km, crpt, didKeyID, "ES384")
+	signr, err := signer.NewKMSSigner(km, crpt, didKeyID, "ES384", nil)
 
 	token, err := jwt.NewSigned(claims, nil, NewJWSSigner(didKeyID, "ES384", signr))
 	if err != nil {

@@ -10,7 +10,7 @@ set -e
 echo "Running $0"
 
 DOCKER_CMD=${DOCKER_CMD:-docker}
-GOLANGCI_LINT_IMAGE="golangci/golangci-lint:v1.49"
+GOLANGCI_LINT_IMAGE="golangci/golangci-lint:v1.50.1"
 
 if [ ! $(command -v ${DOCKER_CMD}) ]; then
     exit 0

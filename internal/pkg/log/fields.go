@@ -33,6 +33,7 @@ const (
 	FieldJSON                = "json"
 	FieldJSONResolution      = "jsonResolution"
 	FieldSleep               = "sleep"
+	FieldDuration            = "duration"
 	FieldEvent               = "event"
 	FieldDockerComposeCmd    = "dockerComposeCmd"
 	FieldCertPoolSize        = "certPoolSize"
@@ -85,8 +86,8 @@ func WithHTTPStatus(value int) zap.Field {
 }
 
 // WithResponseBody sets the response body field.
-func WithResponseBody(value string) zap.Field {
-	return zap.String(FieldResponseBody, value)
+func WithResponseBody(value []byte) zap.Field {
+	return zap.String(FieldResponseBody, string(value))
 }
 
 // WithTopic sets the topic field.
@@ -149,6 +150,11 @@ func WithSleep(sleep time.Duration) zap.Field {
 	return zap.Duration(FieldSleep, sleep)
 }
 
+// WithDuration sets the duration field.
+func WithDuration(value time.Duration) zap.Field {
+	return zap.Duration(FieldDuration, value)
+}
+
 // WithEvent sets the event field.
 func WithEvent(event interface{}) zap.Field {
 	return zap.Inline(NewObjectMarshaller(FieldEvent, event))
@@ -159,6 +165,7 @@ func WithDockerComposeCmd(cmd string) zap.Field {
 	return zap.String(FieldDockerComposeCmd, cmd)
 }
 
+// WithCertPoolSize sets the certificate pool size field.
 func WithCertPoolSize(poolSize int) zap.Field {
 	return zap.Int(FieldCertPoolSize, poolSize)
 }
