@@ -1,0 +1,27 @@
+{
+  "requestId": "b74373c9-ace3-48c6-81e2-b8436b3d642e",
+  "status": {
+    "code": 200
+  },
+  "replies": [
+    {
+      "messageId": "bafkreicug4tkpif4c4f2ud3x7dwyte7pcc74667uz4x3jzth2espi5f7g4",
+      "status": {
+        "code": 200
+      },
+      "entries": [
+        {
+          "descriptor": {
+            "method": "CollectionsWrite",
+            "schema": "https://w3id.org/vc-status-list-2021/v1",
+            "dataFormat": "application/vc+jwt",
+            "objectId": "33c34640-8e48-43ba-9566-32760ab2cdad",
+            "clock": 0,
+            "cid": "bafkreifen7lwem5744ht7korrvqr5p3wxjtckzkpccliunnblsdcupoxve"
+          },
+          "data": "ZXlKaGJHY2lPaUp1YjI1bElpd2lkSGx3SWpvaVNsZFVJbjAuZXlKbGVIQWlPakUxTnpjNU1EWTJNRFFzSW1saGRDSTZNVEkyTWpNM016Z3dOQ3dpYVhOeklqb2laR2xrT21WNFlXMXdiR1U2TnpabE1USmxZemN4TW1WaVl6Wm1NV015TWpGbFltWmxZakZtSWl3aWFuUnBJam9pYUhSMGNEb3ZMMlY0WVcxd2JHVXVaV1IxTDJOeVpXUmxiblJwWVd4ekx6RTROeklpTENKdVltWWlPakV5TmpJek56TTRNRFFzSW5OMVlpSTZJbVJwWkRwbGVHRnRjR3hsT21WaVptVmlNV1kzTVRKbFltTTJaakZqTWpjMlpURXlaV015TVNJc0luWmpJanA3SWtCamIyNTBaWGgwSWpwYkltaDBkSEJ6T2k4dmQzZDNMbmN6TG05eVp5OHlNREU0TDJOeVpXUmxiblJwWVd4ekwzWXhJaXdpYUhSMGNITTZMeTkzZDNjdWR6TXViM0puTHpJd01UZ3ZZM0psWkdWdWRHbGhiSE12WlhoaGJYQnNaWE12ZGpFaUxDSm9kSFJ3Y3pvdkwzY3phV1F1YjNKbkwzTmxZM1Z5YVhSNUwySmljeTkyTVNKZExDSmpjbVZrWlc1MGFXRnNVM1ZpYW1WamRDSTZleUprWldkeVpXVWlPbnNpZEhsd1pTSTZJa0poWTJobGJHOXlSR1ZuY21WbElpd2lkVzVwZG1WeWMybDBlU0k2SWsxSlZDSjlMQ0pwWkNJNkltUnBaRHBsZUdGdGNHeGxPbVZpWm1WaU1XWTNNVEpsWW1NMlpqRmpNamMyWlRFeVpXTXlNU0lzSW01aGJXVWlPaUpLWVhsa1pXNGdSRzlsSWl3aWMzQnZkWE5sSWpvaVpHbGtPbVY0WVcxd2JHVTZZekkzTm1VeE1tVmpNakZsWW1abFlqRm1OekV5WldKak5tWXhJbjBzSW1WNGNHbHlZWFJwYjI1RVlYUmxJam9pTWpBeU1DMHdNUzB3TVZReE9Ub3lNem95TkZvaUxDSnBaQ0k2SW1oMGRIQTZMeTlsZUdGdGNHeGxMbVZrZFM5amNtVmtaVzUwYVdGc2N5OHhPRGN5SWl3aWFYTnpkV0Z1WTJWRVlYUmxJam9pTWpBeE1DMHdNUzB3TVZReE9Ub3lNem95TkZvaUxDSnBjM04xWlhJaU9uc2lhV1FpT2lKa2FXUTZaWGhoYlhCc1pUbzNObVV4TW1Wak56RXlaV0pqTm1ZeFl6SXlNV1ZpWm1WaU1XWWlMQ0p1WVcxbElqb2lSWGhoYlhCc1pTQlZibWwyWlhKemFYUjVJbjBzSW5KbFptVnlaVzVqWlU1MWJXSmxjaUk2T0M0ek1qazBPRFEzWlNzd055d2lkSGx3WlNJNld5SldaWEpwWm1saFlteGxRM0psWkdWdWRHbGhiQ0lzSWxWdWFYWmxjbk5wZEhsRVpXZHlaV1ZEY21Wa1pXNTBhV0ZzSWwxOWZRLgo="
+        }
+      ]
+    }
+  ]
+}
