@@ -1,0 +1,10 @@
+[
+  {
+    "id": "oidc4vc_client",
+    "redirect_uris": ["https://client.example.com/oauth/redirect"],
+    "grant_types": ["authorization_code"],
+    "response_types": ["code"],
+    "scopes": ["openid","profile"],
+    "public": true
+  }
+]

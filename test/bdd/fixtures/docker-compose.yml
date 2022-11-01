@@ -28,9 +28,10 @@ services:
       - VC_REST_REQUEST_TOKENS=csl=rw_token
       - VC_REST_CONTEXT_PROVIDER_URL=${CONTEXT_PROVIDER_URL}
       - VC_REST_DEV_MODE=true
-      - VC_OAUTH_SECRET=secret-string
+      - VC_OAUTH_SECRET=secret-for-signing-and-verifying-signatures
       - VC_METRICS_PROVIDER_NAME=prometheus
       - VC_PROM_HTTP_URL=localhost:48127
+      - VC_OAUTH_CLIENTS_FILE_PATH=/oauth-clients/clients.json
     ports:
       - "8075:8075"
       - "48127:48127"
@@ -42,6 +43,7 @@ services:
     volumes:
       - ./keys/tls:/etc/tls
       - ./profile:/profile/
+      - ./oauth-clients:/oauth-clients/
       - ./nginx-config/data:/request-objects
     networks:
       - bdd_net
@@ -223,6 +225,7 @@ services:
       - SERVE_PUBLIC_PORT=4444
       - SERVE_ADMIN_PORT=4445
       - LOG_LEAK_SENSITIVE_VALUES=true
+      - LOG_LEVEL=debug
     restart: unless-stopped
     volumes:
       - ./keys/tls:/etc/tls

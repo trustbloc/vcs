@@ -156,6 +156,11 @@ const (
 	oAuthSecretFlagUsage     = "oauth global secret, any string. Example: secret-for-signing-and-verifying-signatures"
 	oAuthSecretFlagEnvKey    = "VC_OAUTH_SECRET"
 
+	oAuthClientsFilePathFlagName  = "oauth-client-file-path"
+	oAuthClientsFilePathEnvKey    = "VC_OAUTH_CLIENTS_FILE_PATH"
+	oAuthClientsFilePathFlagUsage = "Path to file with oauth clients. " +
+		commonEnvVarUsageText + oAuthClientsFilePathEnvKey
+
 	metricsProviderFlagName         = "metrics-provider-name"
 	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
 	allowedMetricsProviderFlagUsage = "The metrics provider name (for example: 'prometheus' etc.). " +
@@ -194,6 +199,7 @@ type startupParameters struct {
 	tlsParameters                   *tlsParameters
 	devMode                         bool
 	oAuthSecret                     string
+	oAuthClientsFilePath            string
 	metricsProviderName             string
 	prometheusMetricsProviderParams *prometheusMetricsProviderParams
 }
@@ -319,6 +325,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		}
 	}
 
+	oAuthClientsFilePath, err := cmdutils.GetUserSetVarFromString(cmd, oAuthClientsFilePathFlagName,
+		oAuthClientsFilePathEnvKey, true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &startupParameters{
 		hostURL:                         hostURL,
 		hostURLExternal:                 hostURLExternal,
@@ -334,6 +346,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		contextEnableRemote:             contextEnableRemote,
 		devMode:                         devMode,
 		oAuthSecret:                     oAuthSecret,
+		oAuthClientsFilePath:            oAuthClientsFilePath,
 		metricsProviderName:             metricsProviderName,
 		prometheusMetricsProviderParams: prometheusMetricsProviderParams,
 	}, nil
@@ -565,5 +578,6 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tlsKeyFlagName, "", "", tlsKeyFlagUsage)
 	startCmd.Flags().StringP(metricsProviderFlagName, "", "", allowedMetricsProviderFlagUsage)
 	startCmd.Flags().StringP(promHttpUrlFlagName, "", "", allowedPromHttpUrlFlagNameUsage)
+	startCmd.Flags().StringP(oAuthClientsFilePathFlagName, "", "", oAuthClientsFilePathFlagUsage)
 	profilereader.AddFlags(startCmd)
 }

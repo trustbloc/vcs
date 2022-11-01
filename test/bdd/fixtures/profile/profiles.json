@@ -209,7 +209,7 @@
       "issuer": {
         "id": "issuer_oidc4vc",
         "name": "issuer_oidc4vc",
-        "organizationID": "test_org",
+        "organizationID": "test_bank",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -222,8 +222,19 @@
         "oidcConfig": {
           "client_id": "issuer_oidc4vc",
           "client_secret_handle": "issuer-oidc4vc-secret",
-          "issuer_well_known": "https://oidc-provider.example.com:4445/.well-known/openid-configuration"
-        }
+          "issuer_well_known": "https://oidc-provider.example.com:4444/.well-known/openid-configuration"
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1",
+              "https://w3id.org/citizenship/v1"
+            ],
+            "type": "PermanentResidentCard",
+            "id": "templateID",
+            "issuer": "test_issuer"
+          }
+        ]
       },
       "createDID": true,
       "didDomain": "https://testnet.orb.local",

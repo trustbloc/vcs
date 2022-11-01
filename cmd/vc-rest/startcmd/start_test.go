@@ -107,6 +107,27 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Contains(t, err.Error(), "Neither oauth-secret (command line flag) nor VC_OAUTH_SECRET")
 	})
 
+	t.Run("test blank oauth clients file path", func(t *testing.T) {
+		startCmd := GetStartCmd()
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + kmsTypeFlagName, "web",
+			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + databaseURLFlagName, mongoDBConnString,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + contextEnableRemoteFlagName, "true",
+			"--" + oAuthSecretFlagName, "secret",
+			"--" + oAuthClientsFilePathFlagName, "",
+		}
+
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "oauth-client-file-path value is empty")
+	})
+
 	t.Run("invalid mode", func(t *testing.T) {
 		startCmd := GetStartCmd()
 
@@ -170,7 +191,15 @@ func TestStartCmdValidArgs(t *testing.T) {
 	_, err = file.Write([]byte("{}"))
 	require.NoError(t, err)
 
-	defer func() { os.Remove(file.Name()) }()
+	oauthClientsFile, err := os.CreateTemp("", "clients")
+	require.NoError(t, err)
+	_, err = oauthClientsFile.Write([]byte("[]"))
+	require.NoError(t, err)
+
+	defer func() {
+		os.Remove(file.Name())
+		os.Remove(oauthClientsFile.Name())
+	}()
 
 	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
 
@@ -184,6 +213,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + requestTokensFlagName, "token2=tk2=1", "--" + common.LogLevelFlagName, log.ERROR.String(),
 		"--" + contextEnableRemoteFlagName, "true",
 		"--" + profilePathFlag, file.Name(),
+		"--" + oAuthClientsFilePathFlagName, oauthClientsFile.Name(),
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + devModeFlagName, "true",
 	}

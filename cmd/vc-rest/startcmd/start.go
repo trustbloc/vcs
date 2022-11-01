@@ -10,11 +10,14 @@ import (
 	"context"
 	"crypto/subtle"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
+	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
@@ -22,6 +25,7 @@ import (
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/event"
+	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -232,10 +236,17 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new oidc4 vc store: %w", err)
 	}
 
+	httpClient := &http.Client{
+		Timeout: time.Minute,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
 	oidc4vcService, err := oidc4vc.NewService(&oidc4vc.Config{
 		TransactionStore:    oidc4vcStore,
 		IssuerVCSPublicHost: conf.StartupParameters.hostURL,
-		WellKnownService:    wellknown.NewService(http.DefaultClient),
+		WellKnownService:    wellknown.NewService(httpClient),
 		OAuth2ClientFactory: oidc4vc.NewOAuth2ClientFactory(),
 	})
 	if err != nil {
@@ -247,21 +258,47 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new oidc4vcstatestore: %w", err)
 	}
 
-	issuerInteractionClient, err := issuerv1.NewClient(conf.StartupParameters.hostURL)
+	apiKeySecurityProvider, err := securityprovider.NewSecurityProviderApiKey(
+		"header",
+		"X-API-Key",
+		conf.StartupParameters.token,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create security provider for issuer interaction client: %w", err)
+	}
+
+	issuerInteractionClient, err := issuerv1.NewClient(
+		"http://vc-rest-echo.trustbloc.local:8075", // TODO: Set using flag or environment variable.
+		issuerv1.WithHTTPClient(httpClient),
+		issuerv1.WithRequestEditorFn(apiKeySecurityProvider.Intercept),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create issuer interaction client: %w", err)
 	}
 
-	provider, err := bootstrapOAuthProvider(context.Background(), conf.StartupParameters.oAuthSecret, mongodbClient)
+	var oauth2Clients []fositemongo.Client
+
+	if conf.StartupParameters.oAuthClientsFilePath != "" {
+		if oauth2Clients, err = getOAuth2Clients(conf.StartupParameters.oAuthClientsFilePath); err != nil {
+			return nil, fmt.Errorf("failed to get oauth clients: %w", err)
+		}
+	}
+
+	provider, err := bootstrapOAuthProvider(
+		context.Background(),
+		conf.StartupParameters.oAuthSecret,
+		mongodbClient,
+		oauth2Clients,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new oauth provder: %w", err)
+		return nil, fmt.Errorf("failed to instantiate new oauth provider: %w", err)
 	}
 
 	oidc4vc2.RegisterHandlers(e, oidc4vc2.NewController(&oidc4vc2.Config{
 		OAuth2Provider:          provider,
 		StateStore:              oidc4StateStore,
 		IssuerInteractionClient: issuerInteractionClient,
-		IssuerVCSPublicHost:     conf.StartupParameters.hostURL,
+		IssuerVCSPublicHost:     conf.StartupParameters.hostURLExternal,
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
@@ -433,4 +470,20 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	}
 
 	return true
+}
+
+func getOAuth2Clients(path string) ([]fositemongo.Client, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var clients []fositemongo.Client
+
+	if err = json.NewDecoder(f).Decode(&clients); err != nil {
+		return nil, err
+	}
+
+	return clients, nil
 }
