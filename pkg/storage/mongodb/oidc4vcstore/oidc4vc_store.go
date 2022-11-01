@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	collectionName    = "oidcnoncestore"
+	collectionName    = "oidc4vcnoncestore"
 	defaultExpiration = 24 * time.Hour
 )
 

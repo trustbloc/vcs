@@ -7,13 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -22,7 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
@@ -113,53 +110,27 @@ type EventPayload struct {
 }
 
 func (e *Steps) initiateInteraction(profileName, organizationName string) error {
-	endpointURL := fmt.Sprintf(initiateOidcInteractionURLFormat, profileName)
+	e.vpFlowExecutor = &VPFlowExecutor{
+		tlsConfig:      e.tlsConfig,
+		ariesServices:  e.ariesServices,
+		wallet:         e.wallet,
+		walletToken:    e.walletToken,
+		walletDidID:    e.walletDidID,
+		walletDidKeyID: e.walletDidKeyID,
+		URLs: &VPFlowExecutorURLs{
+			InitiateOidcInteractionURLFormat:   initiateOidcInteractionURLFormat,
+			RetrieveInteractionsClaimURLFormat: retrieveInteractionsClaimURLFormat,
+		},
+	}
+
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
-		nil, e.tlsConfig)
-	if err != nil {
-		return err
-	}
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
-	}
-
-	result := &initiateOIDC4VPResponse{}
-
-	err = json.Unmarshal(respBytes, result)
-	if err != nil {
-		return err
-	}
-
-	e.authorizationRequest = result.AuthorizationRequest
-	e.transactionID = result.TxId
-
-	return nil
+	return e.vpFlowExecutor.initiateInteraction(profileName, token)
 }
 
 func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
-	endpointURL := strings.TrimPrefix(e.authorizationRequest, "openid-vc://?request_uri=")
-
-	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "", "", nil, e.tlsConfig)
+	rawRequestObject, err := e.vpFlowExecutor.fetchRequestObject()
 	if err != nil {
 		return err
-	}
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	_, err = e.waitForEvent("oidc_interaction_qr_scanned")
@@ -167,103 +138,20 @@ func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
 		return err
 	}
 
-	jwtVerifier := jwt.NewVerifier(jwt.KeyResolverFunc(
-		verifiable.NewVDRKeyResolver(e.ariesServices.vdrRegistry).PublicKeyFetcher()))
-
-	requestObject := &RequestObject{}
-
-	err = verifyTokenSignature(string(respBytes), requestObject, jwtVerifier)
-	if err != nil {
-		return err
-	}
-
-	e.requestObject = requestObject
-	return nil
+	return e.vpFlowExecutor.verifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
 }
 
 func (e *Steps) queryCredentialFromWallet() error {
-	pdBytes, err := json.Marshal(e.requestObject.Claims.VPToken.PresentationDefinition)
-
-	if err != nil {
-		return fmt.Errorf("presentation definition marshal: %w", err)
-	}
-
-	vps, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
-		Type:  "PresentationExchange",
-		Query: []json.RawMessage{pdBytes},
-	})
-
-	if err != nil {
-		return fmt.Errorf("query vc using presentation definition: %w", err)
-	}
-
-	e.requestPresentation = vps[0]
-
-	return nil
+	return e.vpFlowExecutor.queryCredentialFromWallet()
 }
 
 func (e *Steps) sendAuthorizedResponse() error {
-	presentationSubmission :=
-		e.requestPresentation.CustomFields["presentation_submission"].(*presexch.PresentationSubmission)
-
-	idToken := &IDTokenClaims{
-		VPToken: IDTokenVPToken{
-			PresentationSubmission: presentationSubmission,
-		},
-		Nonce: e.requestObject.Nonce,
-		Exp:   time.Now().Unix() + 600,
-		Iss:   "https://self-issued.me/v2/openid-vc",
-	}
-
-	e.requestPresentation.CustomFields["presentation_submission"] = nil
-
-	vpToken := VPTokenClaims{
-		VP:    e.requestPresentation,
-		Nonce: e.requestObject.Nonce,
-		Exp:   time.Now().Unix() + 600,
-		Iss:   e.walletDidID,
-	}
-
-	idTokenJWS, err := signToken(idToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
-	if err != nil {
-		return fmt.Errorf("sign id_token: %w", err)
-	}
-
-	vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
-	if err != nil {
-		return fmt.Errorf("sign vp_token: %w", err)
-	}
-
-	body :=
-		fmt.Sprintf("id_token=%s&vp_token=%s&state=%s", idTokenJWS, vpTokenJWS, e.requestObject.State)
-
-	req, err := http.NewRequest(http.MethodPost, e.requestObject.RedirectURI, bytes.NewBuffer([]byte(body)))
+	body, err := e.vpFlowExecutor.createAuthorizedResponse()
 	if err != nil {
 		return err
 	}
 
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-	c := &http.Client{Transport: &http.Transport{TLSClientConfig: e.tlsConfig}}
-
-	resp, err := c.Do(req)
-
-	if err != nil {
-		return err
-	}
-
-	defer bddutil.CloseResponseBody(resp.Body)
-
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
-	}
-
-	return nil
+	return e.vpFlowExecutor.sendAuthorizedResponse(body)
 }
 
 func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
@@ -272,25 +160,9 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(retrieveInteractionsClaimURLFormat, txID)
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "application/json", token, //nolint: bodyclose
-		nil, e.tlsConfig)
-	if err != nil {
-		return err
-	}
-	defer bddutil.CloseResponseBody(resp.Body)
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
-	}
-
-	return nil
+	return e.vpFlowExecutor.retrieveInteractionsClaim(txID, token)
 }
 
 func (e *Steps) waitForEvent(eventType string) (string, error) {
