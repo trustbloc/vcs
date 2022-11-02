@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -54,8 +55,32 @@ func New(config *Config) *Service {
 	}
 }
 
-func (s *Service) GetRevocationVC(statusURL string) (*verifiable.Credential, error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, statusURL, nil)
+// GetRevocationVC returns revocation VC identified by statusURI.
+// statusURI might be either HTTP URL or DID URL.
+func (s *Service) GetRevocationVC(statusURI string) (*verifiable.Credential, error) {
+	var vcBytes []byte
+	var err error
+	switch {
+	case strings.HasPrefix(statusURI, "did:"):
+		vcBytes, err = s.resolveDIDRelativeURL(statusURI)
+	default:
+		vcBytes, err = s.resolveHTTPUrl(statusURI)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("unable to resolve revocation VC URI: %w", err)
+	}
+
+	revocationListVC, err := s.parseAndVerifyVC(vcBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse and verify status vc: %w", err)
+	}
+
+	return revocationListVC, nil
+}
+
+func (s *Service) resolveHTTPUrl(url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -65,12 +90,7 @@ func (s *Service) GetRevocationVC(statusURL string) (*verifiable.Credential, err
 		return nil, err
 	}
 
-	revocationListVC, err := s.parseAndVerifyVC(resp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse and verify status vc: %w", err)
-	}
-
-	return revocationListVC, nil
+	return resp, nil
 }
 
 func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {

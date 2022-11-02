@@ -29,6 +29,8 @@ import (
 var (
 	//go:embed testdata/university_degree.jsonld
 	sampleVCJsonLD string
+	//go:embed testdata/identity_hub_response_ldp.json
+	identityHubResponseLDP string
 )
 
 type mockHTTPClient struct {
@@ -107,7 +109,7 @@ func TestService_GetRevocationListVC(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "OK",
+			name: "OK HTTP",
 			fields: fields{
 				vdr: &vdrmock.MockVDRegistry{},
 				httpClient: &mockHTTPClient{
@@ -121,6 +123,27 @@ func TestService_GetRevocationListVC(t *testing.T) {
 			},
 			args: args{
 				statusURL: "https://example.com/credentials/status/1",
+			},
+			want:    vc,
+			wantErr: false,
+		},
+		{
+			name: "OK DID",
+			fields: fields{
+				vdr: &vdrmock.MockVDRegistry{
+					ResolveValue: createDIDDoc("did:example:123"),
+				},
+				httpClient: &mockHTTPClient{
+					doValue: &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader([]byte(identityHubResponseLDP))),
+					},
+					doErr: nil,
+				},
+				documentLoader: loader,
+			},
+			args: args{
+				statusURL: didRelativeURL,
 			},
 			want:    vc,
 			wantErr: false,
