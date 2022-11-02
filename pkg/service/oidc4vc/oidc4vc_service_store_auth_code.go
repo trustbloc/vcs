@@ -11,8 +11,8 @@ import (
 	"fmt"
 )
 
-// StoreAuthCode stores authorization code from issuer provider.
-func (s *Service) StoreAuthCode(
+// StoreAuthorizationCode stores authorization code from issuer provider.
+func (s *Service) StoreAuthorizationCode(
 	ctx context.Context,
 	opState string,
 	code string,

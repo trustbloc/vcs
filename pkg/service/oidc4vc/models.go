@@ -39,6 +39,7 @@ type TransactionData struct {
 	Scope                              []string
 	AuthorizationDetails               *AuthorizationDetails
 	IssuerAuthCode                     string
+	IssuerToken                        string
 	OpState                            string
 }
 

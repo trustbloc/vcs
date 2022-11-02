@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService
+//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,oAuth2ClientFactory=MockOAuth2ClientFactory
 
 package oidc4vc
 
@@ -12,6 +12,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
 )
@@ -42,6 +44,10 @@ type transactionStore interface {
 	) error
 }
 
+type oAuth2ClientFactory interface {
+	GetClient(config oauth2.Config) OAuth2Client
+}
+
 type wellKnownService interface {
 	GetOIDCConfiguration(ctx context.Context, url string) (*OIDCConfiguration, error)
 }
@@ -51,6 +57,7 @@ type Config struct {
 	TransactionStore    transactionStore
 	WellKnownService    wellKnownService
 	IssuerVCSPublicHost string
+	OAuth2ClientFactory oAuth2ClientFactory
 }
 
 // Service implements VCS credential interaction API for OIDC4VC issuance.
@@ -58,6 +65,7 @@ type Service struct {
 	store               transactionStore
 	wellKnownService    wellKnownService
 	issuerVCSPublicHost string
+	oAuth2ClientFactory oAuth2ClientFactory
 }
 
 // NewService returns a new Service instance.
@@ -66,6 +74,7 @@ func NewService(config *Config) (*Service, error) {
 		store:               config.TransactionStore,
 		wellKnownService:    config.WellKnownService,
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
+		oAuth2ClientFactory: config.OAuth2ClientFactory,
 	}, nil
 }
 

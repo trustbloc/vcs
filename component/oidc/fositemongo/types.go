@@ -39,6 +39,7 @@ type request struct {
 	GrantedAudience   fosite.Arguments
 	Lang              language.Tag
 	ClientID          string
+	SessionExtra      map[string]interface{}
 }
 
 type Client struct {

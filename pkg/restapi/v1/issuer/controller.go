@@ -79,10 +79,15 @@ type oidc4vcService interface {
 		req *oidc4vc.PrepareClaimDataAuthorizationRequest,
 	) (*oidc4vc.PrepareClaimDataAuthorizationResponse, error)
 
-	StoreAuthCode(
+	StoreAuthorizationCode(
 		ctx context.Context,
 		opState string,
 		code string,
+	) (oidc4vc.TxID, error)
+
+	ExchangeAuthorizationCode(
+		ctx context.Context,
+		opState string,
 	) (oidc4vc.TxID, error)
 }
 
@@ -446,5 +451,17 @@ func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4vcService.StoreAuthCode(ctx.Request().Context(), body.OpState, body.Code))
+	return util.WriteOutput(ctx)(c.oidc4vcService.StoreAuthorizationCode(ctx.Request().Context(), body.OpState, body.Code))
+}
+
+// ExchangeAuthorizationCodeRequest Exchanges authorization code.
+// POST /issuer/interactions/exchange-authorization-code.
+func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
+	var body ExchangeAuthorizationCodeRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(c.oidc4vcService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState))
 }

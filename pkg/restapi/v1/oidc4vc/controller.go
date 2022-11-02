@@ -28,7 +28,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 )
 
-var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
+const (
+	nonceLength       = 15
+	sessionOpStateKey = "opState"
+)
 
 // StateStore stores authorization request/response state.
 type StateStore interface {
@@ -189,8 +192,13 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	}
 
 	ar.(*fosite.AuthorizeRequest).State = params.OpState
+	ses := &fosite.DefaultSession{
+		Extra: map[string]interface{}{
+			sessionOpStateKey: params.OpState,
+		},
+	}
 
-	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, new(fosite.DefaultSession))
+	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
@@ -253,6 +261,17 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
+
+	exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
+		ctx,
+		issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
+			OpState: ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
+		},
+	)
+	if err != nil {
+		return err
+	}
+	_ = exchangeResp.Body.Close()
 
 	resp, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {

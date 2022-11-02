@@ -38,6 +38,7 @@ func (s *Store) createSession(
 		GrantedAudience:   mapped.GrantedAudience,
 		Lang:              mapped.Lang,
 		ClientID:          mapped.Client.GetID(),
+		SessionExtra:      mapped.Session.(*fosite.DefaultSession).Extra,
 	}
 
 	collection := s.mongoClient.Database().Collection(collectionStr)
@@ -64,13 +65,20 @@ func (s *Store) getSession(
 	session fosite.Session,
 ) (fosite.Requester, error) {
 	resp, err := getInternal[request](ctx, s.mongoClient, collectionStr, lookupID)
-
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := s.GetClient(ctx, resp.ClientID)
+	mappedSession := session.(*fosite.DefaultSession)
+	if mappedSession.Extra == nil {
+		mappedSession.Extra = map[string]interface{}{}
+	}
 
+	for k, v := range resp.SessionExtra {
+		mappedSession.Extra[k] = v
+	}
+
+	client, err := s.GetClient(ctx, resp.ClientID)
 	if err != nil {
 		return nil, err
 	}

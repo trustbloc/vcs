@@ -998,7 +998,7 @@ func TestController_StoreAuthZCode(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
 		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().StoreAuthCode(gomock.Any(), opState, code).Return(oidc4vc.TxID("1234"), nil)
+		mockOIDC4VCService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code).Return(oidc4vc.TxID("1234"), nil)
 
 		c := &Controller{
 			oidc4vcService: mockOIDC4VCService,
@@ -1014,6 +1014,30 @@ func TestController_StoreAuthZCode(t *testing.T) {
 		req := "{" //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.StoreAuthorizationCodeRequest(ctx), "unexpected EOF")
+	})
+}
+
+func TestController_ExchangeAuthorizationCode(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		opState := uuid.NewString()
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState).Return(oidc4vc.TxID("1234"), nil)
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
+	})
+
+	t.Run("invalid body", func(t *testing.T) {
+		c := &Controller{}
+
+		req := "{" //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.ExchangeAuthorizationCodeRequest(ctx), "unexpected EOF")
 	})
 }
 

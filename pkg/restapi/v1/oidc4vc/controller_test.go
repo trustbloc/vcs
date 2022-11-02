@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
@@ -562,7 +563,8 @@ func TestController_OidcRedirect(t *testing.T) {
 
 func TestController_OidcToken(t *testing.T) {
 	var (
-		mockOAuthProvider = NewMockOAuth2Provider(gomock.NewController(t))
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
 	)
 
 	tests := []struct {
@@ -573,8 +575,22 @@ func TestController_OidcToken(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
+				opState := uuid.NewString()
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-					&fosite.AccessRequest{}, nil)
+					&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"opState": opState,
+								},
+							},
+						},
+					}, nil)
+
+				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(),
+					issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
+						OpState: opState,
+					}).Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
 
 				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
 					&fosite.AccessResponse{}, nil)
@@ -600,7 +616,18 @@ func TestController_OidcToken(t *testing.T) {
 			name: "fail to create new access response",
 			setup: func() {
 				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-					&fosite.AccessRequest{}, nil)
+					&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"opState": "1234",
+								},
+							},
+						},
+					}, nil)
+
+				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
 
 				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
 					nil, errors.New("new access response error"))
@@ -609,13 +636,35 @@ func TestController_OidcToken(t *testing.T) {
 				require.ErrorContains(t, err, "new access response error")
 			},
 		},
+		{
+			name: "fail to exchange token",
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"opState": "1234",
+								},
+							},
+						},
+					}, nil)
+
+				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("can not exchange token"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "can not exchange token")
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
 			controller := oidc4vc.NewController(&oidc4vc.Config{
-				OAuth2Provider: mockOAuthProvider,
+				OAuth2Provider:          mockOAuthProvider,
+				IssuerInteractionClient: mockInteractionClient,
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
