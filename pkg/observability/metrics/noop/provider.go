@@ -20,5 +20,6 @@ func GetMetrics() metrics.Metrics {
 	return &NoMetrics{}
 }
 
-func (n *NoMetrics) SignCount()                   {}
-func (n *NoMetrics) SignTime(value time.Duration) {}
+func (n *NoMetrics) SignTime(_ time.Duration)                             {}
+func (n *NoMetrics) CheckAuthorizationResponseTime(_ time.Duration)       {}
+func (n *NoMetrics) VerifyOIDCVerifiablePresentationTime(_ time.Duration) {}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package prometheus
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -14,14 +15,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPromProvider(t *testing.T) {
+	provider := NewPrometheusProvider(&http.Server{})
+	require.NotNil(t, provider)
+
+	err := provider.Create()
+	require.NoError(t, err)
+
+	m := provider.Metrics()
+	require.NotNil(t, m)
+
+	err = provider.Destroy()
+	require.NoError(t, err)
+}
+
 func TestMetrics(t *testing.T) {
 	m := GetMetrics()
 	require.NotNil(t, m)
 	require.True(t, m == GetMetrics())
 
 	t.Run("VCS Activity", func(t *testing.T) {
-		require.NotPanics(t, func() { m.SignCount() })
 		require.NotPanics(t, func() { m.SignTime(time.Second) })
+		require.NotPanics(t, func() { m.CheckAuthorizationResponseTime(time.Second) })
+		require.NotPanics(t, func() { m.CheckAuthorizationResponseTime(time.Second) })
 	})
 }
 

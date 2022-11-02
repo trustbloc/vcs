@@ -16,7 +16,6 @@ import (
 )
 
 type metricsProvider interface {
-	SignCount()
 	SignTime(value time.Duration)
 }
 
@@ -70,8 +69,6 @@ func (s *KMSSigner) Sign(data []byte) ([]byte, error) {
 	defer func() {
 		s.metrics.SignTime(time.Since(startTime))
 	}()
-
-	s.metrics.SignCount()
 
 	if s.bbs {
 		return s.crypto.SignMulti(s.textToLines(string(data)), s.keyHandle)

@@ -21,9 +21,16 @@ const (
 	Namespace = "vcs"
 
 	// Crypto plain crypto operations.
-	Crypto                = "crypto"
-	CryptoSignCountMetric = "crypto_sign_count"
-	CryptoSignTimeMetric  = "crypto_sign_seconds"
+	Crypto               = "crypto"
+	CryptoSignTimeMetric = "crypto_sign_seconds"
+
+	// Controller operations.
+	Controller                    = "controller"
+	ControllerCheckAuthRespMetric = "controller_checkAuthResponse_seconds"
+
+	// Service operations.
+	Service      = "service"
+	VerifyOIDCVP = "service_verifyOIDCVerifiablePresentation_seconds"
 )
 
 // Provider is an interface for metrics provider.
@@ -40,6 +47,7 @@ type Provider interface {
 //
 //nolint:interfacebloat
 type Metrics interface {
-	SignCount()
 	SignTime(value time.Duration)
+	CheckAuthorizationResponseTime(value time.Duration)
+	VerifyOIDCVerifiablePresentationTime(value time.Duration)
 }
