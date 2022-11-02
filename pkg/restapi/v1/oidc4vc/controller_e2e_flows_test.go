@@ -68,6 +68,8 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	e := echo.New()
 	e.HTTPErrorHandler = resterr.HTTPErrorHandler
 
+	opState := "QIn85XAEHwlPyCVRhTww"
+
 	srv := httptest.NewServer(e)
 	defer srv.Close()
 
@@ -103,7 +105,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	controller := oidc4vc.NewController(&oidc4vc.Config{
 		OAuth2Provider:          oauth2Provider,
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4vcstatestore.AuthorizeState)},
-		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL),
+		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
 	})
 
@@ -124,8 +126,6 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		},
 	}
 
-	opState := "QIn85XAEHwlPyCVRhTww"
-
 	params := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
@@ -137,10 +137,23 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	resp, err := http.DefaultClient.Get(authCodeURL)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.NotEmpty(t, resp.Request.URL.Query().Get("code"))
+	code := resp.Request.URL.Query().Get("code")
+	require.NotEmpty(t, code)
+
+	token, err := oauthClient.Exchange(context.TODO(), code,
+		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, token)
+	require.NotEmpty(t, token.AccessToken)
 }
 
-func mockIssuerInteractionClient(t *testing.T, serverURL string) *MockIssuerInteractionClient {
+func mockIssuerInteractionClient(
+	t *testing.T,
+	serverURL string,
+	opState string,
+) *MockIssuerInteractionClient {
 	t.Helper()
 
 	client := NewMockIssuerInteractionClient(gomock.NewController(t))
@@ -182,6 +195,13 @@ func mockIssuerInteractionClient(t *testing.T, serverURL string) *MockIssuerInte
 				Body:       io.NopCloser(bytes.NewBuffer(nil)),
 			}, nil
 		})
+
+	client.EXPECT().ExchangeAuthorizationCodeRequest(
+		gomock.Any(),
+		issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
+			OpState: opState,
+		},
+	).Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
 
 	return client
 }

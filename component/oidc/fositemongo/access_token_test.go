@@ -74,6 +74,10 @@ func TestAccessTokenFlow(t *testing.T) {
 			assert.NoError(t, err)
 
 			sign := uuid.New()
+			sesExtra := map[string]interface{}{
+				"opState": "2135441",
+			}
+
 			ses := &fosite.Request{
 				ID:                uuid.New(),
 				Client:            dbClient,
@@ -82,16 +86,19 @@ func TestAccessTokenFlow(t *testing.T) {
 				RequestedAudience: []string{"aud1"},
 				GrantedAudience:   []string{"aud2"},
 				Lang:              language.Tag{},
-				Session:           &fosite.DefaultSession{},
+				Session: &fosite.DefaultSession{
+					Extra: sesExtra,
+				},
 			}
 
 			err = s.CreateAccessTokenSession(context.TODO(), sign, ses)
 			assert.NoError(t, err)
 
-			dbSes, err := s.GetAccessTokenSession(context.TODO(), sign, ses.Session)
+			dbSes, err := s.GetAccessTokenSession(context.TODO(), sign, new(fosite.DefaultSession))
 			assert.NoError(t, err)
 			assert.Equal(t, ses, dbSes)
 			assert.Equal(t, dbClient.ID, dbSes.GetClient().GetID())
+			assert.Equal(t, sesExtra, dbSes.GetSession().(*fosite.DefaultSession).Extra)
 
 			if testCase.useRevoke {
 				err = s.RevokeAccessToken(context.TODO(), ses.ID)

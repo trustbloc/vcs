@@ -31,7 +31,7 @@ func TestStoreAuthCode(t *testing.T) {
 		store.EXPECT().FindByOpState(gomock.Any(), opState).
 			Return(nil, errors.New("not found"))
 
-		resp, storeErr := srv.StoreAuthCode(context.TODO(), opState, "1234")
+		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, "1234")
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, storeErr, "not found")
 	})
@@ -54,7 +54,7 @@ func TestStoreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		resp, storeErr := srv.StoreAuthCode(context.TODO(), opState, code)
+		resp, storeErr := srv.StoreAuthorizationCode(context.TODO(), opState, code)
 		assert.NoError(t, storeErr)
 		assert.Equal(t, tx.ID, resp)
 	})
