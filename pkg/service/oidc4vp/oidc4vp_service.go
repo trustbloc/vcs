@@ -203,6 +203,8 @@ func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, event
 
 func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
 	profile *profileapi.Verifier) (*InteractionInfo, error) {
+	logger.Debug("InitiateOidcInteraction begin")
+
 	if profile.SigningDID == nil {
 		return nil, errors.New("profile signing did can't be nil")
 	}
@@ -211,6 +213,8 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 	if err != nil {
 		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
 	}
+
+	logger.Debug("InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
 	if errSendEvent := s.sendEvent(tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
@@ -221,17 +225,21 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, err
 	}
 
+	logger.Info("InitiateOidcInteraction request object created", log.WithJSON(token))
+
 	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("request object jwt", log.WithJSON(token))
-
 	requestURI, err := s.requestObjectPublicStore.Publish(token, accessRequestObjectEvent)
 	if err != nil {
 		return nil, fmt.Errorf("fail publish request object: %w", err)
 	}
+
+	logger.Info("InitiateOidcInteraction request object published", log.WithURL(token))
+
+	logger.Debug("InitiateOidcInteraction succeed")
 
 	return &InteractionInfo{
 		AuthorizationRequest: "openid-vc://?request_uri=" + requestURI,
@@ -240,6 +248,7 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 }
 
 func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVPToken) error {
+	logger.Debug("VerifyOIDCVerifiablePresentation begin")
 	startTime := time.Now()
 
 	defer func() {
@@ -255,17 +264,21 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 		return fmt.Errorf("invalid nonce")
 	}
 
+	logger.Debug("VerifyOIDCVerifiablePresentation nonce verified")
+
 	profile, err := s.profileService.GetProfile(tx.ProfileID)
 	if err != nil {
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}
+
+	logger.Debug("VerifyOIDCVerifiablePresentation profile fetched", log.WithProfileID(profile.ID))
 
 	vpBytes, err := token.Presentation.MarshalJSON()
 	if err != nil {
 		return err
 	}
 
-	logger.Info("vp string: %s", log.WithJSON(string(vpBytes)))
+	logger.Debug(" VerifyOIDCVerifiablePresentation vp string", log.WithJSON(string(vpBytes)))
 
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
@@ -277,7 +290,15 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 		return fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
 	}
 
-	return s.extractClaimData(tx, token, profile)
+	logger.Debug(" VerifyOIDCVerifiablePresentation verified", log.WithJSON(string(vpBytes)))
+
+	err = s.extractClaimData(tx, token, profile)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("VerifyOIDCVerifiablePresentation succeed")
+	return nil
 }
 
 func (s *Service) GetTx(id TxID) (*Transaction, error) {
@@ -311,7 +332,7 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 		return err
 	}
 
-	logger.Info("extractClaimData vp", log.WithJSON(string(bytes)))
+	logger.Debug("extractClaimData vp", log.WithJSON(string(bytes)))
 
 	credentials, err := tx.PresentationDefinition.Match(token.Presentation, s.documentLoader,
 		presexch.WithCredentialOptions(
@@ -323,17 +344,23 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 		return fmt.Errorf("extract claims: match: %w", err)
 	}
 
+	logger.Debug("extractClaimData pd matched")
+
 	if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
 		err = checkVCSubject(credentials, token)
 		if err != nil {
 			return err
 		}
+
+		logger.Debug("extractClaimData vc subject verified")
 	}
 
 	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: credentials})
 	if err != nil {
 		return fmt.Errorf("extract claims: store: %w", err)
 	}
+
+	logger.Debug("extractClaimData claims stored")
 
 	if err = s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err

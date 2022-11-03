@@ -30,6 +30,7 @@ const (
 	FieldConcurrencyRequests = "concurrencyRequests"
 	FieldWorkers             = "workers"
 	FieldPath                = "path"
+	FieldURL                 = "url"
 	FieldJSON                = "json"
 	FieldJSONResolution      = "jsonResolution"
 	FieldSleep               = "sleep"
@@ -39,7 +40,10 @@ const (
 	FieldCertPoolSize        = "certPoolSize"
 	FieldIDToken             = "idToken"
 	FieldVPToken             = "vpToken"
+	FieldTxID                = "transactionID"
+	FieldPresDefID           = "presDefinitionID"
 	FieldState               = "state"
+	FieldProfileID           = "profileID"
 )
 
 // ObjectMarshaller uses reflection to marshal an object's fields.
@@ -138,6 +142,11 @@ func WithPath(path string) zap.Field {
 	return zap.String(FieldPath, path)
 }
 
+// WithURL sets the url field.
+func WithURL(url string) zap.Field {
+	return zap.String(FieldURL, url)
+}
+
 // WithJSON sets the json field.
 func WithJSON(json string) zap.Field {
 	return zap.String(FieldJSON, json)
@@ -183,7 +192,22 @@ func WithVPToken(vpToken string) zap.Field {
 	return zap.String(FieldVPToken, vpToken)
 }
 
+// WithTxID sets the transaction id field.
+func WithTxID(txID string) zap.Field {
+	return zap.String(FieldTxID, txID)
+}
+
+// WithPresDefID sets the presentation definition id field.
+func WithPresDefID(id string) zap.Field {
+	return zap.String(FieldPresDefID, id)
+}
+
 // WithState sets the state field.
 func WithState(state string) zap.Field {
 	return zap.String(FieldState, state)
+}
+
+// WithProfileID sets the presentation definition id field.
+func WithProfileID(id string) zap.Field {
+	return zap.String(FieldProfileID, id)
 }
