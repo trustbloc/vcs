@@ -67,6 +67,7 @@ func TestStandardFields(t *testing.T) {
 		concurrencyReq := 3
 		workers := 4
 		path := "some/path"
+		url := "some/url"
 		json := "{\"some\":\"json object\"}"
 		jsonResolution := "json/resolution"
 		sleep := time.Second * 10
@@ -75,6 +76,13 @@ func TestStandardFields(t *testing.T) {
 			Field1: "event1",
 			Field2: 123,
 		}
+		idToken := "some id token"
+		vpToken := "some vp token"
+		txID := "some tx id"
+		presDefID := "some pd id"
+		state := "some state"
+		profileID := "some profile id"
+
 		dockerComposeCmd := strings.Join([]string{
 			"docker-compose",
 			"-f",
@@ -101,6 +109,7 @@ func TestStandardFields(t *testing.T) {
 			WithConcurrencyRequests(concurrencyReq),
 			WithWorkers(workers),
 			WithPath(path),
+			WithURL(url),
 			WithJSON(json),
 			WithJSONResolution(jsonResolution),
 			WithSleep(sleep),
@@ -108,6 +117,12 @@ func TestStandardFields(t *testing.T) {
 			WithEvent(event),
 			WithDockerComposeCmd(dockerComposeCmd),
 			WithCertPoolSize(certPoolSize),
+			WithIDToken(idToken),
+			WithVPToken(vpToken),
+			WithTxID(txID),
+			WithPresDefID(presDefID),
+			WithState(state),
+			WithProfileID(profileID),
 		)
 
 		t.Logf(stdOut.String())
@@ -128,12 +143,19 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, concurrencyReq, l.ConcurrencyRequests)
 		require.Equal(t, workers, l.Workers)
 		require.Equal(t, path, l.Path)
+		require.Equal(t, url, l.URL)
 		require.Equal(t, json, l.JSON)
 		require.Equal(t, jsonResolution, l.JSONResolution)
 		require.Equal(t, sleep.String(), l.Sleep)
 		require.Equal(t, event, l.Event)
 		require.Equal(t, dockerComposeCmd, l.DockerComposeCmd)
 		require.Equal(t, certPoolSize, l.CertPoolSize)
+		require.Equal(t, idToken, l.IDToken)
+		require.Equal(t, vpToken, l.VPToken)
+		require.Equal(t, txID, l.TxID)
+		require.Equal(t, presDefID, l.PresDefID)
+		require.Equal(t, state, l.State)
+		require.Equal(t, profileID, l.ProfileID)
 	})
 
 	t.Run("json fields 2", func(t *testing.T) {
@@ -177,6 +199,7 @@ type logData struct {
 	ConcurrencyRequests int         `json:"concurrencyRequests"`
 	Workers             int         `json:"workers"`
 	Path                string      `json:"path"`
+	URL                 string      `json:"url"`
 	JSON                string      `json:"json"`
 	JSONResolution      string      `json:"jsonResolution"`
 	Sleep               string      `json:"sleep"`
@@ -184,6 +207,12 @@ type logData struct {
 	Event               *mockObject `json:"event"`
 	DockerComposeCmd    string      `json:"dockerComposeCmd"`
 	CertPoolSize        int         `json:"certPoolSize"`
+	IDToken             string      `json:"idToken"`
+	VPToken             string      `json:"vpToken"`
+	TxID                string      `json:"transactionID"`
+	PresDefID           string      `json:"presDefinitionID"`
+	State               string      `json:"state"`
+	ProfileID           string      `json:"profileID"`
 }
 
 func unmarshalLogData(t *testing.T, b []byte) *logData {

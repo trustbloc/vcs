@@ -164,6 +164,7 @@ func NewController(config *Config) *Controller {
 // PostVerifyCredentials Verify credential
 // (POST /verifier/profiles/{profileID}/credentials/verify).
 func (c *Controller) PostVerifyCredentials(ctx echo.Context, profileID string) error {
+	logger.Debug("PostVerifyCredentials begin")
 	var body VerifyCredentialData
 
 	if err := util.ReadBody(ctx, &body); err != nil {
@@ -200,12 +201,14 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
+	logger.Debug("PostVerifyCredentials success")
 	return mapVerifyCredentialChecks(verRes), nil
 }
 
 // PostVerifyPresentation Verify presentation.
 // (POST /verifier/profiles/{profileID}/presentations/verify).
 func (c *Controller) PostVerifyPresentation(ctx echo.Context, profileID string) error {
+	logger.Debug("PostVerifyPresentation begin")
 	var body VerifyPresentationData
 
 	if err := util.ReadBody(ctx, &body); err != nil {
@@ -243,11 +246,12 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}
 
+	logger.Debug("PostVerifyPresentation success")
 	return mapVerifyPresentationChecks(verRes), nil
 }
 
 func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string) error {
-	logger.Info("InitiateOidcInteraction begin")
+	logger.Debug("InitiateOidcInteraction begin")
 
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
@@ -285,12 +289,14 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
 	}
 
+	logger.Debug("InitiateOidcInteraction pd find", log.WithPresDefID(pd.ID))
+
 	result, err := c.oidc4VPService.InitiateOidcInteraction(pd, strPtrToStr(data.Purpose), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
 	}
 
-	logger.Info("InitiateOidcInteraction success")
+	logger.Debug("InitiateOidcInteraction success", log.WithTxID(string(result.TxID)))
 	return &InitiateOIDC4VPResponse{
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxID:                 string(result.TxID),
@@ -298,12 +304,12 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 }
 
 func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
-	logger.Info("CheckAuthorizationResponse begin")
+	logger.Debug("CheckAuthorizationResponse begin")
 	startTime := time.Now()
 
 	defer func() {
 		c.metrics.CheckAuthorizationResponseTime(time.Since(startTime))
-		logger.Info("CheckAuthorizationResponse end", log.WithDuration(time.Since(startTime)))
+		logger.Debug("CheckAuthorizationResponse end", log.WithDuration(time.Since(startTime)))
 	}()
 
 	authResp, err := validateAuthorizationResponse(ctx)
@@ -311,17 +317,24 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		return err
 	}
 
-	processedToken, err := c.validateAuthorizationResponseTokens(authResp)
+	processedToken, err := c.verifyAuthorizationResponseTokens(authResp)
 	if err != nil {
 		return err
 	}
 
 	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State), processedToken)
+	if err != nil {
+		return err
+	}
 
-	return err
+	logger.Debug("CheckAuthorizationResponse succeed")
+
+	return nil
 }
 
 func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) error {
+	logger.Debug("RetrieveInteractionsClaim begin")
+
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
 		return err
@@ -337,7 +350,11 @@ func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) er
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4VPService.RetrieveClaims(tx), nil)
+	claims := c.oidc4VPService.RetrieveClaims(tx)
+
+	logger.Debug("RetrieveInteractionsClaim succeed")
+
+	return util.WriteOutput(ctx)(claims, nil)
 }
 
 func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) {
@@ -352,29 +369,31 @@ func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) 
 		return nil, resterr.NewSystemError(oidc4vpSvcComponent, "GetTx", err)
 	}
 
+	logger.Debug("RetrieveInteractionsClaim tx found", log.WithTxID(string(tx.ID)))
+
 	return tx, nil
 }
 
-func (c *Controller) validateAuthorizationResponseTokens(authResp *authorizationResponse) (
+func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationResponse) (
 	*oidc4vp.ProcessedVPToken, error) {
 	startTime := time.Now()
 	defer func() {
 		logger.Debug("validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
 	}()
 
-	logger.Info("authresp", log.WithIDToken(authResp.IDToken))
-
 	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("authresp", log.WithVPToken(authResp.VPToken))
+	logger.Debug("CheckAuthorizationResponse id_token verified", log.WithIDToken(authResp.IDToken))
 
 	vpTokenClaims, signer, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Debug("CheckAuthorizationResponse vp_token verified", log.WithVPToken(authResp.VPToken))
 
 	if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
@@ -390,6 +409,8 @@ func (c *Controller) validateAuthorizationResponseTokens(authResp *authorization
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
 	}
+
+	logger.Debug("CheckAuthorizationResponse vp validated")
 
 	presentation.JWT = authResp.VPToken
 	if presentation.CustomFields == nil {
@@ -480,21 +501,21 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
-	logger.Info("AuthorizationResponse", log.WithIDToken(res.IDToken))
+	logger.Debug("AuthorizationResponse id_token decoded", log.WithIDToken(res.IDToken))
 
 	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("AuthorizationResponse", log.WithVPToken(res.VPToken))
+	logger.Debug("AuthorizationResponse vp_token decoded", log.WithVPToken(res.VPToken))
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("AuthorizationResponse", log.WithState(res.State))
+	logger.Debug("AuthorizationResponse state decoded", log.WithState(res.State))
 
 	return res, nil
 }

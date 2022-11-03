@@ -571,7 +571,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			DocumentLoader: testutil.DocumentLoader(t),
 		})
 
-		processedVPToken, err := c.validateAuthorizationResponseTokens(&authorizationResponse{
+		processedVPToken, err := c.verifyAuthorizationResponseTokens(&authorizationResponse{
 			IDToken: idToken,
 			VPToken: vpToken,
 			State:   "txid",
