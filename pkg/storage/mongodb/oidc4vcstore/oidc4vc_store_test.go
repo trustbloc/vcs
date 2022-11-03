@@ -110,7 +110,15 @@ func TestStore(t *testing.T) {
 				Format:         "vxcxzcz",
 				Locations:      []string{"loc1", "loc2"},
 			},
-			OpState: id,
+			IssuerAuthCode:  uuid.NewString(),
+			IssuerToken:     uuid.NewString(),
+			OpState:         id,
+			UserPinRequired: true,
+			IsPreAuthFlow:   true,
+			PreAuthCode:     uuid.NewString(),
+			ClaimData: map[string]interface{}{
+				"abcd": "awesome",
+			},
 		}
 
 		resp1, err1 := store.Create(context.Background(), toInsert)

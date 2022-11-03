@@ -998,6 +998,12 @@ components:
         authorization_details:
           type: string
           description: Customizes what kind of access Issuer wants to give to VCS.
+        user_pin_required:
+          type: boolean
+          description: Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
+        claim_data:
+          type: object
+          description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
       x-tags:
         - issuer
     InitiateOIDC4VCResponse:

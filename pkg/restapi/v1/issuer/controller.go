@@ -320,6 +320,8 @@ func (c *Controller) initiateIssuance(
 		ResponseType:              lo.FromPtr(req.ResponseType),
 		Scope:                     lo.FromPtr(req.Scope),
 		OpState:                   lo.FromPtr(req.OpState),
+		ClaimData:                 lo.FromPtr(req.ClaimData),
+		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
 	}
 
 	resp, err := c.oidc4vcService.InitiateIssuance(ctx, issuanceReq, profile)

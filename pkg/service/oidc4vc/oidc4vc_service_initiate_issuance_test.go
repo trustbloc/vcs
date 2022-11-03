@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -79,6 +80,119 @@ func TestService_InitiateIssuance(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
+			},
+		},
+		{
+			name: "Success Pre-Auth with PIN",
+			setup: func() {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				expectedCode := "super-secret-pre-auth-code"
+				claimData := map[string]interface{}{
+					"my_awesome_claim": "claim",
+				}
+
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4vc.TransactionData,
+						params ...func(insertOptions *oidc4vc.InsertOptions),
+					) (*oidc4vc.Transaction, error) {
+						assert.NotEqual(t, data.OpState, initialOpState)
+						assert.Equal(t, data.OpState, data.PreAuthCode)
+						assert.Equal(t, true, data.UserPinRequired)
+						assert.Equal(t, true, data.IsPreAuthFlow)
+						assert.Equal(t, claimData, data.ClaimData)
+
+						return &oidc4vc.Transaction{
+							ID: "txID",
+							TransactionData: oidc4vc.TransactionData{
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+								PreAuthCode:     expectedCode,
+								IsPreAuthFlow:   true,
+								UserPinRequired: data.UserPinRequired,
+							},
+						}, nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4vc.OIDCConfiguration{}, nil)
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4vc.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              initialOpState,
+					UserPinRequired:      true,
+					ClaimData:            claimData,
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2F%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
+					resp.InitiateIssuanceURL)
+			},
+		},
+		{
+			name: "Success Pre-Auth without PIN",
+			setup: func() {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				expectedCode := "super-secret-pre-auth-code"
+				claimData := map[string]interface{}{
+					"my_awesome_claim": "claim",
+				}
+
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4vc.TransactionData,
+						params ...func(insertOptions *oidc4vc.InsertOptions),
+					) (*oidc4vc.Transaction, error) {
+						assert.NotEqual(t, data.OpState, initialOpState)
+						assert.Equal(t, data.OpState, data.PreAuthCode)
+						assert.Equal(t, false, data.UserPinRequired)
+						assert.Equal(t, true, data.IsPreAuthFlow)
+						assert.Equal(t, claimData, data.ClaimData)
+
+						return &oidc4vc.Transaction{
+							ID: "txID",
+							TransactionData: oidc4vc.TransactionData{
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+								PreAuthCode:   expectedCode,
+								IsPreAuthFlow: true,
+							},
+						}, nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4vc.OIDCConfiguration{}, nil)
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4vc.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              initialOpState,
+					UserPinRequired:      false,
+					ClaimData:            claimData,
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2F%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
+					resp.InitiateIssuanceURL)
 			},
 		},
 		{

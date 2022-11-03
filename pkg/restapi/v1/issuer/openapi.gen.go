@@ -45,6 +45,9 @@ type InitiateOIDC4VCRequest struct {
 	// Customizes what kind of access Issuer wants to give to VCS.
 	AuthorizationDetails *string `json:"authorization_details,omitempty"`
 
+	// Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
+	ClaimData *map[string]interface{} `json:"claim_data,omitempty"`
+
 	// Claim endpoint of the Issuer from where credential claim data has to be requested after successfully acquiring access tokens.
 	ClaimEndpoint *string `json:"claim_endpoint,omitempty"`
 
@@ -68,6 +71,9 @@ type InitiateOIDC4VCRequest struct {
 
 	// Contains scopes that issuer expects VCS to use while requesting authorization code for claim data. Defaults to openid.
 	Scope *[]string `json:"scope,omitempty"`
+
+	// Required for Pre-Authorized Code Flow. Boolean value specifying whether the issuer expects presentation of a user PIN along with the Token Request in a pre-authorized code flow.
+	UserPinRequired *bool `json:"user_pin_required,omitempty"`
 }
 
 // Model for Initiate OIDC Credential Issuance Response.

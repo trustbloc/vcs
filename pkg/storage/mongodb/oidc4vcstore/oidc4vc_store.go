@@ -44,6 +44,12 @@ type mongoDocument struct {
 	AuthorizationDetails               *oidc4vc.AuthorizationDetails
 	ClientID                           string
 	ClientSecret                       string
+	IssuerAuthCode                     string
+	IssuerToken                        string
+	UserPinRequired                    bool
+	IsPreAuthFlow                      bool
+	PreAuthCode                        string
+	ClaimData                          map[string]interface{}
 }
 
 // Store stores oidc transactions in mongo.
@@ -157,7 +163,13 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 		ResponseType:                       doc.ResponseType,
 		Scope:                              doc.Scope,
 		AuthorizationDetails:               doc.AuthorizationDetails,
+		IssuerAuthCode:                     doc.IssuerAuthCode,
+		IssuerToken:                        doc.IssuerToken,
 		OpState:                            doc.OpState,
+		UserPinRequired:                    doc.UserPinRequired,
+		IsPreAuthFlow:                      doc.IsPreAuthFlow,
+		PreAuthCode:                        doc.PreAuthCode,
+		ClaimData:                          doc.ClaimData,
 	}
 
 	return &oidc4vc.Transaction{
@@ -186,6 +198,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
 
 func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData) *mongoDocument {
 	return &mongoDocument{
+		ID:                                 primitive.ObjectID{},
 		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
 		OpState:                            data.OpState,
 		CredentialTemplate:                 data.CredentialTemplate,
@@ -200,5 +213,11 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData)
 		AuthorizationDetails:               data.AuthorizationDetails,
 		ClientID:                           data.ClientID,
 		ClientSecret:                       data.ClientSecret,
+		IssuerAuthCode:                     data.IssuerAuthCode,
+		IssuerToken:                        data.IssuerToken,
+		UserPinRequired:                    data.UserPinRequired,
+		IsPreAuthFlow:                      data.IsPreAuthFlow,
+		PreAuthCode:                        data.PreAuthCode,
+		ClaimData:                          data.ClaimData,
 	}
 }
