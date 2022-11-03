@@ -143,10 +143,15 @@ func initializeScenario(sc *godog.ScenarioContext) {
 		panic(fmt.Sprintf("Failed to initialize BDD context: %s", err.Error()))
 	}
 
+	oidc4vcSteps, err := oidc4vc.NewSteps(bddContext)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize OIDC4VC steps: %s", err.Error()))
+	}
+
 	features := []feature{
 		common.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
-		oidc4vc.NewSteps(bddContext),
+		oidc4vcSteps,
 		oidc4vp.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 		vc_devapi.NewSteps(bddContext),

@@ -1,16 +1,85 @@
 [
   {
-    "id": "profile-management",
+    "id": "issuer-credentials",
     "upstream": {
       "url": "http://vc-rest-echo.trustbloc.local:8075"
     },
     "match": {
-      "url": "https://localhost:4455/<issuer|verifier>/profiles<.*>",
+      "url": "https://localhost:4455/issuer/profiles/<.*>/credentials/<.*>",
       "methods": [
-        "GET",
-        "POST",
-        "PUT",
-        "DELETE"
+        "POST"
+      ]
+    },
+    "authenticators": [
+      {
+        "handler": "oauth2_introspection",
+        "config": {
+          "required_scope": [
+            "org_admin"
+          ]
+        }
+      }
+    ],
+    "mutators": [
+      {
+        "handler": "header",
+        "config": {
+          "headers": {
+            "X-User": "{{ print .Subject }}",
+            "X-API-Key": "rw_token"
+          }
+        }
+      }
+    ],
+    "authorizer": {
+      "handler": "allow"
+    }
+  },
+  {
+    "id": "verifier-credentials-verify",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/verifier/profiles/<.*>/credentials/verify",
+      "methods": [
+        "POST"
+      ]
+    },
+    "authenticators": [
+      {
+        "handler": "oauth2_introspection",
+        "config": {
+          "required_scope": [
+            "org_admin"
+          ]
+        }
+      }
+    ],
+    "mutators": [
+      {
+        "handler": "header",
+        "config": {
+          "headers": {
+            "X-User": "{{ print .Subject }}",
+            "X-API-Key": "rw_token"
+          }
+        }
+      }
+    ],
+    "authorizer": {
+      "handler": "allow"
+    }
+  },
+  {
+    "id": "oidc4vp-initiate-oidc",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/verifier/profiles/<.*>/interactions/initiate-oidc",
+      "methods": [
+        "POST"
       ]
     },
     "authenticators": [
@@ -93,7 +162,6 @@
       "handler": "allow"
     }
   },
-
   {
     "id": "dev-request-object",
     "upstream": {
@@ -102,6 +170,65 @@
     "match": {
       "url": "https://localhost:4455/request-object/<.*>",
       "methods": ["GET"]
+    },
+    "authenticators": [{
+      "handler": "noop"
+    }],
+    "mutators": [{
+      "handler": "noop"
+    }],
+    "authorizer": {
+      "handler": "allow"
+    }
+  },
+  {
+    "id": "oidc4vc-initiate-oidc",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/issuer/profiles/<.*>/interactions/initiate-oidc",
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    "authenticators": [
+      {
+        "handler": "oauth2_introspection",
+        "config": {
+          "required_scope": [
+            "org_admin"
+          ]
+        }
+      }
+    ],
+    "mutators": [
+      {
+        "handler": "header",
+        "config": {
+          "headers": {
+            "X-User": "{{ print .Subject }}",
+            "X-API-Key": "rw_token"
+          }
+        }
+      }
+    ],
+    "authorizer": {
+      "handler": "allow"
+    }
+  },
+  {
+    "id": "oidc4vc-public-oidc",
+    "upstream": {
+      "url": "http://vc-rest-echo.trustbloc.local:8075"
+    },
+    "match": {
+      "url": "https://localhost:4455/oidc/<.*>",
+      "methods": [
+        "GET",
+        "POST"
+      ]
     },
     "authenticators": [{
       "handler": "noop"

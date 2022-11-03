@@ -29,7 +29,6 @@ import (
 )
 
 const (
-	nonceLength       = 15
 	sessionOpStateKey = "opState"
 )
 
@@ -156,10 +155,14 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
-			AuthorizationDetails: nil,
-			OpState:              params.OpState,
-			ResponseType:         params.ResponseType,
-			Scope:                lo.ToPtr(scope),
+			AuthorizationDetails: &common.AuthorizationDetails{
+				Type:           "openid_credential",
+				CredentialType: "PermanentResidentCard", // TODO: Set from the request.
+				Format:         lo.ToPtr("ldp_vc"),
+			},
+			OpState:      params.OpState,
+			ResponseType: params.ResponseType,
+			Scope:        lo.ToPtr(scope),
 		},
 	)
 	if err != nil {
