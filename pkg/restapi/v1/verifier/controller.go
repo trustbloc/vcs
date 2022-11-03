@@ -17,7 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -26,9 +25,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vp"
 	"github.com/trustbloc/vcs/pkg/kms"
+	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
@@ -114,6 +115,11 @@ type Config struct {
 	VDR                   vdrapi.Registry
 	OIDCVPService         oidc4VPService
 	JWTVerifier           jose.SignatureVerifier
+	Metrics               metricsProvider
+}
+
+type metricsProvider interface {
+	CheckAuthorizationResponseTime(value time.Duration)
 }
 
 // Controller for Verifier Profile Management API.
@@ -126,6 +132,7 @@ type Controller struct {
 	vdr                   vdrapi.Registry
 	oidc4VPService        oidc4VPService
 	jwtVerifier           jose.SignatureVerifier
+	metrics               metricsProvider
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
@@ -133,6 +140,12 @@ func NewController(config *Config) *Controller {
 	if config.JWTVerifier == nil {
 		config.JWTVerifier = jwt.NewVerifier(jwt.KeyResolverFunc(
 			verifiable.NewVDRKeyResolver(config.VDR).PublicKeyFetcher()))
+	}
+
+	metrics := config.Metrics
+
+	if metrics == nil {
+		metrics = &noopMetricsProvider.NoMetrics{}
 	}
 
 	return &Controller{
@@ -144,6 +157,7 @@ func NewController(config *Config) *Controller {
 		vdr:                   config.VDR,
 		oidc4VPService:        config.OIDCVPService,
 		jwtVerifier:           config.JWTVerifier,
+		metrics:               metrics,
 	}
 }
 
@@ -233,7 +247,7 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 }
 
 func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string) error {
-	logger.Infof("InitiateOidcInteraction begin")
+	logger.Info("InitiateOidcInteraction begin")
 
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
@@ -276,7 +290,7 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
 	}
 
-	logger.Infof("InitiateOidcInteraction success")
+	logger.Info("InitiateOidcInteraction success")
 	return &InitiateOIDC4VPResponse{
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxID:                 string(result.TxID),
@@ -284,7 +298,14 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 }
 
 func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
-	logger.Infof("CheckAuthorizationResponse begin")
+	logger.Info("CheckAuthorizationResponse begin")
+	startTime := time.Now()
+
+	defer func() {
+		c.metrics.CheckAuthorizationResponseTime(time.Since(startTime))
+		logger.Info("CheckAuthorizationResponse end", log.WithDuration(time.Since(startTime)))
+	}()
+
 	authResp, err := validateAuthorizationResponse(ctx)
 	if err != nil {
 		return err
@@ -297,7 +318,6 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 
 	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State), processedToken)
 
-	logger.Infof("CheckAuthorizationResponse end")
 	return err
 }
 
@@ -337,14 +357,19 @@ func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) 
 
 func (c *Controller) validateAuthorizationResponseTokens(authResp *authorizationResponse) (
 	*oidc4vp.ProcessedVPToken, error) {
-	logger.Infof("authresp id token: ", authResp.IDToken)
+	startTime := time.Now()
+	defer func() {
+		logger.Debug("validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
+	}()
+
+	logger.Info("authresp", log.WithIDToken(authResp.IDToken))
 
 	idTokenClaims, err := validateIDToken(authResp.IDToken, c.jwtVerifier)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Infof("authresp vp token: ", authResp.VPToken)
+	logger.Info("authresp", log.WithVPToken(authResp.VPToken))
 
 	vpTokenClaims, signer, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
@@ -455,21 +480,21 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
-	logger.Infof("AuthorizationResponse id_token=%s", res.IDToken)
+	logger.Info("AuthorizationResponse", log.WithIDToken(res.IDToken))
 
 	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Infof("AuthorizationResponse vp_token=%s", res.VPToken)
+	logger.Info("AuthorizationResponse", log.WithVPToken(res.VPToken))
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Infof("AuthorizationResponse state=%s", res.State)
+	logger.Info("AuthorizationResponse", log.WithState(res.State))
 
 	return res, nil
 }

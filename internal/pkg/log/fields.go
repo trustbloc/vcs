@@ -37,6 +37,9 @@ const (
 	FieldEvent               = "event"
 	FieldDockerComposeCmd    = "dockerComposeCmd"
 	FieldCertPoolSize        = "certPoolSize"
+	FieldIDToken             = "idToken"
+	FieldVPToken             = "vpToken"
+	FieldState               = "state"
 )
 
 // ObjectMarshaller uses reflection to marshal an object's fields.
@@ -168,4 +171,19 @@ func WithDockerComposeCmd(cmd string) zap.Field {
 // WithCertPoolSize sets the certificate pool size field.
 func WithCertPoolSize(poolSize int) zap.Field {
 	return zap.Int(FieldCertPoolSize, poolSize)
+}
+
+// WithIDToken sets the id token field.
+func WithIDToken(idToken string) zap.Field {
+	return zap.String(FieldIDToken, idToken)
+}
+
+// WithVPToken sets the vp token field.
+func WithVPToken(vpToken string) zap.Field {
+	return zap.String(FieldVPToken, vpToken)
+}
+
+// WithState sets the state field.
+func WithState(state string) zap.Field {
+	return zap.String(FieldState, state)
 }

@@ -26,6 +26,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
@@ -106,6 +107,7 @@ type Config struct {
 
 	RedirectURL   string
 	TokenLifetime time.Duration
+	Metrics       metricsProvider
 }
 
 type CredentialMetadata struct {
@@ -120,6 +122,10 @@ type ProcessedVPToken struct {
 	Presentation *verifiable.Presentation
 }
 
+type metricsProvider interface {
+	VerifyOIDCVerifiablePresentationTime(value time.Duration)
+}
+
 type Service struct {
 	eventSvc                 eventService
 	transactionManager       transactionManager
@@ -132,6 +138,8 @@ type Service struct {
 
 	redirectURL   string
 	tokenLifetime time.Duration
+
+	metrics metricsProvider
 }
 
 type RequestObjectRegistration struct {
@@ -151,6 +159,12 @@ type jwtVCClaims struct {
 }
 
 func NewService(cfg *Config) *Service {
+	metrics := cfg.Metrics
+
+	if metrics == nil {
+		metrics = &noopMetricsProvider.NoMetrics{}
+	}
+
 	return &Service{
 		eventSvc:                 cfg.EventSvc,
 		transactionManager:       cfg.TransactionManager,
@@ -162,6 +176,7 @@ func NewService(cfg *Config) *Service {
 		redirectURL:              cfg.RedirectURL,
 		tokenLifetime:            cfg.TokenLifetime,
 		publicKeyFetcher:         cfg.PublicKeyFetcher,
+		metrics:                  metrics,
 	}
 }
 
@@ -225,6 +240,12 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 }
 
 func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVPToken) error {
+	startTime := time.Now()
+
+	defer func() {
+		logger.Debug("VerifyOIDCVerifiablePresentation", log.WithDuration(time.Since(startTime)))
+	}()
+
 	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(token.Nonce)
 	if err != nil {
 		return fmt.Errorf("get tx by nonce failed: %w", err)

@@ -67,7 +67,6 @@ type crypto interface {
 }
 
 type metricsProvider interface {
-	SignCount()
 	SignTime(value time.Duration)
 }
 

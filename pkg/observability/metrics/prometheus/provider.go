@@ -73,25 +73,22 @@ func GetMetrics() metrics.Metrics {
 
 // PromMetrics manages the metrics for VCS.
 type PromMetrics struct {
-	signCount prometheus.Counter
-	signTime  prometheus.Histogram
+	signTime          prometheus.Histogram
+	checkAuthRespTime prometheus.Histogram
+	verifyOIDCVPTime  prometheus.Histogram
 }
 
 // NewMetrics creates instance of prometheus metrics.
 func NewMetrics() metrics.Metrics {
 	pm := &PromMetrics{
-		signCount: newSignCount(),
-		signTime:  newSignTime(),
+		signTime:          newSignTime(),
+		checkAuthRespTime: newCheckAuthRespTime(),
+		verifyOIDCVPTime:  newVerifyOIDCVPTime(),
 	}
 
 	registerMetrics(pm)
 
 	return pm
-}
-
-// SignCount increments the number of sign hits.
-func (pm *PromMetrics) SignCount() {
-	pm.signCount.Inc()
 }
 
 // SignTime records the time for sign.
@@ -101,9 +98,22 @@ func (pm *PromMetrics) SignTime(value time.Duration) {
 	logger.Debug("crypto sign time", log.WithDuration(value))
 }
 
+// CheckAuthorizationResponseTime records the time for CheckAuthorizationResponse controller endpoint call.
+func (pm *PromMetrics) CheckAuthorizationResponseTime(value time.Duration) {
+	pm.signTime.Observe(value.Seconds())
+
+	logger.Debug("CheckAuthorizationResponse controller endpoint time", log.WithDuration(value))
+}
+
+func (pm *PromMetrics) VerifyOIDCVerifiablePresentationTime(value time.Duration) {
+	pm.verifyOIDCVPTime.Observe(value.Seconds())
+
+	logger.Debug("VerifyOIDCVerifiablePresentation service call time", log.WithDuration(value))
+}
+
 func registerMetrics(pm *PromMetrics) {
 	prometheus.MustRegister(
-		pm.signCount, pm.signTime,
+		pm.signTime, pm.checkAuthRespTime, pm.verifyOIDCVPTime,
 	)
 }
 
@@ -137,18 +147,26 @@ func newHistogram(subsystem, name, help string, labels prometheus.Labels) promet
 	})
 }
 
-func newSignCount() prometheus.Counter {
-	return newCounter(
-		metrics.Crypto, metrics.CryptoSignCountMetric,
-		"The number of times crypto sign called.",
+func newSignTime() prometheus.Histogram {
+	return newHistogram(
+		metrics.Crypto, metrics.CryptoSignTimeMetric,
+		"The time (in seconds) it takes to run crypto sign.",
 		nil,
 	)
 }
 
-func newSignTime() prometheus.Histogram {
+func newCheckAuthRespTime() prometheus.Histogram {
 	return newHistogram(
-		metrics.Crypto, metrics.CryptoSignTimeMetric,
-		"The time (in seconds) it takes for crypto sign.",
+		metrics.Controller, metrics.ControllerCheckAuthRespMetric,
+		"The time (in seconds) it takes to execute checkAuthorizationResponse controller endpoint call.",
+		nil,
+	)
+}
+
+func newVerifyOIDCVPTime() prometheus.Histogram {
+	return newHistogram(
+		metrics.Service, metrics.VerifyOIDCVP,
+		"The time (in seconds) it takes to execute VerifyOIDCVerifiablePresentation service call.",
 		nil,
 	)
 }

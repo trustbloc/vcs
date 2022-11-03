@@ -18,7 +18,8 @@ func TestMetrics(t *testing.T) {
 	require.NotNil(t, m)
 
 	t.Run("VCS Activity", func(t *testing.T) {
-		require.NotPanics(t, func() { m.SignCount() })
 		require.NotPanics(t, func() { m.SignTime(time.Second) })
+		require.NotPanics(t, func() { m.CheckAuthorizationResponseTime(time.Second) })
+		require.NotPanics(t, func() { m.VerifyOIDCVerifiablePresentationTime(time.Second) })
 	})
 }

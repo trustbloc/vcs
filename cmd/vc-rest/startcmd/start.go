@@ -325,6 +325,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		PresentationVerifier:     verifyPresentationSvc,
 		RedirectURL:              conf.StartupParameters.hostURLExternal + oidc4VPCheckEndpoint,
 		TokenLifetime:            15 * time.Minute,
+		Metrics:                  metrics,
 	})
 	verifierController := verifierv1.NewController(&verifierv1.Config{
 		VerifyCredentialSvc: verifyCredentialSvc,
@@ -333,6 +334,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader:      conf.DocumentLoader,
 		VDR:                 conf.VDR,
 		OIDCVPService:       oidc4vpService,
+		Metrics:             metrics,
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)
