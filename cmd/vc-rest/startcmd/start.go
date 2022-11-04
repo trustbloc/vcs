@@ -416,12 +416,22 @@ func NewMetrics(parameters *startupParameters) (metricsProvider.Metrics, error) 
 	}
 }
 
+type httpServerHandler struct {
+	handler func(writer http.ResponseWriter, request *http.Request)
+}
+
+func (h *httpServerHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	h.handler(writer, request)
+}
+
 func NewMetricsProvider(parameters *startupParameters, e *echo.Echo) (metricsProvider.Provider, error) {
 	switch parameters.metricsProviderName {
 	case "prometheus":
+		h := &httpServerHandler{handler: promMetricsProvider.NewHandler().Handler()}
+
 		metricsHttpServer := &http.Server{
 			Addr:    parameters.prometheusMetricsProviderParams.url,
-			Handler: e,
+			Handler: h,
 		}
 		return promMetricsProvider.NewPrometheusProvider(metricsHttpServer), nil
 	default:
