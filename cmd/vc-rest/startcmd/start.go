@@ -428,11 +428,16 @@ func NewMetricsProvider(parameters *startupParameters, e *echo.Echo) (metricsPro
 	switch parameters.metricsProviderName {
 	case "prometheus":
 		h := &httpServerHandler{handler: promMetricsProvider.NewHandler().Handler()}
+		handlerFunc := echo.WrapHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}))
+		e.Add(http.MethodGet, "/metrics", handlerFunc)
 
 		metricsHttpServer := &http.Server{
 			Addr:    parameters.prometheusMetricsProviderParams.url,
-			Handler: h,
+			Handler: e,
 		}
+
 		return promMetricsProvider.NewPrometheusProvider(metricsHttpServer), nil
 	default:
 		return nil, nil
