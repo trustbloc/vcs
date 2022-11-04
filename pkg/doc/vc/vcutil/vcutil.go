@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	defVCContext                = "https://www.w3.org/2018/credentials/v1"
+	DefVCContext                = "https://www.w3.org/2018/credentials/v1"
 	jsonWebSignature2020Context = "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"
 	bbsBlsSignature2020Context  = "https://w3id.org/security/bbs/v1"
 )
@@ -25,7 +25,7 @@ const (
 // GetContextsFromJSONRaw reads contexts from raw JSON.
 func GetContextsFromJSONRaw(raw json.RawMessage) ([]string, error) {
 	if len(raw) == 0 {
-		return []string{defVCContext}, nil
+		return []string{DefVCContext}, nil
 	}
 
 	var ctx struct {
@@ -38,7 +38,7 @@ func GetContextsFromJSONRaw(raw json.RawMessage) ([]string, error) {
 	}
 
 	if ctx.Context == nil {
-		return []string{defVCContext}, nil
+		return []string{DefVCContext}, nil
 	}
 
 	return decodeContext(ctx.Context)

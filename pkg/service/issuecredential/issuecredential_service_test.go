@@ -32,10 +32,12 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 func TestService_IssueCredential(t *testing.T) {
@@ -54,10 +56,14 @@ func TestService_IssueCredential(t *testing.T) {
 	mockVCStore.EXPECT().Put(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&verifiable.TypedID{
-		ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
-		Type: "JsonSchemaValidator2018",
-	}, nil)
+	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(
+		&credentialstatus.StatusID{
+			Context: "https://w3id.org/vc-revocation-list-2020/v1",
+			VCStatus: &verifiable.TypedID{
+				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				Type: string(vc.RevocationList2020VCStatus),
+			},
+		}, nil)
 	mockVCStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return("", nil)
 
@@ -119,7 +125,7 @@ func TestService_IssueCredential(t *testing.T) {
 						})
 
 						verifiableCredentials, err := service.IssueCredential(
-							&verifiable.Credential{},
+							getVC(),
 							nil,
 							&profileapi.Issuer{
 								VCConfig: &profileapi.VCConfig{
@@ -183,23 +189,7 @@ func TestService_IssueCredential(t *testing.T) {
 				})
 
 				verifiableCredentials, err := service.IssueCredential(
-					&verifiable.Credential{
-						ID:      "http://example.edu/credentials/1872",
-						Context: []string{verifiable.ContextURI},
-						Types:   []string{verifiable.VCType},
-						Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						Issued: &util.TimeWrapper{
-							Time: time.Now(),
-						},
-						Issuer: verifiable.Issuer{
-							ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-						},
-						CustomFields: map[string]interface{}{
-							"first_name": "First name",
-							"last_name":  "Last name",
-							"info":       "Info",
-						},
-					},
+					getVC(),
 					nil,
 					&profileapi.Issuer{
 						VCConfig: &profileapi.VCConfig{
@@ -286,7 +276,13 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
+		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&credentialstatus.StatusID{
+			Context: vcutil.DefVCContext,
+			VCStatus: &verifiable.TypedID{
+				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				Type: "JsonSchemaValidator2018",
+			},
+		}, nil)
 		vcStatusManager.EXPECT().GetCredentialStatusURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 
 		cr := NewMockvcCrypto(gomock.NewController(t))
@@ -313,7 +309,13 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, nil)
+		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&credentialstatus.StatusID{
+			Context: vcutil.DefVCContext,
+			VCStatus: &verifiable.TypedID{
+				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
+				Type: "JsonSchemaValidator2018",
+			},
+		}, nil)
 		vcStatusManager.EXPECT().GetCredentialStatusURL(
 			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return("", nil)
 
@@ -377,6 +379,26 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
+}
+
+func getVC() *verifiable.Credential {
+	return &verifiable.Credential{
+		ID:      "http://example.edu/credentials/1872",
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		Issued: &util.TimeWrapper{
+			Time: time.Now(),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		CustomFields: map[string]interface{}{
+			"first_name": "First name",
+			"last_name":  "Last name",
+			"info":       "Info",
+		},
+	}
 }
 
 func validateVC(

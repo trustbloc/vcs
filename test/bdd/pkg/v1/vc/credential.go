@@ -18,7 +18,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -197,7 +196,7 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 		CredentialID: cred.ID,
 		CredentialStatus: model.CredentialStatus{
 			Status: "true",
-			Type:   "StatusList2021Entry",
+			Type:   string(e.bddContext.IssuerProfiles[profileName].VCConfig.VCStatusListVersion),
 		},
 	}
 
@@ -289,7 +288,8 @@ func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation str
 		return err
 	}
 
-	err = checkCredentialStatusType(vcMap, credentialstatus.StatusList2021Entry)
+	expectedStatusType := e.bddContext.IssuerProfiles[profileName].VCConfig.VCStatusListVersion
+	err = checkCredentialStatusType(vcMap, string(expectedStatusType))
 	if err != nil {
 		return err
 	}
@@ -343,7 +343,7 @@ func checkCredentialStatusType(vcMap map[string]interface{}, expected string) er
 	}
 
 	if credentialStatusType != expected {
-		return bddutil.ExpectedStringError(credentialstatus.StatusList2021Entry, credentialStatusType)
+		return bddutil.ExpectedStringError(expected, credentialStatusType)
 	}
 
 	return nil

@@ -291,7 +291,11 @@ func TestService_checkVCStatus(t *testing.T) {
 			},
 			args: args{
 				getVcStatus: func() *verifiable.TypedID {
-					return nil
+					return &verifiable.TypedID{
+						ID:           "",
+						Type:         "",
+						CustomFields: nil,
+					}
 				},
 			},
 			wantErr: true,
@@ -492,96 +496,6 @@ func TestService_checkVCStatus(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return
-			}
-		})
-	}
-}
-
-func TestService_validateVCStatus(t *testing.T) {
-	type args struct {
-		vcStatus *verifiable.TypedID
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "OK",
-			args: args{
-				vcStatus: &verifiable.TypedID{
-					Type: "StatusList2021Entry",
-					CustomFields: map[string]interface{}{
-						"statusListIndex":      "1",
-						"statusListCredential": "",
-						"statusPurpose":        "2",
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Error not exist",
-			args: args{
-				vcStatus: nil,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error status not supported",
-			args: args{
-				vcStatus: &verifiable.TypedID{
-					Type: "statusPurpose",
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error statusListIndex empty",
-			args: args{
-				vcStatus: &verifiable.TypedID{
-					Type: "StatusList2021Entry",
-					CustomFields: map[string]interface{}{
-						"statusListCredential": "",
-						"statusPurpose":        "2",
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error statusListCredential empty",
-			args: args{
-				vcStatus: &verifiable.TypedID{
-					Type: "StatusList2021Entry",
-					CustomFields: map[string]interface{}{
-						"statusListIndex": "1",
-						"statusPurpose":   "2",
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error statusPurpose empty",
-			args: args{
-				vcStatus: &verifiable.TypedID{
-					Type: "StatusList2021Entry",
-					CustomFields: map[string]interface{}{
-						"statusListIndex":      "1",
-						"statusListCredential": "",
-					},
-				},
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &Service{}
-			if err := s.validateVCStatus(tt.args.vcStatus); (err != nil) != tt.wantErr {
-				t.Errorf("validateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
