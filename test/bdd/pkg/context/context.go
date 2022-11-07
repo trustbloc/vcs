@@ -8,8 +8,10 @@ package context
 
 import (
 	"crypto/tls"
+	_ "embed"
+	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -18,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 
 	tlsutils "github.com/trustbloc/vcs/internal/pkg/utils/tls"
+	"github.com/trustbloc/vcs/pkg/profile"
 )
 
 const (
@@ -34,10 +37,22 @@ type BDDContext struct {
 	TestData              map[string][]byte
 	Data                  map[string]interface{}
 	CredentialSubject     string
+	IssuerProfiles        map[string]*profile.Issuer
+}
+
+type profilesFileData struct {
+	Issuers []*issuerRecord `json:"issuers"`
+}
+
+type issuerRecord struct {
+	Issuer              *profile.Issuer `json:"issuer"`
+	CreateDID           bool            `json:"createDID"`
+	DIDDomain           string          `json:"didDomain"`
+	DIDServiceAuthToken string          `json:"didServiceAuthToken"`
 }
 
 // NewBDDContext create new BDDContext
-func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
+func NewBDDContext(caCertPath, testDataPath, profilesDataPath string) (*BDDContext, error) {
 	rootCAs, err := tlsutils.GetCertPool(false, []string{caCertPath})
 	if err != nil {
 		return nil, err
@@ -52,24 +67,42 @@ func NewBDDContext(caCertPath, testDataPath string) (*BDDContext, error) {
 
 	testData := make(map[string][]byte)
 
-	files, err := ioutil.ReadDir(testDataPath)
+	files, err := os.ReadDir(testDataPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read test data directory: %w", err)
 	}
 
 	for _, file := range files {
-		testData[file.Name()], err = ioutil.ReadFile(filepath.Join(testDataPath, file.Name())) //nolint: gosec
+		testData[file.Name()], err = os.ReadFile(filepath.Join(testDataPath, file.Name())) //nolint: gosec
 		if err != nil {
 			return nil, fmt.Errorf("failed to read tesdata '%s' : %w", file.Name(), err)
 		}
 	}
 
+	b, err := os.ReadFile(profilesDataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read profiles data file: %w", err)
+	}
+
+	var profilesData profilesFileData
+
+	if err = json.Unmarshal(b, &profilesData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal profiles data: %w", err)
+	}
+
+	issuerProfiles := make(map[string]*profile.Issuer)
+
+	for _, issuer := range profilesData.Issuers {
+		issuerProfiles[issuer.Issuer.ID] = issuer.Issuer
+	}
+
 	instance := BDDContext{
-		Args:      make(map[string]string),
-		VDRI:      vdr,
-		TLSConfig: tlsConf,
-		TestData:  testData,
-		Data:      make(map[string]interface{}),
+		Args:           make(map[string]string),
+		VDRI:           vdr,
+		TLSConfig:      tlsConf,
+		TestData:       testData,
+		Data:           make(map[string]interface{}),
+		IssuerProfiles: issuerProfiles,
 	}
 
 	return &instance, nil

@@ -138,7 +138,8 @@ type feature interface {
 }
 
 func initializeScenario(sc *godog.ScenarioContext) {
-	bddContext, err := bddctx.NewBDDContext("fixtures/keys/tls/ec-cacert.pem", "./testdata")
+	bddContext, err := bddctx.NewBDDContext("fixtures/keys/tls/ec-cacert.pem", "./testdata",
+		"fixtures/profile/profiles.json")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize BDD context: %s", err.Error()))
 	}
