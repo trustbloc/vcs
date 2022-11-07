@@ -41,6 +41,10 @@ type TransactionData struct {
 	IssuerAuthCode                     string
 	IssuerToken                        string
 	OpState                            string
+	UserPinRequired                    bool
+	IsPreAuthFlow                      bool
+	PreAuthCode                        string
+	ClaimData                          map[string]interface{}
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -72,6 +76,8 @@ type InitiateIssuanceRequest struct {
 	ResponseType              string
 	Scope                     []string
 	OpState                   string
+	ClaimData                 map[string]interface{}
+	UserPinRequired           bool
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.
