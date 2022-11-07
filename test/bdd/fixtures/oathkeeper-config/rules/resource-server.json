@@ -1,6 +1,6 @@
 [
   {
-    "id": "issuer-credentials",
+    "id": "issuer-credential-management",
     "upstream": {
       "url": "http://vc-rest-echo.trustbloc.local:8075"
     },
@@ -36,7 +36,7 @@
     }
   },
   {
-    "id": "verifier-credentials-verify",
+    "id": "verifier-credential-verify",
     "upstream": {
       "url": "http://vc-rest-echo.trustbloc.local:8075"
     },
@@ -219,7 +219,7 @@
     }
   },
   {
-    "id": "oidc4vc-public-oidc",
+    "id": "oidc4vc-public-oidc-endpoints",
     "upstream": {
       "url": "http://vc-rest-echo.trustbloc.local:8075"
     },
