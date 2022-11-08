@@ -33,7 +33,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus/versions"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus/statustype"
 )
 
 const (
@@ -72,24 +72,24 @@ func validateVCStatus(t *testing.T, s *Service, id string, index int) {
 	statusID, err := s.CreateStatusID(getTestProfile(), "localhost:8080/status")
 	require.NoError(t, err)
 	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.VCStatus.Type)
-	require.Equal(t, "revocation", statusID.VCStatus.CustomFields[versions.StatusPurpose].(string))
+	require.Equal(t, "revocation", statusID.VCStatus.CustomFields[statustype.StatusPurpose].(string))
 
-	revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[versions.StatusListIndex].(string))
+	revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[statustype.StatusListIndex].(string))
 	require.NoError(t, err)
 	require.Equal(t, index, revocationListIndex)
-	require.Equal(t, id, statusID.VCStatus.CustomFields[versions.StatusListCredential].(string))
+	require.Equal(t, id, statusID.VCStatus.CustomFields[statustype.StatusListCredential].(string))
 
 	revocationListVC, err := s.GetRevocationListVC(id)
 	require.NoError(t, err)
 	require.Equal(t, id, revocationListVC.ID)
 	require.Equal(t, "did:test:abc", revocationListVC.Issuer.ID)
 	require.Equal(t, vcutil.DefVCContext, revocationListVC.Context[0])
-	require.Equal(t, versions.StatusList2021Context, revocationListVC.Context[1])
+	require.Equal(t, statustype.StatusList2021Context, revocationListVC.Context[1])
 	credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
 	require.True(t, ok)
 	require.Equal(t, id+"#list", credSubject[0].ID)
-	require.Equal(t, versions.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"].(string))
-	require.Equal(t, "revocation", credSubject[0].CustomFields[versions.StatusPurpose].(string))
+	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"].(string))
+	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
 	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	require.NoError(t, err)
@@ -211,9 +211,10 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		require.NoError(t, s.UpdateVCStatus(getTestProfile(), "testprofile", cred.ID, "true"))
 
-		revocationListVC, err := s.GetRevocationListVC(statusID.VCStatus.CustomFields[versions.StatusListCredential].(string))
+		revocationListVC, err := s.GetRevocationListVC(
+			statusID.VCStatus.CustomFields[statustype.StatusListCredential].(string))
 		require.NoError(t, err)
-		revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[versions.StatusListIndex].(string))
+		revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
 
 		credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
@@ -339,7 +340,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		cred.ID = credID
 		cred.Status = &verifiable.TypedID{
 			Type:         string(vc.StatusList2021VCStatus),
-			CustomFields: map[string]interface{}{versions.StatusListIndex: "1"},
+			CustomFields: map[string]interface{}{statustype.StatusListIndex: "1"},
 		}
 		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
@@ -360,9 +361,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		cred.Status = &verifiable.TypedID{
 			Type: string(vc.StatusList2021VCStatus),
 			CustomFields: map[string]interface{}{
-				versions.StatusListIndex:      "1",
-				versions.StatusListCredential: 1,
-				versions.StatusPurpose:        "test",
+				statustype.StatusListIndex:      "1",
+				statustype.StatusListCredential: 1,
+				statustype.StatusPurpose:        "test",
 			}}
 		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
@@ -383,8 +384,8 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		cred.Status = &verifiable.TypedID{
 			Type: string(vc.StatusList2021VCStatus),
 			CustomFields: map[string]interface{}{
-				versions.StatusListIndex:      "1",
-				versions.StatusListCredential: 1,
+				statustype.StatusListIndex:      "1",
+				statustype.StatusListCredential: 1,
 			}}
 		err = s.UpdateVC(cred, getTestProfile(), true)
 		require.Error(t, err)
@@ -409,9 +410,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.NoError(t, s.UpdateVC(cred, getTestProfile(), true))
 
 		revocationListVC, err := s.GetRevocationListVC(
-			statusID.VCStatus.CustomFields[versions.StatusListCredential].(string))
+			statusID.VCStatus.CustomFields[statustype.StatusListCredential].(string))
 		require.NoError(t, err)
-		revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[versions.StatusListIndex].(string))
+		revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
 
 		credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
@@ -438,9 +439,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 				ID:   "test",
 				Type: string(vc.StatusList2021VCStatus),
 				CustomFields: map[string]interface{}{
-					versions.StatusListCredential: "test",
-					versions.StatusListIndex:      "1",
-					versions.StatusPurpose:        "test",
+					statustype.StatusListCredential: "test",
+					statustype.StatusListIndex:      "1",
+					statustype.StatusPurpose:        "test",
 				},
 			},
 		}, getTestProfile(), true)
@@ -584,23 +585,23 @@ func TestPrepareSigningOpts(t *testing.T) {
 
 func getTestProfile() *vc.Signer {
 	return &vc.Signer{
-		Format:              vcsverifiable.Ldp,
-		DID:                 "did:test:abc",
-		SignatureType:       "Ed25519Signature2018",
-		Creator:             "did:test:abc#key1",
-		KMS:                 &mockKMS{},
-		VCStatusListVersion: vc.StatusList2021VCStatus,
+		Format:           vcsverifiable.Ldp,
+		DID:              "did:test:abc",
+		SignatureType:    "Ed25519Signature2018",
+		Creator:          "did:test:abc#key1",
+		KMS:              &mockKMS{},
+		VCStatusListType: vc.StatusList2021VCStatus,
 	}
 }
 
 func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
 	return &vc.Signer{
-		Format:              vcsverifiable.Ldp,
-		DID:                 "did:test:abc",
-		SignatureType:       "Ed25519Signature2018",
-		Creator:             "did:test:abc#key1",
-		KMS:                 &mockKMS{crypto: crypto},
-		VCStatusListVersion: vc.RevocationList2021VCStatus,
+		Format:           vcsverifiable.Ldp,
+		DID:              "did:test:abc",
+		SignatureType:    "Ed25519Signature2018",
+		Creator:          "did:test:abc#key1",
+		KMS:              &mockKMS{crypto: crypto},
+		VCStatusListType: vc.RevocationList2021VCStatus,
 	}
 }
 

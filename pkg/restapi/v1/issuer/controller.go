@@ -194,7 +194,7 @@ func validateIssueCredOptions(
 		return signingOpts, nil
 	}
 	if options.CredentialStatus.Type != "" &&
-		options.CredentialStatus.Type != string(profile.VCConfig.VCStatusListVersion) {
+		options.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
 			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))
 	}
@@ -273,7 +273,7 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 		return fmt.Errorf("failed to get kms: %w", err)
 	}
 
-	if body.CredentialStatus.Type != string(profile.VCConfig.VCStatusListVersion) {
+	if body.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
 		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
 			fmt.Errorf(
 				"vc status list version %s not supported by current profile", body.CredentialStatus.Type))
@@ -287,7 +287,7 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 		KeyType:                 profile.VCConfig.KeyType,
 		KMS:                     keyManager,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
-		VCStatusListVersion:     profile.VCConfig.VCStatusListVersion,
+		VCStatusListType:        profile.VCConfig.Status.Type,
 	}
 
 	err = c.vcStatusManager.UpdateVCStatus(signer, profile.Name, body.CredentialID, body.CredentialStatus.Status)

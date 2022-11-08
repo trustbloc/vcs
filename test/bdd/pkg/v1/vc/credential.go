@@ -196,7 +196,7 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 		CredentialID: cred.ID,
 		CredentialStatus: model.CredentialStatus{
 			Status: "true",
-			Type:   string(e.bddContext.IssuerProfiles[profileName].VCConfig.VCStatusListVersion),
+			Type:   string(e.bddContext.IssuerProfiles[profileName].VCConfig.Status.Type),
 		},
 	}
 
@@ -288,7 +288,7 @@ func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation str
 		return err
 	}
 
-	expectedStatusType := e.bddContext.IssuerProfiles[profileName].VCConfig.VCStatusListVersion
+	expectedStatusType := e.bddContext.IssuerProfiles[profileName].VCConfig.Status.Type
 	err = checkCredentialStatusType(vcMap, string(expectedStatusType))
 	if err != nil {
 		return err

@@ -8,15 +8,15 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221025163359-bee1ddf86975
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221109083343-39b5163afa3a
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20220728221432-bc126d50cdf9
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
-	github.com/piprate/json-gold v0.4.1
+	github.com/piprate/json-gold v0.4.2
 	github.com/spf13/cobra v1.6.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/oidc/fositemongo v0.0.0-00010101000000-000000000000
@@ -32,7 +32,7 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
-	github.com/aws/aws-sdk-go v1.42.33 // indirect
+	github.com/aws/aws-sdk-go v1.43.9 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcd v0.22.1 // indirect
@@ -68,7 +68,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/certificate-transparency-go v1.1.2-0.20210512142713-bed466244fa6 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/tink/go v1.6.1 // indirect
+	github.com/google/tink/go v1.7.0 // indirect
 	github.com/google/trillian v1.3.14-0.20210520152752-ceda464a95a3 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -105,9 +105,9 @@ require (
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/montanaflynn/stats v0.6.6 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
-	github.com/multiformats/go-base32 v0.0.4 // indirect
+	github.com/multiformats/go-base32 v0.1.0 // indirect
 	github.com/multiformats/go-base36 v0.1.0 // indirect
-	github.com/multiformats/go-multibase v0.0.3 // indirect
+	github.com/multiformats/go-multibase v0.1.1 // indirect
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -157,18 +157,18 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
-	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
-	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a // indirect
+	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20221012135044-0b7e1fb9d458 // indirect
+	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43 // indirect
-	golang.org/x/text v0.3.8 // indirect
-	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/time v0.1.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

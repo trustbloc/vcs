@@ -104,7 +104,7 @@ func (s *Service) UpdateVCStatus(signer *vc.Signer, profileName, credentialID, s
 // nolint: gocyclo, funlen
 func (s *Service) UpdateVC(v *verifiable.Credential,
 	profile *vc.Signer, status bool) error {
-	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListVersion)
+	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListType)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (s *Service) UpdateVC(v *verifiable.Credential,
 // CreateStatusID creates status ID.
 func (s *Service) CreateStatusID(profile *vc.Signer,
 	url string) (*StatusID, error) {
-	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListVersion)
+	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListType)
 	if err != nil {
 		return nil, err
 	}

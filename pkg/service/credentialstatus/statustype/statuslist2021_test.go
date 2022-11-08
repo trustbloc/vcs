@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package versions
+package statustype
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 )
 
-func Test_revocationList2021Processor_ValidateStatus(t *testing.T) {
+func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
 	type args struct {
 		vcStatus *verifiable.TypedID
 	}
@@ -31,10 +31,11 @@ func Test_revocationList2021Processor_ValidateStatus(t *testing.T) {
 			name: "OK",
 			args: args{
 				vcStatus: &verifiable.TypedID{
-					Type: "RevocationList2021Status",
+					Type: "StatusList2021Entry",
 					CustomFields: map[string]interface{}{
 						"statusListIndex":      "1",
 						"statusListCredential": "",
+						"statusPurpose":        "2",
 					},
 				},
 			},
@@ -60,9 +61,10 @@ func Test_revocationList2021Processor_ValidateStatus(t *testing.T) {
 			name: "Error statusListIndex empty",
 			args: args{
 				vcStatus: &verifiable.TypedID{
-					Type: "RevocationList2021Status",
+					Type: "StatusList2021Entry",
 					CustomFields: map[string]interface{}{
 						"statusListCredential": "",
+						"statusPurpose":        "2",
 					},
 				},
 			},
@@ -72,9 +74,23 @@ func Test_revocationList2021Processor_ValidateStatus(t *testing.T) {
 			name: "Error statusListCredential empty",
 			args: args{
 				vcStatus: &verifiable.TypedID{
-					Type: "RevocationList2021Status",
+					Type: "StatusList2021Entry",
 					CustomFields: map[string]interface{}{
 						"statusListIndex": "1",
+						"statusPurpose":   "2",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error statusPurpose empty",
+			args: args{
+				vcStatus: &verifiable.TypedID{
+					Type: "StatusList2021Entry",
+					CustomFields: map[string]interface{}{
+						"statusListIndex":      "1",
+						"statusListCredential": "",
 					},
 				},
 			},
@@ -84,7 +100,7 @@ func Test_revocationList2021Processor_ValidateStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewRevocationList2021Processor()
+			s := NewStatusList2021Processor()
 			if err := s.ValidateStatus(tt.args.vcStatus); (err != nil) != tt.wantErr {
 				t.Errorf("validateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -92,8 +108,8 @@ func Test_revocationList2021Processor_ValidateStatus(t *testing.T) {
 	}
 }
 
-func Test_revocationList2021Processor_CreateVC(t *testing.T) {
-	s := NewRevocationList2021Processor()
+func Test_statusList2021Processor_CreateVC(t *testing.T) {
+	s := NewStatusList2021Processor()
 	vc, err := s.CreateVC("vcID1", 10, &vcapi.Signer{
 		DID:           "did:example:123",
 		SignatureType: vcsverifiable.JSONWebSignature2020,
@@ -103,39 +119,40 @@ func Test_revocationList2021Processor_CreateVC(t *testing.T) {
 	require.Equal(t, "vcID1", vc.ID)
 	require.Equal(t, []string{
 		vcutil.DefVCContext,
-		"https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld",
-		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
-	}, vc.Context)
+		StatusList2021Context,
+		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"}, vc.Context)
 	require.Equal(t, []string{vcType, statusList2021VCType}, vc.Types)
 	require.Equal(t, verifiable.Issuer{ID: "did:example:123"}, vc.Issuer)
 	encodeBits, err := utils.NewBitString(bitStringSize).EncodeBits()
 	require.NoError(t, err)
 	require.Equal(t, &credentialSubject{
-		ID:          "vcID1#list",
-		Type:        "RevocationList2021",
-		EncodedList: encodeBits,
+		ID:            "vcID1#list",
+		Type:          "StatusList2021",
+		StatusPurpose: "revocation",
+		EncodedList:   encodeBits,
 	}, vc.Subject)
 }
 
-func Test_revocationList2021Processor_CreateVCStatus(t *testing.T) {
-	s := NewRevocationList2021Processor()
+func Test_statusList2021Processor_CreateVCStatus(t *testing.T) {
+	s := NewStatusList2021Processor()
 	statusID := s.CreateVCStatus("1", "vcID2")
 
-	require.Equal(t, string(vcapi.RevocationList2021VCStatus), statusID.Type)
+	require.Equal(t, string(vcapi.StatusList2021VCStatus), statusID.Type)
 	require.Equal(t, verifiable.CustomFields{
+		StatusPurpose:        "revocation",
 		StatusListIndex:      "1",
 		StatusListCredential: "vcID2",
 	}, statusID.CustomFields)
 }
 
-func Test_revocationList2021Processor_GetStatusListIndex(t *testing.T) {
+func Test_statusList2021Processor_GetStatusListIndex(t *testing.T) {
 	vcStatus := &verifiable.TypedID{
 		CustomFields: map[string]interface{}{
 			StatusListIndex: "abc",
 		},
 	}
 
-	s := NewRevocationList2021Processor()
+	s := NewStatusList2021Processor()
 	index, err := s.GetStatusListIndex(vcStatus)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "unable to get statusListIndex")
@@ -148,28 +165,28 @@ func Test_revocationList2021Processor_GetStatusListIndex(t *testing.T) {
 	require.Equal(t, 1, index)
 }
 
-func Test_revocationList2021Processor_GetStatusVCURI(t *testing.T) {
+func Test_statusList2021Processor_GetStatusVCURI(t *testing.T) {
 	vcStatus := &verifiable.TypedID{
 		CustomFields: map[string]interface{}{
 			StatusListCredential: 1,
 		},
 	}
 
-	s := NewRevocationList2021Processor()
-	uri, err := s.GetStatusVCURI(vcStatus)
+	s := NewStatusList2021Processor()
+	vcURI, err := s.GetStatusVCURI(vcStatus)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed to cast URI of statusListCredential")
-	require.Empty(t, uri)
+	require.Empty(t, vcURI)
 
 	vcStatus.CustomFields[StatusListCredential] = "https://example.com/1"
-	uri, err = s.GetStatusVCURI(vcStatus)
+	vcURI, err = s.GetStatusVCURI(vcStatus)
 	require.NoError(t, err)
 
-	require.Equal(t, "https://example.com/1", uri)
+	require.Equal(t, "https://example.com/1", vcURI)
 }
 
-func Test_revocationList2021Processor_GetVCContext(t *testing.T) {
-	s := NewRevocationList2021Processor()
+func Test_statusList2021Processor_GetVCContext(t *testing.T) {
+	s := NewStatusList2021Processor()
 
-	require.Equal(t, "https://w3c-ccg.github.io/vc-revocation-list-2021/contexts/v1.jsonld", s.GetVCContext())
+	require.Equal(t, "https://w3id.org/vc/status-list/2021/v1", s.GetVCContext())
 }

@@ -20,17 +20,12 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-)
-
-var (
-	//go:embed testdata/university_degree.jsonld
-	sampleVCJsonLD string
-	//go:embed testdata/identity_hub_response_ldp.json
-	identityHubResponseLDP string
 )
 
 type mockHTTPClient struct {
@@ -88,13 +83,13 @@ func TestService_GetRevocationListVC(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	// Assert
 	vc, err := verifiable.ParseCredential(
-		[]byte(sampleVCJsonLD),
+		[]byte(sampleVCJWT),
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
 	type fields struct {
-		vdr            vdr.Registry
+		getVdr         func() vdr.Registry
 		httpClient     httpClient
 		documentLoader ld.DocumentLoader
 	}
@@ -111,11 +106,17 @@ func TestService_GetRevocationListVC(t *testing.T) {
 		{
 			name: "OK HTTP",
 			fields: fields{
-				vdr: &vdrmock.MockVDRegistry{},
+				getVdr: func() vdr.Registry {
+					universalResolverVDRI, err := httpbinding.New("https://uniresolver.io/1.0/identifiers",
+						httpbinding.WithAccept(func(method string) bool { return method == "ion" }))
+					require.NoError(t, err)
+
+					return vdr2.New(vdr2.WithVDR(universalResolverVDRI))
+				},
 				httpClient: &mockHTTPClient{
 					doValue: &http.Response{
 						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader([]byte(sampleVCJsonLD))),
+						Body:       io.NopCloser(bytes.NewReader([]byte(sampleVCJWT))),
 					},
 					doErr: nil,
 				},
@@ -130,16 +131,14 @@ func TestService_GetRevocationListVC(t *testing.T) {
 		{
 			name: "OK DID",
 			fields: fields{
-				vdr: &vdrmock.MockVDRegistry{
-					ResolveValue: createDIDDoc("did:example:123"),
+				getVdr: func() vdr.Registry {
+					universalResolverVDRI, err := httpbinding.New("https://uniresolver.io/1.0/identifiers",
+						httpbinding.WithAccept(func(method string) bool { return method == "ion" }))
+					require.NoError(t, err)
+
+					return vdr2.New(vdr2.WithVDR(universalResolverVDRI))
 				},
-				httpClient: &mockHTTPClient{
-					doValue: &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader([]byte(identityHubResponseLDP))),
-					},
-					doErr: nil,
-				},
+				httpClient:     http.DefaultClient,
 				documentLoader: loader,
 			},
 			args: args{
@@ -149,8 +148,12 @@ func TestService_GetRevocationListVC(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "NewRequestWithContext URL starts with space Error",
-			fields: fields{},
+			name: "NewRequestWithContext URL starts with space Error",
+			fields: fields{
+				getVdr: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{}
+				},
+			},
 			args: args{
 				statusURL: " https://example.com/credentials/status/1",
 			},
@@ -163,6 +166,9 @@ func TestService_GetRevocationListVC(t *testing.T) {
 				httpClient: &mockHTTPClient{
 					doErr: errors.New("some error"),
 				},
+				getVdr: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{}
+				},
 			},
 			args: args{
 				statusURL: "https://example.com/credentials/status/1",
@@ -173,10 +179,13 @@ func TestService_GetRevocationListVC(t *testing.T) {
 		{
 			name: "sendHTTPRequest Invalid status code",
 			fields: fields{
+				getVdr: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{}
+				},
 				httpClient: &mockHTTPClient{
 					doValue: &http.Response{
 						StatusCode: http.StatusForbidden,
-						Body:       io.NopCloser(bytes.NewReader([]byte(sampleVCJsonLD))),
+						Body:       io.NopCloser(bytes.NewReader([]byte(sampleVCJWT))),
 					},
 					doErr: nil,
 				},
@@ -190,7 +199,9 @@ func TestService_GetRevocationListVC(t *testing.T) {
 		{
 			name: "parseAndVerifyVC Error",
 			fields: fields{
-				vdr: &vdrmock.MockVDRegistry{},
+				getVdr: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{}
+				},
 				httpClient: &mockHTTPClient{
 					doValue: &http.Response{
 						StatusCode: http.StatusOK,
@@ -210,7 +221,7 @@ func TestService_GetRevocationListVC(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				vdr:            tt.fields.vdr,
+				vdr:            tt.fields.getVdr(),
 				httpClient:     tt.fields.httpClient,
 				documentLoader: tt.fields.documentLoader,
 				requestTokens: map[string]string{

@@ -337,8 +337,8 @@ func TestController_AuthFailed(t *testing.T) {
 
 func Test_validateIssueCredOptions(t *testing.T) {
 	type args struct {
-		vcStatusListVersion vc.StatusVersion
-		options             *IssueCredentialOptions
+		vcStatusListType vc.StatusType
+		options          *IssueCredentialOptions
 	}
 	tests := []struct {
 		name    string
@@ -383,7 +383,7 @@ func Test_validateIssueCredOptions(t *testing.T) {
 		{
 			name: "OK",
 			args: args{
-				vcStatusListVersion: vc.StatusList2021VCStatus,
+				vcStatusListType: vc.StatusList2021VCStatus,
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
 						Type: string(vc.StatusList2021VCStatus),
@@ -402,7 +402,9 @@ func Test_validateIssueCredOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := validateIssueCredOptions(tt.args.options, &profileapi.Issuer{
 				VCConfig: &profileapi.VCConfig{
-					VCStatusListVersion: tt.args.vcStatusListVersion,
+					Status: profileapi.StatusConfig{
+						Type: tt.args.vcStatusListType,
+					},
 				},
 			})
 			if (err != nil) != tt.wantErr {
@@ -434,7 +436,9 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &profileapi.VCConfig{
-					VCStatusListVersion: vc.StatusList2021VCStatus,
+					Status: profileapi.StatusConfig{
+						Type: vc.StatusList2021VCStatus,
+					},
 				},
 				SigningDID: &profileapi.SigningDID{},
 			}, nil)
@@ -470,7 +474,9 @@ func TestController_UpdateCredentialStatus(t *testing.T) {
 				OrganizationID: orgID,
 				ID:             "testId",
 				VCConfig: &profileapi.VCConfig{
-					VCStatusListVersion: vc.StatusList2021VCStatus,
+					Status: profileapi.StatusConfig{
+						Type: vc.StatusList2021VCStatus,
+					},
 				},
 				SigningDID: &profileapi.SigningDID{},
 			}, nil)
@@ -636,7 +642,9 @@ func TestController_UpdateCredentialStatus(t *testing.T) {
 								OrganizationID: orgID,
 								ID:             "testId",
 								VCConfig: &profileapi.VCConfig{
-									VCStatusListVersion: vc.StatusList2021VCStatus,
+									Status: profileapi.StatusConfig{
+										Type: vc.StatusList2021VCStatus,
+									},
 								},
 								SigningDID: &profileapi.SigningDID{},
 							}, nil)

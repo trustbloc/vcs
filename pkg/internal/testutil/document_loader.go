@@ -29,6 +29,8 @@ var (
 	citizenship []byte
 	//go:embed contexts/lds-jws2020-v1.jsonld
 	jws2020 []byte
+	//go:embed contexts/vc-status-list-2021-v1.jsonld
+	vcStatusList2021 []byte
 )
 
 type mockLDStoreProvider struct {
@@ -74,6 +76,10 @@ func DocumentLoader(t *testing.T, extraContexts ...ldcontext.Document) *ld.Docum
 		ldcontext.Document{
 			URL:     "https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json",
 			Content: jws2020,
+		},
+		ldcontext.Document{
+			URL:     "https://w3id.org/vc-status-list-2021/v1",
+			Content: vcStatusList2021,
 		},
 	}
 

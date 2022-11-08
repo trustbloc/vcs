@@ -83,10 +83,12 @@ func (s *Service) resolveDIDRelativeURL(didRelativeURL string) ([]byte, error) {
 	}
 
 	req, err := http.NewRequestWithContext(
-		context.Background(), http.MethodGet, serviceEndpoint, bytes.NewReader(requestMeta.payload))
+		context.Background(), http.MethodPost, serviceEndpoint, bytes.NewReader(requestMeta.payload))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request to identity hub: %w", err)
 	}
+
+	req.Header.Add("Content-Type", "application/json")
 
 	resp, err := s.sendHTTPRequest(req, http.StatusOK, s.requestTokens[cslRequestTokenName])
 	if err != nil {
