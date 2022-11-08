@@ -31,7 +31,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -163,7 +162,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}
 
-	credOpts, err := validateIssueCredOptions(body.Options)
+	credOpts, err := validateIssueCredOptions(body.Options, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +175,15 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 	return signedVC, nil
 }
 
-func validateIssueCredOptions(options *IssueCredentialOptions) ([]crypto.SigningOpts, error) {
+func validateIssueCredOptions(
+	options *IssueCredentialOptions, profile *profileapi.Issuer) ([]crypto.SigningOpts, error) {
 	var signingOpts []crypto.SigningOpts
 
 	if options == nil {
 		return signingOpts, nil
 	}
-	if options.CredentialStatus.Type != "" && options.CredentialStatus.Type != credentialstatus.StatusList2021Entry {
+	if options.CredentialStatus.Type != "" &&
+		options.CredentialStatus.Type != string(profile.VCConfig.VCStatusListVersion) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
 			fmt.Errorf("not supported credential status type : %s", options.CredentialStatus.Type))
 	}
@@ -261,9 +262,10 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 		return fmt.Errorf("failed to get kms: %w", err)
 	}
 
-	if body.CredentialStatus.Type != credentialstatus.StatusList2021Entry {
+	if body.CredentialStatus.Type != string(profile.VCConfig.VCStatusListVersion) {
 		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
-			fmt.Errorf("credential status %s not supported", body.CredentialStatus.Type))
+			fmt.Errorf(
+				"vc status list version %s not supported by current profile", body.CredentialStatus.Type))
 	}
 
 	signer := &vc.Signer{
@@ -274,6 +276,7 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 		KeyType:                 profile.VCConfig.KeyType,
 		KMS:                     keyManager,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
+		VCStatusListVersion:     profile.VCConfig.VCStatusListVersion,
 	}
 
 	err = c.vcStatusManager.UpdateVCStatus(signer, profile.Name, body.CredentialID, body.CredentialStatus.Status)

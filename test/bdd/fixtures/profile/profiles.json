@@ -12,7 +12,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1IEEEP1363",
           "format": "ldp",
-          "didMethod": "web"
+          "didMethod": "web",
+          "vcStatusListVersion": "StatusList2021Entry"
         }
       },
       "createDID": true,
@@ -31,7 +32,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "jwt",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "StatusList2021Entry"
         }
       },
       "createDID": true,
@@ -50,7 +52,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "jwt",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "RevocationList2021Status"
         }
       },
       "createDID": true,
@@ -69,7 +72,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1IEEEP1363",
           "format": "jwt",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "RevocationList2020Status"
         }
       },
       "createDID": true,
@@ -88,7 +92,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "web"
+          "didMethod": "web",
+          "vcStatusListVersion": "RevocationList2020Status"
         }
       },
       "createDID": true,
@@ -107,7 +112,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1IEEEP1363",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "StatusList2021Entry"
         }
       },
       "createDID": true,
@@ -126,7 +132,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "RevocationList2020Status"
         }
       },
       "createDID": true,
@@ -145,7 +152,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "StatusList2021Entry"
         }
       },
       "createDID": true,
@@ -164,7 +172,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "RevocationList2020Status"
         }
       },
       "createDID": true,
@@ -183,7 +192,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP384DER",
           "format": "ldp",
-          "didMethod": "key"
+          "didMethod": "key",
+          "vcStatusListVersion": "StatusList2021Entry"
         }
       },
       "createDID": true
@@ -200,7 +210,8 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "key"
+          "didMethod": "key",
+          "vcStatusListVersion": "RevocationList2020Status"
         }
       },
       "createDID": true
@@ -217,7 +228,8 @@
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1IEEEP1363",
           "format": "ldp",
-          "didMethod": "orb"
+          "didMethod": "orb",
+          "vcStatusListVersion": "StatusList2021Entry"
         },
         "oidcConfig": {
           "client_id": "bank_issuer",

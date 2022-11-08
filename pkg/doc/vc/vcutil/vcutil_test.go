@@ -201,7 +201,7 @@ func TestUpdateIssuer(t *testing.T) {
 }
 
 func TestUpdateSignatureTypeContext(t *testing.T) {
-	vc := &verifiable.Credential{Context: []string{defVCContext}}
+	vc := &verifiable.Credential{Context: []string{DefVCContext}}
 
 	require.Len(t, vc.Context, 1)
 

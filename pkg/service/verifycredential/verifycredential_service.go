@@ -12,12 +12,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	"github.com/trustbloc/vcs/pkg/internal/common/utils"
@@ -178,18 +178,26 @@ func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDo
 }
 
 func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error {
-	// validate vc status
-	if err := s.validateVCStatus(vcStatus); err != nil {
-		return err
-	}
-
-	statusListIndex, err := strconv.Atoi(vcStatus.CustomFields[credentialstatus.StatusListIndex].(string))
+	vcStatusProcessor, err := credentialstatus.GetVCStatusProcessor(vc.StatusVersion(vcStatus.Type))
 	if err != nil {
 		return err
 	}
 
-	revocationVC, err := s.revocationVCGetter.GetRevocationVC(
-		vcStatus.CustomFields[credentialstatus.StatusListCredential].(string))
+	if err = vcStatusProcessor.ValidateStatus(vcStatus); err != nil {
+		return err
+	}
+
+	statusListIndex, err := vcStatusProcessor.GetStatusListIndex(vcStatus)
+	if err != nil {
+		return err
+	}
+
+	statusVCURL, err := vcStatusProcessor.GetStatusVCURI(vcStatus)
+	if err != nil {
+		return err
+	}
+
+	revocationVC, err := s.revocationVCGetter.GetRevocationVC(statusVCURL)
 	if err != nil {
 		return err
 	}
@@ -201,11 +209,6 @@ func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) 
 	credSubject, ok := revocationVC.Subject.([]verifiable.Subject)
 	if !ok {
 		return fmt.Errorf("invalid subject field structure")
-	}
-
-	if credSubject[0].CustomFields[credentialstatus.StatusPurpose].(string) !=
-		vcStatus.CustomFields[credentialstatus.StatusPurpose].(string) {
-		return fmt.Errorf("vc statusPurpose not matching statusListCredential statusPurpose")
 	}
 
 	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
@@ -220,30 +223,6 @@ func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) 
 
 	if bitSet {
 		return errors.New(revokedMsg)
-	}
-
-	return nil
-}
-
-func (s *Service) validateVCStatus(vcStatus *verifiable.TypedID) error {
-	if vcStatus == nil {
-		return fmt.Errorf("vc status not exist")
-	}
-
-	if vcStatus.Type != credentialstatus.StatusList2021Entry {
-		return fmt.Errorf("vc status %s not supported", vcStatus.Type)
-	}
-
-	if vcStatus.CustomFields[credentialstatus.StatusListIndex] == nil {
-		return fmt.Errorf("statusListIndex field not exist in vc status")
-	}
-
-	if vcStatus.CustomFields[credentialstatus.StatusListCredential] == nil {
-		return fmt.Errorf("statusListCredential field not exist in vc status")
-	}
-
-	if vcStatus.CustomFields[credentialstatus.StatusPurpose] == nil {
-		return fmt.Errorf("statusPurpose field not exist in vc status")
 	}
 
 	return nil

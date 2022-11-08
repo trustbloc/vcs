@@ -26,7 +26,7 @@ type vcStore interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(vcSigner *vc.Signer, url string) (*verifiable.TypedID, error)
+	CreateStatusID(vcSigner *vc.Signer, url string) (*credentialstatus.StatusID, error)
 	GetCredentialStatusURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
 }
 
@@ -78,9 +78,10 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		KMS:                     kms,
 		Format:                  profile.VCConfig.Format,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
+		VCStatusListVersion:     profile.VCConfig.VCStatusListVersion,
 	}
 
-	var status *verifiable.TypedID
+	var statusID *credentialstatus.StatusID
 	var statusURL string
 
 	statusURL, err = s.vcStatusManager.GetCredentialStatusURL(profile.URL, profile.ID, "")
@@ -88,13 +89,13 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		return nil, fmt.Errorf("failed to create status URL: %w", err)
 	}
 
-	status, err = s.vcStatusManager.CreateStatusID(signer, statusURL)
+	statusID, err = s.vcStatusManager.CreateStatusID(signer, statusURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add credential status: %w", err)
 	}
 
-	credential.Context = append(credential.Context, credentialstatus.Context)
-	credential.Status = status
+	credential.Context = append(credential.Context, statusID.Context)
+	credential.Status = statusID.VCStatus
 
 	// update context
 	vcutil.UpdateSignatureTypeContext(credential, profile.VCConfig.SigningAlgorithm)

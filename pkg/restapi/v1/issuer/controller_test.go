@@ -27,13 +27,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/mocks"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 )
 
@@ -337,7 +337,8 @@ func TestController_AuthFailed(t *testing.T) {
 
 func Test_validateIssueCredOptions(t *testing.T) {
 	type args struct {
-		options *IssueCredentialOptions
+		vcStatusListVersion vc.StatusVersion
+		options             *IssueCredentialOptions
 	}
 	tests := []struct {
 		name    string
@@ -358,7 +359,7 @@ func Test_validateIssueCredOptions(t *testing.T) {
 			args: args{
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
-						Type: credentialstatus.StatusListCredential,
+						Type: "unsupported",
 					},
 				},
 			},
@@ -370,7 +371,7 @@ func Test_validateIssueCredOptions(t *testing.T) {
 			args: args{
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
-						Type: credentialstatus.StatusList2021Entry,
+						Type: string(vc.StatusList2021VCStatus),
 					},
 					VerificationMethod: lo.ToPtr("did:trustbloc:abc"),
 					Created:            lo.ToPtr("02 Jan 06 15:04 MST"),
@@ -382,9 +383,10 @@ func Test_validateIssueCredOptions(t *testing.T) {
 		{
 			name: "OK",
 			args: args{
+				vcStatusListVersion: vc.StatusList2021VCStatus,
 				options: &IssueCredentialOptions{
 					CredentialStatus: &CredentialStatusOpt{
-						Type: credentialstatus.StatusList2021Entry,
+						Type: string(vc.StatusList2021VCStatus),
 					},
 					VerificationMethod: lo.ToPtr("did:trustbloc:abc"),
 					Created:            lo.ToPtr("1979-05-27T07:32:00Z"),
@@ -398,7 +400,11 @@ func Test_validateIssueCredOptions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := validateIssueCredOptions(tt.args.options)
+			got, err := validateIssueCredOptions(tt.args.options, &profileapi.Issuer{
+				VCConfig: &profileapi.VCConfig{
+					VCStatusListVersion: tt.args.vcStatusListVersion,
+				},
+			})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("validateIssueCredOptions() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -427,8 +433,10 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
-				VCConfig:       &profileapi.VCConfig{},
-				SigningDID:     &profileapi.SigningDID{},
+				VCConfig: &profileapi.VCConfig{
+					VCStatusListVersion: vc.StatusList2021VCStatus,
+				},
+				SigningDID: &profileapi.SigningDID{},
 			}, nil)
 
 		controller := NewController(&Config{
@@ -461,8 +469,10 @@ func TestController_UpdateCredentialStatus(t *testing.T) {
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
-				VCConfig:       &profileapi.VCConfig{},
-				SigningDID:     &profileapi.SigningDID{},
+				VCConfig: &profileapi.VCConfig{
+					VCStatusListVersion: vc.StatusList2021VCStatus,
+				},
+				SigningDID: &profileapi.SigningDID{},
 			}, nil)
 
 		kmsRegistry := NewMockKMSRegistry(gomock.NewController(t))
@@ -614,7 +624,7 @@ func TestController_UpdateCredentialStatus(t *testing.T) {
 					},
 					profileID: "testId",
 				},
-				wantErr: "credential status invalid not supported",
+				wantErr: "vc status list version invalid not supported by current profile",
 			},
 			{
 				name: "UpdateVCStatus error",
@@ -625,8 +635,10 @@ func TestController_UpdateCredentialStatus(t *testing.T) {
 							Return(&profileapi.Issuer{
 								OrganizationID: orgID,
 								ID:             "testId",
-								VCConfig:       &profileapi.VCConfig{},
-								SigningDID:     &profileapi.SigningDID{},
+								VCConfig: &profileapi.VCConfig{
+									VCStatusListVersion: vc.StatusList2021VCStatus,
+								},
+								SigningDID: &profileapi.SigningDID{},
 							}, nil)
 						return mockProfileSvc
 					},

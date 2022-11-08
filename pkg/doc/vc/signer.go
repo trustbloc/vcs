@@ -30,4 +30,5 @@ type Signer struct {
 	Format                  vcsverifiable.Format               // VC format - LDP/JWT.
 	SignatureRepresentation verifiable.SignatureRepresentation // For LDP only.
 	KMS                     keyManager
+	VCStatusListVersion     StatusVersion // Version of VC status list
 }

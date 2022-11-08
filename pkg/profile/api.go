@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 )
@@ -66,6 +67,7 @@ type VCConfig struct {
 	DIDMethod               Method                             `json:"didMethod,omitempty"`
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation,omitempty"`
 	Status                  interface{}                        `json:"status,omitempty"`
+	VCStatusListVersion     vc.StatusVersion                   `json:"vcStatusListVersion,omitempty"`
 	Context                 []string                           `json:"context,omitempty"`
 }
 
