@@ -569,6 +569,7 @@ paths:
                 client_id:
                   type: string
                   description: 'REQUIRED, if the client is not authenticating with the authorization server.'
+                  nullable: true
               required:
                 - grant_type
                 - code

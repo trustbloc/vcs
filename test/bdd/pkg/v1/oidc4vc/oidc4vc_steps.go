@@ -287,7 +287,6 @@ func (s *Steps) exchangeCodeForToken() error {
 
 	token, err := s.oauthClient.Exchange(ctx, s.authCode,
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
-		oauth2.SetAuthURLParam("client_id", s.oauthClient.ClientID), // TODO: Fix validation to not require client_id
 	)
 	if err != nil {
 		return fmt.Errorf("exchange code for token: %w", err)
