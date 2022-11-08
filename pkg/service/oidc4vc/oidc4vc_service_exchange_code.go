@@ -19,7 +19,7 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		return "", fmt.Errorf("get transaction by opstate: %w", err)
 	}
 
-	resp, err := s.oAuth2ClientFactory.GetClient(oauth2.Config{
+	resp, err := s.oAuth2Client.Exchange(ctx, oauth2.Config{
 		ClientID:     tx.ClientID,
 		ClientSecret: tx.ClientSecret,
 		Endpoint: oauth2.Endpoint{
@@ -28,7 +28,7 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
 		Scopes: tx.Scope,
-	}).Exchange(ctx, tx.IssuerAuthCode)
+	}, tx.IssuerAuthCode, s.defaultHTTPClient)
 
 	if err != nil {
 		return "", err

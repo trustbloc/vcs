@@ -172,6 +172,24 @@ type UpdateCredentialStatusRequest struct {
 	CredentialStatus CredentialStatus `json:"credentialStatus"`
 }
 
+// Model for validating pre-authorized code and pin.
+type ValidatePreAuthorizedCodeRequest struct {
+	// Pre authorized code.
+	PreAuthorizedCode string `json:"pre-authorized_code"`
+
+	// User pin.
+	UserPin *string `json:"user_pin,omitempty"`
+}
+
+// Model for validating pre-authorized code and pin.
+type ValidatePreAuthorizedCodeResponse struct {
+	// Op state.
+	OpState string `json:"op_state"`
+
+	// A list of pre-authorized scopes
+	Scopes []string `json:"scopes"`
+}
+
 // ExchangeAuthorizationCodeRequestJSONBody defines parameters for ExchangeAuthorizationCodeRequest.
 type ExchangeAuthorizationCodeRequestJSONBody = ExchangeAuthorizationCodeRequest
 
@@ -183,6 +201,9 @@ type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
 
 // StoreAuthorizationCodeRequestJSONBody defines parameters for StoreAuthorizationCodeRequest.
 type StoreAuthorizationCodeRequestJSONBody = StoreAuthorizationCodeRequest
+
+// ValidatePreAuthorizedCodeRequestJSONBody defines parameters for ValidatePreAuthorizedCodeRequest.
+type ValidatePreAuthorizedCodeRequestJSONBody = ValidatePreAuthorizedCodeRequest
 
 // PostIssueCredentialsJSONBody defines parameters for PostIssueCredentials.
 type PostIssueCredentialsJSONBody = IssueCredentialData
@@ -204,6 +225,9 @@ type PushAuthorizationDetailsJSONRequestBody = PushAuthorizationDetailsJSONBody
 
 // StoreAuthorizationCodeRequestJSONRequestBody defines body for StoreAuthorizationCodeRequest for application/json ContentType.
 type StoreAuthorizationCodeRequestJSONRequestBody = StoreAuthorizationCodeRequestJSONBody
+
+// ValidatePreAuthorizedCodeRequestJSONRequestBody defines body for ValidatePreAuthorizedCodeRequest for application/json ContentType.
+type ValidatePreAuthorizedCodeRequestJSONRequestBody = ValidatePreAuthorizedCodeRequestJSONBody
 
 // PostIssueCredentialsJSONRequestBody defines body for PostIssueCredentials for application/json ContentType.
 type PostIssueCredentialsJSONRequestBody = PostIssueCredentialsJSONBody
@@ -306,6 +330,11 @@ type ClientInterface interface {
 	StoreAuthorizationCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	StoreAuthorizationCodeRequest(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ValidatePreAuthorizedCodeRequest request with any body
+	ValidatePreAuthorizedCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ValidatePreAuthorizedCodeRequest(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -412,6 +441,30 @@ func (c *Client) StoreAuthorizationCodeRequestWithBody(ctx context.Context, cont
 
 func (c *Client) StoreAuthorizationCodeRequest(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewStoreAuthorizationCodeRequestRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ValidatePreAuthorizedCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewValidatePreAuthorizedCodeRequestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ValidatePreAuthorizedCodeRequest(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewValidatePreAuthorizedCodeRequestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -647,6 +700,46 @@ func NewStoreAuthorizationCodeRequestRequestWithBody(server string, contentType 
 	}
 
 	operationPath := fmt.Sprintf("/issuer/interactions/store-authorization-code")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewValidatePreAuthorizedCodeRequestRequest calls the generic ValidatePreAuthorizedCodeRequest builder with application/json body
+func NewValidatePreAuthorizedCodeRequestRequest(server string, body ValidatePreAuthorizedCodeRequestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewValidatePreAuthorizedCodeRequestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewValidatePreAuthorizedCodeRequestRequestWithBody generates requests for ValidatePreAuthorizedCodeRequest with any type of body
+func NewValidatePreAuthorizedCodeRequestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/interactions/validate-pre-authorized-code")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -911,6 +1004,11 @@ type ClientWithResponsesInterface interface {
 
 	StoreAuthorizationCodeRequestWithResponse(ctx context.Context, body StoreAuthorizationCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*StoreAuthorizationCodeRequestResponse, error)
 
+	// ValidatePreAuthorizedCodeRequest request with any body
+	ValidatePreAuthorizedCodeRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidatePreAuthorizedCodeRequestResponse, error)
+
+	ValidatePreAuthorizedCodeRequestWithResponse(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidatePreAuthorizedCodeRequestResponse, error)
+
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
 
@@ -1011,6 +1109,28 @@ func (r StoreAuthorizationCodeRequestResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r StoreAuthorizationCodeRequestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ValidatePreAuthorizedCodeRequestResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ValidatePreAuthorizedCodeResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r ValidatePreAuthorizedCodeRequestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ValidatePreAuthorizedCodeRequestResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1173,6 +1293,23 @@ func (c *ClientWithResponses) StoreAuthorizationCodeRequestWithResponse(ctx cont
 	return ParseStoreAuthorizationCodeRequestResponse(rsp)
 }
 
+// ValidatePreAuthorizedCodeRequestWithBodyWithResponse request with arbitrary body returning *ValidatePreAuthorizedCodeRequestResponse
+func (c *ClientWithResponses) ValidatePreAuthorizedCodeRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidatePreAuthorizedCodeRequestResponse, error) {
+	rsp, err := c.ValidatePreAuthorizedCodeRequestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseValidatePreAuthorizedCodeRequestResponse(rsp)
+}
+
+func (c *ClientWithResponses) ValidatePreAuthorizedCodeRequestWithResponse(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidatePreAuthorizedCodeRequestResponse, error) {
+	rsp, err := c.ValidatePreAuthorizedCodeRequest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseValidatePreAuthorizedCodeRequestResponse(rsp)
+}
+
 // PostIssueCredentialsWithBodyWithResponse request with arbitrary body returning *PostIssueCredentialsResponse
 func (c *ClientWithResponses) PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error) {
 	rsp, err := c.PostIssueCredentialsWithBody(ctx, profileID, contentType, body, reqEditors...)
@@ -1327,6 +1464,32 @@ func ParseStoreAuthorizationCodeRequestResponse(rsp *http.Response) (*StoreAutho
 	return response, nil
 }
 
+// ParseValidatePreAuthorizedCodeRequestResponse parses an HTTP response from a ValidatePreAuthorizedCodeRequestWithResponse call
+func ParseValidatePreAuthorizedCodeRequestResponse(rsp *http.Response) (*ValidatePreAuthorizedCodeRequestResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ValidatePreAuthorizedCodeRequestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ValidatePreAuthorizedCodeResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePostIssueCredentialsResponse parses an HTTP response from a PostIssueCredentialsWithResponse call
 func ParsePostIssueCredentialsResponse(rsp *http.Response) (*PostIssueCredentialsResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -1445,6 +1608,9 @@ type ServerInterface interface {
 	// Stores authorization code from issuer oauth provider
 	// (POST /issuer/interactions/store-authorization-code)
 	StoreAuthorizationCodeRequest(ctx echo.Context) error
+	// Validates pre-authorized code and user pin
+	// (POST /issuer/interactions/validate-pre-authorized-code)
+	ValidatePreAuthorizedCodeRequest(ctx echo.Context) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
@@ -1497,6 +1663,15 @@ func (w *ServerInterfaceWrapper) StoreAuthorizationCodeRequest(ctx echo.Context)
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.StoreAuthorizationCodeRequest(ctx)
+	return err
+}
+
+// ValidatePreAuthorizedCodeRequest converts echo context to params.
+func (w *ServerInterfaceWrapper) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.ValidatePreAuthorizedCodeRequest(ctx)
 	return err
 }
 
@@ -1604,6 +1779,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/prepare-claim-data-authz-request", wrapper.PrepareAuthorizationRequest)
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
 	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
+	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)

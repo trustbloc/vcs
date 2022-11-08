@@ -15,10 +15,9 @@ import (
 
 func TestExchangeCode(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
-	factory := NewMockOAuth2ClientFactory(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2ClientFactory: factory})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
@@ -41,7 +40,7 @@ func TestExchangeCode(t *testing.T) {
 			return nil
 		})
 
-	factory.EXPECT().GetClient(oauth2.Config{
+	oauth2Client.EXPECT().Exchange(gomock.Any(), oauth2.Config{
 		ClientID:     baseTx.ClientID,
 		ClientSecret: baseTx.ClientSecret,
 		Endpoint: oauth2.Endpoint{
@@ -50,8 +49,7 @@ func TestExchangeCode(t *testing.T) {
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
 		Scopes: baseTx.Scope,
-	}).Return(oauth2Client)
-	oauth2Client.EXPECT().Exchange(gomock.Any(), authCode).Return(&oauth2.Token{
+	}, authCode, gomock.Any(), gomock.Any()).Return(&oauth2.Token{
 		AccessToken: "SlAV32hkKG",
 	}, nil)
 
@@ -73,10 +71,9 @@ func TestExchangeCodeErrFindTx(t *testing.T) {
 
 func TestExchangeCodeIssuerError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
-	factory := NewMockOAuth2ClientFactory(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2ClientFactory: factory})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client})
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
@@ -85,8 +82,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 		},
 	}, nil)
 
-	factory.EXPECT().GetClient(gomock.Any()).Return(oauth2Client)
-	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(
+	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		errors.New("oauth2: server response missing access_token"),
 	)
@@ -98,10 +94,9 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 
 func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
-	factory := NewMockOAuth2ClientFactory(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2ClientFactory: factory})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
@@ -115,8 +110,7 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 		},
 	}
 
-	factory.EXPECT().GetClient(gomock.Any()).Return(oauth2Client)
-	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any()).Return(
+	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&oauth2.Token{
 			AccessToken: "1234",
 		},

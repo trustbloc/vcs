@@ -1053,6 +1053,68 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 	})
 }
 
+func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
+	t.Run("success with pin", func(t *testing.T) {
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
+			Return(&oidc4vc.Transaction{
+				TransactionData: oidc4vc.TransactionData{
+					OpState: "random_op_state",
+					Scope:   []string{"a", "b"},
+				},
+			}, nil)
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := `{"pre-authorized_code":"1234", "user_pin" : "5432" }` //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
+	})
+
+	t.Run("success without pin", func(t *testing.T) {
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "").
+			Return(&oidc4vc.Transaction{
+				TransactionData: oidc4vc.TransactionData{
+					OpState: "random_op_state",
+					Scope:   []string{"a", "b"},
+				},
+			}, nil)
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := `{"pre-authorized_code":"1234" }` //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.ValidatePreAuthorizedCodeRequest(ctx))
+	})
+
+	t.Run("fail with pin", func(t *testing.T) {
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
+			Return(nil, errors.New("unexpected error"))
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := `{"pre-authorized_code":"1234", "user_pin" : "5432" }` //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.ValidatePreAuthorizedCodeRequest(ctx), "unexpected error")
+	})
+
+	t.Run("invalid body", func(t *testing.T) {
+		c := &Controller{}
+
+		req := "{" //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.ValidatePreAuthorizedCodeRequest(ctx), "unexpected EOF")
+	})
+}
+
 type options struct {
 	orgID       string
 	requestBody []byte

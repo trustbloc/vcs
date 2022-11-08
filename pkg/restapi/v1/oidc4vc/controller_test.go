@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -25,6 +26,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
@@ -673,6 +675,265 @@ func TestController_OidcToken(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			err := controller.OidcToken(echo.New().NewContext(req, rec))
+			tt.check(t, rec, err)
+		})
+	}
+}
+
+//nolint:lll
+func TestController_OidcPreAuthorize(t *testing.T) {
+	var (
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		oauthClient           = NewMockOAuth2Client(gomock.NewController(t))
+		preAuthorizeClient    = NewMockHTTPClient(gomock.NewController(t))
+	)
+
+	tests := []struct {
+		name  string
+		body  io.Reader
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
+	}{
+		{
+			name: "success",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"123456"},
+				"user_pin":            {"5678"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"], "op_state" : "opp123"}`)),
+					}, nil)
+				oauthClient.EXPECT().GeneratePKCE().Return("verifier", "challenge", "S256", nil)
+				finalURL := "https://127.0.0.1/authorize"
+
+				cfg := oauth2.Config{
+					ClientID:     "pre-auth-client",
+					ClientSecret: "foobar",
+					RedirectURL:  "/oidc/token",
+					Scopes:       []string{"a", "b"},
+					Endpoint: oauth2.Endpoint{
+						AuthURL:   "/oidc/authorize",
+						TokenURL:  "/oidc/token",
+						AuthStyle: oauth2.AuthStyleInParams,
+					},
+				}
+
+				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), cfg, "opp123", gomock.Any()).Return(finalURL)
+
+				preAuthorizeClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+					assert.Equal(t, "/authorize", req.URL.Path)
+					return &http.Response{
+						StatusCode: http.StatusSeeOther,
+						Header: map[string][]string{
+							"Location": {"https://localhost/redirect?code=my-secure-code"},
+						},
+					}, nil
+				})
+
+				oauthClient.EXPECT().Exchange(gomock.Any(), cfg, "my-secure-code",
+					gomock.Any(), gomock.Any()).Return(&oauth2.Token{
+					AccessToken: "123456",
+					Expiry:      time.Now().UTC().Add(10 * time.Minute),
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.NoError(t, err)
+				var resp oidc4vc.AccessTokenResponse
+				assert.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+				assert.Equal(t, "123456", resp.AccessToken)
+				assert.NotEmpty(t, *resp.ExpiresIn)
+			},
+		},
+		{
+			name:  "invalid grant type",
+			setup: func() {},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "unexpected grant type. expected urn:ietf:params:oauth:grant-type:pre-authorized_code")
+			},
+		},
+		{
+			name: "name invalid pre-auth code",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"123456"},
+				"user_pin":            {"5678"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+						PreAuthorizedCode: "123456",
+						UserPin:           lo.ToPtr("5678"),
+					}).Return(nil, errors.New("invalid pin"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "invalid pin")
+			},
+		},
+		{
+			name: "invalid response from validator",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+						PreAuthorizedCode: "321",
+						UserPin:           lo.ToPtr(""),
+					}).Return(&http.Response{
+					Body:       io.NopCloser(strings.NewReader("{")),
+					StatusCode: http.StatusOK,
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "unexpected EOF")
+			},
+		},
+		{
+			name: "fail pkce",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
+					}, nil)
+				oauthClient.EXPECT().GeneratePKCE().Return("", "", "", errors.New("unexpected pkce error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "unexpected pkce error")
+			},
+		},
+		{
+			name: "fail http pre-auth",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
+					}, nil)
+				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
+				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return("https://localhost")
+
+				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("http error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "http error")
+			},
+		},
+		{
+			name: "fail http status code pre-auth",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
+					}, nil)
+				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
+				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return("https://localhost")
+
+				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusOK,
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "unexpected status code 200")
+			},
+		},
+		{
+			name: "fail location code pre-auth",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
+					}, nil)
+				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
+				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return("https://localhost")
+
+				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusSeeOther,
+					Header: map[string][]string{
+						"Location": {"postgres://user:abc{DEf1=ghi@example.com:5432/db?sslmode=require"},
+					},
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "net/url: invalid userinfo")
+			},
+		},
+		{
+			name: "fail exchange code pre-auth",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
+					Return(&http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
+					}, nil)
+				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
+				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return("https://localhost")
+
+				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusSeeOther,
+					Header: map[string][]string{
+						"Location": {"https://localhost"},
+					},
+				}, nil)
+
+				oauthClient.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("exchange error"))
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "exchange error")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			controller := oidc4vc.NewController(&oidc4vc.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				IssuerInteractionClient: mockInteractionClient,
+				OAuth2Client:            oauthClient,
+				PreAuthorizeClient:      preAuthorizeClient,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/", tt.body)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+
+			rec := httptest.NewRecorder()
+
+			err := controller.OidcPreAuthorizedCode(echo.New().NewContext(req, rec))
 			tt.check(t, rec, err)
 		})
 	}
