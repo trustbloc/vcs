@@ -101,6 +101,19 @@ type PrepareClaimDataAuthorizationResponse struct {
 	TxID                               TxID
 }
 
+type CredentialRequest struct {
+	OpState          string
+	CredentialType   string
+	CredentialFormat vcsverifiable.Format
+	DID              string
+}
+
+type CredentialResponse struct {
+	TxID       TxID
+	Credential string
+	Retry      bool
+}
+
 type OAuthParameters struct {
 	ClientID     string
 	ClientSecret string

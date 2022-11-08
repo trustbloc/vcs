@@ -280,6 +280,25 @@ paths:
               $ref: '#/components/schemas/ExchangeAuthorizationCodeRequest'
       tags:
         - issuer
+  /issuer/interactions/prepare-credential:
+    post:
+      summary: Prepare Credential
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResponse'
+      operationId: prepare-credential
+      description: Used by VCS OIDC credential endpoint to request credential to conclude OIDC issuance flow.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialRequest'
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -566,7 +585,7 @@ paths:
               properties:
                 grant_type:
                   type: string
-                  description: must be equal urn:ietf:params:oauth:grant-type:pre-authorized_code
+                  description: 'must be equal urn:ietf:params:oauth:grant-type:pre-authorized_code'
                 pre-authorized_code:
                   type: string
                   description: pre-authorized_code
@@ -1170,4 +1189,45 @@ components:
       required:
         - op_state
         - authorization_details
+    CredentialRequest:
+      title: CredentialRequest
+      x-tags:
+        - issuer
+      type: object
+      description: Model for Prepare Credential request.
+      properties:
+        op_state:
+          type: string
+          description: Op state that is bound to transation.
+        type:
+          type: string
+          description: Type of the credential being issued.
+        format:
+          type: string
+          description: Format of the credential being issued.
+        did:
+          type: string
+          description: DID to which issued credential has to be bound.
+      required:
+        - op_state
+        - type
+    CredentialResponse:
+      title: CredentialResponse
+      x-tags:
+        - issuer
+      type: object
+      description: Model for Prepare Credential response.
+      properties:
+        tx_id:
+          type: string
+          description: Transaction ID.
+        credential:
+          type: string
+          description: Credential response in requested format and serialization scheme.
+        retry:
+          type: boolean
+          description: Should be set to TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+      required:
+        - tx_id
+        - retry
   securitySchemes: {}

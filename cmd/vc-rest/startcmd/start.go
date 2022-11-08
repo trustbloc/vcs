@@ -244,7 +244,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		IssuerVCSPublicHost: conf.StartupParameters.hostURL,
 		WellKnownService:    wellknown.NewService(httpClient),
 		OAuth2Client:        oauth2client.NewOAuth2Client(),
-		DefaultHTTPClient:   httpClient,
+		HTTPClient:          httpClient,
 	})
 
 	if err != nil {

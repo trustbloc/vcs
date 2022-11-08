@@ -1115,6 +1115,57 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	})
 }
 
+func TestController_PrepareCredential(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4vc.CredentialRequest,
+			) (*oidc4vc.CredentialResponse, error) {
+				assert.Equal(t, "123", req.OpState)
+
+				return &oidc4vc.CredentialResponse{}, nil
+			},
+		)
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := `{"op_state":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.NoError(t, c.PrepareCredential(ctx))
+	})
+
+	t.Run("invalid credential format", func(t *testing.T) {
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := `{"op_state":"123","type":"UniversityDegreeCredential","format":"invalid"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "format")
+	})
+
+	t.Run("service error", func(t *testing.T) {
+		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4VCService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(
+			nil, errors.New("service error"))
+
+		c := &Controller{
+			oidc4vcService: mockOIDC4VCService,
+		}
+
+		req := `{"op_state":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "service error")
+	})
+}
+
 type options struct {
 	orgID       string
 	requestBody []byte

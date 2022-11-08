@@ -94,6 +94,11 @@ type oidc4vcService interface {
 		preAuthorizedCode string,
 		pin string,
 	) (*oidc4vc.Transaction, error)
+
+	PrepareCredential(
+		ctx context.Context,
+		req *oidc4vc.CredentialRequest,
+	) (*oidc4vc.CredentialResponse, error)
 }
 
 type vcStatusManager interface {
@@ -496,5 +501,36 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
 		OpState: result.OpState,
 		Scopes:  result.Scope,
+	}, nil)
+}
+
+// PrepareCredential requests claim data and prepares VC to conclude OIDC issuance flow.
+// POST /issuer/interactions/prepare-credential.
+func (c *Controller) PrepareCredential(ctx echo.Context) error {
+	var body CredentialRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	vcFormat, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(body.Format)))
+	if err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+	}
+
+	resp, err := c.oidc4vcService.PrepareCredential(ctx.Request().Context(), &oidc4vc.CredentialRequest{
+		OpState:          body.OpState,
+		CredentialType:   body.Type,
+		CredentialFormat: vcFormat,
+		DID:              lo.FromPtr(body.Did),
+	})
+	if err != nil {
+		return resterr.NewSystemError("OIDC4VCService", "PrepareCredential", err)
+	}
+
+	return util.WriteOutput(ctx)(CredentialResponse{
+		Credential: lo.ToPtr(resp.Credential),
+		Retry:      resp.Retry,
+		TxId:       string(resp.TxID),
 	}, nil)
 }
