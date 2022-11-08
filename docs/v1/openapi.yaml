@@ -223,6 +223,25 @@ paths:
               $ref: '#/components/schemas/PrepareClaimDataAuthorizationRequest'
       tags:
         - issuer
+  /issuer/interactions/validate-pre-authorized-code:
+    post:
+      summary: Validates pre-authorized code and user pin
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidatePreAuthorizedCodeResponse'
+      operationId: validate-pre-authorized-code-request
+      description: Validates pre-authorized code and user pin.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidatePreAuthorizedCodeRequest'
+      tags:
+        - issuer
   /issuer/interactions/store-authorization-code:
     post:
       summary: Stores authorization code from issuer oauth provider
@@ -532,6 +551,40 @@ paths:
       tags:
         - oidc4vc
     parameters: []
+  /oidc/pre-authorized-code:
+    post:
+      summary: OIDC Pre-Authorized code flow handler
+      tags:
+        - oidc4vc
+      operationId: oidc-pre-authorized-code
+      description: Endpoint for handling Pre-Authorized code flow
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                grant_type:
+                  type: string
+                  description: must be equal urn:ietf:params:oauth:grant-type:pre-authorized_code
+                pre-authorized_code:
+                  type: string
+                  description: pre-authorized_code
+                user_pin:
+                  type: string
+                  description: user_pin
+              required:
+                - grant_type
+                - authorized_code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessTokenResponse'
+        '400':
+          description: Bad Request
   /oidc/token:
     post:
       summary: OIDC Token Request
@@ -921,6 +974,39 @@ components:
       properties:
         tx_id:
           type: string
+    ValidatePreAuthorizedCodeRequest:
+      title: ValidatePreAuthorizedCodeRequest
+      type: object
+      description: Model for validating pre-authorized code and pin.
+      x-tags:
+        - issuer
+      properties:
+        pre-authorized_code:
+          type: string
+          description: Pre authorized code.
+        user_pin:
+          type: string
+          description: User pin.
+      required:
+        - pre-authorized_code
+    ValidatePreAuthorizedCodeResponse:
+      title: ValidatePreAuthorizedCodeRequest
+      type: object
+      description: Model for validating pre-authorized code and pin.
+      x-tags:
+        - issuer
+      properties:
+        op_state:
+          type: string
+          description: Op state.
+        scopes:
+          description: A list of pre-authorized scopes
+          type: array
+          items:
+            type: string
+      required:
+        - op_state
+        - scopes
     PrepareClaimDataAuthorizationResponse:
       title: PrepareClaimDataAuthorizationResponse
       type: object

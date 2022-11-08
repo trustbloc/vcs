@@ -30,6 +30,7 @@ import (
 	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	metricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	promMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/prometheus"
@@ -236,19 +237,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new oidc4 vc store: %w", err)
 	}
 
-	httpClient := &http.Client{
-		Timeout: time.Minute,
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
+	httpClient := getHTTPClient(tlsConfig)
 
 	oidc4vcService, err := oidc4vc.NewService(&oidc4vc.Config{
 		TransactionStore:    oidc4vcStore,
 		IssuerVCSPublicHost: conf.StartupParameters.hostURL,
 		WellKnownService:    wellknown.NewService(httpClient),
-		OAuth2ClientFactory: oidc4vc.NewOAuth2ClientFactory(),
+		OAuth2Client:        oauth2client.NewOAuth2Client(),
+		DefaultHTTPClient:   httpClient,
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4 vc service: %w", err)
 	}
@@ -299,6 +297,14 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		StateStore:              oidc4StateStore,
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.hostURLExternal,
+		DefaultHTTPClient:       httpClient,
+		PreAuthorizeClient: func() *http.Client {
+			client := getHTTPClient(tlsConfig)
+			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			}
+			return client
+		}(),
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
@@ -405,6 +411,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	return e, nil
+}
+
+func getHTTPClient(tlsConfig *tls.Config) *http.Client {
+	return &http.Client{
+		Timeout: time.Minute,
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
 }
 
 func NewMetrics(parameters *startupParameters) (metricsProvider.Metrics, error) {

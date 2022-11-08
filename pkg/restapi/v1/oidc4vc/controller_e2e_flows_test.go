@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -27,9 +28,11 @@ import (
 	"github.com/ory/fosite/storage"
 	"github.com/ory/fosite/token/hmac"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
@@ -41,27 +44,20 @@ const (
 	clientID = "test-client"
 )
 
-var fositeStore = &storage.MemoryStore{ //nolint:gochecknoglobals
-	Clients: map[string]fosite.Client{
-		clientID: &fosite.DefaultClient{
-			ID:            clientID,
-			Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
-			RedirectURIs:  []string{"/client/cb"},
-			ResponseTypes: []string{"code"},
-			GrantTypes:    []string{"authorization_code"},
-			Scopes:        []string{"openid", "profile"},
-		},
-	},
-	AuthorizeCodes:         map[string]storage.StoreAuthorizeCode{},
-	IDSessions:             make(map[string]fosite.Requester),
-	AccessTokens:           map[string]fosite.Requester{},
-	RefreshTokens:          map[string]storage.StoreRefreshToken{},
-	PKCES:                  map[string]fosite.Requester{},
-	Users:                  make(map[string]storage.MemoryUserRelation),
-	AccessTokenRequestIDs:  map[string]string{},
-	RefreshTokenRequestIDs: map[string]string{},
-	IssuerPublicKeys:       map[string]storage.IssuerPublicKeys{},
-	PARSessions:            map[string]fosite.AuthorizeRequester{},
+func getDefaultStore() *storage.MemoryStore {
+	return &storage.MemoryStore{ //nolint:gochecknoglobals
+		Clients:                map[string]fosite.Client{},
+		AuthorizeCodes:         map[string]storage.StoreAuthorizeCode{},
+		IDSessions:             make(map[string]fosite.Requester),
+		AccessTokens:           map[string]fosite.Requester{},
+		RefreshTokens:          map[string]storage.StoreRefreshToken{},
+		PKCES:                  map[string]fosite.Requester{},
+		Users:                  make(map[string]storage.MemoryUserRelation),
+		AccessTokenRequestIDs:  map[string]string{},
+		RefreshTokenRequestIDs: map[string]string{},
+		IssuerPublicKeys:       map[string]storage.IssuerPublicKeys{},
+		PARSessions:            map[string]fosite.AuthorizeRequester{},
+	}
 }
 
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
@@ -73,6 +69,15 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	srv := httptest.NewServer(e)
 	defer srv.Close()
 
+	fositeStore := getDefaultStore()
+	fositeStore.Clients[clientID] = &fosite.DefaultClient{
+		ID:            clientID,
+		Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
+		RedirectURIs:  []string{"/client/cb"},
+		ResponseTypes: []string{"code"},
+		GrantTypes:    []string{"authorization_code"},
+		Scopes:        []string{"openid", "profile"},
+	}
 	// prepend client redirect URIs with test server URL
 	for _, client := range fositeStore.Clients {
 		c, ok := client.(*fosite.DefaultClient)
@@ -147,6 +152,112 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, token)
 	require.NotEmpty(t, token.AccessToken)
+}
+
+func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
+	e := echo.New()
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler
+
+	srv := httptest.NewServer(e)
+	defer srv.Close()
+
+	fositeStore := getDefaultStore()
+	fositeStore.Clients["pre-auth-client"] = &fosite.DefaultClient{
+		ID:            clientID,
+		Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
+		RedirectURIs:  []string{"/oidc/token"},
+		ResponseTypes: []string{"code"},
+		GrantTypes:    []string{"authorization_code"},
+		Scopes:        []string{"openid", "profile"},
+	}
+
+	// prepend client redirect URIs with test server URL
+	for _, client := range fositeStore.Clients {
+		c, ok := client.(*fosite.DefaultClient)
+		if ok {
+			c.RedirectURIs[0] = srv.URL + c.RedirectURIs[0]
+		}
+	}
+
+	config := new(fosite.Config)
+	config.EnforcePKCE = true
+
+	var hmacStrategy = &fositeoauth.HMACSHAStrategy{
+		Enigma: &hmac.HMACStrategy{
+			Config: &fosite.Config{
+				GlobalSecret: []byte("secret-for-signing-and-verifying-signatures"),
+			},
+		},
+		Config: &fosite.Config{
+			AuthorizeCodeLifespan: time.Minute,
+			AccessTokenLifespan:   time.Hour,
+		},
+	}
+
+	oauth2Provider := compose.Compose(config, fositeStore, hmacStrategy,
+		compose.OAuth2AuthorizeExplicitFactory,
+		compose.OAuth2PKCEFactory,
+		compose.PushedAuthorizeHandlerFactory,
+	)
+
+	interaction := NewMockIssuerInteractionClient(gomock.NewController(t))
+	preAuthClient := NewMockHTTPClient(gomock.NewController(t))
+
+	controller := oidc4vc.NewController(&oidc4vc.Config{
+		OAuth2Provider:          oauth2Provider,
+		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4vcstatestore.AuthorizeState)},
+		IssuerInteractionClient: interaction,
+		IssuerVCSPublicHost:     srv.URL,
+		OAuth2Client:            oauth2client.NewOAuth2Client(),
+		PreAuthorizeClient:      preAuthClient,
+		DefaultHTTPClient:       http.DefaultClient,
+	})
+
+	oidc4vc.RegisterHandlers(e, controller)
+
+	code := "awesome-pre-auth-code"
+	pin := "493536"
+	opState := "QIn85XAEHwlPyCVRhTww"
+
+	interaction.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+			PreAuthorizedCode: code,
+			UserPin:           lo.ToPtr(pin),
+		},
+	).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["openid", "profile"], "op_state" : "QIn85XAEHwlPyCVRhTww"}`)), //nolint
+	}, nil)
+
+	preAuthClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
+		query := req.URL.Query()
+
+		assert.Equal(t, "/oidc/authorize", req.URL.Path)
+		assert.Equal(t, "urn:ietf:params:oauth:grant-type:pre-authorized_code",
+			req.URL.Query().Get("authorization_details"))
+		assert.True(t, len(query.Get("code_challenge")) > 20)
+		assert.Equal(t, "S256", query.Get("code_challenge_method"))
+		assert.Equal(t, opState, query.Get("state"))
+
+		client := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		return client.Do(req)
+	})
+	resp, err := http.DefaultClient.PostForm(fmt.Sprintf("%v/oidc/pre-authorized-code", srv.URL), url.Values{
+		"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+		"pre-authorized_code": {code},
+		"user_pin":            {pin},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	var token oidc4vc.AccessTokenResponse
+	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&token))
+	assert.Equal(t, "bearer", token.TokenType)
+	assert.NotEmpty(t, token.AccessToken)
+	assert.Greater(t, *token.ExpiresIn, 0)
 }
 
 func mockIssuerInteractionClient(

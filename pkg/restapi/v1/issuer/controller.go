@@ -88,6 +88,12 @@ type oidc4vcService interface {
 		ctx context.Context,
 		opState string,
 	) (oidc4vc.TxID, error)
+
+	ValidatePreAuthorizedCodeRequest(
+		ctx context.Context,
+		preAuthorizedCode string,
+		pin string,
+	) (*oidc4vc.Transaction, error)
 }
 
 type vcStatusManager interface {
@@ -469,4 +475,26 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 	}
 
 	return util.WriteOutput(ctx)(c.oidc4vcService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState))
+}
+
+// ValidatePreAuthorizedCodeRequest Validates authorization code and pin.
+// POST /issuer/interactions/validate-pre-authorized-code.
+func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
+	var body ValidatePreAuthorizedCodeRequest
+
+	if err := util.ReadBody(ctx, &body); err != nil {
+		return err
+	}
+
+	result, err := c.oidc4vcService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
+		body.PreAuthorizedCode, lo.FromPtr(body.UserPin))
+
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
+		OpState: result.OpState,
+		Scopes:  result.Scope,
+	}, nil)
 }

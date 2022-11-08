@@ -4,12 +4,19 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oauth_client_test_mocks_test.go -self_package mocks -package oidc4vc_test -source=oauth_client_test.go -mock_names httpRoundTripper=MockHttpRoundTripper
+//go:generate mockgen -destination oauth_client_test_mocks_test.go -self_package mocks -package oauth2client_test -source=oauth_client_test.go -mock_names httpRoundTripper=MockHttpRoundTripper
 
-package oidc4vc_test
+package oauth2client_test
+
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -20,7 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
 // nolint
@@ -30,16 +37,7 @@ type httpRoundTripper interface {
 
 func TestOAuth2ClientSuccess(t *testing.T) {
 	authCode := uuid.NewString()
-	factory := oidc4vc.NewOAuth2ClientFactory()
-
-	client := factory.GetClient(oauth2.Config{
-		ClientID:     "213125412",
-		ClientSecret: "321",
-		Endpoint: oauth2.Endpoint{
-			TokenURL:  "https://localhost/token",
-			AuthStyle: oauth2.AuthStyleAutoDetect,
-		},
-	})
+	factory := oauth2client.NewOAuth2Client()
 
 	roundTripper := NewMockHttpRoundTripper(gomock.NewController(t))
 	cl := &http.Client{
@@ -60,7 +58,15 @@ func TestOAuth2ClientSuccess(t *testing.T) {
 		}, nil
 	})
 
-	tok, err := client.Exchange(context.WithValue(context.TODO(), oauth2.HTTPClient, cl), authCode)
+	tok, err := factory.Exchange(context.TODO(), oauth2.Config{
+		ClientID:     "213125412",
+		ClientSecret: "321",
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  "https://localhost/token",
+			AuthStyle: oauth2.AuthStyleAutoDetect,
+		},
+	}, authCode, cl)
+
 	assert.NoError(t, err)
 	assert.NotNil(t, tok)
 }
@@ -83,18 +89,31 @@ func TestOAuth2ClientIssuerError(t *testing.T) {
 		}, nil
 	}).AnyTimes()
 
-	factory := oidc4vc.NewOAuth2ClientFactory()
+	factory := oauth2client.NewOAuth2Client()
 
-	client := factory.GetClient(oauth2.Config{
+	tok, err := factory.Exchange(context.TODO(), oauth2.Config{
 		ClientID:     "213125412",
 		ClientSecret: "321",
 		Endpoint: oauth2.Endpoint{
 			TokenURL:  "https://localhost/token",
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
-	})
+	}, authCode, cl)
 
-	tok, err := client.Exchange(context.WithValue(context.TODO(), oauth2.HTTPClient, cl), authCode)
 	assert.ErrorContains(t, err, "oauth2: server response missing access_token")
 	assert.Nil(t, tok)
+}
+
+func TestGetAuthUrl(t *testing.T) {
+	state := uuid.NewString()
+
+	url := oauth2client.NewOAuth2Client().AuthCodeURL(context.TODO(), oauth2.Config{
+		ClientID:     "213125412",
+		ClientSecret: "321",
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  "https://localhost/token",
+			AuthStyle: oauth2.AuthStyleAutoDetect,
+		},
+	}, state)
+	assert.Equal(t, fmt.Sprintf("?client_id=213125412&response_type=code&state=%v", state), url)
 }

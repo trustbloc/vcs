@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -324,4 +325,77 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			tt.check(t, resp, err)
 		})
 	}
+}
+
+func TestValidatePreAuthCode(t *testing.T) {
+	t.Run("success with pin", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4vc.NewService(&oidc4vc.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4vc.Transaction{
+			TransactionData: oidc4vc.TransactionData{
+				PreAuthCode:     "1234",
+				UserPinRequired: true,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111")
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+	})
+
+	t.Run("success without pin", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4vc.NewService(&oidc4vc.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4vc.Transaction{
+			TransactionData: oidc4vc.TransactionData{
+				PreAuthCode:     "1234",
+				UserPinRequired: false,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+	})
+
+	t.Run("invalid pin", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4vc.NewService(&oidc4vc.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4vc.Transaction{
+			TransactionData: oidc4vc.TransactionData{
+				PreAuthCode:     "1234",
+				UserPinRequired: true,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "invalid auth credentials")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("fail find tx", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4vc.NewService(&oidc4vc.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found"))
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "not found")
+		assert.Nil(t, resp)
+	})
 }

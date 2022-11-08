@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4vc_test . StateStore,OAuth2Provider,IssuerInteractionClient
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4vc_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,OAuth2Client
 
 package oidc4vc
 
@@ -14,22 +14,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
+	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
+
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	apiutil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
 )
 
 const (
-	sessionOpStateKey = "opState"
+	sessionOpStateKey          = "opState"
+	authorizationDetailsKey    = "authDetails"
+	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+	authorizeEndpoint          = "/oidc/authorize"
+	tokenEndpoint              = "/oidc/token"
+	tokenType                  = "bearer"
 )
 
 // StateStore stores authorization request/response state.
@@ -47,6 +55,22 @@ type StateStore interface {
 	) (*oidc4vcstatestore.AuthorizeState, error)
 }
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+type OAuth2Client interface {
+	GeneratePKCE() (verifier string, challenge string, method string, err error)
+	AuthCodeURL(_ context.Context, cfg oauth2.Config, state string, opts ...oauth2.AuthCodeOption) string
+	Exchange(
+		ctx context.Context,
+		cfg oauth2.Config,
+		code string,
+		client *http.Client,
+		opts ...oauth2.AuthCodeOption,
+	) (*oauth2.Token, error)
+}
+
 // OAuth2Provider provides functionality for OAuth2 handlers.
 type OAuth2Provider fosite.OAuth2Provider
 
@@ -59,6 +83,9 @@ type Config struct {
 	StateStore              StateStore
 	IssuerInteractionClient IssuerInteractionClient
 	IssuerVCSPublicHost     string
+	OAuth2Client            OAuth2Client
+	PreAuthorizeClient      HTTPClient
+	DefaultHTTPClient       *http.Client
 }
 
 // Controller for OIDC4VC issuance API.
@@ -67,6 +94,9 @@ type Controller struct {
 	stateStore              StateStore
 	issuerInteractionClient IssuerInteractionClient
 	issuerVCSPublicHost     string
+	oAuth2Client            OAuth2Client
+	preAuthorizeClient      HTTPClient
+	defaultHTTPClient       *http.Client
 }
 
 // NewController creates a new Controller instance.
@@ -76,6 +106,9 @@ func NewController(config *Config) *Controller {
 		stateStore:              config.StateStore,
 		issuerInteractionClient: config.IssuerInteractionClient,
 		issuerVCSPublicHost:     config.IssuerVCSPublicHost,
+		oAuth2Client:            config.OAuth2Client,
+		preAuthorizeClient:      config.PreAuthorizeClient,
+		defaultHTTPClient:       config.DefaultHTTPClient,
 	}
 }
 
@@ -147,6 +180,23 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err).WithAuthorizeRequester(ar)
 	}
 
+	ses := &fosite.DefaultSession{
+		Extra: map[string]interface{}{
+			sessionOpStateKey:       params.OpState,
+			authorizationDetailsKey: lo.FromPtr(params.AuthorizationDetails),
+		},
+	}
+
+	if lo.FromPtr(params.AuthorizationDetails) == preAuthorizedCodeGrantType { // pre-authorization flow
+		resp, err2 := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
+		if err2 != nil {
+			return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err2).WithAuthorizeRequester(ar)
+		}
+
+		c.oauth2Provider.WriteAuthorizeResponse(ctx, e.Response().Writer, ar, resp)
+		return nil
+	}
+
 	var scope []string
 
 	for _, s := range ar.GetRequestedScopes() {
@@ -195,11 +245,6 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	}
 
 	ar.(*fosite.AuthorizeRequest).State = params.OpState
-	ses := &fosite.DefaultSession{
-		Extra: map[string]interface{}{
-			sessionOpStateKey: params.OpState,
-		},
-	}
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 	if err != nil {
@@ -228,7 +273,7 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 
 	resp, err := c.stateStore.GetAuthorizeState(ctx, params.State)
 	if err != nil {
-		return apiutil.WriteOutput(e)(nil, err)
+		return apiUtil.WriteOutput(e)(nil, err)
 	}
 
 	storeResp, storeErr := c.issuerInteractionClient.StoreAuthorizationCodeRequest(ctx,
@@ -265,6 +310,17 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
+	isPreAuthFlow := ar.GetSession().(*fosite.DefaultSession).Extra[authorizationDetailsKey] == preAuthorizedCodeGrantType
+	if isPreAuthFlow {
+		resp, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
+		if err2 != nil {
+			return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err2).WithAccessRequester(ar)
+		}
+
+		c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, resp)
+		return nil
+	}
+
 	exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 		ctx,
 		issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
@@ -282,6 +338,96 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, resp)
-
 	return nil
+}
+
+// OidcPreAuthorizedCode handles pre-authorized code token request (POST /oidc/pre-authorized-code).
+func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
+	if !strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType) {
+		return fmt.Errorf("unexpected grant type. expected %v", preAuthorizedCodeGrantType)
+	}
+
+	ctx := e.Request().Context()
+
+	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
+		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+			PreAuthorizedCode: e.FormValue("pre-authorized_code"),
+			UserPin:           lo.ToPtr(e.FormValue("user_pin")),
+		})
+	if err != nil {
+		return err
+	}
+
+	var validateResponse issuer.ValidatePreAuthorizedCodeResponse
+	if err = json.NewDecoder(resp.Body).Decode(&validateResponse); err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+
+	verifier, challenge, method, err := c.oAuth2Client.GeneratePKCE()
+	if err != nil {
+		return err
+	}
+
+	cfg := oauth2.Config{
+		ClientID:     "pre-auth-client",
+		ClientSecret: "foobar",
+		RedirectURL:  c.issuerVCSPublicHost + tokenEndpoint,
+		Scopes:       validateResponse.Scopes,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   c.issuerVCSPublicHost + authorizeEndpoint,
+			TokenURL:  c.issuerVCSPublicHost + tokenEndpoint,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+	authURL := c.oAuth2Client.AuthCodeURL(ctx,
+		cfg,
+		validateResponse.OpState,
+		oauth2.SetAuthURLParam("authorization_details", preAuthorizedCodeGrantType),
+		oauth2.SetAuthURLParam("op_state", validateResponse.OpState),
+		oauth2.SetAuthURLParam("code_challenge_method", method),
+		oauth2.SetAuthURLParam("code_challenge", challenge),
+	)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", authURL, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err = c.preAuthorizeClient.Do(httpReq)
+	if err != nil {
+		return err
+	}
+	if resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	if resp.StatusCode != http.StatusSeeOther {
+		return fmt.Errorf("unexpected status code %v, expected %v", resp.StatusCode,
+			http.StatusSeeOther)
+	}
+
+	parsedURL, err := url.Parse(resp.Header.Get("location"))
+	if err != nil {
+		return err
+	}
+
+	token, err := c.oAuth2Client.Exchange(ctx, cfg,
+		parsedURL.Query().Get("code"),
+		c.defaultHTTPClient,
+		oauth2.SetAuthURLParam("code_verifier", verifier),
+	)
+	if err != nil {
+		return err
+	}
+
+	aResponse := AccessTokenResponse{
+		AccessToken:  token.AccessToken,
+		RefreshToken: lo.ToPtr(token.RefreshToken),
+		TokenType:    tokenType,
+	}
+	if token.Expiry.Unix() > 0 {
+		aResponse.ExpiresIn = lo.ToPtr(int(token.Expiry.Unix()))
+	}
+
+	return apiUtil.WriteOutput(e)(aResponse, nil)
 }
