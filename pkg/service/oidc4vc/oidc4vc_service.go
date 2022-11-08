@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client
+//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
 
 package oidc4vc
 
@@ -60,13 +60,17 @@ type wellKnownService interface {
 	GetOIDCConfiguration(ctx context.Context, url string) (*OIDCConfiguration, error)
 }
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore    transactionStore
 	WellKnownService    wellKnownService
 	IssuerVCSPublicHost string
 	OAuth2Client        oAuth2Client
-	DefaultHTTPClient   *http.Client
+	HTTPClient          httpClient
 }
 
 // Service implements VCS credential interaction API for OIDC4VC issuance.
@@ -75,7 +79,7 @@ type Service struct {
 	wellKnownService    wellKnownService
 	issuerVCSPublicHost string
 	oAuth2Client        oAuth2Client
-	defaultHTTPClient   *http.Client
+	httpClient          httpClient
 }
 
 // NewService returns a new Service instance.
@@ -85,7 +89,7 @@ func NewService(config *Config) (*Service, error) {
 		wellKnownService:    config.WellKnownService,
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
 		oAuth2Client:        config.OAuth2Client,
-		defaultHTTPClient:   config.DefaultHTTPClient,
+		httpClient:          config.HTTPClient,
 	}, nil
 }
 
@@ -198,4 +202,40 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	}
 
 	return tx, nil
+}
+
+func (s *Service) PrepareCredential(
+	ctx context.Context,
+	req *CredentialRequest,
+) (*CredentialResponse, error) {
+	tx, err := s.store.FindByOpState(ctx, req.OpState)
+	if err != nil {
+		return nil, fmt.Errorf("find tx by op state: %w", err)
+	}
+
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	r.Header.Set("Authorization", "Bearer "+tx.IssuerToken)
+
+	resp, err := s.httpClient.Do(r)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
+	}
+
+	// TODO: Prepare and sign credential
+
+	return &CredentialResponse{
+		TxID:       tx.ID,
+		Credential: "",
+		Retry:      false,
+	}, nil
 }

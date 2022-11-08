@@ -1,8 +1,15 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package oidc4vc_test
 
 import (
 	"context"
 	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,7 +24,8 @@ func TestExchangeCode(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client,
+		HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
@@ -60,7 +68,7 @@ func TestExchangeCode(t *testing.T) {
 
 func TestExchangeCodeErrFindTx(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New("tx not found"))
@@ -73,7 +81,8 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client,
+		HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
@@ -96,7 +105,8 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client})
+	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client,
+		HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()

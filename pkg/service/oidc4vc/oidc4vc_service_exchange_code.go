@@ -9,6 +9,7 @@ package oidc4vc
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"golang.org/x/oauth2"
 )
@@ -28,7 +29,7 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
 		Scopes: tx.Scope,
-	}, tx.IssuerAuthCode, s.defaultHTTPClient)
+	}, tx.IssuerAuthCode, s.httpClient.(*http.Client)) // TODO: Fix this!
 
 	if err != nil {
 		return "", err

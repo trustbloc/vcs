@@ -7,8 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -398,4 +401,114 @@ func TestValidatePreAuthCode(t *testing.T) {
 		assert.ErrorContains(t, err, "not found")
 		assert.Nil(t, resp)
 	})
+}
+
+func TestService_PrepareCredential(t *testing.T) {
+	var (
+		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
+		req                  *oidc4vc.CredentialRequest
+	)
+
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, resp *oidc4vc.CredentialResponse, err error)
+	}{
+		{
+			name: "Success",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{
+					ID: "txID",
+					TransactionData: oidc4vc.TransactionData{
+						IssuerToken: "issuer-access-token",
+					},
+				}, nil)
+
+				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
+					req *http.Request,
+				) (*http.Response, error) {
+					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer(nil)),
+					}, nil
+				})
+
+				req = &oidc4vc.CredentialRequest{
+					OpState: "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.CredentialResponse, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Fail to find transaction by op state",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(
+					nil, errors.New("find tx error"))
+
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
+
+				req = &oidc4vc.CredentialRequest{
+					OpState: "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.CredentialResponse, err error) {
+				require.ErrorContains(t, err, "find tx by op state")
+				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Fail to make request to claim endpoint",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{}, nil)
+
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("http error"))
+
+				req = &oidc4vc.CredentialRequest{
+					OpState: "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.CredentialResponse, err error) {
+				require.ErrorContains(t, err, "http error")
+				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Claim endpoint returned not 200 OK status code",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4vc.Transaction{}, nil)
+
+				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(bytes.NewBuffer(nil)),
+				}, nil)
+
+				req = &oidc4vc.CredentialRequest{
+					OpState: "opState",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4vc.CredentialResponse, err error) {
+				require.ErrorContains(t, err, "claim endpoint returned status code")
+				require.Nil(t, resp)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			svc, err := oidc4vc.NewService(&oidc4vc.Config{
+				TransactionStore: mockTransactionStore,
+				HTTPClient:       mockHTTPClient,
+			})
+			require.NoError(t, err)
+
+			resp, err := svc.PrepareCredential(context.Background(), req)
+			tt.check(t, resp, err)
+		})
+	}
 }
