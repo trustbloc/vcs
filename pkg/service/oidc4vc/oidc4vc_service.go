@@ -4,20 +4,26 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
+//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,credentialService=MockCredentialService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
 
 package oidc4vc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"golang.org/x/oauth2"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
@@ -36,6 +42,11 @@ type transactionStore interface {
 		params ...func(insertOptions *InsertOptions),
 	) (*Transaction, error)
 
+	Get(
+		ctx context.Context,
+		txID TxID,
+	) (*Transaction, error)
+
 	FindByOpState(
 		ctx context.Context,
 		opState string,
@@ -45,6 +56,21 @@ type transactionStore interface {
 		ctx context.Context,
 		tx *Transaction,
 	) error
+}
+
+type wellKnownService interface {
+	GetOIDCConfiguration(
+		ctx context.Context,
+		url string,
+	) (*OIDCConfiguration, error)
+}
+
+type credentialService interface {
+	IssueCredential(
+		ctx context.Context,
+		credential interface{},
+		profileID string,
+	) (*verifiable.Credential, error)
 }
 
 type oAuth2Client interface {
@@ -57,10 +83,6 @@ type oAuth2Client interface {
 	) (*oauth2.Token, error)
 }
 
-type wellKnownService interface {
-	GetOIDCConfiguration(ctx context.Context, url string) (*OIDCConfiguration, error)
-}
-
 type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
@@ -69,6 +91,7 @@ type httpClient interface {
 type Config struct {
 	TransactionStore    transactionStore
 	WellKnownService    wellKnownService
+	CredentialService   credentialService
 	IssuerVCSPublicHost string
 	OAuth2Client        oAuth2Client
 	HTTPClient          httpClient
@@ -78,6 +101,7 @@ type Config struct {
 type Service struct {
 	store               transactionStore
 	wellKnownService    wellKnownService
+	credentialService   credentialService
 	issuerVCSPublicHost string
 	oAuth2Client        oAuth2Client
 	httpClient          httpClient
@@ -88,6 +112,7 @@ func NewService(config *Config) (*Service, error) {
 	return &Service{
 		store:               config.TransactionStore,
 		wellKnownService:    config.WellKnownService,
+		credentialService:   config.CredentialService,
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
 		oAuth2Client:        config.OAuth2Client,
 		httpClient:          config.HTTPClient,
@@ -209,11 +234,16 @@ func (s *Service) PrepareCredential(
 	ctx context.Context,
 	req *CredentialRequest,
 ) (*CredentialResponse, error) {
-	tx, err := s.store.FindByOpState(ctx, req.OpState)
+	tx, err := s.store.Get(ctx, req.TxID)
 	if err != nil {
-		return nil, fmt.Errorf("find tx by op state: %w", err)
+		return nil, fmt.Errorf("get tx: %w", err)
 	}
 
+	if tx.CredentialTemplate == nil {
+		return nil, ErrCredentialTemplateNotConfigured
+	}
+
+	// request claim data
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -232,11 +262,51 @@ func (s *Service) PrepareCredential(
 		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
 	}
 
-	// TODO: Prepare and sign credential
+	var claimData map[string]interface{}
+
+	if err = json.NewDecoder(resp.Body).Decode(&claimData); err != nil {
+		return nil, fmt.Errorf("decode claim data: %w", err)
+	}
+
+	// prepare and sign credential
+	vc := &verifiable.Credential{
+		Context: tx.CredentialTemplate.Contexts,
+		ID:      uuid.New().URN(),
+		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
+		Issuer:  verifiable.Issuer{ID: tx.CredentialTemplate.Issuer},
+		Subject: verifiable.Subject{
+			ID:           req.DID,
+			CustomFields: claimData,
+		},
+		Issued: util.NewTime(time.Now()),
+	}
+
+	var credential interface{}
+
+	switch tx.CredentialFormat {
+	case vcsverifiable.Jwt:
+		claims, jwtClaimsErr := vc.JWTClaims(false)
+		if jwtClaimsErr != nil {
+			return nil, fmt.Errorf("create jwt claims: %w", jwtClaimsErr)
+		}
+
+		credential, err = claims.MarshalUnsecuredJWT()
+		if err != nil {
+			return nil, fmt.Errorf("marshal unsecured jwt: %w", err)
+		}
+	case vcsverifiable.Ldp:
+		credential = vc
+	default:
+		return nil, ErrCredentialFormatNotSupported
+	}
+
+	issuedVC, err := s.credentialService.IssueCredential(ctx, credential, tx.ProfileID)
+	if err != nil {
+		return nil, fmt.Errorf("issue credential: %w", err)
+	}
 
 	return &CredentialResponse{
-		TxID:       tx.ID,
-		Credential: "",
+		Credential: issuedVC,
 		Retry:      false,
 	}, nil
 }

@@ -1131,7 +1131,7 @@ func TestController_PrepareCredential(t *testing.T) {
 				ctx context.Context,
 				req *oidc4vc.CredentialRequest,
 			) (*oidc4vc.CredentialResponse, error) {
-				assert.Equal(t, "123", req.OpState)
+				assert.Equal(t, oidc4vc.TxID("123"), req.TxID)
 
 				return &oidc4vc.CredentialResponse{}, nil
 			},
@@ -1141,7 +1141,7 @@ func TestController_PrepareCredential(t *testing.T) {
 			oidc4vcService: mockOIDC4VCService,
 		}
 
-		req := `{"op_state":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.NoError(t, c.PrepareCredential(ctx))
 	})
@@ -1154,7 +1154,7 @@ func TestController_PrepareCredential(t *testing.T) {
 			oidc4vcService: mockOIDC4VCService,
 		}
 
-		req := `{"op_state":"123","type":"UniversityDegreeCredential","format":"invalid"}`
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"invalid"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareCredential(ctx), "format")
 	})
@@ -1168,7 +1168,7 @@ func TestController_PrepareCredential(t *testing.T) {
 			oidc4vcService: mockOIDC4VCService,
 		}
 
-		req := `{"op_state":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareCredential(ctx), "service error")
 	})

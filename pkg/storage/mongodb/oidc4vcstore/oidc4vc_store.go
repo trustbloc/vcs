@@ -32,6 +32,7 @@ type mongoDocument struct {
 	ExpireAt time.Time          `bson:"expireAt"`
 
 	OpState                            string `bson:"opState,omitempty"`
+	ProfileID                          string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
 	ClaimEndpoint                      string
@@ -128,20 +129,32 @@ func (s *Store) Create(
 	}, nil
 }
 
+func (s *Store) Get(
+	ctx context.Context,
+	txID oidc4vc.TxID,
+) (*oidc4vc.Transaction, error) {
+	id, err := primitive.ObjectIDFromHex(string(txID))
+	if err != nil {
+		return nil, err
+	}
+
+	return s.findOne(ctx, bson.M{"_id": id})
+}
+
 func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Transaction, error) {
+	return s.findOne(ctx, bson.M{"opState": opState})
+}
+
+func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4vc.Transaction, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
 
-	err := collection.FindOne(ctx, bson.M{
-		"opState": opState,
-	}).Decode(&doc)
+	if err := collection.FindOne(ctx, filter).Decode(&doc); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, oidc4vc.ErrDataNotFound
+		}
 
-	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, oidc4vc.ErrDataNotFound
-	}
-
-	if err != nil {
 		return nil, err
 	}
 
@@ -150,32 +163,7 @@ func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Tra
 		return nil, oidc4vc.ErrDataNotFound
 	}
 
-	mapped := oidc4vc.TransactionData{
-		CredentialTemplate:                 doc.CredentialTemplate,
-		CredentialFormat:                   doc.CredentialFormat,
-		AuthorizationEndpoint:              doc.AuthorizationEndpoint,
-		PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
-		TokenEndpoint:                      doc.TokenEndpoint,
-		ClaimEndpoint:                      doc.ClaimEndpoint,
-		ClientID:                           doc.ClientID,
-		ClientSecret:                       doc.ClientSecret,
-		GrantType:                          doc.GrantType,
-		ResponseType:                       doc.ResponseType,
-		Scope:                              doc.Scope,
-		AuthorizationDetails:               doc.AuthorizationDetails,
-		IssuerAuthCode:                     doc.IssuerAuthCode,
-		IssuerToken:                        doc.IssuerToken,
-		OpState:                            doc.OpState,
-		UserPinRequired:                    doc.UserPinRequired,
-		IsPreAuthFlow:                      doc.IsPreAuthFlow,
-		PreAuthCode:                        doc.PreAuthCode,
-		ClaimData:                          doc.ClaimData,
-	}
-
-	return &oidc4vc.Transaction{
-		ID:              oidc4vc.TxID(doc.ID.Hex()),
-		TransactionData: mapped,
-	}, nil
+	return mapDocumentToTransaction(&doc), nil
 }
 
 func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
@@ -201,6 +189,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData)
 		ID:                                 primitive.ObjectID{},
 		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
 		OpState:                            data.OpState,
+		ProfileID:                          data.ProfileID,
 		CredentialTemplate:                 data.CredentialTemplate,
 		CredentialFormat:                   data.CredentialFormat,
 		ClaimEndpoint:                      data.ClaimEndpoint,
@@ -219,5 +208,33 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData)
 		IsPreAuthFlow:                      data.IsPreAuthFlow,
 		PreAuthCode:                        data.PreAuthCode,
 		ClaimData:                          data.ClaimData,
+	}
+}
+
+func mapDocumentToTransaction(doc *mongoDocument) *oidc4vc.Transaction {
+	return &oidc4vc.Transaction{
+		ID: oidc4vc.TxID(doc.ID.Hex()),
+		TransactionData: oidc4vc.TransactionData{
+			ProfileID:                          doc.ProfileID,
+			CredentialTemplate:                 doc.CredentialTemplate,
+			CredentialFormat:                   doc.CredentialFormat,
+			AuthorizationEndpoint:              doc.AuthorizationEndpoint,
+			PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
+			TokenEndpoint:                      doc.TokenEndpoint,
+			ClaimEndpoint:                      doc.ClaimEndpoint,
+			ClientID:                           doc.ClientID,
+			ClientSecret:                       doc.ClientSecret,
+			GrantType:                          doc.GrantType,
+			ResponseType:                       doc.ResponseType,
+			Scope:                              doc.Scope,
+			AuthorizationDetails:               doc.AuthorizationDetails,
+			IssuerAuthCode:                     doc.IssuerAuthCode,
+			IssuerToken:                        doc.IssuerToken,
+			OpState:                            doc.OpState,
+			UserPinRequired:                    doc.UserPinRequired,
+			IsPreAuthFlow:                      doc.IsPreAuthFlow,
+			PreAuthCode:                        doc.PreAuthCode,
+			ClaimData:                          doc.ClaimData,
+		},
 	}
 }

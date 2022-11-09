@@ -52,6 +52,7 @@ func (s *Service) InitiateIssuance(
 	}
 
 	data := &TransactionData{
+		ProfileID:                          profile.ID,
 		CredentialTemplate:                 template,
 		CredentialFormat:                   profile.VCConfig.Format,
 		AuthorizationEndpoint:              oidcConfig.AuthorizationEndpoint,

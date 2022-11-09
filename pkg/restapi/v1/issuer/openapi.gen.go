@@ -27,8 +27,8 @@ type CredentialRequest struct {
 	// Format of the credential being issued.
 	Format *string `json:"format,omitempty"`
 
-	// Op state that is bound to transation.
-	OpState string `json:"op_state"`
+	// Transaction ID.
+	TxId string `json:"tx_id"`
 
 	// Type of the credential being issued.
 	Type string `json:"type"`
@@ -36,14 +36,10 @@ type CredentialRequest struct {
 
 // Model for Prepare Credential response.
 type CredentialResponse struct {
-	// Credential response in requested format and serialization scheme.
-	Credential *string `json:"credential,omitempty"`
+	Credential interface{} `json:"credential"`
 
 	// Should be set to TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
 	Retry bool `json:"retry"`
-
-	// Transaction ID.
-	TxId string `json:"tx_id"`
 }
 
 // Credential status.
