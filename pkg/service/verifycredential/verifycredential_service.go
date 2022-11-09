@@ -178,7 +178,7 @@ func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDo
 }
 
 func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error {
-	vcStatusProcessor, err := credentialstatus.GetVCStatusProcessor(vc.StatusVersion(vcStatus.Type))
+	vcStatusProcessor, err := credentialstatus.GetVCStatusProcessor(vc.StatusType(vcStatus.Type))
 	if err != nil {
 		return err
 	}

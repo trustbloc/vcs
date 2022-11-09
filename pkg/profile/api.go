@@ -66,9 +66,13 @@ type VCConfig struct {
 	KeyType                 kms.KeyType                        `json:"keyType,omitempty"`
 	DIDMethod               Method                             `json:"didMethod,omitempty"`
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation,omitempty"`
-	Status                  interface{}                        `json:"status,omitempty"`
-	VCStatusListVersion     vc.StatusVersion                   `json:"vcStatusListVersion,omitempty"`
+	Status                  StatusConfig                       `json:"status,omitempty"`
 	Context                 []string                           `json:"context,omitempty"`
+}
+
+// StatusConfig represents the VC status configuration.
+type StatusConfig struct {
+	Type vc.StatusType `json:"type"`
 }
 
 // Verifier profile.

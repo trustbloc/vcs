@@ -78,7 +78,7 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		KMS:                     kms,
 		Format:                  profile.VCConfig.Format,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
-		VCStatusListVersion:     profile.VCConfig.VCStatusListVersion,
+		VCStatusListType:        profile.VCConfig.Status.Type,
 	}
 
 	var statusID *credentialstatus.StatusID
