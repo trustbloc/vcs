@@ -37,13 +37,19 @@ func NewPrometheusProvider(httpServer *http.Server) metrics.Provider {
 
 // Create creates/initializes the prometheus metrics provider.
 func (pp *promProvider) Create() error {
-	if pp.httpServer != nil {
-		return nil
+	if pp.httpServer == nil {
+		return fmt.Errorf("metrics HTTP server is nil, cannot start it")
 	}
 
-	if err := pp.httpServer.ListenAndServe(); err != nil {
-		return fmt.Errorf("start metrics HTTP server: %w", err)
-	}
+	go func() {
+		logger.Info("Starting vcs metrics server", log.WithHostURL(pp.httpServer.Addr))
+
+		if err := pp.httpServer.ListenAndServe(); err != nil {
+			logger.Error("Start metrics HTTP server failed", log.WithError(err))
+		}
+
+		logger.Info("Metrics server has stopped")
+	}()
 
 	return nil
 }
