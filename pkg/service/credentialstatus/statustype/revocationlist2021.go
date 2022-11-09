@@ -50,12 +50,21 @@ func (s *revocationList2021Processor) GetStatusVCURI(vcStatus *verifiable.TypedI
 
 // GetStatusListIndex returns the bit position of the status value of the VC.
 func (s *revocationList2021Processor) GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error) {
-	revocationListIndex, err := strconv.Atoi(vcStatus.CustomFields[StatusListIndex].(string))
-	if err != nil {
-		return -1, fmt.Errorf("unable to get statusListIndex: %w", err)
-	}
+	switch t := vcStatus.CustomFields[StatusListIndex].(type) {
+	case string:
+		revocationListIndex, err := strconv.Atoi(t)
+		if err != nil {
+			return -1, fmt.Errorf("unable to get statusListIndex: %w", err)
+		}
 
-	return revocationListIndex, nil
+		return revocationListIndex, nil
+	case float64:
+		return int(t), nil
+	case int:
+		return t, nil
+	default:
+		return -1, fmt.Errorf("unsupported statusListIndex type %+v", t)
+	}
 }
 
 // ValidateStatus validates the status of vc.
