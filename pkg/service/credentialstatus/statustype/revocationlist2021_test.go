@@ -146,6 +146,24 @@ func Test_revocationList2021Processor_GetStatusListIndex(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, 1, index)
+
+	vcStatus.CustomFields[StatusListIndex] = 1.0
+	index, err = s.GetStatusListIndex(vcStatus)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, index)
+
+	vcStatus.CustomFields[StatusListIndex] = 1
+	index, err = s.GetStatusListIndex(vcStatus)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, index)
+
+	vcStatus.CustomFields[StatusListIndex] = struct{}{}
+	index, err = s.GetStatusListIndex(vcStatus)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "unsupported statusListIndex type")
+	require.Equal(t, -1, index)
 }
 
 func Test_revocationList2021Processor_GetStatusVCURI(t *testing.T) {
