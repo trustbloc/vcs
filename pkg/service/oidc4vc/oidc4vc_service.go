@@ -18,6 +18,7 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/internal/pkg/log"
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
 const (
@@ -52,7 +53,7 @@ type oAuth2Client interface {
 		cfg oauth2.Config,
 		code string,
 		client *http.Client,
-		opts ...oauth2.AuthCodeOption,
+		opts ...oauth2client.AuthCodeOption,
 	) (*oauth2.Token, error)
 }
 

@@ -65,7 +65,7 @@ func TestOAuth2ClientSuccess(t *testing.T) {
 			TokenURL:  "https://localhost/token",
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
-	}, authCode, cl)
+	}, authCode, cl, oauth2client.SetAuthURLParam("key", "value"))
 
 	assert.NoError(t, err)
 	assert.NotNil(t, tok)

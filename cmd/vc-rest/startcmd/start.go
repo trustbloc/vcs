@@ -298,6 +298,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.hostURLExternal,
 		DefaultHTTPClient:       httpClient,
+		OAuth2Client:            oauth2client.NewOAuth2Client(),
 		PreAuthorizeClient: func() *http.Client {
 			client := getHTTPClient(tlsConfig)
 			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {

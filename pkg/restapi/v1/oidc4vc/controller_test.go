@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
@@ -185,6 +186,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
 		mockStateStore        = NewMockStateStore(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		oauth2Client          = NewMockOAuth2Client(gomock.NewController(t))
 		params                oidc4vc.OidcAuthorizeParams
 	)
 
@@ -207,6 +209,15 @@ func TestController_OidcAuthorize(t *testing.T) {
 					Request: fosite.Request{RequestedScope: scope},
 				}, nil)
 
+				oauth2Client.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						_ context.Context,
+						cfg oauth2.Config,
+						state string,
+						opts ...oauth2client.AuthCodeOption,
+					) string {
+						return (&cfg).AuthCodeURL(state)
+					})
 				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
@@ -245,6 +256,121 @@ func TestController_OidcAuthorize(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusSeeOther, rec.Code)
 				require.NotEmpty(t, rec.Header().Get("Location"))
+			},
+		},
+		{
+			name: "success with par",
+			setup: func() {
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AuthorizeResponse{}, nil)
+
+				parEndpoint := "https://localhost/par"
+				parResponse := "https://localhost/authorize?request_uri=gfdsgfd2341321321"
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest:               issuer.OAuthParameters{},
+					PushedAuthorizationRequestEndpoint: lo.ToPtr(parEndpoint),
+				})
+				require.NoError(t, err)
+
+				oauth2Client.EXPECT().AuthCodeURLWithPAR(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						cfg oauth2.Config,
+						parURL string,
+						state string,
+						client *http.Client,
+						opts ...oauth2client.AuthCodeOption,
+					) (string, error) {
+						assert.Equal(t, parEndpoint, parURL)
+						assert.Equal(t, params.OpState, state)
+
+						return parResponse, nil
+					})
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), params.OpState, gomock.Any()).Return(nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusSeeOther, rec.Code)
+				require.NotEmpty(t, rec.Header().Get("Location"))
+			},
+		},
+		{
+			name: "success with issuer par",
+			setup: func() {
+				params = oidc4vc.OidcAuthorizeParams{
+					ResponseType: "code",
+					OpState:      "opState",
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+
+				mockOAuthProvider.EXPECT().NewAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AuthorizeResponse{}, nil)
+
+				parEndpoint := "https://localhost/par"
+
+				b, err := json.Marshal(&issuer.PrepareClaimDataAuthorizationResponse{
+					AuthorizationRequest:               issuer.OAuthParameters{},
+					PushedAuthorizationRequestEndpoint: lo.ToPtr(parEndpoint),
+				})
+				require.NoError(t, err)
+
+				oauth2Client.EXPECT().AuthCodeURLWithPAR(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return("", errors.New("issuer par error"))
+
+				mockInteractionClient.EXPECT().PrepareAuthorizationRequest(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						req issuer.PrepareAuthorizationRequestJSONRequestBody,
+						reqEditors ...issuer.RequestEditorFn,
+					) (*http.Response, error) {
+						assert.Equal(t, params.ResponseType, req.ResponseType)
+						assert.Equal(t, params.OpState, req.OpState)
+						assert.Equal(t, lo.ToPtr(scope), req.Scope)
+
+						return &http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil
+					})
+
+				mockStateStore.EXPECT().SaveAuthorizeState(gomock.Any(), params.OpState, gomock.Any()).Return(nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err, "issuer par error")
 			},
 		},
 		{
@@ -439,6 +565,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 				StateStore:              mockStateStore,
 				IssuerInteractionClient: mockInteractionClient,
 				IssuerVCSPublicHost:     "https://issuer.example.com",
+				OAuth2Client:            oauth2Client,
 			})
 
 			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)

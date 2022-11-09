@@ -107,11 +107,23 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		compose.PushedAuthorizeHandlerFactory,
 	)
 
+	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
+	oauth2Client.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context,
+			cfg oauth2.Config,
+			state string,
+			opts ...oauth2client.AuthCodeOption,
+		) string {
+			return (&cfg).AuthCodeURL(state)
+		})
+
 	controller := oidc4vc.NewController(&oidc4vc.Config{
 		OAuth2Provider:          oauth2Provider,
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4vcstatestore.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
+		OAuth2Client:            oauth2Client,
 	})
 
 	oidc4vc.RegisterHandlers(e, controller)
