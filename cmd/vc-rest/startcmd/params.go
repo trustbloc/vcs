@@ -82,6 +82,10 @@ const (
 	universalResolverURLFlagUsage     = "Universal Resolver instance is running on. Format: HostName:Port."
 	universalResolverURLEnvKey        = "UNIVERSAL_RESOLVER_HOST_URL"
 
+	orbDomainFlagName  = "orb-domain"
+	orbDomainFlagUsage = "Orb domain."
+	orbDomainEnvKey    = "VC_REST_ORB_DOMAIN"
+
 	modeFlagName      = "mode"
 	modeFlagShorthand = "m"
 	modeFlagUsage     = "Mode in which the vc-rest service will run. Possible values: " +
@@ -188,6 +192,7 @@ type startupParameters struct {
 	hostURL                         string
 	hostURLExternal                 string
 	universalResolverURL            string
+	orbDomain                       string
 	mode                            string
 	dbParameters                    *dbParameters
 	kmsParameters                   *kmsParameters
@@ -268,6 +273,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	orbDomain := cmdutils.GetUserSetOptionalVarFromString(cmd, orbDomainFlagName, orbDomainEnvKey)
+
 	mode, err := getMode(cmd)
 	if err != nil {
 		return nil, err
@@ -335,6 +342,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		hostURL:                         hostURL,
 		hostURLExternal:                 hostURLExternal,
 		universalResolverURL:            universalResolverURL,
+		orbDomain:                       orbDomain,
 		mode:                            mode,
 		dbParameters:                    dbParams,
 		kmsParameters:                   kmsParams,
@@ -553,6 +561,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
+	startCmd.Flags().StringP(orbDomainFlagName, "", "", orbDomainFlagUsage)
 	startCmd.Flags().StringP(modeFlagName, modeFlagShorthand, "", modeFlagUsage)
 	startCmd.Flags().StringP(devModeFlagName, devModeFlagShorthand, "", devModeFlagUsage)
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)

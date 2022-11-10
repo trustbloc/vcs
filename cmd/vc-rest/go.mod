@@ -10,6 +10,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221109083343-39b5163afa3a
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221109192733-f28b04b67526
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/ory/dockertest/v3 v3.9.0
@@ -77,8 +79,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e // indirect
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221109192733-f28b04b67526 // indirect
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect

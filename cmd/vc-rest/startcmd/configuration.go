@@ -14,6 +14,8 @@ import (
 	"strings"
 
 	ariesmongodbstorage "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
@@ -60,7 +62,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 		return nil, err
 	}
 
-	vdr, err := createVDRI(parameters.universalResolverURL,
+	vdr, err := createVDRI(parameters.universalResolverURL, parameters.orbDomain,
 		&tls.Config{RootCAs: rootCAs, MinVersion: tls.VersionTLS12})
 	if err != nil {
 		return nil, err
@@ -116,7 +118,7 @@ func createEdgeStoreProvider(parameters *startupParameters) (ariesapi.Provider, 
 	}
 }
 
-func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry, error) {
+func createVDRI(universalResolver, orbDomain string, tlsConfig *tls.Config) (vdrapi.Registry, error) {
 	var opts []vdrpkg.Option
 
 	if universalResolver != "" {
@@ -134,14 +136,25 @@ func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registr
 		opts = append(opts, vdrpkg.WithVDR(universalResolverVDRI))
 	}
 
+	longformVDR, err := longform.New()
+	if err != nil {
+		return nil, err
+	}
+
+	orbVDR, err := orb.New(nil, orb.WithDomain(orbDomain), orb.WithTLSConfig(tlsConfig))
+	if err != nil {
+		return nil, err
+	}
+
 	// add bloc vdr
-	opts = append(opts, vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(&webVDR{
-		http: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
-			}},
-		VDR: web.New(),
-	}))
+	opts = append(opts, vdrpkg.WithVDR(longformVDR), vdrpkg.WithVDR(orbVDR),
+		vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(&webVDR{
+			http: &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: tlsConfig,
+				}},
+			VDR: web.New(),
+		}))
 
 	return vdrpkg.New(opts...), nil
 }

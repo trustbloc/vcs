@@ -13,7 +13,7 @@ services:
       - VC_REST_HOST_URL=0.0.0.0:8075
       - VC_REST_HOST_URL_EXTERNAL=https://localhost:4455
       - VC_REST_PROFILES_FILE_PATH=/profile/profiles.json
-      - UNIVERSAL_RESOLVER_HOST_URL=http://did-resolver.trustbloc.local:8072/1.0/identifiers
+      - VC_REST_ORB_DOMAIN=testnet.orb.local
       - DATABASE_TYPE=mongodb
       - DATABASE_URL=mongodb://mongodb.example.com:27017
       - DATABASE_PREFIX=vc_rest_echo_
