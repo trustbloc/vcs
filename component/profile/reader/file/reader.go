@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
@@ -99,7 +100,13 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 				return nil, err
 			}
 
-			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))})
+			lf, err := longform.New()
+			if err != nil {
+				return nil, err
+			}
+
+			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr),
+				vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(lf))})
 
 			keyCreator, err := config.KMSRegistry.GetKeyManager(v.Data.KMSConfig)
 			if err != nil {
@@ -167,7 +174,13 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 			if err != nil {
 				return nil, err
 			}
-			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr))})
+
+			lf, err := longform.New()
+			if err != nil {
+				return nil, err
+			}
+
+			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(lf))})
 
 			keyCreator, err := config.KMSRegistry.GetKeyManager(v.Data.KMSConfig)
 			if err != nil {

@@ -20,12 +20,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/stretchr/testify/require"
 )
 
@@ -213,11 +213,10 @@ func TestService_getIdentityHubServiceEndpoint(t *testing.T) {
 }
 
 func TestService_resolveDID(t *testing.T) {
-	universalResolverVDRI, err := httpbinding.New("https://uniresolver.io/1.0/identifiers",
-		httpbinding.WithAccept(func(method string) bool { return method == "ion" }))
+	longformVDR, err := longform.New()
 	require.NoError(t, err)
 
-	vdrResolver := vdr2.New(vdr2.WithVDR(universalResolverVDRI))
+	vdrResolver := vdr2.New(vdr2.WithVDR(longformVDR))
 	s := &Service{
 		vdr: vdrResolver,
 	}
@@ -275,14 +274,13 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "OK - uniresolver",
+			name: "OK - longform",
 			fields: fields{
 				getVDR: func() vdr.Registry {
-					universalResolverVDRI, err := httpbinding.New("https://uniresolver.io/1.0/identifiers",
-						httpbinding.WithAccept(func(method string) bool { return method == "ion" }))
+					longformVDR, err := longform.New()
 					require.NoError(t, err)
 
-					return vdr2.New(vdr2.WithVDR(universalResolverVDRI))
+					return vdr2.New(vdr2.WithVDR(longformVDR))
 				},
 				getHTTPClient: func() httpClient {
 					return http.DefaultClient
@@ -452,7 +450,7 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(tt.want, string(got)) {
-				t.Errorf("resolveDIDRelativeURL() got = %v, want %v", got, tt.want)
+				t.Errorf("resolveDIDRelativeURL() got = %s, want %s", got, tt.want)
 			}
 		})
 	}

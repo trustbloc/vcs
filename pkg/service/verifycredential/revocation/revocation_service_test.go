@@ -7,20 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package revocation
 
 import (
-	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
-	"errors"
-	"io"
 	"net/http"
 	"reflect"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
@@ -104,39 +102,13 @@ func TestService_GetRevocationListVC(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "OK HTTP",
-			fields: fields{
-				getVdr: func() vdr.Registry {
-					universalResolverVDRI, err := httpbinding.New("https://uniresolver.io/1.0/identifiers",
-						httpbinding.WithAccept(func(method string) bool { return method == "ion" }))
-					require.NoError(t, err)
-
-					return vdr2.New(vdr2.WithVDR(universalResolverVDRI))
-				},
-				httpClient: &mockHTTPClient{
-					doValue: &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader([]byte(sampleVCJWT))),
-					},
-					doErr: nil,
-				},
-				documentLoader: loader,
-			},
-			args: args{
-				statusURL: "https://example.com/credentials/status/1",
-			},
-			want:    vc,
-			wantErr: false,
-		},
-		{
 			name: "OK DID",
 			fields: fields{
 				getVdr: func() vdr.Registry {
-					universalResolverVDRI, err := httpbinding.New("https://uniresolver.io/1.0/identifiers",
-						httpbinding.WithAccept(func(method string) bool { return method == "ion" }))
+					longformVDR, err := longform.New()
 					require.NoError(t, err)
 
-					return vdr2.New(vdr2.WithVDR(universalResolverVDRI))
+					return vdr2.New(vdr2.WithVDR(longformVDR))
 				},
 				httpClient:     http.DefaultClient,
 				documentLoader: loader,
@@ -146,76 +118,6 @@ func TestService_GetRevocationListVC(t *testing.T) {
 			},
 			want:    vc,
 			wantErr: false,
-		},
-		{
-			name: "NewRequestWithContext URL starts with space Error",
-			fields: fields{
-				getVdr: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{}
-				},
-			},
-			args: args{
-				statusURL: " https://example.com/credentials/status/1",
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "sendHTTPRequest Error",
-			fields: fields{
-				httpClient: &mockHTTPClient{
-					doErr: errors.New("some error"),
-				},
-				getVdr: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{}
-				},
-			},
-			args: args{
-				statusURL: "https://example.com/credentials/status/1",
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "sendHTTPRequest Invalid status code",
-			fields: fields{
-				getVdr: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{}
-				},
-				httpClient: &mockHTTPClient{
-					doValue: &http.Response{
-						StatusCode: http.StatusForbidden,
-						Body:       io.NopCloser(bytes.NewReader([]byte(sampleVCJWT))),
-					},
-					doErr: nil,
-				},
-			},
-			args: args{
-				statusURL: "https://example.com/credentials/status/1",
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "parseAndVerifyVC Error",
-			fields: fields{
-				getVdr: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{}
-				},
-				httpClient: &mockHTTPClient{
-					doValue: &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader([]byte(""))),
-					},
-					doErr: nil,
-				},
-				documentLoader: loader,
-			},
-			args: args{
-				statusURL: "https://example.com/credentials/status/1",
-			},
-			want:    nil,
-			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
