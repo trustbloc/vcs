@@ -30,7 +30,7 @@ services:
       - VC_REST_DEV_MODE=true
       - VC_OAUTH_SECRET=secret-for-signing-and-verifying-signatures
       - VC_METRICS_PROVIDER_NAME=prometheus
-      - VC_PROM_HTTP_URL=localhost:48127
+      - VC_PROM_HTTP_URL=vc-rest-echo.trustbloc.local:48127
       - VC_OAUTH_CLIENTS_FILE_PATH=/oauth-clients/clients.json
     ports:
       - "8075:8075"

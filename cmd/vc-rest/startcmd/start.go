@@ -151,7 +151,6 @@ func createEcho() *echo.Echo {
 // buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
 func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, error) {
 	e := createEcho()
-	eMetrics := createEcho()
 
 	metrics, err := NewMetrics(conf.StartupParameters)
 	if err != nil {
@@ -399,7 +398,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		devapi.RegisterHandlers(e, devController)
 	}
 
-	metricsProvider, err := NewMetricsProvider(conf.StartupParameters, eMetrics)
+	metricsProvider, err := NewMetricsProvider(conf.StartupParameters)
 	if err != nil {
 		return nil, err
 	}
@@ -440,18 +439,14 @@ func (h *httpServerHandler) ServeHTTP(writer http.ResponseWriter, request *http.
 	h.handler(writer, request)
 }
 
-func NewMetricsProvider(parameters *startupParameters, e *echo.Echo) (metricsProvider.Provider, error) {
+func NewMetricsProvider(parameters *startupParameters) (metricsProvider.Provider, error) {
 	switch parameters.metricsProviderName {
 	case "prometheus":
 		h := &httpServerHandler{handler: promMetricsProvider.NewHandler().Handler()}
-		handlerFunc := echo.WrapHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			h.ServeHTTP(w, r)
-		}))
-		e.Add(http.MethodGet, "/metrics", handlerFunc)
 
 		metricsHttpServer := &http.Server{
 			Addr:    parameters.prometheusMetricsProviderParams.url,
-			Handler: e,
+			Handler: h,
 		}
 
 		return promMetricsProvider.NewPrometheusProvider(metricsHttpServer), nil
