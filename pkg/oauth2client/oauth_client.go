@@ -27,15 +27,15 @@ func (c *Client) Exchange(
 	cfg oauth2.Config,
 	code string,
 	client *http.Client,
-	opts ...oauth2.AuthCodeOption,
+	opts ...AuthCodeOption,
 ) (*oauth2.Token, error) {
 	return (&cfg).Exchange(
 		context.WithValue(ctx, oauth2.HTTPClient, client),
 		code,
-		opts...,
+		c.convertOptions(opts...)...,
 	)
 }
 
-func (c *Client) AuthCodeURL(_ context.Context, cfg oauth2.Config, state string, opts ...oauth2.AuthCodeOption) string {
-	return (&cfg).AuthCodeURL(state, opts...)
+func (c *Client) AuthCodeURL(_ context.Context, cfg oauth2.Config, state string, opts ...AuthCodeOption) string {
+	return (&cfg).AuthCodeURL(state, c.convertOptions(opts...)...)
 }

@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/pkg/oauth2client"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -61,14 +62,22 @@ type HTTPClient interface {
 
 type OAuth2Client interface {
 	GeneratePKCE() (verifier string, challenge string, method string, err error)
-	AuthCodeURL(_ context.Context, cfg oauth2.Config, state string, opts ...oauth2.AuthCodeOption) string
+	AuthCodeURL(_ context.Context, cfg oauth2.Config, state string, opts ...oauth2client.AuthCodeOption) string
 	Exchange(
 		ctx context.Context,
 		cfg oauth2.Config,
 		code string,
 		client *http.Client,
-		opts ...oauth2.AuthCodeOption,
+		opts ...oauth2client.AuthCodeOption,
 	) (*oauth2.Token, error)
+	AuthCodeURLWithPAR(
+		ctx context.Context,
+		cfg oauth2.Config,
+		parEndpoint string,
+		state string,
+		client *http.Client,
+		opts ...oauth2client.AuthCodeOption,
+	) (string, error)
 }
 
 // OAuth2Provider provides functionality for OAuth2 handlers.
@@ -197,12 +206,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return nil
 	}
 
-	var scope []string
-
-	for _, s := range ar.GetRequestedScopes() {
-		scope = append(scope, s)
-	}
-
+	scope := []string(ar.GetRequestedScopes())
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
 			AuthorizationDetails: &common.AuthorizationDetails{
@@ -220,20 +224,16 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	}
 
 	defer r.Body.Close()
-
 	if r.StatusCode != http.StatusOK {
 		return fmt.Errorf("prepare claim data authorization: status code %d", r.StatusCode)
 	}
 
 	var claimDataAuth issuer.PrepareClaimDataAuthorizationResponse
-
 	if err = json.NewDecoder(r.Body).Decode(&claimDataAuth); err != nil {
 		return fmt.Errorf("decode claim data authorization response: %w", err)
 	}
 
-	// TODO: Perform PAR request to issuer's OIDC provider if claimDataAuth.PushedAuthorizationRequestEndpoint != nil.
-
-	oauthConfig := &oauth2.Config{
+	oauthConfig := oauth2.Config{
 		ClientID:     claimDataAuth.AuthorizationRequest.ClientId,
 		ClientSecret: claimDataAuth.AuthorizationRequest.ClientSecret,
 		Endpoint: oauth2.Endpoint{
@@ -243,7 +243,6 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		RedirectURL: c.issuerVCSPublicHost + "/oidc/redirect",
 		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
 	}
-
 	ar.(*fosite.AuthorizeRequest).State = params.OpState
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
@@ -263,7 +262,23 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return fmt.Errorf("save authorize state: %w", err)
 	}
 
-	return e.Redirect(http.StatusSeeOther, oauthConfig.AuthCodeURL(params.OpState))
+	var authCodeURL string
+	if len(lo.FromPtr(claimDataAuth.PushedAuthorizationRequestEndpoint)) > 0 {
+		authCodeURL, err = c.oAuth2Client.AuthCodeURLWithPAR(
+			ctx,
+			oauthConfig,
+			*claimDataAuth.PushedAuthorizationRequestEndpoint,
+			params.OpState,
+			c.defaultHTTPClient,
+		)
+		if err != nil {
+			return err
+		}
+	} else {
+		authCodeURL = c.oAuth2Client.AuthCodeURL(ctx, oauthConfig, params.OpState)
+	}
+
+	return e.Redirect(http.StatusSeeOther, authCodeURL)
 }
 
 // OidcRedirect handles OIDC redirect (GET /oidc/redirect).
@@ -383,10 +398,10 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 	authURL := c.oAuth2Client.AuthCodeURL(ctx,
 		cfg,
 		validateResponse.OpState,
-		oauth2.SetAuthURLParam("authorization_details", preAuthorizedCodeGrantType),
-		oauth2.SetAuthURLParam("op_state", validateResponse.OpState),
-		oauth2.SetAuthURLParam("code_challenge_method", method),
-		oauth2.SetAuthURLParam("code_challenge", challenge),
+		oauth2client.SetAuthURLParam("authorization_details", preAuthorizedCodeGrantType),
+		oauth2client.SetAuthURLParam("op_state", validateResponse.OpState),
+		oauth2client.SetAuthURLParam("code_challenge_method", method),
+		oauth2client.SetAuthURLParam("code_challenge", challenge),
 	)
 
 	httpReq, err := http.NewRequestWithContext(ctx, "GET", authURL, nil)
@@ -414,7 +429,7 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 	token, err := c.oAuth2Client.Exchange(ctx, cfg,
 		parsedURL.Query().Get("code"),
 		c.defaultHTTPClient,
-		oauth2.SetAuthURLParam("code_verifier", verifier),
+		oauth2client.SetAuthURLParam("code_verifier", verifier),
 	)
 	if err != nil {
 		return err
