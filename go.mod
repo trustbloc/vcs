@@ -31,13 +31,15 @@ require (
 	github.com/piprate/json-gold v0.4.2
 	github.com/prometheus/client_golang v1.11.0
 	github.com/samber/lo v1.29.0
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.1
+	github.com/trustbloc/cmdutil-go v0.0.0-20221108164453-2cf882e56935
 	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1
+	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b
 	go.mongodb.org/mongo-driver v1.10.0
-	go.uber.org/zap v1.17.0
+	golang.org/x/net v0.1.0
 	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1
 )
 
@@ -160,10 +162,10 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect

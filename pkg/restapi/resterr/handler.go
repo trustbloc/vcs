@@ -12,8 +12,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-
-	"github.com/trustbloc/vcs/internal/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 var logger = log.New("rest-err")

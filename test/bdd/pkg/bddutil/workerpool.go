@@ -9,7 +9,7 @@ package bddutil
 import (
 	"sync"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 // Request is a request that's submitted to the worker pool for processing.

@@ -18,6 +18,8 @@ require (
 	github.com/piprate/json-gold v0.4.2
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/tidwall/gjson v1.14.0
+	github.com/trustbloc/cmdutil-go v0.0.0-20221108164453-2cf882e56935
+	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
 	github.com/trustbloc/vcs v0.1.8
 	golang.org/x/oauth2 v0.1.0
 )
@@ -115,7 +117,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.6.0 // indirect
+	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
@@ -143,7 +145,7 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.17.0 // indirect
+	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect

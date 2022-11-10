@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/observability/metrics"
 )
 

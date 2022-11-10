@@ -24,8 +24,8 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vp"
 	"github.com/trustbloc/vcs/pkg/kms"

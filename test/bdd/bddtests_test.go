@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vc"

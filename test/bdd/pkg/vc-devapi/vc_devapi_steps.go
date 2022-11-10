@@ -14,8 +14,8 @@ import (
 	"strconv"
 
 	"github.com/cucumber/godog"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 

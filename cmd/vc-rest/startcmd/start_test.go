@@ -22,13 +22,13 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/cmd/common"
-	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 const (

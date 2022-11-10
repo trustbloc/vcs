@@ -10,8 +10,8 @@ import (
 	"errors"
 	"sync/atomic"
 
+	"github.com/trustbloc/logutil-go/pkg/log"
 	orberrors "github.com/trustbloc/orb/pkg/errors"
-	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("lifecycle")
