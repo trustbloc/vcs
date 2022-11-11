@@ -28,10 +28,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	ldstore "github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
-
-	"github.com/trustbloc/vcs/internal/pkg/log"
 )
 
 var logger = log.New("bddutil")

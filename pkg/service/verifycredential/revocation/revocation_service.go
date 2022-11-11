@@ -17,8 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
-
-	"github.com/trustbloc/vcs/internal/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 var logger = log.New("vcs-revocation-service")

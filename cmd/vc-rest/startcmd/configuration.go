@@ -26,8 +26,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	ariesapi "github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
+	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
 
-	tlsutils "github.com/trustbloc/vcs/internal/pkg/utils/tls"
 	"github.com/trustbloc/vcs/pkg/ld"
 )
 

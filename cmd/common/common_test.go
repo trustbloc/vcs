@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 const testLogModuleName = "test"

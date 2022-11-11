@@ -17,8 +17,10 @@ require (
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
 	github.com/piprate/json-gold v0.4.2
-	github.com/spf13/cobra v1.6.0
+	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
+	github.com/trustbloc/cmdutil-go v0.0.0-20221108164453-2cf882e56935
+	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/oidc/fositemongo v0.0.0-00010101000000-000000000000
@@ -160,7 +162,7 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.17.0 // indirect
+	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect

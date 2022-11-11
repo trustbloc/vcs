@@ -22,12 +22,12 @@ import (
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/spf13/cobra"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/oauth2client"

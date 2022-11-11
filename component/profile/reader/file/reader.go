@@ -19,9 +19,9 @@ import (
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
+	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
+	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
 
-	"github.com/trustbloc/vcs/internal/pkg/log"                //nolint:typecheck
-	cmdutils "github.com/trustbloc/vcs/internal/pkg/utils/cmd" //nolint:typecheck
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -146,6 +146,8 @@ func (p *IssuerReader) GetAllProfiles(orgID string) ([]*profileapi.Issuer, error
 }
 
 // NewVerifierReader creates verifier Reader.
+//
+//nolint:gocognit
 func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName,
 		profilesFilePathEnvKey, false)
@@ -168,6 +170,7 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	}
 
 	for _, v := range p.VerifiersData {
+		//nolint:nestif
 		if v.Data.OIDCConfig != nil && v.CreateDID {
 			vdr, err := orb.New(nil, orb.WithDomain(v.DidDomain), orb.WithTLSConfig(config.TLSConfig),
 				orb.WithAuthToken(v.DidServiceAuthToken))
@@ -189,7 +192,9 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 
 			difDIDOrigin := ""
 			if v.Data.WebHook != "" {
-				u, err := url.Parse(v.Data.WebHook)
+				var u *url.URL
+
+				u, err = url.Parse(v.Data.WebHook)
 				if err != nil {
 					return nil, err
 				}

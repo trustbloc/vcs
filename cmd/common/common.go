@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package common
 
-import "github.com/trustbloc/vcs/internal/pkg/log"
+import "github.com/trustbloc/logutil-go/pkg/log"
 
 const (
 	// LogLevelFlagName is the flag name used for setting the default log level.

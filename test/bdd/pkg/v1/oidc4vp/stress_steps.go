@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/greenpau/go-calculator"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 

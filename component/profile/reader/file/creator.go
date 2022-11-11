@@ -205,7 +205,7 @@ type serviceEndpointData struct {
 }
 
 func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
-	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) {
+	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint:unparam
 	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)

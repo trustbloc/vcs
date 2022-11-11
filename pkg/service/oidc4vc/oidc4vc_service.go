@@ -15,9 +15,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/internal/pkg/log"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 )
 
