@@ -94,6 +94,7 @@ func TestStore(t *testing.T) {
 				Issuer:            "test_issuer",
 				CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
 			},
+			ProfileID:                          "profileID",
 			CredentialFormat:                   vcsverifiable.Ldp,
 			AuthorizationEndpoint:              "authEndpoint",
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
@@ -121,14 +122,23 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert)
-		assert.NoError(t, err1)
-		assert.NotNil(t, resp1)
+		var resp *oidc4vc.Transaction
 
-		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
-		assert.NoError(t, err2)
-		assert.NotEmpty(t, resp2.ID)
-		assert.Equal(t, *toInsert, resp2.TransactionData)
+		resp, err = store.Create(context.Background(), toInsert)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+
+		txID := resp.ID
+
+		resp, err = store.Get(context.Background(), txID)
+		assert.NoError(t, err)
+		assert.Equal(t, txID, resp.ID)
+		assert.Equal(t, *toInsert, resp.TransactionData)
+
+		resp, err = store.FindByOpState(context.Background(), toInsert.OpState)
+		assert.NoError(t, err)
+		assert.Equal(t, txID, resp.ID)
+		assert.Equal(t, *toInsert, resp.TransactionData)
 	})
 
 	t.Run("create multiple instances", func(t *testing.T) {
@@ -148,7 +158,7 @@ func TestStore(t *testing.T) {
 		wg.Wait()
 	})
 
-	t.Run("Test Update", func(t *testing.T) {
+	t.Run("test update", func(t *testing.T) {
 		id := uuid.NewString()
 
 		toInsert := &oidc4vc.TransactionData{
@@ -183,6 +193,12 @@ func TestStore(t *testing.T) {
 		resp, err2 := store.FindByOpState(context.Background(), id)
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
+	})
+
+	t.Run("get by invalid tx id", func(t *testing.T) {
+		resp, err2 := store.Get(context.Background(), "")
+		assert.Nil(t, resp)
+		assert.Error(t, err2)
 	})
 }
 

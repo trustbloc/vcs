@@ -518,19 +518,20 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
 
-	resp, err := c.oidc4vcService.PrepareCredential(ctx.Request().Context(), &oidc4vc.CredentialRequest{
-		OpState:          body.OpState,
-		CredentialType:   body.Type,
-		CredentialFormat: vcFormat,
-		DID:              lo.FromPtr(body.Did),
-	})
+	resp, err := c.oidc4vcService.PrepareCredential(ctx.Request().Context(),
+		&oidc4vc.CredentialRequest{
+			TxID:             oidc4vc.TxID(body.TxId),
+			CredentialType:   body.Type,
+			CredentialFormat: vcFormat,
+			DID:              lo.FromPtr(body.Did),
+		},
+	)
 	if err != nil {
 		return resterr.NewSystemError("OIDC4VCService", "PrepareCredential", err)
 	}
 
 	return util.WriteOutput(ctx)(CredentialResponse{
-		Credential: lo.ToPtr(resp.Credential),
+		Credential: resp.Credential,
 		Retry:      resp.Retry,
-		TxId:       string(resp.TxID),
 	}, nil)
 }

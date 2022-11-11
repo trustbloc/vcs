@@ -1196,9 +1196,9 @@ components:
       type: object
       description: Model for Prepare Credential request.
       properties:
-        op_state:
+        tx_id:
           type: string
-          description: Op state that is bound to transation.
+          description: Transaction ID.
         type:
           type: string
           description: Type of the credential being issued.
@@ -1209,7 +1209,7 @@ components:
           type: string
           description: DID to which issued credential has to be bound.
       required:
-        - op_state
+        - tx_id
         - type
     CredentialResponse:
       title: CredentialResponse
@@ -1218,16 +1218,14 @@ components:
       type: object
       description: Model for Prepare Credential response.
       properties:
-        tx_id:
-          type: string
-          description: Transaction ID.
         credential:
-          type: string
-          description: Credential response in requested format and serialization scheme.
+          oneOf:
+            - type: string
+            - type: object
         retry:
           type: boolean
           description: Should be set to TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
       required:
-        - tx_id
+        - credential
         - retry
   securitySchemes: {}

@@ -9,6 +9,8 @@ package oidc4vc
 import (
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -26,6 +28,7 @@ type Transaction struct {
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
+	ProfileID                          profileapi.ID
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
 	AuthorizationEndpoint              string
@@ -102,15 +105,14 @@ type PrepareClaimDataAuthorizationResponse struct {
 }
 
 type CredentialRequest struct {
-	OpState          string
+	TxID             TxID
 	CredentialType   string
 	CredentialFormat vcsverifiable.Format
 	DID              string
 }
 
 type CredentialResponse struct {
-	TxID       TxID
-	Credential string
+	Credential *verifiable.Credential
 	Retry      bool
 }
 
