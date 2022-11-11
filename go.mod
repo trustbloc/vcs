@@ -8,7 +8,6 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go v1.43.9
-	github.com/btcsuite/btcd v0.22.1
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
