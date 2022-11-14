@@ -95,6 +95,7 @@ type Config struct {
 	OAuth2Client            OAuth2Client
 	PreAuthorizeClient      HTTPClient
 	DefaultHTTPClient       *http.Client
+	ExternalHostURL         string
 }
 
 // Controller for OIDC4VC issuance API.
@@ -106,6 +107,7 @@ type Controller struct {
 	oAuth2Client            OAuth2Client
 	preAuthorizeClient      HTTPClient
 	defaultHTTPClient       *http.Client
+	internalHostURL         string
 }
 
 // NewController creates a new Controller instance.
@@ -118,6 +120,7 @@ func NewController(config *Config) *Controller {
 		oAuth2Client:            config.OAuth2Client,
 		preAuthorizeClient:      config.PreAuthorizeClient,
 		defaultHTTPClient:       config.DefaultHTTPClient,
+		internalHostURL:         config.ExternalHostURL,
 	}
 }
 
@@ -385,13 +388,13 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 	}
 
 	cfg := oauth2.Config{
-		ClientID:     "pre-auth-client",
-		ClientSecret: "foobar",
-		RedirectURL:  c.issuerVCSPublicHost + tokenEndpoint,
+		ClientID:     "oidc4vc_client",
+		RedirectURL:  "https://client.example.com/oauth/redirect",
 		Scopes:       validateResponse.Scopes,
+		ClientSecret: "foobar",
 		Endpoint: oauth2.Endpoint{
-			AuthURL:   c.issuerVCSPublicHost + authorizeEndpoint,
-			TokenURL:  c.issuerVCSPublicHost + tokenEndpoint,
+			AuthURL:   c.internalHostURL + authorizeEndpoint,
+			TokenURL:  c.internalHostURL + tokenEndpoint,
 			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}

@@ -22,5 +22,15 @@ Feature: OIDC4VC REST API
     When client exchanges authorization code for an access token
     Then client receives an access token
 
+  Scenario: Credential issuance using OIDC4VC pre-authorization code flow
+    Given issuer with id "bank_issuer" wants to issue credentials to his client with pre-auth code flow
+
+    When issuer sends request to initiate-issuance
+    Then issuer receives response with oidc url
+    And issuer represent this url to client as qrcode
+
+    When client scans qrcode
+    Then client should receive access token for further interactions with vc api
+
 #    When client requests credential for claim data
 #    Then client receives a valid credential

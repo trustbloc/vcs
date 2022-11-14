@@ -68,6 +68,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 			"--" + hostURLFlagName, "test",
 			"--" + databaseTypeFlagName, "",
 			"--" + oAuthSecretFlagName, "secret",
+			"--" + hostURLExternalFlagName, "secret",
 		}
 		startCmd.SetArgs(args)
 
@@ -84,6 +85,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 			"--" + oAuthSecretFlagName, "test",
 			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + modeFlagName, "",
+			"--" + hostURLExternalFlagName, "secret",
 		}
 		startCmd.SetArgs(args)
 
@@ -99,6 +101,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 			"--" + hostURLFlagName, "test",
 			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + modeFlagName, "",
+			"--" + hostURLExternalFlagName, "secret",
 		}
 		startCmd.SetArgs(args)
 
@@ -119,6 +122,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 			"--" + contextEnableRemoteFlagName, "true",
 			"--" + oAuthSecretFlagName, "secret",
 			"--" + oAuthClientsFilePathFlagName, "",
+			"--" + hostURLExternalFlagName, "secret",
 		}
 
 		startCmd.SetArgs(args)
@@ -136,12 +140,29 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 			"--" + oAuthSecretFlagName, "test",
 			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption, "--" + modeFlagName, "invalid",
+			"--" + hostURLExternalFlagName, "secret",
 		}
 		startCmd.SetArgs(args)
 
 		err := startCmd.Execute()
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "unsupported mode")
+	})
+
+	t.Run("missing host url", func(t *testing.T) {
+		startCmd := GetStartCmd()
+
+		args := []string{
+			"--" + hostURLFlagName, "test",
+			"--" + kmsTypeFlagName, "web",
+			"--" + oAuthSecretFlagName, "test",
+			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+		}
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.ErrorContains(t, err, "Neither host-url-external (command line flag) nor VC_REST_HOST_URL_EXTERNAL (environment variable) have been set")
 	})
 }
 
@@ -205,6 +226,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",
+		"--" + hostURLExternalFlagName, "http://localhost:8080",
 		"--" + oAuthSecretFlagName, "secret",
 		"--" + kmsTypeFlagName, "web",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
@@ -241,6 +263,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",
+		"--" + hostURLExternalFlagName, "http://localhost:8080",
 		"--" + oAuthSecretFlagName, "secret",
 		"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
 		"--" + databaseURLFlagName, mongoDBConnString,
@@ -452,6 +475,9 @@ func setEnvVars(t *testing.T, databaseType, filePath string) {
 
 	err = os.Setenv(profilePathEnv, filePath)
 	require.NoError(t, err)
+
+	err = os.Setenv(hostURLExternalEnvKey, "http://localhost:8080")
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -467,6 +493,9 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(profilePathEnv)
+	require.NoError(t, err)
+
+	err = os.Setenv(hostURLExternalEnvKey, "http://localhost:8080")
 	require.NoError(t, err)
 }
 

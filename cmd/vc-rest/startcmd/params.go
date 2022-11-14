@@ -71,11 +71,16 @@ const (
 	hostURLFlagUsage     = "URL to run the vc-rest instance on. Format: HostName:Port."
 	hostURLEnvKey        = "VC_REST_HOST_URL"
 
+	apiGatewayURLFlagName      = "api-gateway-url"
+	apiGatewayURLFlagShorthand = "g"
+	apiGatewayURLFlagUsage     = "An optional API Gateteway (oathkeeper, etc). Format: http://<GATEWAY_HOST>:<PORT> ." +
+		" If not provided, then the host url will be used here. " + commonEnvVarUsageText + hostURLExternalEnvKey
+	apiGatewayURLEnvKey = "VC_REST_API_GATEWAY_URL"
+
 	hostURLExternalFlagName      = "host-url-external"
 	hostURLExternalFlagShorthand = "x"
 	hostURLExternalEnvKey        = "VC_REST_HOST_URL_EXTERNAL"
-	hostURLExternalFlagUsage     = "Host External Name:Port This is the URL for the host server as seen externally." +
-		" If not provided, then the host url will be used here. " + commonEnvVarUsageText + hostURLExternalEnvKey
+	hostURLExternalFlagUsage     = "This is the URL for the host server as seen externally. Format: http://<HOST>:<PORT>"
 
 	universalResolverURLFlagName      = "universal-resolver-url"
 	universalResolverURLFlagShorthand = "r"
@@ -207,6 +212,7 @@ type startupParameters struct {
 	oAuthClientsFilePath            string
 	metricsProviderName             string
 	prometheusMetricsProviderParams *prometheusMetricsProviderParams
+	apiGatewayURL                   string
 }
 
 type prometheusMetricsProviderParams struct {
@@ -243,6 +249,18 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
+		hostURLExternalEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
+
+	apiGatewayURL := cmdutils.GetUserSetOptionalVarFromString(cmd, apiGatewayURLFlagName, apiGatewayURLEnvKey)
+
+	if len(apiGatewayURL) == 0 {
+		apiGatewayURL = hostURLExternal
+	}
+
 	oAuthSecret, err := cmdutils.GetUserSetVarFromString(cmd, oAuthSecretFlagName, oAuthSecretFlagEnvKey, false)
 	if err != nil {
 		return nil, err
@@ -261,17 +279,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	hostURLExternal, err := cmdutils.GetUserSetVarFromString(cmd, hostURLExternalFlagName,
-		hostURLExternalEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
-
-	universalResolverURL, err := cmdutils.GetUserSetVarFromString(cmd, universalResolverURLFlagName,
-		universalResolverURLEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
+	universalResolverURL := cmdutils.GetUserSetOptionalVarFromString(cmd, universalResolverURLFlagName,
+		universalResolverURLEnvKey)
 
 	orbDomain := cmdutils.GetUserSetOptionalVarFromString(cmd, orbDomainFlagName, orbDomainEnvKey)
 
@@ -295,30 +304,19 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	token, err := cmdutils.GetUserSetVarFromString(cmd, tokenFlagName,
-		tokenEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
+	token := cmdutils.GetUserSetOptionalVarFromString(cmd, tokenFlagName, tokenEnvKey)
 
 	requestTokens := getRequestTokens(cmd)
 
-	loggingLevel, err := cmdutils.GetUserSetVarFromString(cmd, common.LogLevelFlagName, common.LogLevelEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
+	loggingLevel := cmdutils.GetUserSetOptionalVarFromString(cmd, common.LogLevelFlagName, common.LogLevelEnvKey)
 
 	contextProviderURLs := cmdutils.GetUserSetOptionalCSVVar(cmd, contextProviderFlagName,
 		contextProviderEnvKey)
 
-	contextEnableRemoteConfig, err := cmdutils.GetUserSetVarFromString(cmd, contextEnableRemoteFlagName,
-		contextEnableRemoteEnvKey, true)
-	if err != nil {
-		return nil, err
-	}
+	contextEnableRemoteConfig := cmdutils.GetUserSetOptionalVarFromString(cmd, contextEnableRemoteFlagName,
+		contextEnableRemoteEnvKey)
 
 	devMode, err := getDevMode(cmd)
-
 	if err != nil {
 		return nil, err
 	}
@@ -357,6 +355,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		oAuthClientsFilePath:            oAuthClientsFilePath,
 		metricsProviderName:             metricsProviderName,
 		prometheusMetricsProviderParams: prometheusMetricsProviderParams,
+		apiGatewayURL:                   apiGatewayURL,
 	}, nil
 }
 
@@ -557,6 +556,7 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
+	startCmd.Flags().StringP(apiGatewayURLFlagName, apiGatewayURLFlagShorthand, "", apiGatewayURLFlagUsage)
 	startCmd.Flags().StringP(oAuthSecretFlagName, oAuthSecretFlagShorthand, "", oAuthSecretFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",

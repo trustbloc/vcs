@@ -592,9 +592,10 @@ paths:
                 user_pin:
                   type: string
                   description: user_pin
+                  nullable: true
               required:
                 - grant_type
-                - authorized_code
+                - pre-authorized_code
       responses:
         '200':
           description: OK

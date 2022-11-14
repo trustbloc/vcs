@@ -135,7 +135,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2F%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -191,7 +191,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2F%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},

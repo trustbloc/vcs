@@ -11,7 +11,8 @@ services:
     image: ${VC_REST_IMAGE}:latest
     environment:
       - VC_REST_HOST_URL=0.0.0.0:8075
-      - VC_REST_HOST_URL_EXTERNAL=https://localhost:4455
+      - VC_REST_API_GATEWAY_URL=https://localhost:4455
+      - VC_REST_HOST_URL_EXTERNAL=http://vc-rest-echo.trustbloc.local:8075
       - VC_REST_PROFILES_FILE_PATH=/profile/profiles.json
       - VC_REST_ORB_DOMAIN=testnet.orb.local
       - DATABASE_TYPE=mongodb
