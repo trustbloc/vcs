@@ -21,6 +21,7 @@ import (
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4ci"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vc"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4vp"
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
@@ -144,6 +145,11 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		panic(fmt.Sprintf("Failed to initialize BDD context: %s", err.Error()))
 	}
 
+	oidc4ciSteps, err := oidc4ci.NewSteps(bddContext)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize OIDC4CI steps: %s", err.Error()))
+	}
+
 	oidc4vcSteps, err := oidc4vc.NewSteps(bddContext)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to initialize OIDC4VC steps: %s", err.Error()))
@@ -152,11 +158,12 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 	features := []feature{
 		common.NewSteps(bddContext),
 		vcv1.NewSteps(bddContext),
+		oidc4ciSteps,
 		oidc4vcSteps,
 		oidc4vp.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 		vc_devapi.NewSteps(bddContext),
-		oidc4vc.NewPreAuthorizeStep(bddContext),
+		oidc4ci.NewPreAuthorizeStep(bddContext),
 	}
 
 	for _, f := range features {
