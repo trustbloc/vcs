@@ -36,7 +36,7 @@ type Issuer struct {
 	Name                string                `json:"name,omitempty"`
 	URL                 string                `json:"url,omitempty"`
 	Active              bool                  `json:"active"`
-	OIDCConfig          *OIDC4VCConfig        `json:"oidcConfig"`
+	OIDCConfig          *OIDC4CIConfig        `json:"oidcConfig"`
 	OrganizationID      string                `json:"organizationID,omitempty"`
 	VCConfig            *VCConfig             `json:"vcConfig"`
 	KMSConfig           *vcskms.Config        `json:"kmsConfig"`
@@ -52,8 +52,8 @@ type CredentialTemplate struct {
 	CredentialSubject json.RawMessage `json:"credentialSubject"`
 }
 
-// OIDC4VCConfig is issuer's OIDC configuration used during OIDC4VC issuance flow.
-type OIDC4VCConfig struct {
+// OIDC4CIConfig is issuer's OIDC configuration used during OIDC credential issuance flow.
+type OIDC4CIConfig struct {
 	IssuerWellKnownURL string `json:"issuer_well_known"`
 	ClientID           string `json:"client_id"`
 	ClientSecretHandle string `json:"client_secret_handle"`

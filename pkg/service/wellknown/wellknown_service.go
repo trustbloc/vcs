@@ -15,7 +15,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 type httpClient interface {
@@ -32,7 +32,7 @@ func NewService(client httpClient) *Service {
 	}
 }
 
-func (s *Service) GetOIDCConfiguration(ctx context.Context, url string) (*oidc4vc.OIDCConfiguration, error) {
+func (s *Service) GetOIDCConfiguration(ctx context.Context, url string) (*oidc4ci.OIDCConfiguration, error) {
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 
 	resp, err := s.client.Do(req)
@@ -56,7 +56,7 @@ func (s *Service) GetOIDCConfiguration(ctx context.Context, url string) (*oidc4v
 		return nil, err
 	}
 
-	var conf oidc4vc.OIDCConfiguration
+	var conf oidc4ci.OIDCConfiguration
 
 	if err = json.Unmarshal(body, &conf); err != nil {
 		return nil, err

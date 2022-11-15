@@ -40,12 +40,12 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
-	oidc4vc2 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
+	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
@@ -53,8 +53,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
@@ -230,29 +230,27 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		KMSRegistry:     kmsRegistry,
 	})
 
-	oidc4vcStore, err := oidc4vcstore.New(context.Background(), mongodbClient)
-
+	oidc4ciStore, err := oidc4cistore.New(context.Background(), mongodbClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new oidc4 vc store: %w", err)
+		return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
 	}
 
 	httpClient := getHTTPClient(tlsConfig)
 
-	oidc4vcService, err := oidc4vc.NewService(&oidc4vc.Config{
-		TransactionStore:    oidc4vcStore,
+	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore:    oidc4ciStore,
 		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
 		WellKnownService:    wellknown.NewService(httpClient),
 		OAuth2Client:        oauth2client.NewOAuth2Client(),
 		HTTPClient:          httpClient,
 	})
-
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new oidc4 vc service: %w", err)
+		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
 	}
 
-	oidc4StateStore, err := oidc4vcstatestore.New(context.Background(), mongodbClient)
+	oidc4ciStateStore, err := oidc4cistatestore.New(context.Background(), mongodbClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new oidc4vcstatestore: %w", err)
+		return nil, fmt.Errorf("failed to instantiate new oidc4ci state store: %w", err)
 	}
 
 	apiKeySecurityProvider, err := securityprovider.NewSecurityProviderApiKey(
@@ -291,9 +289,9 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate new oauth provider: %w", err)
 	}
 
-	oidc4vc2.RegisterHandlers(e, oidc4vc2.NewController(&oidc4vc2.Config{
+	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
 		OAuth2Provider:          provider,
-		StateStore:              oidc4StateStore,
+		StateStore:              oidc4ciStateStore,
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
 		DefaultHTTPClient:       httpClient,
@@ -315,7 +313,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader:         conf.DocumentLoader,
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        vcStatusManager,
-		OIDC4VCService:         oidc4vcService,
+		OIDC4CIService:         oidc4ciService,
 	}))
 
 	// Verifier Profile Management API

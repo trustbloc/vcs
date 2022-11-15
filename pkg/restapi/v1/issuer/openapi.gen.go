@@ -64,7 +64,7 @@ type ExchangeAuthorizationCodeResponse struct {
 }
 
 // Model for Initiate OIDC Credential Issuance Request.
-type InitiateOIDC4VCRequest struct {
+type InitiateOIDC4CIRequest struct {
 	// Customizes what kind of access Issuer wants to give to VCS.
 	AuthorizationDetails *string `json:"authorization_details,omitempty"`
 
@@ -100,7 +100,7 @@ type InitiateOIDC4VCRequest struct {
 }
 
 // Model for Initiate OIDC Credential Issuance Response.
-type InitiateOIDC4VCResponse struct {
+type InitiateOIDC4CIResponse struct {
 	// OIDC4CI initiate issuance URL to be used by the Issuer to pass relevant information to the Wallet to initiate issuance flow. Supports both HTTP GET and HTTP Redirect. Issuers may present QR code containing request data for users to scan from their mobile Wallet app.
 	InitiateIssuanceUrl string `json:"initiate_issuance_url"`
 
@@ -238,7 +238,7 @@ type PostIssueCredentialsJSONBody = IssueCredentialData
 type PostCredentialsStatusJSONBody = UpdateCredentialStatusRequest
 
 // InitiateCredentialIssuanceJSONBody defines parameters for InitiateCredentialIssuance.
-type InitiateCredentialIssuanceJSONBody = InitiateOIDC4VCRequest
+type InitiateCredentialIssuanceJSONBody = InitiateOIDC4CIRequest
 
 // ExchangeAuthorizationCodeRequestJSONRequestBody defines body for ExchangeAuthorizationCodeRequest for application/json ContentType.
 type ExchangeAuthorizationCodeRequestJSONRequestBody = ExchangeAuthorizationCodeRequestJSONBody
@@ -1331,7 +1331,7 @@ func (r GetCredentialsStatusResponse) StatusCode() int {
 type InitiateCredentialIssuanceResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *InitiateOIDC4VCResponse
+	JSON200      *InitiateOIDC4CIResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -1751,7 +1751,7 @@ func ParseInitiateCredentialIssuanceResponse(rsp *http.Response) (*InitiateCrede
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest InitiateOIDC4VCResponse
+		var dest InitiateOIDC4CIResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

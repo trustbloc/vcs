@@ -18,7 +18,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -182,13 +182,13 @@ func MapToKMSConfigType(kmsType kms.Type) (KMSConfigType, error) {
 			kmsType, KMSConfigTypeAws, KMSConfigTypeLocal, KMSConfigTypeWeb)
 }
 
-func ValidateAuthorizationDetails(ad *AuthorizationDetails) (*oidc4vc.AuthorizationDetails, error) {
+func ValidateAuthorizationDetails(ad *AuthorizationDetails) (*oidc4ci.AuthorizationDetails, error) {
 	if ad.Type != "openid_credential" {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type",
 			errors.New("type should be 'openid_credential'"))
 	}
 
-	mapped := &oidc4vc.AuthorizationDetails{
+	mapped := &oidc4ci.AuthorizationDetails{
 		Type:           ad.Type,
 		CredentialType: ad.CredentialType,
 		Locations:      lo.FromPtr(ad.Locations),

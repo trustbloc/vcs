@@ -4,9 +4,9 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vc
+package oidc4ci
 
-// PushedAuthorizationRequest is a model with custom OIDC4VC-related fields for PAR.
+// PushedAuthorizationRequest is a model with custom OIDC4CI-related fields for PAR.
 type PushedAuthorizationRequest struct {
 	AuthorizationDetails string `form:"authorization_details"`
 	OpState              string `form:"op_state"`

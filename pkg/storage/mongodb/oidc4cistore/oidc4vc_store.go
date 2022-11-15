@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vcstore
+package oidc4cistore
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -42,7 +42,7 @@ type mongoDocument struct {
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
-	AuthorizationDetails               *oidc4vc.AuthorizationDetails
+	AuthorizationDetails               *oidc4ci.AuthorizationDetails
 	ClientID                           string
 	ClientSecret                       string
 	IssuerAuthCode                     string
@@ -95,10 +95,10 @@ func (s *Store) migrate(ctx context.Context) error {
 
 func (s *Store) Create(
 	ctx context.Context,
-	data *oidc4vc.TransactionData,
-	params ...func(insertOptions *oidc4vc.InsertOptions),
-) (*oidc4vc.Transaction, error) {
-	insertCfg := &oidc4vc.InsertOptions{}
+	data *oidc4ci.TransactionData,
+	params ...func(insertOptions *oidc4ci.InsertOptions),
+) (*oidc4ci.Transaction, error) {
+	insertCfg := &oidc4ci.InsertOptions{}
 	for _, p := range params {
 		p(insertCfg)
 	}
@@ -114,7 +114,7 @@ func (s *Store) Create(
 	result, err := collection.InsertOne(ctx, obj)
 
 	if err != nil && mongo.IsDuplicateKeyError(err) {
-		return nil, oidc4vc.ErrDataNotFound
+		return nil, oidc4ci.ErrDataNotFound
 	}
 
 	if err != nil {
@@ -123,16 +123,16 @@ func (s *Store) Create(
 
 	insertedID := result.InsertedID.(primitive.ObjectID) //nolint: errcheck
 
-	return &oidc4vc.Transaction{
-		ID:              oidc4vc.TxID(insertedID.Hex()),
+	return &oidc4ci.Transaction{
+		ID:              oidc4ci.TxID(insertedID.Hex()),
 		TransactionData: *data,
 	}, nil
 }
 
 func (s *Store) Get(
 	ctx context.Context,
-	txID oidc4vc.TxID,
-) (*oidc4vc.Transaction, error) {
+	txID oidc4ci.TxID,
+) (*oidc4ci.Transaction, error) {
 	id, err := primitive.ObjectIDFromHex(string(txID))
 	if err != nil {
 		return nil, err
@@ -141,18 +141,18 @@ func (s *Store) Get(
 	return s.findOne(ctx, bson.M{"_id": id})
 }
 
-func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4vc.Transaction, error) {
+func (s *Store) FindByOpState(ctx context.Context, opState string) (*oidc4ci.Transaction, error) {
 	return s.findOne(ctx, bson.M{"opState": opState})
 }
 
-func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4vc.Transaction, error) {
+func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4ci.Transaction, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
 
 	if err := collection.FindOne(ctx, filter).Decode(&doc); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, oidc4vc.ErrDataNotFound
+			return nil, oidc4ci.ErrDataNotFound
 		}
 
 		return nil, err
@@ -160,13 +160,13 @@ func (s *Store) findOne(ctx context.Context, filter interface{}) (*oidc4vc.Trans
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, oidc4vc.ErrDataNotFound
+		return nil, oidc4ci.ErrDataNotFound
 	}
 
 	return mapDocumentToTransaction(&doc), nil
 }
 
-func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
+func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	id, err := primitive.ObjectIDFromHex(string(tx.ID))
@@ -184,7 +184,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4vc.Transaction) error {
 	return err
 }
 
-func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData) *mongoDocument {
+func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData) *mongoDocument {
 	return &mongoDocument{
 		ID:                                 primitive.ObjectID{},
 		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
@@ -211,10 +211,10 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4vc.TransactionData)
 	}
 }
 
-func mapDocumentToTransaction(doc *mongoDocument) *oidc4vc.Transaction {
-	return &oidc4vc.Transaction{
-		ID: oidc4vc.TxID(doc.ID.Hex()),
-		TransactionData: oidc4vc.TransactionData{
+func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
+	return &oidc4ci.Transaction{
+		ID: oidc4ci.TxID(doc.ID.Hex()),
+		TransactionData: oidc4ci.TransactionData{
 			ProfileID:                          doc.ProfileID,
 			CredentialTemplate:                 doc.CredentialTemplate,
 			CredentialFormat:                   doc.CredentialFormat,

@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4vcService=MockOIDC4VCService,vcStatusManager=MockVCStatusManager
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager
 
 package issuer
 
@@ -31,7 +31,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -60,45 +60,45 @@ type issueCredentialService interface {
 		profile *profileapi.Issuer) (*verifiable.Credential, error)
 }
 
-type oidc4vcService interface {
+type oidc4ciService interface {
 	InitiateIssuance(
 		ctx context.Context,
-		req *oidc4vc.InitiateIssuanceRequest,
+		req *oidc4ci.InitiateIssuanceRequest,
 		profile *profileapi.Issuer,
-	) (*oidc4vc.InitiateIssuanceResponse, error)
+	) (*oidc4ci.InitiateIssuanceResponse, error)
 
 	PushAuthorizationDetails(
 		ctx context.Context,
 		opState string,
-		ad *oidc4vc.AuthorizationDetails,
+		ad *oidc4ci.AuthorizationDetails,
 	) error
 
 	PrepareClaimDataAuthorizationRequest(
 		ctx context.Context,
-		req *oidc4vc.PrepareClaimDataAuthorizationRequest,
-	) (*oidc4vc.PrepareClaimDataAuthorizationResponse, error)
+		req *oidc4ci.PrepareClaimDataAuthorizationRequest,
+	) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error)
 
 	StoreAuthorizationCode(
 		ctx context.Context,
 		opState string,
 		code string,
-	) (oidc4vc.TxID, error)
+	) (oidc4ci.TxID, error)
 
 	ExchangeAuthorizationCode(
 		ctx context.Context,
 		opState string,
-	) (oidc4vc.TxID, error)
+	) (oidc4ci.TxID, error)
 
 	ValidatePreAuthorizedCodeRequest(
 		ctx context.Context,
 		preAuthorizedCode string,
 		pin string,
-	) (*oidc4vc.Transaction, error)
+	) (*oidc4ci.Transaction, error)
 
 	PrepareCredential(
 		ctx context.Context,
-		req *oidc4vc.CredentialRequest,
-	) (*oidc4vc.CredentialResponse, error)
+		req *oidc4ci.CredentialRequest,
+	) (*oidc4ci.CredentialResponse, error)
 }
 
 type vcStatusManager interface {
@@ -113,7 +113,7 @@ type Config struct {
 	KMSRegistry            kmsRegistry
 	DocumentLoader         ld.DocumentLoader
 	IssueCredentialService issueCredentialService
-	OIDC4VCService         oidc4vcService
+	OIDC4CIService         oidc4ciService
 	VcStatusManager        vcStatusManager
 }
 
@@ -123,7 +123,7 @@ type Controller struct {
 	kmsRegistry            kmsRegistry
 	documentLoader         ld.DocumentLoader
 	issueCredentialService issueCredentialService
-	oidc4vcService         oidc4vcService
+	oidc4ciService         oidc4ciService
 	vcStatusManager        vcStatusManager
 }
 
@@ -134,7 +134,7 @@ func NewController(config *Config) *Controller {
 		kmsRegistry:            config.KMSRegistry,
 		documentLoader:         config.DocumentLoader,
 		issueCredentialService: config.IssueCredentialService,
-		oidc4vcService:         config.OIDC4VCService,
+		oidc4ciService:         config.OIDC4CIService,
 		vcStatusManager:        config.VcStatusManager,
 	}
 }
@@ -298,7 +298,7 @@ func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCreden
 	return nil
 }
 
-// InitiateCredentialIssuance initiates OIDC4VC issuance flow.
+// InitiateCredentialIssuance initiates OIDC credential issuance flow.
 // POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
 func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID string) error {
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
@@ -311,7 +311,7 @@ func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID stri
 		return err
 	}
 
-	var body InitiateOIDC4VCRequest
+	var body InitiateOIDC4CIRequest
 
 	if err = util.ReadBody(ctx, &body); err != nil {
 		return err
@@ -322,10 +322,10 @@ func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID stri
 
 func (c *Controller) initiateIssuance(
 	ctx context.Context,
-	req *InitiateOIDC4VCRequest,
+	req *InitiateOIDC4CIRequest,
 	profile *profileapi.Issuer,
-) (*InitiateOIDC4VCResponse, error) {
-	issuanceReq := &oidc4vc.InitiateIssuanceRequest{
+) (*InitiateOIDC4CIResponse, error) {
+	issuanceReq := &oidc4ci.InitiateIssuanceRequest{
 		CredentialTemplateID:      lo.FromPtr(req.CredentialTemplateId),
 		ClientInitiateIssuanceURL: lo.FromPtr(req.ClientInitiateIssuanceUrl),
 		ClientWellKnownURL:        lo.FromPtr(req.ClientWellknown),
@@ -338,17 +338,17 @@ func (c *Controller) initiateIssuance(
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
 	}
 
-	resp, err := c.oidc4vcService.InitiateIssuance(ctx, issuanceReq, profile)
+	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
 	if err != nil {
-		if errors.Is(err, oidc4vc.ErrCredentialTemplateNotFound) ||
-			errors.Is(err, oidc4vc.ErrCredentialTemplateIDRequired) {
+		if errors.Is(err, oidc4ci.ErrCredentialTemplateNotFound) ||
+			errors.Is(err, oidc4ci.ErrCredentialTemplateIDRequired) {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "credential_template_id", err)
 		}
 
-		return nil, resterr.NewSystemError("OIDC4VCService", "InitiateIssuance", err)
+		return nil, resterr.NewSystemError("OIDC4CIService", "InitiateIssuance", err)
 	}
 
-	return &InitiateOIDC4VCResponse{
+	return &InitiateOIDC4CIResponse{
 		InitiateIssuanceUrl: resp.InitiateIssuanceURL,
 		TxId:                string(resp.TxID),
 	}, nil
@@ -368,16 +368,16 @@ func (c *Controller) PushAuthorizationDetails(ctx echo.Context) error {
 		return err
 	}
 
-	if err = c.oidc4vcService.PushAuthorizationDetails(ctx.Request().Context(), body.OpState, ad); err != nil {
-		if errors.Is(err, oidc4vc.ErrCredentialTypeNotSupported) {
+	if err = c.oidc4ciService.PushAuthorizationDetails(ctx.Request().Context(), body.OpState, ad); err != nil {
+		if errors.Is(err, oidc4ci.ErrCredentialTypeNotSupported) {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.type", err)
 		}
 
-		if errors.Is(err, oidc4vc.ErrCredentialFormatNotSupported) {
+		if errors.Is(err, oidc4ci.ErrCredentialFormatNotSupported) {
 			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details.format", err)
 		}
 
-		return resterr.NewSystemError("OIDC4VCService", "PushAuthorizationRequest", err)
+		return resterr.NewSystemError("OIDC4CIService", "PushAuthorizationRequest", err)
 	}
 
 	return ctx.NoContent(http.StatusOK)
@@ -404,8 +404,8 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		return nil, err
 	}
 
-	resp, err := c.oidc4vcService.PrepareClaimDataAuthorizationRequest(ctx,
-		&oidc4vc.PrepareClaimDataAuthorizationRequest{
+	resp, err := c.oidc4ciService.PrepareClaimDataAuthorizationRequest(ctx,
+		&oidc4ci.PrepareClaimDataAuthorizationRequest{
 			ResponseType:         body.ResponseType,
 			Scope:                lo.FromPtr(body.Scope),
 			OpState:              body.OpState,
@@ -413,7 +413,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		},
 	)
 	if err != nil {
-		return nil, resterr.NewSystemError("OIDC4VCService", "PrepareClaimDataAuthorizationRequest", err)
+		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
@@ -467,7 +467,7 @@ func (c *Controller) StoreAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4vcService.StoreAuthorizationCode(ctx.Request().Context(), body.OpState, body.Code))
+	return util.WriteOutput(ctx)(c.oidc4ciService.StoreAuthorizationCode(ctx.Request().Context(), body.OpState, body.Code))
 }
 
 // ExchangeAuthorizationCodeRequest Exchanges authorization code.
@@ -479,7 +479,7 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4vcService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState))
+	return util.WriteOutput(ctx)(c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState))
 }
 
 // ValidatePreAuthorizedCodeRequest Validates authorization code and pin.
@@ -491,7 +491,7 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	result, err := c.oidc4vcService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
+	result, err := c.oidc4ciService.ValidatePreAuthorizedCodeRequest(ctx.Request().Context(),
 		body.PreAuthorizedCode, lo.FromPtr(body.UserPin))
 
 	if err != nil {
@@ -518,16 +518,16 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
 
-	resp, err := c.oidc4vcService.PrepareCredential(ctx.Request().Context(),
-		&oidc4vc.CredentialRequest{
-			TxID:             oidc4vc.TxID(body.TxId),
+	resp, err := c.oidc4ciService.PrepareCredential(ctx.Request().Context(),
+		&oidc4ci.CredentialRequest{
+			TxID:             oidc4ci.TxID(body.TxId),
 			CredentialType:   body.Type,
 			CredentialFormat: vcFormat,
 			DID:              lo.FromPtr(body.Did),
 		},
 	)
 	if err != nil {
-		return resterr.NewSystemError("OIDC4VCService", "PrepareCredential", err)
+		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential", err)
 	}
 
 	return util.WriteOutput(ctx)(CredentialResponse{

@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vc_test
+package oidc4ci_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -35,7 +35,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
-		issuanceReq          *oidc4vc.InitiateIssuanceRequest
+		issuanceReq          *oidc4ci.InitiateIssuanceRequest
 		profile              *profileapi.Issuer
 	)
 
@@ -45,15 +45,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func()
-		check func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error)
+		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
 	}{
 		{
 			name: "Success",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-					&oidc4vc.Transaction{
+					&oidc4ci.Transaction{
 						ID: "txID",
-						TransactionData: oidc4vc.TransactionData{
+						TransactionData: oidc4ci.TransactionData{
 							CredentialTemplate: &profileapi.CredentialTemplate{
 								ID: "templateID",
 							},
@@ -61,14 +61,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 					}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{
+					&oidc4ci.OIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
@@ -77,7 +77,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
 			},
@@ -94,18 +94,18 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
-						data *oidc4vc.TransactionData,
-						params ...func(insertOptions *oidc4vc.InsertOptions),
-					) (*oidc4vc.Transaction, error) {
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Equal(t, true, data.UserPinRequired)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.Equal(t, claimData, data.ClaimData)
 
-						return &oidc4vc.Transaction{
+						return &oidc4ci.Transaction{
 							ID: "txID",
-							TransactionData: oidc4vc.TransactionData{
+							TransactionData: oidc4ci.TransactionData{
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID: "templateID",
 								},
@@ -117,12 +117,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
@@ -133,7 +133,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
 					resp.InitiateIssuanceURL)
@@ -151,18 +151,18 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
-						data *oidc4vc.TransactionData,
-						params ...func(insertOptions *oidc4vc.InsertOptions),
-					) (*oidc4vc.Transaction, error) {
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Equal(t, false, data.UserPinRequired)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.Equal(t, claimData, data.ClaimData)
 
-						return &oidc4vc.Transaction{
+						return &oidc4ci.Transaction{
 							ID: "txID",
-							TransactionData: oidc4vc.TransactionData{
+							TransactionData: oidc4ci.TransactionData{
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID: "templateID",
 								},
@@ -173,12 +173,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
@@ -189,7 +189,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
 					resp.InitiateIssuanceURL)
@@ -198,7 +198,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Profile is not active",
 			setup: func() {
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -207,19 +207,19 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &profileapi.Issuer{
 					Active:     false,
-					OIDCConfig: &profileapi.OIDC4VCConfig{},
+					OIDCConfig: &profileapi.OIDC4CIConfig{},
 					VCConfig:   &profileapi.VCConfig{},
 				}
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrProfileNotActive)
+				require.ErrorIs(t, err, oidc4ci.ErrProfileNotActive)
 			},
 		},
 		{
-			name: "OIDC4VC authorized code flow not supported",
+			name: "OIDC4CI authorized code flow not supported",
 			setup: func() {
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -231,15 +231,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 					VCConfig: &profileapi.VCConfig{},
 				}
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrAuthorizedCodeFlowNotSupported)
+				require.ErrorIs(t, err, oidc4ci.ErrAuthorizedCodeFlowNotSupported)
 			},
 		},
 		{
 			name: "VC options not configured",
 			setup: func() {
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -248,12 +248,12 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &profileapi.Issuer{
 					Active:     true,
-					OIDCConfig: &profileapi.OIDC4VCConfig{},
+					OIDCConfig: &profileapi.OIDC4CIConfig{},
 				}
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrVCOptionsNotConfigured)
+				require.ErrorIs(t, err, oidc4ci.ErrVCOptionsNotConfigured)
 			},
 		},
 		{
@@ -261,7 +261,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -270,13 +270,13 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &profileapi.Issuer{
 					Active:     true,
-					OIDCConfig: &profileapi.OIDC4VCConfig{},
+					OIDCConfig: &profileapi.OIDC4CIConfig{},
 					VCConfig:   &profileapi.VCConfig{},
 				}
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateNotConfigured)
+				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
 			},
 		},
 		{
@@ -284,7 +284,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -293,9 +293,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateIDRequired)
+				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateIDRequired)
 			},
 		},
 		{
@@ -303,7 +303,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID3",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -312,22 +312,22 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4vc.ErrCredentialTemplateNotFound)
+				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotFound)
 			},
 		},
 		{
 			name: "Client initiate issuance URL takes precedence over client well-known parameter",
 			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{}, nil)
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Times(0)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClientWellKnownURL:        walletWellKnownURL,
@@ -337,7 +337,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				require.Contains(t, resp.InitiateIssuanceURL, "https://wallet.example.com/initiate_issuance")
 			},
@@ -346,15 +346,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 			name: "Custom initiate issuance URL when fail to do well-known request",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-					&oidc4vc.Transaction{}, nil)
+					&oidc4ci.Transaction{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					nil, errors.New("invalid json"))
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
 					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
@@ -363,7 +363,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
 				require.Contains(t, resp.InitiateIssuanceURL, "openid-initiate-issuance://")
 			},
@@ -374,7 +374,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					nil, errors.New("well known service error"))
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -383,7 +383,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "get oidc configuration from well-known")
@@ -396,9 +396,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 					nil, fmt.Errorf("store error"))
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4vc.OIDCConfiguration{}, nil)
+					&oidc4ci.OIDCConfiguration{}, nil)
 
-				issuanceReq = &oidc4vc.InitiateIssuanceRequest{
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID:      "templateID",
 					ClientInitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 					ClaimEndpoint:             "https://vcs.pb.example.com/claim",
@@ -407,7 +407,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				profile = &testProfile
 			},
-			check: func(t *testing.T, resp *oidc4vc.InitiateIssuanceResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "store error")
@@ -418,7 +418,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			svc, err := oidc4vc.NewService(&oidc4vc.Config{
+			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore:    mockTransactionStore,
 				WellKnownService:    mockWellKnownService,
 				IssuerVCSPublicHost: issuerVCSPublicHost,

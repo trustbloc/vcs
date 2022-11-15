@@ -5,9 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4vc_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,OAuth2Client
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package oidc4ci_test . StateStore,OAuth2Provider,IssuerInteractionClient,HTTPClient,OAuth2Client
 
-package oidc4vc
+package oidc4ci
 
 import (
 	"context"
@@ -23,13 +23,12 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
-	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
-
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
+	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 )
 
 const (
@@ -46,14 +45,14 @@ type StateStore interface {
 	SaveAuthorizeState(
 		ctx context.Context,
 		opState string,
-		state *oidc4vcstatestore.AuthorizeState,
-		params ...func(insertOptions *oidc4vc.InsertOptions),
+		state *oidc4cistatestore.AuthorizeState,
+		params ...func(insertOptions *oidc4ci.InsertOptions),
 	) error
 
 	GetAuthorizeState(
 		ctx context.Context,
 		opState string,
-	) (*oidc4vcstatestore.AuthorizeState, error)
+	) (*oidc4cistatestore.AuthorizeState, error)
 }
 
 type HTTPClient interface {
@@ -98,7 +97,7 @@ type Config struct {
 	ExternalHostURL         string
 }
 
-// Controller for OIDC4VC issuance API.
+// Controller for OIDC credential issuance API.
 type Controller struct {
 	oauth2Provider          OAuth2Provider
 	stateStore              StateStore
@@ -256,7 +255,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
 		params.OpState,
-		&oidc4vcstatestore.AuthorizeState{
+		&oidc4cistatestore.AuthorizeState{
 			RedirectURI: ar.GetRedirectURI(),
 			RespondMode: string(ar.GetResponseMode()),
 			Header:      resp.GetHeader(),
