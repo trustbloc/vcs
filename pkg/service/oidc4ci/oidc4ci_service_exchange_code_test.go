@@ -36,6 +36,7 @@ func TestExchangeCode(t *testing.T) {
 		TransactionData: oidc4ci.TransactionData{
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
+			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 		},
 	}
 
@@ -44,6 +45,7 @@ func TestExchangeCode(t *testing.T) {
 		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 			assert.Equal(t, baseTx, tx)
 			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
+			assert.Equal(t, oidc4ci.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
 
 			return nil
 		})
@@ -87,6 +89,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
 		TransactionData: oidc4ci.TransactionData{
+			State:         oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
@@ -115,6 +118,7 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	baseTx := &oidc4ci.Transaction{
 		ID: oidc4ci.TxID("id"),
 		TransactionData: oidc4ci.TransactionData{
+			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
 		},
@@ -133,4 +137,22 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	resp, err := srv.ExchangeAuthorizationCode(context.TODO(), opState)
 	assert.ErrorContains(t, err, "update error")
 	assert.Empty(t, resp)
+}
+
+func TestExchangeCodeInvalidState(t *testing.T) {
+	store := NewMockTransactionStore(gomock.NewController(t))
+
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store})
+	assert.NoError(t, err)
+
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
+		TransactionData: oidc4ci.TransactionData{
+			State:         oidc4ci.TransactionStateCredentialsIssued,
+			TokenEndpoint: "https://localhost/token",
+		},
+	}, nil)
+
+	resp, err := srv.ExchangeAuthorizationCode(context.TODO(), "sadsadas")
+	assert.Empty(t, resp)
+	assert.ErrorContains(t, err, "unexpected transaction from 5 to 4")
 }

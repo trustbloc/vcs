@@ -50,15 +50,23 @@ func TestService_InitiateIssuance(t *testing.T) {
 		{
 			name: "Success",
 			setup: func() {
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Return(
-					&oidc4ci.Transaction{
-						ID: "txID",
-						TransactionData: oidc4ci.TransactionData{
-							CredentialTemplate: &profileapi.CredentialTemplate{
-								ID: "templateID",
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
 							},
-						},
-					}, nil)
+						}, nil
+					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
@@ -102,6 +110,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, true, data.UserPinRequired)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.Equal(t, claimData, data.ClaimData)
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",

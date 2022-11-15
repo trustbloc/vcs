@@ -200,10 +200,15 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						CredentialFormat: vcsverifiable.Ldp,
 						ResponseType:     "code",
 						Scope:            []string{"openid", "profile", "address"},
+						State:            oidc4ci.TransactionStateIssuanceInitiated,
 					},
 				}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+						return nil
+					}).Times(2)
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
@@ -226,6 +231,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
+						State: oidc4ci.TransactionStateIssuanceInitiated,
 						CredentialTemplate: &profileapi.CredentialTemplate{
 							Type: "UniversityDegreeCredential",
 						},
@@ -255,6 +261,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						},
 						ResponseType: "code",
 						Scope:        []string{"openid", "profile"},
+						State:        oidc4ci.TransactionStateIssuanceInitiated,
 					},
 				}, nil)
 
@@ -295,6 +302,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						CredentialFormat: vcsverifiable.Ldp,
 						ResponseType:     "code",
 						Scope:            []string{"openid"},
+						State:            oidc4ci.TransactionStateIssuanceInitiated,
 					},
 				}, nil)
 
@@ -313,6 +321,77 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				require.ErrorContains(t, err, "update tx")
 				require.Empty(t, resp)
+			},
+		},
+		{
+			name: "invalid sate",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						CredentialFormat: vcsverifiable.Ldp,
+						ResponseType:     "code",
+						Scope:            []string{"openid"},
+						State:            oidc4ci.TransactionStateCredentialsIssued,
+					},
+				}, nil)
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid"},
+					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+						CredentialType: "UniversityDegreeCredential",
+						Format:         vcsverifiable.Ldp,
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorContains(t, err, "unexpected transaction from 5 to 3")
+				require.Empty(t, resp)
+			},
+		},
+		{
+			name: "store update error",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						CredentialFormat: vcsverifiable.Ldp,
+						ResponseType:     "code",
+						Scope:            []string{"openid", "profile", "address"},
+						State:            oidc4ci.TransactionStateIssuanceInitiated,
+					},
+				}, nil)
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+						return nil
+					})
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					Return(errors.New("store update error"))
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+						CredentialType: "UniversityDegreeCredential",
+						Format:         vcsverifiable.Ldp,
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorContains(t, err, "store update error")
+				require.Nil(t, resp)
 			},
 		},
 	}
@@ -341,11 +420,13 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
+				State:           oidc4ci.TransactionStateIssuanceInitiated,
 				PreAuthCode:     "1234",
 				UserPinRequired: true,
 			},
 		}, nil)
 
+		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
@@ -362,8 +443,10 @@ func TestValidatePreAuthCode(t *testing.T) {
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode:     "1234",
 				UserPinRequired: false,
+				State:           oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
+		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
 		assert.NoError(t, err)
@@ -381,6 +464,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode:     "1234",
 				UserPinRequired: true,
+				State:           oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
 
@@ -400,6 +484,47 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
 		assert.ErrorContains(t, err, "not found")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("invalid state", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode:     "1234",
+				UserPinRequired: true,
+				State:           oidc4ci.TransactionStateCredentialsIssued,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "unexpected transaction from 5 to 2")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("store update error", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode:     "1234",
+				UserPinRequired: false,
+				State:           oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("store update error"))
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "store update error")
 		assert.Nil(t, resp)
 	})
 }

@@ -20,6 +20,12 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		return "", fmt.Errorf("get transaction by opstate: %w", err)
 	}
 
+	newState := TransactionStateIssuerOIDCAuthorizationDone
+	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		return "", err
+	}
+	tx.State = newState
+
 	resp, err := s.oAuth2Client.Exchange(ctx, oauth2.Config{
 		ClientID:     tx.ClientID,
 		ClientSecret: tx.ClientSecret,

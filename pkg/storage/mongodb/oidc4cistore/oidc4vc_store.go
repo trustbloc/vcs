@@ -51,6 +51,7 @@ type mongoDocument struct {
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
 	ClaimData                          map[string]interface{}
+	Status                             oidc4ci.TransactionState
 }
 
 // Store stores oidc transactions in mongo.
@@ -208,6 +209,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		IsPreAuthFlow:                      data.IsPreAuthFlow,
 		PreAuthCode:                        data.PreAuthCode,
 		ClaimData:                          data.ClaimData,
+		Status:                             data.State,
 	}
 }
 
@@ -235,6 +237,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			IsPreAuthFlow:                      doc.IsPreAuthFlow,
 			PreAuthCode:                        doc.PreAuthCode,
 			ClaimData:                          doc.ClaimData,
+			State:                              doc.Status,
 		},
 	}
 }

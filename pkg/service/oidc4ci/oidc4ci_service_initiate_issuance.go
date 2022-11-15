@@ -66,6 +66,7 @@ func (s *Service) InitiateIssuance(
 		OpState:                            req.OpState,
 		ClaimData:                          req.ClaimData,
 		UserPinRequired:                    req.UserPinRequired,
+		State:                              TransactionStateIssuanceInitiated,
 	}
 
 	if data.GrantType == "" {
