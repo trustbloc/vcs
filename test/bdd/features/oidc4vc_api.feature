@@ -7,30 +7,34 @@
 @all
 @oidc4vc_rest
 Feature: OIDC4VC REST API
-  Scenario: Credential issuance using OIDC4VC authorization code flow
-    Given issuer with id "bank_issuer" authorized as a profile user
-    And  client registered as a public client to vcs oidc
 
-    When issuer initiates credential issuance using authorization code flow
-    Then initiate issuance URL is returned
+  Background:
+    Given Organization "test_org" has been authorized with client id "test_org" and secret "test-org-secret"
+    And   Issuer with id "bank_issuer" is authorized as a Profile user
+    And   Issuer registers Client for vcs oidc interactions
+    And   User creates the wallet
 
-    When client requests an authorization code using data from initiate issuance URL
-    And user authenticates on issuer IdP
-#     And user gives a consent to release claim data
-    Then client receives an authorization code
+  Scenario: OIDC credential issuance and verification
+    When Issuer initiates credential issuance using authorization code flow
+    Then Issuer receives initiate issuance URL
 
-    When client exchanges authorization code for an access token
-    Then client receives an access token
+    When User interacts with Wallet to initiate OIDC credential issuance
+    Then Wallet receives an access token
 
-  Scenario: Credential issuance using OIDC4VC pre-authorization code flow
-    Given issuer with id "bank_issuer" wants to issue credentials to his client with pre-auth code flow
+#    When Wallet requests credential for claim data using access token
+#    Then Wallet receives a valid credential
 
-    When issuer sends request to initiate-issuance
-    Then issuer receives response with oidc url
-    And issuer represent this url to client as qrcode
+    And   New verifiable credentials is created from table:
+      | IssuerProfile             | Organization | Credential             | VCFormat |
+      | i_myprofile_ud_es256k_jwt | test_org     | university_degree.json | jwt_vc   |
+    And User saves credentials into the wallet
 
-    When client scans qrcode
-    Then client should receive access token for further interactions with vc api
+    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt" profile for organization "test_org"
+    Then User receives authorization request
 
-#    When client requests credential for claim data
-#    Then client receives a valid credential
+    When User invokes authorization request using Wallet
+    Then Wallet queries credential that match authorization and display them for User
+
+    When User gives a consent
+    Then Wallet sends authorization response
+    And Verifier from organization "test_org" retrieves interactions claims

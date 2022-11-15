@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vc
+package oidc4ci
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ const (
 	loginPageURL                        = "https://localhost:8099/login"
 )
 
-// Steps defines context for OIDC4VC scenario steps.
+// Steps defines context for OIDC4CI scenario steps.
 type Steps struct {
 	bddContext          *bddcontext.BDDContext
 	issuerProfile       *profileapi.Issuer
@@ -120,7 +120,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.OrganizationID)]
 
-	reqBody, err := json.Marshal(&initiateOIDC4VCRequest{
+	reqBody, err := json.Marshal(&initiateOIDC4CIRequest{
 		CredentialTemplateId: "templateID",
 		GrantType:            "authorization_code",
 		OpState:              uuid.New().String(),
@@ -128,7 +128,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 		Scope:                []string{"openid", "profile"},
 	})
 	if err != nil {
-		return fmt.Errorf("marshal initiate oidc4vc req: %w", err)
+		return fmt.Errorf("marshal initiate oidc4ci req: %w", err)
 	}
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, bytes.NewReader(reqBody),
@@ -148,10 +148,10 @@ func (s *Steps) initiateCredentialIssuance() error {
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
 	}
 
-	var r initiateOIDC4VCResponse
+	var r initiateOIDC4CIResponse
 
 	if err = json.Unmarshal(b, &r); err != nil {
-		return fmt.Errorf("unmarshal initiate oidc4vc resp: %w", err)
+		return fmt.Errorf("unmarshal initiate oidc4ci resp: %w", err)
 	}
 
 	s.initiateIssuanceURL = r.InitiateIssuanceUrl

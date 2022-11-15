@@ -1,4 +1,10 @@
-package oidc4vc
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package oidc4ci
 
 import (
 	"bytes"
@@ -21,7 +27,7 @@ type PreAuthorizeStep struct {
 	bddContext              *bddcontext.BDDContext
 	issuer                  *profileapi.Issuer
 	httpClient              *http.Client
-	initiateResponse        *initiateOIDC4VCResponse
+	initiateResponse        *initiateOIDC4CIResponse
 	preAuthorizeUrl         string
 	preAuthorizeCode        string
 	preAuthorizePinRequired string
@@ -122,7 +128,7 @@ func (s *PreAuthorizeStep) initiateIssuance() error {
 	issuanceURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuer.ID)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuer.OrganizationID)]
 
-	reqBody, err := json.Marshal(&initiateOIDC4VCRequest{
+	reqBody, err := json.Marshal(&initiateOIDC4CIRequest{
 		ClaimData: lo.ToPtr(map[string]interface{}{
 			"claim1": "value1",
 			"claim2": "value2",
@@ -147,7 +153,7 @@ func (s *PreAuthorizeStep) initiateIssuance() error {
 		return fmt.Errorf("invalid status code %v", resp.StatusCode)
 	}
 
-	var oidcInitiateResponse initiateOIDC4VCResponse
+	var oidcInitiateResponse initiateOIDC4CIResponse
 	if err = json.NewDecoder(resp.Body).Decode(&oidcInitiateResponse); err != nil {
 		return err
 	}
