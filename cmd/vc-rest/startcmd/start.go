@@ -240,7 +240,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	oidc4vcService, err := oidc4vc.NewService(&oidc4vc.Config{
 		TransactionStore:    oidc4vcStore,
-		IssuerVCSPublicHost: conf.StartupParameters.hostURL,
+		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
 		WellKnownService:    wellknown.NewService(httpClient),
 		OAuth2Client:        oauth2client.NewOAuth2Client(),
 		HTTPClient:          httpClient,
@@ -265,7 +265,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	issuerInteractionClient, err := issuerv1.NewClient(
-		"http://vc-rest-echo.trustbloc.local:8075", // TODO: Set using flag or environment variable.
+		conf.StartupParameters.hostURLExternal,
 		issuerv1.WithHTTPClient(httpClient),
 		issuerv1.WithRequestEditorFn(apiKeySecurityProvider.Intercept),
 	)
@@ -295,9 +295,10 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		OAuth2Provider:          provider,
 		StateStore:              oidc4StateStore,
 		IssuerInteractionClient: issuerInteractionClient,
-		IssuerVCSPublicHost:     conf.StartupParameters.hostURLExternal,
+		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
 		DefaultHTTPClient:       httpClient,
 		OAuth2Client:            oauth2client.NewOAuth2Client(),
+		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		PreAuthorizeClient: func() *http.Client {
 			client := getHTTPClient(tlsConfig)
 			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {

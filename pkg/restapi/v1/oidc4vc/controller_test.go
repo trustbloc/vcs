@@ -839,9 +839,9 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				finalURL := "https://127.0.0.1/authorize"
 
 				cfg := oauth2.Config{
-					ClientID:     "pre-auth-client",
+					ClientID:     "oidc4vc_client",
 					ClientSecret: "foobar",
-					RedirectURL:  "/oidc/token",
+					RedirectURL:  "https://client.example.com/oauth/redirect",
 					Scopes:       []string{"a", "b"},
 					Endpoint: oauth2.Endpoint{
 						AuthURL:   "/oidc/authorize",

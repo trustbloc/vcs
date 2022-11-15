@@ -72,13 +72,13 @@ func getCmdArg(argName string) string {
 func runBDDTests(tags, format string) int {
 	return godog.TestSuite{
 		Name:                 "VC services test suite",
-		TestSuiteInitializer: initializeTestSuite,
-		ScenarioInitializer:  initializeScenario,
+		TestSuiteInitializer: InitializeTestSuite,
+		ScenarioInitializer:  InitializeScenario,
 		Options:              buildOptions(tags, format),
 	}.Run()
 }
 
-func initializeTestSuite(ctx *godog.TestSuiteContext) {
+func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	if os.Getenv("DISABLE_COMPOSITION") == "true" {
 		return
 	}
@@ -137,7 +137,7 @@ type feature interface {
 	RegisterSteps(sc *godog.ScenarioContext)
 }
 
-func initializeScenario(sc *godog.ScenarioContext) {
+func InitializeScenario(sc *godog.ScenarioContext) {
 	bddContext, err := bddctx.NewBDDContext("fixtures/keys/tls/ec-cacert.pem", "./testdata",
 		"fixtures/profile/profiles.json")
 	if err != nil {
@@ -156,6 +156,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 		oidc4vp.NewSteps(bddContext),
 		vc_echo.NewSteps(bddContext),
 		vc_devapi.NewSteps(bddContext),
+		oidc4vc.NewPreAuthorizeStep(bddContext),
 	}
 
 	for _, f := range features {
@@ -168,6 +169,6 @@ func buildOptions(tags, format string) *godog.Options {
 		Tags:          tags,
 		Format:        format,
 		Strict:        true,
-		StopOnFailure: true,
+		StopOnFailure: false,
 	}
 }

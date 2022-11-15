@@ -174,21 +174,13 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	defer srv.Close()
 
 	fositeStore := getDefaultStore()
-	fositeStore.Clients["pre-auth-client"] = &fosite.DefaultClient{
-		ID:            clientID,
+	fositeStore.Clients["oidc4vc_client"] = &fosite.DefaultClient{
+		ID:            "oidc4vc_client",
 		Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
-		RedirectURIs:  []string{"/oidc/token"},
+		RedirectURIs:  []string{"https://client.example.com/oauth/redirect"},
 		ResponseTypes: []string{"code"},
 		GrantTypes:    []string{"authorization_code"},
 		Scopes:        []string{"openid", "profile"},
-	}
-
-	// prepend client redirect URIs with test server URL
-	for _, client := range fositeStore.Clients {
-		c, ok := client.(*fosite.DefaultClient)
-		if ok {
-			c.RedirectURIs[0] = srv.URL + c.RedirectURIs[0]
-		}
 	}
 
 	config := new(fosite.Config)
@@ -220,6 +212,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4vcstatestore.AuthorizeState)},
 		IssuerInteractionClient: interaction,
 		IssuerVCSPublicHost:     srv.URL,
+		ExternalHostURL:         srv.URL,
 		OAuth2Client:            oauth2client.NewOAuth2Client(),
 		PreAuthorizeClient:      preAuthClient,
 		DefaultHTTPClient:       http.DefaultClient,

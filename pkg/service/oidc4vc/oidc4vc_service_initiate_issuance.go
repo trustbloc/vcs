@@ -153,7 +153,8 @@ func (s *Service) buildInitiateIssuanceURL(
 	q.Set("credential_type", template.Type)
 
 	if tx.IsPreAuthFlow {
-		q.Set("issuer", fmt.Sprintf("%s/%s", s.issuerVCSPublicHost, preAuthorizedEndpoint))
+		issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, preAuthorizedEndpoint)
+		q.Set("issuer", issuerURL)
 		q.Set("pre-authorized_code", tx.PreAuthCode)
 		q.Set("user_pin_required", strconv.FormatBool(tx.UserPinRequired))
 	} else {
