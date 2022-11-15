@@ -145,6 +145,12 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		return nil, fmt.Errorf("find tx by op state: %w", err)
 	}
 
+	newState := TransactionStateAwaitingIssuerOIDCAuthorization
+	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		return nil, err
+	}
+	tx.State = newState
+
 	if req.ResponseType != tx.ResponseType {
 		return nil, ErrResponseTypeMismatch
 	}
@@ -175,6 +181,10 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
 			return nil, err
 		}
+	}
+
+	if err = s.store.Update(ctx, tx); err != nil {
+		return nil, err
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
@@ -222,9 +232,19 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 		return nil, fmt.Errorf("find tx by op state: %w", err)
 	}
 
+	newState := TransactionStatePreAuthCodeValidated
+	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		return nil, err
+	}
+	tx.State = newState
+
 	if tx.PreAuthCode != preAuthorizedCode || (tx.UserPinRequired && len(pin) == 0) {
 		// todo in future add proper pin validation
 		return nil, errors.New("invalid auth credentials")
+	}
+
+	if err = s.store.Update(ctx, tx); err != nil {
+		return nil, err
 	}
 
 	return tx, nil

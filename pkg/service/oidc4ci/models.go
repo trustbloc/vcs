@@ -26,6 +26,17 @@ type Transaction struct {
 	TransactionData
 }
 
+type TransactionState int16
+
+const (
+	TransactionStateUnknown                         = TransactionState(0)
+	TransactionStateIssuanceInitiated               = TransactionState(1)
+	TransactionStatePreAuthCodeValidated            = TransactionState(2) // pre-auth only
+	TransactionStateAwaitingIssuerOIDCAuthorization = TransactionState(3) // auth only
+	TransactionStateIssuerOIDCAuthorizationDone     = TransactionState(4)
+	TransactionStateCredentialsIssued               = TransactionState(5)
+)
+
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID
@@ -48,6 +59,7 @@ type TransactionData struct {
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
 	ClaimData                          map[string]interface{}
+	State                              TransactionState
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
