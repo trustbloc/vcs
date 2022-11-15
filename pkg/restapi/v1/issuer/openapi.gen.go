@@ -19,29 +19,6 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
-// Model for Prepare Credential request.
-type CredentialRequest struct {
-	// DID to which issued credential has to be bound.
-	Did *string `json:"did,omitempty"`
-
-	// Format of the credential being issued.
-	Format *string `json:"format,omitempty"`
-
-	// Transaction ID.
-	TxId string `json:"tx_id"`
-
-	// Type of the credential being issued.
-	Type string `json:"type"`
-}
-
-// Model for Prepare Credential response.
-type CredentialResponse struct {
-	Credential interface{} `json:"credential"`
-
-	// Should be set to TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
-	Retry bool `json:"retry"`
-}
-
 // Credential status.
 type CredentialStatus struct {
 	Status string `json:"status"`
@@ -169,6 +146,32 @@ type PrepareClaimDataAuthorizationResponse struct {
 	TxId string `json:"tx_id"`
 }
 
+// Model for Prepare Credential request.
+type PrepareCredential struct {
+	// DID to which issued credential has to be bound.
+	Did *string `json:"did,omitempty"`
+
+	// Format of the credential being issued.
+	Format *string `json:"format,omitempty"`
+
+	// Transaction ID.
+	TxId string `json:"tx_id"`
+
+	// Type of the credential being issued.
+	Type string `json:"type"`
+}
+
+// Model for Prepare Credential response.
+type PrepareCredentialResult struct {
+	Credential interface{} `json:"credential"`
+
+	// Format of issued credential.
+	Format string `json:"format"`
+
+	// TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+	Retry bool `json:"retry"`
+}
+
 // Model for Push Authorization Details request.
 type PushAuthorizationDetailsRequest struct {
 	// Model to convey the details about the Credentials the Client wants to obtain.
@@ -220,7 +223,7 @@ type ExchangeAuthorizationCodeRequestJSONBody = ExchangeAuthorizationCodeRequest
 type PrepareAuthorizationRequestJSONBody = PrepareClaimDataAuthorizationRequest
 
 // PrepareCredentialJSONBody defines parameters for PrepareCredential.
-type PrepareCredentialJSONBody = CredentialRequest
+type PrepareCredentialJSONBody = PrepareCredential
 
 // PushAuthorizationDetailsJSONBody defines parameters for PushAuthorizationDetails.
 type PushAuthorizationDetailsJSONBody = PushAuthorizationDetailsRequest
@@ -1178,7 +1181,7 @@ func (r PrepareAuthorizationRequestResponse) StatusCode() int {
 type PrepareCredentialResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *CredentialResponse
+	JSON200      *PrepareCredentialResult
 }
 
 // Status returns HTTPResponse.Status
@@ -1579,7 +1582,7 @@ func ParsePrepareCredentialResponse(rsp *http.Response) (*PrepareCredentialRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest CredentialResponse
+		var dest PrepareCredentialResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

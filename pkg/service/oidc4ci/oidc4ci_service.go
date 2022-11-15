@@ -252,8 +252,8 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 
 func (s *Service) PrepareCredential(
 	ctx context.Context,
-	req *CredentialRequest,
-) (*CredentialResponse, error) {
+	req *PrepareCredential,
+) (*PrepareCredentialResult, error) {
 	tx, err := s.store.Get(ctx, req.TxID)
 	if err != nil {
 		return nil, fmt.Errorf("get tx: %w", err)
@@ -325,8 +325,9 @@ func (s *Service) PrepareCredential(
 		return nil, fmt.Errorf("issue credential: %w", err)
 	}
 
-	return &CredentialResponse{
+	return &PrepareCredentialResult{
 		Credential: issuedVC,
+		Format:     tx.CredentialFormat,
 		Retry:      false,
 	}, nil
 }

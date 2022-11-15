@@ -35,6 +35,37 @@ type AccessTokenResponse struct {
 	TokenType string `json:"token_type"`
 }
 
+// Model for OIDC Credential request.
+type CredentialRequest struct {
+	// DID to which issued credential has to be bound.
+	Did string `json:"did"`
+
+	// Format of the credential being issued.
+	Format *string `json:"format,omitempty"`
+
+	// JSON Object containing proof of possession of the key material the issued credential shall be bound to.
+	Proof *map[string]interface{} `json:"proof,omitempty"`
+
+	// Type of the credential being issued.
+	Type string `json:"type"`
+}
+
+// Model for OIDC Credential response.
+type CredentialResponse struct {
+	// A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
+	AcceptanceToken *string `json:"acceptance_token,omitempty"`
+
+	// JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+	CNonce *string `json:"c_nonce,omitempty"`
+
+	// JSON integer denoting the lifetime in seconds of the c_nonce.
+	CNonceExpiresIn *int        `json:"c_nonce_expires_in,omitempty"`
+	Credential      interface{} `json:"credential"`
+
+	// JSON string denoting the format of the issued Credential.
+	Format string `json:"format"`
+}
+
 // Model for Pushed Authorization Response.
 type PushedAuthorizationResponse struct {
 	// A JSON number that represents the lifetime of the request URI in seconds as a positive integer. The request URI lifetime is at the discretion of the authorization server but will typically be relatively short (e.g., between 5 and 600 seconds).
@@ -80,6 +111,9 @@ type OidcAuthorizeParams struct {
 	OpState string `form:"op_state" json:"op_state"`
 }
 
+// OidcCredentialJSONBody defines parameters for OidcCredential.
+type OidcCredentialJSONBody = CredentialRequest
+
 // OidcRedirectParams defines parameters for OidcRedirect.
 type OidcRedirectParams struct {
 	// auth code for issuer provider
@@ -89,11 +123,17 @@ type OidcRedirectParams struct {
 	State string `form:"state" json:"state"`
 }
 
+// OidcCredentialJSONRequestBody defines body for OidcCredential for application/json ContentType.
+type OidcCredentialJSONRequestBody = OidcCredentialJSONBody
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// OIDC Authorization Request
 	// (GET /oidc/authorize)
 	OidcAuthorize(ctx echo.Context, params OidcAuthorizeParams) error
+	// OIDC Credential
+	// (POST /oidc/credential)
+	OidcCredential(ctx echo.Context) error
 	// OIDC Pushed Authorization Request
 	// (POST /oidc/par)
 	OidcPushedAuthorizationRequest(ctx echo.Context) error
@@ -201,6 +241,15 @@ func (w *ServerInterfaceWrapper) OidcAuthorize(ctx echo.Context) error {
 	return err
 }
 
+// OidcCredential converts echo context to params.
+func (w *ServerInterfaceWrapper) OidcCredential(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OidcCredential(ctx)
+	return err
+}
+
 // OidcPushedAuthorizationRequest converts echo context to params.
 func (w *ServerInterfaceWrapper) OidcPushedAuthorizationRequest(ctx echo.Context) error {
 	var err error
@@ -282,6 +331,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.GET(baseURL+"/oidc/authorize", wrapper.OidcAuthorize)
+	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)
 	router.POST(baseURL+"/oidc/pre-authorized-code", wrapper.OidcPreAuthorizedCode)
 	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)

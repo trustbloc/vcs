@@ -57,6 +57,7 @@ type OIDC4CIConfig struct {
 	IssuerWellKnownURL string `json:"issuer_well_known"`
 	ClientID           string `json:"client_id"`
 	ClientSecretHandle string `json:"client_secret_handle"`
+	RedirectURI        string `json:"redirect_uri"`
 }
 
 // VCConfig describes how to sign verifiable credentials.

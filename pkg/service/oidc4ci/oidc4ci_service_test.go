@@ -534,13 +534,13 @@ func TestService_PrepareCredential(t *testing.T) {
 		mockTransactionStore  = NewMockTransactionStore(gomock.NewController(t))
 		mockHTTPClient        = NewMockHTTPClient(gomock.NewController(t))
 		mockCredentialService = NewMockCredentialService(gomock.NewController(t))
-		req                   *oidc4ci.CredentialRequest
+		req                   *oidc4ci.PrepareCredential
 	)
 
 	tests := []struct {
 		name  string
 		setup func()
-		check func(t *testing.T, resp *oidc4ci.CredentialResponse, err error)
+		check func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error)
 	}{
 		{
 			name: "Success",
@@ -572,11 +572,11 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(&verifiable.Credential{}, nil)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 			},
@@ -590,11 +590,11 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "get tx")
 				require.Nil(t, resp)
 			},
@@ -609,11 +609,11 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
 				require.Nil(t, resp)
 			},
@@ -630,11 +630,11 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("http error"))
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "http error")
 				require.Nil(t, resp)
 			},
@@ -655,11 +655,11 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "claim endpoint returned status code")
 				require.Nil(t, resp)
 			},
@@ -680,11 +680,11 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "decode claim data")
 				require.Nil(t, resp)
 			},
@@ -713,11 +713,11 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
 				require.Nil(t, resp)
 			},
@@ -748,11 +748,11 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("issue credential error"))
 
-				req = &oidc4ci.CredentialRequest{
+				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
 			},
-			check: func(t *testing.T, resp *oidc4ci.CredentialResponse, err error) {
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "issue credential error")
 				require.Nil(t, resp)
 			},

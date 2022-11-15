@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -34,6 +35,7 @@ import (
 const (
 	sessionOpStateKey          = "opState"
 	authorizationDetailsKey    = "authDetails"
+	txIDKey                    = "txID"
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 	authorizeEndpoint          = "/oidc/authorize"
 	tokenEndpoint              = "/oidc/token"
@@ -347,7 +349,19 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	if err != nil {
 		return err
 	}
-	_ = exchangeResp.Body.Close()
+
+	defer exchangeResp.Body.Close()
+
+	if exchangeResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("exchange auth code: status code %d", exchangeResp.StatusCode)
+	}
+
+	body, err := io.ReadAll(exchangeResp.Body)
+	if err != nil {
+		return fmt.Errorf("read exchange auth code response: %w", err)
+	}
+
+	ar.GetSession().(*fosite.DefaultSession).Extra[txIDKey] = string(body)
 
 	resp, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
@@ -355,6 +369,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, resp)
+
 	return nil
 }
 
@@ -447,4 +462,60 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 	}
 
 	return apiUtil.WriteOutput(e)(aResponse, nil)
+}
+
+// OidcCredential handles OIDC credential request (POST /oidc/credential).
+func (c *Controller) OidcCredential(e echo.Context) error {
+	req := e.Request()
+	ctx := req.Context()
+
+	var credentialReq CredentialRequest
+
+	if err := e.Bind(&credentialReq); err != nil {
+		return err
+	}
+
+	// TODO: Validate proof of possession of the key material
+
+	var token string
+
+	if token = fosite.AccessTokenFromRequest(req); token == "" {
+		return fmt.Errorf("missing access token")
+	}
+
+	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
+	if err != nil {
+		return fmt.Errorf("introspect token: %w", err)
+	}
+
+	txID := ar.GetSession().(*fosite.DefaultSession).Extra[txIDKey].(string) //nolint:errcheck
+
+	resp, err := c.issuerInteractionClient.PrepareCredential(ctx, issuer.PrepareCredentialJSONRequestBody{
+		TxId:   txID,
+		Did:    lo.ToPtr(credentialReq.Did),
+		Type:   credentialReq.Type,
+		Format: credentialReq.Format,
+	})
+	if err != nil {
+		return fmt.Errorf("prepare credential: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("prepare credential: status code %d", resp.StatusCode)
+	}
+
+	var result issuer.PrepareCredentialResult
+
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("decode prepare credential result: %w", err)
+	}
+
+	return apiUtil.WriteOutput(e)(CredentialResponse{
+		Credential:      result.Credential,
+		Format:          result.Format,
+		CNonce:          nil, // TODO: Add support for c_nonce and c_nonce_expires_in
+		CNonceExpiresIn: nil,
+	}, nil)
 }

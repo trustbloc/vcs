@@ -4,6 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+//nolint:cyclop
 package mw
 
 import (
@@ -24,6 +25,7 @@ const (
 	oidcAuthorize              = "/oidc/authorize"
 	oidcRedirect               = "/oidc/redirect"
 	oidcToken                  = "/oidc/token"
+	oidcCredential             = "/oidc/credential"
 	oidcPreAuthorize           = "/oidc/pre-authorized-code"
 )
 
@@ -54,7 +56,8 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 			if strings.HasPrefix(currentPath, oidcAuthorize) ||
 				strings.HasPrefix(currentPath, oidcRedirect) ||
 				strings.HasPrefix(currentPath, oidcPreAuthorize) ||
-				strings.HasPrefix(currentPath, oidcToken) {
+				strings.HasPrefix(currentPath, oidcToken) ||
+				strings.HasPrefix(currentPath, oidcCredential) {
 				return next(c)
 			}
 
