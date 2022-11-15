@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vcstatestore
+package oidc4cistatestore
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -67,12 +67,12 @@ func TestStore(t *testing.T) {
 		toInsert := &AuthorizeState{}
 
 		err1 := store.SaveAuthorizeState(context.Background(), id, toInsert,
-			oidc4vc.WithDocumentTTL(-2*time.Second))
+			oidc4ci.WithDocumentTTL(-2*time.Second))
 		assert.NoError(t, err1)
 
 		resp2, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp2)
-		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
+		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
 	})
 
 	t.Run("test insert and find", func(t *testing.T) {
@@ -112,7 +112,7 @@ func TestStore(t *testing.T) {
 
 		resp, err2 := store.GetAuthorizeState(context.Background(), id)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
+		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
 	})
 }
 

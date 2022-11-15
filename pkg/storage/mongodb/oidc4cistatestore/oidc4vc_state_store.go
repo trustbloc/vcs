@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vcstatestore
+package oidc4cistatestore
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -33,7 +33,7 @@ type mongoDocument struct {
 	State   *AuthorizeState
 }
 
-// Store stores OIDC4VC authorize request/response state in mongo.
+// Store stores OIDC4CI authorize request/response state in mongo.
 type Store struct {
 	mongoClient *mongodb.Client
 }
@@ -77,9 +77,9 @@ func (s *Store) SaveAuthorizeState(
 	ctx context.Context,
 	opState string,
 	data *AuthorizeState,
-	params ...func(insertOptions *oidc4vc.InsertOptions),
+	params ...func(insertOptions *oidc4ci.InsertOptions),
 ) error {
-	insertCfg := &oidc4vc.InsertOptions{}
+	insertCfg := &oidc4ci.InsertOptions{}
 	for _, p := range params {
 		p(insertCfg)
 	}
@@ -106,7 +106,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*Authori
 	}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, oidc4vc.ErrDataNotFound
+			return nil, oidc4ci.ErrDataNotFound
 		}
 
 		return nil, err
@@ -114,7 +114,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*Authori
 
 	if doc.ExpireAt.Before(time.Now().UTC()) {
 		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
-		return nil, oidc4vc.ErrDataNotFound
+		return nil, oidc4ci.ErrDataNotFound
 	}
 
 	return doc.State, nil

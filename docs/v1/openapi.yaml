@@ -179,14 +179,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InitiateOIDC4VCResponse'
+                $ref: '#/components/schemas/InitiateOIDC4CIResponse'
       operationId: initiate-credential-issuance
       description: Used by the issuer to initiate OIDCI credential issuance interaction in VCS. The response contains initiate issuance URL which can be used to initiate the flow from issuer applications.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InitiateOIDC4VCRequest'
+              $ref: '#/components/schemas/InitiateOIDC4CIRequest'
       tags:
         - issuer
   /issuer/interactions/push-authorization-request:
@@ -425,7 +425,7 @@ paths:
     post:
       summary: OIDC Pushed Authorization Request
       tags:
-        - oidc4vc
+        - oidc4ci
       responses:
         '201':
           description: Created
@@ -568,13 +568,13 @@ paths:
           description: 'String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  op_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.'
           required: true
       tags:
-        - oidc4vc
+        - oidc4ci
     parameters: []
   /oidc/pre-authorized-code:
     post:
       summary: OIDC Pre-Authorized code flow handler
       tags:
-        - oidc4vc
+        - oidc4ci
       operationId: oidc-pre-authorized-code
       description: Endpoint for handling Pre-Authorized code flow
       requestBody:
@@ -609,7 +609,7 @@ paths:
     post:
       summary: OIDC Token Request
       tags:
-        - oidc4vc
+        - oidc4ci
       operationId: oidc-token
       description: Issues access token and optionally a refresh token for the exchange of authorization code that client has obtained after successful authorization response.
       responses:
@@ -652,7 +652,7 @@ paths:
     get:
       summary: OIDC Redirect
       tags:
-        - oidc4vc
+        - oidc4ci
       operationId: oidc-redirect
       description: OIDC redirect for handling response from issuer's OIDC provider and continue our OIDC authorize flow.
       responses:
@@ -1071,8 +1071,8 @@ components:
         - client_id
         - client_secret
         - scope
-    InitiateOIDC4VCRequest:
-      title: InitiateOIDC4VCRequest
+    InitiateOIDC4CIRequest:
+      title: InitiateOIDC4CIRequest
       type: object
       description: Model for Initiate OIDC Credential Issuance Request.
       properties:
@@ -1113,8 +1113,8 @@ components:
           description: Required for Pre-Authorized Code Flow. VCS OIDC Service acts as OP for wallet applications
       x-tags:
         - issuer
-    InitiateOIDC4VCResponse:
-      title: InitiateOIDC4VCResponse
+    InitiateOIDC4CIResponse:
+      title: InitiateOIDC4CIResponse
       type: object
       description: Model for Initiate OIDC Credential Issuance Response.
       properties:
@@ -1132,7 +1132,7 @@ components:
     PushedAuthorizationResponse:
       title: PushedAuthorizationResponse
       x-tags:
-        - oidc4vc
+        - oidc4ci
       type: object
       description: Model for Pushed Authorization Response.
       properties:
@@ -1148,7 +1148,7 @@ components:
     AccessTokenResponse:
       title: AccessTokenResponse
       x-tags:
-        - oidc4vc
+        - oidc4ci
       type: object
       description: Model for Access Token Response.
       properties:

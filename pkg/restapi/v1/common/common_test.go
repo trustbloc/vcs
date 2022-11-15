@@ -18,7 +18,7 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 func TestController_MapToKMSConfigType(t *testing.T) {
@@ -275,7 +275,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 
 				got, err := ValidateAuthorizationDetails(ad)
 				require.NoError(t, err)
-				require.Equal(t, &oidc4vc.AuthorizationDetails{
+				require.Equal(t, &oidc4ci.AuthorizationDetails{
 					Type:           "openid_credential",
 					CredentialType: "UniversityDegreeCredential",
 					Format:         tt.want,

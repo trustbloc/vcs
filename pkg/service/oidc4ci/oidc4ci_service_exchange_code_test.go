@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vc_test
+package oidc4ci_test
 
 import (
 	"context"
@@ -17,23 +17,23 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 func TestExchangeCode(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client,
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, OAuth2Client: oauth2Client,
 		HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
 	authCode := uuid.NewString()
 
-	baseTx := &oidc4vc.Transaction{
-		ID: oidc4vc.TxID("id"),
-		TransactionData: oidc4vc.TransactionData{
+	baseTx := &oidc4ci.Transaction{
+		ID: oidc4ci.TxID("id"),
+		TransactionData: oidc4ci.TransactionData{
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
 		},
@@ -41,7 +41,7 @@ func TestExchangeCode(t *testing.T) {
 
 	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
 	store.EXPECT().Update(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, tx *oidc4vc.Transaction) error {
+		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
 			assert.Equal(t, baseTx, tx)
 			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
 
@@ -68,7 +68,7 @@ func TestExchangeCode(t *testing.T) {
 
 func TestExchangeCodeErrFindTx(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, HTTPClient: &http.Client{}})
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(nil, errors.New("tx not found"))
@@ -81,12 +81,12 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client,
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, OAuth2Client: oauth2Client,
 		HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
-	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4vc.Transaction{
-		TransactionData: oidc4vc.TransactionData{
+	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
+		TransactionData: oidc4ci.TransactionData{
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
@@ -105,16 +105,16 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
 
-	srv, err := oidc4vc.NewService(&oidc4vc.Config{TransactionStore: store, OAuth2Client: oauth2Client,
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, OAuth2Client: oauth2Client,
 		HTTPClient: &http.Client{}})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
 	authCode := uuid.NewString()
 
-	baseTx := &oidc4vc.Transaction{
-		ID: oidc4vc.TxID("id"),
-		TransactionData: oidc4vc.TransactionData{
+	baseTx := &oidc4ci.Transaction{
+		ID: oidc4ci.TxID("id"),
+		TransactionData: oidc4ci.TransactionData{
 			TokenEndpoint:  "https://localhost/token",
 			IssuerAuthCode: authCode,
 		},

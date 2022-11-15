@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-package: oidc4vc
+package: oidc4ci
 output: openapi.gen.go
 generate:
   models: true
@@ -12,4 +12,4 @@ generate:
   embedded-spec: false
 output-options:
   include-tags:
-    - oidc4vc
+    - oidc4ci

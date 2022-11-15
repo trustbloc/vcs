@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vc_test
+package oidc4ci_test
 
 import (
 	"bytes"
@@ -30,8 +30,8 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 )
 
 //nolint:lll
@@ -163,7 +163,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			controller := oidc4vc.NewController(&oidc4vc.Config{
+			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				IssuerVCSPublicHost:     "https://issuer.example.com",
@@ -187,7 +187,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		mockStateStore        = NewMockStateStore(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
 		oauth2Client          = NewMockOAuth2Client(gomock.NewController(t))
-		params                oidc4vc.OidcAuthorizeParams
+		params                oidc4ci.OidcAuthorizeParams
 	)
 
 	tests := []struct {
@@ -198,7 +198,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -261,7 +261,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "success with par",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -326,7 +326,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "success with issuer par",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -376,7 +376,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "invalid authorize request",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -390,7 +390,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "prepare claim data authorization",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -421,7 +421,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "invalid status code for prepare claim data authorization",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -455,7 +455,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "fail to create authorize response",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -505,7 +505,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		{
 			name: "fail to save authorize state",
 			setup: func() {
-				params = oidc4vc.OidcAuthorizeParams{
+				params = oidc4ci.OidcAuthorizeParams{
 					ResponseType: "code",
 					OpState:      "opState",
 				}
@@ -560,7 +560,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			controller := oidc4vc.NewController(&oidc4vc.Config{
+			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				StateStore:              mockStateStore,
 				IssuerInteractionClient: mockInteractionClient,
@@ -585,7 +585,7 @@ func TestController_OidcRedirect(t *testing.T) {
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
 		mockStateStore        = NewMockStateStore(gomock.NewController(t))
 		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
-		params                oidc4vc.OidcRedirectParams
+		params                oidc4ci.OidcRedirectParams
 	)
 
 	tests := []struct {
@@ -596,14 +596,14 @@ func TestController_OidcRedirect(t *testing.T) {
 		{
 			name: "success",
 			setup: func() {
-				params = oidc4vc.OidcRedirectParams{
+				params = oidc4ci.OidcRedirectParams{
 					Code:  "code",
 					State: "state",
 				}
 
 				redirectURI := &url.URL{Scheme: "https", Host: "example.com", Path: "redirect"}
 
-				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4vcstatestore.AuthorizeState{
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4cistatestore.AuthorizeState{
 					RedirectURI: redirectURI,
 				}, nil)
 				mockInteractionClient.EXPECT().StoreAuthorizationCodeRequest(
@@ -632,14 +632,14 @@ func TestController_OidcRedirect(t *testing.T) {
 		{
 			name: "fail to store code",
 			setup: func() {
-				params = oidc4vc.OidcRedirectParams{
+				params = oidc4ci.OidcRedirectParams{
 					Code:  "code",
 					State: "state",
 				}
 
 				redirectURI := &url.URL{Scheme: "https", Host: "example.com", Path: "redirect"}
 
-				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4vcstatestore.AuthorizeState{
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4cistatestore.AuthorizeState{
 					RedirectURI: redirectURI,
 				}, nil)
 				mockInteractionClient.EXPECT().StoreAuthorizationCodeRequest(
@@ -656,7 +656,7 @@ func TestController_OidcRedirect(t *testing.T) {
 		{
 			name: "fail to get authorize state",
 			setup: func() {
-				params = oidc4vc.OidcRedirectParams{
+				params = oidc4ci.OidcRedirectParams{
 					Code:  "code",
 					State: "state",
 				}
@@ -672,7 +672,7 @@ func TestController_OidcRedirect(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			controller := oidc4vc.NewController(&oidc4vc.Config{
+			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				StateStore:              mockStateStore,
 				IssuerInteractionClient: mockInteractionClient,
@@ -791,7 +791,7 @@ func TestController_OidcToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			controller := oidc4vc.NewController(&oidc4vc.Config{
+			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 			})
@@ -870,7 +870,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.NoError(t, err)
-				var resp oidc4vc.AccessTokenResponse
+				var resp oidc4ci.AccessTokenResponse
 				assert.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 				assert.Equal(t, "123456", resp.AccessToken)
 				assert.NotEmpty(t, *resp.ExpiresIn)
@@ -1048,7 +1048,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			controller := oidc4vc.NewController(&oidc4vc.Config{
+			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				OAuth2Client:            oauthClient,

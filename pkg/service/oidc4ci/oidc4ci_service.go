@@ -4,9 +4,9 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4vc_service_mocks_test.go -self_package mocks -package oidc4vc_test -source=oidc4vc_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,credentialService=MockCredentialService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,credentialService=MockCredentialService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
 
-package oidc4vc
+package oidc4ci
 
 import (
 	"context"
@@ -33,7 +33,7 @@ const (
 	defaultScope        = "openid"
 )
 
-var logger = log.New("oidc4vc")
+var logger = log.New("oidc4ci")
 
 type transactionStore interface {
 	Create(
@@ -97,7 +97,7 @@ type Config struct {
 	HTTPClient          httpClient
 }
 
-// Service implements VCS credential interaction API for OIDC4VC issuance.
+// Service implements VCS credential interaction API for OIDC credential issuance.
 type Service struct {
 	store               transactionStore
 	wellKnownService    wellKnownService

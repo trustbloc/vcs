@@ -34,7 +34,7 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -696,7 +696,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		OrganizationID: orgID,
 		ID:             "profileID",
 		Active:         true,
-		OIDCConfig:     &profileapi.OIDC4VCConfig{},
+		OIDCConfig:     &profileapi.OIDC4CIConfig{},
 		CredentialTemplates: []*profileapi.CredentialTemplate{
 			{
 				ID: "templateID",
@@ -704,7 +704,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		},
 	}
 
-	req, err := json.Marshal(&InitiateOIDC4VCRequest{
+	req, err := json.Marshal(&InitiateOIDC4CIRequest{
 		CredentialTemplateId:      lo.ToPtr("templateID"),
 		ClientInitiateIssuanceUrl: lo.ToPtr("https://wallet.example.com/initiate_issuance"),
 		ClientWellknown:           lo.ToPtr("https://wallet.example.com/.well-known/openid-configuration"),
@@ -716,24 +716,24 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	resp := &oidc4vc.InitiateIssuanceResponse{
+	resp := &oidc4ci.InitiateIssuanceResponse{
 		InitiateIssuanceURL: "https://wallet.example.com/initiate_issuance",
 		TxID:                "txID",
 	}
 
 	var (
 		mockProfileSvc = NewMockProfileService(gomock.NewController(t))
-		mockOIDC4VCSvc = NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4CISvc = NewMockOIDC4CIService(gomock.NewController(t))
 		c              echo.Context
 	)
 
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(issuerProfile, nil)
-		mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(resp, nil)
+		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(resp, nil)
 
 		controller := NewController(&Config{
 			ProfileSvc:     mockProfileSvc,
-			OIDC4VCService: mockOIDC4VCSvc,
+			OIDC4CIService: mockOIDC4CISvc,
 		})
 
 		c = echoContext(withRequestBody(req))
@@ -752,7 +752,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Missing authorization",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(0)
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withOrgID(""))
 				},
 				check: func(t *testing.T, err error) {
@@ -763,7 +763,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Invalid profile",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withOrgID("invalid"))
 				},
 				check: func(t *testing.T, err error) {
@@ -775,7 +775,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Profile does not exist in the underlying storage",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("not found"))
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -787,7 +787,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Get profile error",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("get profile error"))
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -799,9 +799,9 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Credential template ID is required",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4vc.ErrCredentialTemplateIDRequired) //nolint:lll
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateIDRequired) //nolint:lll
 
-					r, marshalErr := json.Marshal(&InitiateOIDC4VCRequest{})
+					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
 					require.NoError(t, marshalErr)
 
 					c = echoContext(withRequestBody(r))
@@ -815,9 +815,9 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Credential template not found",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4vc.ErrCredentialTemplateNotFound) //nolint:lll
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateNotFound) //nolint:lll
 
-					r, marshalErr := json.Marshal(&InitiateOIDC4VCRequest{})
+					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
 					require.NoError(t, marshalErr)
 
 					c = echoContext(withRequestBody(r))
@@ -831,7 +831,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				name: "Service error",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
-					mockOIDC4VCSvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("service error")) //nolint:lll
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("service error")) //nolint:lll
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
@@ -846,7 +846,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 				controller := NewController(&Config{
 					ProfileSvc:     mockProfileSvc,
-					OIDC4VCService: mockOIDC4VCSvc,
+					OIDC4CIService: mockOIDC4CISvc,
 				})
 
 				err = controller.InitiateCredentialIssuance(c, "profileID")
@@ -858,15 +858,15 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 func TestController_PushAuthorizationDetails(t *testing.T) {
 	var (
-		mockOIDC4VCSvc = NewMockOIDC4VCService(gomock.NewController(t))
+		mockOIDC4CISvc = NewMockOIDC4CIService(gomock.NewController(t))
 		req            string
 	)
 
 	t.Run("Success", func(t *testing.T) {
-		mockOIDC4VCSvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(nil)
+		mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(nil)
 
 		controller := NewController(&Config{
-			OIDC4VCService: mockOIDC4VCSvc,
+			OIDC4CIService: mockOIDC4CISvc,
 		})
 
 		req = `{"op_state":"opState","authorization_details":{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}}` //nolint:lll
@@ -885,7 +885,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 			{
 				name: "Invalid authorization_details type",
 				setup: func() {
-					mockOIDC4VCSvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Times(0)
+					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Times(0)
 
 					req = `{"op_state":"opState","authorization_details":{"type":"invalid","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}}` //nolint:lll
 				},
@@ -896,8 +896,8 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 			{
 				name: "Credential type not supported",
 				setup: func() {
-					mockOIDC4VCSvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						oidc4vc.ErrCredentialTypeNotSupported)
+					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
+						oidc4ci.ErrCredentialTypeNotSupported)
 
 					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential"}}`
 				},
@@ -908,8 +908,8 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 			{
 				name: "Credential format not supported",
 				setup: func() {
-					mockOIDC4VCSvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
-						oidc4vc.ErrCredentialFormatNotSupported)
+					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
+						oidc4ci.ErrCredentialFormatNotSupported)
 
 					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential"}}`
 				},
@@ -920,7 +920,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 			{
 				name: "Service error",
 				setup: func() {
-					mockOIDC4VCSvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
+					mockOIDC4CISvc.EXPECT().PushAuthorizationDetails(gomock.Any(), "opState", gomock.Any()).Return(
 						errors.New("service error"))
 
 					req = `{"op_state":"opState","authorization_details":{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}}` //nolint:lll
@@ -935,7 +935,7 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 				tt.setup()
 
 				controller := NewController(&Config{
-					OIDC4VCService: mockOIDC4VCSvc,
+					OIDC4CIService: mockOIDC4CISvc,
 				})
 
 				c := echoContext(withRequestBody([]byte(req)))
@@ -949,22 +949,22 @@ func TestController_PushAuthorizationDetails(t *testing.T) {
 
 func TestController_PrepareAuthorizationRequest(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(
 				ctx context.Context,
-				req *oidc4vc.PrepareClaimDataAuthorizationRequest,
-			) (*oidc4vc.PrepareClaimDataAuthorizationResponse, error) {
+				req *oidc4ci.PrepareClaimDataAuthorizationRequest,
+			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
 				assert.Equal(t, "123", req.OpState)
 
-				return &oidc4vc.PrepareClaimDataAuthorizationResponse{
-					AuthorizationParameters: &oidc4vc.OAuthParameters{},
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
+					AuthorizationParameters: &oidc4ci.OAuthParameters{},
 				}, nil
 			},
 		)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
@@ -973,11 +973,11 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 	})
 
 	t.Run("invalid authorization_details.type", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"invalid","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
@@ -986,11 +986,11 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 	})
 
 	t.Run("invalid authorization_details.format", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).Times(0)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"invalid","locations":[]}}` //nolint:lll
@@ -999,12 +999,12 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 	})
 
 	t.Run("service error", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).Return(
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("service error"))
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
@@ -1017,11 +1017,11 @@ func TestController_StoreAuthZCode(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		opState := uuid.NewString()
 		code := uuid.NewString()
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code).Return(oidc4vc.TxID("1234"), nil)
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().StoreAuthorizationCode(gomock.Any(), opState, code).Return(oidc4ci.TxID("1234"), nil)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := fmt.Sprintf(`{"op_state":"%s","code":"%s"}`, opState, code) //nolint:lll
@@ -1040,11 +1040,11 @@ func TestController_StoreAuthZCode(t *testing.T) {
 func TestController_ExchangeAuthorizationCode(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		opState := uuid.NewString()
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState).Return(oidc4vc.TxID("1234"), nil)
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState).Return(oidc4ci.TxID("1234"), nil)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := fmt.Sprintf(`{"op_state":"%s"}`, opState) //nolint:lll
@@ -1063,17 +1063,17 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 
 func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
-			Return(&oidc4vc.Transaction{
-				TransactionData: oidc4vc.TransactionData{
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
+			Return(&oidc4ci.Transaction{
+				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
 					Scope:   []string{"a", "b"},
 				},
 			}, nil)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"pre-authorized_code":"1234", "user_pin" : "5432" }` //nolint:lll
@@ -1082,17 +1082,17 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	})
 
 	t.Run("success without pin", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "").
-			Return(&oidc4vc.Transaction{
-				TransactionData: oidc4vc.TransactionData{
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "").
+			Return(&oidc4ci.Transaction{
+				TransactionData: oidc4ci.TransactionData{
 					OpState: "random_op_state",
 					Scope:   []string{"a", "b"},
 				},
 			}, nil)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"pre-authorized_code":"1234" }` //nolint:lll
@@ -1101,12 +1101,12 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 	})
 
 	t.Run("fail with pin", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), "1234", "5432").
 			Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"pre-authorized_code":"1234", "user_pin" : "5432" }` //nolint:lll
@@ -1125,20 +1125,20 @@ func TestController_ValidatePreAuthorizedCodeRequest(t *testing.T) {
 
 func TestController_PrepareCredential(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(
 				ctx context.Context,
-				req *oidc4vc.CredentialRequest,
-			) (*oidc4vc.CredentialResponse, error) {
-				assert.Equal(t, oidc4vc.TxID("123"), req.TxID)
+				req *oidc4ci.CredentialRequest,
+			) (*oidc4ci.CredentialResponse, error) {
+				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
 
-				return &oidc4vc.CredentialResponse{}, nil
+				return &oidc4ci.CredentialResponse{}, nil
 			},
 		)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
@@ -1147,11 +1147,11 @@ func TestController_PrepareCredential(t *testing.T) {
 	})
 
 	t.Run("invalid credential format", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"invalid"}`
@@ -1160,12 +1160,12 @@ func TestController_PrepareCredential(t *testing.T) {
 	})
 
 	t.Run("service error", func(t *testing.T) {
-		mockOIDC4VCService := NewMockOIDC4VCService(gomock.NewController(t))
-		mockOIDC4VCService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(
 			nil, errors.New("service error"))
 
 		c := &Controller{
-			oidc4vcService: mockOIDC4VCService,
+			oidc4ciService: mockOIDC4CIService,
 		}
 
 		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`

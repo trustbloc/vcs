@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vcstore
+package oidc4cistore
 
 import (
 	"context"
@@ -27,7 +27,7 @@ import (
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/oidc4vc"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -54,7 +54,7 @@ func TestStore(t *testing.T) {
 	t.Run("try insert duplicate op_state", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4vc.TransactionData{
+		toInsert := &oidc4ci.TransactionData{
 			OpState: id,
 		}
 
@@ -63,30 +63,30 @@ func TestStore(t *testing.T) {
 		assert.NotEmpty(t, resp1)
 
 		resp2, err2 := store.Create(context.Background(), toInsert)
-		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
+		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
 		assert.Empty(t, resp2)
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4vc.TransactionData{
+		toInsert := &oidc4ci.TransactionData{
 			OpState: id,
 		}
 
-		resp1, err1 := store.Create(context.Background(), toInsert, oidc4vc.WithDocumentTTL(-1*time.Second))
+		resp1, err1 := store.Create(context.Background(), toInsert, oidc4ci.WithDocumentTTL(-1*time.Second))
 		assert.NoError(t, err1)
 		assert.NotNil(t, resp1)
 
 		resp2, err2 := store.FindByOpState(context.Background(), toInsert.OpState)
 		assert.Nil(t, resp2)
-		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
+		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
 	})
 
 	t.Run("test insert and find", func(t *testing.T) {
 		id := uuid.New().String()
 
-		toInsert := &oidc4vc.TransactionData{
+		toInsert := &oidc4ci.TransactionData{
 			CredentialTemplate: &profileapi.CredentialTemplate{
 				Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
 				ID:                "templateID",
@@ -105,7 +105,7 @@ func TestStore(t *testing.T) {
 			GrantType:                          "342",
 			ResponseType:                       "123",
 			Scope:                              []string{"213", "321"},
-			AuthorizationDetails: &oidc4vc.AuthorizationDetails{
+			AuthorizationDetails: &oidc4ci.AuthorizationDetails{
 				Type:           "321",
 				CredentialType: "fdsfsd",
 				Format:         "vxcxzcz",
@@ -122,7 +122,7 @@ func TestStore(t *testing.T) {
 			},
 		}
 
-		var resp *oidc4vc.Transaction
+		var resp *oidc4ci.Transaction
 
 		resp, err = store.Create(context.Background(), toInsert)
 		assert.NoError(t, err)
@@ -161,14 +161,14 @@ func TestStore(t *testing.T) {
 	t.Run("test update", func(t *testing.T) {
 		id := uuid.NewString()
 
-		toInsert := &oidc4vc.TransactionData{
+		toInsert := &oidc4ci.TransactionData{
 			CredentialTemplate:   nil,
 			CredentialFormat:     vcsverifiable.Jwt,
 			ClaimEndpoint:        "432",
 			GrantType:            "342",
 			ResponseType:         "123",
 			Scope:                []string{"213", "321"},
-			AuthorizationDetails: &oidc4vc.AuthorizationDetails{Type: "321"},
+			AuthorizationDetails: &oidc4ci.AuthorizationDetails{Type: "321"},
 			OpState:              id,
 		}
 
@@ -192,7 +192,7 @@ func TestStore(t *testing.T) {
 
 		resp, err2 := store.FindByOpState(context.Background(), id)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err2, oidc4vc.ErrDataNotFound)
+		assert.ErrorIs(t, err2, oidc4ci.ErrDataNotFound)
 	})
 
 	t.Run("get by invalid tx id", func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestWithTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		resp, err := store.Create(ctx, &oidc4vc.TransactionData{})
+		resp, err := store.Create(ctx, &oidc4ci.TransactionData{})
 
 		assert.Empty(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")
@@ -238,7 +238,7 @@ func TestWithTimeouts(t *testing.T) {
 	})
 
 	t.Run("Update InvalidKey", func(t *testing.T) {
-		err := store.Update(context.TODO(), &oidc4vc.Transaction{ID: "1"})
+		err := store.Update(context.TODO(), &oidc4ci.Transaction{ID: "1"})
 		assert.ErrorContains(t, err, "the provided hex string is not a valid ObjectID")
 	})
 }

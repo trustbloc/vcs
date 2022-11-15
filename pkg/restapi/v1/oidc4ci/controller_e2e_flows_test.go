@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4vc_test
+package oidc4ci_test
 
 import (
 	"bytes"
@@ -35,9 +35,9 @@ import (
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vc"
-	oidc4vcsvc "github.com/trustbloc/vcs/pkg/service/oidc4vc"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vcstatestore"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
+	oidc4cisvc "github.com/trustbloc/vcs/pkg/service/oidc4ci"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 )
 
 const (
@@ -118,15 +118,15 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 			return (&cfg).AuthCodeURL(state)
 		})
 
-	controller := oidc4vc.NewController(&oidc4vc.Config{
+	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
-		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4vcstatestore.AuthorizeState)},
+		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cistatestore.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
 		OAuth2Client:            oauth2Client,
 	})
 
-	oidc4vc.RegisterHandlers(e, controller)
+	oidc4ci.RegisterHandlers(e, controller)
 
 	registerThirdPartyOIDCAuthorizeEndpoint(t, e)
 	registerClientCallback(t, e)
@@ -207,9 +207,9 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	interaction := NewMockIssuerInteractionClient(gomock.NewController(t))
 	preAuthClient := NewMockHTTPClient(gomock.NewController(t))
 
-	controller := oidc4vc.NewController(&oidc4vc.Config{
+	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
-		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4vcstatestore.AuthorizeState)},
+		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cistatestore.AuthorizeState)},
 		IssuerInteractionClient: interaction,
 		IssuerVCSPublicHost:     srv.URL,
 		ExternalHostURL:         srv.URL,
@@ -218,7 +218,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		DefaultHTTPClient:       http.DefaultClient,
 	})
 
-	oidc4vc.RegisterHandlers(e, controller)
+	oidc4ci.RegisterHandlers(e, controller)
 
 	code := "awesome-pre-auth-code"
 	pin := "493536"
@@ -258,7 +258,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	var token oidc4vc.AccessTokenResponse
+	var token oidc4ci.AccessTokenResponse
 	assert.NoError(t, json.NewDecoder(resp.Body).Decode(&token))
 	assert.Equal(t, "bearer", token.TokenType)
 	assert.NotEmpty(t, token.AccessToken)
@@ -354,14 +354,14 @@ func registerClientCallback(t *testing.T, e *echo.Echo) {
 }
 
 type memoryStateStore struct {
-	kv map[string]*oidc4vcstatestore.AuthorizeState
+	kv map[string]*oidc4cistatestore.AuthorizeState
 	mu sync.RWMutex
 }
 
 func (s *memoryStateStore) GetAuthorizeState(
 	_ context.Context,
 	opState string,
-) (*oidc4vcstatestore.AuthorizeState, error) {
+) (*oidc4cistatestore.AuthorizeState, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -376,8 +376,8 @@ func (s *memoryStateStore) GetAuthorizeState(
 func (s *memoryStateStore) SaveAuthorizeState(
 	_ context.Context,
 	opState string,
-	state *oidc4vcstatestore.AuthorizeState,
-	_ ...func(insertOptions *oidc4vcsvc.InsertOptions),
+	state *oidc4cistatestore.AuthorizeState,
+	_ ...func(insertOptions *oidc4cisvc.InsertOptions),
 ) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
