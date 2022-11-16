@@ -58,7 +58,8 @@ func TestExchangeCode(t *testing.T) {
 			TokenURL:  baseTx.TokenEndpoint,
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
-		Scopes: baseTx.Scope,
+		RedirectURL: baseTx.RedirectURI,
+		Scopes:      baseTx.Scope,
 	}, authCode, gomock.Any(), gomock.Any()).Return(&oauth2.Token{
 		AccessToken: "SlAV32hkKG",
 	}, nil)

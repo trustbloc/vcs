@@ -32,6 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -43,22 +44,6 @@ import (
 const (
 	clientID = "test-client"
 )
-
-func getDefaultStore() *storage.MemoryStore {
-	return &storage.MemoryStore{ //nolint:gochecknoglobals
-		Clients:                map[string]fosite.Client{},
-		AuthorizeCodes:         map[string]storage.StoreAuthorizeCode{},
-		IDSessions:             make(map[string]fosite.Requester),
-		AccessTokens:           map[string]fosite.Requester{},
-		RefreshTokens:          map[string]storage.StoreRefreshToken{},
-		PKCES:                  map[string]fosite.Requester{},
-		Users:                  make(map[string]storage.MemoryUserRelation),
-		AccessTokenRequestIDs:  map[string]string{},
-		RefreshTokenRequestIDs: map[string]string{},
-		IssuerPublicKeys:       map[string]storage.IssuerPublicKeys{},
-		PARSessions:            map[string]fosite.AuthorizeRequester{},
-	}
-}
 
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	e := echo.New()
@@ -78,6 +63,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		GrantTypes:    []string{"authorization_code"},
 		Scopes:        []string{"openid", "profile"},
 	}
+
 	// prepend client redirect URIs with test server URL
 	for _, client := range fositeStore.Clients {
 		c, ok := client.(*fosite.DefaultClient)
@@ -105,6 +91,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		compose.OAuth2AuthorizeExplicitFactory,
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
+		compose.OAuth2TokenIntrospectionFactory,
 	)
 
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
@@ -164,6 +151,13 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, token)
 	require.NotEmpty(t, token.AccessToken)
+
+	httpClient := oauthClient.Client(context.Background(), token)
+
+	resp, err = httpClient.Post(srv.URL+"/oidc/credential", "application/json",
+		bytes.NewBufferString(`{"format":"vc_jwt","did":"did:example:123"}`))
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
@@ -231,7 +225,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		},
 	).Return(&http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["openid", "profile"], "op_state" : "QIn85XAEHwlPyCVRhTww"}`)), //nolint
+		Body:       io.NopCloser(strings.NewReader(`{"scopes":["openid","profile"],"op_state":"QIn85XAEHwlPyCVRhTww"}`)), //nolint:lll
 	}, nil)
 
 	preAuthClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
@@ -317,9 +311,40 @@ func mockIssuerInteractionClient(
 		issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
 			OpState: opState,
 		},
-	).Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
+	).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBufferString(`{"tx_id":"txID"}`)),
+	}, nil)
+
+	b, err := json.Marshal(issuer.PrepareCredentialResult{
+		Credential: "credential in jwt format",
+		Format:     string(vcsverifiable.Jwt),
+		Retry:      false,
+	})
+	require.NoError(t, err)
+
+	client.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(&http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewBuffer(b)),
+	}, nil)
 
 	return client
+}
+
+func getDefaultStore() *storage.MemoryStore {
+	return &storage.MemoryStore{
+		Clients:                map[string]fosite.Client{},
+		AuthorizeCodes:         map[string]storage.StoreAuthorizeCode{},
+		IDSessions:             make(map[string]fosite.Requester),
+		AccessTokens:           map[string]fosite.Requester{},
+		RefreshTokens:          map[string]storage.StoreRefreshToken{},
+		PKCES:                  map[string]fosite.Requester{},
+		Users:                  make(map[string]storage.MemoryUserRelation),
+		AccessTokenRequestIDs:  map[string]string{},
+		RefreshTokenRequestIDs: map[string]string{},
+		IssuerPublicKeys:       map[string]storage.IssuerPublicKeys{},
+		PARSessions:            map[string]fosite.AuthorizeRequester{},
+	}
 }
 
 func registerThirdPartyOIDCAuthorizeEndpoint(t *testing.T, e *echo.Echo) {

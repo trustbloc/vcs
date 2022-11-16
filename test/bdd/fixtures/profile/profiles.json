@@ -258,6 +258,7 @@
         "oidcConfig": {
           "client_id": "bank_issuer",
           "client_secret_handle": "bank-issuer-secret",
+          "redirect_uri": "https://localhost:4455/oidc/redirect",
           "issuer_well_known": "https://oidc-provider.example.com:4444/.well-known/openid-configuration"
         },
         "credentialTemplates": [

@@ -4,6 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+//nolint:lll
 package oidc4ci_test
 
 import (
@@ -28,13 +29,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 )
 
-//nolint:lll
 func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
@@ -180,7 +181,6 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 	}
 }
 
-//nolint:lll
 func TestController_OidcAuthorize(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
@@ -579,7 +579,6 @@ func TestController_OidcAuthorize(t *testing.T) {
 	}
 }
 
-//nolint:lll
 func TestController_OidcRedirect(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
@@ -719,7 +718,12 @@ func TestController_OidcToken(t *testing.T) {
 				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(),
 					issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
 						OpState: opState,
-					}).Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
+					}).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBufferString(`{"tx_id":"txID"}`)),
+						}, nil)
 
 				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
 					&fosite.AccessResponse{}, nil)
@@ -756,7 +760,11 @@ func TestController_OidcToken(t *testing.T) {
 					}, nil)
 
 				mockInteractionClient.EXPECT().ExchangeAuthorizationCodeRequest(gomock.Any(), gomock.Any()).
-					Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBufferString(`{"tx_id":"txID"}`)),
+						}, nil)
 
 				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), gomock.Any()).Return(
 					nil, errors.New("new access response error"))
@@ -807,7 +815,6 @@ func TestController_OidcToken(t *testing.T) {
 	}
 }
 
-//nolint:lll
 func TestController_OidcPreAuthorize(t *testing.T) {
 	var (
 		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
@@ -1061,6 +1068,171 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			rec := httptest.NewRecorder()
 
 			err := controller.OidcPreAuthorizedCode(echo.New().NewContext(req, rec))
+			tt.check(t, rec, err)
+		})
+	}
+}
+
+func TestController_OidcCredential(t *testing.T) {
+	var (
+		mockOAuthProvider     = NewMockOAuth2Provider(gomock.NewController(t))
+		mockInteractionClient = NewMockIssuerInteractionClient(gomock.NewController(t))
+		accessToken           string
+	)
+
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, rec *httptest.ResponseRecorder, err error)
+	}{
+		{
+			name: "success",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{"txID": "txID"},
+							},
+						), nil)
+
+				b, err := json.Marshal(issuer.PrepareCredentialResult{
+					Credential: "credential in jwt format",
+					Format:     string(vcsverifiable.Jwt),
+				})
+				require.NoError(t, err)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBuffer(b)),
+						}, nil)
+
+				accessToken = "access-token"
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, rec.Code)
+			},
+		},
+		{
+			name: "missing access token",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).Times(0)
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+				accessToken = ""
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "missing access token")
+			},
+		},
+		{
+			name: "fail to introspect token",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(fosite.AccessToken, nil, errors.New("introspect error"))
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
+
+				accessToken = "access-token"
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "introspect token")
+			},
+		},
+		{
+			name: "fail to prepare credential",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{"txID": "txID"},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("prepare credential error"))
+
+				accessToken = "access-token"
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "prepare credential")
+			},
+		},
+		{
+			name: "invalid status code in prepare credential response",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{"txID": "txID"},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(bytes.NewBuffer(nil)),
+						}, nil)
+
+				accessToken = "access-token"
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "prepare credential: status code 500")
+			},
+		},
+		{
+			name: "fail to decode prepare credential result",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{"txID": "txID"},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusOK,
+							Body:       io.NopCloser(bytes.NewBufferString("invalid json")),
+						}, nil)
+
+				accessToken = "access-token"
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "decode prepare credential result")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			controller := oidc4ci.NewController(&oidc4ci.Config{
+				OAuth2Provider:          mockOAuthProvider,
+				IssuerInteractionClient: mockInteractionClient,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+
+			if accessToken != "" {
+				req.Header.Set("Authorization", "Bearer "+accessToken)
+			}
+
+			rec := httptest.NewRecorder()
+
+			err := controller.OidcCredential(echo.New().NewContext(req, rec))
 			tt.check(t, rec, err)
 		})
 	}

@@ -291,14 +291,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CredentialResponse'
+                $ref: '#/components/schemas/PrepareCredentialResult'
       operationId: prepare-credential
       description: Used by VCS OIDC credential endpoint to request credential to conclude OIDC issuance flow.
       requestBody:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CredentialRequest'
+              $ref: '#/components/schemas/PrepareCredential'
   '/verifier/profiles/{profileID}/credentials/verify':
     parameters:
       - schema:
@@ -671,6 +671,26 @@ paths:
           in: query
           required: true
           description: state
+  /oidc/credential:
+    post:
+      summary: OIDC Credential
+      tags:
+        - oidc4ci
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialResponse'
+      operationId: oidc-credential
+      description: Issues credentials in exchange for an authorization token.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialRequest'
+      parameters: []
 components:
   schemas:
     HealthCheckResponse:
@@ -1190,8 +1210,8 @@ components:
       required:
         - op_state
         - authorization_details
-    CredentialRequest:
-      title: CredentialRequest
+    PrepareCredential:
+      title: PrepareCredential
       x-tags:
         - issuer
       type: object
@@ -1212,8 +1232,8 @@ components:
       required:
         - tx_id
         - type
-    CredentialResponse:
-      title: CredentialResponse
+    PrepareCredentialResult:
+      title: PrepareCredentialResult
       x-tags:
         - issuer
       type: object
@@ -1223,10 +1243,62 @@ components:
           oneOf:
             - type: string
             - type: object
+        format:
+          type: string
+          description: Format of issued credential.
         retry:
           type: boolean
-          description: Should be set to TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
+          description: TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
       required:
         - credential
+        - format
         - retry
+    CredentialRequest:
+      title: CredentialRequest
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Model for OIDC Credential request.
+      properties:
+        type:
+          type: string
+          description: Type of the credential being issued.
+        format:
+          type: string
+          description: Format of the credential being issued.
+        did:
+          type: string
+          description: DID to which issued credential has to be bound.
+        proof:
+          type: object
+          description: JSON Object containing proof of possession of the key material the issued credential shall be bound to.
+      required:
+        - type
+        - did
+    CredentialResponse:
+      title: CredentialResponse
+      x-tags:
+        - oidc4ci
+      type: object
+      description: Model for OIDC Credential response.
+      properties:
+        format:
+          type: string
+          description: JSON string denoting the format of the issued Credential.
+        credential:
+          oneOf:
+            - type: string
+            - type: object
+        acceptance_token:
+          type: string
+          description: A JSON string containing a token subsequently used to obtain a Credential. MUST be present when credential is not returned.
+        c_nonce:
+          type: string
+          description: JSON string containing a nonce to be used to create a proof of possession of key material when requesting a Credential.
+        c_nonce_expires_in:
+          type: integer
+          description: JSON integer denoting the lifetime in seconds of the c_nonce.
+      required:
+        - format
+        - credential
   securitySchemes: {}

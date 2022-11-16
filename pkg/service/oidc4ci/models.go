@@ -48,6 +48,7 @@ type TransactionData struct {
 	ClaimEndpoint                      string
 	ClientID                           string
 	ClientSecret                       string
+	RedirectURI                        string
 	GrantType                          string
 	ResponseType                       string
 	Scope                              []string
@@ -116,15 +117,16 @@ type PrepareClaimDataAuthorizationResponse struct {
 	TxID                               TxID
 }
 
-type CredentialRequest struct {
+type PrepareCredential struct {
 	TxID             TxID
 	CredentialType   string
 	CredentialFormat vcsverifiable.Format
 	DID              string
 }
 
-type CredentialResponse struct {
+type PrepareCredentialResult struct {
 	Credential *verifiable.Credential
+	Format     vcsverifiable.Format
 	Retry      bool
 }
 

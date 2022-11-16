@@ -1129,11 +1129,11 @@ func TestController_PrepareCredential(t *testing.T) {
 		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(
 				ctx context.Context,
-				req *oidc4ci.CredentialRequest,
-			) (*oidc4ci.CredentialResponse, error) {
+				req *oidc4ci.PrepareCredential,
+			) (*oidc4ci.PrepareCredentialResult, error) {
 				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
 
-				return &oidc4ci.CredentialResponse{}, nil
+				return &oidc4ci.PrepareCredentialResult{}, nil
 			},
 		)
 

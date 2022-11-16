@@ -34,9 +34,9 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 			TokenURL:  tx.TokenEndpoint,
 			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
-		Scopes: tx.Scope,
+		RedirectURL: tx.RedirectURI,
+		Scopes:      tx.Scope,
 	}, tx.IssuerAuthCode, s.httpClient.(*http.Client)) // TODO: Fix this!
-
 	if err != nil {
 		return "", err
 	}

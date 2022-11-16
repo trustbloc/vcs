@@ -60,6 +60,8 @@ func (s *Service) InitiateIssuance(
 		TokenEndpoint:                      oidcConfig.TokenEndpoint,
 		ClaimEndpoint:                      req.ClaimEndpoint,
 		ClientID:                           profile.OIDCConfig.ClientID,
+		ClientSecret:                       profile.OIDCConfig.ClientSecretHandle,
+		RedirectURI:                        profile.OIDCConfig.RedirectURI,
 		GrantType:                          req.GrantType,
 		ResponseType:                       req.ResponseType,
 		Scope:                              req.Scope,
