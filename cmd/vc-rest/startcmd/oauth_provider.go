@@ -63,5 +63,6 @@ func bootstrapOAuthProvider(
 		compose.OAuth2AuthorizeExplicitFactory,
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
+		compose.OAuth2TokenIntrospectionFactory,
 	), nil
 }
