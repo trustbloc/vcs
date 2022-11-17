@@ -25,3 +25,10 @@ type AuthorizationDetails struct {
 	// the AS to mint audience restricted access tokens.
 	Locations *[]string
 }
+
+type JWTProofClaims struct {
+	Issuer   string `json:"iss,omitempty"`
+	Audience string `json:"aud,omitempty"`
+	IssuedAt int64  `json:"iat,omitempty"`
+	Nonce    string `json:"nonce,omitempty"`
+}

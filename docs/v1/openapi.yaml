@@ -1270,11 +1270,25 @@ components:
           type: string
           description: DID to which issued credential has to be bound.
         proof:
-          type: object
-          description: JSON Object containing proof of possession of the key material the issued credential shall be bound to.
+          $ref: '#/components/schemas/JWTProof'
       required:
         - type
         - did
+    JWTProof:
+      title: JWTProof
+      x-tags:
+        - oidc4ci
+      type: object
+      properties:
+        proof_type:
+          type: string
+          description: REQUIRED. JSON String denoting the proof type. Currently the only supported proof type is 'jwt'.
+        jwt:
+          type: string
+          description: REQUIRED. Signed JWT as proof of key possession.
+      required:
+        - proof_type
+        - jwt
     CredentialResponse:
       title: CredentialResponse
       x-tags:

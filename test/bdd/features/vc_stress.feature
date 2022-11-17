@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-@all
 @vc_stress
 Feature: VC stress test
   @vc_stress_test

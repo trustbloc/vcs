@@ -41,10 +41,8 @@ type CredentialRequest struct {
 	Did string `json:"did"`
 
 	// Format of the credential being issued.
-	Format *string `json:"format,omitempty"`
-
-	// JSON Object containing proof of possession of the key material the issued credential shall be bound to.
-	Proof *map[string]interface{} `json:"proof,omitempty"`
+	Format *string   `json:"format,omitempty"`
+	Proof  *JWTProof `json:"proof,omitempty"`
 
 	// Type of the credential being issued.
 	Type string `json:"type"`
@@ -64,6 +62,15 @@ type CredentialResponse struct {
 
 	// JSON string denoting the format of the issued Credential.
 	Format string `json:"format"`
+}
+
+// JWTProof defines model for JWTProof.
+type JWTProof struct {
+	// REQUIRED. Signed JWT as proof of key possession.
+	Jwt string `json:"jwt"`
+
+	// REQUIRED. JSON String denoting the proof type. Currently the only supported proof type is 'jwt'.
+	ProofType string `json:"proof_type"`
 }
 
 // Model for Pushed Authorization Response.
