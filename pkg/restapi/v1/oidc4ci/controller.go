@@ -11,13 +11,19 @@ package oidc4ci
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
@@ -40,6 +46,10 @@ const (
 	authorizeEndpoint          = "/oidc/authorize"
 	tokenEndpoint              = "/oidc/token"
 	tokenType                  = "bearer"
+	cNonceKey                  = "cNonce"
+	cNonceExpiresAtKey         = "cNonceExpiresAt"
+	cNonceTTL                  = 5 * time.Minute
+	cNonceSize                 = 15
 )
 
 // StateStore stores authorization request/response state.
@@ -96,6 +106,7 @@ type Config struct {
 	OAuth2Client            OAuth2Client
 	PreAuthorizeClient      HTTPClient
 	DefaultHTTPClient       *http.Client
+	JWTVerifier             jose.SignatureVerifier
 	ExternalHostURL         string
 }
 
@@ -108,6 +119,7 @@ type Controller struct {
 	oAuth2Client            OAuth2Client
 	preAuthorizeClient      HTTPClient
 	defaultHTTPClient       *http.Client
+	jwtVerifier             jose.SignatureVerifier
 	internalHostURL         string
 }
 
@@ -121,6 +133,7 @@ func NewController(config *Config) *Controller {
 		oAuth2Client:            config.OAuth2Client,
 		preAuthorizeClient:      config.PreAuthorizeClient,
 		defaultHTTPClient:       config.DefaultHTTPClient,
+		jwtVerifier:             config.JWTVerifier,
 		internalHostURL:         config.ExternalHostURL,
 	}
 }
@@ -329,7 +342,9 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
-	isPreAuthFlow := ar.GetSession().(*fosite.DefaultSession).Extra[authorizationDetailsKey] == preAuthorizedCodeGrantType
+	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
+
+	isPreAuthFlow := session.Extra[authorizationDetailsKey] == preAuthorizedCodeGrantType
 	if isPreAuthFlow {
 		resp, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
 		if err2 != nil {
@@ -356,19 +371,148 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		return fmt.Errorf("exchange auth code: status code %d", exchangeResp.StatusCode)
 	}
 
-	body, err := io.ReadAll(exchangeResp.Body)
+	b, err := io.ReadAll(exchangeResp.Body)
 	if err != nil {
 		return fmt.Errorf("read exchange auth code response: %w", err)
 	}
 
-	ar.GetSession().(*fosite.DefaultSession).Extra[txIDKey] = string(body)
+	session.Extra[txIDKey] = string(b)
 
-	resp, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
+	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
-	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, resp)
+	nonce := mustGenerateCNonce()
+
+	session.Extra[cNonceKey] = nonce
+	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
+
+	responder.SetExtra("c_nonce", nonce)
+	responder.SetExtra("c_nonce_expires_in", cNonceTTL.Seconds())
+
+	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
+
+	return nil
+}
+
+func mustGenerateCNonce() string {
+	b := make([]byte, cNonceSize)
+
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+
+	return base64.URLEncoding.EncodeToString(b)
+}
+
+// OidcCredential handles OIDC credential request (POST /oidc/credential).
+func (c *Controller) OidcCredential(e echo.Context) error {
+	req := e.Request()
+	ctx := req.Context()
+
+	var credentialRequest CredentialRequest
+
+	if err := validateCredentialRequest(e, &credentialRequest); err != nil {
+		return err
+	}
+
+	token := fosite.AccessTokenFromRequest(req)
+	if token == "" {
+		return resterr.NewUnauthorizedError(errors.New("missing access token"))
+	}
+
+	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
+	if err != nil {
+		return resterr.NewUnauthorizedError(fmt.Errorf("introspect token: %w", err))
+	}
+
+	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
+
+	if err = validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier); err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "proof", err)
+	}
+
+	txID := session.Extra[txIDKey].(string) //nolint:errcheck
+
+	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
+		issuer.PrepareCredentialJSONRequestBody{
+			TxId:   txID,
+			Did:    lo.ToPtr(credentialRequest.Did),
+			Type:   credentialRequest.Type,
+			Format: credentialRequest.Format,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("prepare credential: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("prepare credential: status code %d", resp.StatusCode)
+	}
+
+	var result issuer.PrepareCredentialResult
+
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return fmt.Errorf("decode prepare credential result: %w", err)
+	}
+
+	nonce := mustGenerateCNonce()
+
+	session.Extra[cNonceKey] = nonce
+	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
+
+	return apiUtil.WriteOutput(e)(CredentialResponse{
+		Credential:      result.Credential,
+		Format:          result.Format,
+		CNonce:          lo.ToPtr(nonce),
+		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
+	}, nil)
+}
+
+func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
+	if err := e.Bind(req); err != nil {
+		return err
+	}
+
+	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
+	if err != nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+	}
+
+	if req.Proof == nil {
+		return resterr.NewValidationError(resterr.InvalidValue, "proof", errors.New("missing proof type"))
+	}
+
+	if req.Proof.ProofType != "jwt" || req.Proof.Jwt == "" {
+		return resterr.NewValidationError(resterr.InvalidValue, "proof", errors.New("invalid proof type"))
+	}
+
+	return nil
+}
+
+func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier jose.SignatureVerifier) error {
+	jws, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+	if err != nil {
+		return fmt.Errorf("parse jwt: %w", err)
+	}
+
+	var claims JWTProofClaims
+
+	if err = jws.DecodeClaims(&claims); err != nil {
+		return fmt.Errorf("decode claims: %w", err)
+	}
+
+	if nonceExp := session.Extra[cNonceExpiresAtKey].(int64); nonceExp < time.Now().Unix() { //nolint:errcheck
+		return errors.New("nonce expired")
+	}
+
+	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
+		return errors.New("invalid nonce")
+	}
 
 	return nil
 }
@@ -462,60 +606,4 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 	}
 
 	return apiUtil.WriteOutput(e)(aResponse, nil)
-}
-
-// OidcCredential handles OIDC credential request (POST /oidc/credential).
-func (c *Controller) OidcCredential(e echo.Context) error {
-	req := e.Request()
-	ctx := req.Context()
-
-	var credentialReq CredentialRequest
-
-	if err := e.Bind(&credentialReq); err != nil {
-		return err
-	}
-
-	// TODO: Validate proof of possession of the key material
-
-	var token string
-
-	if token = fosite.AccessTokenFromRequest(req); token == "" {
-		return fmt.Errorf("missing access token")
-	}
-
-	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
-	if err != nil {
-		return fmt.Errorf("introspect token: %w", err)
-	}
-
-	txID := ar.GetSession().(*fosite.DefaultSession).Extra[txIDKey].(string) //nolint:errcheck
-
-	resp, err := c.issuerInteractionClient.PrepareCredential(ctx, issuer.PrepareCredentialJSONRequestBody{
-		TxId:   txID,
-		Did:    lo.ToPtr(credentialReq.Did),
-		Type:   credentialReq.Type,
-		Format: credentialReq.Format,
-	})
-	if err != nil {
-		return fmt.Errorf("prepare credential: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("prepare credential: status code %d", resp.StatusCode)
-	}
-
-	var result issuer.PrepareCredentialResult
-
-	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return fmt.Errorf("decode prepare credential result: %w", err)
-	}
-
-	return apiUtil.WriteOutput(e)(CredentialResponse{
-		Credential:      result.Credential,
-		Format:          result.Format,
-		CNonce:          nil, // TODO: Add support for c_nonce and c_nonce_expires_in
-		CNonceExpiresIn: nil,
-	}, nil)
 }

@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-@all
 @oidc4vp_stress
 Feature: Using OIDC4VP REST API
 

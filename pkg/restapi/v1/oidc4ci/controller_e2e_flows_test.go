@@ -9,6 +9,8 @@ package oidc4ci_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +23,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/compose"
@@ -105,12 +109,24 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 			return (&cfg).AuthCodeURL(state)
 		})
 
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	v, err := jwt.NewEd25519Verifier(pub)
+	require.NoError(t, err)
+
+	verifier := jose.NewCompositeAlgSigVerifier(jose.AlgSignatureVerifier{
+		Alg:      "EdDSA",
+		Verifier: v,
+	})
+
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
 		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cistatestore.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
 		OAuth2Client:            oauth2Client,
+		JWTVerifier:             verifier,
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)
@@ -151,11 +167,32 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, token)
 	require.NotEmpty(t, token.AccessToken)
+	require.NotEmpty(t, token.Extra("c_nonce"))
+	require.NotEmpty(t, token.Extra("c_nonce_expires_in"))
 
 	httpClient := oauthClient.Client(context.Background(), token)
 
-	resp, err = httpClient.Post(srv.URL+"/oidc/credential", "application/json",
-		bytes.NewBufferString(`{"format":"vc_jwt","did":"did:example:123"}`))
+	claims := &oidc4ci.JWTProofClaims{
+		Issuer:   clientID,
+		IssuedAt: time.Now().Unix(),
+		Nonce:    token.Extra("c_nonce").(string),
+	}
+
+	signedJWT, err := jwt.NewSigned(claims, nil, jwt.NewEd25519Signer(priv))
+	require.NoError(t, err)
+
+	jws, err := signedJWT.Serialize(false)
+	require.NoError(t, err)
+
+	b, err := json.Marshal(oidc4ci.CredentialRequest{
+		Did:    "did:example:123",
+		Format: lo.ToPtr("jwt_vc"),
+		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
+		Type:   "UniversityDegreeCredential",
+	})
+	require.NoError(t, err)
+
+	resp, err = httpClient.Post(srv.URL+"/oidc/credential", "application/json", bytes.NewBuffer(b))
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 }
