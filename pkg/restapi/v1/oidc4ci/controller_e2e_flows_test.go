@@ -196,6 +196,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		compose.OAuth2AuthorizeExplicitFactory,
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
+		compose.OAuth2TokenIntrospectionFactory,
 	)
 
 	interaction := NewMockIssuerInteractionClient(gomock.NewController(t))
