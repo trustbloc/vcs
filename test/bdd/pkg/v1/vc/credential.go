@@ -17,7 +17,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
-	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	"github.com/trustbloc/vcs/component/walletcli/pkg/service/walletrunner/vcprovider"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -85,7 +85,7 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 		subjs[0].ID = e.bddContext.CredentialSubject
 	}
 
-	reqData, err := getIssueCredentialRequestData(cred, vcFormat)
+	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, vcFormat)
 	if err != nil {
 		return fmt.Errorf("unable to get issue credential request data: %w", err)
 	}
@@ -123,23 +123,6 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 	e.Unlock()
 
 	return nil
-}
-
-func getIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat string) (interface{}, error) {
-	switch desiredFormat {
-	case string(common.JwtVc):
-		claims, err := vc.JWTClaims(false)
-		if err != nil {
-			return nil, err
-		}
-
-		return claims.MarshalUnsecuredJWT()
-	case string(common.LdpVc):
-		return vc, nil
-
-	default:
-		return nil, fmt.Errorf("unsupported format %s", desiredFormat)
-	}
 }
 
 func (e *Steps) verifyVC(profileName, organizationName string) error {

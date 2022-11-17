@@ -14,3 +14,4 @@ coverage:
 
 ignore:
   - "test/bdd"  # ignore bdd tests
+  - "component/walletcli"  # ignore walletcli testing tool

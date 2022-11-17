@@ -21,7 +21,7 @@ import (
 var logger = log.New("vc-steps")
 
 func (e *Steps) authorizeOrganizationForStressTest(accessTokenURLEnv, orgIDEnv, clientIDEnv, secretEnv string) error {
-	accessTokenURL, err := getEnv(accessTokenURLEnv, oidcProviderURL)
+	accessTokenURL, err := getEnv(accessTokenURLEnv, OidcProviderURL)
 	if err != nil {
 		return err
 	}
