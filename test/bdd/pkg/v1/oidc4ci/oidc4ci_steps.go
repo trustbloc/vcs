@@ -9,6 +9,8 @@ package oidc4ci
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,11 +19,19 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
+	docdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"golang.org/x/oauth2"
 
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -32,8 +42,12 @@ const (
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/interactions/initiate-oidc"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
+	vcsCredentialEndpoint               = vcsAPIGateway + "/oidc/credential"
 	oidcProviderURL                     = "https://localhost:4444"
 	loginPageURL                        = "https://localhost:8099/login"
+	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
+	didDomain                           = "https://testnet.orb.local"
+	didServiceAuthToken                 = "tk1"
 )
 
 // Steps defines context for OIDC4CI scenario steps.
@@ -45,7 +59,8 @@ type Steps struct {
 	debug               bool
 	initiateIssuanceURL string
 	authCode            string
-	accessToken         string
+	token               *oauth2.Token
+	credential          interface{}
 }
 
 // NewSteps returns new Steps context.
@@ -126,6 +141,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 		OpState:              uuid.New().String(),
 		ResponseType:         "code",
 		Scope:                []string{"openid", "profile"},
+		ClaimEndpoint:        claimDataURL,
 	})
 	if err != nil {
 		return fmt.Errorf("marshal initiate oidc4ci req: %w", err)
@@ -292,13 +308,13 @@ func (s *Steps) exchangeCodeForToken() error {
 		return fmt.Errorf("exchange code for token: %w", err)
 	}
 
-	s.accessToken = token.AccessToken
+	s.token = token
 
 	return nil
 }
 
 func (s *Steps) checkAccessToken() error {
-	if s.accessToken == "" {
+	if s.token.AccessToken == "" {
 		return fmt.Errorf("access token is empty")
 	}
 
@@ -306,11 +322,141 @@ func (s *Steps) checkAccessToken() error {
 }
 
 func (s *Steps) getCredential() error {
-	return fmt.Errorf("not implemented")
+	publicKey, privateKey, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return fmt.Errorf("generate key pair: %w", err)
+	}
+
+	diddoc, err := s.createDID(publicKey)
+	if err != nil {
+		return fmt.Errorf("create did: %w", err)
+	}
+
+	jws, err := s.createProof(privateKey, diddoc.VerificationMethod[0].ID)
+	if err != nil {
+		return fmt.Errorf("create proof: %w", err)
+	}
+
+	b, err := json.Marshal(credentialRequest{
+		DID:    diddoc.ID,
+		Format: "jwt_vc",
+		Type:   "UniversityDegreeCredential",
+		Proof: jwtProof{
+			ProofType: "jwt",
+			JWT:       jws,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("marshal credential request: %w", err)
+	}
+
+	var transport http.RoundTripper = &http.Transport{TLSClientConfig: s.bddContext.TLSConfig}
+
+	if s.debug {
+		transport = &DumpTransport{transport}
+	}
+
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{Transport: transport})
+
+	httpClient := s.oauthClient.Client(ctx, s.token)
+
+	resp, err := httpClient.Post(vcsCredentialEndpoint, "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return fmt.Errorf("get credential: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("get credential: status %s", resp.Status)
+	}
+
+	var credentialResp credentialResponse
+
+	if err = json.NewDecoder(resp.Body).Decode(&credentialResp); err != nil {
+		return fmt.Errorf("decode credential response: %w", err)
+	}
+
+	s.credential = credentialResp.Credential
+
+	return nil
+}
+
+func (s *Steps) createDID(pub ed25519.PublicKey) (*docdid.Doc, error) {
+	vdr, err := orb.New(nil, orb.WithDomain(didDomain), orb.WithTLSConfig(s.bddContext.TLSConfig),
+		orb.WithAuthToken(didServiceAuthToken))
+	if err != nil {
+		return nil, fmt.Errorf("create orb vdr: %w", err)
+	}
+
+	jwk, err := jwksupport.JWKFromKey(pub)
+	if err != nil {
+		return nil, fmt.Errorf("create jwk from key: %w", err)
+	}
+
+	docID := uuid.NewString()
+	keyID := uuid.NewString()
+
+	vm, err := docdid.NewVerificationMethodFromJWK(docID+"#"+keyID, vccrypto.JSONWebKey2020, "", jwk)
+	if err != nil {
+		return nil, fmt.Errorf("create verification method: %w", err)
+	}
+
+	doc := &docdid.Doc{
+		ID:              docID,
+		Authentication:  []docdid.Verification{*docdid.NewReferencedVerification(vm, docdid.Authentication)},
+		AssertionMethod: []docdid.Verification{*docdid.NewReferencedVerification(vm, docdid.AssertionMethod)},
+	}
+
+	vdrRegistry := vdrpkg.New(vdrpkg.WithVDR(vdr))
+
+	updateKey, _, err := ed25519.GenerateKey(rand.Reader)
+	recoverKey, _, err := ed25519.GenerateKey(rand.Reader)
+
+	docResolution, err := vdrRegistry.Create(
+		orb.DIDMethod,
+		doc,
+		vdrapi.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdrapi.WithOption(orb.RecoveryPublicKeyOpt, recoverKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("register did in vdr: %w", err)
+	}
+
+	return docResolution.DIDDocument, nil
+}
+
+func (s *Steps) createProof(privateKey ed25519.PrivateKey, verificationKID string) (string, error) {
+	jwtSigner := jwt.NewEd25519Signer(privateKey)
+
+	claims := &jwtProofClaims{
+		Issuer:   s.oauthClient.ClientID,
+		IssuedAt: time.Now().Unix(),
+		Nonce:    s.token.Extra("c_nonce").(string),
+	}
+
+	jwtHeaders := map[string]interface{}{
+		"alg": "EdDSA",
+		"kid": verificationKID,
+	}
+
+	signedJWT, err := jwt.NewSigned(claims, jwtHeaders, jwtSigner)
+	if err != nil {
+		return "", fmt.Errorf("create signed jwt: %w", err)
+	}
+
+	jws, err := signedJWT.Serialize(false)
+	if err != nil {
+		return "", fmt.Errorf("serialize signed jwt: %w", err)
+	}
+
+	return jws, nil
 }
 
 func (s *Steps) checkCredential() error {
-	return fmt.Errorf("not implemented")
+	if s.credential == nil {
+		return fmt.Errorf("credential is empty")
+	}
+
+	return nil
 }
 
 func getOrgAuthTokenKey(org string) string {

@@ -9,8 +9,6 @@ package oidc4ci
 import (
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -125,7 +123,8 @@ type PrepareCredential struct {
 }
 
 type PrepareCredentialResult struct {
-	Credential *verifiable.Credential
+	ProfileID  profileapi.ID
+	Credential interface{}
 	Format     vcsverifiable.Format
 	Retry      bool
 }

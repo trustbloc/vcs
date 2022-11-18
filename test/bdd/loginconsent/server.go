@@ -75,6 +75,7 @@ func newServer(c *config) *server {
 	router.HandleFunc("/consent", srv.consentHandler).Methods(http.MethodGet)
 	router.HandleFunc("/authenticate", srv.userAuthenticationHandler).Methods(http.MethodPost)
 	router.HandleFunc("/authorize", srv.userAuthorizationHandler).Methods(http.MethodPost)
+	router.HandleFunc("/claim-data", srv.claimDataHandler).Methods(http.MethodPost)
 
 	return srv
 }
@@ -342,4 +343,21 @@ func (s *server) completeConsent(w http.ResponseWriter, r *http.Request, request
 
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 	log.Printf("user authorized; redirected to: %s", redirectURL)
+}
+
+func (s *server) claimDataHandler(w http.ResponseWriter, r *http.Request) {
+	log.Printf("handling request: %s", r.URL.String())
+
+	// TODO: Perform token introspection
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+
+	err := json.NewEncoder(w).Encode(map[string]interface{}{
+		"familyName": "Doe",
+		"givenName":  "John",
+	})
+	if err != nil {
+		log.Printf("failed to write response: %s", err.Error())
+	}
 }

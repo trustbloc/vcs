@@ -46,3 +46,30 @@ type accessTokenResponse struct {
 	// The type of the token issued.
 	TokenType string `json:"token_type"`
 }
+
+type credentialRequest struct {
+	DID    string   `json:"did"`
+	Format string   `json:"format,omitempty"`
+	Type   string   `json:"type"`
+	Proof  jwtProof `json:"proof,omitempty"`
+}
+
+type jwtProof struct {
+	JWT       string `json:"jwt"`
+	ProofType string `json:"proof_type"`
+}
+
+type jwtProofClaims struct {
+	Issuer   string `json:"iss,omitempty"`
+	Audience string `json:"aud,omitempty"`
+	IssuedAt int64  `json:"iat,omitempty"`
+	Nonce    string `json:"nonce,omitempty"`
+}
+
+type credentialResponse struct {
+	AcceptanceToken string      `json:"acceptance_token,omitempty"`
+	CNonce          string      `json:"c_nonce,omitempty"`
+	CNonceExpiresIn int         `json:"c_nonce_expires_in,omitempty"`
+	Credential      interface{} `json:"credential"`
+	Format          string      `json:"format"`
+}

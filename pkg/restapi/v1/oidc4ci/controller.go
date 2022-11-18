@@ -373,21 +373,22 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	var exchangeResult issuer.ExchangeAuthorizationCodeResponse
+
 	if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
 		return fmt.Errorf("read exchange auth code response: %w", err)
 	}
 
 	session.Extra[txIDKey] = exchangeResult.TxId
 
+	nonce := mustGenerateNonce()
+
+	session.Extra[cNonceKey] = nonce
+	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
+
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
-
-	nonce := mustGenerateCNonce()
-
-	session.Extra[cNonceKey] = nonce
-	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
 	responder.SetExtra("c_nonce", nonce)
 	responder.SetExtra("c_nonce_expires_in", cNonceTTL.Seconds())
@@ -397,7 +398,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	return nil
 }
 
-func mustGenerateCNonce() string {
+func mustGenerateNonce() string {
 	b := make([]byte, cNonceSize)
 
 	_, err := rand.Read(b)
@@ -461,7 +462,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 		return fmt.Errorf("decode prepare credential result: %w", err)
 	}
 
-	nonce := mustGenerateCNonce()
+	nonce := mustGenerateNonce()
 
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
