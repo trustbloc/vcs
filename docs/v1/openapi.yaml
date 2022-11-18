@@ -991,6 +991,8 @@ components:
       properties:
         tx_id:
           type: string
+      required:
+        - tx_id
     StoreAuthorizationCodeRequest:
       title: StoreAuthorizationCodeRequest
       type: object

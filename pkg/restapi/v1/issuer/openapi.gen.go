@@ -37,7 +37,7 @@ type ExchangeAuthorizationCodeRequest struct {
 
 // Response model for exchanging auth code from issuer oauth
 type ExchangeAuthorizationCodeResponse struct {
-	TxId *string `json:"tx_id,omitempty"`
+	TxId string `json:"tx_id"`
 }
 
 // Model for Initiate OIDC Credential Issuance Request.
