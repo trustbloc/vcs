@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,credentialService=MockCredentialService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
 
 package oidc4ci
 
@@ -65,14 +65,6 @@ type wellKnownService interface {
 	) (*OIDCConfiguration, error)
 }
 
-type credentialService interface {
-	IssueCredential(
-		ctx context.Context,
-		credential interface{},
-		profileID string,
-	) (*verifiable.Credential, error)
-}
-
 type oAuth2Client interface {
 	Exchange(
 		ctx context.Context,
@@ -91,7 +83,6 @@ type httpClient interface {
 type Config struct {
 	TransactionStore    transactionStore
 	WellKnownService    wellKnownService
-	CredentialService   credentialService
 	IssuerVCSPublicHost string
 	OAuth2Client        oAuth2Client
 	HTTPClient          httpClient
@@ -101,7 +92,6 @@ type Config struct {
 type Service struct {
 	store               transactionStore
 	wellKnownService    wellKnownService
-	credentialService   credentialService
 	issuerVCSPublicHost string
 	oAuth2Client        oAuth2Client
 	httpClient          httpClient
@@ -112,7 +102,6 @@ func NewService(config *Config) (*Service, error) {
 	return &Service{
 		store:               config.TransactionStore,
 		wellKnownService:    config.WellKnownService,
-		credentialService:   config.CredentialService,
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
 		oAuth2Client:        config.OAuth2Client,
 		httpClient:          config.HTTPClient,
@@ -288,7 +277,7 @@ func (s *Service) PrepareCredential(
 		return nil, fmt.Errorf("decode claim data: %w", err)
 	}
 
-	// prepare and sign credential
+	// prepare credential for signing
 	vc := &verifiable.Credential{
 		Context: tx.CredentialTemplate.Contexts,
 		ID:      uuid.New().URN(),
@@ -320,13 +309,9 @@ func (s *Service) PrepareCredential(
 		return nil, ErrCredentialFormatNotSupported
 	}
 
-	issuedVC, err := s.credentialService.IssueCredential(ctx, credential, tx.ProfileID)
-	if err != nil {
-		return nil, fmt.Errorf("issue credential: %w", err)
-	}
-
 	return &PrepareCredentialResult{
-		Credential: issuedVC,
+		ProfileID:  tx.ProfileID,
+		Credential: credential,
 		Format:     tx.CredentialFormat,
 		Retry:      false,
 	}, nil

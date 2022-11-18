@@ -18,6 +18,7 @@ import (
 
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
@@ -304,6 +305,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 			}
 			return client
 		}(),
+		JWTVerifier: jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{

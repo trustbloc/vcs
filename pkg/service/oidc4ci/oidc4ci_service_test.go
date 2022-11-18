@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -531,10 +530,9 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 func TestService_PrepareCredential(t *testing.T) {
 	var (
-		mockTransactionStore  = NewMockTransactionStore(gomock.NewController(t))
-		mockHTTPClient        = NewMockHTTPClient(gomock.NewController(t))
-		mockCredentialService = NewMockCredentialService(gomock.NewController(t))
-		req                   *oidc4ci.PrepareCredential
+		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
+		req                  *oidc4ci.PrepareCredential
 	)
 
 	tests := []struct {
@@ -569,9 +567,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					}, nil
 				})
 
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(&verifiable.Credential{}, nil)
-
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -588,7 +583,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					nil, errors.New("get error"))
 
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -607,7 +601,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -628,7 +621,6 @@ func TestService_PrepareCredential(t *testing.T) {
 				}, nil)
 
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("http error"))
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -653,8 +645,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					Body:       io.NopCloser(bytes.NewBuffer(nil)),
 				}, nil)
 
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -677,8 +667,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewBuffer([]byte("invalid"))),
 				}, nil)
-
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -711,8 +699,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					}, nil
 				})
 
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -722,50 +708,14 @@ func TestService_PrepareCredential(t *testing.T) {
 				require.Nil(t, resp)
 			},
 		},
-		{
-			name: "Service error",
-			setup: func() {
-				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
-						IssuerToken:        "issuer-access-token",
-						CredentialTemplate: &profileapi.CredentialTemplate{},
-						CredentialFormat:   vcsverifiable.Ldp,
-					},
-				}, nil)
-
-				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
-
-				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
-					req *http.Request,
-				) (*http.Response, error) {
-					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
-					}, nil
-				})
-
-				mockCredentialService.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("issue credential error"))
-
-				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "issue credential error")
-				require.Nil(t, resp)
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
-				TransactionStore:  mockTransactionStore,
-				CredentialService: mockCredentialService,
-				HTTPClient:        mockHTTPClient,
+				TransactionStore: mockTransactionStore,
+				HTTPClient:       mockHTTPClient,
 			})
 			require.NoError(t, err)
 

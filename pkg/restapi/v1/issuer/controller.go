@@ -163,9 +163,17 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, err
 	}
 
+	return c.signCredential(body.Credential, body.Options, profile)
+}
+
+func (c *Controller) signCredential(
+	cred interface{},
+	opts *IssueCredentialOptions,
+	profile *profileapi.Issuer,
+) (*verifiable.Credential, error) {
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 
-	credential, err := vc.ValidateCredential(body.Credential, []vcsverifiable.Format{profile.VCConfig.Format},
+	credential, err := vc.ValidateCredential(cred, []vcsverifiable.Format{profile.VCConfig.Format},
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
@@ -173,7 +181,7 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}
 
-	credOpts, err := validateIssueCredOptions(body.Options, profile)
+	credOpts, err := validateIssueCredOptions(opts, profile)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +201,7 @@ func validateIssueCredOptions(
 	if options == nil {
 		return signingOpts, nil
 	}
+
 	if options.CredentialStatus.Type != "" &&
 		options.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "options.credentialStatus",
@@ -510,7 +519,7 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	}, nil)
 }
 
-// PrepareCredential requests claim data and prepares VC to conclude OIDC issuance flow.
+// PrepareCredential requests claim data and prepares VC for signing by issuer.
 // POST /issuer/interactions/prepare-credential.
 func (c *Controller) PrepareCredential(ctx echo.Context) error {
 	var body PrepareCredential
@@ -524,7 +533,7 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
 
-	resp, err := c.oidc4ciService.PrepareCredential(ctx.Request().Context(),
+	result, err := c.oidc4ciService.PrepareCredential(ctx.Request().Context(),
 		&oidc4ci.PrepareCredential{
 			TxID:             oidc4ci.TxID(body.TxId),
 			CredentialType:   body.Type,
@@ -536,9 +545,19 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential", err)
 	}
 
+	profile, err := c.accessProfile(result.ProfileID)
+	if err != nil {
+		return err
+	}
+
+	signedCredential, err := c.signCredential(result.Credential, nil, profile)
+	if err != nil {
+		return err
+	}
+
 	return util.WriteOutput(ctx)(PrepareCredentialResult{
-		Credential: resp.Credential,
-		Format:     string(resp.Format),
-		Retry:      resp.Retry,
+		Credential: signedCredential,
+		Format:     string(result.Format),
+		Retry:      result.Retry,
 	}, nil)
 }

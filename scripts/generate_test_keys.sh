@@ -23,6 +23,7 @@ DNS.1 = localhost
 DNS.2 = testnet.orb.local
 DNS.4 = file-server.trustbloc.local
 DNS.5 = oidc-provider.example.com
+DNS.6 = mock-login-consent.example.com
 " >> "$tmp"
 
 #create CA
