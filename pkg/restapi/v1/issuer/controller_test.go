@@ -1052,6 +1052,21 @@ func TestController_ExchangeAuthorizationCode(t *testing.T) {
 		assert.NoError(t, c.ExchangeAuthorizationCodeRequest(ctx))
 	})
 
+	t.Run("error from service", func(t *testing.T) {
+		opState := uuid.NewString()
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().ExchangeAuthorizationCode(gomock.Any(), opState).
+			Return(oidc4ci.TxID(""), errors.New("unexpected error"))
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		req := fmt.Sprintf(`{"op_state":"%s"}`, opState) //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.ExchangeAuthorizationCodeRequest(ctx), "unexpected error")
+	})
+
 	t.Run("invalid body", func(t *testing.T) {
 		c := &Controller{}
 

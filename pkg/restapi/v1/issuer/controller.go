@@ -479,7 +479,12 @@ func (c *Controller) ExchangeAuthorizationCodeRequest(ctx echo.Context) error {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState))
+	txID, err := c.oidc4ciService.ExchangeAuthorizationCode(ctx.Request().Context(), body.OpState)
+	if err != nil {
+		return util.WriteOutput(ctx)(nil, err)
+	}
+
+	return util.WriteOutput(ctx)(ExchangeAuthorizationCodeResponse{TxId: string(txID)}, nil)
 }
 
 // ValidatePreAuthorizedCodeRequest Validates authorization code and pin.

@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -373,12 +372,12 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		return fmt.Errorf("exchange auth code: status code %d", exchangeResp.StatusCode)
 	}
 
-	b, err := io.ReadAll(exchangeResp.Body)
-	if err != nil {
+	var exchangeResult issuer.ExchangeAuthorizationCodeResponse
+	if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
 		return fmt.Errorf("read exchange auth code response: %w", err)
 	}
 
-	session.Extra[txIDKey] = string(b)
+	session.Extra[txIDKey] = exchangeResult.TxId
 
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
