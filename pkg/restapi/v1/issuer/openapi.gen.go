@@ -214,6 +214,9 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 	// A list of pre-authorized scopes
 	Scopes []string `json:"scopes"`
+
+	// transaction id
+	TxId string `json:"tx_id"`
 }
 
 // ExchangeAuthorizationCodeRequestJSONBody defines parameters for ExchangeAuthorizationCodeRequest.

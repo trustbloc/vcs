@@ -1036,6 +1036,9 @@ components:
       x-tags:
         - issuer
       properties:
+        tx_id:
+          type: string
+          description: transaction id
         op_state:
           type: string
           description: Op state.
@@ -1047,6 +1050,7 @@ components:
       required:
         - op_state
         - scopes
+        - tx_id
     PrepareClaimDataAuthorizationResponse:
       title: PrepareClaimDataAuthorizationResponse
       type: object
