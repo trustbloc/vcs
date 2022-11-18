@@ -499,6 +499,7 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 	}
 
 	return util.WriteOutput(ctx)(ValidatePreAuthorizedCodeResponse{
+		TxId:    string(result.ID),
 		OpState: result.OpState,
 		Scopes:  result.Scope,
 	}, nil)

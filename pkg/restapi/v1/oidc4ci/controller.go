@@ -346,6 +346,8 @@ func (c *Controller) OidcToken(e echo.Context) error {
 
 	isPreAuthFlow := session.Extra[authorizationDetailsKey] == preAuthorizedCodeGrantType
 	if isPreAuthFlow {
+		ar.GetSession().(*fosite.DefaultSession).Extra[txIDKey] = req.FormValue(txIDKey)
+
 		resp, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
 		if err2 != nil {
 			return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err2).WithAccessRequester(ar)
@@ -591,6 +593,7 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 		parsedURL.Query().Get("code"),
 		c.defaultHTTPClient,
 		oauth2client.SetAuthURLParam("code_verifier", verifier),
+		oauth2client.SetAuthURLParam(txIDKey, validateResponse.TxId),
 	)
 	if err != nil {
 		return err

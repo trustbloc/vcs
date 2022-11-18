@@ -263,7 +263,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		},
 	).Return(&http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(strings.NewReader(`{"scopes":["openid","profile"],"op_state":"QIn85XAEHwlPyCVRhTww"}`)), //nolint:lll
+		Body:       io.NopCloser(strings.NewReader(`{"scopes":["openid","profile"],"op_state":"QIn85XAEHwlPyCVRhTww", "tx_id" : "12345"}`)), //nolint:lll
 	}, nil)
 
 	preAuthClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
