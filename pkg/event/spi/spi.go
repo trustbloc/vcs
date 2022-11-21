@@ -16,6 +16,8 @@ import (
 const (
 	// VerifierEventTopic verifier topic name.
 	VerifierEventTopic = "vcs-verifier"
+	// IssuerEventTopic issuer topic name.
+	IssuerEventTopic = "vcs-issuer"
 )
 
 // EventType event type.
@@ -28,6 +30,17 @@ const (
 	VerifierOIDCInteractionQRScanned = "oidc_interaction_qr_scanned"
 	// VerifierOIDCInteractionSucceeded verifier oidc event.
 	VerifierOIDCInteractionSucceeded = "oidc_interaction_succeeded"
+
+	// IssuerOIDCInteractionInitiated Issuer oidc event.
+	IssuerOIDCInteractionInitiated = EventType("oidc_interaction_initiated")
+	// IssuerOIDCInteractionQRScanned Issuer oidc event.
+	IssuerOIDCInteractionQRScanned = EventType("oidc_interaction_qr_scanned")
+	// IssuerOIDCInteractionSucceeded Issuer oidc event.
+	IssuerOIDCInteractionSucceeded                    = EventType("oidc_interaction_succeeded")
+	IssuerOIDCInteractionAuthorizationRequestPrepared = EventType("oidc_interaction_authorization_request_prepared") //nolint
+	IssuerOIDCInteractionAuthorizationCodeStored      = EventType("oidc_interaction_authorization_code_stored")      //nolint
+	IssuerOIDCInteractionAuthorizationCodeExchanged   = EventType("oidc_interaction_authorization_code_exchanged")   //nolint
+	IssuerOIDCInteractionFailed                       = EventType("oidc_interaction_failed")
 )
 
 type Payload []byte

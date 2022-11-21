@@ -117,6 +117,7 @@ func TestStore(t *testing.T) {
 			UserPinRequired: true,
 			IsPreAuthFlow:   true,
 			PreAuthCode:     uuid.NewString(),
+			WebHookURL:      "http://remote-url",
 			ClaimData: map[string]interface{}{
 				"abcd": "awesome",
 			},

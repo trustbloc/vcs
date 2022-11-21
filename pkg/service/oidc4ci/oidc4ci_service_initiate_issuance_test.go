@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,6 +37,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
+		eventService         = NewMockEventService(gomock.NewController(t))
 		issuanceReq          *oidc4ci.InitiateIssuanceRequest
 		profile              *profileapi.Issuer
 	)
@@ -75,6 +78,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 					&oidc4ci.OIDCConfiguration{
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -123,6 +134,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 								UserPinRequired: data.UserPinRequired,
 							},
 						}, nil
+					})
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
 					})
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
@@ -181,6 +200,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
 
@@ -202,6 +229,66 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
 					resp.InitiateIssuanceURL)
+			},
+		},
+		{
+			name: "Error because of event publishing",
+			setup: func() {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				expectedCode := "super-secret-pre-auth-code"
+				claimData := map[string]interface{}{
+					"my_awesome_claim": "claim",
+				}
+
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.NotEqual(t, data.OpState, initialOpState)
+						assert.Equal(t, data.OpState, data.PreAuthCode)
+						assert.Equal(t, false, data.UserPinRequired)
+						assert.Equal(t, true, data.IsPreAuthFlow)
+						assert.Equal(t, claimData, data.ClaimData)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+								PreAuthCode:   expectedCode,
+								IsPreAuthFlow: true,
+							},
+						}, nil
+					})
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return errors.New("unexpected error")
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              initialOpState,
+					UserPinRequired:      false,
+					ClaimData:            claimData,
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "unexpected error")
+				require.Nil(t, resp)
 			},
 		},
 		{
@@ -344,6 +431,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:                   "eyJhbGciOiJSU0Et",
 				}
 
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
 				profile = &testProfile
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
@@ -362,6 +457,14 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					nil, errors.New("invalid json"))
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -431,6 +534,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				TransactionStore:    mockTransactionStore,
 				WellKnownService:    mockWellKnownService,
 				IssuerVCSPublicHost: issuerVCSPublicHost,
+				EventService:        eventService,
 			})
 			require.NoError(t, err)
 

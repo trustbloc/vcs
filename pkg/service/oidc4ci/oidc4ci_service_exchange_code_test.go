@@ -17,19 +17,33 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 func TestExchangeCode(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
 
-	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, OAuth2Client: oauth2Client,
-		HTTPClient: &http.Client{}})
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore: store,
+		OAuth2Client:     oauth2Client,
+		HTTPClient:       &http.Client{},
+		EventService:     eventMock,
+	})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
 	authCode := uuid.NewString()
+
+	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeExchanged)
+
+			return nil
+		})
 
 	baseTx := &oidc4ci.Transaction{
 		ID: oidc4ci.TxID("id"),
@@ -83,9 +97,14 @@ func TestExchangeCodeErrFindTx(t *testing.T) {
 func TestExchangeCodeIssuerError(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
 
-	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, OAuth2Client: oauth2Client,
-		HTTPClient: &http.Client{}})
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore: store,
+		OAuth2Client:     oauth2Client,
+		HTTPClient:       &http.Client{},
+		EventService:     eventMock,
+	})
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
@@ -94,6 +113,14 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 			TokenEndpoint: "https://localhost/token",
 		},
 	}, nil)
+
+	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+			return nil
+		})
 
 	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
@@ -108,9 +135,14 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
 	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
 
-	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store, OAuth2Client: oauth2Client,
-		HTTPClient: &http.Client{}})
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore: store,
+		OAuth2Client:     oauth2Client,
+		HTTPClient:       &http.Client{},
+		EventService:     eventMock,
+	})
 	assert.NoError(t, err)
 
 	opState := uuid.NewString()
@@ -124,6 +156,14 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 			IssuerAuthCode: authCode,
 		},
 	}
+
+	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+			return nil
+		})
 
 	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		&oauth2.Token{
@@ -142,8 +182,12 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 
 func TestExchangeCodeInvalidState(t *testing.T) {
 	store := NewMockTransactionStore(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
 
-	srv, err := oidc4ci.NewService(&oidc4ci.Config{TransactionStore: store})
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore: store,
+		EventService:     eventMock,
+	})
 	assert.NoError(t, err)
 
 	store.EXPECT().FindByOpState(gomock.Any(), gomock.Any()).Return(&oidc4ci.Transaction{
@@ -153,7 +197,85 @@ func TestExchangeCodeInvalidState(t *testing.T) {
 		},
 	}, nil)
 
+	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+			return nil
+		})
+
 	resp, err := srv.ExchangeAuthorizationCode(context.TODO(), "sadsadas")
 	assert.Empty(t, resp)
 	assert.ErrorContains(t, err, "unexpected transaction from 5 to 4")
+}
+
+func TestExchangeCodePublishError(t *testing.T) {
+	store := NewMockTransactionStore(gomock.NewController(t))
+	oauth2Client := NewMockOAuth2Client(gomock.NewController(t))
+	eventMock := NewMockEventService(gomock.NewController(t))
+
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{
+		TransactionStore: store,
+		OAuth2Client:     oauth2Client,
+		HTTPClient:       &http.Client{},
+		EventService:     eventMock,
+	})
+	assert.NoError(t, err)
+
+	opState := uuid.NewString()
+	authCode := uuid.NewString()
+
+	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeExchanged)
+
+			return errors.New("publish error")
+		})
+
+	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+			assert.Len(t, messages, 1)
+			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+			return nil
+		})
+
+	baseTx := &oidc4ci.Transaction{
+		ID: oidc4ci.TxID("id"),
+		TransactionData: oidc4ci.TransactionData{
+			TokenEndpoint:  "https://localhost/token",
+			IssuerAuthCode: authCode,
+			State:          oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization,
+		},
+	}
+
+	store.EXPECT().FindByOpState(gomock.Any(), opState).Return(baseTx, nil)
+	store.EXPECT().Update(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+			assert.Equal(t, baseTx, tx)
+			assert.Equal(t, "SlAV32hkKG", tx.IssuerToken)
+			assert.Equal(t, oidc4ci.TransactionStateIssuerOIDCAuthorizationDone, tx.State)
+
+			return nil
+		})
+
+	oauth2Client.EXPECT().Exchange(gomock.Any(), oauth2.Config{
+		ClientID:     baseTx.ClientID,
+		ClientSecret: baseTx.ClientSecret,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   baseTx.AuthorizationEndpoint,
+			TokenURL:  baseTx.TokenEndpoint,
+			AuthStyle: oauth2.AuthStyleAutoDetect,
+		},
+		RedirectURL: baseTx.RedirectURI,
+		Scopes:      baseTx.Scope,
+	}, authCode, gomock.Any(), gomock.Any()).Return(&oauth2.Token{
+		AccessToken: "SlAV32hkKG",
+	}, nil)
+
+	resp, err := srv.ExchangeAuthorizationCode(context.TODO(), opState)
+	assert.ErrorContains(t, err, "publish error")
+	assert.Empty(t, resp)
 }

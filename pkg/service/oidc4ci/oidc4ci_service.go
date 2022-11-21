@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService
 
 package oidc4ci
 
@@ -16,6 +16,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/trustbloc/vcs/pkg/event/spi"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -79,6 +81,10 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type eventService interface {
+	Publish(topic string, messages ...*spi.Event) error
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore    transactionStore
@@ -86,6 +92,7 @@ type Config struct {
 	IssuerVCSPublicHost string
 	OAuth2Client        oAuth2Client
 	HTTPClient          httpClient
+	EventService        eventService
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -95,6 +102,7 @@ type Service struct {
 	issuerVCSPublicHost string
 	oAuth2Client        oAuth2Client
 	httpClient          httpClient
+	eventSvc            eventService
 }
 
 // NewService returns a new Service instance.
@@ -105,6 +113,7 @@ func NewService(config *Config) (*Service, error) {
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
 		oAuth2Client:        config.OAuth2Client,
 		httpClient:          config.HTTPClient,
+		eventSvc:            config.EventService,
 	}, nil
 }
 
@@ -136,6 +145,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	newState := TransactionStateAwaitingIssuerOIDCAuthorization
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		s.sendFailedEvent(tx, err)
 		return nil, err
 	}
 	tx.State = newState
@@ -168,11 +178,18 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	if req.AuthorizationDetails != nil {
 		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
+			s.sendFailedEvent(tx, err)
 			return nil, err
 		}
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
+		s.sendFailedEvent(tx, err)
+		return nil, err
+	}
+
+	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
+		s.sendFailedEvent(tx, err)
 		return nil, err
 	}
 
@@ -236,6 +253,10 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 		return nil, err
 	}
 
+	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
+		return nil, errSendEvent
+	}
+
 	return tx, nil
 }
 
@@ -249,6 +270,7 @@ func (s *Service) PrepareCredential(
 	}
 
 	if tx.CredentialTemplate == nil {
+		s.sendFailedEvent(tx, ErrCredentialTemplateNotConfigured)
 		return nil, ErrCredentialTemplateNotConfigured
 	}
 
@@ -282,17 +304,25 @@ func (s *Service) PrepareCredential(
 	case vcsverifiable.Jwt:
 		claims, jwtClaimsErr := vc.JWTClaims(false)
 		if jwtClaimsErr != nil {
+			s.sendFailedEvent(tx, jwtClaimsErr)
 			return nil, fmt.Errorf("create jwt claims: %w", jwtClaimsErr)
 		}
 
 		credential, err = claims.MarshalUnsecuredJWT()
 		if err != nil {
+			s.sendFailedEvent(tx, err)
 			return nil, fmt.Errorf("marshal unsecured jwt: %w", err)
 		}
 	case vcsverifiable.Ldp:
 		credential = vc
 	default:
+		s.sendFailedEvent(tx, ErrCredentialFormatNotSupported)
 		return nil, ErrCredentialFormatNotSupported
+	}
+
+	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		s.sendFailedEvent(tx, errSendEvent)
+		return nil, errSendEvent
 	}
 
 	return &PrepareCredentialResult{
@@ -328,4 +358,35 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 	}
 
 	return claimData, nil
+}
+
+func (s *Service) createEvent(
+	tx *Transaction,
+	eventType spi.EventType,
+) (*spi.Event, error) {
+	payload, err := json.Marshal(eventPayload{
+		TxID:    string(tx.ID),
+		WebHook: tx.WebHookURL,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return spi.NewEvent(uuid.NewString(), "oidc4ci", eventType, payload), nil
+}
+
+func (s *Service) sendEvent(
+	tx *Transaction,
+	eventType spi.EventType,
+) error {
+	event, err := s.createEvent(tx, eventType)
+	if err != nil {
+		return err
+	}
+
+	return s.eventSvc.Publish(spi.IssuerEventTopic, event)
+}
+
+func (s *Service) sendFailedEvent(tx *Transaction, _ error) {
+	_ = s.sendEvent(tx, spi.IssuerOIDCInteractionFailed)
 }

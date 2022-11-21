@@ -42,6 +42,7 @@ type Issuer struct {
 	KMSConfig           *vcskms.Config        `json:"kmsConfig"`
 	SigningDID          *SigningDID           `json:"signingDID"`
 	CredentialTemplates []*CredentialTemplate `json:"credentialTemplates,omitempty"`
+	WebHook             string                `json:"webHook,omitempty"`
 }
 
 type CredentialTemplate struct {
