@@ -9,6 +9,8 @@ package oidc4ci
 import (
 	"context"
 	"fmt"
+
+	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
 // StoreAuthorizationCode stores authorization code from issuer provider.
@@ -24,6 +26,15 @@ func (s *Service) StoreAuthorizationCode(
 	}
 
 	tx.IssuerAuthCode = code
+	if err = s.store.Update(ctx, tx); err != nil {
+		s.sendFailedEvent(tx, err)
+		return "", err
+	}
 
-	return tx.ID, s.store.Update(ctx, tx)
+	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationCodeStored); err != nil {
+		s.sendFailedEvent(tx, err)
+		return "", err
+	}
+
+	return tx.ID, nil
 }

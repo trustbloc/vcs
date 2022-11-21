@@ -53,6 +53,7 @@ type mongoDocument struct {
 	PreAuthCode                        string
 	ClaimData                          map[string]interface{}
 	Status                             oidc4ci.TransactionState
+	WebHookURL                         string
 }
 
 // Store stores oidc transactions in mongo.
@@ -212,6 +213,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		PreAuthCode:                        data.PreAuthCode,
 		ClaimData:                          data.ClaimData,
 		Status:                             data.State,
+		WebHookURL:                         data.WebHookURL,
 	}
 }
 
@@ -241,6 +243,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			PreAuthCode:                        doc.PreAuthCode,
 			ClaimData:                          doc.ClaimData,
 			State:                              doc.Status,
+			WebHookURL:                         doc.WebHookURL,
 		},
 	}
 }

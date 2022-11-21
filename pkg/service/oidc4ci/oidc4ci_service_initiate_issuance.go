@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -69,6 +70,7 @@ func (s *Service) InitiateIssuance(
 		ClaimData:                          req.ClaimData,
 		UserPinRequired:                    req.UserPinRequired,
 		State:                              TransactionStateIssuanceInitiated,
+		WebHookURL:                         profile.WebHook,
 	}
 
 	if data.GrantType == "" {
@@ -93,6 +95,10 @@ func (s *Service) InitiateIssuance(
 	tx, err := s.store.Create(ctx, data)
 	if err != nil {
 		return nil, fmt.Errorf("store tx: %w", err)
+	}
+
+	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
+		return nil, errSendEvent
 	}
 
 	return &InitiateIssuanceResponse{

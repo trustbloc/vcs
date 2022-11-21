@@ -59,6 +59,7 @@ type TransactionData struct {
 	PreAuthCode                        string
 	ClaimData                          map[string]interface{}
 	State                              TransactionState
+	WebHookURL                         string
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -138,4 +139,9 @@ type OAuthParameters struct {
 
 type InsertOptions struct {
 	TTL time.Duration
+}
+
+type eventPayload struct {
+	TxID    string `json:"txID"`
+	WebHook string `json:"webHook,omitempty"`
 }

@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -179,6 +181,7 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		eventMock            = NewMockEventService(gomock.NewController(t))
 		req                  *oidc4ci.PrepareClaimDataAuthorizationRequest
 	)
 
@@ -209,6 +212,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						return nil
 					}).Times(2)
 
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationRequestPrepared)
+
+						return nil
+					})
+
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
 					ResponseType: "code",
@@ -222,6 +233,59 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Failed sending event",
+			setup: func() {
+				mockTransactionStore.EXPECT().FindByOpState(gomock.Any(), "opState").Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "UniversityDegreeCredential",
+						},
+						CredentialFormat: vcsverifiable.Ldp,
+						ResponseType:     "code",
+						Scope:            []string{"openid", "profile", "address"},
+						State:            oidc4ci.TransactionStateIssuanceInitiated,
+					},
+				}, nil)
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateAwaitingIssuerOIDCAuthorization, tx.State)
+						return nil
+					}).Times(2)
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationRequestPrepared)
+
+						return errors.New("publish event")
+					})
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
+
+				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
+					OpState:      "opState",
+					ResponseType: "code",
+					Scope:        []string{"openid", "profile"},
+					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
+						CredentialType: "UniversityDegreeCredential",
+						Format:         vcsverifiable.Ldp,
+					},
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareClaimDataAuthorizationResponse, err error) {
+				require.ErrorContains(t, err, "publish event")
+				require.Nil(t, resp)
 			},
 		},
 		{
@@ -305,6 +369,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
+
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
 
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
@@ -338,6 +410,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
+
 				req = &oidc4ci.PrepareClaimDataAuthorizationRequest{
 					OpState:      "opState",
 					ResponseType: "code",
@@ -368,6 +448,14 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						State:            oidc4ci.TransactionStateIssuanceInitiated,
 					},
 				}, nil)
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
 
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
 					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
@@ -400,6 +488,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore: mockTransactionStore,
+				EventService:     eventMock,
 			})
 			require.NoError(t, err)
 
@@ -412,8 +501,11 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 func TestValidatePreAuthCode(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		eventService := NewMockEventService(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
+			EventService:     eventService,
 		})
 		assert.NoError(t, err)
 
@@ -425,6 +517,14 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
+		eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
+
+				return nil
+			})
+
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111")
 		assert.NoError(t, err)
@@ -433,10 +533,21 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 	t.Run("success without pin", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
+			EventService:     eventMock,
 		})
 		assert.NoError(t, err)
+
+		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
+
+				return nil
+			})
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
@@ -450,6 +561,38 @@ func TestValidatePreAuthCode(t *testing.T) {
 		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+	})
+
+	t.Run("error with pin during publishing", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		eventMock := NewMockEventService(gomock.NewController(t))
+
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+			EventService:     eventMock,
+		})
+		assert.NoError(t, err)
+
+		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				assert.Len(t, messages, 1)
+				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
+
+				return errors.New("unexpected error")
+			})
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode:     "1234",
+				UserPinRequired: false,
+				State:           oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "unexpected error")
+		assert.Nil(t, resp)
 	})
 
 	t.Run("invalid pin", func(t *testing.T) {
@@ -531,6 +674,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 func TestService_PrepareCredential(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		eventMock            = NewMockEventService(gomock.NewController(t))
 		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
 		req                  *oidc4ci.PrepareCredential
 	)
@@ -567,6 +711,14 @@ func TestService_PrepareCredential(t *testing.T) {
 					}, nil
 				})
 
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return nil
+					})
+
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -597,6 +749,14 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return nil
+					})
+
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -604,6 +764,52 @@ func TestService_PrepareCredential(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Failed to send event for pre-authorized flow",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type:   "VerifiedEmployee",
+							Issuer: "issuer",
+						},
+						IsPreAuthFlow: true,
+						ClaimData: map[string]interface{}{
+							"surname":   "Smith",
+							"givenName": "Pat",
+							"jobTitle":  "Worker",
+						},
+						CredentialFormat: vcsverifiable.Jwt,
+					},
+				}, nil)
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return errors.New("publish error")
+					})
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err, "publish error")
+				require.Nil(t, resp)
 			},
 		},
 		{
@@ -629,6 +835,14 @@ func TestService_PrepareCredential(t *testing.T) {
 				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
 					TransactionData: oidc4ci.TransactionData{},
 				}, nil)
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
 
 				mockHTTPClient.EXPECT().Do(gomock.Any()).Times(0)
 
@@ -717,6 +931,14 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
+
 				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
 
 				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
@@ -746,6 +968,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore: mockTransactionStore,
 				HTTPClient:       mockHTTPClient,
+				EventService:     eventMock,
 			})
 			require.NoError(t, err)
 

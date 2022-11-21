@@ -12,6 +12,8 @@ import (
 	"net/http"
 
 	"golang.org/x/oauth2"
+
+	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
 func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error) {
@@ -22,6 +24,7 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 
 	newState := TransactionStateIssuerOIDCAuthorizationDone
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
+		s.sendFailedEvent(tx, err)
 		return "", err
 	}
 	tx.State = newState
@@ -38,12 +41,19 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		Scopes:      tx.Scope,
 	}, tx.IssuerAuthCode, s.httpClient.(*http.Client)) // TODO: Fix this!
 	if err != nil {
+		s.sendFailedEvent(tx, err)
 		return "", err
 	}
 
 	tx.IssuerToken = resp.AccessToken
 
 	if err = s.store.Update(ctx, tx); err != nil {
+		s.sendFailedEvent(tx, err)
+		return "", err
+	}
+
+	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
+		s.sendFailedEvent(tx, err)
 		return "", err
 	}
 
