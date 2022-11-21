@@ -577,6 +577,36 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 		},
 		{
+			name: "Success pre-authorized flow",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type:   "VerifiedEmployee",
+							Issuer: "issuer",
+						},
+						IsPreAuthFlow: true,
+						ClaimData: map[string]interface{}{
+							"surname":   "Smith",
+							"givenName": "Pat",
+							"jobTitle":  "Worker",
+						},
+						CredentialFormat: vcsverifiable.Jwt,
+					},
+				}, nil)
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+			},
+		},
+		{
 			name: "Fail to find transaction by op state",
 			setup: func() {
 				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(

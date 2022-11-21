@@ -252,29 +252,15 @@ func (s *Service) PrepareCredential(
 		return nil, ErrCredentialTemplateNotConfigured
 	}
 
-	// request claim data
-	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	r.Header.Set("Authorization", "Bearer "+tx.IssuerToken)
-
-	resp, err := s.httpClient.Do(r)
-	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
-	}
-
 	var claimData map[string]interface{}
-
-	if err = json.NewDecoder(resp.Body).Decode(&claimData); err != nil {
-		return nil, fmt.Errorf("decode claim data: %w", err)
+	if tx.IsPreAuthFlow {
+		claimData = tx.ClaimData
+	} else {
+		r, requestErr := s.requestClaims(ctx, tx)
+		if requestErr != nil {
+			return nil, requestErr
+		}
+		claimData = r
 	}
 
 	// prepare credential for signing
@@ -315,4 +301,31 @@ func (s *Service) PrepareCredential(
 		Format:     tx.CredentialFormat,
 		Retry:      false,
 	}, nil
+}
+
+func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[string]interface{}, error) {
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	r.Header.Set("Authorization", "Bearer "+tx.IssuerToken)
+
+	resp, err := s.httpClient.Do(r)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
+	}
+
+	var claimData map[string]interface{}
+	if err = json.NewDecoder(resp.Body).Decode(&claimData); err != nil {
+		return nil, fmt.Errorf("decode claim data: %w", err)
+	}
+
+	return claimData, nil
 }
