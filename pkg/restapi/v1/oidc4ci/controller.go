@@ -196,7 +196,7 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 }
 
 // OidcAuthorize handles OIDC authorization request (GET /oidc/authorize).
-func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) error {
+func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) error { //nolint:funlen
 	req := e.Request()
 	ctx := req.Context()
 
@@ -212,7 +212,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	}
 
-	if lo.FromPtr(params.AuthorizationDetails) == preAuthorizedCodeGrantType { // pre-authorization flow
+	if lo.FromPtr(params.AuthorizationDetails) == preAuthorizedCodeGrantType { // TODO: Remove this
 		resp, err2 := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 		if err2 != nil {
 			return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err2).WithAuthorizeRequester(ar)
@@ -222,13 +222,38 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		return nil
 	}
 
+	var (
+		credentialType string
+		vcFormat       *string
+	)
+
 	scope := []string(ar.GetRequestedScopes())
+
+	if params.AuthorizationDetails != nil {
+		var authorizationDetails common.AuthorizationDetails
+
+		if err = json.Unmarshal([]byte(*params.AuthorizationDetails), &authorizationDetails); err != nil {
+			return resterr.NewValidationError(resterr.InvalidValue, "authorization_details", err)
+		}
+
+		if _, err = common.ValidateAuthorizationDetails(&authorizationDetails); err != nil {
+			return err
+		}
+
+		credentialType = authorizationDetails.CredentialType
+		vcFormat = authorizationDetails.Format
+	} else {
+		// using scope parameter to request credential type
+		// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-using-scope-parameter-to-re
+		credentialType = scope[0]
+	}
+
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
 			AuthorizationDetails: &common.AuthorizationDetails{
 				Type:           "openid_credential",
-				CredentialType: "PermanentResidentCard", // TODO: Set from the request.
-				Format:         lo.ToPtr("ldp_vc"),
+				CredentialType: credentialType,
+				Format:         vcFormat,
 			},
 			OpState:      params.OpState,
 			ResponseType: params.ResponseType,
@@ -240,11 +265,13 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	}
 
 	defer r.Body.Close()
+
 	if r.StatusCode != http.StatusOK {
 		return fmt.Errorf("prepare claim data authorization: status code %d", r.StatusCode)
 	}
 
 	var claimDataAuth issuer.PrepareClaimDataAuthorizationResponse
+
 	if err = json.NewDecoder(r.Body).Decode(&claimDataAuth); err != nil {
 		return fmt.Errorf("decode claim data authorization response: %w", err)
 	}
@@ -259,6 +286,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		RedirectURL: c.issuerVCSPublicHost + "/oidc/redirect",
 		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
 	}
+
 	ar.(*fosite.AuthorizeRequest).State = params.OpState
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)

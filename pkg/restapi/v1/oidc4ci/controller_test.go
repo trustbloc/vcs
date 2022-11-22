@@ -201,8 +201,9 @@ func TestController_OidcAuthorize(t *testing.T) {
 			name: "success",
 			setup: func() {
 				params = oidc4ci.OidcAuthorizeParams{
-					ResponseType: "code",
-					OpState:      "opState",
+					ResponseType:         "code",
+					OpState:              "opState",
+					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"ldp_vc"}`),
 				}
 
 				scope := []string{"openid", "profile"}
@@ -387,6 +388,44 @@ func TestController_OidcAuthorize(t *testing.T) {
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				require.ErrorContains(t, err, "authorize error")
+			},
+		},
+		{
+			name: "invalid authorization_details",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					OpState:              "opState",
+					AuthorizationDetails: lo.ToPtr("invalid"),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "authorization_details")
+			},
+		},
+		{
+			name: "fail to validate authorization_details",
+			setup: func() {
+				params = oidc4ci.OidcAuthorizeParams{
+					ResponseType:         "code",
+					OpState:              "opState",
+					AuthorizationDetails: lo.ToPtr(`{"type":"openid_credential","credential_type":"UniversityDegreeCredential","format":"invalid"}`),
+				}
+
+				scope := []string{"openid", "profile"}
+
+				mockOAuthProvider.EXPECT().NewAuthorizeRequest(gomock.Any(), gomock.Any()).Return(&fosite.AuthorizeRequest{
+					Request: fosite.Request{RequestedScope: scope},
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err, "authorization_details.format")
 			},
 		},
 		{

@@ -55,10 +55,11 @@ type CredentialTemplate struct {
 
 // OIDC4CIConfig is issuer's OIDC configuration used during OIDC credential issuance flow.
 type OIDC4CIConfig struct {
-	IssuerWellKnownURL string `json:"issuer_well_known"`
-	ClientID           string `json:"client_id"`
-	ClientSecretHandle string `json:"client_secret_handle"`
-	RedirectURI        string `json:"redirect_uri"`
+	IssuerWellKnownURL string   `json:"issuer_well_known"`
+	ClientID           string   `json:"client_id"`
+	ClientSecretHandle string   `json:"client_secret_handle"`
+	Scope              []string `json:"scope"`
+	RedirectURI        string   `json:"redirect_uri"`
 }
 
 // VCConfig describes how to sign verifiable credentials.

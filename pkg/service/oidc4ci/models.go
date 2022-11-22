@@ -46,6 +46,7 @@ type TransactionData struct {
 	ClaimEndpoint                      string
 	ClientID                           string
 	ClientSecret                       string
+	ClientScope                        []string
 	RedirectURI                        string
 	GrantType                          string
 	ResponseType                       string
