@@ -283,7 +283,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		}
 		return client.Do(req)
 	})
-	resp, err := http.DefaultClient.PostForm(fmt.Sprintf("%v/oidc/pre-authorized-code", srv.URL), url.Values{
+	resp, err := http.DefaultClient.PostForm(fmt.Sprintf("%v/oidc/token", srv.URL), url.Values{
 		"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 		"pre-authorized_code": {code},
 		"user_pin":            {pin},

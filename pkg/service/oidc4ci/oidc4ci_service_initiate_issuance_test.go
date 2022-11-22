@@ -27,7 +27,7 @@ import (
 const (
 	issuerWellKnownURL  = "https://issuer.example.com/.well-known/openid-configuration"
 	walletWellKnownURL  = "https://wallet.example.com/.well-known/openid-configuration"
-	issuerVCSPublicHost = "https://vcs.pb.example.com/oidc"
+	issuerVCSPublicHost = "https://vcs.pb.example.com/"
 )
 
 //go:embed testdata/issuer_profile.json
@@ -110,6 +110,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					"my_awesome_claim": "claim",
 				}
 
+				profile = &testProfile
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
@@ -126,6 +127,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
+								ProfileID: profile.ID,
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID: "templateID",
 								},
@@ -158,12 +160,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					UserPinRequired:      true,
 					ClaimData:            claimData,
 				}
-
-				profile = &testProfile
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},
@@ -176,6 +176,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					"my_awesome_claim": "claim",
 				}
 
+				profile = &testProfile
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
@@ -191,6 +192,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						return &oidc4ci.Transaction{
 							ID: "txID",
 							TransactionData: oidc4ci.TransactionData{
+								ProfileID: profile.ID,
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID: "templateID",
 								},
@@ -222,12 +224,10 @@ func TestService_InitiateIssuance(t *testing.T) {
 					UserPinRequired:      false,
 					ClaimData:            claimData,
 				}
-
-				profile = &testProfile
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Foidc%2Foidc%2Fpre-authorized-code&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
 					resp.InitiateIssuanceURL)
 			},
 		},

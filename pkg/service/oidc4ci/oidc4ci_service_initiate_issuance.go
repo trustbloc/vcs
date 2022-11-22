@@ -20,10 +20,6 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
-const (
-	preAuthorizedEndpoint = "/oidc/pre-authorized-code"
-)
-
 // InitiateIssuance creates credential issuance transaction and builds initiate issuance URL.
 func (s *Service) InitiateIssuance(
 	ctx context.Context,
@@ -162,7 +158,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	q.Set("credential_type", template.Type)
 
 	if tx.IsPreAuthFlow {
-		issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, preAuthorizedEndpoint)
+		issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 		q.Set("issuer", issuerURL)
 		q.Set("pre-authorized_code", tx.PreAuthCode)
 		q.Set("user_pin_required", strconv.FormatBool(tx.UserPinRequired))
