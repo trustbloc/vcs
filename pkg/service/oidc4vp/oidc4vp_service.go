@@ -152,6 +152,7 @@ type RequestObjectRegistration struct {
 type eventPayload struct {
 	TxID    string `json:"txID"`
 	WebHook string `json:"webHook,omitempty"`
+	Error   string `json:"error,omitempty"`
 }
 
 type jwtVCClaims struct {
@@ -181,11 +182,17 @@ func NewService(cfg *Config) *Service {
 }
 
 func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
-	eventType spi.EventType) (*spi.Event, error) {
-	payload, err := json.Marshal(eventPayload{
+	eventType spi.EventType, e error) (*spi.Event, error) {
+	ep := eventPayload{
 		TxID:    string(tx.ID),
 		WebHook: profile.WebHook,
-	})
+	}
+
+	if e != nil {
+		ep.Error = e.Error()
+	}
+
+	payload, err := json.Marshal(ep)
 	if err != nil {
 		return nil, err
 	}
@@ -193,12 +200,22 @@ func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 }
 
 func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {
-	event, err := s.createEvent(tx, profile, eventType)
+	return s.sendEventWithError(tx, profile, eventType, nil)
+}
+
+func (s *Service) sendEventWithError(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType,
+	e error) error {
+	event, err := s.createEvent(tx, profile, eventType, e)
 	if err != nil {
 		return err
 	}
 
 	return s.eventSvc.Publish(spi.VerifierEventTopic, event)
+}
+
+func (s *Service) sendFailedEvent(tx *Transaction, profile *profileapi.Verifier, err error) {
+	e := s.sendEventWithError(tx, profile, spi.VerifierOIDCInteractionFailed, err)
+	logger.Debug("sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
 }
 
 func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
@@ -227,7 +244,7 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 
 	logger.Info("InitiateOidcInteraction request object created", log.WithJSON(token))
 
-	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned)
+	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -283,17 +300,29 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
 	if err != nil {
-		return fmt.Errorf("presentation verification failed: %w", err)
+		e := fmt.Errorf("presentation verification failed: %w", err)
+		s.sendFailedEvent(tx, profile, e)
+
+		return e
 	}
 
 	if len(vr) > 0 {
-		return fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
+		e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
+		s.sendFailedEvent(tx, profile, e)
+
+		return e
 	}
 
 	logger.Debug(" VerifyOIDCVerifiablePresentation verified", log.WithJSON(string(vpBytes)))
 
 	err = s.extractClaimData(tx, token, profile)
 	if err != nil {
+		s.sendFailedEvent(tx, profile, err)
+
+		return err
+	}
+
+	if err = s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
 	}
 
@@ -329,7 +358,7 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 
 	bytes, err := token.Presentation.MarshalJSON()
 	if err != nil {
-		return err
+		return fmt.Errorf("extract claims: marshal VP token: %w", err)
 	}
 
 	logger.Debug("extractClaimData vp", log.WithJSON(string(bytes)))
@@ -349,7 +378,7 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 	if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
 		err = checkVCSubject(credentials, token)
 		if err != nil {
-			return err
+			return fmt.Errorf("extractClaimData vc subject: %w", err)
 		}
 
 		logger.Debug("extractClaimData vc subject verified")
@@ -361,10 +390,6 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 	}
 
 	logger.Debug("extractClaimData claims stored")
-
-	if err = s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
-		return err
-	}
 
 	return nil
 }
