@@ -317,6 +317,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        vcStatusManager,
 		OIDC4CIService:         oidc4ciService,
+		ExternalHostURL:        conf.StartupParameters.hostURLExternal,
 	}))
 
 	// Verifier Profile Management API

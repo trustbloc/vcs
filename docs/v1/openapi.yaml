@@ -67,6 +67,27 @@ paths:
       description: Returns did-config.
       tags:
         - devapi
+  '/issuer/{profileID}/.well-known/openid-configuration':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile Id
+    get:
+      summary: Request openid-config
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownOpenIDConfiguration'
+      operationId: openid-config
+      description: Returns openid-config.
+      tags:
+        - issuer
   '/request-object/{uuid}':
     parameters:
       - schema:
@@ -726,6 +747,34 @@ components:
               - type: object
           description: Presentation in jws(string) or jsonld(object) formats
       description: DID Config response.
+    WellKnownOpenIDConfiguration:
+      title: WellKnownOpenIDConfiguration response
+      x-tags:
+        - issuer
+      type: object
+      properties:
+        authorization_endpoint:
+          type: string
+        issuer:
+          type: string
+        token_endpoint:
+          type: string
+        response_types_supported:
+          type: array
+          items:
+            type: string
+        credential_supported:
+          type: boolean
+        credential_endpoint:
+          type: string
+      required:
+        - authorization_endpoint
+        - issuer
+        - token_endpoint
+        - response_types_supported
+        - credential_supported
+        - credential_endpoint
+      description: OpenID Config response.
     RequestObject:
       title: RequestObject
       x-tags:

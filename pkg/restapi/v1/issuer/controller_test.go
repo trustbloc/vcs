@@ -1294,6 +1294,45 @@ func TestController_PrepareCredential(t *testing.T) {
 	})
 }
 
+func TestOpenIDConfigurationController(t *testing.T) {
+	c := &Controller{
+		externalHostURL: "https://localhost",
+	}
+
+	assert.NoError(t, c.OpenidConfig(echoContext(), "123"))
+}
+
+func TestOpenIdConfiguration(t *testing.T) {
+	host := "https://localhost"
+	profileID := "123456"
+	expected := &WellKnownOpenIDConfiguration{
+		AuthorizationEndpoint:  "https://localhost/oidc/authorize",
+		CredentialEndpoint:     "https://localhost/oidc/credential",
+		CredentialSupported:    true,
+		Issuer:                 "https://localhost/123456",
+		ResponseTypesSupported: []string{"code"},
+		TokenEndpoint:          "https://localhost/oidc/token",
+	}
+
+	t.Run("with /", func(t *testing.T) {
+		c := &Controller{
+			externalHostURL: host,
+		}
+
+		result := c.getOpenIDConfig(profileID)
+		assert.Equal(t, expected, result)
+	})
+
+	t.Run("without /", func(t *testing.T) {
+		c := &Controller{
+			externalHostURL: host + "/",
+		}
+
+		result := c.getOpenIDConfig(profileID)
+		assert.Equal(t, expected, result)
+	})
+}
+
 type options struct {
 	orgID       string
 	requestBody []byte
