@@ -1312,13 +1312,6 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			},
 		},
 		{
-			name:  "invalid grant type",
-			setup: func() {},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "unexpected grant type. expected urn:ietf:params:oauth:grant-type:pre-authorized_code")
-			},
-		},
-		{
 			name: "name invalid pre-auth code",
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
@@ -1495,7 +1488,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 
 			rec := httptest.NewRecorder()
 
-			err := controller.OidcPreAuthorizedCode(echo.New().NewContext(req, rec))
+			err := controller.OidcToken(echo.New().NewContext(req, rec))
 			tt.check(t, rec, err)
 		})
 	}

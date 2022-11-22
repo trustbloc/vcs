@@ -591,41 +591,6 @@ paths:
       tags:
         - oidc4ci
     parameters: []
-  /oidc/pre-authorized-code:
-    post:
-      summary: OIDC Pre-Authorized code flow handler
-      tags:
-        - oidc4ci
-      operationId: oidc-pre-authorized-code
-      description: Endpoint for handling Pre-Authorized code flow
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                grant_type:
-                  type: string
-                  description: 'must be equal urn:ietf:params:oauth:grant-type:pre-authorized_code'
-                pre-authorized_code:
-                  type: string
-                  description: pre-authorized_code
-                user_pin:
-                  type: string
-                  description: user_pin
-                  nullable: true
-              required:
-                - grant_type
-                - pre-authorized_code
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AccessTokenResponse'
-        '400':
-          description: Bad Request
   /oidc/token:
     post:
       summary: OIDC Token Request
@@ -653,21 +618,30 @@ paths:
                   description: Value MUST be set to "authorization_code".
                 code:
                   type: string
+                  nullable: true
                   description: The authorization code received from the authorization server.
                 code_verifier:
                   type: string
+                  nullable: true
                   description: A cryptographically random string that is used to correlate the authorization request to the token request.
                 redirect_uri:
                   type: string
+                  nullable: true
                   description: 'REQUIRED, if the "redirect_uri" parameter was included in the authorization request, and their values MUST be identical.'
                 client_id:
                   type: string
                   description: 'REQUIRED, if the client is not authenticating with the authorization server.'
                   nullable: true
+                pre-authorized_code:
+                  type: string
+                  nullable: true
+                  description: 'REQUIRED, if pre-auth flow'
+                user_pin:
+                  type: string
+                  nullable: true
+                  description: 'REQUIRED, if pre-auth flow and pin was required in issue request'
               required:
                 - grant_type
-                - code
-                - code_verifier
         description: ''
   /oidc/redirect:
     get:

@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
@@ -64,7 +65,23 @@ func (s *PreAuthorizeStep) parseUrl() error {
 		return err
 	}
 
-	s.preAuthorizeUrl = parsed.Query().Get("issuer")
+	issuerUrl := parsed.Query().Get("issuer")
+
+	resp, err := s.httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", issuerUrl))
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("invalid status code for well-known. got %v", resp.StatusCode)
+	}
+
+	var cfg issuer.WellKnownOpenIDConfiguration
+	if err = json.NewDecoder(resp.Body).Decode(&cfg); err != nil {
+		return err
+	}
+
+	s.preAuthorizeUrl = cfg.TokenEndpoint
 	s.preAuthorizeCode = parsed.Query().Get("pre-authorized_code")
 	s.preAuthorizePinRequired = parsed.Query().Get("user_pin_required")
 

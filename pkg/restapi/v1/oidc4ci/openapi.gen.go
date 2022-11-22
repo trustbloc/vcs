@@ -144,9 +144,6 @@ type ServerInterface interface {
 	// OIDC Pushed Authorization Request
 	// (POST /oidc/par)
 	OidcPushedAuthorizationRequest(ctx echo.Context) error
-	// OIDC Pre-Authorized code flow handler
-	// (POST /oidc/pre-authorized-code)
-	OidcPreAuthorizedCode(ctx echo.Context) error
 	// OIDC Redirect
 	// (GET /oidc/redirect)
 	OidcRedirect(ctx echo.Context, params OidcRedirectParams) error
@@ -266,15 +263,6 @@ func (w *ServerInterfaceWrapper) OidcPushedAuthorizationRequest(ctx echo.Context
 	return err
 }
 
-// OidcPreAuthorizedCode converts echo context to params.
-func (w *ServerInterfaceWrapper) OidcPreAuthorizedCode(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.OidcPreAuthorizedCode(ctx)
-	return err
-}
-
 // OidcRedirect converts echo context to params.
 func (w *ServerInterfaceWrapper) OidcRedirect(ctx echo.Context) error {
 	var err error
@@ -340,7 +328,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/oidc/authorize", wrapper.OidcAuthorize)
 	router.POST(baseURL+"/oidc/credential", wrapper.OidcCredential)
 	router.POST(baseURL+"/oidc/par", wrapper.OidcPushedAuthorizationRequest)
-	router.POST(baseURL+"/oidc/pre-authorized-code", wrapper.OidcPreAuthorizedCode)
 	router.GET(baseURL+"/oidc/redirect", wrapper.OidcRedirect)
 	router.POST(baseURL+"/oidc/token", wrapper.OidcToken)
 

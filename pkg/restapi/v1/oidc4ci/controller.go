@@ -336,6 +336,14 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	req := e.Request()
 	ctx := req.Context()
 
+	if strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType) { // 1 call for pre-auth code flow
+		return apiUtil.WriteOutput(e)(c.oidcPreAuthorizedCode(
+			ctx,
+			e.FormValue("pre-authorized_code"),
+			e.FormValue("user_pin"),
+		))
+	}
+
 	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, new(fosite.DefaultSession))
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
@@ -519,32 +527,30 @@ func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier
 	return nil
 }
 
-// OidcPreAuthorizedCode handles pre-authorized code token request (POST /oidc/pre-authorized-code).
-func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
-	if !strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType) {
-		return fmt.Errorf("unexpected grant type. expected %v", preAuthorizedCodeGrantType)
-	}
-
-	ctx := e.Request().Context()
-
+// oidcPreAuthorizedCode handles pre-authorized code token request.
+func (c *Controller) oidcPreAuthorizedCode(
+	ctx context.Context,
+	preAuthorizedCode string,
+	userPin string,
+) (*AccessTokenResponse, error) {
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
-			PreAuthorizedCode: e.FormValue("pre-authorized_code"),
-			UserPin:           lo.ToPtr(e.FormValue("user_pin")),
+			PreAuthorizedCode: preAuthorizedCode,
+			UserPin:           lo.ToPtr(userPin),
 		})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var validateResponse issuer.ValidatePreAuthorizedCodeResponse
 	if err = json.NewDecoder(resp.Body).Decode(&validateResponse); err != nil {
-		return err
+		return nil, err
 	}
 	_ = resp.Body.Close()
 
 	verifier, challenge, method, err := c.oAuth2Client.GeneratePKCE()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cfg := oauth2.Config{
@@ -569,24 +575,24 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 
 	httpReq, err := http.NewRequestWithContext(ctx, "GET", authURL, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err = c.preAuthorizeClient.Do(httpReq)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if resp.Body != nil {
 		_ = resp.Body.Close()
 	}
 	if resp.StatusCode != http.StatusSeeOther {
-		return fmt.Errorf("unexpected status code %v, expected %v", resp.StatusCode,
+		return nil, fmt.Errorf("unexpected status code %v, expected %v", resp.StatusCode,
 			http.StatusSeeOther)
 	}
 
 	parsedURL, err := url.Parse(resp.Header.Get("location"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	token, err := c.oAuth2Client.Exchange(ctx, cfg,
@@ -596,10 +602,10 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 		oauth2client.SetAuthURLParam(txIDKey, validateResponse.TxId),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	aResponse := AccessTokenResponse{
+	aResponse := &AccessTokenResponse{
 		AccessToken:  token.AccessToken,
 		RefreshToken: lo.ToPtr(token.RefreshToken),
 		TokenType:    tokenType,
@@ -608,5 +614,5 @@ func (c *Controller) OidcPreAuthorizedCode(e echo.Context) error {
 		aResponse.ExpiresIn = lo.ToPtr(int(token.Expiry.Unix()))
 	}
 
-	return apiUtil.WriteOutput(e)(aResponse, nil)
+	return aResponse, nil
 }
