@@ -198,7 +198,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 			ClientID:     tx.ClientID,
 			ClientSecret: tx.ClientSecret,
 			ResponseType: req.ResponseType,
-			Scope:        req.Scope,
+			Scope:        tx.ClientScope,
 		},
 		AuthorizationEndpoint:              tx.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
@@ -215,7 +215,7 @@ func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *Authorizat
 		return ErrCredentialTypeNotSupported
 	}
 
-	if ad.Format != tx.CredentialFormat {
+	if ad.Format != "" && ad.Format != tx.CredentialFormat {
 		return ErrCredentialFormatNotSupported
 	}
 
@@ -245,7 +245,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	tx.State = newState
 
 	if tx.PreAuthCode != preAuthorizedCode || (tx.UserPinRequired && len(pin) == 0) {
-		// todo in future add proper pin validation
+		// TODO: Add proper pin validation
 		return nil, errors.New("invalid auth credentials")
 	}
 

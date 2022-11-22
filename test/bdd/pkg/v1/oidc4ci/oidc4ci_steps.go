@@ -210,12 +210,18 @@ func (s *Steps) getAuthCode() error {
 			oauth2.SetAuthURLParam("op_state", opState),
 			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","credential_type":"PermanentResidentCard","format":"ldp_vc"}`), //nolint:lll
 		),
 	)
 	if err != nil {
 		return fmt.Errorf("get auth code request: %w", err)
 	}
-	_ = resp.Body.Close()
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
+	}
 
 	return nil
 }

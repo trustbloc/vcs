@@ -23,7 +23,7 @@ hydra clients create \
     --secret bank-issuer-secret \
     --grant-types authorization_code \
     --response-types code \
-    --scope openid,profile,address \
+    --scope openid,profile \
     --callbacks https://localhost:4455/oidc/redirect \
     --skip-tls-verify
 
