@@ -115,6 +115,7 @@ type Config struct {
 	IssueCredentialService issueCredentialService
 	OIDC4CIService         oidc4ciService
 	VcStatusManager        vcStatusManager
+	ExternalHostURL        string
 }
 
 // Controller for Issuer Profile Management API.
@@ -125,6 +126,7 @@ type Controller struct {
 	issueCredentialService issueCredentialService
 	oidc4ciService         oidc4ciService
 	vcStatusManager        vcStatusManager
+	externalHostURL        string
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -136,6 +138,7 @@ func NewController(config *Config) *Controller {
 		issueCredentialService: config.IssueCredentialService,
 		oidc4ciService:         config.OIDC4CIService,
 		vcStatusManager:        config.VcStatusManager,
+		externalHostURL:        config.ExternalHostURL,
 	}
 }
 
@@ -560,4 +563,28 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		Format:     string(result.Format),
 		Retry:      result.Retry,
 	}, nil)
+}
+
+// OpenidConfig request openid configuration for issuer.
+// GET /issuer/{profileID}/.well-known/openid-configuration.
+func (c *Controller) OpenidConfig(ctx echo.Context, profileID string) error {
+	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID), nil)
+}
+
+func (c *Controller) getOpenIDConfig(profileID string) *WellKnownOpenIDConfiguration {
+	host := c.externalHostURL
+	if !strings.HasSuffix(host, "/") {
+		host += "/"
+	}
+
+	return &WellKnownOpenIDConfiguration{
+		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
+		Issuer:                fmt.Sprintf("%s%s", host, profileID),
+		ResponseTypesSupported: []string{
+			"code",
+		},
+		TokenEndpoint:       fmt.Sprintf("%soidc/token", host),
+		CredentialSupported: true,
+		CredentialEndpoint:  fmt.Sprintf("%soidc/credential", host),
+	}
 }
