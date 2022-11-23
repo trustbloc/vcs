@@ -30,6 +30,8 @@ const (
 	VerifierOIDCInteractionQRScanned = "oidc_interaction_qr_scanned"
 	// VerifierOIDCInteractionSucceeded verifier oidc event.
 	VerifierOIDCInteractionSucceeded = "oidc_interaction_succeeded"
+	// VerifierOIDCInteractionFailed verifier oidc event.
+	VerifierOIDCInteractionFailed = "oidc_interaction_failed"
 
 	// IssuerOIDCInteractionInitiated Issuer oidc event.
 	IssuerOIDCInteractionInitiated = EventType("oidc_interaction_initiated")

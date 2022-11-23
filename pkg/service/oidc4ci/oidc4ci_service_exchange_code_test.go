@@ -234,14 +234,6 @@ func TestExchangeCodePublishError(t *testing.T) {
 			return errors.New("publish error")
 		})
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
-			assert.Len(t, messages, 1)
-			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
-
-			return nil
-		})
-
 	baseTx := &oidc4ci.Transaction{
 		ID: oidc4ci.TxID("id"),
 		TransactionData: oidc4ci.TransactionData{

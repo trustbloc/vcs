@@ -145,4 +145,5 @@ type InsertOptions struct {
 type eventPayload struct {
 	TxID    string `json:"txID"`
 	WebHook string `json:"webHook,omitempty"`
+	Error   string `json:"error,omitempty"`
 }

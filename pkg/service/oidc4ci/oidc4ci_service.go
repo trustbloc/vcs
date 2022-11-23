@@ -363,11 +363,18 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 func (s *Service) createEvent(
 	tx *Transaction,
 	eventType spi.EventType,
+	e error,
 ) (*spi.Event, error) {
-	payload, err := json.Marshal(eventPayload{
+	ep := eventPayload{
 		TxID:    string(tx.ID),
 		WebHook: tx.WebHookURL,
-	})
+	}
+
+	if e != nil {
+		ep.Error = e.Error()
+	}
+
+	payload, err := json.Marshal(ep)
 	if err != nil {
 		return nil, err
 	}
@@ -375,11 +382,12 @@ func (s *Service) createEvent(
 	return spi.NewEvent(uuid.NewString(), "oidc4ci", eventType, payload), nil
 }
 
-func (s *Service) sendEvent(
-	tx *Transaction,
-	eventType spi.EventType,
-) error {
-	event, err := s.createEvent(tx, eventType)
+func (s *Service) sendEvent(tx *Transaction, eventType spi.EventType) error {
+	return s.sendEventWithError(tx, eventType, nil)
+}
+
+func (s *Service) sendEventWithError(tx *Transaction, eventType spi.EventType, e error) error {
+	event, err := s.createEvent(tx, eventType, e)
 	if err != nil {
 		return err
 	}
@@ -387,6 +395,7 @@ func (s *Service) sendEvent(
 	return s.eventSvc.Publish(spi.IssuerEventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(tx *Transaction, _ error) {
-	_ = s.sendEvent(tx, spi.IssuerOIDCInteractionFailed)
+func (s *Service) sendFailedEvent(tx *Transaction, err error) {
+	e := s.sendEventWithError(tx, spi.IssuerOIDCInteractionFailed, err)
+	logger.Debug("sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
 }

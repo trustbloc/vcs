@@ -53,7 +53,6 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 	}
 
 	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
-		s.sendFailedEvent(tx, err)
 		return "", err
 	}
 
