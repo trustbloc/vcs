@@ -377,18 +377,20 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
+	nonce := mustGenerateNonce()
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
-
 	isPreAuthFlow := session.Extra[authorizationDetailsKey] == preAuthorizedCodeGrantType
-	if isPreAuthFlow {
-		ar.GetSession().(*fosite.DefaultSession).Extra[txIDKey] = req.FormValue(txIDKey)
 
-		resp, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
+	if isPreAuthFlow {
+		c.setCNonceSession(session, nonce, req.FormValue(txIDKey))
+
+		responder, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
 		if err2 != nil {
 			return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err2).WithAccessRequester(ar)
 		}
 
-		c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, resp)
+		c.setCNonce(responder, nonce)
+		c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
 		return nil
 	}
 
@@ -414,24 +416,35 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		return fmt.Errorf("read exchange auth code response: %w", err)
 	}
 
-	session.Extra[txIDKey] = exchangeResult.TxId
-
-	nonce := mustGenerateNonce()
-
-	session.Extra[cNonceKey] = nonce
-	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
+	c.setCNonceSession(session, nonce, exchangeResult.TxId)
 
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
-	responder.SetExtra("c_nonce", nonce)
-	responder.SetExtra("c_nonce_expires_in", cNonceTTL.Seconds())
-
+	c.setCNonce(responder, nonce)
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
 
 	return nil
+}
+
+func (c *Controller) setCNonce(
+	responder fosite.AccessResponder,
+	nonce string,
+) {
+	responder.SetExtra("c_nonce", nonce)
+	responder.SetExtra("c_nonce_expires_in", cNonceTTL.Seconds())
+}
+
+func (c *Controller) setCNonceSession(
+	session *fosite.DefaultSession,
+	nonce string,
+	txID string,
+) {
+	session.Extra[txIDKey] = txID
+	session.Extra[cNonceKey] = nonce
+	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 }
 
 func mustGenerateNonce() string {
@@ -637,6 +650,7 @@ func (c *Controller) oidcPreAuthorizedCode(
 		AccessToken:  token.AccessToken,
 		RefreshToken: lo.ToPtr(token.RefreshToken),
 		TokenType:    tokenType,
+		CNonce:       lo.ToPtr(token.Extra("c_nonce").(string)),
 	}
 	if token.Expiry.Unix() > 0 {
 		aResponse.ExpiresIn = lo.ToPtr(int(token.Expiry.Unix()))
