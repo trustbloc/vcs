@@ -1337,10 +1337,12 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				})
 
 				oauthClient.EXPECT().Exchange(gomock.Any(), cfg, "my-secure-code",
-					gomock.Any(), gomock.Any()).Return(&oauth2.Token{
+					gomock.Any(), gomock.Any()).Return(lo.ToPtr(oauth2.Token{
 					AccessToken: "123456",
 					Expiry:      time.Now().UTC().Add(10 * time.Minute),
-				}, nil)
+				}).WithExtra(map[string]interface{}{
+					"c_nonce": "c_nonce_toklen_one_more",
+				}), nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.NoError(t, err)
