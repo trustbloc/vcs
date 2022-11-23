@@ -1341,7 +1341,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 					AccessToken: "123456",
 					Expiry:      time.Now().UTC().Add(10 * time.Minute),
 				}).WithExtra(map[string]interface{}{
-					"c_nonce": "c_nonce_toklen",
+					"c_nonce": "c_nonce_toklen_one_more",
 				}), nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
