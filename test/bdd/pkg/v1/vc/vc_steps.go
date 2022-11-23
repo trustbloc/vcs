@@ -26,7 +26,7 @@ const (
 	issuerProfileURL                = "%s/issuer/profiles"
 	issuerProfileURLFormat          = issuerProfileURL + "/%s"
 	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
-	oidcProviderURL                 = "https://localhost:4444"
+	OidcProviderURL                 = "https://localhost:4444"
 	updateCredentialStatusURLFormat = issuerProfileURLFormat + "/credentials/status"
 )
 
@@ -73,7 +73,7 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 }
 
 func (e *Steps) authorizeOrganization(org, clientID, secret string) error {
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
+	accessToken, err := bddutil.IssueAccessToken(context.Background(), OidcProviderURL,
 		clientID, secret, []string{"org_admin"})
 	if err != nil {
 		return err

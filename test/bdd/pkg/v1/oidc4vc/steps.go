@@ -11,10 +11,11 @@ import (
 	"fmt"
 
 	"github.com/cucumber/godog"
-	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"golang.org/x/oauth2"
 	"net/http/cookiejar"
 
+	"github.com/trustbloc/vcs/component/walletcli/pkg/service/walletrunner"
+	"github.com/trustbloc/vcs/component/walletcli/pkg/service/walletrunner/vcprovider"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
@@ -32,15 +33,10 @@ type Steps struct {
 	accessToken         string
 
 	// VP
-	tlsConfig        *tls.Config
-	wallet           *wallet.Wallet
-	ariesServices    *ariesServices
-	walletPassphrase string
-	walletToken      string
-	walletUserID     string
-	walletDidID      string
-	walletDidKeyID   string
-	vpFlowExecutor   *VPFlowExecutor
+	tlsConfig               *tls.Config
+	walletRunner            *walletrunner.Service
+	initiateOIDC4VPResponse *walletrunner.InitiateOIDC4VPResponse
+	vpFlowExecutor          *walletrunner.VPFlowExecutor
 }
 
 // NewSteps returns new Steps context.
@@ -50,13 +46,21 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 		return nil, fmt.Errorf("init cookie jar: %w", err)
 	}
 
+	tlsConf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+
+	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS)
+	if err != nil {
+		return nil, fmt.Errorf("unable create wallet runner: %w", err)
+	}
+
 	return &Steps{
-		bddContext: ctx,
-		cookie:     jar,
-		debug:      false, // set to true to get request/response dumps
-		tlsConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+		bddContext:   ctx,
+		cookie:       jar,
+		debug:        false, // set to true to get request/response dumps
+		tlsConfig:    tlsConf,
+		walletRunner: walletRunner,
 	}, nil
 }
 
@@ -82,7 +86,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 		s.initiateInteraction)
 	sc.Step(`^User receives authorization request$`, s.verifyAuthorizationRequest)
 
-	sc.Step(`^User invokes authorization request using Wallet$`, s.fetchRequestRequestObjectAndDecodeClaims)
+	sc.Step(`^User invokes authorization request using Wallet$`, s.fetchRequestObjectAndDecodeClaims)
 	sc.Step(`^Wallet queries credential that match authorization and display them for User$`, s.queryCredentialFromWallet)
 
 	sc.Step(`^User gives a consent$`, s.checkRequestPresentation)
