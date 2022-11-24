@@ -26,8 +26,8 @@ const (
 	oidcRedirect               = "/oidc/redirect"
 	oidcToken                  = "/oidc/token"
 	oidcCredential             = "/oidc/credential"
-	oidcPreAuthorize           = "/oidc/pre-authorized-code"
 	oidcWellKnown              = "/.well-known/openid-configuration"
+	issuanceState              = "/issuer/issuance-state"
 )
 
 // APIKeyAuth returns a middleware that authenticates requests using the API key from X-API-Key header.
@@ -56,7 +56,7 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 
 			if strings.HasPrefix(currentPath, oidcAuthorize) ||
 				strings.HasPrefix(currentPath, oidcRedirect) ||
-				strings.HasPrefix(currentPath, oidcPreAuthorize) ||
+				strings.HasPrefix(currentPath, issuanceState) ||
 				strings.HasPrefix(currentPath, oidcToken) ||
 				strings.HasPrefix(currentPath, oidcCredential) ||
 				strings.HasSuffix(currentPath, oidcWellKnown) {

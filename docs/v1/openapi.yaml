@@ -421,6 +421,32 @@ paths:
           description: Sucess
         '500':
           description: Failure
+  '/issuer/{issuerID}/issuance-state/{txID}':
+    parameters:
+      - schema:
+          type: string
+        name: txID
+        in: path
+        required: true
+        description: ID of transaction
+      - schema:
+          type: string
+        name: issuerID
+        in: path
+        required: true
+        description: ID of issuer
+    get:
+      summary: Used to receive issuance state of oidc4ci issuance.
+      operationId: retrieve-issuance-state
+      tags:
+        - issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssuanceStateResponse'
   '/verifier/interactions/{txID}/claim':
     parameters:
       - schema:
@@ -973,6 +999,14 @@ components:
       required:
         - authorizationRequest
         - txID
+    IssuanceStateResponse:
+      title: IssuanceStateResponse
+      type: object
+      properties:
+        state:
+          type: integer
+      required:
+        - state
     PrepareClaimDataAuthorizationRequest:
       title: PrepareClaimDataAuthorizationRequest
       type: object

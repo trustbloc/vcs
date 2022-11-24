@@ -1333,6 +1333,34 @@ func TestOpenIdConfiguration(t *testing.T) {
 	})
 }
 
+func TestGetIssuanceState(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		srv := NewMockOIDC4CIService(gomock.NewController(t))
+		c := &Controller{
+			oidc4ciService: srv,
+		}
+
+		srv.EXPECT().GetIssuanceState(gomock.Any(), "12345").
+			Return(oidc4ci.TransactionStateIssuanceInitiated, nil)
+
+		err := c.RetrieveIssuanceState(echoContext(), "any", "12345")
+		assert.NoError(t, err)
+	})
+
+	t.Run("err", func(t *testing.T) {
+		srv := NewMockOIDC4CIService(gomock.NewController(t))
+		c := &Controller{
+			oidc4ciService: srv,
+		}
+
+		srv.EXPECT().GetIssuanceState(gomock.Any(), "12345").
+			Return(oidc4ci.TransactionStateIssuanceInitiated, errors.New("err123"))
+
+		err := c.RetrieveIssuanceState(echoContext(), "any", "12345")
+		assert.ErrorContains(t, err, "err123")
+	})
+}
+
 type options struct {
 	orgID       string
 	requestBody []byte
