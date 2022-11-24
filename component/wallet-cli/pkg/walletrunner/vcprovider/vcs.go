@@ -169,7 +169,8 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, httputil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return nil, fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
+			http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return respBytes, nil

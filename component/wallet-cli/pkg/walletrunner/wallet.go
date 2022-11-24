@@ -7,31 +7,17 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
-	"crypto/tls"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
-	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
-	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
-	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
-	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr"
-	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/httpbinding"
+	vdrapi "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
-	"github.com/trustbloc/vcs/pkg/ld"
 )
 
 const (
@@ -77,7 +63,7 @@ func (s *Service) CreateWallet() error {
 		return err
 	}
 
-	vdrRegistry := vdrpkg.New(vdrpkg.WithVDR(vdrService), vdrpkg.WithVDR(key.New()))
+	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()))
 
 	createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
 	if err != nil {
@@ -99,7 +85,7 @@ func (s *Service) CreateWallet() error {
 	return nil
 }
 
-func newWallet(userID string, passphrase string, services *AriesServices) (*wallet.Wallet, error) {
+func newWallet(userID string, passphrase string, services *ariesServices) (*wallet.Wallet, error) {
 	err := wallet.CreateProfile(userID, services, wallet.WithPassphrase(passphrase))
 	if err != nil {
 		return nil, fmt.Errorf("user profile create failed: %w", err)
@@ -121,123 +107,4 @@ func (s *Service) SaveCredentialInWallet(vc []byte) error {
 	}
 
 	return nil
-}
-
-func (s *Service) createAgentServices(tlsConfig *tls.Config) (*AriesServices, error) {
-	provider := &AriesServices{
-		storageProvider: mem.NewProvider(),
-	}
-
-	ldStore, err := createLDStore(provider.storageProvider)
-	if err != nil {
-		return nil, err
-	}
-
-	loader, err := createJSONLDDocumentLoader(ldStore, tlsConfig,
-		[]string{s.vcProviderConf.ContextProviderURL}, false)
-	if err != nil {
-		return nil, fmt.Errorf("create document loader: %w", err)
-	}
-
-	provider.jSONLDDocumentLoader = loader
-
-	cryptoImpl, err := tinkcrypto.New()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create local Crypto: %w", err)
-	}
-
-	provider.crypto = cryptoImpl
-
-	kmsStore, err := kms.NewAriesProviderWrapper(provider.storageProvider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Aries KMS store wrapper")
-	}
-
-	kmsProv := kmsProvider{
-		store:             kmsStore,
-		secretLockService: &noop.NoLock{},
-	}
-
-	localKMS, err := localkms.New("local-lock://agentSDK", &kmsProv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create local KMS: %w", err)
-	}
-	provider.kms = localKMS
-
-	vrd, err := createVDRI(s.vcProviderConf.UniResolverURL, tlsConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	provider.vdrRegistry = vrd
-
-	return provider, nil
-}
-
-func createJSONLDDocumentLoader(ldStore *ldStoreProvider, tlsConfig *tls.Config,
-	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
-	var loaderOpts []ariesld.DocumentLoaderOpts
-
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
-	}
-
-	for _, url := range providerURLs {
-		loaderOpts = append(loaderOpts,
-			ariesld.WithRemoteProvider(
-				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
-			),
-		)
-	}
-
-	if contextEnableRemote {
-		loaderOpts = append(loaderOpts,
-			ariesld.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
-	}
-
-	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	return loader, nil
-}
-
-// acceptsDID returns if given did method is accepted by VC REST api
-func acceptsDID(method string) bool {
-	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom || method == didMethodORB ||
-		method == didMethodKey || method == didMethodION
-}
-
-func createVDRI(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry, error) {
-	var opts []vdr.Option
-
-	if universalResolver != "" {
-		universalResolverVDRI, err := httpbinding.New(universalResolver,
-			httpbinding.WithAccept(acceptsDID), httpbinding.WithHTTPClient(&http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-				},
-			}))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new universal resolver vdr: %w", err)
-		}
-
-		// add universal resolver vdr
-		opts = append(opts, vdr.WithVDR(universalResolverVDRI))
-	}
-
-	// add bloc vdr
-	opts = append(opts, vdr.WithVDR(key.New()), vdr.WithVDR(&webVDR{
-		http: &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
-			}},
-		VDR: web.New(),
-	}))
-
-	return vdr.New(opts...), nil
 }
