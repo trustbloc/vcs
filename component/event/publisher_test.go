@@ -30,13 +30,13 @@ func TestEventPublisher(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		_, err = eventBus.Subscribe(context.TODO(), topic)
 		require.NoError(t, err)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-2", sourceURL, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-3", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-2", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-3", sourceURL, eventType, []byte(jsonMsg))))
 
 		done := make(chan interface{})
 
@@ -63,7 +63,7 @@ func TestEventPublisher(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		err := publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg)))
+		err := publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg)))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "publishing error")
 	})

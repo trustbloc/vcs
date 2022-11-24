@@ -60,43 +60,62 @@ type Event struct {
 	// Type defines event type(required).
 	Type EventType `json:"type"`
 
-	// DataContentType is data content type(required).
-	DataContentType string `json:"datacontenttype"`
-
 	// Time defines time of occurrence(required).
 	Time *util.TimeWrapper `json:"time"`
 
-	// Data defines message(required).
-	Data *json.RawMessage `json:"data"`
+	// DataContentType is data content type(optional).
+	DataContentType string `json:"datacontenttype,omitempty"`
+
+	// Data defines message(optional).
+	Data json.RawMessage `json:"data,omitempty"`
+
+	// TransactionID defines transaction ID(optional).
+	TransactionID string `json:"txnid,omitempty"`
+
+	// Subject defines subject(optional).
+	Subject string `json:"subject,omitempty"`
+
+	// Tracing defines tracing(optional).
+	Tracing string `json:"tracing,omitempty"`
 }
 
 // Copy an event.
 func (m *Event) Copy() *Event {
 	return &Event{
 		SpecVersion:     m.SpecVersion,
-		DataContentType: m.DataContentType,
 		ID:              m.ID,
 		Source:          m.Source,
 		Type:            m.Type,
 		Time:            m.Time,
+		DataContentType: m.DataContentType,
 		Data:            m.Data,
+		TransactionID:   m.TransactionID,
+		Subject:         m.Subject,
+		Tracing:         m.Tracing,
 	}
 }
 
-// NewEvent creates a new Event.
-func NewEvent(uuid string, source string, eventType EventType, payload Payload) *Event {
-	now := time.Now()
+// NewEventWithPayload creates a new Event with payload.
+func NewEventWithPayload(uuid string, source string, eventType EventType, payload Payload) *Event {
+	event := NewEvent(uuid, source, eventType)
 
 	data := json.RawMessage(payload)
+	event.Data = data
+	event.DataContentType = "application/json"
+
+	return event
+}
+
+// NewEvent creates a new Event and sets all required fields.
+func NewEvent(uuid string, source string, eventType EventType) *Event {
+	now := time.Now()
 
 	return &Event{
-		SpecVersion:     "1.0",
-		DataContentType: "application/json",
-		ID:              uuid,
-		Source:          source,
-		Type:            eventType,
-		Time:            util.NewTime(now),
-		Data:            &data,
+		SpecVersion: "1.0",
+		ID:          uuid,
+		Source:      source,
+		Type:        eventType,
+		Time:        util.NewTime(now),
 	}
 }
 

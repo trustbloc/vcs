@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -87,28 +88,6 @@ type VPTokenClaims struct {
 	Iss   string                   `json:"iss"`
 }
 
-type Event struct {
-	// ID identifies the event(required).
-	ID string `json:"id"`
-
-	// Source is URI for producer(required).
-	Source string `json:"source"`
-
-	// Type defines event type(required).
-	Type string `json:"type"`
-
-	// DataContentType is data content type(required).
-	DataContentType string `json:"datacontenttype"`
-
-	// Data defines message(required).
-	Data *EventPayload `json:"data"`
-}
-
-type EventPayload struct {
-	TxID    string `json:"txID"`
-	WebHook string `json:"webHook,omitempty"`
-}
-
 func (e *Steps) initiateInteraction(profileName, organizationName string) error {
 	e.vpFlowExecutor = &VPFlowExecutor{
 		tlsConfig:      e.tlsConfig,
@@ -166,7 +145,7 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 }
 
 func (e *Steps) waitForEvent(eventType string) (string, error) {
-	incoming := &Event{}
+	incoming := &spi.Event{}
 
 	for i := 0; i < pullTopicsAttemptsBeforeFail; {
 
@@ -191,8 +170,8 @@ func (e *Steps) waitForEvent(eventType string) (string, error) {
 			return "", err
 		}
 
-		if incoming.Type == eventType {
-			return incoming.Data.TxID, nil
+		if incoming.Type == spi.EventType(eventType) {
+			return incoming.TransactionID, nil
 		}
 
 		i++
