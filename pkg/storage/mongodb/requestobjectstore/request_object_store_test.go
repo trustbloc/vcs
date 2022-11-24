@@ -95,7 +95,7 @@ func TestObjectStore(t *testing.T) {
 			Type:            "test4",
 			DataContentType: "test5",
 			Time:            nil,
-			Data:            &eventData,
+			Data:            eventData,
 		}
 
 		resp, err := store.Create(requestobject.RequestObject{

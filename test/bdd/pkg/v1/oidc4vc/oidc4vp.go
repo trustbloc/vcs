@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -33,28 +34,6 @@ const (
 	InitiateOidcInteractionURLFormat   = verifierProfileURLFormat + "/interactions/initiate-oidc"
 	RetrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
-
-type Event struct {
-	// ID identifies the event(required).
-	ID string `json:"id"`
-
-	// Source is URI for producer(required).
-	Source string `json:"source"`
-
-	// Type defines event type(required).
-	Type string `json:"type"`
-
-	// DataContentType is data content type(required).
-	DataContentType string `json:"datacontenttype"`
-
-	// Data defines message(required).
-	Data *EventPayload `json:"data"`
-}
-
-type EventPayload struct {
-	TxID    string `json:"txID"`
-	WebHook string `json:"webHook,omitempty"`
-}
 
 func (s *Steps) initiateInteraction(profileName, organizationName string) error {
 	s.vpFlowExecutor = s.walletRunner.NewVPFlowExecutor()
@@ -131,7 +110,7 @@ func (s *Steps) retrieveInteractionsClaim(organizationName string) error {
 }
 
 func (s *Steps) waitForEvent(eventType string) (string, error) {
-	incoming := &Event{}
+	incoming := &spi.Event{}
 
 	for i := 0; i < pullTopicsAttemptsBeforeFail; {
 
@@ -156,8 +135,8 @@ func (s *Steps) waitForEvent(eventType string) (string, error) {
 			return "", err
 		}
 
-		if incoming.Type == eventType {
-			return incoming.Data.TxID, nil
+		if incoming.Type == spi.EventType(eventType) {
+			return incoming.TransactionID, nil
 		}
 
 		i++

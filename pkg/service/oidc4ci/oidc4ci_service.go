@@ -372,7 +372,6 @@ func (s *Service) createEvent(
 	e error,
 ) (*spi.Event, error) {
 	ep := eventPayload{
-		TxID:    string(tx.ID),
 		WebHook: tx.WebHookURL,
 	}
 
@@ -385,7 +384,10 @@ func (s *Service) createEvent(
 		return nil, err
 	}
 
-	return spi.NewEvent(uuid.NewString(), "oidc4ci", eventType, payload), nil
+	event := spi.NewEventWithPayload(uuid.NewString(), "oidc4ci", eventType, payload)
+	event.TransactionID = string(tx.ID)
+
+	return event, nil
 }
 
 func (s *Service) sendEvent(tx *Transaction, eventType spi.EventType) error {

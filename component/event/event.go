@@ -46,9 +46,9 @@ func (b *Bus) handleEvent(e *spi.Event) error { //nolint:gocognit
 		return nil
 	}
 
-	payload := &eventPayload{}
+	payload := eventPayload{}
 
-	if err := json.Unmarshal(*e.Data, payload); err != nil {
+	if err := json.Unmarshal(e.Data, &payload); err != nil {
 		return err
 	}
 

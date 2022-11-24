@@ -47,7 +47,7 @@ func TestEventBus_Publish(t *testing.T) {
 			}
 		}()
 
-		msg := spi.NewEvent(uuid, sourceURL, eventType, []byte(jsonMsg))
+		msg := spi.NewEventWithPayload(uuid, sourceURL, eventType, []byte(jsonMsg))
 
 		require.NoError(t, eb.Publish(topic, msg))
 
@@ -62,7 +62,7 @@ func TestEventBus_Publish(t *testing.T) {
 	})
 
 	t.Run("success - no subscribers", func(t *testing.T) {
-		msg := spi.NewEvent(uuid, sourceURL, eventType, []byte("{}"))
+		msg := spi.NewEventWithPayload(uuid, sourceURL, eventType, []byte("{}"))
 
 		require.NoError(t, eb.PublishWithOpts("no-subscribers-topic", msg, spi.WithDeliveryDelay(5*time.Second)))
 
@@ -88,7 +88,7 @@ func TestEventBus_Error(t *testing.T) {
 		require.NotNil(t, eb)
 		require.NoError(t, eb.Close())
 
-		err := eb.Publish(topic, spi.NewEvent(uuid, sourceURL, eventType, []byte(jsonMsg)))
+		err := eb.Publish(topic, spi.NewEventWithPayload(uuid, sourceURL, eventType, []byte(jsonMsg)))
 		require.True(t, errors.Is(err, lifecycle.ErrNotStarted))
 	})
 }
@@ -116,7 +116,7 @@ func TestEventBus_Close(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 250; i++ {
-			msg := spi.NewEvent(fmt.Sprintf("%s-%d", uuid, i), sourceURL, eventType, []byte(jsonMsg))
+			msg := spi.NewEventWithPayload(fmt.Sprintf("%s-%d", uuid, i), sourceURL, eventType, []byte(jsonMsg))
 
 			if err := eb.PublishWithOpts(topic, msg); err != nil {
 				if errors.Is(err, lifecycle.ErrNotStarted) {

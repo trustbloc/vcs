@@ -150,7 +150,6 @@ type RequestObjectRegistration struct {
 }
 
 type eventPayload struct {
-	TxID    string `json:"txID"`
 	WebHook string `json:"webHook,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
@@ -184,7 +183,6 @@ func NewService(cfg *Config) *Service {
 func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	eventType spi.EventType, e error) (*spi.Event, error) {
 	ep := eventPayload{
-		TxID:    string(tx.ID),
 		WebHook: profile.WebHook,
 	}
 
@@ -196,7 +194,11 @@ func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	if err != nil {
 		return nil, err
 	}
-	return spi.NewEvent(uuid.NewString(), profile.URL, eventType, payload), nil
+
+	event := spi.NewEventWithPayload(uuid.NewString(), profile.URL, eventType, payload)
+	event.TransactionID = string(tx.ID)
+
+	return event, nil
 }
 
 func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {

@@ -31,9 +31,9 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-2", sourceURL, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-3", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-2", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-3", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 	})
@@ -48,7 +48,7 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 
@@ -67,7 +67,7 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEvent("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 	})
