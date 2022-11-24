@@ -22,7 +22,7 @@ require (
 	github.com/trustbloc/cmdutil-go v0.0.0-20221108164453-2cf882e56935
 	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
 	github.com/trustbloc/vcs v0.1.8
-	github.com/trustbloc/vcs/component/walletcli v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-00010101000000-000000000000
 	golang.org/x/oauth2 v0.1.0
 )
 
@@ -168,4 +168,4 @@ require (
 
 replace github.com/trustbloc/vcs => ../..
 
-replace github.com/trustbloc/vcs/component/walletcli => ../../component/walletcli
+replace github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
