@@ -9,13 +9,13 @@ package oidc4vc
 import (
 	"crypto/tls"
 	"fmt"
+	"net/http/cookiejar"
 
 	"github.com/cucumber/godog"
 	"golang.org/x/oauth2"
-	"net/http/cookiejar"
 
-	"github.com/trustbloc/vcs/component/walletcli/pkg/service/walletrunner"
-	"github.com/trustbloc/vcs/component/walletcli/pkg/service/walletrunner/vcprovider"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )

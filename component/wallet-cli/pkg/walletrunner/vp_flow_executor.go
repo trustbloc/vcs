@@ -18,10 +18,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 )
 
 type VPFlowExecutor struct {
@@ -62,7 +62,7 @@ func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) error {
 		return err
 	}
 
-	defer bddutil.CloseResponseBody(resp.Body)
+	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -70,19 +70,20 @@ func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return httputil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
 }
 
 func (e *VPFlowExecutor) InitiateInteraction(url, authToken string) (*InitiateOIDC4VPResponse, error) {
-	resp, err := bddutil.HTTPSDo(http.MethodPost, url, "application/json", authToken, //nolint: bodyclose
+	resp, err := httputil.HTTPSDo(http.MethodPost, url, "application/json", authToken, //nolint: bodyclose
 		nil, e.tlsConfig)
 	if err != nil {
 		return nil, err
 	}
-	defer bddutil.CloseResponseBody(resp.Body)
+
+	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -90,7 +91,7 @@ func (e *VPFlowExecutor) InitiateInteraction(url, authToken string) (*InitiateOI
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return nil, httputil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	result := &InitiateOIDC4VPResponse{}
@@ -99,12 +100,12 @@ func (e *VPFlowExecutor) InitiateInteraction(url, authToken string) (*InitiateOI
 }
 
 func (e *VPFlowExecutor) RetrieveInteractionsClaim(url, authToken string) error {
-	resp, err := bddutil.HTTPSDo(http.MethodGet, url, "application/json", authToken, //nolint: bodyclose
+	resp, err := httputil.HTTPSDo(http.MethodGet, url, "application/json", authToken, //nolint: bodyclose
 		nil, e.tlsConfig)
 	if err != nil {
 		return err
 	}
-	defer bddutil.CloseResponseBody(resp.Body)
+	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -112,7 +113,7 @@ func (e *VPFlowExecutor) RetrieveInteractionsClaim(url, authToken string) error 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return httputil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return nil
@@ -196,11 +197,11 @@ func (e *VPFlowExecutor) RequestPresentation() *verifiable.Presentation {
 func (e *VPFlowExecutor) FetchRequestObject(authorizationRequest string) (string, error) {
 	endpointURL := strings.TrimPrefix(authorizationRequest, "openid-vc://?request_uri=")
 
-	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "", "", nil, e.tlsConfig)
+	resp, err := httputil.HTTPSDo(http.MethodGet, endpointURL, "", "", nil, e.tlsConfig)
 	if err != nil {
 		return "", err
 	}
-	defer bddutil.CloseResponseBody(resp.Body)
+	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -208,7 +209,7 @@ func (e *VPFlowExecutor) FetchRequestObject(authorizationRequest string) (string
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return "", httputil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return string(respBytes), nil

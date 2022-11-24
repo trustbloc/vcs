@@ -30,8 +30,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	jsonld "github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
 	"github.com/trustbloc/vcs/pkg/ld"
-	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil/vdrutil"
 )
 
 const (

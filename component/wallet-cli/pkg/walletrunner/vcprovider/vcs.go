@@ -20,9 +20,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/ldutil"
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/oauth2util"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
-	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
+	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
 const (
@@ -108,7 +110,7 @@ func (p *vcsCredentialsProvider) GetCredentials() (map[string][]byte, error) {
 }
 
 func (p *vcsCredentialsProvider) authorizeOrganization(clientID, secret string) (string, error) {
-	accessToken, err := bddutil.IssueAccessToken(context.Background(), p.conf.OidcProviderURL,
+	accessToken, err := oauth2util.Token(context.Background(), p.conf.OidcProviderURL,
 		clientID, secret, []string{"org_admin"})
 	if err != nil {
 		return "", err
@@ -118,7 +120,7 @@ func (p *vcsCredentialsProvider) authorizeOrganization(clientID, secret string) 
 }
 
 func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken string) ([]byte, error) {
-	loader, err := bddutil.DocumentLoader()
+	loader, err := ldutil.DocumentLoader()
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
@@ -144,7 +146,7 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 		return nil, fmt.Errorf("unable to get issue credential request data: %w", err)
 	}
 
-	req := &model.IssueCredentialData{
+	req := &issuerv1.IssueCredentialData{
 		Credential: reqData,
 	}
 
@@ -153,13 +155,13 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 		return nil, err
 	}
 
-	resp, err := bddutil.HTTPSDo(http.MethodPost, p.conf.IssueVCURL, "application/json", authToken, //nolint: bodyclose
+	resp, err := httputil.HTTPSDo(http.MethodPost, p.conf.IssueVCURL, "application/json", authToken, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), p.conf.TLS)
 	if err != nil {
 		return nil, err
 	}
 
-	defer bddutil.CloseResponseBody(resp.Body)
+	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -167,7 +169,7 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return nil, httputil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	return respBytes, nil

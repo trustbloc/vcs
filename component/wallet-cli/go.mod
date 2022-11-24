@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/vcs/component/walletcli
+module github.com/trustbloc/vcs/component/wallet-cli
 
 go 1.19
 
@@ -14,8 +14,9 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/piprate/json-gold v0.4.2
+	github.com/spf13/cobra v1.6.1
 	github.com/trustbloc/vcs v0.1.8
-	github.com/trustbloc/vcs/test/bdd v0.0.0-20221115141126-1a4cab77b21f
+	golang.org/x/oauth2 v0.1.0
 )
 
 require (
@@ -32,6 +33,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/dave/jennifer v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/deepmap/oapi-codegen v1.11.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/ecordell/optgen v0.0.6 // indirect
@@ -106,7 +108,6 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
@@ -117,7 +118,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/edge-core v0.1.9-0.20220718150010-aa7941986372 // indirect
+	github.com/trustbloc/edge-core v0.1.8 // indirect
 	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 // indirect
 	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60 // indirect
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
@@ -141,7 +142,6 @@ require (
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.1.0 // indirect
-	golang.org/x/oauth2 v0.1.0 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
@@ -151,14 +151,10 @@ require (
 	google.golang.org/genproto v0.0.0-20220222213610-43724f9ea8cf // indirect
 	google.golang.org/grpc v1.46.2 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	github.com/trustbloc/vcs => ../../
-	github.com/trustbloc/vcs/test/bdd => ../../test/bdd
-)
+replace github.com/trustbloc/vcs => ../../

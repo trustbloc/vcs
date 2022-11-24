@@ -23,7 +23,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 
-	"github.com/trustbloc/vcs/component/walletcli/pkg/service/walletrunner/vcprovider"
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 )
