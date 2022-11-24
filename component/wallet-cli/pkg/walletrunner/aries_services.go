@@ -16,45 +16,45 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 )
 
-type AriesServices struct {
-	storageProvider      storage.Provider
-	vdrRegistry          vdrapi.Registry
-	crypto               crypto.Crypto
-	kms                  kms.KeyManager
-	jSONLDDocumentLoader jsonld.DocumentLoader
-	mediaTypeProfiles    []string
+type ariesServices struct {
+	storageProvider   storage.Provider
+	vdrRegistry       vdrapi.Registry
+	crypto            crypto.Crypto
+	kms               kms.KeyManager
+	documentLoader    jsonld.DocumentLoader
+	mediaTypeProfiles []string
 }
 
-func (p *AriesServices) StorageProvider() storage.Provider {
+func (p *ariesServices) StorageProvider() storage.Provider {
 	return p.storageProvider
 }
 
-func (p *AriesServices) SetStorageProvider(sp storage.Provider) {
+func (p *ariesServices) SetStorageProvider(sp storage.Provider) {
 	p.storageProvider = sp
 }
 
-func (p *AriesServices) VDRegistry() vdrapi.Registry {
+func (p *ariesServices) VDRegistry() vdrapi.Registry {
 	return p.vdrRegistry
 }
 
-func (p *AriesServices) Crypto() crypto.Crypto {
+func (p *ariesServices) Crypto() crypto.Crypto {
 	return p.crypto
 }
 
-func (p *AriesServices) KMS() kms.KeyManager {
+func (p *ariesServices) KMS() kms.KeyManager {
 	return p.kms
 }
 
-func (p *AriesServices) JSONLDDocumentLoader() jsonld.DocumentLoader {
-	return p.jSONLDDocumentLoader
+func (p *ariesServices) JSONLDDocumentLoader() jsonld.DocumentLoader {
+	return p.documentLoader
 }
 
-func (p *AriesServices) MediaTypeProfiles() []string {
+func (p *ariesServices) MediaTypeProfiles() []string {
 	return p.mediaTypeProfiles
 }
 
 // Close frees resources being maintained by the framework.
-func (p *AriesServices) Close() error {
+func (p *ariesServices) Close() error {
 	if p.storageProvider != nil {
 		err := p.storageProvider.Close()
 		if err != nil {

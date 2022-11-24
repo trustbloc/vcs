@@ -8,7 +8,6 @@ package httputil
 
 import (
 	"crypto/tls"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -40,10 +39,4 @@ func CloseResponseBody(respBody io.Closer) {
 	if err != nil {
 		log.Println("Failed to close response body", err)
 	}
-}
-
-// ExpectedStatusCodeError formats the status code error message.
-func ExpectedStatusCodeError(expected, actual int, respBytes []byte) error {
-	return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
-		expected, actual, respBytes)
 }

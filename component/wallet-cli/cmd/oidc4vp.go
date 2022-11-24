@@ -25,8 +25,9 @@ import (
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
 func NewOIDC4VPCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "oidc4vp",
-		Long: "Run oidc4vp flow",
+		Use:   "oidc4vp",
+		Short: "Run oidc4vp flow",
+		Long:  "Run oidc4vp flow",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runnerCfg, err := getWalletRunnerConfig(cmd)
 			if err != nil {
@@ -65,7 +66,7 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().String("oidc4vpAuthorizationRequest", "", "OIDC4VP Authorization Request")
 	cmd.Flags().String("vcProvider", "vcs", "VC Provider")
 	cmd.Flags().String("vcIssuerURL", "", "VC Issuer URL")
-	cmd.Flags().String("vcFormat", "jwt_vc", "C format (jwt_vc/ldp_vc)")
+	cmd.Flags().String("vcFormat", "jwt_vc", "VC format (jwt_vc/ldp_vc)")
 }
 
 type runnerConfig struct {
