@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package vc
 
+import "github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 // StatusType is used to define implementation of VC status list.
 // Field verifiable.TypedID .Type.
 type StatusType string
@@ -26,3 +28,15 @@ const (
 	// 	Doc: https://w3c-ccg.github.io/vc-status-rl-2020/
 	RevocationList2020VCStatus StatusType = "RevocationList2020Status"
 )
+
+type StatusProcessorGetter func(vcStatusListType StatusType) (StatusProcessor, error)
+
+// StatusProcessor holds the list of methods required for processing different versions of Status(Revocation) List VC.
+type StatusProcessor interface {
+	ValidateStatus(vcStatus *verifiable.TypedID) error
+	GetStatusVCURI(vcStatus *verifiable.TypedID) (string, error)
+	GetStatusListIndex(vcStatus *verifiable.TypedID) (int, error)
+	CreateVC(vcID string, listSize int, profile *Signer) (*verifiable.Credential, error)
+	CreateVCStatus(statusListIndex string, vcID string) *verifiable.TypedID
+	GetVCContext() string
+}

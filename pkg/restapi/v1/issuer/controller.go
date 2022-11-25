@@ -107,8 +107,8 @@ type oidc4ciService interface {
 }
 
 type vcStatusManager interface {
-	GetRevocationListVC(id string) (*verifiable.Credential, error)
-	GetCredentialStatusURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
+	GetStatusListVC(statusListURL string) (*verifiable.Credential, error)
+	GetStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
 	UpdateVCStatus(signer *vc.Signer, profileName, CredentialID, status string) error
 }
 
@@ -249,12 +249,12 @@ func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, st
 		return err
 	}
 
-	statusURL, err := c.vcStatusManager.GetCredentialStatusURL(profile.URL, profile.ID, statusID)
+	statusURL, err := c.vcStatusManager.GetStatusListVCURL(profile.URL, profile.ID, statusID)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.vcStatusManager.GetRevocationListVC(statusURL))
+	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(statusURL))
 }
 
 // PostCredentialsStatus updates credential status.

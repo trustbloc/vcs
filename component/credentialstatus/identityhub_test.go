@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package revocation
+package credentialstatus
 
 import (
 	"bytes"
@@ -40,11 +40,20 @@ const (
 )
 
 var (
-	//go:embed testdata/sample_vc.jwt
+	//go:embed internal/testutil/testdata/sample_vc.jwt
 	sampleVCJWT string
-	//go:embed testdata/identity_hub_response_jwt.json
+	//go:embed internal/testutil/testdata/identity_hub_response_jwt.json
 	identityHubResponseJWT string
 )
+
+type mockHTTPClient struct {
+	doValue *http.Response
+	doErr   error
+}
+
+func (m *mockHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	return m.doValue, m.doErr
+}
 
 func getIdentityHubResponse(t *testing.T) IdentityHubResponse {
 	t.Helper()

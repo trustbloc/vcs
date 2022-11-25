@@ -17,8 +17,10 @@ import (
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/internal/mock/status"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -58,8 +60,8 @@ func TestService_VerifyCredential(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		t.Parallel()
 		loader := testutil.DocumentLoader(t)
-		mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-		mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+		mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+		mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 			Subject: []verifiable.Subject{{
 				ID: "",
 				CustomFields: map[string]interface{}{
@@ -130,12 +132,18 @@ func TestService_VerifyCredential(t *testing.T) {
 								vc, vdr := testutil.SignedVC(
 									t, vcFileTestCase.vcFile, ktTestCase.kt, sigRepresentationTextCase.sr,
 									loader, crypto.AssertionMethod)
+								mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+									StatusProcessor: &status.MockVCStatusProcessor{
+										StatusListIndex: 1,
+									},
+								}
 
 								// Verify
 								op := New(&Config{
-									RevocationVCGetter: mockRevocationVCGetter,
-									VDR:                vdr,
-									DocumentLoader:     loader,
+									VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
+									StatusListVCResolver:    mockStatusListVCGetter,
+									VDR:                     vdr,
+									DocumentLoader:          loader,
 								})
 
 								res, err := op.VerifyCredential(vc, &Options{
@@ -165,8 +173,8 @@ func TestService_VerifyCredential(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Proof", func(t *testing.T) {
-			mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-			mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+			mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+			mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 				Subject: []verifiable.Subject{{
 					ID: "",
 					CustomFields: map[string]interface{}{
@@ -179,10 +187,18 @@ func TestService_VerifyCredential(t *testing.T) {
 					ID: "did:trustblock:abc",
 				},
 			}, nil)
+
+			mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+				StatusProcessor: &status.MockVCStatusProcessor{
+					StatusListIndex: 1,
+				},
+			}
+
 			service := New(&Config{
-				RevocationVCGetter: mockRevocationVCGetter,
-				VDR:                mockVDRRegistry,
-				DocumentLoader:     loader,
+				VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
+				StatusListVCResolver:    mockStatusListVCGetter,
+				VDR:                     mockVDRRegistry,
+				DocumentLoader:          loader,
 			})
 
 			var res []CredentialsVerificationCheckResult
@@ -198,8 +214,8 @@ func TestService_VerifyCredential(t *testing.T) {
 
 		t.Run("Proof and Status", func(t *testing.T) {
 			require.NoError(t, err)
-			failedRevocationListGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-			failedRevocationListGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+			failedStatusListGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+			failedStatusListGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 				Subject: []verifiable.Subject{{
 					ID: "",
 					CustomFields: map[string]interface{}{
@@ -212,10 +228,18 @@ func TestService_VerifyCredential(t *testing.T) {
 					ID: "did:trustblock:abc",
 				},
 			}, nil)
+
+			mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+				StatusProcessor: &status.MockVCStatusProcessor{
+					ValidateErr: errors.New("some error"),
+				},
+			}
+
 			service := New(&Config{
-				RevocationVCGetter: failedRevocationListGetter,
-				VDR:                mockVDRRegistry,
-				DocumentLoader:     loader,
+				VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
+				StatusListVCResolver:    failedStatusListGetter,
+				VDR:                     mockVDRRegistry,
+				DocumentLoader:          loader,
 			})
 			res, err := service.VerifyCredential(vc, &Options{
 				Challenge: crypto.Challenge,
@@ -240,7 +264,8 @@ func TestService_checkVCStatus(t *testing.T) {
 	}
 
 	type fields struct {
-		getRevocationVCGetter func() revocationVCGetter
+		getStatusListVCGetter      func() statusListVCURIResolver
+		getVCStatusProcessorGetter func() vc.StatusProcessorGetter
 	}
 	type args struct {
 		getVcStatus func() *verifiable.TypedID
@@ -255,9 +280,10 @@ func TestService_checkVCStatus(t *testing.T) {
 		{
 			name: "OK",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(
+						"https://example.com/status/1").AnyTimes().Return(&verifiable.Credential{
 						Subject: []verifiable.Subject{{
 							ID: "",
 							CustomFields: map[string]interface{}{
@@ -271,7 +297,17 @@ func TestService_checkVCStatus(t *testing.T) {
 						},
 					}, nil)
 
-					return mockRevocationVCGetter
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							StatusVCURI:     "https://example.com/status/1",
+							StatusListIndex: 1,
+						},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
@@ -283,19 +319,45 @@ func TestService_checkVCStatus(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "ValidateVCStatus error",
+			name: "VCStatusProcessorGetter error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
+				getStatusListVCGetter: func() statusListVCURIResolver {
 					return nil
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						Err: errors.New("some error"),
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
 				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{
-						ID:           "",
-						Type:         "",
-						CustomFields: nil,
+					return &verifiable.TypedID{}
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "ValidateVCStatus error",
+			fields: fields{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					return nil
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							ValidateErr: errors.New("some error"),
+						},
 					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
+				},
+			},
+			args: args{
+				getVcStatus: func() *verifiable.TypedID {
+					return &verifiable.TypedID{}
 				},
 			},
 			wantErr: true,
@@ -303,34 +365,66 @@ func TestService_checkVCStatus(t *testing.T) {
 		{
 			name: "statusListIndex invalid value error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
+				getStatusListVCGetter: func() statusListVCURIResolver {
 					return nil
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							GetStatusListIndexErr: errors.New("some error"),
+						},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
 				getVcStatus: func() *verifiable.TypedID {
-					return &verifiable.TypedID{
-						ID:   "https://issuer-vcs.sandbox.trustbloc.dev/vc-issuer-test-2/status/1#0",
-						Type: "StatusList2021Entry",
-						CustomFields: map[string]interface{}{
-							"statusListIndex":      "abc",
-							"statusListCredential": "",
-							"statusPurpose":        "2",
-						},
-					}
+					return &verifiable.TypedID{}
 				},
 				issuer: "did:trustblock:abc",
 			},
 			wantErr: true,
 		},
 		{
-			name: "GetRevocationVC error",
+			name: "GetStatusVCURI error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					return nil
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							GetStatusVCURIErr: errors.New("some error"),
+						},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
+				},
+			},
+			args: args{
+				getVcStatus: func() *verifiable.TypedID {
+					return &verifiable.TypedID{}
+				},
+				issuer: "did:trustblock:abc",
+			},
+			wantErr: true,
+		},
+		{
+			name: "GetStatusListVC error",
+			fields: fields{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(
 						nil, errors.New("some error"))
-					return mockRevocationVCGetter
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
@@ -344,16 +438,23 @@ func TestService_checkVCStatus(t *testing.T) {
 		{
 			name: "revocationListVC invalid issuer error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 						Subject: []verifiable.Subject{},
 						Issuer: verifiable.Issuer{
 							ID: "did:trustblock:123",
 						},
 					}, nil)
 
-					return mockRevocationVCGetter
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
@@ -367,46 +468,23 @@ func TestService_checkVCStatus(t *testing.T) {
 		{
 			name: "revocationListVC invalid subject field error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 						Subject: verifiable.Subject{},
 						Issuer: verifiable.Issuer{
 							ID: "did:trustblock:abc",
 						},
 					}, nil)
 
-					return mockRevocationVCGetter
+					return mockStatusListVCGetter
 				},
-			},
-			args: args{
-				getVcStatus: func() *verifiable.TypedID {
-					return validVCStatus
-				},
-				issuer: "did:trustblock:abc",
-			},
-			wantErr: true,
-		},
-		{
-			name: "revocationListVC invalid StatusPurpose field error",
-			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-						Subject: []verifiable.Subject{{
-							ID: "",
-							CustomFields: map[string]interface{}{
-								"statusListIndex": "1",
-								"statusPurpose":   "abc",
-								"encodedList":     "",
-							},
-						}},
-						Issuer: verifiable.Issuer{
-							ID: "did:trustblock:abc",
-						},
-					}, nil)
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{},
+					}
 
-					return mockRevocationVCGetter
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
@@ -420,9 +498,9 @@ func TestService_checkVCStatus(t *testing.T) {
 		{
 			name: "revocationListVC invalid encodedList field error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 						Subject: []verifiable.Subject{{
 							ID: "",
 							CustomFields: map[string]interface{}{
@@ -436,7 +514,14 @@ func TestService_checkVCStatus(t *testing.T) {
 						},
 					}, nil)
 
-					return mockRevocationVCGetter
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
@@ -450,9 +535,9 @@ func TestService_checkVCStatus(t *testing.T) {
 		{
 			name: "revocationListVC bitString.Get() error",
 			fields: fields{
-				getRevocationVCGetter: func() revocationVCGetter {
-					mockRevocationVCGetter := NewMockRevocationVCGetter(gomock.NewController(t))
-					mockRevocationVCGetter.EXPECT().GetRevocationVC(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+				getStatusListVCGetter: func() statusListVCURIResolver {
+					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
 						Subject: []verifiable.Subject{{
 							ID: "",
 							CustomFields: map[string]interface{}{
@@ -466,7 +551,16 @@ func TestService_checkVCStatus(t *testing.T) {
 						},
 					}, nil)
 
-					return mockRevocationVCGetter
+					return mockStatusListVCGetter
+				},
+				getVCStatusProcessorGetter: func() vc.StatusProcessorGetter {
+					mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+						StatusProcessor: &status.MockVCStatusProcessor{
+							StatusListIndex: -1,
+						},
+					}
+
+					return mockStatusProcessorGetter.GetMockStatusProcessor
 				},
 			},
 			args: args{
@@ -490,7 +584,8 @@ func TestService_checkVCStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				revocationVCGetter: tt.fields.getRevocationVCGetter(),
+				vcStatusProcessorGetter: tt.fields.getVCStatusProcessorGetter(),
+				statusListVCURIResolver: tt.fields.getStatusListVCGetter(),
 			}
 			err := s.ValidateVCStatus(tt.args.getVcStatus(), tt.args.issuer)
 			if (err != nil) != tt.wantErr {

@@ -16,8 +16,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	vcapi "github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
-	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 )
 
 const (
@@ -121,7 +121,7 @@ func (s *revocationList2020Processor) CreateVC(vcID string, listSize int, //noli
 		size = bitStringSize
 	}
 
-	encodeBits, err := utils.NewBitString(size).EncodeBits()
+	encodeBits, err := bitstring.NewBitString(size).EncodeBits()
 	if err != nil {
 		return nil, err
 	}

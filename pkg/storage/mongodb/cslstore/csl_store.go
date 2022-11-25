@@ -7,15 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package cslstore
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -31,6 +32,15 @@ type Store struct {
 	mongoClient *mongodb.Client
 }
 
+// CSLWrapper contains CSL and metadata.
+type CSLWrapper struct {
+	VCByte              json.RawMessage        `json:"vc"`
+	Size                int                    `json:"size"`
+	RevocationListIndex int                    `json:"revocationListIndex"`
+	ListID              int                    `json:"listID"`
+	VC                  *verifiable.Credential `json:"-"`
+}
+
 type latestListIDDocument struct {
 	ID     string `json:"id,omitempty" bson:"_id,omitempty"`
 	ListID int    `json:"listId,omitempty" bson:"listId,omitempty"`
@@ -42,7 +52,7 @@ func NewStore(mongoClient *mongodb.Client) *Store {
 }
 
 // Upsert does upsert operation of cslWrapper against underlying MongoDB.
-func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
+func (p *Store) Upsert(cslWrapper *CSLWrapper) error {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -66,8 +76,8 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	return err
 }
 
-// Get returns credentialstatus.CSLWrapper.
-func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
+// Get returns CSLWrapper.
+func (p *Store) Get(id string) (*CSLWrapper, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -77,7 +87,7 @@ func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
 
 	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": id}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, credentialstatus.ErrDataNotFound
+		return nil, ErrDataNotFound
 	}
 
 	if err != nil {
@@ -89,7 +99,7 @@ func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
 		vcMap[idFieldName] = mongoDBDocument[mongoDBDocumentIDFieldName]
 	}
 
-	cslWrapper := &credentialstatus.CSLWrapper{}
+	cslWrapper := &CSLWrapper{}
 
 	err = mongodb.MapToStructure(mongoDBDocument, cslWrapper)
 	if err != nil {
@@ -136,7 +146,7 @@ func (p *Store) GetLatestListID() (int, error) {
 	err := collection.FindOne(ctxWithTimeout,
 		bson.M{mongoDBDocumentIDFieldName: latestListIDDBEntryKey}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return -1, credentialstatus.ErrDataNotFound
+		return -1, ErrDataNotFound
 	}
 
 	if err != nil {
