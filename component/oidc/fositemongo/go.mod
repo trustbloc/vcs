@@ -1,3 +1,6 @@
+//
+// SPDX-License-Identifier: Apache-2.0
+
 module github.com/trustbloc/vcs/component/oidc/fositemongo
 
 go 1.19
@@ -8,10 +11,10 @@ require (
 	github.com/ory/fosite v0.43.0
 	github.com/pborman/uuid v1.2.1
 	github.com/samber/lo v1.29.0
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 	go.mongodb.org/mongo-driver v1.10.0
-	golang.org/x/text v0.3.8
+	golang.org/x/text v0.4.0
 )
 
 require (
@@ -65,7 +68,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.6.0 // indirect
+	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
@@ -76,13 +79,13 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
-	golang.org/x/crypto v0.0.0-20221012134737-56aed061732a // indirect
+	golang.org/x/crypto v0.1.0 // indirect
 	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
-	golang.org/x/net v0.0.0-20221012135044-0b7e1fb9d458 // indirect
+	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1 // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
-	golang.org/x/sys v0.0.0-20221013171732-95e765b1cc43 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

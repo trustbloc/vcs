@@ -13,6 +13,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/trustbloc/logutil-go/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/logfields"
 )
 
 var logger = log.New("rest-err")
@@ -27,8 +29,8 @@ func HTTPErrorHandler(err error, c echo.Context) {
 	}
 
 	code, message := processError(err)
-	logger.Error("HTTP Error Handler", log.WithHostURL(c.Request().RequestURI), log.WithHTTPStatus(code),
-		log.WithAdditionalMessage(fmt.Sprintf("%s", message)))
+	logger.Error("HTTP Error Handler", log.WithURL(c.Request().RequestURI), log.WithHTTPStatus(code),
+		logfields.WithAdditionalMessage(fmt.Sprintf("%s", message)))
 	sendResponse(c, code, message)
 }
 

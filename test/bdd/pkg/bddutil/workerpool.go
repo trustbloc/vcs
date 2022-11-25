@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vcs/internal/logfields"
 )
 
 // Request is a request that's submitted to the worker pool for processing.
@@ -73,11 +74,11 @@ func (p *WorkerPool) Start() {
 func (p *WorkerPool) Stop() {
 	close(p.reqChan)
 
-	p.logger.Info("Waiting for workers to finish...", log.WithWorkers(len(p.workers)))
+	p.logger.Info("Waiting for workers to finish...", logfields.WithWorkers(len(p.workers)))
 
 	p.wg.Wait()
 
-	p.logger.Info("... all workers finished.", log.WithWorkers(len(p.workers)))
+	p.logger.Info("... all workers finished.", logfields.WithWorkers(len(p.workers)))
 
 	close(p.respChan)
 

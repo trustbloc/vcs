@@ -22,6 +22,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -244,7 +245,7 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, err
 	}
 
-	logger.Info("InitiateOidcInteraction request object created", log.WithJSON(token))
+	logger.Info("InitiateOidcInteraction request object created", log.WithToken(token))
 
 	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned, nil)
 	if err != nil {
@@ -290,14 +291,14 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}
 
-	logger.Debug("VerifyOIDCVerifiablePresentation profile fetched", log.WithProfileID(profile.ID))
+	logger.Debug("VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
 	vpBytes, err := token.Presentation.MarshalJSON()
 	if err != nil {
 		return err
 	}
 
-	logger.Debug(" VerifyOIDCVerifiablePresentation vp string", log.WithJSON(string(vpBytes)))
+	logger.Debug(" VerifyOIDCVerifiablePresentation vp string", logfields.WithVP(string(vpBytes)))
 
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
@@ -315,7 +316,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 		return e
 	}
 
-	logger.Debug(" VerifyOIDCVerifiablePresentation verified", log.WithJSON(string(vpBytes)))
+	logger.Debug(" VerifyOIDCVerifiablePresentation verified", logfields.WithVP(string(vpBytes)))
 
 	err = s.extractClaimData(tx, token, profile)
 	if err != nil {
@@ -363,7 +364,7 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 		return fmt.Errorf("extract claims: marshal VP token: %w", err)
 	}
 
-	logger.Debug("extractClaimData vp", log.WithJSON(string(bytes)))
+	logger.Debug("extractClaimData vp", logfields.WithVP(string(bytes)))
 
 	credentials, err := tx.PresentationDefinition.Match(token.Presentation, s.documentLoader,
 		presexch.WithCredentialOptions(
