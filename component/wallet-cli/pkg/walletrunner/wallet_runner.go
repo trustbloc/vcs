@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
@@ -29,7 +30,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
-	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 )
@@ -41,7 +41,7 @@ const (
 type Service struct {
 	ariesServices  *ariesServices
 	wallet         *wallet.Wallet
-	oauthClient    *oauth2.Config
+	httpClient     *http.Client
 	vcProvider     vcprovider.VCProvider
 	vcProviderConf *vcprovider.Config
 }
@@ -52,9 +52,22 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		return nil, fmt.Errorf("GetVCProvider err: %w", err)
 	}
 
+	cookie, err := cookiejar.New(&cookiejar.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("init cookie jar: %w", err)
+	}
+
+	httpClient := &http.Client{
+		Jar: cookie,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
 	return &Service{
 		vcProvider:     vcProvider,
 		vcProviderConf: vcProvider.GetConfig(),
+		httpClient:     httpClient,
 	}, nil
 }
 
