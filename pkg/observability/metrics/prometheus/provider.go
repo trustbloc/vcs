@@ -42,7 +42,7 @@ func (pp *promProvider) Create() error {
 	}
 
 	go func() {
-		logger.Info("Starting vcs metrics server", log.WithHostURL(pp.httpServer.Addr))
+		logger.Info("Starting vcs metrics server", log.WithURL(pp.httpServer.Addr))
 
 		if err := pp.httpServer.ListenAndServe(); err != nil {
 			logger.Error("Start metrics HTTP server failed", log.WithError(err))

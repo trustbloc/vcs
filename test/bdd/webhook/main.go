@@ -15,7 +15,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/hyperledger/aries-framework-go/pkg/common/log"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 var logger = log.New("aries-framework/webhook")
@@ -35,7 +35,7 @@ func receiveTopics(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	logger.Infof("received topic message: %s", string(msg))
+	logger.Info("received topic message", log.WithTopic(string(msg)))
 
 	topics <- msg
 }
@@ -61,5 +61,8 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", receiveTopics).Methods(http.MethodPost)
 	router.HandleFunc(checkTopicsPath, checkTopics).Methods(http.MethodGet)
-	logger.Fatalf("webhook server start error %s", http.ListenAndServe(fmt.Sprintf(addressPattern, port), router))
+
+	if err := http.ListenAndServe(fmt.Sprintf(addressPattern, port), router); err != nil {
+		logger.Fatal("webhook server start error", log.WithError(err))
+	}
 }

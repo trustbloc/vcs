@@ -14,6 +14,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
@@ -55,7 +56,7 @@ func (e *Steps) httpGet(url string) error {
 
 	defer func() {
 		if errClose := resp.Body.Close(); errClose != nil {
-			logger.Warn("Error closing HTTP response", log.WithHostURL(url), log.WithError(errClose))
+			logger.Warn("Error closing HTTP response", log.WithURL(url), log.WithError(errClose))
 		}
 	}()
 
@@ -76,7 +77,7 @@ func (e *Steps) httpGet(url string) error {
 func (e *Steps) jsonPathOfCCResponseEquals(path, expected string) error {
 	r := gjson.Get(e.queryValue, path)
 
-	logger.Info("JSON path resolution", log.WithPath(path), log.WithJSON(e.queryValue), log.WithJSONResolution(r.Str))
+	logger.Info("JSON path resolution", log.WithPath(path), logfields.WithJSONQuery(e.queryValue), logfields.WithJSONResolution(r.Str))
 
 	if r.Str == expected {
 		return nil

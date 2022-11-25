@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 
 package common
 
-import "github.com/trustbloc/logutil-go/pkg/log"
+import (
+	"github.com/trustbloc/logutil-go/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/logfields"
+)
 
 const (
 	// LogLevelFlagName is the flag name used for setting the default log level.
@@ -31,7 +35,7 @@ func SetDefaultLogLevel(logger *log.Log, userLogLevel string) {
 			log.ERROR.String()+", "+
 			log.WARNING.String()+", "+
 			log.INFO.String()+", "+
-			log.DEBUG.String()+". Defaulting to info.", log.WithUserLogLevel(userLogLevel))
+			log.DEBUG.String()+". Defaulting to info.", logfields.WithUserLogLevel(userLogLevel))
 
 		logLevel = log.INFO
 	} else if logLevel == log.DEBUG {

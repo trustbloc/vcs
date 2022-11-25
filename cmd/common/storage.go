@@ -21,6 +21,8 @@ import (
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd"
 	"github.com/trustbloc/logutil-go/pkg/log"
+
+	"github.com/trustbloc/vcs/internal/logfields"
 )
 
 const (
@@ -179,7 +181,7 @@ func retry(task func() error, numRetries uint64, logger *log.Log) error {
 		backoff.WithMaxRetries(backoff.NewConstantBackOff(sleep), numRetries),
 		func(retryErr error, t time.Duration) {
 			logger.Warn("Failed to connect to storage, will sleep before trying again.",
-				log.WithSleep(t), log.WithError(retryErr))
+				logfields.WithSleep(t), log.WithError(retryErr))
 		},
 	)
 }

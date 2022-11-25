@@ -472,7 +472,7 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 		}
 	}
 
-	logger.Info("Starting vc-rest server on host", log.WithHostURL(conf.StartupParameters.hostURL))
+	logger.Info("Starting vc-rest server on host", log.WithURL(conf.StartupParameters.hostURL))
 
 	if conf.StartupParameters.tlsParameters.serveKeyPath != "" &&
 		conf.StartupParameters.tlsParameters.serveCertPath != "" {

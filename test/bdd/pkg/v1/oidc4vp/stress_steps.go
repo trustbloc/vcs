@@ -15,6 +15,7 @@ import (
 	"github.com/greenpau/go-calculator"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -66,7 +67,7 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 
 	authToken := e.bddContext.Args[getOrgAuthTokenKey(orgID)]
 
-	logger.Info("Multi users test", log.WithTotalRequests(totalRequests), log.WithConcurrencyRequests(concurrencyReq))
+	logger.Info("Multi users test", logfields.WithTotalRequests(totalRequests), logfields.WithConcurrencyRequests(concurrencyReq))
 
 	createPool := bddutil.NewWorkerPool(concurrencyReq, logger)
 
@@ -95,7 +96,8 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 
 	createPool.Stop()
 
-	logger.Info("Got vc requests and created responses", log.WithResponses(len(createPool.Responses())), log.WithTotalRequests(totalRequests))
+	logger.Info("Got vc requests and created responses", logfields.WithResponses(len(createPool.Responses())),
+		logfields.WithTotalRequests(totalRequests))
 
 	if len(createPool.Responses()) != totalRequests {
 		return fmt.Errorf("expecting created key store %d responses but got %d", totalRequests, len(createPool.Responses()))

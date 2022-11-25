@@ -12,6 +12,7 @@ import (
 
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/lifecycle"
 )
@@ -73,7 +74,7 @@ func (h *Subscriber) listen() {
 				return
 			}
 
-			logger.Debug("received new event", log.WithID(e.ID), log.WithEvent(e))
+			logger.Debug("received new event", log.WithID(e.ID), logfields.WithEvent(e))
 
 			h.handleEvent(e)
 		}
@@ -81,7 +82,7 @@ func (h *Subscriber) listen() {
 }
 
 func (h *Subscriber) handleEvent(e *spi.Event) {
-	logger.Debug("handling subscriber event ", log.WithID(e.ID), log.WithEvent(e))
+	logger.Debug("handling subscriber event ", log.WithID(e.ID), logfields.WithEvent(e))
 
 	err := h.handler(e)
 	if err != nil {

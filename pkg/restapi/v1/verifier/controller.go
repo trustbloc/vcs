@@ -26,6 +26,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vp"
 	"github.com/trustbloc/vcs/pkg/kms"
@@ -289,7 +290,7 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionID", err)
 	}
 
-	logger.Debug("InitiateOidcInteraction pd find", log.WithPresDefID(pd.ID))
+	logger.Debug("InitiateOidcInteraction pd find", logfields.WithPresDefID(pd.ID))
 
 	result, err := c.oidc4VPService.InitiateOidcInteraction(pd, strPtrToStr(data.Purpose), profile)
 	if err != nil {
@@ -386,14 +387,14 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 		return nil, err
 	}
 
-	logger.Debug("CheckAuthorizationResponse id_token verified", log.WithIDToken(authResp.IDToken))
+	logger.Debug("CheckAuthorizationResponse id_token verified", logfields.WithIDToken(authResp.IDToken))
 
 	vpTokenClaims, signer, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debug("CheckAuthorizationResponse vp_token verified", log.WithVPToken(authResp.VPToken))
+	logger.Debug("CheckAuthorizationResponse vp_token verified", logfields.WithVPToken(authResp.VPToken))
 
 	if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
@@ -501,14 +502,14 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse id_token decoded", log.WithIDToken(res.IDToken))
+	logger.Debug("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
 
 	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse vp_token decoded", log.WithVPToken(res.VPToken))
+	logger.Debug("AuthorizationResponse vp_token decoded", logfields.WithVPToken(res.VPToken))
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {

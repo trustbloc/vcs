@@ -9,7 +9,7 @@ require (
 	github.com/samber/lo v1.29.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
-	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
+	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
 	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
 )
 

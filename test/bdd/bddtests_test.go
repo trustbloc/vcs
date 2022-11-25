@@ -19,6 +19,7 @@ import (
 	"github.com/cucumber/godog"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/test/bdd/pkg/common"
 	bddctx "github.com/trustbloc/vcs/test/bdd/pkg/context"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/oidc4ci"
@@ -95,11 +96,11 @@ func beforeSuiteHook() {
 
 	dockerComposeUp := []string{"docker-compose", "-f", composeFilePath, "up", "--force-recreate", "-d"}
 
-	logger.Info("Running ", log.WithDockerComposeCmd(strings.Join(dockerComposeUp, " ")))
+	logger.Info("Running ", logfields.WithDockerComposeCmd(strings.Join(dockerComposeUp, " ")))
 
 	cmd := exec.Command(dockerComposeUp[0], dockerComposeUp[1:]...) //nolint:gosec
 	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Fatal("bdd test beforeSuiteHook", log.WithCommand(string(out)), log.WithError(err))
+		logger.Fatal("bdd test beforeSuiteHook", logfields.WithCommand(string(out)), log.WithError(err))
 	}
 
 	testSleep := 60
@@ -114,7 +115,7 @@ func beforeSuiteHook() {
 	}
 
 	sleepD := time.Second * time.Duration(testSleep)
-	logger.Info("*** testSleep", log.WithSleep(sleepD))
+	logger.Info("*** testSleep", logfields.WithSleep(sleepD))
 	time.Sleep(sleepD)
 }
 
@@ -125,11 +126,11 @@ func afterSuiteHook() {
 
 	dockerComposeDown := []string{"docker-compose", "-f", composeFilePath, "down"}
 
-	logger.Info(fmt.Sprintf("Running %s", strings.Join(dockerComposeDown, " ")))
+	logger.Info("Running ", logfields.WithDockerComposeCmd(strings.Join(dockerComposeDown, " ")))
 
 	cmd := exec.Command(dockerComposeDown[0], dockerComposeDown[1:]...) //nolint:gosec
 	if out, err := cmd.CombinedOutput(); err != nil {
-		logger.Fatal("bdd test afterSuiteHook", log.WithCommand(string(out)), log.WithError(err))
+		logger.Fatal("bdd test afterSuiteHook", logfields.WithCommand(string(out)), log.WithError(err))
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
@@ -40,7 +41,7 @@ type eventPayload struct {
 }
 
 func (b *Bus) handleEvent(e *spi.Event) error { //nolint:gocognit
-	logger.Info("handling event", log.WithEvent(e))
+	logger.Info("handling event", logfields.WithEvent(e))
 
 	if !lo.Contains(b.getEventsToPublish(), e.Type) {
 		return nil

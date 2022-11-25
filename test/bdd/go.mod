@@ -19,8 +19,8 @@ require (
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
 	github.com/samber/lo v1.29.0
 	github.com/tidwall/gjson v1.14.0
-	github.com/trustbloc/cmdutil-go v0.0.0-20221108164453-2cf882e56935
-	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
+	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
+	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
 	github.com/trustbloc/vcs v0.1.8
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-00010101000000-000000000000
 	golang.org/x/oauth2 v0.1.0

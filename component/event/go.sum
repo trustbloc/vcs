@@ -28,8 +28,8 @@ github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO
 github.com/stretchr/testify v1.8.1 h1:w7B6lhMri9wdJUVmEZPGGhZzrYTPvgJArz7wNPgYKsk=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/thoas/go-funk v0.9.1 h1:O549iLZqPpTUQ10ykd26sZhzD+rmR5pWhuElrhbC20M=
-github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60 h1:Y0w1bvjDTjze0YR2jQxiC+f2benhAMN04w1iwIuDiJo=
-github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60/go.mod h1:HRaXVV1caceumbDBwLO3ByiCcAc18KwrNvZ7JQBvDIQ=
+github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 h1:Mzg9wvEoUIWPoI/GHz3YlVbd4nKWeSPGc6+3l95eOZU=
+github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42/go.mod h1:HRaXVV1caceumbDBwLO3ByiCcAc18KwrNvZ7JQBvDIQ=
 github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b h1:lWbbe9PIx8mTXi+zR6r67dDcreePdoalWy7yQWOzGRc=
 github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b/go.mod h1:WN2/ZXjYqRjrYPgWplsyWWxkag6WTRxD26tw1iLPRgM=
 go.uber.org/atomic v1.7.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=

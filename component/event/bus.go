@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/lifecycle"
 )
@@ -177,7 +178,7 @@ func (b *Bus) publish(entry *entry) {
 		for _, m := range entry.messages {
 			msg := m.Copy()
 
-			logger.Debug("publishing message", log.WithEvent(msg))
+			logger.Debug("publishing message", logfields.WithEvent(msg))
 
 			subscriber <- msg
 		}
