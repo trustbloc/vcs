@@ -74,11 +74,11 @@
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
-          "signingAlgorithm": "ES256K",
+          "signingAlgorithm": "EcdsaSecp256k1Signature2019",
           "signatureRepresentation": 1,
           "keyType": "ECDSASecp256k1IEEEP1363",
           "format": "jwt",
-          "didMethod": "orb",
+          "didMethod": "ion",
           "status": {
             "type": "RevocationList2020Status"
           }
