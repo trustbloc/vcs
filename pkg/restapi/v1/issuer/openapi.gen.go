@@ -19,6 +19,13 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
+// CredentialIssuer defines model for CredentialIssuer.
+type CredentialIssuer struct {
+	Display *[]map[string]interface{} `json:"display,omitempty"`
+	Locale  *string                   `json:"locale,omitempty"`
+	Name    *string                   `json:"name,omitempty"`
+}
+
 // Credential status.
 type CredentialStatus struct {
 	Status string `json:"status"`
@@ -226,12 +233,13 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
-	AuthorizationEndpoint  string   `json:"authorization_endpoint"`
-	CredentialEndpoint     string   `json:"credential_endpoint"`
-	CredentialSupported    bool     `json:"credential_supported"`
-	Issuer                 string   `json:"issuer"`
-	ResponseTypesSupported []string `json:"response_types_supported"`
-	TokenEndpoint          string   `json:"token_endpoint"`
+	AuthorizationEndpoint  string                   `json:"authorization_endpoint"`
+	CredentialEndpoint     string                   `json:"credential_endpoint"`
+	CredentialIssuer       *CredentialIssuer        `json:"credential_issuer,omitempty"`
+	CredentialSupported    []map[string]interface{} `json:"credential_supported"`
+	Issuer                 string                   `json:"issuer"`
+	ResponseTypesSupported []string                 `json:"response_types_supported"`
+	TokenEndpoint          string                   `json:"token_endpoint"`
 }
 
 // ExchangeAuthorizationCodeRequestJSONBody defines parameters for ExchangeAuthorizationCodeRequest.

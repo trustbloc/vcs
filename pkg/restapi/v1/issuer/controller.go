@@ -573,13 +573,29 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 // OpenidConfig request openid configuration for issuer.
 // GET /issuer/{profileID}/.well-known/openid-configuration.
 func (c *Controller) OpenidConfig(ctx echo.Context, profileID string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID), nil)
+	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID))
 }
 
-func (c *Controller) getOpenIDConfig(profileID string) *WellKnownOpenIDConfiguration {
+func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
+	}
+
+	issuer, err := c.profileSvc.GetProfile(profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var finalCredentials []map[string]interface{}
+
+	for _, t := range issuer.CredentialMetaData.CredentialsSupported {
+		if issuer.VCConfig != nil {
+			t["cryptographic_binding_methods_supported"] = []string{string(issuer.VCConfig.DIDMethod)}
+			t["cryptographic_suites_supported"] = []string{string(issuer.VCConfig.KeyType)}
+		}
+
+		finalCredentials = append(finalCredentials, t)
 	}
 
 	return &WellKnownOpenIDConfiguration{
@@ -589,9 +605,19 @@ func (c *Controller) getOpenIDConfig(profileID string) *WellKnownOpenIDConfigura
 			"code",
 		},
 		TokenEndpoint:       fmt.Sprintf("%soidc/token", host),
-		CredentialSupported: true,
+		CredentialSupported: finalCredentials,
 		CredentialEndpoint:  fmt.Sprintf("%soidc/credential", host),
-	}
+		CredentialIssuer: &CredentialIssuer{
+			Display: &[]map[string]interface{}{
+				{
+					"name":   issuer.Name,
+					"locale": "en-US",
+				},
+			},
+			Locale: lo.ToPtr("en-US"),
+			Name:   lo.ToPtr(issuer.Name),
+		},
+	}, nil
 }
 
 // RetrieveIssuanceState request issuance state.
