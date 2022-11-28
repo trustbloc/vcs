@@ -29,6 +29,10 @@ type oidc4ciCommandFlags struct {
 	RedirectURI         string
 	VCFormat            string
 	VCProvider          string
+	LoginURL            string
+	CredentialType      string
+	CredentialFormat    string
+	Debug               bool
 }
 
 func NewOIDC4CICommand() *cobra.Command {
@@ -44,6 +48,26 @@ func NewOIDC4CICommand() *cobra.Command {
 
 			if flags.GrantType != authorizationCodeGrantType && flags.GrantType != preAuthorizedCodeGrantType {
 				return fmt.Errorf("invalid grant-type")
+			}
+
+			if len(flags.Scope) == 0 {
+				return fmt.Errorf("missing scope")
+			}
+
+			if flags.RedirectURI == "" {
+				return fmt.Errorf("missing redirect-uri")
+			}
+
+			if flags.LoginURL == "" {
+				return fmt.Errorf("missing login-url")
+			}
+
+			if flags.CredentialType == "" {
+				return fmt.Errorf("missing credential-type")
+			}
+
+			if flags.CredentialFormat == "" {
+				return fmt.Errorf("missing credential-format")
 			}
 
 			var initiateIssuanceURL string
@@ -62,6 +86,7 @@ func NewOIDC4CICommand() *cobra.Command {
 			providerOpts := []vcprovider.ConfigOption{
 				func(c *vcprovider.Config) {
 					c.VCFormat = flags.VCFormat
+					c.Debug = flags.Debug
 				},
 			}
 
@@ -73,6 +98,12 @@ func NewOIDC4CICommand() *cobra.Command {
 			config := &walletrunner.OIDC4CIConfig{
 				InitiateIssuanceURL: initiateIssuanceURL,
 				ClientID:            flags.ClientID,
+				Scope:               flags.Scope,
+				RedirectURI:         flags.RedirectURI,
+				LoginURL:            flags.LoginURL,
+				CredentialType:      flags.CredentialType,
+				CredentialFormat:    flags.CredentialFormat,
+				Interactive:         false,
 			}
 
 			if flags.GrantType == preAuthorizedCodeGrantType {
@@ -88,9 +119,13 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.ClientID, "client-id", "", "oauth2 client ID")
 	cmd.Flags().StringVar(&flags.GrantType, "grant-type", "authorization_code", "grant type")
 	cmd.Flags().StringSliceVar(&flags.Scope, "scope", nil, "oauth2 scopes. Can be used to pass credential type")
-	cmd.Flags().StringVar(&flags.RedirectURI, "redirect-uri", "", "redirect uri")
+	cmd.Flags().StringVar(&flags.RedirectURI, "redirect-uri", "", "callback where the authorization code should be sent")
 	cmd.Flags().StringVar(&flags.VCFormat, "vc-format", "jwt_vc", "vc format [jwt_vc|ldp_vc]")
 	cmd.Flags().StringVar(&flags.VCProvider, "vc-provider", "vcs", "vc provider")
+	cmd.Flags().StringVar(&flags.LoginURL, "login-url", "", "login url")
+	cmd.Flags().StringVar(&flags.CredentialType, "credential-type", "", "credential type")
+	cmd.Flags().StringVar(&flags.CredentialFormat, "credential-format", "", "credential format")
+	cmd.Flags().BoolVar(&flags.Debug, "debug", false, "enable debug mode")
 
 	return cmd
 }

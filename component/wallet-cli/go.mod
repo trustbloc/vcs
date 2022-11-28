@@ -8,6 +8,7 @@ go 1.19
 
 require (
 	github.com/google/uuid v1.3.0
+	github.com/henvic/httpretty v0.1.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221109083343-39b5163afa3a
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
@@ -120,7 +121,7 @@ require (
 	github.com/tidwall/sjson v1.2.4 // indirect
 	github.com/trustbloc/edge-core v0.1.8 // indirect
 	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 // indirect
-	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60 // indirect
+	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 // indirect
 	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc3.0.20221028171319-8d44bd1cace7 // indirect
 	github.com/trustbloc/vct v1.0.0-rc2 // indirect

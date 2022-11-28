@@ -31,6 +31,7 @@ type Config struct {
 	VCFormat            string
 	OrgName             string
 	OrgSecret           string
+	Debug               bool
 }
 
 type WalletParams struct {
