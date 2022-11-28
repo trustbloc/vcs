@@ -27,7 +27,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -67,7 +66,7 @@ func TestWrapperStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
-		wrapperCreated := &credentialstatus.CSLWrapper{
+		wrapperCreated := &CSLWrapper{
 			VCByte:              []byte(sampleVCJsonLD),
 			RevocationListIndex: 1,
 			VC:                  vc,
@@ -103,7 +102,7 @@ func TestWrapperStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
-		wrapperCreated := &credentialstatus.CSLWrapper{
+		wrapperCreated := &CSLWrapper{
 			VCByte:              []byte(sampleVCJWT),
 			RevocationListIndex: 1,
 			VC:                  vc,
@@ -142,7 +141,7 @@ func TestWrapperStore(t *testing.T) {
 		resp, err := store.Get("63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, credentialstatus.ErrDataNotFound)
+		assert.ErrorIs(t, err, ErrDataNotFound)
 	})
 }
 
@@ -164,7 +163,7 @@ func TestTimeouts(t *testing.T) {
 	}()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Upsert(&credentialstatus.CSLWrapper{
+		err = store.Upsert(&CSLWrapper{
 			VC: &verifiable.Credential{ID: "1"},
 		})
 
@@ -200,7 +199,7 @@ func TestLatestListID(t *testing.T) {
 		id, err := store.GetLatestListID()
 
 		assert.Equal(t, -1, id)
-		assert.ErrorIs(t, err, credentialstatus.ErrDataNotFound)
+		assert.ErrorIs(t, err, ErrDataNotFound)
 	})
 
 	t.Run("Create - Update - Get LatestListID", func(t *testing.T) {
@@ -277,7 +276,7 @@ func pingMongoDB() error {
 	return db.Client().Ping(ctx, nil)
 }
 
-func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatus.CSLWrapper) {
+func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *CSLWrapper) {
 	t.Helper()
 
 	vcFound, err := verifiable.ParseCredential(wrapperFound.VCByte,

@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	vcapi "github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 )
 
 func Test_statusList2021Processor_ValidateStatus(t *testing.T) {
@@ -123,7 +123,7 @@ func Test_statusList2021Processor_CreateVC(t *testing.T) {
 		"https://w3c-ccg.github.io/lds-jws2020/contexts/lds-jws2020-v1.json"}, vc.Context)
 	require.Equal(t, []string{vcType, statusList2021VCType}, vc.Types)
 	require.Equal(t, verifiable.Issuer{ID: "did:example:123"}, vc.Issuer)
-	encodeBits, err := utils.NewBitString(bitStringSize).EncodeBits()
+	encodeBits, err := bitstring.NewBitString(bitStringSize).EncodeBits()
 	require.NoError(t, err)
 	require.Equal(t, &credentialSubject{
 		ID:            "vcID1#list",

@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifycredential -source=verifycredential_service.go -mock_names revocationVCGetter=MockRevocationVCGetter
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package verifycredential -source=verifycredential_service.go -mock_names statusListVCURIResolver=MockStatusListVCResolver
 
 package verifycredential
 
@@ -18,19 +18,18 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
-	"github.com/trustbloc/vcs/pkg/internal/common/utils"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 const (
 	revokedMsg = "revoked"
 )
 
-type revocationVCGetter interface {
-	GetRevocationVC(statusURL string) (*verifiable.Credential, error)
+type statusListVCURIResolver interface {
+	Resolve(statusListVCURL string) (*verifiable.Credential, error)
 }
 
 // CredentialsVerificationCheckResult resp containing failure check details.
@@ -50,22 +49,25 @@ type Options struct {
 }
 
 type Config struct {
-	RevocationVCGetter revocationVCGetter
-	DocumentLoader     ld.DocumentLoader
-	VDR                vdrapi.Registry
+	VCStatusProcessorGetter vc.StatusProcessorGetter
+	StatusListVCResolver    statusListVCURIResolver
+	DocumentLoader          ld.DocumentLoader
+	VDR                     vdrapi.Registry
 }
 
 type Service struct {
-	revocationVCGetter revocationVCGetter
-	documentLoader     ld.DocumentLoader
-	vdr                vdrapi.Registry
+	vcStatusProcessorGetter vc.StatusProcessorGetter
+	statusListVCURIResolver statusListVCURIResolver
+	documentLoader          ld.DocumentLoader
+	vdr                     vdrapi.Registry
 }
 
 func New(config *Config) *Service {
 	return &Service{
-		revocationVCGetter: config.RevocationVCGetter,
-		documentLoader:     config.DocumentLoader,
-		vdr:                config.VDR,
+		statusListVCURIResolver: config.StatusListVCResolver,
+		vcStatusProcessorGetter: config.VCStatusProcessorGetter,
+		documentLoader:          config.DocumentLoader,
+		vdr:                     config.VDR,
 	}
 }
 
@@ -178,7 +180,7 @@ func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDo
 }
 
 func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error {
-	vcStatusProcessor, err := credentialstatus.GetVCStatusProcessor(vc.StatusType(vcStatus.Type))
+	vcStatusProcessor, err := s.vcStatusProcessorGetter(vc.StatusType(vcStatus.Type))
 	if err != nil {
 		return err
 	}
@@ -197,21 +199,21 @@ func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) 
 		return err
 	}
 
-	revocationVC, err := s.revocationVCGetter.GetRevocationVC(statusVCURL)
+	statusListVC, err := s.statusListVCURIResolver.Resolve(statusVCURL)
 	if err != nil {
 		return err
 	}
 
-	if revocationVC.Issuer.ID != issuer {
-		return fmt.Errorf("issuer of the credential do not match vc revocation list issuer")
+	if statusListVC.Issuer.ID != issuer {
+		return fmt.Errorf("issuer of the credential do not match status list vc issuer")
 	}
 
-	credSubject, ok := revocationVC.Subject.([]verifiable.Subject)
+	credSubject, ok := statusListVC.Subject.([]verifiable.Subject)
 	if !ok {
 		return fmt.Errorf("invalid subject field structure")
 	}
 
-	bitString, err := utils.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
 	if err != nil {
 		return fmt.Errorf("failed to decode bits: %w", err)
 	}

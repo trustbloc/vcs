@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,vcStore=MockVCStore
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,vcStore=MockVCStore
 
 package issuecredential
 
@@ -18,16 +18,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 type vcStore interface {
 	Put(profileName string, vc *verifiable.Credential) error
-}
-
-type vcStatusManager interface {
-	CreateStatusID(vcSigner *vc.Signer, url string) (*credentialstatus.StatusID, error)
-	GetCredentialStatusURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
 }
 
 type vcCrypto interface {
@@ -37,6 +31,16 @@ type vcCrypto interface {
 
 type kmsRegistry interface {
 	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
+}
+
+type vcStatusManager interface {
+	CreateStatusID(vcSigner *vc.Signer, url string) (*StatusID, error)
+	GetStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
+}
+
+type StatusID struct {
+	Context  string
+	VCStatus *verifiable.TypedID
 }
 
 type Config struct {
@@ -81,10 +85,10 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		VCStatusListType:        profile.VCConfig.Status.Type,
 	}
 
-	var statusID *credentialstatus.StatusID
+	var statusID *StatusID
 	var statusURL string
 
-	statusURL, err = s.vcStatusManager.GetCredentialStatusURL(profile.URL, profile.ID, "")
+	statusURL, err = s.vcStatusManager.GetStatusListVCURL(profile.URL, profile.ID, "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create status URL: %w", err)
 	}

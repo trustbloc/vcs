@@ -26,6 +26,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/api/spec"
+	"github.com/trustbloc/vcs/component/credentialstatus"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
@@ -43,13 +44,11 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
-	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
-	"github.com/trustbloc/vcs/pkg/service/verifycredential/revocation"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -222,11 +221,20 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	cslStore := cslstore.NewStore(mongodbClient)
 	vcStore := vcstore.NewStore(mongodbClient)
-	vcStatusManager := credentialstatus.New(cslStore, vcStore, cslSize, vcCrypto, conf.DocumentLoader)
+	statusListVCSvc := credentialstatus.New(&credentialstatus.Config{
+		VDR:            conf.VDR,
+		TLSConfig:      tlsConfig,
+		RequestTokens:  conf.StartupParameters.requestTokens,
+		DocumentLoader: conf.DocumentLoader,
+		CSLStore:       cslStore,
+		VCStore:        vcStore,
+		ListSize:       cslSize,
+		Crypto:         vcCrypto,
+	})
 
 	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
 		VCStore:         vcStore,
-		VCStatusManager: vcStatusManager,
+		VCStatusManager: statusListVCSvc,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,
 	})
@@ -315,7 +323,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		KMSRegistry:            kmsRegistry,
 		DocumentLoader:         conf.DocumentLoader,
 		IssueCredentialService: issueCredentialSvc,
-		VcStatusManager:        vcStatusManager,
+		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
 		ExternalHostURL:        conf.StartupParameters.hostURLExternal,
 	}))
@@ -331,17 +339,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, err
 	}
 
-	revocationListGetterSvc := revocation.New(&revocation.Config{
-		VDR:            conf.VDR,
-		TLSConfig:      tlsConfig,
-		RequestTokens:  conf.StartupParameters.requestTokens,
-		DocumentLoader: conf.DocumentLoader,
-	})
-
 	verifyCredentialSvc := verifycredential.New(&verifycredential.Config{
-		RevocationVCGetter: revocationListGetterSvc,
-		DocumentLoader:     conf.DocumentLoader,
-		VDR:                conf.VDR,
+		VCStatusProcessorGetter: credentialstatus.GetVCStatusProcessor,
+		StatusListVCResolver:    statusListVCSvc,
+		DocumentLoader:          conf.DocumentLoader,
+		VDR:                     conf.VDR,
 	})
 	verifyPresentationSvc := verifypresentation.New(&verifypresentation.Config{
 		VcVerifier:     verifyCredentialSvc,
