@@ -764,7 +764,11 @@ components:
           items:
             type: string
         credential_supported:
-          type: boolean
+          type: array
+          items:
+            type: object
+        credential_issuer:
+          $ref: '#/components/schemas/CredentialIssuer'
         credential_endpoint:
           type: string
       required:
@@ -804,6 +808,20 @@ components:
           description: Credential in jws(string) or jsonld(object) formats.
       required:
         - credential
+    CredentialIssuer:
+      title: CredentialIssuer
+      x-tag:
+        - issuer
+      type: object
+      properties:
+        display:
+          type: array
+          items:
+            type: object
+        name:
+          type: string
+        locale:
+          type: string
     VerifyCredentialOptions:
       title: VerifyCredentialOptions
       x-tags:

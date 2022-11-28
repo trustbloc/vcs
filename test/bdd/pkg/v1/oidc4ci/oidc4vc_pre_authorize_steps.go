@@ -147,8 +147,13 @@ func (s *PreAuthorizeStep) initiateIssuance() error {
 
 	reqBody, err := json.Marshal(&initiateOIDC4CIRequest{
 		ClaimData: lo.ToPtr(map[string]interface{}{
-			"claim1": "value1",
-			"claim2": "value2",
+			"displayName":       "John Doe",
+			"givenName":         "John",
+			"jobTitle":          "Software Developer",
+			"surname":           "Doe",
+			"preferredLanguage": "English",
+			"mail":              "john.doe@foo.bar",
+			"photo":             "base64photo",
 		}),
 		CredentialTemplateId: "templateID",
 		GrantType:            "authorization_code",

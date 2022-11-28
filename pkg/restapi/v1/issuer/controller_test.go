@@ -1295,8 +1295,25 @@ func TestController_PrepareCredential(t *testing.T) {
 }
 
 func TestOpenIDConfigurationController(t *testing.T) {
+	profileSvc := NewMockProfileService(gomock.NewController(t))
+	profileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profileapi.Issuer{
+		Name: "random_name",
+		VCConfig: &profileapi.VCConfig{
+			DIDMethod: "orb",
+			KeyType:   "ECDSASecp256k1IEEEP1363",
+		},
+		CredentialMetaData: &profileapi.CredentialMetaData{
+			CredentialsSupported: []map[string]interface{}{
+				{
+					"id": "VerifiedEmployee_JWT",
+				},
+			},
+		},
+	}, nil)
+
 	c := &Controller{
 		externalHostURL: "https://localhost",
+		profileSvc:      profileSvc,
 	}
 
 	assert.NoError(t, c.OpenidConfig(echoContext(), "123"))
@@ -1308,28 +1325,77 @@ func TestOpenIdConfiguration(t *testing.T) {
 	expected := &WellKnownOpenIDConfiguration{
 		AuthorizationEndpoint:  "https://localhost/oidc/authorize",
 		CredentialEndpoint:     "https://localhost/oidc/credential",
-		CredentialSupported:    true,
 		Issuer:                 "https://localhost/123456",
 		ResponseTypesSupported: []string{"code"},
 		TokenEndpoint:          "https://localhost/oidc/token",
 	}
 
+	profileSvc := NewMockProfileService(gomock.NewController(t))
+	profileSvc.EXPECT().GetProfile(profileID).Return(&profileapi.Issuer{
+		Name: "random_name",
+		VCConfig: &profileapi.VCConfig{
+			DIDMethod: "orb",
+			KeyType:   "ECDSASecp256k1IEEEP1363",
+		},
+		CredentialMetaData: &profileapi.CredentialMetaData{
+			CredentialsSupported: []map[string]interface{}{
+				{
+					"id": "VerifiedEmployee_JWT",
+				},
+			},
+		},
+	}, nil).Times(2)
+
 	t.Run("with /", func(t *testing.T) {
 		c := &Controller{
 			externalHostURL: host,
+			profileSvc:      profileSvc,
 		}
 
-		result := c.getOpenIDConfig(profileID)
-		assert.Equal(t, expected, result)
+		result, err := c.getOpenIDConfig(profileID)
+		assert.NoError(t, err)
+		assert.Equal(t, expected.AuthorizationEndpoint, result.AuthorizationEndpoint)
+		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
+		assert.Equal(t, expected.Issuer, result.Issuer)
+		assert.Equal(t, expected.TokenEndpoint, result.TokenEndpoint)
+
+		assert.Equal(t, "random_name", *result.CredentialIssuer.Name)
+		assert.Equal(t, "en-US", *result.CredentialIssuer.Locale)
+		assert.Equal(t, "random_name", (*result.CredentialIssuer.Display)[0]["name"])
+		assert.Equal(t, "en-US", (*result.CredentialIssuer.Display)[0]["locale"])
+
+		assert.Len(t, result.CredentialSupported, 1)
+		assert.Equal(t, "VerifiedEmployee_JWT", result.CredentialSupported[0]["id"])
+		assert.Equal(t, []string{"orb"}, result.CredentialSupported[0]["cryptographic_binding_methods_supported"])
+		assert.Equal(t, []string{"ECDSASecp256k1IEEEP1363"}, result.CredentialSupported[0]["cryptographic_suites_supported"])
 	})
 
 	t.Run("without /", func(t *testing.T) {
 		c := &Controller{
 			externalHostURL: host + "/",
+			profileSvc:      profileSvc,
 		}
 
-		result := c.getOpenIDConfig(profileID)
-		assert.Equal(t, expected, result)
+		result, err := c.getOpenIDConfig(profileID)
+		assert.NoError(t, err)
+		assert.Equal(t, expected.AuthorizationEndpoint, result.AuthorizationEndpoint)
+		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
+		assert.Equal(t, expected.Issuer, result.Issuer)
+		assert.Equal(t, expected.TokenEndpoint, result.TokenEndpoint)
+	})
+
+	t.Run("profile error", func(t *testing.T) {
+		svc := NewMockProfileService(gomock.NewController(t))
+		svc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("unexpected error"))
+
+		c := &Controller{
+			externalHostURL: host + "/",
+			profileSvc:      svc,
+		}
+
+		result, err := c.getOpenIDConfig(profileID)
+		assert.Nil(t, result)
+		assert.ErrorContains(t, err, "unexpected error")
 	})
 }
 

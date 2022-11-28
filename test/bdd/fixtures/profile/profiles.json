@@ -249,7 +249,7 @@
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1IEEEP1363",
-          "format": "ldp",
+          "format": "jwt",
           "didMethod": "orb",
           "status": {
             "type": "StatusList2021Entry"
@@ -268,14 +268,94 @@
         "credentialTemplates": [
           {
             "contexts": [
-              "https://www.w3.org/2018/credentials/v1",
-              "https://w3id.org/citizenship/v1"
+              "https://www.w3.org/2018/credentials/v1"
             ],
-            "type": "PermanentResidentCard",
+            "type": "VerifiedEmployee",
             "id": "templateID",
             "issuer": "did:orb:bank_issuer"
           }
-        ]
+        ],
+        "credentialMetadata": {
+          "credentials_supported": [
+            {
+              "format": "jwt_vc_json",
+              "id": "VerifiedEmployee_JWT",
+              "types": [
+                "VerifiableCredential",
+                "VerifiedEmployee"
+              ],
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "url": "https://example.com/public/logo.png",
+                    "alternative_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credentialSubject": {
+                "displayName": {
+                  "display": [
+                    {
+                      "name": "Employee",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "givenName": {
+                  "display": [
+                    {
+                      "name": "Given Name",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "jobTitle": {
+                  "display": [
+                    {
+                      "name": "Job Title",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "surname": {
+                  "display": [
+                    {
+                      "name": "Surname",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "preferredLanguage": {
+                  "display": [
+                    {
+                      "name": "Preferred Language",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "mail": {
+                  "display": [
+                    {
+                      "name": "Mail",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "photo": {
+                  "display": [
+                    {
+                      "name": "Photo"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
       },
       "createDID": true,
       "didDomain": "https://testnet.orb.local",

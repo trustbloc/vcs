@@ -43,6 +43,7 @@ type Issuer struct {
 	SigningDID          *SigningDID           `json:"signingDID"`
 	CredentialTemplates []*CredentialTemplate `json:"credentialTemplates,omitempty"`
 	WebHook             string                `json:"webHook,omitempty"`
+	CredentialMetaData  *CredentialMetaData   `json:"credentialMetadata"`
 }
 
 type CredentialTemplate struct {
@@ -51,6 +52,10 @@ type CredentialTemplate struct {
 	Type              string          `json:"type"`
 	Issuer            string          `json:"issuer"`
 	CredentialSubject json.RawMessage `json:"credentialSubject"`
+}
+
+type CredentialMetaData struct {
+	CredentialsSupported []map[string]interface{} `json:"credentials_supported"`
 }
 
 // OIDC4CIConfig is issuer's OIDC configuration used during OIDC credential issuance flow.
