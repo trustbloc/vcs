@@ -249,7 +249,7 @@
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
           "keyType": "ECDSASecp256k1IEEEP1363",
-          "format": "ldp",
+          "format": "jwt",
           "didMethod": "orb",
           "status": {
             "type": "StatusList2021Entry"

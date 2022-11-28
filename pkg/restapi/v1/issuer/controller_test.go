@@ -1295,8 +1295,25 @@ func TestController_PrepareCredential(t *testing.T) {
 }
 
 func TestOpenIDConfigurationController(t *testing.T) {
+	profileSvc := NewMockProfileService(gomock.NewController(t))
+	profileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profileapi.Issuer{
+		Name: "random_name",
+		VCConfig: &profileapi.VCConfig{
+			DIDMethod: "orb",
+			KeyType:   "ECDSASecp256k1IEEEP1363",
+		},
+		CredentialMetaData: &profileapi.CredentialMetaData{
+			CredentialsSupported: []map[string]interface{}{
+				{
+					"id": "VerifiedEmployee_JWT",
+				},
+			},
+		},
+	}, nil)
+
 	c := &Controller{
 		externalHostURL: "https://localhost",
+		profileSvc:      profileSvc,
 	}
 
 	assert.NoError(t, c.OpenidConfig(echoContext(), "123"))
