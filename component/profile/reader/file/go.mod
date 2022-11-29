@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
-	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs v0.1.8
 )
 
 require (

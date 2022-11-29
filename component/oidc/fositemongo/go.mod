@@ -12,7 +12,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/samber/lo v1.29.0
 	github.com/stretchr/testify v1.8.1
-	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs v0.1.8
 	go.mongodb.org/mongo-driver v1.10.0
 	golang.org/x/text v0.4.0
 )
