@@ -15,6 +15,7 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/piprate/json-gold v0.4.2
+	github.com/samber/lo v1.29.0
 	github.com/spf13/cobra v1.6.1
 	github.com/trustbloc/vcs v0.1.8
 	golang.org/x/oauth2 v0.1.0
@@ -104,7 +105,6 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/samber/lo v1.29.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
