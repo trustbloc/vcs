@@ -36,4 +36,3 @@ test/bdd/fixtures/spec/
 
 # Auto-generated mock files
 *_mocks_test.go
-*_mocks.go
