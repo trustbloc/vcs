@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 
+	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -30,6 +31,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
+	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 )
@@ -41,9 +43,11 @@ const (
 type Service struct {
 	ariesServices  *ariesServices
 	wallet         *wallet.Wallet
-	httpClient     *http.Client
 	vcProvider     vcprovider.VCProvider
 	vcProviderConf *vcprovider.Config
+	httpClient     *http.Client
+	oauthClient    *oauth2.Config
+	token          *oauth2.Token
 }
 
 func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, error) {
@@ -51,6 +55,8 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 	if err != nil {
 		return nil, fmt.Errorf("GetVCProvider err: %w", err)
 	}
+
+	config := vcProvider.GetConfig()
 
 	cookie, err := cookiejar.New(&cookiejar.Options{})
 	if err != nil {
@@ -64,9 +70,23 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		},
 	}
 
+	if config.Debug {
+		httpLogger := &httpretty.Logger{
+			Time:           true,
+			RequestHeader:  true,
+			RequestBody:    true,
+			ResponseHeader: true,
+			ResponseBody:   true,
+			SkipSanitize:   false,
+			Formatters:     []httpretty.Formatter{&httpretty.JSONFormatter{}},
+		}
+
+		httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
+	}
+
 	return &Service{
 		vcProvider:     vcProvider,
-		vcProviderConf: vcProvider.GetConfig(),
+		vcProviderConf: config,
 		httpClient:     httpClient,
 	}, nil
 }
