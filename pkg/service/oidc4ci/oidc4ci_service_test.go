@@ -711,6 +711,12 @@ func TestService_PrepareCredential(t *testing.T) {
 					}, nil
 				})
 
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
@@ -757,6 +763,12 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -787,6 +799,12 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
@@ -809,6 +827,50 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "publish error")
+				require.Nil(t, resp)
+			},
+		},
+		{
+			name: "Failed to update tx state",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type:   "VerifiedEmployee",
+							Issuer: "issuer",
+						},
+						IsPreAuthFlow: true,
+						ClaimData: map[string]interface{}{
+							"surname":   "Smith",
+							"givenName": "Pat",
+							"jobTitle":  "Worker",
+						},
+						CredentialFormat: vcsverifiable.Jwt,
+					},
+				}, nil)
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return errors.New("store err")
+					})
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
+
+						return nil
+					})
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err, "store err")
 				require.Nil(t, resp)
 			},
 		},
