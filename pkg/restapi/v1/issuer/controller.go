@@ -99,11 +99,6 @@ type oidc4ciService interface {
 		ctx context.Context,
 		req *oidc4ci.PrepareCredential,
 	) (*oidc4ci.PrepareCredentialResult, error)
-
-	GetIssuanceState(
-		ctx context.Context,
-		txID string,
-	) (oidc4ci.TransactionState, error)
 }
 
 type vcStatusManager interface {
@@ -618,15 +613,4 @@ func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfigur
 			Name:   lo.ToPtr(issuer.Name),
 		},
 	}, nil
-}
-
-// RetrieveIssuanceState request issuance state.
-// GET /issuer/{issuerID}/issuance-state/{txID}.
-func (c *Controller) RetrieveIssuanceState(ctx echo.Context, _ string, txID string) error {
-	state, err := c.oidc4ciService.GetIssuanceState(ctx.Request().Context(), txID)
-	if err != nil {
-		return err
-	}
-
-	return util.WriteOutput(ctx)(IssuanceStateResponse{State: int(state)}, nil)
 }

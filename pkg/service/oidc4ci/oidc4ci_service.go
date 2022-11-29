@@ -320,12 +320,6 @@ func (s *Service) PrepareCredential(
 		return nil, ErrCredentialFormatNotSupported
 	}
 
-	tx.State = TransactionStateCredentialsIssued
-	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(tx, err)
-		return nil, err
-	}
-
 	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
 		s.sendFailedEvent(tx, errSendEvent)
 		return nil, errSendEvent

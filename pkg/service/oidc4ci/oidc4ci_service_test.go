@@ -711,12 +711,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					}, nil
 				})
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
-						return nil
-					})
-
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
@@ -763,12 +757,6 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
-						return nil
-					})
-
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -799,12 +787,6 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
-						return nil
-					})
-
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
@@ -827,50 +809,6 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "publish error")
-				require.Nil(t, resp)
-			},
-		},
-		{
-			name: "Failed to update tx state",
-			setup: func() {
-				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					ID: "txID",
-					TransactionData: oidc4ci.TransactionData{
-						IssuerToken: "issuer-access-token",
-						CredentialTemplate: &profileapi.CredentialTemplate{
-							Type:   "VerifiedEmployee",
-							Issuer: "issuer",
-						},
-						IsPreAuthFlow: true,
-						ClaimData: map[string]interface{}{
-							"surname":   "Smith",
-							"givenName": "Pat",
-							"jobTitle":  "Worker",
-						},
-						CredentialFormat: vcsverifiable.Jwt,
-					},
-				}, nil)
-
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
-						return errors.New("store err")
-					})
-
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
-
-						return nil
-					})
-
-				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err, "store err")
 				require.Nil(t, resp)
 			},
 		},
@@ -1038,35 +976,4 @@ func TestService_PrepareCredential(t *testing.T) {
 			tt.check(t, resp, err)
 		})
 	}
-}
-
-func TestGetState(t *testing.T) {
-	store := NewMockTransactionStore(gomock.NewController(t))
-
-	s, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore: store,
-	})
-	assert.NoError(t, err)
-
-	t.Run("success", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any(), oidc4ci.TxID("12345")).
-			Return(&oidc4ci.Transaction{
-				TransactionData: oidc4ci.TransactionData{
-					State: oidc4ci.TransactionStateCredentialsIssued,
-				},
-			}, nil)
-
-		resp, err := s.GetIssuanceState(context.TODO(), "12345")
-		assert.NoError(t, err)
-		assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, resp)
-	})
-
-	t.Run("fail", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any(), oidc4ci.TxID("12345")).
-			Return(nil, errors.New("store err"))
-
-		resp, err := s.GetIssuanceState(context.TODO(), "12345")
-		assert.ErrorContains(t, err, "store err")
-		assert.Equal(t, oidc4ci.TransactionStateUnknown, resp)
-	})
 }
