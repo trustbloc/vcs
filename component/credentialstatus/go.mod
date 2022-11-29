@@ -12,8 +12,8 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221109192733-f28b04b67526
 	github.com/piprate/json-gold v0.5.0
 	github.com/stretchr/testify v1.8.1
-	github.com/trustbloc/logutil-go v0.0.0-20221107142326-c9110e31ee60
-	github.com/trustbloc/vcs v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
+	github.com/trustbloc/vcs v0.1.8
 )
 
 require (
