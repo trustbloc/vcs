@@ -1039,34 +1039,3 @@ func TestService_PrepareCredential(t *testing.T) {
 		})
 	}
 }
-
-func TestGetState(t *testing.T) {
-	store := NewMockTransactionStore(gomock.NewController(t))
-
-	s, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore: store,
-	})
-	assert.NoError(t, err)
-
-	t.Run("success", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any(), oidc4ci.TxID("12345")).
-			Return(&oidc4ci.Transaction{
-				TransactionData: oidc4ci.TransactionData{
-					State: oidc4ci.TransactionStateCredentialsIssued,
-				},
-			}, nil)
-
-		resp, err := s.GetIssuanceState(context.TODO(), "12345")
-		assert.NoError(t, err)
-		assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, resp)
-	})
-
-	t.Run("fail", func(t *testing.T) {
-		store.EXPECT().Get(gomock.Any(), oidc4ci.TxID("12345")).
-			Return(nil, errors.New("store err"))
-
-		resp, err := s.GetIssuanceState(context.TODO(), "12345")
-		assert.ErrorContains(t, err, "store err")
-		assert.Equal(t, oidc4ci.TransactionStateUnknown, resp)
-	})
-}

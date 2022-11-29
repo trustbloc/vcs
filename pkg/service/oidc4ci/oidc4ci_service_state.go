@@ -6,19 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4ci
 
-import (
-	"context"
-	"fmt"
-)
-
-func (s *Service) GetIssuanceState(ctx context.Context, txID string) (TransactionState, error) {
-	tx, err := s.store.Get(ctx, TxID(txID))
-	if err != nil {
-		return TransactionStateUnknown, fmt.Errorf("get tx: %w", err)
-	}
-
-	return tx.State, nil
-}
+import "fmt"
 
 func (s *Service) validateStateTransition(
 	oldState TransactionState,
