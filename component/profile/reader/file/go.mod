@@ -1,7 +1,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-module github.com/trustbloc/edge-service/component/profile/reader/file
+module github.com/trustbloc/vcs/component/profile/reader/file
 
 go 1.19
 

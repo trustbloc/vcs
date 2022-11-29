@@ -537,8 +537,6 @@ github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-2
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149/go.mod h1:GDANCnJONcCqBvv6QgKuk5Y2FWHyD/Hu26kyc7NTyfY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e h1:wBblDEArmEpwYFivc5mnniI+5IkT2gXvbn0Cc90W1jE=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e/go.mod h1:0VNWYQ937z51P4usiHUPz0MImh8tsKEVsHVmAx2z5zA=
-github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221109192733-f28b04b67526 h1:cjrAU324gfYSqh1xG8fz36wFpuiMVju2C34keEnYcbA=
-github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221109192733-f28b04b67526/go.mod h1:zsDgr14l+lbdN0XmWIbIH7RstCZKxJcH68si2tbY8RI=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56 h1:b7BLv+CnYVaBrOgrv0zxUgMeilfrK/Z0Yw/fG4GQbAA=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56/go.mod h1:5ZDdDP1oCcjR8T7+uxOs0JF3PsY8h18pMfylqwjieII=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 h1:lLClFk/2sgr8B15E854dtgxK9b6R+B8qPJXin4mgTFo=
