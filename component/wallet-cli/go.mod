@@ -17,7 +17,7 @@ require (
 	github.com/piprate/json-gold v0.4.2
 	github.com/samber/lo v1.29.0
 	github.com/spf13/cobra v1.6.1
-	github.com/trustbloc/vcs v0.1.8
+	github.com/trustbloc/vcs v0.1.9-0.20221129172256-49b6645bc550
 	golang.org/x/oauth2 v0.1.0
 )
 
@@ -157,5 +157,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/trustbloc/vcs => ../../
