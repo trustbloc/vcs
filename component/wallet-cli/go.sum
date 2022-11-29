@@ -955,6 +955,8 @@ github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b h1:lWbbe9PIx8m
 github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b/go.mod h1:WN2/ZXjYqRjrYPgWplsyWWxkag6WTRxD26tw1iLPRgM=
 github.com/trustbloc/sidetree-core-go v1.0.0-rc3.0.20221028171319-8d44bd1cace7 h1:/7Ak2CW7iJEVF/uYhOu3KUAKTTlNII0DnJlAkw/hGoQ=
 github.com/trustbloc/sidetree-core-go v1.0.0-rc3.0.20221028171319-8d44bd1cace7/go.mod h1:SOuPJu8u7DSs2c494HPFAkkZ3KlfR/4swQ+YWqxZ2C8=
+github.com/trustbloc/vcs v0.1.9-0.20221129172256-49b6645bc550 h1:gdbal2xQBRJ8CZKLbaSraGAY54h7iAcJ29JLIa6uGKo=
+github.com/trustbloc/vcs v0.1.9-0.20221129172256-49b6645bc550/go.mod h1:oowXpfVwrMXctEMVYFfrjzMn2sn6srsgwS2DF+UzVl4=
 github.com/trustbloc/vct v1.0.0-rc2 h1:iuoG3rLC3V0kuwGnBmnzVPGH6xAxWzpozgkW5T5Qlac=
 github.com/trustbloc/vct v1.0.0-rc2/go.mod h1:k45HahHV0lr2h8ldzITXLjcWpTgXzRE8WL1avfC95po=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
