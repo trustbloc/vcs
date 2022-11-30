@@ -102,9 +102,8 @@ type oidc4ciService interface {
 }
 
 type vcStatusManager interface {
-	GetStatusListVC(statusListURL string) (*verifiable.Credential, error)
-	GetStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
-	UpdateVCStatus(signer *vc.Signer, profileName, CredentialID, status string) error
+	GetStatusListVC(profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
+	UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string, vcStatusType vc.StatusType) error
 }
 
 type Config struct {
@@ -239,17 +238,7 @@ func validateIssueCredOptions(
 // GetCredentialsStatus retrieves the credential status.
 // GET /issuer/profiles/{profileID}/credentials/status/{statusID}.
 func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error {
-	profile, err := c.accessProfile(profileID)
-	if err != nil {
-		return err
-	}
-
-	statusURL, err := c.vcStatusManager.GetStatusListVCURL(profile.URL, profile.ID, statusID)
-	if err != nil {
-		return err
-	}
-
-	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(statusURL))
+	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(profileID, statusID))
 }
 
 // PostCredentialsStatus updates credential status.
@@ -261,53 +250,15 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 		return err
 	}
 
-	if err := c.updateCredentialStatus(ctx, &body, profileID); err != nil {
+	if err := c.vcStatusManager.UpdateVCStatus(
+		profileID, body.CredentialID,
+		body.CredentialStatus.Status,
+		vc.StatusType(body.CredentialStatus.Type),
+	); err != nil {
 		return err
 	}
 
 	return ctx.NoContent(http.StatusOK)
-}
-
-func (c *Controller) updateCredentialStatus(ctx echo.Context, body *UpdateCredentialStatusRequest,
-	profileID string) error {
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
-	if err != nil {
-		return err
-	}
-
-	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
-	if err != nil {
-		return err
-	}
-
-	keyManager, err := c.kmsRegistry.GetKeyManager(profile.KMSConfig)
-	if err != nil {
-		return fmt.Errorf("failed to get kms: %w", err)
-	}
-
-	if body.CredentialStatus.Type != string(profile.VCConfig.Status.Type) {
-		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
-			fmt.Errorf(
-				"vc status list version %s not supported by current profile", body.CredentialStatus.Type))
-	}
-
-	signer := &vc.Signer{
-		Format:                  profile.VCConfig.Format,
-		DID:                     profile.SigningDID.DID,
-		Creator:                 profile.SigningDID.Creator,
-		SignatureType:           profile.VCConfig.SigningAlgorithm,
-		KeyType:                 profile.VCConfig.KeyType,
-		KMS:                     keyManager,
-		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
-		VCStatusListType:        profile.VCConfig.Status.Type,
-	}
-
-	err = c.vcStatusManager.UpdateVCStatus(signer, profile.Name, body.CredentialID, body.CredentialStatus.Status)
-	if err != nil {
-		return resterr.NewSystemError("VCStatusManager", "UpdateVCStatus", err)
-	}
-
-	return nil
 }
 
 // InitiateCredentialIssuance initiates OIDC credential issuance flow.

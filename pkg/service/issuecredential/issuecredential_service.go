@@ -34,8 +34,7 @@ type kmsRegistry interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(vcSigner *vc.Signer, url string) (*StatusID, error)
-	GetStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error)
+	CreateStatusID(profileID string) (*StatusID, error)
 }
 
 type StatusID struct {
@@ -86,14 +85,8 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	}
 
 	var statusID *StatusID
-	var statusURL string
 
-	statusURL, err = s.vcStatusManager.GetStatusListVCURL(profile.URL, profile.ID, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create status URL: %w", err)
-	}
-
-	statusID, err = s.vcStatusManager.CreateStatusID(signer, statusURL)
+	statusID, err = s.vcStatusManager.CreateStatusID(profile.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add credential status: %w", err)
 	}

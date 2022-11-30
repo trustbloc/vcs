@@ -56,7 +56,7 @@ func TestService_IssueCredential(t *testing.T) {
 	mockVCStore.EXPECT().Put(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(
+	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any()).AnyTimes().Return(
 		&issuecredential.StatusID{
 			Context: "https://w3id.org/vc-revocation-list-2020/v1",
 			VCStatus: &verifiable.TypedID{
@@ -64,8 +64,6 @@ func TestService_IssueCredential(t *testing.T) {
 				Type: string(vc.RevocationList2020VCStatus),
 			},
 		}, nil)
-	mockVCStatusManager.EXPECT().GetStatusListVCURL(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
-		Return("", nil)
 
 	t.Run("Success LDP", func(t *testing.T) {
 		t.Parallel()
@@ -228,32 +226,7 @@ func TestService_IssueCredential(t *testing.T) {
 		registry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
-		vcStatusManager.EXPECT().GetStatusListVCURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
-
-		service := issuecredential.New(&issuecredential.Config{
-			KMSRegistry:     registry,
-			VCStatusManager: vcStatusManager,
-		})
-
-		verifiableCredentials, err := service.IssueCredential(
-			&verifiable.Credential{},
-			nil,
-			&profileapi.Issuer{
-				SigningDID: &profileapi.SigningDID{},
-				VCConfig: &profileapi.VCConfig{
-					Format: vcs.Ldp,
-				}})
-		require.Error(t, err)
-		require.Nil(t, verifiableCredentials)
-	})
-	t.Run("Error VCStatusManager.GetStatusListVCURL", func(t *testing.T) {
-		registry := NewMockKMSRegistry(gomock.NewController(t))
-		registry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
-
-		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().GetStatusListVCURL(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return("", errors.New("some error"))
+		vcStatusManager.EXPECT().CreateStatusID(gomock.Any()).Return(nil, errors.New("some error"))
 
 		service := issuecredential.New(&issuecredential.Config{
 			KMSRegistry:     registry,
@@ -276,14 +249,13 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&issuecredential.StatusID{
+		vcStatusManager.EXPECT().CreateStatusID(gomock.Any()).AnyTimes().Return(&issuecredential.StatusID{
 			Context: vcutil.DefVCContext,
 			VCStatus: &verifiable.TypedID{
 				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 				Type: "JsonSchemaValidator2018",
 			},
 		}, nil)
-		vcStatusManager.EXPECT().GetStatusListVCURL(gomock.Any(), gomock.Any(), gomock.Any()).Return("", nil)
 
 		cr := NewMockvcCrypto(gomock.NewController(t))
 		cr.EXPECT().SignCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
@@ -309,15 +281,13 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any(), gomock.Any()).AnyTimes().Return(&issuecredential.StatusID{
+		vcStatusManager.EXPECT().CreateStatusID(gomock.Any()).AnyTimes().Return(&issuecredential.StatusID{
 			Context: vcutil.DefVCContext,
 			VCStatus: &verifiable.TypedID{
 				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 				Type: "JsonSchemaValidator2018",
 			},
 		}, nil)
-		vcStatusManager.EXPECT().GetStatusListVCURL(
-			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return("", nil)
 
 		keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
 		require.NoError(t, err)

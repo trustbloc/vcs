@@ -4,6 +4,8 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry
+
 package credentialstatus
 
 import (
@@ -26,6 +28,9 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	vcskms "github.com/trustbloc/vcs/pkg/kms"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 )
@@ -50,7 +55,7 @@ type httpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-type crypto interface {
+type vcCrypto interface {
 	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
@@ -67,15 +72,25 @@ type cslStore interface {
 	GetLatestListID() (int, error)
 }
 
+type profileService interface {
+	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+}
+
+type kmsRegistry interface {
+	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
+}
+
 type Config struct {
-	VDR            vdrapi.Registry
 	TLSConfig      *tls.Config
 	RequestTokens  map[string]string
-	DocumentLoader ld.DocumentLoader
+	VDR            vdrapi.Registry
 	CSLStore       cslStore
 	VCStore        vcStore
 	ListSize       int
-	Crypto         crypto
+	Crypto         vcCrypto
+	ProfileService profileService
+	KMSRegistry    kmsRegistry
+	DocumentLoader ld.DocumentLoader
 }
 
 type Service struct {
@@ -85,7 +100,9 @@ type Service struct {
 	cslStore       cslStore
 	vcStore        vcStore
 	listSize       int
-	crypto         crypto
+	crypto         vcCrypto
+	profileService profileService
+	kmsRegistry    kmsRegistry
 	documentLoader ld.DocumentLoader
 }
 
@@ -99,13 +116,42 @@ func New(config *Config) *Service {
 		vcStore:        config.VCStore,
 		listSize:       config.ListSize,
 		crypto:         config.Crypto,
+		profileService: config.ProfileService,
+		kmsRegistry:    config.KMSRegistry,
 		documentLoader: config.DocumentLoader,
 	}
 }
 
-// UpdateVCStatus fetches credential based on credentialID and updates StatusListCredential associated with it.
-func (s *Service) UpdateVCStatus(signer *vc.Signer, profileName, credentialID, status string) error {
-	vcBytes, err := s.vcStore.Get(profileName, credentialID)
+// UpdateVCStatus fetches credential based on vcID and updates associated StatusListCredential to vcStatus.
+func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string, vcStatusType vc.StatusType) error {
+	issuerProfile, err := s.profileService.GetProfile(profileID)
+	if err != nil {
+		return fmt.Errorf("failed to get profile: %w", err)
+	}
+
+	if vcStatusType != issuerProfile.VCConfig.Status.Type {
+		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
+			fmt.Errorf(
+				"vc status list version %s not supported by current profile", vcStatusType))
+	}
+
+	keyManager, err := s.kmsRegistry.GetKeyManager(issuerProfile.KMSConfig)
+	if err != nil {
+		return fmt.Errorf("failed to get kms: %w", err)
+	}
+
+	signer := &vc.Signer{
+		Format:                  issuerProfile.VCConfig.Format,
+		DID:                     issuerProfile.SigningDID.DID,
+		Creator:                 issuerProfile.SigningDID.Creator,
+		SignatureType:           issuerProfile.VCConfig.SigningAlgorithm,
+		KeyType:                 issuerProfile.VCConfig.KeyType,
+		KMS:                     keyManager,
+		SignatureRepresentation: issuerProfile.VCConfig.SignatureRepresentation,
+		VCStatusListType:        issuerProfile.VCConfig.Status.Type,
+	}
+
+	vcBytes, err := s.vcStore.Get(issuerProfile.Name, vcID)
 	if err != nil {
 		return err
 	}
@@ -116,7 +162,7 @@ func (s *Service) UpdateVCStatus(signer *vc.Signer, profileName, credentialID, s
 		return err
 	}
 
-	statusValue, err := strconv.ParseBool(status)
+	statusValue, err := strconv.ParseBool(vcStatus)
 	if err != nil {
 		return err
 	}
@@ -124,15 +170,40 @@ func (s *Service) UpdateVCStatus(signer *vc.Signer, profileName, credentialID, s
 	return s.updateVC(credential, signer, statusValue)
 }
 
-// CreateStatusID creates issuecredential.StatusID.
-func (s *Service) CreateStatusID(profile *vc.Signer,
-	url string) (*issuecredential.StatusID, error) {
-	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListType)
+// CreateStatusID creates issuecredential.StatusID for profileID.
+func (s *Service) CreateStatusID(profileID profileapi.ID) (*issuecredential.StatusID, error) {
+	profile, err := s.profileService.GetProfile(profileID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get profile: %w", err)
+	}
+
+	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kms: %w", err)
+	}
+
+	signer := &vc.Signer{
+		DID:                     profile.SigningDID.DID,
+		Creator:                 profile.SigningDID.Creator,
+		SignatureType:           profile.VCConfig.SigningAlgorithm,
+		KeyType:                 profile.VCConfig.KeyType,
+		KMS:                     kms,
+		Format:                  profile.VCConfig.Format,
+		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
+		VCStatusListType:        profile.VCConfig.Status.Type,
+	}
+
+	vcStatusProcessor, err := GetVCStatusProcessor(signer.VCStatusListType)
 	if err != nil {
 		return nil, err
 	}
 
-	cslWrapper, err := s.getLatestCSLWrapper(profile, url, vcStatusProcessor)
+	statusURL, err := s.getStatusListVCURL(profile.URL, profile.ID, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create status URL: %w", err)
+	}
+
+	cslWrapper, err := s.getLatestCSLWrapper(signer, statusURL, vcStatusProcessor)
 	if err != nil {
 		return nil, err
 	}
@@ -162,15 +233,20 @@ func (s *Service) CreateStatusID(profile *vc.Signer,
 	}, nil
 }
 
-// GetStatusListVCURL returns StatusListVC URL.
-func (s *Service) GetStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
-	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, statusID)
-}
-
 // GetStatusListVC returns StatusListVC from underlying cslStore.
 // Used for handling public HTTP requests.
-func (s *Service) GetStatusListVC(id string) (*verifiable.Credential, error) {
-	cslWrapper, err := s.getCSLWrapper(id)
+func (s *Service) GetStatusListVC(profileID profileapi.ID, statusID string) (*verifiable.Credential, error) {
+	profile, err := s.profileService.GetProfile(profileID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get profile: %w", err)
+	}
+
+	statusURL, err := s.getStatusListVCURL(profile.URL, profile.ID, statusID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status URL: %w", err)
+	}
+
+	cslWrapper, err := s.getCSLWrapper(statusURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get revocationListVC from store: %w", err)
 	}
@@ -215,6 +291,11 @@ func (s *Service) resolveHTTPUrl(url string) ([]byte, error) {
 	}
 
 	return resp, nil
+}
+
+// getStatusListVCURL returns StatusListVC URL.
+func (s *Service) getStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, statusID)
 }
 
 func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
