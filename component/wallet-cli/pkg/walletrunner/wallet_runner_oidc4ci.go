@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,7 +33,6 @@ type OIDC4CIConfig struct {
 	ClientID            string
 	Scope               []string
 	RedirectURI         string
-	LoginURL            string
 	CredentialType      string
 	CredentialFormat    string
 	Interactive         bool
@@ -40,7 +40,7 @@ type OIDC4CIConfig struct {
 }
 
 func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
-	log.Println("Start OIDC4CI authorized code flow")
+	log.Println("Starting OIDC4CI authorized code flow")
 
 	log.Println("Creating wallet")
 	err := s.CreateWallet()
@@ -54,14 +54,12 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
-	log.Println("Getting issuer OIDC config from well-known endpoint")
+	log.Println("Getting issuer OIDC config")
 	oidcConfig, err := s.getIssuerOIDCConfig(initiateIssuanceURL.Query().Get("issuer"))
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
-	log.Printf("Issuer OIDC config:\n%+v\n", oidcConfig)
 
-	log.Println("Creating oauth2 client")
 	s.oauthClient = &oauth2.Config{
 		ClientID:    config.ClientID,
 		RedirectURL: config.RedirectURI,
@@ -85,8 +83,39 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("marshal authorization details: %w", err)
 	}
 
-	log.Println("Getting authorization code")
-	authResp, err := s.httpClient.Get(
+	var loginURL, consentURL *url.URL
+	var authCode string
+
+	httpClient := &http.Client{
+		Jar:       s.httpClient.Jar,
+		Transport: s.httpClient.Transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// intercept login request
+			if strings.Contains(req.URL.String(), "/login?login_challenge=") {
+				loginURL = req.URL
+
+				return http.ErrUseLastResponse
+			}
+
+			// intercept consent request
+			if strings.Contains(req.URL.String(), "/consent?consent_challenge=") {
+				consentURL = req.URL
+
+				return http.ErrUseLastResponse
+			}
+
+			// intercept client auth code
+			if strings.HasPrefix(req.URL.String(), config.RedirectURI) {
+				authCode = req.URL.Query().Get("code")
+
+				return http.ErrUseLastResponse
+			}
+
+			return nil
+		},
+	}
+
+	resp, err := httpClient.Get(
 		s.oauthClient.AuthCodeURL(state,
 			oauth2.SetAuthURLParam("op_state", opState),
 			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
@@ -95,29 +124,57 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("get auth code request: %w", err)
+		return fmt.Errorf("get login: %w", err)
+	}
+	_ = resp.Body.Close()
+
+	if loginURL == nil {
+		return fmt.Errorf("login URL is empty")
 	}
 
-	defer authResp.Body.Close()
+	log.Println("Authenticating user", loginURL)
+	resp, err = httpClient.PostForm(loginURL.String(),
+		url.Values{
+			"challenge": loginURL.Query()["login_challenge"],
+			"email":     {"john.smith@example.com"},
+			"password":  {"f00B@r!23"},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("post login: %w", err)
+	}
+	_ = resp.Body.Close()
 
-	if authResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("get authorization code: status code %d", authResp.StatusCode)
+	if consentURL == nil {
+		return fmt.Errorf("consent URL is empty")
 	}
 
-	var authCode string
+	log.Println("Getting user consent", consentURL)
+	resp, err = httpClient.PostForm(consentURL.String(),
+		url.Values{
+			"challenge": loginURL.Query()["consent_challenge"],
+			"submit":    {"accept"},
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("post consent: %w", err)
+	}
 
-	if config.Interactive {
-		// TODO: Implement support for interactive login/consent
-	} else {
-		authCode, err = s.getAuthCodeNonInteractive(config.LoginURL)
+	_ = resp.Body.Close()
+
+	if authCode == "" {
+		return fmt.Errorf("auth code is empty")
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 
-	log.Println("Getting token")
+	log.Println("Getting access token")
 	token, err := s.oauthClient.Exchange(ctx, authCode,
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
 	)
+	if err != nil {
+		return fmt.Errorf("exchange code for token: %w", err)
+	}
 
 	s.token = token
 
@@ -134,8 +191,10 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 
 	log.Println("Adding credential to wallet")
 	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
-		return fmt.Errorf("add credential to wallet: %w", err)
+		return fmt.Errorf("add credential: %w", err)
 	}
+
+	s.wallet.Close()
 
 	return nil
 }
@@ -160,59 +219,6 @@ func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpen
 	}
 
 	return &oidcConfig, nil
-}
-
-func (s *Service) getAuthCodeNonInteractive(loginURL string) (string, error) {
-	httpClient := &http.Client{
-		Jar:       s.httpClient.Jar,
-		Transport: s.httpClient.Transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error { // hijack redirects
-			return http.ErrUseLastResponse
-		},
-	}
-
-	log.Println("Logging in ", loginURL)
-	resp, err := httpClient.Post(loginURL, "", http.NoBody)
-	if err != nil {
-		return "", err
-	}
-	_ = resp.Body.Close()
-
-	log.Println("Redirecting to third-party oidc provider", resp.Header.Get("Location"))
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return "", fmt.Errorf("redirect to third-party oidc provider: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	// redirect to consent page
-	log.Println("Redirecting to consent page", resp.Header.Get("Location"))
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return "", fmt.Errorf("redirect to consent page: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	// redirect back to third-party oidc provider with consent verifier
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return "", fmt.Errorf("redirect back to auth after consent: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	// redirect to public vcs public /oidc/redirect
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return "", fmt.Errorf("redirect to public oidc redirect: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	u, err := url.Parse(resp.Header.Get("Location"))
-	if err != nil {
-		return "", fmt.Errorf("parse client redirect url: %w", err)
-	}
-
-	return u.Query().Get("code"), nil
 }
 
 func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFormat string) (interface{}, error) {

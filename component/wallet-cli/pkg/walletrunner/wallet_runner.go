@@ -72,13 +72,15 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 
 	if config.Debug {
 		httpLogger := &httpretty.Logger{
-			Time:           true,
-			RequestHeader:  true,
-			RequestBody:    true,
-			ResponseHeader: true,
-			ResponseBody:   true,
-			SkipSanitize:   false,
-			Formatters:     []httpretty.Formatter{&httpretty.JSONFormatter{}},
+			Time:            true,
+			TLS:             false,
+			RequestHeader:   true,
+			RequestBody:     true,
+			ResponseHeader:  true,
+			ResponseBody:    true,
+			SkipSanitize:    true,
+			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}},
+			MaxResponseBody: 10240,
 		}
 
 		httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)

@@ -401,7 +401,7 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		},
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("exchange authorization code request: %w", err)
 	}
 
 	defer exchangeResp.Body.Close()
