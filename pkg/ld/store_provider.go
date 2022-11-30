@@ -10,7 +10,9 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
-	ariesapi "github.com/hyperledger/aries-framework-go/spi/storage"
+
+	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/ldstore"
 )
 
 // StoreProvider provides stores for JSON-LD contexts and remote providers.
@@ -20,13 +22,13 @@ type StoreProvider struct {
 }
 
 // NewStoreProvider returns a new instance of StoreProvider.
-func NewStoreProvider(storageProvider ariesapi.Provider) (*StoreProvider, error) {
-	contextStore, err := ld.NewContextStore(storageProvider)
+func NewStoreProvider(mongoClient *mongodb.Client) (*StoreProvider, error) {
+	contextStore, err := ldstore.NewContextStore(mongoClient)
 	if err != nil {
 		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
 	}
 
-	remoteProviderStore, err := ld.NewRemoteProviderStore(storageProvider)
+	remoteProviderStore, err := ldstore.NewRemoteProviderStore(mongoClient)
 	if err != nil {
 		return nil, fmt.Errorf("create remote provider store: %w", err)
 	}
