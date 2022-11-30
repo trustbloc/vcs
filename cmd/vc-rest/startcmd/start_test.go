@@ -301,31 +301,6 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestCreateProviders(t *testing.T) {
-	t.Run("test error from create new mongodb", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters: &dbParameters{
-				databaseType: databaseTypeMongoDBOption,
-			},
-			tlsParameters: &tlsParameters{systemCertPool: false},
-		})
-
-		require.Nil(t, cfg)
-		require.Contains(t, err.Error(), "failed to create a new MongoDB client: error parsing uri: scheme must "+
-			`be "mongodb" or "mongodb+srv"`)
-	})
-	t.Run("test invalid database type", func(t *testing.T) {
-		cfg, err := prepareConfiguration(&startupParameters{
-			dbParameters:  &dbParameters{databaseType: "data1"},
-			tlsParameters: &tlsParameters{systemCertPool: false},
-		})
-
-		require.Nil(t, cfg)
-		require.Contains(t, err.Error(), "data1 is not a valid database type. "+
-			"run start --help to see the available options")
-	})
-}
-
 func TestCreateVDRI(t *testing.T) {
 	t.Run("test error from create new universal resolver vdr", func(t *testing.T) {
 		v, err := createVDRI("wrong", "", &tls.Config{MinVersion: tls.VersionTLS12})

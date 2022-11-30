@@ -19,11 +19,15 @@ import (
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
+	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vcs/pkg/ld"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
@@ -193,9 +197,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
 		conf.StartupParameters.dbParameters.databasePrefix+"vcs",
-		15*time.Second)
+		15*time.Second, tlsConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
+	}
+
+	documentLoader, err := createJSONLDDocumentLoader(mongodbClient, tlsConfig,
+		conf.StartupParameters.contextProviderURLs, conf.StartupParameters.contextEnableRemote)
+	if err != nil {
+		return nil, err
 	}
 
 	// Create event service
@@ -217,7 +227,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, err
 	}
 
-	vcCrypto := crypto.New(conf.VDR, conf.DocumentLoader)
+	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
 	cslStore := cslstore.NewStore(mongodbClient)
 	vcStore := vcstore.NewStore(mongodbClient)
@@ -225,7 +235,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		VDR:            conf.VDR,
 		TLSConfig:      tlsConfig,
 		RequestTokens:  conf.StartupParameters.requestTokens,
-		DocumentLoader: conf.DocumentLoader,
+		DocumentLoader: documentLoader,
 		CSLStore:       cslStore,
 		VCStore:        vcStore,
 		ListSize:       cslSize,
@@ -323,7 +333,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		EventSvc:               eventSvc,
 		ProfileSvc:             issuerProfileSvc,
 		KMSRegistry:            kmsRegistry,
-		DocumentLoader:         conf.DocumentLoader,
+		DocumentLoader:         documentLoader,
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
@@ -344,15 +354,15 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	verifyCredentialSvc := verifycredential.New(&verifycredential.Config{
 		VCStatusProcessorGetter: credentialstatus.GetVCStatusProcessor,
 		StatusListVCResolver:    statusListVCSvc,
-		DocumentLoader:          conf.DocumentLoader,
+		DocumentLoader:          documentLoader,
 		VDR:                     conf.VDR,
 	})
 	verifyPresentationSvc := verifypresentation.New(&verifypresentation.Config{
 		VcVerifier:     verifyCredentialSvc,
-		DocumentLoader: conf.DocumentLoader,
+		DocumentLoader: documentLoader,
 		VDR:            conf.VDR,
 	})
-	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, conf.DocumentLoader)
+	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
 
 	oidcNonceStore, err := oidcnoncestore.New(mongodbClient)
 	if err != nil {
@@ -370,7 +380,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		RequestObjectPublicStore: requestObjectStoreService,
 		KMSRegistry:              kmsRegistry,
 		PublicKeyFetcher:         verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher(),
-		DocumentLoader:           conf.DocumentLoader,
+		DocumentLoader:           documentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,
 		RedirectURL:              conf.StartupParameters.hostURLExternal + oidc4VPCheckEndpoint,
@@ -381,7 +391,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		VerifyCredentialSvc: verifyCredentialSvc,
 		ProfileSvc:          verifierProfileSvc,
 		KMSRegistry:         kmsRegistry,
-		DocumentLoader:      conf.DocumentLoader,
+		DocumentLoader:      documentLoader,
 		VDR:                 conf.VDR,
 		OIDCVPService:       oidc4vpService,
 		Metrics:             metrics,
@@ -519,4 +529,40 @@ func getOAuth2Clients(path string) ([]fositemongo.Client, error) {
 	}
 
 	return clients, nil
+}
+
+func createJSONLDDocumentLoader(mongoClient *mongodb.Client, tlsConfig *tls.Config,
+	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
+	ldStore, err := ld.NewStoreProvider(mongoClient)
+	if err != nil {
+		return nil, err
+	}
+
+	var loaderOpts []ariesld.DocumentLoaderOpts
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+		},
+	}
+
+	for _, url := range providerURLs {
+		loaderOpts = append(loaderOpts,
+			ariesld.WithRemoteProvider(
+				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
+			),
+		)
+	}
+
+	if contextEnableRemote {
+		loaderOpts = append(loaderOpts,
+			ariesld.WithRemoteDocumentLoader(jsonld.NewDefaultDocumentLoader(http.DefaultClient)))
+	}
+
+	loader, err := ld.NewDocumentLoader(ldStore, loaderOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	return loader, nil
 }
