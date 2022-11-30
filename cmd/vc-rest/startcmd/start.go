@@ -229,6 +229,8 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		CSLStore:       cslStore,
 		VCStore:        vcStore,
 		ListSize:       cslSize,
+		ProfileService: issuerProfileSvc,
+		KMSRegistry:    kmsRegistry,
 		Crypto:         vcCrypto,
 	})
 
