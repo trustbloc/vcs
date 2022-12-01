@@ -197,7 +197,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
 		conf.StartupParameters.dbParameters.databasePrefix+"vcs",
-		15*time.Second, tlsConfig)
+		15*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
 	}

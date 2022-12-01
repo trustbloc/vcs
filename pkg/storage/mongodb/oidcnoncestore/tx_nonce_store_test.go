@@ -40,7 +40,7 @@ func TestTxStore_Success(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10, nil)
+	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	require.NoError(t, err)
 
 	store, err := oidcnoncestore.New(client)
@@ -100,7 +100,7 @@ func TestTxStore_Success(t *testing.T) {
 }
 
 func TestTxStore_ConnectoinFail(t *testing.T) {
-	client, err := mongodb.New(mongoDBConnString, "testdb", 0, nil)
+	client, err := mongodb.New(mongoDBConnString, "testdb", 0)
 	require.NoError(t, err)
 
 	t.Run("Set fail", func(t *testing.T) {
