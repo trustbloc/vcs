@@ -8,7 +8,9 @@ package mongodb
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,8 +23,14 @@ type Client struct {
 	timeout      time.Duration
 }
 
-func New(connString string, databaseName string, timeout time.Duration) (*Client, error) {
-	client, err := mongo.NewClient(mongooptions.Client().ApplyURI(connString))
+func New(connString string, databaseName string, timeout time.Duration, tlsConfig *tls.Config) (*Client, error) {
+	var mongoDBTLS *tls.Config
+
+	if strings.Contains(connString, "tls=true") {
+		mongoDBTLS = tlsConfig
+	}
+
+	client, err := mongo.NewClient(mongooptions.Client().ApplyURI(connString).SetTLSConfig(mongoDBTLS))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new MongoDB client: %w", err)
 	}
