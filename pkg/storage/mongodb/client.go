@@ -24,10 +24,11 @@ type Client struct {
 }
 
 func New(connString string, databaseName string, timeout time.Duration, tlsConfig *tls.Config) (*Client, error) {
-	mongoDBTLS := tlsConfig
+	var mongoDBTLS *tls.Config
 
-	if !strings.Contains(connString, "ssl_ca_certs") {
-		mongoDBTLS = nil
+	if strings.Contains(connString, "sslcertificateauthorityfile") ||
+		strings.Contains(connString, "tlscafile") {
+		mongoDBTLS = tlsConfig
 	}
 
 	client, err := mongo.NewClient(mongooptions.Client().ApplyURI(connString).SetTLSConfig(mongoDBTLS))
