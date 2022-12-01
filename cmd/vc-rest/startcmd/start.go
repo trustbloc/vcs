@@ -196,8 +196,8 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
 	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
-		conf.StartupParameters.dbParameters.databasePrefix+"vcs",
-		15*time.Second, tlsConfig)
+		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
+		15*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
 	}
