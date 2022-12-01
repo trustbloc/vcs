@@ -8,7 +8,6 @@ package startcmd
 
 import (
 	"context"
-	"crypto/tls"
 	"testing"
 	"time"
 
@@ -26,7 +25,7 @@ func TestBoostrapOidc(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, clientErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10, &tls.Config{})
+	client, clientErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	assert.NoError(t, clientErr)
 
 	secret := uuid.NewString()
@@ -71,7 +70,7 @@ func TestBoostrapOidcWithExpiredContext(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10, &tls.Config{})
+	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	assert.NoError(t, err)
 
 	secret := uuid.NewString()

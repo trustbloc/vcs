@@ -42,7 +42,7 @@ func TestStore(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10, nil)
+	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
 	assert.NoError(t, err)
 
 	store, err := New(context.Background(), client)
@@ -123,7 +123,7 @@ func TestWithTimeouts(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb2", 1, nil)
+	client, err := mongodb.New(mongoDBConnString, "testdb2", 1)
 	assert.NoError(t, err)
 
 	store, err := New(context.Background(), client)
