@@ -50,7 +50,7 @@ func TestWrapperStore(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10000)
+	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10000, nil)
 	require.NoError(t, err)
 
 	store := NewStore(client)
@@ -152,7 +152,7 @@ func TestTimeouts(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb2", 5)
+	client, err := mongodb.New(mongoDBConnString, "testdb2", 5, nil)
 	require.NoError(t, err)
 
 	store := NewStore(client)
@@ -185,7 +185,7 @@ func TestLatestListID(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, clientErr := mongodb.New(mongoDBConnString, "testdb2", time.Second*10)
+	client, clientErr := mongodb.New(mongoDBConnString, "testdb2", time.Second*10, nil)
 	require.NoError(t, clientErr)
 
 	store := NewStore(client)
