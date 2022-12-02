@@ -9,17 +9,18 @@ go 1.19
 require (
 	github.com/aws/aws-sdk-go v1.43.9
 	github.com/btcsuite/btcd v0.22.1
+	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221109083343-39b5163afa3a
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/jinzhu/copier v0.3.5
@@ -36,7 +37,7 @@ require (
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
-	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b
+	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
 	go.mongodb.org/mongo-driver v1.10.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.1.0
@@ -54,7 +55,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
-	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/containerd/continuity v0.3.0 // indirect
 	github.com/cristalhq/jwt/v4 v4.0.2 // indirect
@@ -147,9 +147,8 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/edge-core v0.1.8 // indirect
-	github.com/trustbloc/sidetree-core-go v1.0.0-rc3.0.20221028171319-8d44bd1cace7 // indirect
-	github.com/trustbloc/vct v1.0.0-rc2 // indirect
+	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
+	github.com/trustbloc/vct v1.0.0-rc4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

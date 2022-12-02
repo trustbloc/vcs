@@ -9,8 +9,8 @@ go 1.19
 require (
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221109083343-39b5163afa3a
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/makiuchi-d/gozxing v0.1.1
@@ -119,12 +119,11 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/edge-core v0.1.8 // indirect
 	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 // indirect
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 // indirect
-	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
-	github.com/trustbloc/sidetree-core-go v1.0.0-rc3.0.20221028171319-8d44bd1cace7 // indirect
-	github.com/trustbloc/vct v1.0.0-rc2 // indirect
+	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
+	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
+	github.com/trustbloc/vct v1.0.0-rc4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

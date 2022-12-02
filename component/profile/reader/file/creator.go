@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -250,6 +252,7 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 		didDoc,
 		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
 		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdr.WithOption(longform.VDRAcceptOpt, "long-form"),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create long form did: %w", err)

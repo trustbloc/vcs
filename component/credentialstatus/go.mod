@@ -7,13 +7,14 @@ module github.com/trustbloc/vcs/component/credentialstatus
 go 1.19
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221109083343-39b5163afa3a
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221109192733-f28b04b67526
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/piprate/json-gold v0.5.0
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
-	github.com/trustbloc/vcs v0.1.8
+	github.com/trustbloc/vcs v0.0.0
 )
 
 require (
@@ -37,7 +38,6 @@ require (
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.3.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
-	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/certificate-transparency-go v1.1.2-0.20210512142713-bed466244fa6 // indirect
@@ -49,7 +49,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
-	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc2.0.20220811162145-47649b185a56 // indirect
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85 // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e // indirect
@@ -109,11 +109,10 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/edge-core v0.1.8 // indirect
 	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 // indirect
-	github.com/trustbloc/orb v1.0.0-rc2.0.20220811160855-64ffb892b32b // indirect
-	github.com/trustbloc/sidetree-core-go v1.0.0-rc3.0.20221028171319-8d44bd1cace7 // indirect
-	github.com/trustbloc/vct v1.0.0-rc2 // indirect
+	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
+	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
+	github.com/trustbloc/vct v1.0.0-rc4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
