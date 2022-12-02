@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package spi
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -49,7 +48,7 @@ type Payload []byte
 
 type Event struct {
 	// SpecVersion is spec version(required).
-	SpecVersion string `json:"specversion"`
+	SpecVersion string `json:"specVersion"`
 
 	// ID identifies the event(required).
 	ID string `json:"id"`
@@ -64,13 +63,13 @@ type Event struct {
 	Time *util.TimeWrapper `json:"time"`
 
 	// DataContentType is data content type(optional).
-	DataContentType string `json:"datacontenttype,omitempty"`
+	DataContentType string `json:"dataContentType,omitempty"`
 
 	// Data defines message(optional).
-	Data json.RawMessage `json:"data,omitempty"`
+	Data []byte `json:"data,omitempty"`
 
 	// TransactionID defines transaction ID(optional).
-	TransactionID string `json:"txnid,omitempty"`
+	TransactionID string `json:"txnId,omitempty"`
 
 	// Subject defines subject(optional).
 	Subject string `json:"subject,omitempty"`
@@ -99,8 +98,9 @@ func (m *Event) Copy() *Event {
 func NewEventWithPayload(uuid string, source string, eventType EventType, payload Payload) *Event {
 	event := NewEvent(uuid, source, eventType)
 
-	data := json.RawMessage(payload)
-	event.Data = data
+	event.Data = payload
+
+	// vcs components always use json
 	event.DataContentType = "application/json"
 
 	return event
