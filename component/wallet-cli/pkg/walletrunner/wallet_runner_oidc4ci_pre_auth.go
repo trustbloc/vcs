@@ -7,12 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
+	"bufio"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -51,7 +53,15 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	}
 
 	if strings.EqualFold(parsedUrl.Query().Get("user_pin_required"), "true") {
-		tokenValues.Add("user_pin", "1234") // todo logic for correct pin generation
+		if len(config.Pin) == 0 {
+			log.Println("Please enter PIN for pre-authorized flow (after this press enter):")
+			scanner := bufio.NewScanner(os.Stdin)
+			scanner.Scan()
+			config.Pin = scanner.Text()
+		}
+
+		log.Println("using PIN: " + config.Pin)
+		tokenValues.Add("user_pin", config.Pin)
 	}
 
 	tokenResp, tokenErr := httpClient.PostForm(tokenEndpoint, tokenValues)

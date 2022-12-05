@@ -38,6 +38,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
 		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
 		eventService         = NewMockEventService(gomock.NewController(t))
+		pinGenerator         = NewMockPinGenerator(gomock.NewController(t))
 		issuanceReq          *oidc4ci.InitiateIssuanceRequest
 		profile              *profileapi.Issuer
 	)
@@ -119,7 +120,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
-						assert.Equal(t, true, data.UserPinRequired)
+						assert.True(t, len(data.OtpPin) > 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.Equal(t, claimData, data.ClaimData)
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
@@ -131,9 +132,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 								CredentialTemplate: &profileapi.CredentialTemplate{
 									ID: "templateID",
 								},
-								PreAuthCode:     expectedCode,
-								IsPreAuthFlow:   true,
-								UserPinRequired: data.UserPinRequired,
+								PreAuthCode:   expectedCode,
+								IsPreAuthFlow: true,
+								OtpPin:        "567",
 							},
 						}, nil
 					})
@@ -152,6 +153,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
 
+				pinGenerator.EXPECT().Generate().Return("123456789")
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
@@ -163,6 +165,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.NoError(t, err)
+				assert.Equal(t, "567", resp.OtpPin)
 				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=true", //nolint
 					resp.InitiateIssuanceURL)
 			},
@@ -185,7 +188,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
-						assert.Equal(t, false, data.UserPinRequired)
+						assert.Empty(t, data.OtpPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.Equal(t, claimData, data.ClaimData)
 
@@ -248,7 +251,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
-						assert.Equal(t, false, data.UserPinRequired)
+						assert.Empty(t, data.OtpPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.Equal(t, claimData, data.ClaimData)
 
@@ -535,6 +538,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				WellKnownService:    mockWellKnownService,
 				IssuerVCSPublicHost: issuerVCSPublicHost,
 				EventService:        eventService,
+				PinGenerator:        pinGenerator,
 			})
 			require.NoError(t, err)
 

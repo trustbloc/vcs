@@ -33,3 +33,6 @@ Feature: OIDC4CI REST API
 
     When client scans qrcode
     Then client should receive access token for further interactions with vc api
+
+    When client requests credential for claim data with pre-authorize flow
+    Then client receives a valid credential with pre-authorize flow

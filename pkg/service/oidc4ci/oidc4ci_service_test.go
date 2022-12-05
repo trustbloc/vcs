@@ -502,18 +502,21 @@ func TestValidatePreAuthCode(t *testing.T) {
 	t.Run("success with pin", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
 		eventService := NewMockEventService(gomock.NewController(t))
+		pinGenerator := NewMockPinGenerator(gomock.NewController(t))
 
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
 			EventService:     eventService,
+			PinGenerator:     pinGenerator,
 		})
 		assert.NoError(t, err)
 
+		pinGenerator.EXPECT().Validate("567", "567").Return(true)
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
-				State:           oidc4ci.TransactionStateIssuanceInitiated,
-				PreAuthCode:     "1234",
-				UserPinRequired: true,
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+				PreAuthCode: "1234",
+				OtpPin:      "567",
 			},
 		}, nil)
 
@@ -526,7 +529,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			})
 
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -551,9 +554,9 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
-				PreAuthCode:     "1234",
-				UserPinRequired: false,
-				State:           oidc4ci.TransactionStateIssuanceInitiated,
+				PreAuthCode: "1234",
+				OtpPin:      "",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
@@ -583,9 +586,9 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
-				PreAuthCode:     "1234",
-				UserPinRequired: false,
-				State:           oidc4ci.TransactionStateIssuanceInitiated,
+				PreAuthCode: "1234",
+				OtpPin:      "",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
@@ -597,21 +600,26 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 	t.Run("invalid pin", func(t *testing.T) {
 		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		pinGenerator := NewMockPinGenerator(gomock.NewController(t))
+
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
+			PinGenerator:     pinGenerator,
 		})
 		assert.NoError(t, err)
 
+		pinGenerator.EXPECT().Validate("567", "111").Return(false)
+
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
-				PreAuthCode:     "1234",
-				UserPinRequired: true,
-				State:           oidc4ci.TransactionStateIssuanceInitiated,
+				PreAuthCode: "1234",
+				OtpPin:      "567",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
-		assert.ErrorContains(t, err, "invalid auth credentials")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "111")
+		assert.ErrorContains(t, err, "invalid pin")
 		assert.Nil(t, resp)
 	})
 
@@ -638,9 +646,9 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
-				PreAuthCode:     "1234",
-				UserPinRequired: true,
-				State:           oidc4ci.TransactionStateCredentialsIssued,
+				PreAuthCode: "1234",
+				OtpPin:      "567",
+				State:       oidc4ci.TransactionStateCredentialsIssued,
 			},
 		}, nil)
 
@@ -658,9 +666,9 @@ func TestValidatePreAuthCode(t *testing.T) {
 
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
-				PreAuthCode:     "1234",
-				UserPinRequired: false,
-				State:           oidc4ci.TransactionStateIssuanceInitiated,
+				PreAuthCode: "1234",
+				OtpPin:      "",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
 		storeMock.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("store update error"))

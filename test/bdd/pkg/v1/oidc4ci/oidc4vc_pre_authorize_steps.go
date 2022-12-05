@@ -17,6 +17,7 @@ import (
 
 	"github.com/cucumber/godog"
 	"github.com/samber/lo"
+	"golang.org/x/oauth2"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -33,6 +34,8 @@ type PreAuthorizeStep struct {
 	preAuthorizeCode        string
 	preAuthorizePinRequired string
 	tokenResponse           *accessTokenResponse
+	credential              interface{}
+	oauthClient             *oauth2.Config
 }
 
 func NewPreAuthorizeStep(ctx *bddcontext.BDDContext) *PreAuthorizeStep {
@@ -53,6 +56,9 @@ func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^client scans qrcode$`, s.parseUrl)
 	sc.Step(`^client should receive access token for further interactions with vc api$`, s.receiveToken)
+
+	sc.Step(`^client requests credential for claim data with pre-authorize flow$`, s.getCredential)
+	sc.Step(`^client receives a valid credential with pre-authorize flow$`, s.checkCredential)
 }
 
 func (s *PreAuthorizeStep) parseUrl() error {
@@ -85,18 +91,24 @@ func (s *PreAuthorizeStep) parseUrl() error {
 	s.preAuthorizeCode = parsed.Query().Get("pre-authorized_code")
 	s.preAuthorizePinRequired = parsed.Query().Get("user_pin_required")
 
-	if s.preAuthorizePinRequired == "true" {
-		return fmt.Errorf("pin required should be false")
+	if s.preAuthorizePinRequired == "false" {
+		return fmt.Errorf("pin required should be true")
 	}
 
 	return nil
 }
 
 func (s *PreAuthorizeStep) receiveToken() error {
-	resp, err := s.httpClient.PostForm(s.preAuthorizeUrl, url.Values{
+	val := url.Values{
 		"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 		"pre-authorized_code": {s.preAuthorizeCode},
-	})
+	}
+
+	if s.preAuthorizePinRequired == "true" {
+		val.Add("user_pin", *s.initiateResponse.OtpPin)
+	}
+
+	resp, err := s.httpClient.PostForm(s.preAuthorizeUrl, val)
 	if err != nil {
 		return err
 	}
@@ -138,6 +150,17 @@ func (s *PreAuthorizeStep) prepareIssuer(id string) error {
 	s.issuer = issuer
 	s.bddContext.Args[getOrgAuthTokenKey(issuer.OrganizationID)] = accessToken
 
+	s.oauthClient = &oauth2.Config{
+		ClientID:    "oidc4vc_client",
+		RedirectURL: "https://client.example.com/oauth/redirect",
+		Scopes:      []string{"openid", "profile"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   vcsAuthorizeEndpoint,
+			TokenURL:  vcsTokenEndpoint,
+			AuthStyle: oauth2.AuthStyleInHeader,
+		},
+	}
+
 	return nil
 }
 
@@ -158,6 +181,7 @@ func (s *PreAuthorizeStep) initiateIssuance() error {
 		CredentialTemplateId: "templateID",
 		GrantType:            "authorization_code",
 		Scope:                []string{"openid", "profile"},
+		UserPinRequired:      lo.ToPtr(true),
 	})
 	if err != nil {
 		return err
@@ -181,6 +205,28 @@ func (s *PreAuthorizeStep) initiateIssuance() error {
 	}
 
 	s.initiateResponse = &oidcInitiateResponse
+
+	return nil
+}
+
+func (s *PreAuthorizeStep) getCredential() error {
+	cred, err := getCredential(s.oauthClient, (&oauth2.Token{
+		AccessToken: s.tokenResponse.AccessToken,
+	}).WithExtra(map[string]interface{}{
+		"c_nonce": *s.tokenResponse.CNonce,
+	}), s.bddContext.TLSConfig, false)
+	if err != nil {
+		return err
+	}
+
+	s.credential = cred.Credential
+	return nil
+}
+
+func (s *PreAuthorizeStep) checkCredential() error {
+	if s.credential == nil {
+		return fmt.Errorf("credential is empty")
+	}
 
 	return nil
 }
