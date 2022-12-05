@@ -200,7 +200,13 @@ func readIssuanceCodeFromIssuerUrl(issuerUrl string) (string, string, error) {
 	urlParsed, err = url.QueryUnescape(urlParsed)
 	urlParsed = strings.ReplaceAll(urlParsed, "&amp;", "&")
 
-	r = regexp.MustCompile(`<div id="pin">([^<]+)`)
+	pin := ""
+	pinGroups := regexp.MustCompile(`<div id="pin">([^<]+)`).FindAllStringSubmatch(string(data), -1)
+	if len(pinGroups) == 1 {
+		if len(pinGroups[0]) == 2 {
+			pin = pinGroups[0][1]
+		}
+	}
 
-	return urlParsed, r.FindString(urlParsed), nil
+	return urlParsed, pin, nil
 }
