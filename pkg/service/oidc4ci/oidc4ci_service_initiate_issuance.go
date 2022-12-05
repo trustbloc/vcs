@@ -65,7 +65,6 @@ func (s *Service) InitiateIssuance(
 		Scope:                              req.Scope,
 		OpState:                            req.OpState,
 		ClaimData:                          req.ClaimData,
-		UserPinRequired:                    req.UserPinRequired,
 		State:                              TransactionStateIssuanceInitiated,
 		WebHookURL:                         profile.WebHook,
 	}
@@ -94,6 +93,16 @@ func (s *Service) InitiateIssuance(
 		return nil, fmt.Errorf("store tx: %w", err)
 	}
 
+	if req.UserPinRequired {
+		data.UserPin = s.pinGenerator.Generate(string(tx.ID))
+		tx.UserPin = data.UserPin
+
+		err = s.store.Update(ctx, tx)
+		if err != nil {
+			return nil, fmt.Errorf("store pin tx: %w", err)
+		}
+	}
+
 	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
@@ -101,6 +110,7 @@ func (s *Service) InitiateIssuance(
 	return &InitiateIssuanceResponse{
 		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, template, tx),
 		TxID:                tx.ID,
+		UserPin:             tx.UserPin,
 	}, nil
 }
 
@@ -163,7 +173,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	if tx.IsPreAuthFlow {
 		q.Set("issuer", issuerURL)
 		q.Set("pre-authorized_code", tx.PreAuthCode)
-		q.Set("user_pin_required", strconv.FormatBool(tx.UserPinRequired))
+		q.Set("user_pin_required", strconv.FormatBool(req.UserPinRequired))
 	} else {
 		q.Set("issuer", issuerURL)
 		q.Set("op_state", req.OpState)

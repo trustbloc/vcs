@@ -40,6 +40,7 @@ type oidc4ciCommandFlags struct {
 	CredentialType      string
 	CredentialFormat    string
 	Debug               bool
+	Pin                 string
 }
 
 func NewOIDC4CICommand() *cobra.Command {
@@ -84,11 +85,12 @@ func NewOIDC4CICommand() *cobra.Command {
 			var initiateIssuanceURL string
 
 			if flags.DemoIssuerURL != "" {
-				parsedUrl, err := readIssuanceCodeFromIssuerUrl(flags.DemoIssuerURL)
+				parsedUrl, pin, err := readIssuanceCodeFromIssuerUrl(flags.DemoIssuerURL)
 				if err != nil {
 					return fmt.Errorf("can not read url from demo issuer %v", err)
 				}
 
+				flags.Pin = pin
 				flags.InitiateIssuanceURL = parsedUrl
 			}
 
@@ -137,6 +139,7 @@ func NewOIDC4CICommand() *cobra.Command {
 				CredentialType:      flags.CredentialType,
 				CredentialFormat:    flags.CredentialFormat,
 				Interactive:         false,
+				Pin:                 flags.Pin,
 			}
 
 			if isPreAuthorize {
@@ -164,12 +167,13 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.LoginURL, "login-url", "", "login url")
 	cmd.Flags().StringVar(&flags.CredentialType, "credential-type", "", "credential type")
 	cmd.Flags().StringVar(&flags.CredentialFormat, "credential-format", "", "credential format")
+	cmd.Flags().StringVar(&flags.Pin, "pin", "", "pre-authorized flow pin")
 	cmd.Flags().BoolVar(&flags.Debug, "debug", false, "enable debug mode")
 
 	return cmd
 }
 
-func readIssuanceCodeFromIssuerUrl(issuerUrl string) (string, error) {
+func readIssuanceCodeFromIssuerUrl(issuerUrl string) (string, string, error) {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -177,16 +181,16 @@ func readIssuanceCodeFromIssuerUrl(issuerUrl string) (string, error) {
 	}
 	resp, err := httpClient.Get(issuerUrl)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("invalid status code. expected 200, got %v", resp.StatusCode)
+		return "", "", fmt.Errorf("invalid status code. expected 200, got %v", resp.StatusCode)
 	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	_ = resp.Body.Close()
 
@@ -196,5 +200,7 @@ func readIssuanceCodeFromIssuerUrl(issuerUrl string) (string, error) {
 	urlParsed, err = url.QueryUnescape(urlParsed)
 	urlParsed = strings.ReplaceAll(urlParsed, "&amp;", "&")
 
-	return urlParsed, nil
+	r = regexp.MustCompile(`<div id="pin">([^<]+)`)
+
+	return urlParsed, r.FindString(urlParsed), nil
 }

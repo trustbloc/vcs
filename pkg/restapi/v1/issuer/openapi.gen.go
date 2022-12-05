@@ -90,6 +90,9 @@ type InitiateOIDC4CIResponse struct {
 
 	// To be used by Issuer applications for correlation if needed.
 	TxId string `json:"tx_id"`
+
+	// Pre-authorized flow. Generated OTP pin for issuance.
+	UserPin *string `json:"user_pin,omitempty"`
 }
 
 // Model for issuer credential.

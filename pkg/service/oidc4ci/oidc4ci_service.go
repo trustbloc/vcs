@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator
 
 package oidc4ci
 
@@ -36,6 +36,11 @@ const (
 )
 
 var logger = log.New("oidc4ci")
+
+type pinGenerator interface {
+	Generate(challenge string) string
+	Validate(challenge string, userInput string) bool
+}
 
 type transactionStore interface {
 	Create(
@@ -93,6 +98,7 @@ type Config struct {
 	OAuth2Client        oAuth2Client
 	HTTPClient          httpClient
 	EventService        eventService
+	PinGenerator        pinGenerator
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -103,6 +109,7 @@ type Service struct {
 	oAuth2Client        oAuth2Client
 	httpClient          httpClient
 	eventSvc            eventService
+	pinGenerator        pinGenerator
 }
 
 // NewService returns a new Service instance.
@@ -114,6 +121,7 @@ func NewService(config *Config) (*Service, error) {
 		oAuth2Client:        config.OAuth2Client,
 		httpClient:          config.HTTPClient,
 		eventSvc:            config.EventService,
+		pinGenerator:        config.PinGenerator,
 	}, nil
 }
 
@@ -244,9 +252,12 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	}
 	tx.State = newState
 
-	if tx.PreAuthCode != preAuthorizedCode || (tx.UserPinRequired && len(pin) == 0) {
-		// TODO: Add proper pin validation
-		return nil, errors.New("invalid auth credentials")
+	if tx.PreAuthCode != preAuthorizedCode {
+		return nil, errors.New("invalid pre-auth code")
+	}
+
+	if len(tx.UserPin) > 0 && !s.pinGenerator.Validate(tx.UserPin, pin) {
+		return nil, errors.New("invalid pin")
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {

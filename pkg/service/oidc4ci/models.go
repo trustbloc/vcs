@@ -55,12 +55,12 @@ type TransactionData struct {
 	IssuerAuthCode                     string
 	IssuerToken                        string
 	OpState                            string
-	UserPinRequired                    bool
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
 	ClaimData                          map[string]interface{}
 	State                              TransactionState
 	WebHookURL                         string
+	UserPin                            string
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -100,6 +100,7 @@ type InitiateIssuanceRequest struct {
 type InitiateIssuanceResponse struct {
 	InitiateIssuanceURL string
 	TxID                TxID
+	UserPin             string
 }
 
 // PrepareClaimDataAuthorizationRequest is the request to prepare the claim data authorization request.

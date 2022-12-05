@@ -36,6 +36,7 @@ type OIDC4CIConfig struct {
 	CredentialType      string
 	CredentialFormat    string
 	Interactive         bool
+	Pin                 string
 }
 
 func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
