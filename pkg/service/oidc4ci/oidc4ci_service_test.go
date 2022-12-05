@@ -516,7 +516,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 			TransactionData: oidc4ci.TransactionData{
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
 				PreAuthCode: "1234",
-				OtpPin:      "567",
+				UserPin:     "567",
 			},
 		}, nil)
 
@@ -555,7 +555,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode: "1234",
-				OtpPin:      "",
+				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
@@ -587,7 +587,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode: "1234",
-				OtpPin:      "",
+				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
@@ -613,7 +613,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode: "1234",
-				OtpPin:      "567",
+				UserPin:     "567",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)
@@ -647,7 +647,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode: "1234",
-				OtpPin:      "567",
+				UserPin:     "567",
 				State:       oidc4ci.TransactionStateCredentialsIssued,
 			},
 		}, nil)
@@ -667,7 +667,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
 			TransactionData: oidc4ci.TransactionData{
 				PreAuthCode: "1234",
-				OtpPin:      "",
+				UserPin:     "",
 				State:       oidc4ci.TransactionStateIssuanceInitiated,
 			},
 		}, nil)

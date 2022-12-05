@@ -69,10 +69,6 @@ func (s *Service) InitiateIssuance(
 		WebHookURL:                         profile.WebHook,
 	}
 
-	if req.UserPinRequired {
-		data.OtpPin = s.pinGenerator.Generate()
-	}
-
 	if data.GrantType == "" {
 		data.GrantType = defaultGrantType
 	}
@@ -97,6 +93,16 @@ func (s *Service) InitiateIssuance(
 		return nil, fmt.Errorf("store tx: %w", err)
 	}
 
+	if req.UserPinRequired {
+		data.UserPin = s.pinGenerator.Generate(string(tx.ID))
+		tx.UserPin = data.UserPin
+
+		err = s.store.Update(ctx, tx)
+		if err != nil {
+			return nil, fmt.Errorf("store pin tx: %w", err)
+		}
+	}
+
 	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
@@ -104,7 +110,7 @@ func (s *Service) InitiateIssuance(
 	return &InitiateIssuanceResponse{
 		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, template, tx),
 		TxID:                tx.ID,
-		OtpPin:              tx.OtpPin,
+		UserPin:             tx.UserPin,
 	}, nil
 }
 

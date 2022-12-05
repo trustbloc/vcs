@@ -1191,9 +1191,9 @@ components:
         tx_id:
           type: string
           description: To be used by Issuer applications for correlation if needed.
-        otp_pin:
+        user_pin:
           type: string
-          description: Pre-authorized flow. Generated OTP pin for issuance. Issuer is responsible to deliver that pin to the final client (email,sms,etc).
+          description: Pre-authorized flow. Generated OTP pin for issuance.
       required:
         - initiate_issuance_url
         - tx_id

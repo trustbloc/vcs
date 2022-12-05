@@ -115,7 +115,7 @@ func TestStore(t *testing.T) {
 			IssuerAuthCode: uuid.NewString(),
 			IssuerToken:    uuid.NewString(),
 			OpState:        id,
-			OtpPin:         "321",
+			UserPin:        "321",
 			IsPreAuthFlow:  true,
 			PreAuthCode:    uuid.NewString(),
 			WebHookURL:     "http://remote-url",

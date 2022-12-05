@@ -23,6 +23,7 @@ require (
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/oidc/fositemongo v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0
 	go.mongodb.org/mongo-driver v1.10.1
 )
@@ -189,6 +190,7 @@ replace (
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/event => ../../component/event
 	github.com/trustbloc/vcs/component/oidc/fositemongo => ../../component/oidc/fositemongo
+	github.com/trustbloc/vcs/component/otp => ../../component/otp
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 

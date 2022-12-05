@@ -38,8 +38,8 @@ const (
 var logger = log.New("oidc4ci")
 
 type pinGenerator interface {
-	Generate() string
-	Validate(otpKey string, got string) bool
+	Generate(challenge string) string
+	Validate(challenge string, userInput string) bool
 }
 
 type transactionStore interface {
@@ -256,7 +256,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 		return nil, errors.New("invalid pre-auth code")
 	}
 
-	if len(tx.OtpPin) > 0 && !s.pinGenerator.Validate(tx.OtpPin, pin) {
+	if len(tx.UserPin) > 0 && !s.pinGenerator.Validate(tx.UserPin, pin) {
 		return nil, errors.New("invalid pin")
 	}
 

@@ -54,7 +54,7 @@ type mongoDocument struct {
 	ClaimData                          map[string]interface{}
 	Status                             oidc4ci.TransactionState
 	WebHookURL                         string
-	OtpPin                             string
+	UserPin                            string
 }
 
 // Store stores oidc transactions in mongo.
@@ -210,7 +210,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		RedirectURI:                        data.RedirectURI,
 		IssuerAuthCode:                     data.IssuerAuthCode,
 		IssuerToken:                        data.IssuerToken,
-		OtpPin:                             data.OtpPin,
+		UserPin:                            data.UserPin,
 		IsPreAuthFlow:                      data.IsPreAuthFlow,
 		PreAuthCode:                        data.PreAuthCode,
 		ClaimData:                          data.ClaimData,
@@ -241,7 +241,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			IssuerAuthCode:                     doc.IssuerAuthCode,
 			IssuerToken:                        doc.IssuerToken,
 			OpState:                            doc.OpState,
-			OtpPin:                             doc.OtpPin,
+			UserPin:                            doc.UserPin,
 			IsPreAuthFlow:                      doc.IsPreAuthFlow,
 			PreAuthCode:                        doc.PreAuthCode,
 			ClaimData:                          doc.ClaimData,
