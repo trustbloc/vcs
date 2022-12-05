@@ -50,7 +50,7 @@ func NewPreAuthorizeStep(ctx *bddcontext.BDDContext) *PreAuthorizeStep {
 func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^issuer with id "([^"]*)" wants to issue credentials to his client with pre-auth code flow$`, s.prepareIssuer)
 
-	sc.Step(`^issuer sends request to initiate-issuance$`, s.initiateIssuance)
+	sc.Step(`^issuer sends request to initiate-issuance with requirePin "([^"]*)"$`, s.initiateIssuance)
 	sc.Step(`^issuer receives response with oidc url`, s.parseUrl)
 	sc.Step(`^issuer represent this url to client as qrcode$`, s.parseUrl)
 
@@ -91,10 +91,6 @@ func (s *PreAuthorizeStep) parseUrl() error {
 	s.preAuthorizeCode = parsed.Query().Get("pre-authorized_code")
 	s.preAuthorizePinRequired = parsed.Query().Get("user_pin_required")
 
-	if s.preAuthorizePinRequired == "false" {
-		return fmt.Errorf("pin required should be true")
-	}
-
 	return nil
 }
 
@@ -105,7 +101,7 @@ func (s *PreAuthorizeStep) receiveToken() error {
 	}
 
 	if s.preAuthorizePinRequired == "true" {
-		val.Add("user_pin", *s.initiateResponse.OtpPin)
+		val.Add("user_pin", *s.initiateResponse.UserPin)
 	}
 
 	resp, err := s.httpClient.PostForm(s.preAuthorizeUrl, val)
@@ -164,11 +160,11 @@ func (s *PreAuthorizeStep) prepareIssuer(id string) error {
 	return nil
 }
 
-func (s *PreAuthorizeStep) initiateIssuance() error {
+func (s *PreAuthorizeStep) initiateIssuance(requirePin string) error {
 	issuanceURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuer.ID)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuer.OrganizationID)]
 
-	reqBody, err := json.Marshal(&initiateOIDC4CIRequest{
+	req := &initiateOIDC4CIRequest{
 		ClaimData: lo.ToPtr(map[string]interface{}{
 			"displayName":       "John Doe",
 			"givenName":         "John",
@@ -181,8 +177,12 @@ func (s *PreAuthorizeStep) initiateIssuance() error {
 		CredentialTemplateId: "templateID",
 		GrantType:            "authorization_code",
 		Scope:                []string{"openid", "profile"},
-		UserPinRequired:      lo.ToPtr(true),
-	})
+	}
+	if strings.EqualFold(requirePin, "true") {
+		req.UserPinRequired = lo.ToPtr(true)
+	}
+
+	reqBody, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}

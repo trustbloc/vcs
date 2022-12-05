@@ -22,7 +22,7 @@ type initiateOIDC4CIRequest struct {
 type initiateOIDC4CIResponse struct {
 	InitiateIssuanceUrl string  `json:"initiate_issuance_url"`
 	TxId                string  `json:"tx_id"`
-	OtpPin              *string `json:"otp_pin"`
+	UserPin             *string `json:"user_pin"`
 }
 
 type accessTokenResponse struct {
