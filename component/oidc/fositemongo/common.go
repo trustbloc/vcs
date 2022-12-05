@@ -1,8 +1,15 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package fositemongo
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/ory/fosite"
@@ -66,7 +73,7 @@ func (s *Store) getSession(
 ) (fosite.Requester, error) {
 	resp, err := getInternal[request](ctx, s.mongoClient, collectionStr, lookupID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get session: %w", err)
 	}
 
 	mappedSession := session.(*fosite.DefaultSession)

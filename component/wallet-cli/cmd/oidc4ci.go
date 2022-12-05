@@ -36,7 +36,6 @@ type oidc4ciCommandFlags struct {
 	RedirectURI         string
 	VCFormat            string
 	VCProvider          string
-	LoginURL            string
 	CredentialType      string
 	CredentialFormat    string
 	Debug               bool
@@ -45,7 +44,7 @@ type oidc4ciCommandFlags struct {
 
 func NewOIDC4CICommand() *cobra.Command {
 	flags := &oidc4ciCommandFlags{}
-	var contextProvider, didDomain, didServiceAuthToken, uniResolverUrl string
+	var contextProvider, didDomain, didServiceAuthToken, uniResolverUrl, oidcProviderUrl string
 
 	cmd := &cobra.Command{
 		Use:   "oidc4ci",
@@ -75,10 +74,6 @@ func NewOIDC4CICommand() *cobra.Command {
 
 				if flags.RedirectURI == "" {
 					return fmt.Errorf("missing redirect-uri")
-				}
-
-				if flags.LoginURL == "" {
-					return fmt.Errorf("missing login-url")
 				}
 			}
 
@@ -122,6 +117,9 @@ func NewOIDC4CICommand() *cobra.Command {
 					if uniResolverUrl != "" {
 						c.UniResolverURL = uniResolverUrl
 					}
+					if oidcProviderUrl != "" {
+						c.OidcProviderURL = oidcProviderUrl
+					}
 				},
 			}
 
@@ -135,7 +133,6 @@ func NewOIDC4CICommand() *cobra.Command {
 				ClientID:            flags.ClientID,
 				Scope:               flags.Scope,
 				RedirectURI:         flags.RedirectURI,
-				LoginURL:            flags.LoginURL,
 				CredentialType:      flags.CredentialType,
 				CredentialFormat:    flags.CredentialFormat,
 				Interactive:         false,
@@ -154,6 +151,7 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&didDomain, "did-domain", "", "did domain. example: https://orb-1.stg.trustbloc.dev")                                                     //nolint
 	cmd.Flags().StringVar(&didServiceAuthToken, "did-service-auth-token", "", "did service authorization token. example: tk1")                                      //nolint
 	cmd.Flags().StringVar(&uniResolverUrl, "uni-resolver-url", "", "uni resolver url. example: https://did-resolver.stg.trustbloc.dev/1.0/identifiers")             //nolint
+	cmd.Flags().StringVar(&oidcProviderUrl, "oidc-provider-url", "", "oidc provider url. example: https://api-gateway.stg.trustbloc.dev")                           //nolint
 
 	cmd.Flags().StringVar(&flags.QRCode, "qr-code", "", "path to file with QR code")
 	cmd.Flags().StringVar(&flags.InitiateIssuanceURL, "initiate-issuance-url", "", "initiate issuance url")
@@ -164,7 +162,6 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.RedirectURI, "redirect-uri", "", "callback where the authorization code should be sent")
 	cmd.Flags().StringVar(&flags.VCFormat, "vc-format", "jwt_vc", "vc format [jwt_vc|ldp_vc]")
 	cmd.Flags().StringVar(&flags.VCProvider, "vc-provider", "vcs", "vc provider")
-	cmd.Flags().StringVar(&flags.LoginURL, "login-url", "", "login url")
 	cmd.Flags().StringVar(&flags.CredentialType, "credential-type", "", "credential type")
 	cmd.Flags().StringVar(&flags.CredentialFormat, "credential-format", "", "credential format")
 	cmd.Flags().StringVar(&flags.Pin, "pin", "", "pre-authorized flow pin")
