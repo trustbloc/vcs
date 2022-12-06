@@ -3,12 +3,11 @@
 Wallet CLI is a tool for testing the OIDC4VC flows (OIDC4VP and OIDC4CI variations). It simulates the Wallet behavior
 against VC services.
 
-## OIDC4VP flow
+## OIDC4VC flow
 
-Check OIDC4VP flow spec [here](https://docs.google.com/document/d/1i-gXCloNjxNUcTS4UijyBcqi7QdpsszutFMxbUYFKKc/edit?pli=1#heading=h.jn2u4w14fq4t).
-
-Referring to the [sequence diagram for OIDC for SIOP presentation](https://drive.google.com/file/d/1AHM3eOYShmVd8EOp-oC1VVmqE8ruNvGU/view)
-CLI simulates the Wallet behaviour starting from the step "Scan QR code and loads wallet" (#15) until checking the post authorization response status (#31).
+Specifications:
+* OIDC4CI - [OpenID for Verifiable Credential Issuance, (Version Sept 2022)](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html)
+* OIDC4VP - [OpenID for Verifiable Presentations (Version ID1)}](https://openid.net/specs/openid-connect-4-verifiable-presentations-1_0-ID1.html)
 
 ### Prerequisites
 
@@ -38,6 +37,10 @@ Note:
 
     Either `qrCodePath` or `oidc4vpAuthorizationRequest` must be supplied.
 ```
+
+### OIDC4CI command flags
+
+- TBD
 
 ### Usage
 
