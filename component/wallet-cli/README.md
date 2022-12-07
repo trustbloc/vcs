@@ -23,19 +23,19 @@ Therefore, to be able to use **vcs** VCProvider with [default VCS local config](
 The following CLI arguments are supported for oidc4vp command (./wallet-cli oidc4vp args):
 
 ```
-`--qrCodePath` - path to the file with QR code. Only `*.gif`, `*.jpg` and `*.png` formats supported.
+`--qrcode-path` - path to the file with QR code. Only `*.gif`, `*.jpg` and `*.png` formats supported.
 
-`--oidc4vpAuthorizationRequest` - OIDC4VP authorization request string. (e.g. `openid-vc://?request_uri=http://example.com/request-object/637b99d5a2a6e0b3fc7d7192`).
+`--oidc4-vp-authorization-request` - OIDC4VP authorization request string. (e.g. `openid-vc://?request_uri=http://example.com/request-object/637b99d5a2a6e0b3fc7d7192`).
 
-`--vcProvider` - VC provider implementation. (Default: `vcs`).
+`--vc-provider` - VC provider implementation. (Default: `vcs`).
 
-`--vcIssuerURL` - Issuer URL (Default: `https://localhost:4455/issuer/profiles/i_myprofile_ud_es256_jwt/credentials/issue`).
+`--vc-issuer-url` - Issuer URL (Default: `https://localhost:4455/issuer/profiles/i_myprofile_ud_es256_jwt/credentials/issue`).
 
-`--vcFormat` - format of the VC. Supported formats are `jwt_vc` and `ldp_vc`. (Default: `jwt_vc`).
+`--vc-format` - format of the VC. Supported formats are `jwt_vc` and `ldp_vc`. (Default: `jwt_vc`).
 
 Note:
 
-    Either `qrCodePath` or `oidc4vpAuthorizationRequest` must be supplied.
+    Either `qrcode-path` or `oidc4-vp-authorization-request"` must be supplied.
 ```
 
 ### OIDC4CI command flags
@@ -49,13 +49,13 @@ Note:
 go build -o wallet-cli ./main.go 
 
 #run
-./wallet-cli oidc4vp --qrCodePath=testdata/example/qrcode.png
+./wallet-cli oidc4vp --qrcode-path=testdata/example/qrcode.png
 ```
 
 ### Output example
 
 ```bash
-$ ./wallet-cli oidc4vp --qrCodePath=qrcode.png
+$ ./wallet-cli oidc4vp --qrcode-path=qrcode.png
  Start OIDC4VP flow
  AuthorizationRequest: openid-vc://?request_uri=http://vc-rest-echo.trustbloc.local:8075/request-object/637ba60ca2a6e0b3fc7d71a2
  Creating wallet

@@ -36,7 +36,7 @@ const (
 )
 
 func (s *Steps) initiateInteraction(profileName, organizationName string) error {
-	s.vpFlowExecutor = s.walletRunner.NewVPFlowExecutor()
+	s.vpFlowExecutor = s.walletRunner.NewVPFlowExecutor(false)
 
 	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, profileName)

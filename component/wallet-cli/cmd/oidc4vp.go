@@ -62,11 +62,20 @@ func NewOIDC4VPCommand() *cobra.Command {
 }
 
 func createFlags(cmd *cobra.Command) {
-	cmd.Flags().String("qrCodePath", "", "Path to QR code file")
-	cmd.Flags().String("oidc4vpAuthorizationRequest", "", "OIDC4VP Authorization Request")
-	cmd.Flags().String("vcProvider", "vcs", "VC Provider")
-	cmd.Flags().String("vcIssuerURL", "", "VC Issuer URL")
-	cmd.Flags().String("vcFormat", "jwt_vc", "VC format (jwt_vc/ldp_vc)")
+	cmd.Flags().String("qrcode-path", "", "Path to QR code file")
+	cmd.Flags().String("oidc4-vp-authorization-request", "", "OIDC4VP Authorization Request")
+	cmd.Flags().String("vc-provider", "vcs", "VC Provider")
+	cmd.Flags().String("vc-issuer-url", "", "VC Issuer URL")
+	cmd.Flags().String("vc-format", "jwt_vc", "VC format (jwt_vc/ldp_vc)")
+
+	cmd.Flags().String("context-provider-url", "", "context provider. example: https://static-file-server.stg.trustbloc.dev/ld-contexts.json") //nolint
+	cmd.Flags().String("did-domain", "", "did domain. example: https://orb-1.stg.trustbloc.dev")                                               //nolint
+	cmd.Flags().String("did-service-auth-token", "", "did service authorization token. example: tk1")                                          //nolint
+	cmd.Flags().String("uni-resolver-url", "", "uni resolver url. example: https://did-resolver.stg.trustbloc.dev/1.0/identifiers")            //nolint
+	cmd.Flags().String("oidc-provider-url", "", "oidc provider url. example: https://orb-1.stg.trustbloc.dev")                                 //nolint
+	cmd.Flags().String("oidc-client-id", "", "oidc client id. example: test-org")                                                              //nolint
+	cmd.Flags().String("oidc-client-secret", "", "oidc client secret. example: test-org-secret")                                               //nolint
+	cmd.Flags().Bool("skip-schema-validation", false, "skip schema validation for while creating vp")                                          //nolint
 }
 
 type runnerConfig struct {
@@ -77,27 +86,27 @@ type runnerConfig struct {
 }
 
 func getWalletRunnerConfig(cmd *cobra.Command) (*runnerConfig, error) {
-	qrCodePath, err := cmd.Flags().GetString("qrCodePath")
+	qrCodePath, err := cmd.Flags().GetString("qrcode-path")
 	if err != nil {
 		return nil, fmt.Errorf("qrCodePath flag: %w", err)
 	}
 
-	authorizationRequest, err := cmd.Flags().GetString("oidc4vpAuthorizationRequest")
+	authorizationRequest, err := cmd.Flags().GetString("oidc4-vp-authorization-request")
 	if err != nil {
 		return nil, fmt.Errorf("oidc4vpAuthorizationRequest flag: %w", err)
 	}
 
-	vcProvider, err := cmd.Flags().GetString("vcProvider")
+	vcProvider, err := cmd.Flags().GetString("vc-provider")
 	if err != nil {
 		return nil, fmt.Errorf("vcProvider flag: %w", err)
 	}
 
-	vcIssuerURL, err := cmd.Flags().GetString("vcIssuerURL")
+	vcIssuerURL, err := cmd.Flags().GetString("vc-issuer-url")
 	if err != nil {
 		return nil, fmt.Errorf("vcIssuerURL flag: %w", err)
 	}
 
-	vcFormat, err := cmd.Flags().GetString("vcFormat")
+	vcFormat, err := cmd.Flags().GetString("vc-format")
 	if err != nil {
 		return nil, fmt.Errorf("vcFormat flag: %w", err)
 	}
@@ -113,6 +122,35 @@ func getWalletRunnerConfig(cmd *cobra.Command) (*runnerConfig, error) {
 			c.IssueVCURL = vcIssuerURL
 		})
 	}
+
+	runnerOptions = append(runnerOptions, func(c *vcprovider.Config) {
+		if str, _ := cmd.Flags().GetString("context-provider-url"); str != "" {
+			c.ContextProviderURL = str
+		}
+		if str, _ := cmd.Flags().GetString("did-domain"); str != "" {
+			c.DidDomain = str
+		}
+		if str, _ := cmd.Flags().GetString("did-service-auth-token"); str != "" {
+			c.DidServiceAuthToken = str
+		}
+		if str, _ := cmd.Flags().GetString("uni-resolver-url"); str != "" {
+			c.UniResolverURL = str
+		}
+
+		if str, _ := cmd.Flags().GetString("oidc-provider-url"); str != "" {
+			c.OidcProviderURL = str
+		}
+		if str, _ := cmd.Flags().GetString("oidc-client-id"); str != "" {
+			c.OrgName = str
+		}
+		if str, _ := cmd.Flags().GetString("oidc-client-secret"); str != "" {
+			c.OrgSecret = str
+		}
+
+		if val, _ := cmd.Flags().GetBool("skip-schema-validation"); val {
+			c.SkipSchemaValidation = val
+		}
+	})
 
 	return &runnerConfig{
 		qruCodePath:                 qrCodePath,
