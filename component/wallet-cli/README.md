@@ -6,8 +6,8 @@ against VC services.
 ## OIDC4VC flow
 
 Specifications:
-* OIDC4CI - [OpenID for Verifiable Credential Issuance, (Version Sept 2022)](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html)
-* OIDC4VP - [OpenID for Verifiable Presentations (Version ID1)}](https://openid.net/specs/openid-connect-4-verifiable-presentations-1_0-ID1.html)
+* OIDC4CI - [OpenID for Verifiable Credential Issuance, (Version 1_0-08)](https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-08.html)
+* OIDC4VP - [OpenID for Verifiable Presentations (Version ID1)](https://openid.net/specs/openid-connect-4-verifiable-presentations-1_0-ID1.html)
 
 ### Prerequisites
 
