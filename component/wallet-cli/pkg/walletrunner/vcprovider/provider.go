@@ -20,18 +20,19 @@ type VCProvider interface {
 }
 
 type Config struct {
-	TLS                 *tls.Config
-	WalletParams        *WalletParams
-	UniResolverURL      string
-	ContextProviderURL  string
-	OidcProviderURL     string
-	IssueVCURL          string
-	DidDomain           string
-	DidServiceAuthToken string
-	VCFormat            string
-	OrgName             string
-	OrgSecret           string
-	Debug               bool
+	TLS                  *tls.Config
+	WalletParams         *WalletParams
+	UniResolverURL       string
+	ContextProviderURL   string
+	OidcProviderURL      string
+	IssueVCURL           string
+	DidDomain            string
+	DidServiceAuthToken  string
+	VCFormat             string
+	OrgName              string
+	OrgSecret            string
+	Debug                bool
+	SkipSchemaValidation bool
 }
 
 type WalletParams struct {

@@ -25,9 +25,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 
-	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 )
 
 func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
@@ -55,7 +56,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 	}
 	log.Println(len(vcData), "credentials were saved to wallet")
 
-	vpFlowExecutor := s.NewVPFlowExecutor()
+	vpFlowExecutor := s.NewVPFlowExecutor(s.vcProviderConf.SkipSchemaValidation)
 
 	log.Println("Fetching request object")
 	rawRequestObject, err := vpFlowExecutor.FetchRequestObject(authorizationRequest)
@@ -92,24 +93,26 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 }
 
 type VPFlowExecutor struct {
-	tlsConfig           *tls.Config
-	ariesServices       *ariesServices
-	wallet              *wallet.Wallet
-	walletToken         string
-	walletDidID         string
-	walletDidKeyID      string
-	requestObject       *RequestObject
-	requestPresentation *verifiable.Presentation
+	tlsConfig            *tls.Config
+	ariesServices        *ariesServices
+	wallet               *wallet.Wallet
+	walletToken          string
+	walletDidID          string
+	walletDidKeyID       string
+	requestObject        *RequestObject
+	requestPresentation  *verifiable.Presentation
+	skipSchemaValidation bool
 }
 
-func (s *Service) NewVPFlowExecutor() *VPFlowExecutor {
+func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
 	return &VPFlowExecutor{
-		tlsConfig:      s.vcProviderConf.TLS,
-		ariesServices:  s.ariesServices,
-		wallet:         s.wallet,
-		walletToken:    s.vcProviderConf.WalletParams.Token,
-		walletDidID:    s.vcProviderConf.WalletParams.DidID,
-		walletDidKeyID: s.vcProviderConf.WalletParams.DidKeyID,
+		tlsConfig:            s.vcProviderConf.TLS,
+		ariesServices:        s.ariesServices,
+		wallet:               s.wallet,
+		walletToken:          s.vcProviderConf.WalletParams.Token,
+		walletDidID:          s.vcProviderConf.WalletParams.DidID,
+		walletDidKeyID:       s.vcProviderConf.WalletParams.DidKeyID,
+		skipSchemaValidation: skipSchemaValidation,
 	}
 }
 
@@ -214,6 +217,14 @@ func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.Signa
 }
 
 func (e *VPFlowExecutor) QueryCredentialFromWallet() error {
+	if e.skipSchemaValidation && len(e.requestObject.Claims.VPToken.PresentationDefinition.InputDescriptors) > 0 { // bypass
+		oldScheme := e.requestObject.Claims.VPToken.PresentationDefinition.InputDescriptors[0].Schema
+		e.requestObject.Claims.VPToken.PresentationDefinition.InputDescriptors[0].Schema = nil
+		defer func() {
+			e.requestObject.Claims.VPToken.PresentationDefinition.InputDescriptors[0].Schema = oldScheme
+		}()
+	}
+
 	pdBytes, err := json.Marshal(e.requestObject.Claims.VPToken.PresentationDefinition)
 
 	if err != nil {
@@ -252,7 +263,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 	vpToken := VPTokenClaims{
 		VP:    e.requestPresentation,
 		Nonce: e.requestObject.Nonce,
-		Exp:   time.Now().Unix() + 600,
+		Exp:   time.Now().UTC().Unix() + 600,
 		Iss:   e.walletDidID,
 	}
 

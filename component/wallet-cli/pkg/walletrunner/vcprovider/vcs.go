@@ -20,11 +20,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
+	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/ldutil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/oauth2util"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
 const (
