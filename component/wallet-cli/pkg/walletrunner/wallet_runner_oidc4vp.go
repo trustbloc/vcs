@@ -263,7 +263,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 	vpToken := VPTokenClaims{
 		VP:    e.requestPresentation,
 		Nonce: e.requestObject.Nonce,
-		Exp:   time.Now().UTC().Unix() + 600,
+		Exp:   time.Now().Unix() + 600,
 		Iss:   e.walletDidID,
 	}
 
