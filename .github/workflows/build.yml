@@ -4,16 +4,14 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-name: "vcs ci"
+name: "build"
 
 env:
   GO_VERSION: 1.19
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
 
 jobs:
   SemanticPullRequest:
@@ -78,33 +76,75 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  Publish:
-    needs: [Checks, UnitTest, BDDTest]
+  publish:
+    name: Publish image
     if: github.event_name == 'push' && (github.repository == 'trustbloc/vcs' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-20.04
-    timeout-minutes: 30
+    needs: [Checks, UnitTest, BDDTest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Go
+      - name: Setup Go 1.19
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version: 1.19
 
-      - run: |
-          function logout {
-            docker logout
-          }
-          trap logout EXIT
-          git lfs install
-          git lfs pull
-          source ci/version_var.sh
-          echo $DOCKER_PASSWORD | docker login ghcr.io --username $DOCKER_USER --password-stdin
-          make vc-rest-docker
-          docker tag ghcr.io/trustbloc/vc-server:latest ${VC_SERVER_PKG}:${VC_SERVER_TAG}
-          docker push ${VC_SERVER_PKG}:${VC_SERVER_TAG}
-        env:
-          DOCKER_USER: ${{ secrets.CR_USER }}
-          DOCKER_PASSWORD: ${{ secrets.CR_PAT }}
-          NPM_WALLET_PKG_TAG: $(NPM_WALLET_PKG_TAG)
-          NPM_WALLET_PKG_NAME: $(NPM_WALLET_PKG_NAME)
-          NPM_WALLET_PKG_REPO: $(NPM_WALLET_PKG_REPO)
+      - uses: actions/checkout@v2
+        with: { fetch-depth: 0 }
+
+      - name: Get current published version
+        run: |
+          TAG=$(git describe --tags --always `git rev-list --tags --max-count=1`)
+          VERSION=$(git rev-parse --short=7 HEAD)
+          if [[ $TAG == $VERSION ]]; then
+              TAG=v0.0.0
+          fi
+          echo "CURRENT_SEMVER=${TAG:1}" >> $GITHUB_ENV
+      - name: Bump published version
+        id: bump_version
+        uses: christian-draeger/increment-semantic-version@1.0.2
+        with:
+          current-version: "${{ env.CURRENT_SEMVER }}"
+          version-fragment: 'rc'
+
+      - name: Set ENV vars
+        run: |
+          VERSION=$(git rev-parse --short=7 HEAD)
+          echo "IMAGE_TAG"=v${{ steps.bump_version.outputs.next-version }}-snapshot-$VERSION >> $GITHUB_ENV
+          echo "VCS_IMAGE_PREFIX"=ghcr.io/trustbloc-cicd/vc-server >> $GITHUB_ENV
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Github Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.CR_USER }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Build and Push container vcs image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./images/vc-rest/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            ALPINE_VER=3.15
+            GO_VER=1.19
+          push: true
+          tags: |
+            ${{ env.VCS_IMAGE_PREFIX }}:${{ env.IMAGE_TAG }}
+            ${{ env.VCS_IMAGE_PREFIX }}:latest
+      - name: Build binaries
+        run: make build-wallet-cli-binaries
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: wallet-cli
+          path: |
+            ./.build/dist/bin/wallet-cli-darwin-amd64.tar.gz
+            ./.build/dist/bin/wallet-cli-linux-amd64.tar.gz
+            ./.build/dist/bin/wallet-cli-linux-arm64.tar.gz
+            ./.build/dist/bin/wallet-cli-darwin-arm64.tar.gz

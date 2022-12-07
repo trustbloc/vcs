@@ -114,9 +114,17 @@ open-api-demo: clean open-api-spec generate-test-keys vc-rest-docker
 	@echo "Running Open API demo on http://localhost:8089/openapi"
 	@docker-compose -f test/bdd/fixtures/docker-compose.yml up --force-recreate -d vc-openapi.trustbloc.local
 
+.PHONY: build-wallet-cli-binaries
+build-wallet-cli-binaries: clean
+	@mkdir -p .build/dist/bin
+	@docker run -i --rm \
+		-v $(abspath .):/opt/workspace/vcs \
+		--entrypoint "/opt/workspace/vcs/scripts/build-cli.sh" \
+		ghcr.io/gythialy/golang-cross:1.19.4-0
+
 .PHONY: clean
 clean:
-	@rm -rf ./build
+	@rm -rf ./.build
 	@rm -rf coverage*.out
 	@rm -Rf ./test/bdd/docker-compose.log
 	@rm -rf $(SWAGGER_DIR)
