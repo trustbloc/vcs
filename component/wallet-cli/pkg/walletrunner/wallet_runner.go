@@ -9,7 +9,6 @@ package walletrunner
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/cookiejar"
 	"strings"
@@ -52,6 +51,7 @@ type Service struct {
 	httpClient     *http.Client
 	oauthClient    *oauth2.Config
 	token          *oauth2.Token
+	debug          bool
 }
 
 func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, error) {
@@ -76,13 +76,13 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 
 	if config.Debug {
 		httpLogger := &httpretty.Logger{
-			Time:            true,
-			TLS:             false,
 			RequestHeader:   true,
 			RequestBody:     true,
 			ResponseHeader:  true,
 			ResponseBody:    true,
 			SkipSanitize:    true,
+			Colors:          true,
+			SkipRequestInfo: true,
 			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}},
 			MaxResponseBody: 10240,
 		}
@@ -94,6 +94,7 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		vcProvider:     vcProvider,
 		vcProviderConf: config,
 		httpClient:     httpClient,
+		debug:          config.Debug,
 	}, nil
 }
 
@@ -105,18 +106,15 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 	var storageProvider storage.Provider
 	switch strings.ToLower(s.vcProviderConf.StorageProvider) {
 	case "mongodb":
-		log.Println("Using mongo storage provider")
 		p, err := mongodb.NewProvider(s.vcProviderConf.StorageProviderConnString)
 		if err != nil {
 			return nil, err
 		}
 		storageProvider = p
 	case "leveldb":
-		log.Println("Using leveldb storage provider")
 		p := leveldb.NewProvider(s.vcProviderConf.StorageProviderConnString)
 		storageProvider = p
 	default:
-		log.Println("Using in-memory storage provider")
 		storageProvider = mem.NewProvider()
 	}
 

@@ -35,26 +35,21 @@ type OIDC4CIConfig struct {
 	RedirectURI         string
 	CredentialType      string
 	CredentialFormat    string
-	Interactive         bool
 	Pin                 string
+	Login               string
+	Password            string
 }
 
 func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
-	log.Println("Starting OIDC4CI authorized code flow")
+	log.Println("Starting OIDC4VCI authorized code flow")
 
-	log.Println("Creating wallet")
-	err := s.CreateWallet()
-	if err != nil {
-		return fmt.Errorf("create wallet: %w", err)
-	}
-
-	log.Printf("Initiate issuance URL: %s\n", config.InitiateIssuanceURL)
+	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	initiateIssuanceURL, err := url.Parse(config.InitiateIssuanceURL)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
-	log.Println("Getting issuer OIDC config")
+	s.print("Getting issuer OIDC config")
 	oidcConfig, err := s.getIssuerOIDCConfig(initiateIssuanceURL.Query().Get("issuer"))
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
@@ -115,6 +110,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		},
 	}
 
+	s.print("Getting authorization code")
 	resp, err := httpClient.Get(
 		s.oauthClient.AuthCodeURL(state,
 			oauth2.SetAuthURLParam("op_state", opState),
@@ -124,7 +120,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		),
 	)
 	if err != nil {
-		return fmt.Errorf("get login: %w", err)
+		return fmt.Errorf("get auth code: %w", err)
 	}
 	_ = resp.Body.Close()
 
@@ -132,35 +128,38 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("login URL is empty")
 	}
 
-	log.Println("Authenticating user", loginURL)
-	resp, err = httpClient.PostForm(loginURL.String(),
-		url.Values{
-			"challenge": loginURL.Query()["login_challenge"],
-			"email":     {"john.smith@example.com"},
-			"password":  {"f00B@r!23"},
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("post login: %w", err)
-	}
-	_ = resp.Body.Close()
+	if config.Login != "" {
+		s.print(fmt.Sprintf("Authenticating user as [%s]", config.Login))
+		resp, err = httpClient.PostForm(loginURL.String(),
+			url.Values{
+				"challenge": loginURL.Query()["login_challenge"],
+				"email":     {config.Login},
+				"password":  {config.Password},
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("post login: %w", err)
+		}
+		_ = resp.Body.Close()
 
-	if consentURL == nil {
-		return fmt.Errorf("consent URL is empty")
-	}
+		if consentURL == nil {
+			return fmt.Errorf("consent URL is empty")
+		}
 
-	log.Println("Getting user consent", consentURL)
-	resp, err = httpClient.PostForm(consentURL.String(),
-		url.Values{
-			"challenge": loginURL.Query()["consent_challenge"],
-			"submit":    {"accept"},
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("post consent: %w", err)
+		s.print("Getting user consent [accept]")
+		resp, err = httpClient.PostForm(consentURL.String(),
+			url.Values{
+				"challenge": loginURL.Query()["consent_challenge"],
+				"submit":    {"accept"},
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("post consent: %w", err)
+		}
+		_ = resp.Body.Close()
+	} else {
+		// TODO: Login with a browser
 	}
-
-	_ = resp.Body.Close()
 
 	if authCode == "" {
 		return fmt.Errorf("auth code is empty")
@@ -168,7 +167,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 
-	log.Println("Getting access token")
+	s.print("Exchanging authorization code for access token")
 	token, err := s.oauthClient.Exchange(ctx, authCode,
 		oauth2.SetAuthURLParam("code_verifier", "xalsLDydJtHwIQZukUyj6boam5vMUaJRWv-BnGCAzcZi3ZTs"),
 	)
@@ -178,7 +177,12 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 
 	s.token = token
 
-	log.Println("Getting credential")
+	err = s.CreateWallet()
+	if err != nil {
+		return fmt.Errorf("create wallet: %w", err)
+	}
+
+	s.print("Getting credential")
 	vc, err := s.getCredential(oidcConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
@@ -189,7 +193,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("marshal vc: %w", err)
 	}
 
-	log.Println("Adding credential to wallet")
+	s.print("Adding credential to wallet")
 	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
 		return fmt.Errorf("add credential: %w", err)
 	}
@@ -281,4 +285,12 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 	}
 
 	return credentialResp.Credential, nil
+}
+
+func (s *Service) print(msg string) {
+	if s.debug {
+		fmt.Println()
+	}
+
+	log.Printf("%s\n\n", msg)
 }
