@@ -9,10 +9,14 @@ package walletrunner
 import (
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/cookiejar"
+	"strings"
 
 	"github.com/henvic/httpretty"
+	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -66,7 +70,7 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 	httpClient := &http.Client{
 		Jar: cookie,
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: config.InsecureTls},
 		},
 	}
 
@@ -98,8 +102,26 @@ func (s *Service) GetConfig() *vcprovider.Config {
 }
 
 func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, error) {
+	var storageProvider storage.Provider
+	switch strings.ToLower(s.vcProviderConf.StorageProvider) {
+	case "mongodb":
+		log.Println("Using mongo storage provider")
+		p, err := mongodb.NewProvider(s.vcProviderConf.StorageProviderConnString)
+		if err != nil {
+			return nil, err
+		}
+		storageProvider = p
+	case "leveldb":
+		log.Println("Using leveldb storage provider")
+		p := leveldb.NewProvider(s.vcProviderConf.StorageProviderConnString)
+		storageProvider = p
+	default:
+		log.Println("Using in-memory storage provider")
+		storageProvider = mem.NewProvider()
+	}
+
 	provider := &ariesServices{
-		storageProvider: mem.NewProvider(),
+		storageProvider: storageProvider,
 	}
 
 	ldStore, err := createLDStore(provider.storageProvider)

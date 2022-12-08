@@ -40,6 +40,15 @@ type oidc4ciCommandFlags struct {
 	CredentialFormat    string
 	Debug               bool
 	Pin                 string
+
+	WalletUserId     string
+	WalletPassPhrase string
+	WalletDidKeyID   string
+	WalletDidID      string
+
+	StorageProvider           string
+	StorageProviderConnString string
+	InsecureTls               bool
 }
 
 func NewOIDC4CICommand() *cobra.Command {
@@ -80,7 +89,7 @@ func NewOIDC4CICommand() *cobra.Command {
 			var initiateIssuanceURL string
 
 			if flags.DemoIssuerURL != "" {
-				parsedUrl, pin, err := readIssuanceCodeFromIssuerUrl(flags.DemoIssuerURL)
+				parsedUrl, pin, err := readIssuanceCodeFromIssuerUrl(flags.DemoIssuerURL, flags.InsecureTls)
 				if err != nil {
 					return fmt.Errorf("can not read url from demo issuer %v", err)
 				}
@@ -120,6 +129,15 @@ func NewOIDC4CICommand() *cobra.Command {
 					if oidcProviderUrl != "" {
 						c.OidcProviderURL = oidcProviderUrl
 					}
+
+					c.WalletUserId = flags.WalletUserId
+					c.WalletPassPhrase = flags.WalletPassPhrase
+					c.WalletDidKeyID = flags.WalletDidKeyID
+					c.WalletDidID = flags.WalletDidID
+
+					c.StorageProvider = flags.StorageProvider
+					c.StorageProviderConnString = flags.StorageProviderConnString
+					c.InsecureTls = flags.InsecureTls
 				},
 			}
 
@@ -166,14 +184,23 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.CredentialFormat, "credential-format", "", "credential format")
 	cmd.Flags().StringVar(&flags.Pin, "pin", "", "pre-authorized flow pin")
 	cmd.Flags().BoolVar(&flags.Debug, "debug", false, "enable debug mode")
+	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure", false, "this option allows to skip the verification of ssl\\tls")
+
+	cmd.Flags().StringVar(&flags.WalletUserId, "wallet-user-id", "", "existing wallet user id")
+	cmd.Flags().StringVar(&flags.WalletPassPhrase, "wallet-passphrase", "", "existing wallet pass phrase")
+	cmd.Flags().StringVar(&flags.StorageProvider, "storage-provider", "", "storage provider. supported: mem,leveldb,mongodb")
+	cmd.Flags().StringVar(&flags.StorageProviderConnString, "storage-provider-connection-string", "", "storage provider connection string")
+
+	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
+	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
 
 	return cmd
 }
 
-func readIssuanceCodeFromIssuerUrl(issuerUrl string) (string, string, error) {
+func readIssuanceCodeFromIssuerUrl(issuerUrl string, insecureSkipVerify bool) (string, string, error) {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify},
 		},
 	}
 	resp, err := httpClient.Get(issuerUrl)

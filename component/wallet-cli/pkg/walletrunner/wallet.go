@@ -8,6 +8,7 @@ package walletrunner
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,17 +33,35 @@ const (
 )
 
 func (s *Service) CreateWallet() error {
-	s.vcProviderConf.WalletParams.UserID = "testUserID" + uuid.NewString()
-	s.vcProviderConf.WalletParams.Passphrase = "passphrase122334"
+	shouldCreateWallet := true
+
+	if s.vcProviderConf.WalletUserId != "" {
+		s.vcProviderConf.WalletParams.UserID = s.vcProviderConf.WalletUserId
+		s.vcProviderConf.WalletParams.Passphrase = s.vcProviderConf.WalletPassPhrase
+		shouldCreateWallet = false
+
+		log.Printf("Using existing wallet with credentils: userID : [%v] and passphrase: [%v]\n",
+			s.vcProviderConf.WalletParams.UserID, s.vcProviderConf.WalletParams.Passphrase)
+	} else {
+		s.vcProviderConf.WalletParams.UserID = "testUserID" + uuid.NewString()
+		s.vcProviderConf.WalletParams.Passphrase = "passphrase122334"
+
+		log.Printf("Using wallet userID: [%v]", s.vcProviderConf.WalletParams.UserID)
+	}
 
 	services, err := s.createAgentServices(s.vcProviderConf.TLS)
 	if err != nil {
-		return fmt.Errorf("wallet services setup failed: %w", err)
+		return fmt.Errorf("Wallet services setup failed: %w", err)
 	}
 
 	s.ariesServices = services
 
-	w, err := newWallet(s.vcProviderConf.WalletParams.UserID, s.vcProviderConf.WalletParams.Passphrase, s.ariesServices)
+	w, err := newWallet(
+		shouldCreateWallet,
+		s.vcProviderConf.WalletParams.UserID,
+		s.vcProviderConf.WalletParams.Passphrase,
+		s.ariesServices,
+	)
 	if err != nil {
 		return err
 	}
@@ -65,13 +84,23 @@ func (s *Service) CreateWallet() error {
 
 	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()))
 
-	createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
-	if err != nil {
-		return err
+	if shouldCreateWallet {
+		log.Println("Creating new wallet did")
+		createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
+		if err != nil {
+			return err
+		}
+
+		s.vcProviderConf.WalletParams.DidID = createRes.DidID
+		s.vcProviderConf.WalletParams.DidKeyID = createRes.KeyID
+	} else {
+		log.Println("Using already existing did")
+		s.vcProviderConf.WalletParams.DidID = s.vcProviderConf.WalletDidID
+		s.vcProviderConf.WalletParams.DidKeyID = s.vcProviderConf.WalletDidKeyID
 	}
 
-	s.vcProviderConf.WalletParams.DidID = createRes.DidID
-	s.vcProviderConf.WalletParams.DidKeyID = createRes.KeyID
+	log.Printf("Using wallet DID: [%v]\n", s.vcProviderConf.WalletParams.DidID)
+	log.Printf("Using wallet DidKeyID: [%v]\n", s.vcProviderConf.WalletParams.DidKeyID)
 
 	for i := 1; i <= vdrResolveMaxRetry; i++ {
 		_, err = vdrRegistry.Resolve(s.vcProviderConf.WalletParams.DidID)
@@ -85,10 +114,12 @@ func (s *Service) CreateWallet() error {
 	return nil
 }
 
-func newWallet(userID string, passphrase string, services *ariesServices) (*wallet.Wallet, error) {
-	err := wallet.CreateProfile(userID, services, wallet.WithPassphrase(passphrase))
-	if err != nil {
-		return nil, fmt.Errorf("user profile create failed: %w", err)
+func newWallet(shouldCreate bool, userID string, passphrase string, services *ariesServices) (*wallet.Wallet, error) {
+	if shouldCreate {
+		err := wallet.CreateProfile(userID, services, wallet.WithPassphrase(passphrase))
+		if err != nil {
+			return nil, fmt.Errorf("user profile create failed: %w", err)
+		}
 	}
 
 	w, err := wallet.New(userID, services)
@@ -97,7 +128,6 @@ func newWallet(userID string, passphrase string, services *ariesServices) (*wall
 	}
 
 	return w, nil
-
 }
 
 func (s *Service) SaveCredentialInWallet(vc []byte) error {

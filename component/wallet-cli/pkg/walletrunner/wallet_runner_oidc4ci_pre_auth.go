@@ -29,7 +29,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 
 	httpClient := &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: s.vcProviderConf.InsecureTls},
 		},
 	}
 
@@ -44,8 +44,8 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	tokenEndpoint := oidcConfig.TokenEndpoint
 	credentialsEndpoint := oidcConfig.CredentialEndpoint
 
-	log.Println("Token url is" + tokenEndpoint)
-	log.Println("Credentials url is" + credentialsEndpoint)
+	log.Println("Token url is " + tokenEndpoint)
+	log.Println("Credentials url is " + credentialsEndpoint)
 
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
@@ -60,7 +60,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 			config.Pin = scanner.Text()
 		}
 
-		log.Println("using PIN: " + config.Pin)
+		log.Println("Using PIN: " + config.Pin)
 		tokenValues.Add("user_pin", config.Pin)
 	}
 
