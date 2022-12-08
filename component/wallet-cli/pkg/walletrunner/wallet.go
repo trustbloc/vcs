@@ -9,6 +9,7 @@ package walletrunner
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -33,20 +34,16 @@ const (
 )
 
 func (s *Service) CreateWallet() error {
-	shouldCreateWallet := true
+	shouldCreateWallet := s.vcProviderConf.WalletUserId == ""
 
-	if s.vcProviderConf.WalletUserId != "" {
-		s.vcProviderConf.WalletParams.UserID = s.vcProviderConf.WalletUserId
-		s.vcProviderConf.WalletParams.Passphrase = s.vcProviderConf.WalletPassPhrase
-		shouldCreateWallet = false
-
-		log.Printf("Using existing wallet with credentils: userID : [%v] and passphrase: [%v]\n",
-			s.vcProviderConf.WalletParams.UserID, s.vcProviderConf.WalletParams.Passphrase)
-	} else {
+	if shouldCreateWallet {
+		log.Printf("Creating wallet\n\n")
 		s.vcProviderConf.WalletParams.UserID = "testUserID" + uuid.NewString()
 		s.vcProviderConf.WalletParams.Passphrase = "passphrase122334"
-
-		log.Printf("Using wallet userID: [%v]", s.vcProviderConf.WalletParams.UserID)
+	} else {
+		log.Printf("Using existing wallet\n\n")
+		s.vcProviderConf.WalletParams.UserID = s.vcProviderConf.WalletUserId
+		s.vcProviderConf.WalletParams.Passphrase = s.vcProviderConf.WalletPassPhrase
 	}
 
 	services, err := s.createAgentServices(s.vcProviderConf.TLS)
@@ -65,11 +62,12 @@ func (s *Service) CreateWallet() error {
 	if err != nil {
 		return err
 	}
+
 	s.wallet = w
 
 	token, err := s.wallet.Open(wallet.WithUnlockByPassphrase(s.vcProviderConf.WalletParams.Passphrase))
 	if err != nil {
-		return fmt.Errorf("wallet unlock failed: %w", err)
+		return fmt.Errorf("unlock wallet: %w", err)
 	}
 
 	s.vcProviderConf.WalletParams.Token = token
@@ -85,7 +83,6 @@ func (s *Service) CreateWallet() error {
 	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()))
 
 	if shouldCreateWallet {
-		log.Println("Creating new wallet did")
 		createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
 		if err != nil {
 			return err
@@ -94,13 +91,9 @@ func (s *Service) CreateWallet() error {
 		s.vcProviderConf.WalletParams.DidID = createRes.DidID
 		s.vcProviderConf.WalletParams.DidKeyID = createRes.KeyID
 	} else {
-		log.Println("Using already existing did")
 		s.vcProviderConf.WalletParams.DidID = s.vcProviderConf.WalletDidID
 		s.vcProviderConf.WalletParams.DidKeyID = s.vcProviderConf.WalletDidKeyID
 	}
-
-	log.Printf("Using wallet DID: [%v]\n", s.vcProviderConf.WalletParams.DidID)
-	log.Printf("Using wallet DidKeyID: [%v]\n", s.vcProviderConf.WalletParams.DidKeyID)
 
 	for i := 1; i <= vdrResolveMaxRetry; i++ {
 		_, err = vdrRegistry.Resolve(s.vcProviderConf.WalletParams.DidID)
@@ -110,6 +103,16 @@ func (s *Service) CreateWallet() error {
 
 		time.Sleep(1 * time.Second)
 	}
+
+	storageType := strings.ToLower(s.vcProviderConf.StorageProvider)
+	if storageType == "" {
+		storageType = "in-memory"
+	}
+	fmt.Printf("\tStorage: %s\n", storageType)
+
+	fmt.Printf("\tWallet UserID: [%s]\n", s.vcProviderConf.WalletParams.UserID)
+	fmt.Printf("\tWallet DID: [%s]\n", s.vcProviderConf.WalletParams.DidID)
+	fmt.Printf("\tWallet DID KeyID: [%s]\n\n", s.vcProviderConf.WalletParams.DidKeyID)
 
 	return nil
 }

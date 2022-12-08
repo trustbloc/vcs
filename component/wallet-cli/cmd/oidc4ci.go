@@ -34,6 +34,8 @@ type oidc4ciCommandFlags struct {
 	GrantType           string
 	Scope               []string
 	RedirectURI         string
+	Login               string
+	Password            string
 	VCFormat            string
 	VCProvider          string
 	CredentialType      string
@@ -151,9 +153,10 @@ func NewOIDC4CICommand() *cobra.Command {
 				ClientID:            flags.ClientID,
 				Scope:               flags.Scope,
 				RedirectURI:         flags.RedirectURI,
+				Login:               flags.Login,
+				Password:            flags.Password,
 				CredentialType:      flags.CredentialType,
 				CredentialFormat:    flags.CredentialFormat,
-				Interactive:         false,
 				Pin:                 flags.Pin,
 			}
 
@@ -178,6 +181,8 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.GrantType, "grant-type", "authorization_code", "grant type")
 	cmd.Flags().StringSliceVar(&flags.Scope, "scope", nil, "oauth2 scopes. Can be used to pass credential type")
 	cmd.Flags().StringVar(&flags.RedirectURI, "redirect-uri", "", "callback where the authorization code should be sent")
+	cmd.Flags().StringVar(&flags.Login, "login", "", "user login email")
+	cmd.Flags().StringVar(&flags.Password, "password", "", "user login password")
 	cmd.Flags().StringVar(&flags.VCFormat, "vc-format", "jwt_vc", "vc format [jwt_vc|ldp_vc]")
 	cmd.Flags().StringVar(&flags.VCProvider, "vc-provider", "vcs", "vc provider")
 	cmd.Flags().StringVar(&flags.CredentialType, "credential-type", "", "credential type")

@@ -8,11 +8,9 @@ package walletrunner
 
 import (
 	"bufio"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -25,27 +23,19 @@ import (
 )
 
 func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
-	log.Println("Start OIDC4CI-PreAuthorize flow")
+	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: s.vcProviderConf.InsecureTls},
-		},
-	}
-
+	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	parsedUrl, err := url.Parse(config.InitiateIssuanceURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse url %w", err)
 	}
 
-	log.Println("Getting issuer OIDC config from well-known endpoint")
+	s.print("Getting issuer OIDC config")
 	oidcConfig, err := s.getIssuerOIDCConfig(parsedUrl.Query().Get("issuer"))
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
 	credentialsEndpoint := oidcConfig.CredentialEndpoint
-
-	log.Println("Token url is " + tokenEndpoint)
-	log.Println("Credentials url is " + credentialsEndpoint)
 
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
@@ -54,17 +44,17 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 
 	if strings.EqualFold(parsedUrl.Query().Get("user_pin_required"), "true") {
 		if len(config.Pin) == 0 {
-			log.Println("Please enter PIN for pre-authorized flow (after this press enter):")
+			log.Println("Enter PIN:")
 			scanner := bufio.NewScanner(os.Stdin)
 			scanner.Scan()
 			config.Pin = scanner.Text()
 		}
 
-		log.Println("Using PIN: " + config.Pin)
 		tokenValues.Add("user_pin", config.Pin)
 	}
 
-	tokenResp, tokenErr := httpClient.PostForm(tokenEndpoint, tokenValues)
+	s.print("Getting access token")
+	tokenResp, tokenErr := s.httpClient.PostForm(tokenEndpoint, tokenValues)
 	if tokenErr != nil {
 		return tokenErr
 	}
@@ -80,13 +70,12 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		"c_nonce": *token.CNonce,
 	})
 
-	log.Println("Creating wallet")
 	err = s.CreateWallet()
 	if err != nil {
 		return fmt.Errorf("failed to create wallet: %w", err)
 	}
 
-	log.Println("Getting credential")
+	s.print("Getting credential")
 	vc, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
@@ -97,11 +86,10 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		return fmt.Errorf("marshal vc: %w", err)
 	}
 
-	log.Println("Adding credential to wallet")
+	s.print("Adding credential to wallet")
 	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
 		return fmt.Errorf("add credential to wallet: %w", err)
 	}
-	log.Println("Credentials added successfully")
 
 	s.wallet.Close()
 
