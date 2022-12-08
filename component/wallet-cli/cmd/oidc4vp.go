@@ -22,14 +22,28 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 )
 
+type oidc4vpCommandFlags struct {
+	WalletUserId                  string
+	WalletPassPhrase              string
+	StorageProvider               string
+	StorageProviderConnString     string
+	OIDC4VPShouldFetchCredentials bool
+	WalletDidKeyID                string
+	WalletDidID                   string
+
+	InsecureTls bool
+}
+
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
 func NewOIDC4VPCommand() *cobra.Command {
+	flags := &oidc4vpCommandFlags{}
+
 	cmd := &cobra.Command{
 		Use:   "oidc4vp",
 		Short: "Run oidc4vp flow",
 		Long:  "Run oidc4vp flow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			runnerCfg, err := getWalletRunnerConfig(cmd)
+			runnerCfg, err := getWalletRunnerConfig(cmd, flags)
 			if err != nil {
 				return fmt.Errorf("get wallet runner config: %w", err)
 			}
@@ -56,12 +70,12 @@ func NewOIDC4VPCommand() *cobra.Command {
 		},
 	}
 
-	createFlags(cmd)
+	createFlags(cmd, flags)
 
 	return cmd
 }
 
-func createFlags(cmd *cobra.Command) {
+func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().String("qrcode-path", "", "Path to QR code file")
 	cmd.Flags().String("oidc4-vp-authorization-request", "", "OIDC4VP Authorization Request")
 	cmd.Flags().String("vc-provider", "vcs", "VC Provider")
@@ -76,6 +90,17 @@ func createFlags(cmd *cobra.Command) {
 	cmd.Flags().String("oidc-client-id", "", "oidc client id. example: test-org")                                                              //nolint
 	cmd.Flags().String("oidc-client-secret", "", "oidc client secret. example: test-org-secret")                                               //nolint
 	cmd.Flags().Bool("skip-schema-validation", false, "skip schema validation for while creating vp")                                          //nolint
+	cmd.Flags().Bool("oidc4-vp-should-request-credentials", true, "indicates if oidc4vp flow should request new credentials")
+
+	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure-tls", false, "disable certificate validation for http client")
+
+	cmd.Flags().StringVar(&flags.WalletUserId, "wallet-user-id", "", "existing wallet user id")
+	cmd.Flags().StringVar(&flags.WalletPassPhrase, "wallet-passphrase", "", "existing wallet pass phrase")
+	cmd.Flags().StringVar(&flags.StorageProvider, "storage-provider", "", "storage provider. supported: mem,mysql,mongodb")
+	cmd.Flags().StringVar(&flags.StorageProviderConnString, "storage-provider-connection-string", "", "storage provider connection string")
+
+	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
+	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
 }
 
 type runnerConfig struct {
@@ -85,7 +110,7 @@ type runnerConfig struct {
 	options                     []vcprovider.ConfigOption
 }
 
-func getWalletRunnerConfig(cmd *cobra.Command) (*runnerConfig, error) {
+func getWalletRunnerConfig(cmd *cobra.Command, flags *oidc4vpCommandFlags) (*runnerConfig, error) {
 	qrCodePath, err := cmd.Flags().GetString("qrcode-path")
 	if err != nil {
 		return nil, fmt.Errorf("qrCodePath flag: %w", err)
@@ -150,6 +175,17 @@ func getWalletRunnerConfig(cmd *cobra.Command) (*runnerConfig, error) {
 		if val, _ := cmd.Flags().GetBool("skip-schema-validation"); val {
 			c.SkipSchemaValidation = val
 		}
+
+		c.WalletUserId = flags.WalletUserId
+		c.WalletPassPhrase = flags.WalletPassPhrase
+		c.StorageProvider = flags.StorageProvider
+		c.StorageProviderConnString = flags.StorageProviderConnString
+
+		c.WalletDidKeyID = flags.WalletDidKeyID
+		c.WalletDidID = flags.WalletDidID
+
+		c.InsecureTls = flags.InsecureTls
+		c.OIDC4VPShouldFetchCredentials = flags.OIDC4VPShouldFetchCredentials
 	})
 
 	return &runnerConfig{

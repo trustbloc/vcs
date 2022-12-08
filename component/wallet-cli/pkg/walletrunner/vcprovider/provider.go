@@ -33,6 +33,15 @@ type Config struct {
 	OrgSecret            string
 	Debug                bool
 	SkipSchemaValidation bool
+	InsecureTls          bool
+
+	WalletUserId                  string // initial config
+	WalletPassPhrase              string // initial config
+	StorageProvider               string // initial config
+	StorageProviderConnString     string // initial config
+	OIDC4VPShouldFetchCredentials bool
+	WalletDidKeyID                string
+	WalletDidID                   string
 }
 
 type WalletParams struct {

@@ -314,6 +314,7 @@ github.com/go-playground/validator/v10 v10.11.0/go.mod h1:i+3WkQ1FvaUjjxh1kSvIA4
 github.com/go-redis/redis v6.15.9+incompatible/go.mod h1:NAIEuMOZ/fxfXJIrKDQDz8wamY7mA7PouImQ2Jvg6kA=
 github.com/go-sql-driver/mysql v1.4.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
 github.com/go-sql-driver/mysql v1.4.1/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
+github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=
 github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/goccy/go-json v0.9.7/go.mod h1:6MelG93GURQebXPDq3khkgXZkazVtN9CRI+MGFi0w8I=
@@ -498,6 +499,8 @@ github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10 h
 github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10/go.mod h1:5lp5+NPjRngsjFLYYGg5mtkvw6I4Mr7CKz+wHYxROk0=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 h1:8ja6Vnp5EUsh8Oe4mI8ZNwpJtiM7c87X/b9sO/hEFiY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149/go.mod h1:GDANCnJONcCqBvv6QgKuk5Y2FWHyD/Hu26kyc7NTyfY=
+github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e h1:wBblDEArmEpwYFivc5mnniI+5IkT2gXvbn0Cc90W1jE=
+github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e/go.mod h1:0VNWYQ937z51P4usiHUPz0MImh8tsKEVsHVmAx2z5zA=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 h1:AiQyIn1EJd8FN/2nxk3Z3zIMI5ZOgqV+HWRK2uN2Ktg=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49/go.mod h1:nBzEBfVKX/+N9tHyDYwlOMxA55FdSiU6Y2cVdtNVN7I=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 h1:lLClFk/2sgr8B15E854dtgxK9b6R+B8qPJXin4mgTFo=

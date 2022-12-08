@@ -41,20 +41,24 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 		return fmt.Errorf("failed to create wallet: %w", err)
 	}
 
-	log.Println("Issuing credentials")
-	vcData, err := s.vcProvider.GetCredentials()
-	if err != nil {
-		return fmt.Errorf("failed getting VC: %w", err)
-	}
-
-	log.Println("Saving credentials to wallet")
-	for _, vcBytes := range vcData {
-		err = s.SaveCredentialInWallet(vcBytes)
+	if s.vcProviderConf.OIDC4VPShouldFetchCredentials {
+		log.Println("Issuing credentials")
+		vcData, err := s.vcProvider.GetCredentials()
 		if err != nil {
-			return fmt.Errorf("error save VC to wallet : %w", err)
+			return fmt.Errorf("failed getting VC: %w", err)
 		}
+
+		log.Println("Saving credentials to wallet")
+		for _, vcBytes := range vcData {
+			err = s.SaveCredentialInWallet(vcBytes)
+			if err != nil {
+				return fmt.Errorf("error save VC to wallet : %w", err)
+			}
+		}
+		log.Println(len(vcData), "credentials were saved to wallet")
+	} else {
+		log.Println("Using existing credentials")
 	}
-	log.Println(len(vcData), "credentials were saved to wallet")
 
 	vpFlowExecutor := s.NewVPFlowExecutor(s.vcProviderConf.SkipSchemaValidation)
 

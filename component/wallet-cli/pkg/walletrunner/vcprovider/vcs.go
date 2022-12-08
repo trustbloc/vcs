@@ -44,7 +44,7 @@ const (
 func defaultVCSLocalConfig() *Config {
 	return &Config{
 		TLS: &tls.Config{
-			InsecureSkipVerify: true,
+			InsecureSkipVerify: false,
 		},
 		WalletParams:        &WalletParams{},
 		UniResolverURL:      universalResolver,
@@ -112,7 +112,7 @@ func (p *vcsCredentialsProvider) GetCredentials() (map[string][]byte, error) {
 
 func (p *vcsCredentialsProvider) authorizeOrganization(clientID, secret string) (string, error) {
 	accessToken, err := oauth2util.Token(context.Background(), p.conf.OidcProviderURL,
-		clientID, secret, []string{"org_admin"})
+		clientID, secret, []string{"org_admin"}, p.conf.InsecureTls)
 	if err != nil {
 		return "", err
 	}
