@@ -44,7 +44,7 @@ const (
 func defaultVCSLocalConfig() *Config {
 	return &Config{
 		TLS: &tls.Config{
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: true,
 		},
 		WalletParams:        &WalletParams{},
 		UniResolverURL:      universalResolver,

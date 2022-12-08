@@ -16,7 +16,7 @@ import (
 
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
-	"github.com/hyperledger/aries-framework-go-ext/component/storage/mysql"
+	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -111,12 +111,9 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 			return nil, err
 		}
 		storageProvider = p
-	case "mysql":
-		log.Println("Using mysql storage provider")
-		p, err := mysql.NewProvider(s.vcProviderConf.StorageProviderConnString)
-		if err != nil {
-			return nil, err
-		}
+	case "leveldb":
+		log.Println("Using leveldb storage provider")
+		p := leveldb.NewProvider(s.vcProviderConf.StorageProviderConnString)
 		storageProvider = p
 	default:
 		log.Println("Using in-memory storage provider")
