@@ -92,7 +92,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().Bool("skip-schema-validation", false, "skip schema validation for while creating vp")                                          //nolint
 	cmd.Flags().Bool("oidc4-vp-should-request-credentials", true, "indicates if oidc4vp flow should request new credentials")
 
-	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure-tls", false, "disable certificate validation for http client")
+	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure", false, "this option allows to skip the verification of ssl\\tls")
 
 	cmd.Flags().StringVar(&flags.WalletUserId, "wallet-user-id", "", "existing wallet user id")
 	cmd.Flags().StringVar(&flags.WalletPassPhrase, "wallet-passphrase", "", "existing wallet pass phrase")

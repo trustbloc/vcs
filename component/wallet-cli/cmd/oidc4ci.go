@@ -184,7 +184,7 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.CredentialFormat, "credential-format", "", "credential format")
 	cmd.Flags().StringVar(&flags.Pin, "pin", "", "pre-authorized flow pin")
 	cmd.Flags().BoolVar(&flags.Debug, "debug", false, "enable debug mode")
-	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure-tls", false, "disable certificate validation for http client")
+	cmd.Flags().BoolVar(&flags.InsecureTls, "insecure", false, "this option allows to skip the verification of ssl\\tls")
 
 	cmd.Flags().StringVar(&flags.WalletUserId, "wallet-user-id", "", "existing wallet user id")
 	cmd.Flags().StringVar(&flags.WalletPassPhrase, "wallet-passphrase", "", "existing wallet pass phrase")
