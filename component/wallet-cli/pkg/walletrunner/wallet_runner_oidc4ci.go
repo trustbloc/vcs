@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -14,6 +15,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -78,87 +80,19 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("marshal authorization details: %w", err)
 	}
 
-	var loginURL, consentURL *url.URL
+	authCodeURL := s.oauthClient.AuthCodeURL(state,
+		oauth2.SetAuthURLParam("op_state", opState),
+		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("authorization_details", string(b)),
+	)
+
 	var authCode string
 
-	httpClient := &http.Client{
-		Jar:       s.httpClient.Jar,
-		Transport: s.httpClient.Transport,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// intercept login request
-			if strings.Contains(req.URL.String(), "/login?login_challenge=") {
-				loginURL = req.URL
-
-				return http.ErrUseLastResponse
-			}
-
-			// intercept consent request
-			if strings.Contains(req.URL.String(), "/consent?consent_challenge=") {
-				consentURL = req.URL
-
-				return http.ErrUseLastResponse
-			}
-
-			// intercept client auth code
-			if strings.HasPrefix(req.URL.String(), config.RedirectURI) {
-				authCode = req.URL.Query().Get("code")
-
-				return http.ErrUseLastResponse
-			}
-
-			return nil
-		},
-	}
-
-	s.print("Getting authorization code")
-	resp, err := httpClient.Get(
-		s.oauthClient.AuthCodeURL(state,
-			oauth2.SetAuthURLParam("op_state", opState),
-			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-			oauth2.SetAuthURLParam("authorization_details", string(b)),
-		),
-	)
-	if err != nil {
-		return fmt.Errorf("get auth code: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	if loginURL == nil {
-		return fmt.Errorf("login URL is empty")
-	}
-
 	if config.Login != "" {
-		s.print(fmt.Sprintf("Authenticating user as [%s]", config.Login))
-		resp, err = httpClient.PostForm(loginURL.String(),
-			url.Values{
-				"challenge": loginURL.Query()["login_challenge"],
-				"email":     {config.Login},
-				"password":  {config.Password},
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("post login: %w", err)
-		}
-		_ = resp.Body.Close()
-
-		if consentURL == nil {
-			return fmt.Errorf("consent URL is empty")
-		}
-
-		s.print("Getting user consent [accept]")
-		resp, err = httpClient.PostForm(consentURL.String(),
-			url.Values{
-				"challenge": loginURL.Query()["consent_challenge"],
-				"submit":    {"accept"},
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("post consent: %w", err)
-		}
-		_ = resp.Body.Close()
+		authCode, err = s.getAuthCode(config, authCodeURL)
 	} else {
-		// TODO: Login with a browser
+		authCode, err = s.getAuthCodeFromBrowser(authCodeURL)
 	}
 
 	if authCode == "" {
@@ -198,6 +132,8 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("add credential: %w", err)
 	}
 
+	log.Println("Credential added successfully")
+
 	s.wallet.Close()
 
 	return nil
@@ -223,6 +159,91 @@ func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpen
 	}
 
 	return &oidcConfig, nil
+}
+
+func (s *Service) getAuthCode(config *OIDC4CIConfig, authCodeURL string) (string, error) {
+	var loginURL, consentURL *url.URL
+	var authCode string
+
+	httpClient := &http.Client{
+		Jar:       s.httpClient.Jar,
+		Transport: s.httpClient.Transport,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// intercept login request
+			if strings.Contains(req.URL.String(), "/login?login_challenge=") {
+				loginURL = req.URL
+
+				return http.ErrUseLastResponse
+			}
+
+			// intercept consent request
+			if strings.Contains(req.URL.String(), "/consent?consent_challenge=") {
+				consentURL = req.URL
+
+				return http.ErrUseLastResponse
+			}
+
+			// intercept client auth code
+			if strings.HasPrefix(req.URL.String(), config.RedirectURI) {
+				authCode = req.URL.Query().Get("code")
+
+				return http.ErrUseLastResponse
+			}
+
+			return nil
+		},
+	}
+
+	s.print("Getting authorization code")
+	resp, err := httpClient.Get(authCodeURL)
+	if err != nil {
+		return "", fmt.Errorf("get auth code: %w", err)
+	}
+	_ = resp.Body.Close()
+
+	if loginURL == nil {
+		return "", fmt.Errorf("login URL is empty")
+	}
+
+	s.print(fmt.Sprintf("Authenticating user as [%s]", config.Login))
+	resp, err = httpClient.PostForm(loginURL.String(),
+		url.Values{
+			"challenge": loginURL.Query()["login_challenge"],
+			"email":     {config.Login},
+			"password":  {config.Password},
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("post login: %w", err)
+	}
+	_ = resp.Body.Close()
+
+	if consentURL == nil {
+		return "", fmt.Errorf("consent URL is empty")
+	}
+
+	s.print("Getting user consent [accept]")
+	resp, err = httpClient.PostForm(consentURL.String(),
+		url.Values{
+			"challenge": loginURL.Query()["consent_challenge"],
+			"submit":    {"accept"},
+		},
+	)
+	if err != nil {
+		return "", fmt.Errorf("post consent: %w", err)
+	}
+	_ = resp.Body.Close()
+
+	return authCode, nil
+}
+
+func (s *Service) getAuthCodeFromBrowser(authCodeURL string) (string, error) {
+	log.Printf("Login with a browser:\n\n%s\n\n", authCodeURL)
+	log.Println("Enter auth code:")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	return scanner.Text(), nil
 }
 
 func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFormat string) (interface{}, error) {
