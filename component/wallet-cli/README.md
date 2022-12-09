@@ -67,7 +67,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --storage-provider leveldb \
 --storage-provider-connection-string "/mnt/wallet.db" \
 --did-method ion \
---did-key-type ECDSAP384TypeDER \
+--did-key-type ECDSAP384DER \
 --debug
 
 Note: 
@@ -81,7 +81,7 @@ The following CLI arguments are supported for oidc4vp command (./wallet-cli oidc
 ```
       --context-provider-url string                 context provider. example: https://static-file-server.stg.trustbloc.dev/ld-contexts.json
       --did-domain string                           did domain. example: https://orb-1.stg.trustbloc.dev
-      --did-key-type string                         did key type. default: ECDSAP384TypeDER (default "ECDSAP384TypeDER")
+      --did-key-type string                         did key type. default: ECDSAP384DER (default "ECDSAP384DER")
       --did-method string                           did method, supported: orb,ion. default: orb (default "orb")
       --did-service-auth-token string               did service authorization token. example: tk1
   -h, --help                                        help for oidc4vp
@@ -127,7 +127,7 @@ Note:
 --storage-provider leveldb \
 --storage-provider-connection-string "/mnt/wallet.db" \
 --did-method ion \
---did-key-type ECDSAP384TypeDER \
+--did-key-type ECDSAP384DER \
 --wallet-passphrase "" \
 --wallet-user-id "" \
 --wallet-did "" \

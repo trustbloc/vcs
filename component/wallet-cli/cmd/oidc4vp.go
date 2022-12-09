@@ -104,7 +104,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 
 	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
 	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
-	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384TypeDER", "did key type. default: ECDSAP384TypeDER")
+	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384DER", "did key type. default: ECDSAP384DER")
 }
 
 type runnerConfig struct {

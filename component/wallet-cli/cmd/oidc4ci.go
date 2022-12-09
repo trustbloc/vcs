@@ -203,7 +203,7 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
 	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
 	cmd.Flags().StringVar(&flags.DidMethod, "did-method", "orb", "did method, supported: orb,ion. default: orb")
-	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384TypeDER", "did key type. default: ECDSAP384TypeDER")
+	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384DER", "did key type. default: ECDSAP384DER")
 
 	return cmd
 }
