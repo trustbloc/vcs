@@ -53,6 +53,8 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 	walletRunner, err := walletrunner.New(vcprovider.ProviderVCS,
 		func(c *vcprovider.Config) {
 			c.InsecureTls = true
+			c.DidKeyType = "ECDSAP384TypeDER"
+			c.DidMethod = "orb"
 		})
 	if err != nil {
 		return nil, fmt.Errorf("unable create wallet runner: %w", err)
