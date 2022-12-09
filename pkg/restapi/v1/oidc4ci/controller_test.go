@@ -485,7 +485,7 @@ func TestController_OidcAuthorize(t *testing.T) {
 
 						return &http.Response{
 							StatusCode: http.StatusInternalServerError,
-							Body:       io.NopCloser(bytes.NewBuffer(nil)),
+							Body:       io.NopCloser(bytes.NewBufferString(`{"code":"system-error","component":"OIDC4CIService","message":"unexpected transaction from 5 to 3","operation":"PrepareClaimDataAuthorizationRequest","incorrectValue":"state"}`)),
 						}, nil
 					})
 			},
@@ -651,7 +651,7 @@ func TestController_OidcRedirect(t *testing.T) {
 					issuer.StoreAuthorizationCodeRequest{
 						Code:    params.Code,
 						OpState: params.State,
-					}).Return(&http.Response{Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
+					}).Return(&http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBuffer(nil))}, nil)
 
 				mockOAuthProvider.EXPECT().WriteAuthorizeResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Do(func(

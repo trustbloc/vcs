@@ -53,7 +53,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
       --wallet-passphrase string                    existing wallet pass phrase
       --wallet-user-id string                       existing wallet user id
 ```
-### Usage OIDC4CI (Pre-Authorize flow) 
+#### Pre-authorized code flow 
 ```bash
 ./wallet-cli oidc4ci \
 --qr-code "/mnt/qrcode.png" \
@@ -69,10 +69,32 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --did-method ion \
 --did-key-type ECDSAP384DER \
 --debug
-
-Note: 
-  if you are not specifying the existing wallet using (wallet-user-id,wallet-passphrase,wallet-did-keyid,wallet-did) a new wallet will be automatically created and credentials will be available in the command outpu
 ```
+
+#### Authorized code flow
+```bash
+./wallet-cli oidc4ci \
+--qr-code "/mnt/qrcode.png" \
+--grant-type authorization_code \
+--scope openid,profile \
+--redirect-uri http://127.0.0.1/callback \
+--client-id oidc4vc_client \
+--credential-type VerifiedEmployee \
+--credential-format jwt_vc \
+--did-domain https://orb-1.stg.trustbloc.dev \
+--did-service-auth-token ADMIN_TOKEN \
+--context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
+--uni-resolver-url https://did-resolver.stg.trustbloc.dev/1.0/identifiers \
+--storage-provider leveldb \
+--storage-provider-connection-string "/mnt/wallet.db" \
+--login "john.smith@example.com" \
+--password "f00B@r" \
+--debug
+```
+
+Note:
+* if `--login` is not provided, then the user will be prompted to log in using the browser
+* if no wallet params are specified (wallet-user-id, wallet-passphrase, wallet-did-keyid, wallet-did), a new wallet is created and wallet parameters become available in the command output
 
 ## OIDC4VP subcommand
 ### OIDC4VP command flags
