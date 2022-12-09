@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -267,7 +268,10 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	defer r.Body.Close()
 
 	if r.StatusCode != http.StatusOK {
-		return fmt.Errorf("prepare claim data authorization: status code %d", r.StatusCode)
+		return fmt.Errorf("prepare claim data authorization: status code %d, %w",
+			r.StatusCode,
+			parseInteractionError(r.Body),
+		)
 	}
 
 	var claimDataAuth issuer.PrepareClaimDataAuthorizationResponse
@@ -343,7 +347,15 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 	if storeErr != nil {
 		return storeErr
 	}
-	_ = storeResp.Body.Close()
+
+	defer storeResp.Body.Close()
+
+	if storeResp.StatusCode != http.StatusOK {
+		return fmt.Errorf("store authorization code request: status code %d, %w",
+			storeResp.StatusCode,
+			parseInteractionError(storeResp.Body),
+		)
+	}
 
 	responder := &fosite.AuthorizeResponse{}
 	responder.Header = resp.Header
@@ -407,7 +419,10 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	defer exchangeResp.Body.Close()
 
 	if exchangeResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("exchange auth code: status code %d", exchangeResp.StatusCode)
+		return fmt.Errorf("exchange authorization code request: status code %d, %w",
+			exchangeResp.StatusCode,
+			parseInteractionError(exchangeResp.Body),
+		)
 	}
 
 	var exchangeResult issuer.ExchangeAuthorizationCodeResponse
@@ -502,7 +517,10 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("prepare credential: status code %d", resp.StatusCode)
+		return fmt.Errorf("prepare credential: status code %d, %w",
+			resp.StatusCode,
+			parseInteractionError(resp.Body),
+		)
 	}
 
 	var result issuer.PrepareCredentialResult
@@ -583,11 +601,19 @@ func (c *Controller) oidcPreAuthorizedCode(
 		return nil, err
 	}
 
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("validate pre-authorized code request: status code %d, %w",
+			resp.StatusCode,
+			parseInteractionError(resp.Body),
+		)
+	}
+
 	var validateResponse issuer.ValidatePreAuthorizedCodeResponse
 	if err = json.NewDecoder(resp.Body).Decode(&validateResponse); err != nil {
 		return nil, err
 	}
-	_ = resp.Body.Close()
 
 	verifier, challenge, method, err := c.oAuth2Client.GeneratePKCE()
 	if err != nil {
@@ -657,4 +683,51 @@ func (c *Controller) oidcPreAuthorizedCode(
 	}
 
 	return aResponse, nil
+}
+
+type interactionError struct {
+	Code           string `json:"code"`
+	Component      string `json:"component,omitempty"`
+	Operation      string `json:"operation,omitempty"`
+	IncorrectValue string `json:"incorrectValue,omitempty"`
+	Message        string `json:"message,omitempty"`
+}
+
+func (e *interactionError) Error() string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("code: %s", e.Code))
+
+	if e.Component != "" {
+		b.WriteString(fmt.Sprintf("; component: %s", e.Component))
+	}
+
+	if e.Operation != "" {
+		b.WriteString(fmt.Sprintf("; operation: %s", e.Operation))
+	}
+
+	if e.IncorrectValue != "" {
+		b.WriteString(fmt.Sprintf("; incorrect value: %s", e.IncorrectValue))
+	}
+
+	if e.Message != "" {
+		b.WriteString(fmt.Sprintf("; message: %s", e.Message))
+	}
+
+	return b.String()
+}
+
+func parseInteractionError(reader io.Reader) error {
+	b, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	var e interactionError
+
+	if err = json.Unmarshal(b, &e); err != nil {
+		return errors.New(string(b))
+	}
+
+	return &e
 }
