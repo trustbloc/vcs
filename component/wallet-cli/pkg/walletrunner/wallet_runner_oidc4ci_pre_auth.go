@@ -91,6 +91,8 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		return fmt.Errorf("add credential to wallet: %w", err)
 	}
 
+	log.Println("Credential added successfully")
+
 	s.wallet.Close()
 
 	return nil

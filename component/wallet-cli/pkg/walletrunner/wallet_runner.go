@@ -84,7 +84,7 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 			Colors:          true,
 			SkipRequestInfo: true,
 			Formatters:      []httpretty.Formatter{&httpretty.JSONFormatter{}},
-			MaxResponseBody: 10240,
+			MaxResponseBody: 102400,
 		}
 
 		httpClient.Transport = httpLogger.RoundTripper(httpClient.Transport)
