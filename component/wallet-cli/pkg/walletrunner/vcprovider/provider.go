@@ -42,6 +42,8 @@ type Config struct {
 	OIDC4VPShouldFetchCredentials bool
 	WalletDidKeyID                string
 	WalletDidID                   string
+	DidMethod                     string
+	DidKeyType                    string
 }
 
 type WalletParams struct {

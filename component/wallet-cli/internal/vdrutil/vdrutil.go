@@ -8,6 +8,7 @@ package vdrutil
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -29,8 +30,29 @@ type keyManager interface {
 	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
 }
 
-func CreateION(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
-	verMethod, err := newVerMethods(1, keyManager, keyType)
+var DefaultVdrUtil = &VDRUtil{} //nolint
+
+type VDRUtil struct {
+}
+
+func (v *VDRUtil) Create(
+	didMethod string,
+	keyType kms.KeyType,
+	registry vdr.Registry,
+	keyManager keyManager,
+) (*CreateResult, error) {
+	switch strings.ToLower(didMethod) {
+	case "ion":
+		return v.createION(keyType, registry, keyManager)
+	case "orb":
+		return v.createORB(keyType, registry, keyManager)
+	default:
+		return nil, fmt.Errorf("did method [%v] is not supported", didMethod)
+	}
+}
+
+func (v *VDRUtil) createION(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
+	verMethod, err := v.newVerMethods(1, keyManager, keyType)
 	if err != nil {
 		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)
 	}
@@ -77,12 +99,12 @@ func CreateION(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager
 
 	return &CreateResult{
 		DidID: didResolution.DIDDocument.ID,
-		KeyID: didResolution.DIDDocument.ID + "#" + didDoc.AssertionMethod[0].VerificationMethod.ID,
+		KeyID: didResolution.DIDDocument.ID + "#" + vm.ID,
 	}, nil
 }
 
-func CreateDID(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
-	methods, err := newVerMethods(3, keyManager, keyType) // nolint:gomnd
+func (v *VDRUtil) createORB(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
+	methods, err := v.newVerMethods(3, keyManager, keyType) // nolint:gomnd
 	if err != nil {
 		return nil, fmt.Errorf("did:orb: failed to create verification methods: %w", err)
 	}
@@ -146,7 +168,7 @@ func CreateDID(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager
 	}, nil
 }
 
-func newVerMethods(count int, km keyManager,
+func (v *VDRUtil) newVerMethods(count int, km keyManager,
 	keyType kms.KeyType) ([]*did.VerificationMethod, error) {
 	methods := make([]*did.VerificationMethod, count)
 

@@ -32,6 +32,8 @@ type oidc4vpCommandFlags struct {
 	WalletDidID                   string
 
 	InsecureTls bool
+	DidMethod   string
+	DidKeyType  string
 }
 
 // NewOIDC4VPCommand returns a new command for running OIDC4VP flow.
@@ -98,9 +100,11 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().StringVar(&flags.WalletPassPhrase, "wallet-passphrase", "", "existing wallet pass phrase")
 	cmd.Flags().StringVar(&flags.StorageProvider, "storage-provider", "", "storage provider. supported: mem,leveldb,mongodb")
 	cmd.Flags().StringVar(&flags.StorageProviderConnString, "storage-provider-connection-string", "", "storage provider connection string")
+	cmd.Flags().StringVar(&flags.DidMethod, "did-method", "orb", "did method, supported: orb,ion. default: orb")
 
 	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
 	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
+	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384TypeDER", "did key type. default: ECDSAP384TypeDER")
 }
 
 type runnerConfig struct {
@@ -186,6 +190,8 @@ func getWalletRunnerConfig(cmd *cobra.Command, flags *oidc4vpCommandFlags) (*run
 
 		c.InsecureTls = flags.InsecureTls
 		c.OIDC4VPShouldFetchCredentials = flags.OIDC4VPShouldFetchCredentials
+		c.DidMethod = flags.DidMethod
+		c.DidKeyType = flags.DidKeyType
 	})
 
 	return &runnerConfig{

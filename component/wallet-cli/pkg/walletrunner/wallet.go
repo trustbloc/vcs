@@ -89,12 +89,12 @@ func (s *Service) CreateWallet() error {
 	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()), vdrapi.WithVDR(lf))
 
 	if shouldCreateWallet {
-		//createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
-		//if err != nil {
-		//	return err
-		//}
-
-		createRes, err := vdrutil.CreateION(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
+		createRes, err := vdrutil.DefaultVdrUtil.Create(
+			s.vcProviderConf.DidMethod,
+			kms.KeyType(s.vcProviderConf.DidKeyType),
+			vdrRegistry,
+			s.ariesServices.kms,
+		)
 		if err != nil {
 			return err
 		}

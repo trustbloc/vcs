@@ -51,6 +51,8 @@ type oidc4ciCommandFlags struct {
 	StorageProvider           string
 	StorageProviderConnString string
 	InsecureTls               bool
+	DidMethod                 string
+	DidKeyType                string
 }
 
 func NewOIDC4CICommand() *cobra.Command {
@@ -140,6 +142,8 @@ func NewOIDC4CICommand() *cobra.Command {
 					c.StorageProvider = flags.StorageProvider
 					c.StorageProviderConnString = flags.StorageProviderConnString
 					c.InsecureTls = flags.InsecureTls
+					c.DidMethod = flags.DidMethod
+					c.DidKeyType = flags.DidKeyType
 				},
 			}
 
@@ -198,6 +202,8 @@ func NewOIDC4CICommand() *cobra.Command {
 
 	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
 	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
+	cmd.Flags().StringVar(&flags.DidMethod, "did-method", "orb", "did method, supported: orb,ion. default: orb")
+	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384TypeDER", "did key type. default: ECDSAP384TypeDER")
 
 	return cmd
 }
