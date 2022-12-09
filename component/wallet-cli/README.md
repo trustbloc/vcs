@@ -87,13 +87,12 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --uni-resolver-url https://did-resolver.stg.trustbloc.dev/1.0/identifiers \
 --storage-provider leveldb \
 --storage-provider-connection-string "/mnt/wallet.db" \
---login "john.smith@example.com" \
---password "f00B@r" \
+--did-method ion \
 --debug
 ```
 
 Note:
-* if `--login` is not provided, then the user will be prompted to log in using the browser
+* use `--login "john.smith@example.com"` and `--password "f00B@r"` options to log in and give user's consent automatically
 * if no wallet params are specified (wallet-user-id, wallet-passphrase, wallet-did-keyid, wallet-did), a new wallet is created and wallet parameters become available in the command output
 
 ## OIDC4VP subcommand

@@ -7,18 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/cli/browser"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
@@ -57,9 +57,25 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
 
+	redirectURL, err := url.Parse(config.RedirectURI)
+	if err != nil {
+		return fmt.Errorf("parse redirect url: %w", err)
+	}
+
+	var listener net.Listener
+
+	if config.Login == "" { // bind listener for callback server to support log in with a browser
+		listener, err = net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("listen: %w", err)
+		}
+
+		redirectURL.Host = fmt.Sprintf("%s:%d", redirectURL.Hostname(), listener.Addr().(*net.TCPAddr).Port)
+	}
+
 	s.oauthClient = &oauth2.Config{
 		ClientID:    config.ClientID,
-		RedirectURL: config.RedirectURI,
+		RedirectURL: redirectURL.String(),
 		Scopes:      config.Scope,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   oidcConfig.AuthorizationEndpoint,
@@ -89,10 +105,16 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 
 	var authCode string
 
-	if config.Login != "" {
-		authCode, err = s.getAuthCode(config, authCodeURL)
+	if config.Login == "" { // interactive mode: login with a browser
+		authCode, err = s.getAuthCodeFromBrowser(listener, authCodeURL)
+		if err != nil {
+			return fmt.Errorf("get auth code from browser: %w", err)
+		}
 	} else {
-		authCode, err = s.getAuthCodeFromBrowser(authCodeURL)
+		authCode, err = s.getAuthCode(config, authCodeURL)
+		if err != nil {
+			return fmt.Errorf("get auth code: %w", err)
+		}
 	}
 
 	if authCode == "" {
@@ -237,13 +259,35 @@ func (s *Service) getAuthCode(config *OIDC4CIConfig, authCodeURL string) (string
 	return authCode, nil
 }
 
-func (s *Service) getAuthCodeFromBrowser(authCodeURL string) (string, error) {
-	log.Printf("Login with a browser:\n\n%s\n\n", authCodeURL)
-	log.Println("Enter auth code:")
+func (s *Service) getAuthCodeFromBrowser(listener net.Listener, authCodeURL string) (string, error) {
+	server := &callbackServer{
+		listener: listener,
+		codeChan: make(chan string, 1),
+	}
 
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Scan()
-	return scanner.Text(), nil
+	go func() {
+		http.Serve(listener, server)
+	}()
+
+	log.Printf("Log in with a browser:\n\n%s\n\nor press [Enter] to open link in your default browser\n", authCodeURL)
+
+	done := make(chan struct{})
+
+	go waitForEnter(done)
+
+	for {
+		select {
+		case <-done:
+			if err := browser.OpenURL(authCodeURL); err != nil {
+				return "", fmt.Errorf("open browser: %w", err)
+			}
+		case authCode := <-server.codeChan:
+			log.Printf("Received authorization code: %s", authCode)
+			return authCode, nil
+		case <-time.After(3 * time.Minute):
+			return "", fmt.Errorf("timed out")
+		}
+	}
 }
 
 func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFormat string) (interface{}, error) {
@@ -314,4 +358,38 @@ func (s *Service) print(msg string) {
 	}
 
 	log.Printf("%s\n\n", msg)
+}
+
+func waitForEnter(done chan<- struct{}) {
+	_, _ = fmt.Scanln()
+	done <- struct{}{}
+}
+
+type callbackServer struct {
+	listener net.Listener
+	codeChan chan string
+}
+
+func (s *callbackServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/callback" {
+		http.NotFound(w, r)
+
+		return
+	}
+
+	defer func() {
+		_ = s.listener.Close()
+	}()
+
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		http.Error(w, "code is empty", http.StatusBadRequest)
+
+		return
+	}
+
+	s.codeChan <- code
+
+	w.Header().Add("content-type", "text/html")
+	_, _ = fmt.Fprintf(w, "<p>Authorization code received! You may now close this page.</p>")
 }
