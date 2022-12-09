@@ -9,6 +9,7 @@ package vdrutil
 import (
 	"fmt"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -26,6 +27,58 @@ type CreateResult struct {
 type keyManager interface {
 	Get(keyID string) (interface{}, error)
 	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
+}
+
+func CreateION(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
+	verMethod, err := newVerMethods(1, keyManager, keyType)
+	if err != nil {
+		return nil, fmt.Errorf("did:ion failed to create new ver method: %w", err)
+	}
+
+	vm := verMethod[0]
+
+	didDoc := &did.Doc{
+		AssertionMethod: []did.Verification{{
+			VerificationMethod: *vm,
+			Relationship:       did.AssertionMethod,
+			Embedded:           true,
+		}},
+		Authentication: []did.Verification{{
+			VerificationMethod: *vm,
+			Relationship:       did.Authentication,
+			Embedded:           true,
+		}},
+	}
+
+	keys := [2]interface{}{}
+	keyURLs := [2]string{}
+	types := [2]string{"update", "recovery"}
+
+	for i := 0; i < 2; i++ {
+		keyURLs[i], keys[i], err = key.CryptoKeyCreator(keyType)(keyManager)
+		if err != nil {
+			return nil, fmt.Errorf("did:orb: failed to create %s key: %w", types[i], err)
+		}
+	}
+
+	updateKey, _ := keys[0], keyURLs[0]
+	recoveryKey, _ := keys[1], keyURLs[1]
+
+	didResolution, err := registry.Create(
+		"ion",
+		didDoc,
+		vdr.WithOption(orb.UpdatePublicKeyOpt, updateKey),
+		vdr.WithOption(orb.RecoveryPublicKeyOpt, recoveryKey),
+		vdr.WithOption(longform.VDRAcceptOpt, "long-form"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("did:ion failed to create long form did: %w", err)
+	}
+
+	return &CreateResult{
+		DidID: didResolution.DIDDocument.ID,
+		KeyID: didResolution.DIDDocument.ID + "#" + didDoc.AssertionMethod[0].VerificationMethod.ID,
+	}, nil
 }
 
 func CreateDID(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {

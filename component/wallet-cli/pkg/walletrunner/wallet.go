@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/vdr"
@@ -80,10 +81,20 @@ func (s *Service) CreateWallet() error {
 		return err
 	}
 
-	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()))
+	lf, err := longform.New()
+	if err != nil {
+		return err
+	}
+
+	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()), vdrapi.WithVDR(lf))
 
 	if shouldCreateWallet {
-		createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
+		//createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
+		//if err != nil {
+		//	return err
+		//}
+
+		createRes, err := vdrutil.CreateION(kms.ECDSAP384TypeDER, vdrRegistry, s.ariesServices.kms)
 		if err != nil {
 			return err
 		}

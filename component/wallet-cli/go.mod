@@ -11,6 +11,7 @@ require (
 	github.com/henvic/httpretty v0.1.0
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
+	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85

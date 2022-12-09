@@ -1597,3 +1597,5 @@ rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=
 sigs.k8s.io/yaml v1.2.0/go.mod h1:yfXDCHCao9+ENCvLSE62v9VSji2MKu5jeNfTrofGhJc=
 sourcegraph.com/sourcegraph/appdash v0.0.0-20190731080439-ebfcffb1b5c0/go.mod h1:hI742Nqp5OhwiqlzhgfbWU4mW4yO10fP+LoT9WOswdU=
+github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49 h1:MbWVC1HQEAn5yw5DLs4D7kdcM06y6ZiN4r3ZtvDzxWE=
+github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49/go.mod h1:ZFh90O86GlAVdzZ+/MbmTTwGtKJUNgeIECgdo4gyMo4=
