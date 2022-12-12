@@ -50,6 +50,11 @@ type IDTokenClaims struct {
 	Nonce   string         `json:"nonce"`
 	Exp     int64          `json:"exp"`
 	Iss     string         `json:"iss"`
+	Aud     string         `json:"aud"`
+	Sub     string         `json:"sub"`
+	Nbf     int64          `json:"nbf"`
+	Iat     int64          `json:"iat"`
+	Jti     string         `json:"jti"`
 }
 
 type VPTokenClaims struct {
@@ -57,6 +62,10 @@ type VPTokenClaims struct {
 	Nonce string                   `json:"nonce"`
 	Exp   int64                    `json:"exp"`
 	Iss   string                   `json:"iss"`
+	Aud   string                   `json:"aud"`
+	Nbf   int64                    `json:"nbf"`
+	Iat   int64                    `json:"iat"`
+	Jti   string                   `json:"jti"`
 }
 
 type InitiateOIDC4VPResponse struct {

@@ -9,6 +9,8 @@ package vcprovider
 import (
 	"crypto/tls"
 	"fmt"
+
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 // VCProvider represents the API for credentials provider.
@@ -52,6 +54,7 @@ type WalletParams struct {
 	UserID     string
 	DidID      string
 	DidKeyID   string
+	SignType   vcs.SignatureType
 }
 
 type ConfigOption func(c *Config)
