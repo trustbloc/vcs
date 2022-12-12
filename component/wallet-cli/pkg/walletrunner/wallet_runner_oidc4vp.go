@@ -14,6 +14,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -208,6 +209,7 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 	}
 
 	e.requestObject = requestObject
+
 	return nil
 }
 
@@ -276,7 +278,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
 		Iss:   "https://self-issued.me/v2/openid-vc",
-		Aud:   e.walletDidID,
+		Aud:   e.requestObject.ClientID,
 		Sub:   e.walletDidID,
 		Nbf:   time.Now().Unix(),
 		Iat:   time.Now().Unix(),
@@ -290,7 +292,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
 		Iss:   e.walletDidID,
-		Aud:   e.walletDidID,
+		Aud:   e.requestObject.ClientID,
 		Nbf:   time.Now().Unix(),
 		Iat:   time.Now().Unix(),
 		Jti:   uuid.NewString(),
@@ -301,12 +303,24 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		return "", fmt.Errorf("sign id_token: %w", err)
 	}
 
-	vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms, e.walletSignType)
+	bytes, err := json.Marshal(vpToken)
+	if err != nil {
+		return "", err
+	}
+
+	bytesNew := strings.ReplaceAll(string(bytes), "\"VerifiablePresentation\"", `["VerifiablePresentation"]`)
+
+	vpTokenJWS, err := signToken(bytesNew, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms, e.walletSignType)
 	if err != nil {
 		return "", fmt.Errorf("sign vp_token: %w", err)
 	}
 
-	return fmt.Sprintf("id_token=%s&vp_token=%s&state=%s", idTokenJWS, vpTokenJWS, e.requestObject.State), nil
+	data := url.Values{}
+	data.Set("id_token", idTokenJWS)
+	data.Set("vp_token", vpTokenJWS)
+	data.Set("state", e.requestObject.State)
+
+	return data.Encode(), nil
 }
 
 func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
