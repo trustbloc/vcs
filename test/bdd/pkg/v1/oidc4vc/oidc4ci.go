@@ -59,7 +59,7 @@ func (s *Steps) registerPublicClient() error {
 	// for now, oauth clients are imported into vcs from the file (./fixtures/oauth-clients/clients.json)
 	s.oauthClient = &oauth2.Config{
 		ClientID:    "oidc4vc_client",
-		RedirectURL: "https://client.example.com/oauth/redirect",
+		RedirectURL: "http://127.0.0.1/callback",
 		Scopes:      []string{"openid", "profile"},
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   vcsAuthorizeEndpoint,

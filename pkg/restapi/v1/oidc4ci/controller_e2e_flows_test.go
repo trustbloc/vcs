@@ -208,7 +208,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	fositeStore.Clients["oidc4vc_client"] = &fosite.DefaultClient{
 		ID:            "oidc4vc_client",
 		Secret:        []byte(`$2a$10$IxMdI6d.LIRZPpSfEwNoeu4rY3FhDREsxFJXikcgdRRAStxUlsuEO`), // = "foobar"
-		RedirectURIs:  []string{"https://client.example.com/oauth/redirect"},
+		RedirectURIs:  []string{"http://127.0.0.1/callback"},
 		ResponseTypes: []string{"code"},
 		GrantTypes:    []string{"authorization_code"},
 		Scopes:        []string{"openid", "profile"},
