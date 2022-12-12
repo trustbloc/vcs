@@ -1,7 +1,7 @@
 [
   {
     "id": "oidc4vc_client",
-    "redirect_uris": ["https://client.example.com/oauth/redirect"],
+    "redirect_uris": ["http://127.0.0.1/callback"],
     "grant_types": ["authorization_code"],
     "response_types": ["code","token"],
     "scopes": ["openid","profile"],
