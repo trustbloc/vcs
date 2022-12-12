@@ -86,13 +86,15 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 
 	var statusID *StatusID
 
-	statusID, err = s.vcStatusManager.CreateStatusID(profile.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to add credential status: %w", err)
-	}
+	if !profile.VCConfig.Status.Disable {
+		statusID, err = s.vcStatusManager.CreateStatusID(profile.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add credential status: %w", err)
+		}
 
-	credential.Context = append(credential.Context, statusID.Context)
-	credential.Status = statusID.VCStatus
+		credential.Context = append(credential.Context, statusID.Context)
+		credential.Status = statusID.VCStatus
+	}
 
 	// update context
 	vcutil.UpdateSignatureTypeContext(credential, profile.VCConfig.SigningAlgorithm)
