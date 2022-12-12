@@ -387,14 +387,14 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 		return nil, err
 	}
 
-	logger.Debug("CheckAuthorizationResponse id_token verified", logfields.WithIDToken(authResp.IDToken))
+	logger.Info("CheckAuthorizationResponse id_token verified", logfields.WithIDToken(authResp.IDToken))
 
 	vpTokenClaims, signer, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debug("CheckAuthorizationResponse vp_token verified", logfields.WithVPToken(authResp.VPToken))
+	logger.Info("CheckAuthorizationResponse vp_token verified", logfields.WithVPToken(authResp.VPToken))
 
 	if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
@@ -502,14 +502,14 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
+	logger.Info("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
 
 	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse vp_token decoded", logfields.WithVPToken(res.VPToken))
+	logger.Info("AuthorizationResponse vp_token decoded", logfields.WithVPToken(res.VPToken))
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
