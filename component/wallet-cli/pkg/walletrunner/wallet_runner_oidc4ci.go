@@ -296,7 +296,7 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 
 	didKeyID := s.vcProviderConf.WalletParams.DidKeyID
 
-	kmsSigner, err := signer.NewKMSSigner(km, cr, didKeyID, "ES384", nil)
+	kmsSigner, err := signer.NewKMSSigner(km, cr, didKeyID, s.vcProviderConf.WalletParams.SignType, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create kms signer: %w", err)
 	}
@@ -307,7 +307,8 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 		Nonce:    s.token.Extra("c_nonce").(string),
 	}
 
-	signedJWT, err := jwt.NewSigned(claims, nil, NewJWSSigner(didKeyID, "ES384", kmsSigner))
+	signedJWT, err := jwt.NewSigned(claims, nil,
+		NewJWSSigner(didKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
 	if err != nil {
 		return nil, fmt.Errorf("create signed jwt: %w", err)
 	}

@@ -17,6 +17,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -102,6 +106,7 @@ type VPFlowExecutor struct {
 	walletToken          string
 	walletDidID          string
 	walletDidKeyID       string
+	walletSignType       vcs.SignatureType
 	requestObject        *RequestObject
 	requestPresentation  *verifiable.Presentation
 	skipSchemaValidation bool
@@ -115,6 +120,7 @@ func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
 		walletToken:          s.vcProviderConf.WalletParams.Token,
 		walletDidID:          s.vcProviderConf.WalletParams.DidID,
 		walletDidKeyID:       s.vcProviderConf.WalletParams.DidKeyID,
+		walletSignType:       s.vcProviderConf.WalletParams.SignType,
 		skipSchemaValidation: skipSchemaValidation,
 	}
 }
@@ -243,6 +249,17 @@ func (e *VPFlowExecutor) QueryCredentialFromWallet() error {
 		return fmt.Errorf("query vc using presentation definition: %w", err)
 	}
 
+	vps[0].Context = []string{"https://www.w3.org/2018/credentials/v1"}
+	vps[0].Type = []string{"VerifiablePresentation"}
+	vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].Format = "jwt_vp"
+	vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].Path = "$"
+	vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].PathNested =
+		&presexch.InputDescriptorMapping{
+			ID:     vps[0].CustomFields["presentation_submission"].(*presexch.PresentationSubmission).DescriptorMap[0].ID,
+			Format: "jwt_vc",
+			Path:   "$.verifiableCredential[0]",
+		}
+
 	e.requestPresentation = vps[0]
 
 	return nil
@@ -259,23 +276,32 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
 		Iss:   "https://self-issued.me/v2/openid-vc",
+		Aud:   e.walletDidID,
+		Sub:   e.walletDidID,
+		Nbf:   time.Now().Unix(),
+		Iat:   time.Now().Unix(),
+		Jti:   uuid.NewString(),
 	}
 
-	e.requestPresentation.CustomFields["presentation_submission"] = nil
+	delete(e.requestPresentation.CustomFields, "presentation_submission")
 
 	vpToken := VPTokenClaims{
 		VP:    e.requestPresentation,
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
 		Iss:   e.walletDidID,
+		Aud:   e.walletDidID,
+		Nbf:   time.Now().Unix(),
+		Iat:   time.Now().Unix(),
+		Jti:   uuid.NewString(),
 	}
 
-	idTokenJWS, err := signToken(idToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
+	idTokenJWS, err := signToken(idToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms, e.walletSignType)
 	if err != nil {
 		return "", fmt.Errorf("sign id_token: %w", err)
 	}
 
-	vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
+	vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms, e.walletSignType)
 	if err != nil {
 		return "", fmt.Errorf("sign vp_token: %w", err)
 	}
@@ -284,14 +310,15 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 }
 
 func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
-	km kms.KeyManager) (string, error) {
+	km kms.KeyManager, signType vcs.SignatureType) (string, error) {
 
-	kmsSigner, err := signer.NewKMSSigner(km, crpt, didKeyID, "ES384", nil)
+	kmsSigner, err := signer.NewKMSSigner(km, crpt, didKeyID, signType, nil)
 	if err != nil {
 		return "", fmt.Errorf("create kms signer: %w", err)
 	}
 
-	token, err := jwt.NewSigned(claims, nil, NewJWSSigner(didKeyID, "ES384", kmsSigner))
+	token, err := jwt.NewSigned(claims, map[string]interface{}{"typ": "JWT"}, NewJWSSigner(didKeyID,
+		string(signType), kmsSigner))
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)
 	}
@@ -305,6 +332,8 @@ func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 }
 
 func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) error {
+	log.Printf("auth req: %s\n", responseBody)
+
 	req, err := http.NewRequest(http.MethodPost, e.requestObject.RedirectURI, bytes.NewBuffer([]byte(responseBody)))
 	if err != nil {
 		return err

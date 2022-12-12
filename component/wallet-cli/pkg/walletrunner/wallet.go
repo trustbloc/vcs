@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
@@ -103,6 +105,15 @@ func (s *Service) CreateWallet() error {
 	} else {
 		s.vcProviderConf.WalletParams.DidID = s.vcProviderConf.WalletDidID
 		s.vcProviderConf.WalletParams.DidKeyID = s.vcProviderConf.WalletDidKeyID
+	}
+
+	switch s.vcProviderConf.DidKeyType {
+	case "ED25519":
+		s.vcProviderConf.WalletParams.SignType = vcs.EdDSA
+	case "ECDSAP256DER":
+		s.vcProviderConf.WalletParams.SignType = vcs.ES256
+	case "ECDSAP384DER":
+		s.vcProviderConf.WalletParams.SignType = vcs.ES384
 	}
 
 	for i := 1; i <= vdrResolveMaxRetry; i++ {
