@@ -8,7 +8,6 @@ package walletrunner
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -38,11 +37,11 @@ func (s *Service) CreateWallet() error {
 	shouldCreateWallet := s.vcProviderConf.WalletUserId == ""
 
 	if shouldCreateWallet {
-		log.Printf("Creating wallet\n\n")
+		s.print("Creating wallet")
 		s.vcProviderConf.WalletParams.UserID = "testUserID" + uuid.NewString()
 		s.vcProviderConf.WalletParams.Passphrase = "passphrase122334"
 	} else {
-		log.Printf("Using existing wallet\n\n")
+		s.print("Using existing wallet")
 		s.vcProviderConf.WalletParams.UserID = s.vcProviderConf.WalletUserId
 		s.vcProviderConf.WalletParams.Passphrase = s.vcProviderConf.WalletPassPhrase
 	}
@@ -119,8 +118,8 @@ func (s *Service) CreateWallet() error {
 	if storageType == "" {
 		storageType = "in-memory"
 	}
-	fmt.Printf("\tStorage: %s\n", storageType)
 
+	fmt.Printf("\tStorage: %s\n", storageType)
 	fmt.Printf("\tWallet UserID: [%s]\n", s.vcProviderConf.WalletParams.UserID)
 	fmt.Printf("\tWallet DID: [%s]\n", s.vcProviderConf.WalletParams.DidID)
 	fmt.Printf("\tWallet DID KeyID: [%s]\n\n", s.vcProviderConf.WalletParams.DidKeyID)

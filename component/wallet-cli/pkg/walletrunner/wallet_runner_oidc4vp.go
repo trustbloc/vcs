@@ -35,7 +35,6 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 	log.Println("Start OIDC4VP flow")
 	log.Println("AuthorizationRequest:", authorizationRequest)
 
-	log.Println("Creating wallet")
 	err := s.CreateWallet()
 	if err != nil {
 		return fmt.Errorf("failed to create wallet: %w", err)
