@@ -80,7 +80,8 @@ type VCConfig struct {
 
 // StatusConfig represents the VC status configuration.
 type StatusConfig struct {
-	Type vc.StatusType `json:"type"`
+	Type    vc.StatusType `json:"type"`
+	Disable bool          `json:"disable"`
 }
 
 // Verifier profile.
