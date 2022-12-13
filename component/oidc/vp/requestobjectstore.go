@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package vp
 
 import (
+	"context"
 	"net/url"
 	"strings"
 
@@ -17,9 +18,9 @@ import (
 )
 
 type requestObjectStoreRepository interface {
-	Create(request requestobject.RequestObject) (*requestobject.RequestObject, error)
-	Find(id string) (*requestobject.RequestObject, error)
-	Delete(id string) error
+	Create(ctx context.Context, request requestobject.RequestObject) (*requestobject.RequestObject, error)
+	Find(ctx context.Context, id string) (*requestobject.RequestObject, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type eventService interface {
@@ -45,8 +46,12 @@ func NewRequestObjectStore(
 	}
 }
 
-func (s *RequestObjectStore) Publish(requestObject string, accessRequestObjectEvent *spi.Event) (string, error) {
-	resp, err := s.repo.Create(requestobject.RequestObject{
+func (s *RequestObjectStore) Publish(
+	ctx context.Context,
+	requestObject string,
+	accessRequestObjectEvent *spi.Event,
+) (string, error) {
+	resp, err := s.repo.Create(ctx, requestobject.RequestObject{
 		Content:                  requestObject,
 		AccessRequestObjectEvent: accessRequestObjectEvent,
 	})
@@ -58,15 +63,18 @@ func (s *RequestObjectStore) Publish(requestObject string, accessRequestObjectEv
 	return url.JoinPath(s.selfURI, resp.ID)
 }
 
-func (s *RequestObjectStore) Remove(id string) error {
+func (s *RequestObjectStore) Remove(
+	ctx context.Context,
+	id string,
+) error {
 	splitResult := strings.Split(id, "/")
 	lastSegment := splitResult[len(splitResult)-1]
 
-	return s.repo.Delete(lastSegment)
+	return s.repo.Delete(ctx, lastSegment)
 }
 
-func (s *RequestObjectStore) Get(id string) (*requestobject.RequestObject, error) {
-	result, err := s.repo.Find(id)
+func (s *RequestObjectStore) Get(ctx context.Context, id string) (*requestobject.RequestObject, error) {
+	result, err := s.repo.Find(ctx, id)
 	if err != nil {
 		return nil, err
 	}

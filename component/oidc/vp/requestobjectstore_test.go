@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,7 +36,7 @@ func TestRequestObjectStore(t *testing.T) {
 		randomID := "2135321"
 
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
-		repo.EXPECT().Create(requestobject.RequestObject{
+		repo.EXPECT().Create(context.TODO(), requestobject.RequestObject{
 			Content:                  strData,
 			AccessRequestObjectEvent: &spi.Event{},
 		}).Return(&requestobject.RequestObject{
@@ -47,7 +48,7 @@ func TestRequestObjectStore(t *testing.T) {
 
 		store := NewRequestObjectStore(repo, eventSvc, uri)
 
-		finalURI, err := store.Publish(string(dataBytes), &spi.Event{})
+		finalURI, err := store.Publish(context.TODO(), string(dataBytes), &spi.Event{})
 
 		assert.NoError(t, err)
 
@@ -58,13 +59,13 @@ func TestRequestObjectStore(t *testing.T) {
 		errorStr := "unexpected error"
 
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
-		repo.EXPECT().Create(gomock.Any()).Return(nil, errors.New(errorStr))
+		repo.EXPECT().Create(gomock.Any(), gomock.Any()).Return(nil, errors.New(errorStr))
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
 
 		store := NewRequestObjectStore(repo, eventSvc, uri)
 
-		finalURI, err := store.Publish(string(dataBytes), &spi.Event{})
+		finalURI, err := store.Publish(context.TODO(), string(dataBytes), &spi.Event{})
 		assert.Empty(t, finalURI)
 		assert.ErrorContains(t, err, errorStr)
 	})
@@ -72,7 +73,7 @@ func TestRequestObjectStore(t *testing.T) {
 	t.Run("Get", func(t *testing.T) {
 		id := "21342315231w"
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
-		repo.EXPECT().Find(gomock.Any()).Return(&requestobject.RequestObject{
+		repo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(&requestobject.RequestObject{
 			ID: id,
 		}, nil)
 
@@ -81,7 +82,7 @@ func TestRequestObjectStore(t *testing.T) {
 
 		store := NewRequestObjectStore(repo, eventSvc, uri)
 
-		resp, err := store.Get(id)
+		resp, err := store.Get(context.TODO(), id)
 
 		assert.NoError(t, err)
 		assert.Equal(t, id, resp.ID)
@@ -90,13 +91,13 @@ func TestRequestObjectStore(t *testing.T) {
 	t.Run("Get store failed", func(t *testing.T) {
 		id := "21342315231w"
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
-		repo.EXPECT().Find(gomock.Any()).Return(nil, errors.New("store failed"))
+		repo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(nil, errors.New("store failed"))
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
 
 		store := NewRequestObjectStore(repo, eventSvc, uri)
 
-		_, err := store.Get(id)
+		_, err := store.Get(context.TODO(), id)
 
 		assert.Error(t, err)
 	})
@@ -104,7 +105,7 @@ func TestRequestObjectStore(t *testing.T) {
 	t.Run("Get publish event failed", func(t *testing.T) {
 		id := "21342315231w"
 		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
-		repo.EXPECT().Find(gomock.Any()).Return(&requestobject.RequestObject{
+		repo.EXPECT().Find(gomock.Any(), gomock.Any()).Return(&requestobject.RequestObject{
 			ID: id,
 		}, nil)
 
@@ -113,7 +114,7 @@ func TestRequestObjectStore(t *testing.T) {
 
 		store := NewRequestObjectStore(repo, eventSvc, uri)
 
-		_, err := store.Get(id)
+		_, err := store.Get(context.TODO(), id)
 
 		assert.Error(t, err)
 	})
@@ -141,13 +142,13 @@ func TestDelete(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.path, func(t *testing.T) {
 			repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
-			repo.EXPECT().Delete(testCase.expectedID).Return(nil)
+			repo.EXPECT().Delete(gomock.Any(), testCase.expectedID).Return(nil)
 
 			eventSvc := NewMockEventService(gomock.NewController(t))
 
 			store := NewRequestObjectStore(repo, eventSvc, "")
 
-			assert.NoError(t, store.Remove(testCase.path))
+			assert.NoError(t, store.Remove(context.TODO(), testCase.path))
 		})
 	}
 }

@@ -10,6 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifier
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -97,8 +98,12 @@ type verifyPresentationSvc interface {
 }
 
 type oidc4VPService interface {
-	InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
-		profile *profileapi.Verifier) (*oidc4vp.InteractionInfo, error)
+	InitiateOidcInteraction(
+		ctx context.Context,
+		presentationDefinition *presexch.PresentationDefinition,
+		purpose string,
+		profile *profileapi.Verifier,
+	) (*oidc4vp.InteractionInfo, error)
 
 	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, token *oidc4vp.ProcessedVPToken) error
 
@@ -270,11 +275,14 @@ func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string)
 		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
 	}
 
-	return util.WriteOutput(ctx)(c.initiateOidcInteraction(&body, profile))
+	return util.WriteOutput(ctx)(c.initiateOidcInteraction(ctx.Request().Context(), &body, profile))
 }
 
-func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
-	profile *profileapi.Verifier) (*InitiateOIDC4VPResponse, error) {
+func (c *Controller) initiateOidcInteraction(
+	ctx context.Context,
+	data *InitiateOIDC4VPData,
+	profile *profileapi.Verifier,
+) (*InitiateOIDC4VPResponse, error) {
 	if !profile.Active {
 		return nil, resterr.NewValidationError(resterr.ConditionNotMet, "profile.Active",
 			errors.New("profile should be active"))
@@ -292,7 +300,7 @@ func (c *Controller) initiateOidcInteraction(data *InitiateOIDC4VPData,
 
 	logger.Debug("InitiateOidcInteraction pd find", logfields.WithPresDefID(pd.ID))
 
-	result, err := c.oidc4VPService.InitiateOidcInteraction(pd, strPtrToStr(data.Purpose), profile)
+	result, err := c.oidc4VPService.InitiateOidcInteraction(ctx, pd, strPtrToStr(data.Purpose), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
 	}

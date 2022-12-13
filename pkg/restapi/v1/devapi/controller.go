@@ -34,7 +34,7 @@ type didConfigService interface {
 }
 
 type requestObjectStoreService interface {
-	Get(id string) (*requestobject.RequestObject, error)
+	Get(ctx context.Context, id string) (*requestobject.RequestObject, error)
 }
 
 type Config struct {
@@ -68,7 +68,7 @@ func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID s
 // GET /request-object/{uuid}.
 func (c *Controller) RequestObjectByUuid(ctx echo.Context, uuid string) error { //nolint:stylecheck,revive
 	logger.Infof("RequestObjectByUuid begin %s", uuid)
-	record, err := c.requestObjectStoreService.Get(uuid)
+	record, err := c.requestObjectStoreService.Get(ctx.Request().Context(), uuid)
 
 	if errors.Is(err, requestobject.ErrDataNotFound) {
 		ctx.Response().Status = 404

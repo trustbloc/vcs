@@ -75,7 +75,7 @@ func TestObjectStore(t *testing.T) {
 	}()
 
 	t.Run("Create Object", func(t *testing.T) {
-		resp, err := store.Create(requestobject.RequestObject{
+		resp, err := store.Create(context.TODO(), requestobject.RequestObject{
 			Content: "random-content",
 		})
 
@@ -98,14 +98,14 @@ func TestObjectStore(t *testing.T) {
 			Data:            eventData,
 		}
 
-		resp, err := store.Create(requestobject.RequestObject{
+		resp, err := store.Create(context.TODO(), requestobject.RequestObject{
 			Content:                  u,
 			AccessRequestObjectEvent: &expectedEvent,
 		})
 
 		assert.NoError(t, err)
 
-		resp2, err2 := store.Find(resp.ID)
+		resp2, err2 := store.Find(context.TODO(), resp.ID)
 
 		assert.NoError(t, err2)
 		assert.Equal(t, u, resp2.Content)
@@ -117,14 +117,14 @@ func TestObjectStore(t *testing.T) {
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
-		resp2, err2 := store.Find("63451f2358bde34a13b5d95b")
+		resp2, err2 := store.Find(context.TODO(), "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp2)
 		assert.ErrorIs(t, err2, requestobject.ErrDataNotFound)
 	})
 
 	t.Run("Create Invalid key mapping", func(t *testing.T) {
-		resp2, err2 := store.Find("123")
+		resp2, err2 := store.Find(context.TODO(), "123")
 
 		assert.Nil(t, resp2)
 		assert.ErrorContains(t, err2, "the provided hex string is not a valid ObjectID")
@@ -133,29 +133,29 @@ func TestObjectStore(t *testing.T) {
 	t.Run("Delete existing document", func(t *testing.T) {
 		u := uuid.New()
 
-		resp, err := store.Create(requestobject.RequestObject{
+		resp, err := store.Create(context.TODO(), requestobject.RequestObject{
 			Content: u,
 		})
 
 		assert.NoError(t, err)
 
-		err2 := store.Delete(resp.ID)
+		err2 := store.Delete(context.TODO(), resp.ID)
 		assert.NoError(t, err2)
 
-		resp2, err2 := store.Find(resp.ID)
+		resp2, err2 := store.Find(context.TODO(), resp.ID)
 
 		assert.Nil(t, resp2)
 		assert.ErrorIs(t, err2, requestobject.ErrDataNotFound)
 	})
 
 	t.Run("Delete non-existing document", func(t *testing.T) {
-		err2 := store.Delete("63451f2358bde34a13b5d95b")
+		err2 := store.Delete(context.TODO(), "63451f2358bde34a13b5d95b")
 
 		assert.NoError(t, err2)
 	})
 
 	t.Run("Delete Invalid key mapping", func(t *testing.T) {
-		err2 := store.Delete("123")
+		err2 := store.Delete(context.TODO(), "123")
 
 		assert.ErrorContains(t, err2, "the provided hex string is not a valid ObjectID")
 	})
@@ -179,19 +179,23 @@ func TestTimeouts(t *testing.T) {
 	}()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		resp, err := store.Create(requestobject.RequestObject{
+		ctx, cancel := context.WithCancel(context.TODO())
+		cancel()
+		resp, err := store.Create(ctx, requestobject.RequestObject{
 			Content: "random-content",
 		})
 
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "context deadline exceeded")
+		assert.ErrorContains(t, err, "context canceled")
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
-		resp, err := store.Find("63451f2358bde34a13b5d95b")
+		ctx, cancel := context.WithCancel(context.TODO())
+		cancel()
+		resp, err := store.Find(ctx, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "context deadline exceeded")
+		assert.ErrorContains(t, err, "context canceled")
 	})
 }
 
