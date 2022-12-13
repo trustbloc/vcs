@@ -14,8 +14,12 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -30,6 +34,8 @@ import (
 
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/ld"
+	"github.com/trustbloc/vcs/pkg/service/requestobject"
+	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
@@ -372,11 +378,22 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, err
 	}
 
-	requestObjStore := requestobjectstore.NewStore(mongodbClient)
+	requestObjStore, err := createRequestObjectStore(
+		conf.StartupParameters.requestObjectRepositoryType,
+		conf.StartupParameters.requestObjectRepositoryS3Region,
+		conf.StartupParameters.requestObjectRepositoryS3Bucket,
+		mongodbClient,
+	)
+	if err != nil {
+		return nil, err
+	}
+
 	//TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.hostURLExternal + "/request-object/"
 	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
+
 	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc, requestObjStoreEndpoint)
+
 	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 eventSvc,
 		TransactionManager:       oidc4vpTxManager,
@@ -431,6 +448,31 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	return e, nil
+}
+
+type requestObjectStore interface {
+	Create(ctx context.Context, request requestobject.RequestObject) (*requestobject.RequestObject, error)
+	Find(ctx context.Context, id string) (*requestobject.RequestObject, error)
+	Delete(ctx context.Context, id string) error
+}
+
+func createRequestObjectStore(
+	repoType string,
+	s3Region string,
+	s3Bucket string,
+	mongoDbClient *mongodb.Client,
+) (requestObjectStore, error) {
+	switch strings.ToLower(repoType) {
+	case "s3":
+		ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+		if err != nil {
+			return nil, err
+		}
+
+		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region), nil
+	default:
+		return requestobjectstore.NewStore(mongoDbClient), nil
+	}
 }
 
 func getHTTPClient(tlsConfig *tls.Config) *http.Client {

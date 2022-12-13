@@ -213,6 +213,9 @@ type startupParameters struct {
 	metricsProviderName             string
 	prometheusMetricsProviderParams *prometheusMetricsProviderParams
 	apiGatewayURL                   string
+	requestObjectRepositoryType     string
+	requestObjectRepositoryS3Bucket string
+	requestObjectRepositoryS3Region string
 }
 
 type prometheusMetricsProviderParams struct {
