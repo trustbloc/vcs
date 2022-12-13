@@ -92,6 +92,10 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 		}
 	}
 	if checks.Status {
+		if credential.Status == nil {
+			return nil, fmt.Errorf("vc missing status list field")
+		}
+
 		err := s.ValidateVCStatus(credential.Status, credential.Issuer.ID)
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
