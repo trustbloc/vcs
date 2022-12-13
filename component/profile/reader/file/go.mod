@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/profile/reader/file
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/spf13/cobra v1.6.1
@@ -109,7 +109,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 // indirect
+	github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect

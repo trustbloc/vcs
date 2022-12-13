@@ -10,7 +10,7 @@
         "vcConfig": {
           "signingAlgorithm": "EcdsaSecp256k1Signature2019",
           "signatureRepresentation": 1,
-          "keyType": "ECDSASecp256k1IEEEP1363",
+          "keyType": "ECDSASecp256k1DER",
           "format": "ldp",
           "didMethod": "web",
           "status": {
@@ -76,7 +76,7 @@
         "vcConfig": {
           "signingAlgorithm": "ES256K",
           "signatureRepresentation": 1,
-          "keyType": "ECDSASecp256k1IEEEP1363",
+          "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
           "didMethod": "orb",
           "status": {
@@ -120,7 +120,7 @@
         "vcConfig": {
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 1,
-          "keyType": "ECDSASecp256k1IEEEP1363",
+          "keyType": "ECDSASecp256k1DER",
           "format": "ldp",
           "didMethod": "orb",
           "status": {
@@ -248,7 +248,7 @@
         "vcConfig": {
           "signingAlgorithm": "JsonWebSignature2020",
           "signatureRepresentation": 0,
-          "keyType": "ECDSASecp256k1IEEEP1363",
+          "keyType": "ECDSASecp256k1DER",
           "format": "jwt",
           "didMethod": "orb",
           "status": {
@@ -390,7 +390,7 @@
         },
         "oidcConfig": {
           "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
-          "keyType": "ECDSASecp256k1IEEEP1363",
+          "keyType": "ECDSASecp256k1DER",
           "didMethod": "orb"
         },
         "presentationDefinitions": [
@@ -482,7 +482,7 @@
         },
         "oidcConfig": {
           "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
-          "keyType": "ECDSASecp256k1IEEEP1363",
+          "keyType": "ECDSASecp256k1DER",
           "didMethod": "ion"
         },
         "presentationDefinitions": [

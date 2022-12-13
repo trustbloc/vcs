@@ -72,7 +72,6 @@ func TestCrypto_ValidateSignatureKeyType(t *testing.T) {
 			Ed25519Signature2018,
 			Ed25519Signature2020,
 			BbsBlsSignature2020,
-			EcdsaSecp256k1Signature2019,
 			EdDSA,
 			ES256,
 			ES384,

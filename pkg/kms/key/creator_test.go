@@ -57,7 +57,7 @@ func TestJWKKeyCreator(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to convert key to JWK")
 	})
 	t.Run("error parse p256k1", func(t *testing.T) {
-		_, _, err := key.JWKKeyCreator(kms.ECDSASecp256k1IEEEP1363)(&kmsMock{})
+		_, _, err := key.JWKKeyCreator(kms.ECDSASecp256k1DER)(&kmsMock{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "asn1: syntax error")
 	})
@@ -108,7 +108,7 @@ func TestCryptoKeyCreator(t *testing.T) {
 		require.Contains(t, err.Error(), "unsupported key type")
 	})
 	t.Run("error parse p256k1", func(t *testing.T) {
-		_, _, err := key.CryptoKeyCreator(kms.ECDSASecp256k1IEEEP1363)(&kmsMock{})
+		_, _, err := key.CryptoKeyCreator(kms.ECDSASecp256k1DER)(&kmsMock{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "asn1: syntax error")
 	})
