@@ -54,7 +54,7 @@ func JWKKeyCreator(kt kms.KeyType) func(keyManager) (string, *jwk.JWK, error) {
 				Kty: "OKP",
 				Crv: "Ed25519", // TODO where is the constant for this?
 			}
-		case kms.ECDSASecp256k1IEEEP1363:
+		case kms.ECDSASecp256k1DER:
 			var pki publicKeyInfo
 			if rest, err := asn1.Unmarshal(keyBytes, &pki); err != nil {
 				return "", nil, err
@@ -116,7 +116,7 @@ func CryptoKeyCreator(kt kms.KeyType) func(keyManager) (string, interface{}, err
 			}
 		case kms.ED25519Type:
 			pubKey = ed25519.PublicKey(keyBytes)
-		case kms.ECDSASecp256k1IEEEP1363:
+		case kms.ECDSASecp256k1DER:
 			var pki publicKeyInfo
 			if rest, err := asn1.Unmarshal(keyBytes, &pki); err != nil {
 				return "", nil, err

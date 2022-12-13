@@ -530,8 +530,8 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/huandu/xstrings v1.0.0/go.mod h1:4qWG/gcEcfX4z/mBDHJ++3ReCw9ibxbsNJbcucJdbSo=
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10 h1:LHjSuIKIGhD3imKm6u8V6XUyqTWzGe5QNozyLmPellk=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10/go.mod h1:5lp5+NPjRngsjFLYYGg5mtkvw6I4Mr7CKz+wHYxROk0=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd h1:WDdt/f3lpmPPy1arhHKPYiKb+sUpB86AQwTxascUTZk=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd/go.mod h1:5lp5+NPjRngsjFLYYGg5mtkvw6I4Mr7CKz+wHYxROk0=
 github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1 h1:J17kEzMu0cA2xsgC0VcZiKu9ivV0/WMMmeCW7UrfQ1Y=
 github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1/go.mod h1:q8qjsQpYo7AYG0pqQg1zgEoIVc+Hrpf5S0WciiwPDQA=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 h1:8ja6Vnp5EUsh8Oe4mI8ZNwpJtiM7c87X/b9sO/hEFiY=
@@ -1006,8 +1006,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20200427203606-3cfed13b9966/go.mod h1
 github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce/go.mod h1:o8v6yHRoik09Xen7gje4m9ERNah1d1PPsVq1VEx9vE4=
 github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811 h1:0e1d1w9o662+e7ZnJvRYJH8yblcBXngme8qbsjTvhQc=
 github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811/go.mod h1:o/v7C1z6d/5UrjaC6GAUc1hk0XVuE3M4tpyvsMMUw5k=
-github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1 h1:u617zM5QPsAawgQq8n797jj1PTBIp+7fHbmKjd/FeQM=
-github.com/trustbloc/kms v0.1.9-0.20221024131747-f895f91207f1/go.mod h1:Vv+mv35QeUo5f+Llm/gsp6x4FgLkLH9dTp4dGK0+aQU=
+github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b h1:vZPXsVg1xZHv7jwwxZIbnDZKx/Q4yJbXkniaJH7uzQE=
+github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b/go.mod h1:JDlEYJtNQUBrKvPBrfgZLMk8r2LJz8LvtHmS6Jb1P6c=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 h1:Mzg9wvEoUIWPoI/GHz3YlVbd4nKWeSPGc6+3l95eOZU=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42/go.mod h1:HRaXVV1caceumbDBwLO3ByiCcAc18KwrNvZ7JQBvDIQ=
 github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a h1:hTNcFcgr6cGzQAqQMOzenV+ZRp3dqTjaq2KQzvjqRXM=

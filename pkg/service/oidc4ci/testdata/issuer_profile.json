@@ -7,7 +7,7 @@
   "vcConfig": {
     "signingAlgorithm": "JsonWebSignature2020",
     "signatureRepresentation": 0,
-    "keyType": "ECDSASecp256k1IEEEP1363",
+    "keyType": "ECDSASecp256k1DER",
     "format": "ldp",
     "didMethod": "orb"
   },

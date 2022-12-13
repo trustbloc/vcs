@@ -1061,7 +1061,7 @@ func TestOpenIDConfigurationController(t *testing.T) {
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
-			KeyType:   "ECDSASecp256k1IEEEP1363",
+			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
 			CredentialsSupported: []map[string]interface{}{
@@ -1096,7 +1096,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
-			KeyType:   "ECDSASecp256k1IEEEP1363",
+			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
 			CredentialsSupported: []map[string]interface{}{
@@ -1128,7 +1128,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 		assert.Len(t, result.CredentialSupported, 1)
 		assert.Equal(t, "VerifiedEmployee_JWT", result.CredentialSupported[0]["id"])
 		assert.Equal(t, []string{"orb"}, result.CredentialSupported[0]["cryptographic_binding_methods_supported"])
-		assert.Equal(t, []string{"ECDSASecp256k1IEEEP1363"}, result.CredentialSupported[0]["cryptographic_suites_supported"])
+		assert.Equal(t, []string{"ECDSASecp256k1DER"}, result.CredentialSupported[0]["cryptographic_suites_supported"])
 	})
 
 	t.Run("without /", func(t *testing.T) {
