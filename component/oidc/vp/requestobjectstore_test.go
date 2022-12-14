@@ -43,7 +43,7 @@ func TestRequestObjectStore(t *testing.T) {
 			ID:      randomID,
 			Content: strData,
 		}, nil)
-		repo.EXPECT().GetResourceUrl(randomID).Return("")
+		repo.EXPECT().GetResourceURL(randomID).Return("")
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
 
@@ -67,7 +67,7 @@ func TestRequestObjectStore(t *testing.T) {
 			ID:      randomID,
 			Content: strData,
 		}, nil)
-		repo.EXPECT().GetResourceUrl(randomID).Return("https://awesome-url/resources/2135321")
+		repo.EXPECT().GetResourceURL(randomID).Return("https://awesome-url/resources/2135321")
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
 
