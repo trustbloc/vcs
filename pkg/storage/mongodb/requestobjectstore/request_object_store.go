@@ -126,7 +126,7 @@ func (p *Store) Delete(
 }
 
 // GetResourceURL should return an empty string in current implementation.
-// VCS service will build own url
+// VCS service will build own url.
 func (p *Store) GetResourceURL(_ string) string {
 	return ""
 }

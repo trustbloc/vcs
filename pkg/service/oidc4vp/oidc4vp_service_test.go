@@ -74,7 +74,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	}, "nonce1", nil)
 	requestObjectPublicStore := NewMockRequestObjectPublicStore(gomock.NewController(t))
 	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().DoAndReturn(func(token string, event *spi.Event) (string, error) {
+		AnyTimes().DoAndReturn(func(ctx context2.Context, token string, event *spi.Event) (string, error) {
 		return "someurl/abc", nil
 	})
 
@@ -137,7 +137,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			RedirectURL:              "test://redirect",
 		})
 
-		info, err := withError.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", correctProfile)
+		info, err := withError.InitiateOidcInteraction(
+			context2.TODO(),
+			&presexch.PresentationDefinition{},
+			"test",
+			correctProfile,
+		)
 
 		require.Contains(t, err.Error(), "create oidc tx")
 		require.Nil(t, info)
@@ -156,7 +161,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			RedirectURL:              "test://redirect",
 		})
 
-		info, err := withError.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", correctProfile)
+		info, err := withError.InitiateOidcInteraction(
+			context2.TODO(),
+			&presexch.PresentationDefinition{},
+			"test",
+			correctProfile,
+		)
 
 		require.Contains(t, err.Error(), "publish request object")
 		require.Nil(t, info)
@@ -174,7 +184,12 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			RedirectURL:              "test://redirect",
 		})
 
-		info, err := withError.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", correctProfile)
+		info, err := withError.InitiateOidcInteraction(
+			context2.TODO(),
+			&presexch.PresentationDefinition{},
+			"test",
+			correctProfile,
+		)
 
 		require.Contains(t, err.Error(), "get key manager")
 		require.Nil(t, info)
