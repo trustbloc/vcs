@@ -8,6 +8,7 @@ package verifier
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	_ "embed"
@@ -1281,7 +1282,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 	}, nil)
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any()).
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -1306,7 +1307,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any()).
+	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -1316,7 +1317,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			OIDCVPService: oidc4VPSvc,
 		})
 
-		result, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+		result, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
 				OrganizationID: orgID,
 				Active:         true,
@@ -1338,7 +1339,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			OIDCVPService: oidc4VPSvc,
 		})
 
-		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
 				OrganizationID: orgID,
 				Active:         false,
@@ -1356,7 +1357,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			OIDCVPService: oidc4VPSvc,
 		})
 
-		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
 				OrganizationID: orgID,
 				Active:         true,
@@ -1376,7 +1377,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			OIDCVPService: oidc4VPSvc,
 		})
 
-		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
 				OrganizationID: orgID,
 				Active:         true,
@@ -1389,7 +1390,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 	t.Run("oidc4VPService.InitiateOidcInteraction failed", func(t *testing.T) {
 		oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any()).
+		oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return(nil, errors.New("fail"))
 
 		controller := NewController(&Config{
@@ -1398,7 +1399,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			OIDCVPService: oidc4VPSvc,
 		})
 
-		_, err := controller.initiateOidcInteraction(&InitiateOIDC4VPData{},
+		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
 				OrganizationID: orgID,
 				Active:         true,

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package requestobjectstore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -40,10 +41,10 @@ func NewStore(mongoClient *mongodb.Client) *Store {
 }
 
 // Create creates transaction document in a database.
-func (p *Store) Create(request requestobject.RequestObject) (*requestobject.RequestObject, error) {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
-
+func (p *Store) Create(
+	ctx context.Context,
+	request requestobject.RequestObject,
+) (*requestobject.RequestObject, error) {
 	collection := p.mongoClient.Database().Collection(txCollection)
 
 	event, err := mongodb.StructureToMap(request.AccessRequestObjectEvent)
@@ -57,7 +58,7 @@ func (p *Store) Create(request requestobject.RequestObject) (*requestobject.Requ
 		AccessRequestObjectEvent: event,
 	}
 
-	result, err := collection.InsertOne(ctxWithTimeout, obj)
+	result, err := collection.InsertOne(ctx, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +71,10 @@ func (p *Store) Create(request requestobject.RequestObject) (*requestobject.Requ
 }
 
 // Find profile by give id.
-func (p *Store) Find(id string) (*requestobject.RequestObject, error) {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
-
+func (p *Store) Find(
+	ctx context.Context,
+	id string,
+) (*requestobject.RequestObject, error) {
 	collection := p.mongoClient.Database().Collection(txCollection)
 
 	txDoc := &mongoDocument{}
@@ -83,7 +84,7 @@ func (p *Store) Find(id string) (*requestobject.RequestObject, error) {
 		return nil, keyErr
 	}
 
-	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": key}).Decode(txDoc)
+	err := collection.FindOne(ctx, bson.M{"_id": key}).Decode(txDoc)
 
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, requestobject.ErrDataNotFound
@@ -107,10 +108,10 @@ func (p *Store) Find(id string) (*requestobject.RequestObject, error) {
 	}, nil
 }
 
-func (p *Store) Delete(id string) error {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
-
+func (p *Store) Delete(
+	ctx context.Context,
+	id string,
+) error {
 	key, keyErr := primitive.ObjectIDFromHex(id)
 
 	if keyErr != nil {
@@ -119,7 +120,13 @@ func (p *Store) Delete(id string) error {
 
 	collection := p.mongoClient.Database().Collection(txCollection)
 
-	_, err := collection.DeleteOne(ctxWithTimeout, bson.M{"_id": key})
+	_, err := collection.DeleteOne(ctx, bson.M{"_id": key})
 
 	return err
+}
+
+// GetResourceURL should return an empty string in current implementation.
+// VCS service will build own url.
+func (p *Store) GetResourceURL(_ string) string {
+	return ""
 }

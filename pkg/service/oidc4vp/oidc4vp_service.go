@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -53,7 +54,7 @@ type transactionManager interface {
 }
 
 type requestObjectPublicStore interface {
-	Publish(requestObject string, accessRequestObjectEvent *spi.Event) (string, error)
+	Publish(ctx context.Context, requestObject string, accessRequestObjectEvent *spi.Event) (string, error)
 }
 
 type kmsRegistry interface {
@@ -221,8 +222,12 @@ func (s *Service) sendFailedEvent(tx *Transaction, profile *profileapi.Verifier,
 	logger.Debug("sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
 }
 
-func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.PresentationDefinition, purpose string,
-	profile *profileapi.Verifier) (*InteractionInfo, error) {
+func (s *Service) InitiateOidcInteraction(
+	ctx context.Context,
+	presentationDefinition *presexch.PresentationDefinition,
+	purpose string,
+	profile *profileapi.Verifier,
+) (*InteractionInfo, error) {
 	logger.Debug("InitiateOidcInteraction begin")
 
 	if profile.SigningDID == nil {
@@ -252,7 +257,7 @@ func (s *Service) InitiateOidcInteraction(presentationDefinition *presexch.Prese
 		return nil, err
 	}
 
-	requestURI, err := s.requestObjectPublicStore.Publish(token, accessRequestObjectEvent)
+	requestURI, err := s.requestObjectPublicStore.Publish(ctx, token, accessRequestObjectEvent)
 	if err != nil {
 		return nil, fmt.Errorf("fail publish request object: %w", err)
 	}

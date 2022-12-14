@@ -181,6 +181,18 @@ const (
 
 	databaseTypeMongoDBOption = "mongodb"
 
+	requestObjectRepositoryTypeFlagName  = "request-object-repository-type"
+	requestObjectRepositoryTypeEnvKey    = "REQUEST_OBJECT_REPOSITORY_TYPE"
+	requestObjectRepositoryTypeFlagUsage = "Repository type for request-object. Supported: mongodb,s3. Default: mongodb"
+
+	requestObjectRepositoryS3BucketFlagName  = "request-object-repository-s3-bucket"
+	requestObjectRepositoryS3BucketEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_BUCKET"
+	requestObjectRepositoryS3BucketFlagUsage = "request-object S3 Bucket"
+
+	requestObjectRepositoryS3RegionFlagName  = "request-object-repository-s3-region"
+	requestObjectRepositoryS3RegionEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_REGION"
+	requestObjectRepositoryS3RegionFlagUsage = "request-object S3 Region"
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -213,6 +225,9 @@ type startupParameters struct {
 	metricsProviderName             string
 	prometheusMetricsProviderParams *prometheusMetricsProviderParams
 	apiGatewayURL                   string
+	requestObjectRepositoryType     string
+	requestObjectRepositoryS3Bucket string
+	requestObjectRepositoryS3Region string
 }
 
 type prometheusMetricsProviderParams struct {
@@ -336,6 +351,22 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	requestObjectRepositoryType := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		requestObjectRepositoryTypeFlagName,
+		requestObjectRepositoryTypeEnvKey,
+	)
+	requestObjectRepositoryS3Bucket := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		requestObjectRepositoryS3BucketFlagName,
+		requestObjectRepositoryS3BucketEnvKey,
+	)
+	requestObjectRepositoryS3Region := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		requestObjectRepositoryS3RegionFlagName,
+		requestObjectRepositoryS3RegionEnvKey,
+	)
+
 	return &startupParameters{
 		hostURL:                         hostURL,
 		hostURLExternal:                 hostURLExternal,
@@ -356,6 +387,9 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		metricsProviderName:             metricsProviderName,
 		prometheusMetricsProviderParams: prometheusMetricsProviderParams,
 		apiGatewayURL:                   apiGatewayURL,
+		requestObjectRepositoryType:     requestObjectRepositoryType,
+		requestObjectRepositoryS3Bucket: requestObjectRepositoryS3Bucket,
+		requestObjectRepositoryS3Region: requestObjectRepositoryS3Region,
 	}, nil
 }
 
@@ -588,5 +622,10 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(metricsProviderFlagName, "", "", allowedMetricsProviderFlagUsage)
 	startCmd.Flags().StringP(promHttpUrlFlagName, "", "", allowedPromHttpUrlFlagNameUsage)
 	startCmd.Flags().StringP(oAuthClientsFilePathFlagName, "", "", oAuthClientsFilePathFlagUsage)
+
+	startCmd.Flags().String(requestObjectRepositoryTypeFlagName, "", requestObjectRepositoryTypeFlagUsage)
+	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
+	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
+
 	profilereader.AddFlags(startCmd)
 }
