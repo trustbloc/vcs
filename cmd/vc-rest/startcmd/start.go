@@ -454,6 +454,7 @@ type requestObjectStore interface {
 	Create(ctx context.Context, request requestobject.RequestObject) (*requestobject.RequestObject, error)
 	Find(ctx context.Context, id string) (*requestobject.RequestObject, error)
 	Delete(ctx context.Context, id string) error
+	GetResourceURL(id string) string
 }
 
 func createRequestObjectStore(

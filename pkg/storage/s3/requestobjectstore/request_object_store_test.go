@@ -1,3 +1,10 @@
+/*
+Copyright Avast Software. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+
 package requestobjectstore_test
 
 import (
@@ -132,4 +139,9 @@ func TestDelete(t *testing.T) {
 
 	resp := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
 	assert.NoError(t, resp.Delete(context.TODO(), "1234"))
+}
+
+func TestBuildUrl(t *testing.T) {
+	resp := requestobjectstore.NewStore(nil, "awesome-bucket", "us-west")
+	assert.Equal(t, "https://awesome-bucket.s3.us-west.amazonaws.com/1111", resp.GetResourceURL("1111"))
 }

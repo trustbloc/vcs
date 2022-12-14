@@ -21,6 +21,7 @@ type requestObjectStoreRepository interface {
 	Create(ctx context.Context, request requestobject.RequestObject) (*requestobject.RequestObject, error)
 	Find(ctx context.Context, id string) (*requestobject.RequestObject, error)
 	Delete(ctx context.Context, id string) error
+	GetResourceURL(key string) string
 }
 
 type eventService interface {
@@ -55,9 +56,13 @@ func (s *RequestObjectStore) Publish(
 		Content:                  requestObject,
 		AccessRequestObjectEvent: accessRequestObjectEvent,
 	})
-
 	if err != nil {
 		return "", err
+	}
+
+	resourceURI := s.repo.GetResourceURL(resp.ID)
+	if resourceURI != "" {
+		return resourceURI, nil
 	}
 
 	return url.JoinPath(s.selfURI, resp.ID)

@@ -6,13 +6,13 @@ SPDX-License-Identifier: Apache-2.0
 
 //go:generate mockgen -destination request_object_store_mocks_test.go -package requestobjectstore_test -source=request_object_store.go -mock_names s3Uploader=MockS3Uploader
 
-
 package requestobjectstore
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -122,7 +122,7 @@ func (p *Store) Delete(
 	return err
 }
 
-//func (p *Store) GetResourceUrl(key string) string {
-//	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-//		p.bucket, p.region, key)
-//}
+func (p *Store) GetResourceURL(key string) string {
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
+		p.bucket, p.region, key)
+}

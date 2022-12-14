@@ -199,6 +199,13 @@ func TestTimeouts(t *testing.T) {
 	})
 }
 
+func TestGetResourceUrl(t *testing.T) {
+	store := NewStore(nil)
+	assert.Equal(t, "", store.GetResourceURL("12345"))
+	assert.Equal(t, "", store.GetResourceURL(""))
+	assert.Equal(t, "", store.GetResourceURL("-1"))
+}
+
 func waitForMongoDBToBeUp() error {
 	return backoff.Retry(pingMongoDB, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
 }

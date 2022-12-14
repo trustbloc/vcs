@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp_test
 
 import (
+	context2 "context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -72,7 +73,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		PresentationDefinition: &presexch.PresentationDefinition{},
 	}, "nonce1", nil)
 	requestObjectPublicStore := NewMockRequestObjectPublicStore(gomock.NewController(t))
-	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any()).
+	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().DoAndReturn(func(token string, event *spi.Event) (string, error) {
 		return "someurl/abc", nil
 	})
@@ -105,7 +106,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	}
 
 	t.Run("Success", func(t *testing.T) {
-		info, err := s.InitiateOidcInteraction(&presexch.PresentationDefinition{
+		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{
 			ID: "test",
 		}, "test", correctProfile)
 
@@ -118,7 +119,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.SigningDID = nil
 
-		info, err := s.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", incorrectProfile)
+		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -136,7 +137,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			RedirectURL:              "test://redirect",
 		})
 
-		info, err := withError.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", correctProfile)
+		info, err := withError.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", correctProfile)
 
 		require.Contains(t, err.Error(), "create oidc tx")
 		require.Nil(t, info)
@@ -144,7 +145,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 	t.Run("publish request object failed", func(t *testing.T) {
 		requestObjectPublicStoreErr := NewMockRequestObjectPublicStore(gomock.NewController(t))
-		requestObjectPublicStoreErr.EXPECT().Publish(gomock.Any(), gomock.Any()).
+		requestObjectPublicStoreErr.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
 			AnyTimes().Return("", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
@@ -155,7 +156,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			RedirectURL:              "test://redirect",
 		})
 
-		info, err := withError.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", correctProfile)
+		info, err := withError.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", correctProfile)
 
 		require.Contains(t, err.Error(), "publish request object")
 		require.Nil(t, info)
@@ -173,7 +174,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			RedirectURL:              "test://redirect",
 		})
 
-		info, err := withError.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", correctProfile)
+		info, err := withError.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", correctProfile)
 
 		require.Contains(t, err.Error(), "get key manager")
 		require.Nil(t, info)
@@ -184,7 +185,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.SigningDID.Creator = "invalid"
 
-		info, err := s.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", incorrectProfile)
+		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -195,7 +196,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.OIDCConfig.KeyType = "invalid"
 
-		info, err := s.InitiateOidcInteraction(&presexch.PresentationDefinition{}, "test", incorrectProfile)
+		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)

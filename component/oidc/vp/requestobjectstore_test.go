@@ -43,6 +43,7 @@ func TestRequestObjectStore(t *testing.T) {
 			ID:      randomID,
 			Content: strData,
 		}, nil)
+		repo.EXPECT().GetResourceUrl(randomID).Return("")
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
 
@@ -53,6 +54,30 @@ func TestRequestObjectStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t, fmt.Sprintf("%s/%s", uri, randomID), finalURI)
+	})
+
+	t.Run("Test Publish with RepoUrl", func(t *testing.T) {
+		randomID := "2135321"
+
+		repo := NewMockRequestObjectStoreRepository(gomock.NewController(t))
+		repo.EXPECT().Create(context.TODO(), requestobject.RequestObject{
+			Content:                  strData,
+			AccessRequestObjectEvent: &spi.Event{},
+		}).Return(&requestobject.RequestObject{
+			ID:      randomID,
+			Content: strData,
+		}, nil)
+		repo.EXPECT().GetResourceUrl(randomID).Return("https://awesome-url/resources/2135321")
+
+		eventSvc := NewMockEventService(gomock.NewController(t))
+
+		store := NewRequestObjectStore(repo, eventSvc, uri)
+
+		finalURI, err := store.Publish(context.TODO(), string(dataBytes), &spi.Event{})
+
+		assert.NoError(t, err)
+
+		assert.Equal(t, "https://awesome-url/resources/2135321", finalURI)
 	})
 
 	t.Run("Publish with error", func(t *testing.T) {
