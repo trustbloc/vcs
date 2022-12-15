@@ -737,10 +737,8 @@ components:
           type: array
           items:
             type: string
-        credential_supported:
-          type: array
-          items:
-            type: object
+        credentials_supported:
+          type: object
         credential_issuer:
           $ref: '#/components/schemas/CredentialIssuer'
         credential_endpoint:

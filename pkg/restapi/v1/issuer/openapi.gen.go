@@ -231,13 +231,13 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
-	AuthorizationEndpoint  string                   `json:"authorization_endpoint"`
-	CredentialEndpoint     string                   `json:"credential_endpoint"`
-	CredentialIssuer       *CredentialIssuer        `json:"credential_issuer,omitempty"`
-	CredentialSupported    []map[string]interface{} `json:"credential_supported"`
-	Issuer                 string                   `json:"issuer"`
-	ResponseTypesSupported []string                 `json:"response_types_supported"`
-	TokenEndpoint          string                   `json:"token_endpoint"`
+	AuthorizationEndpoint  string                  `json:"authorization_endpoint"`
+	CredentialEndpoint     string                  `json:"credential_endpoint"`
+	CredentialIssuer       *CredentialIssuer       `json:"credential_issuer,omitempty"`
+	CredentialsSupported   *map[string]interface{} `json:"credentials_supported,omitempty"`
+	Issuer                 string                  `json:"issuer"`
+	ResponseTypesSupported []string                `json:"response_types_supported"`
+	TokenEndpoint          string                  `json:"token_endpoint"`
 }
 
 // ExchangeAuthorizationCodeRequestJSONBody defines parameters for ExchangeAuthorizationCodeRequest.

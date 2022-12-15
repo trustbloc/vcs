@@ -276,8 +276,8 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": [
-            {
+          "credentials_supported": {
+            "VerifiedEmployee": {
               "format": "jwt_vc_json",
               "id": "VerifiedEmployee_JWT",
               "types": [
@@ -354,7 +354,7 @@
                 }
               }
             }
-          ]
+          }
         }
       },
       "createDID": true,
