@@ -1064,8 +1064,8 @@ func TestOpenIDConfigurationController(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: []map[string]interface{}{
-				{
+			CredentialsSupported: map[string]map[string]interface{}{
+				"VerifiedEmployee": {
 					"id": "VerifiedEmployee_JWT",
 				},
 			},
@@ -1099,8 +1099,8 @@ func TestOpenIdConfiguration(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: []map[string]interface{}{
-				{
+			CredentialsSupported: map[string]map[string]interface{}{
+				"VerifiedEmployee": {
 					"id": "VerifiedEmployee_JWT",
 				},
 			},
@@ -1125,10 +1125,12 @@ func TestOpenIdConfiguration(t *testing.T) {
 		assert.Equal(t, "random_name", (*result.CredentialIssuer.Display)[0]["name"])
 		assert.Equal(t, "en-US", (*result.CredentialIssuer.Display)[0]["locale"])
 
-		assert.Len(t, result.CredentialSupported, 1)
-		assert.Equal(t, "VerifiedEmployee_JWT", result.CredentialSupported[0]["id"])
-		assert.Equal(t, []string{"orb"}, result.CredentialSupported[0]["cryptographic_binding_methods_supported"])
-		assert.Equal(t, []string{"ECDSASecp256k1DER"}, result.CredentialSupported[0]["cryptographic_suites_supported"])
+		assert.Len(t, *result.CredentialsSupported, 1)
+
+		meta := (*result.CredentialsSupported)["VerifiedEmployee"].(map[string]interface{})
+		assert.Equal(t, "VerifiedEmployee_JWT", meta["id"])
+		assert.Equal(t, []string{"orb"}, meta["cryptographic_binding_methods_supported"])
+		assert.Equal(t, []string{"ECDSASecp256k1DER"}, meta["cryptographic_suites_supported"])
 	})
 
 	t.Run("without /", func(t *testing.T) {

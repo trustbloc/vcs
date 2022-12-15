@@ -534,15 +534,13 @@ func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfigur
 		return nil, err
 	}
 
-	var finalCredentials []map[string]interface{}
-
-	for _, t := range issuer.CredentialMetaData.CredentialsSupported {
+	finalCredentials := map[string]interface{}{}
+	for k, t := range issuer.CredentialMetaData.CredentialsSupported {
 		if issuer.VCConfig != nil {
 			t["cryptographic_binding_methods_supported"] = []string{string(issuer.VCConfig.DIDMethod)}
 			t["cryptographic_suites_supported"] = []string{string(issuer.VCConfig.KeyType)}
 		}
-
-		finalCredentials = append(finalCredentials, t)
+		finalCredentials[k] = t
 	}
 
 	return &WellKnownOpenIDConfiguration{
@@ -551,9 +549,9 @@ func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfigur
 		ResponseTypesSupported: []string{
 			"code",
 		},
-		TokenEndpoint:       fmt.Sprintf("%soidc/token", host),
-		CredentialSupported: finalCredentials,
-		CredentialEndpoint:  fmt.Sprintf("%soidc/credential", host),
+		TokenEndpoint:        fmt.Sprintf("%soidc/token", host),
+		CredentialsSupported: &finalCredentials,
+		CredentialEndpoint:   fmt.Sprintf("%soidc/credential", host),
 		CredentialIssuer: &CredentialIssuer{
 			Display: &[]map[string]interface{}{
 				{
