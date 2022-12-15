@@ -1127,7 +1127,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 
 		assert.Len(t, *result.CredentialsSupported, 1)
 
-		meta := (*result.CredentialsSupported)["VerifiedEmployee"].(map[string]interface{})
+		meta := (*result.CredentialsSupported)["VerifiedEmployee"].(map[string]interface{}) //nolint
 		assert.Equal(t, "VerifiedEmployee_JWT", meta["id"])
 		assert.Equal(t, []string{"orb"}, meta["cryptographic_binding_methods_supported"])
 		assert.Equal(t, []string{"ECDSASecp256k1DER"}, meta["cryptographic_suites_supported"])
