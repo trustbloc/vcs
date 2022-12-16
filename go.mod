@@ -27,6 +27,7 @@ require (
 	github.com/labstack/echo/v4 v4.8.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
+	github.com/ory/x v0.0.487
 	github.com/pborman/uuid v1.2.1
 	github.com/piprate/json-gold v0.4.2
 	github.com/prometheus/client_golang v1.11.0
@@ -38,7 +39,6 @@ require (
 	github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
-	github.com/trustbloc/vcs/component/fosite-ext v0.0.0-00010101000000-000000000000
 	go.mongodb.org/mongo-driver v1.10.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.1.0
@@ -126,7 +126,6 @@ require (
 	github.com/ory/go-acc v0.2.8 // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
 	github.com/ory/viper v1.7.5 // indirect
-	github.com/ory/x v0.0.487 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
@@ -179,5 +178,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/trustbloc/vcs/component/fosite-ext => ./component/fosite-ext

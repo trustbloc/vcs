@@ -17,8 +17,8 @@ import (
 	"github.com/ory/fosite/token/hmac"
 	"go.mongodb.org/mongo-driver/mongo"
 
-	fosite_ext "github.com/trustbloc/vcs/component/fosite-ext"
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
+	fosite_ext "github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 

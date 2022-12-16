@@ -23,7 +23,6 @@ require (
 	github.com/trustbloc/vcs v0.1.8
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/component/fosite-ext v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/oidc/fositemongo v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0
@@ -190,7 +189,6 @@ replace (
 	github.com/trustbloc/vcs => ../..
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/event => ../../component/event
-	github.com/trustbloc/vcs/component/fosite-ext => ../../component/fosite-ext
 	github.com/trustbloc/vcs/component/oidc/fositemongo => ../../component/oidc/fositemongo
 	github.com/trustbloc/vcs/component/otp => ../../component/otp
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file

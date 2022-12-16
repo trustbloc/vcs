@@ -373,10 +373,10 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	}
 
 	nonce := mustGenerateNonce()
-	var txId string
+	var txID string
 
 	isPreAuthFlow := strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType)
-	if isPreAuthFlow { // call for pre-auth code flow
+	if isPreAuthFlow { //nolint:nestif
 		resp, preAuthorizeErr := c.oidcPreAuthorizedCode(
 			ctx,
 			e.FormValue("pre-authorized_code"),
@@ -386,18 +386,19 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		if preAuthorizeErr != nil {
 			return preAuthorizeErr
 		}
-		txId = resp.TxId
+
+		txID = resp.TxId
 	} else {
-		exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
+		exchangeResp, errExchange := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
 			issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
 				OpState: ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
 			},
 		)
-
-		if err != nil {
+		if errExchange != nil {
 			return fmt.Errorf("exchange authorization code request: %w", err)
 		}
+
 		defer exchangeResp.Body.Close()
 
 		if exchangeResp.StatusCode != http.StatusOK {
@@ -412,10 +413,10 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
 			return fmt.Errorf("read exchange auth code response: %w", err)
 		}
-		txId = exchangeResult.TxId
+		txID = exchangeResult.TxId
 	}
 
-	c.setCNonceSession(session, nonce, txId)
+	c.setCNonceSession(session, nonce, txID)
 
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {

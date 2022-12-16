@@ -1,4 +1,7 @@
-package fosite_ext
+package handlers
+
+//go:generate mockgen -package fosite_ext_test -destination preauthorize_mock_test.go github.com/ory/fosite AccessRequester
+//go:generate mockgen -package fosite_ext_test -destination preauthorize_mock_handler_test.go github.com/ory/fosite/handler/oauth2 CoreStorage,AccessTokenStrategy,RefreshTokenStrategy
 
 import (
 	"context"

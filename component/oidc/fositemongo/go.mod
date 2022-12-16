@@ -10,7 +10,7 @@ require (
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
 	github.com/pborman/uuid v1.2.1
-	github.com/samber/lo v1.29.0
+	github.com/samber/lo v1.37.0
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/vcs v0.1.8
 	go.mongodb.org/mongo-driver v1.10.0
