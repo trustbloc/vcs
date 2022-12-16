@@ -3,8 +3,10 @@ module github.com/trustbloc/vcs/component/fosite-ext
 go 1.19
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/ory/fosite v0.43.0
 	github.com/ory/x v0.0.487
+	github.com/samber/lo v1.37.0
 )
 
 require (
@@ -20,7 +22,6 @@ require (
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
@@ -45,6 +46,7 @@ require (
 	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	golang.org/x/crypto v0.0.0-20220517005047-85d78b3ac167 // indirect
+	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect

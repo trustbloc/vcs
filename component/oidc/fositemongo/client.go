@@ -13,6 +13,10 @@ import (
 // GetClient loads the client by its ID or returns an error
 // if the client does not exist or another error occurred.
 func (s *Store) GetClient(ctx context.Context, id string) (fosite.Client, error) {
+	if id == "" { // for pre-auth we dont have client
+		return &fosite.DefaultClient{}, nil
+	}
+
 	return getInternal[Client](ctx, s.mongoClient, clientsCollection, id)
 }
 

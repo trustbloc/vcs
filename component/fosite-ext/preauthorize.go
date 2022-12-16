@@ -2,12 +2,12 @@ package fosite_ext
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/ory/fosite"
 	"github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/x/errorsx"
+	"github.com/samber/lo"
 )
 
 type PreAuthorizeGrantHandler struct {
@@ -29,8 +29,12 @@ type PreAuthorizeGrantHandler struct {
 	}
 }
 
+const (
+	grantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
+)
+
 func (c *PreAuthorizeGrantHandler) CanHandleTokenEndpointRequest(ctx context.Context, requester fosite.AccessRequester) bool {
-	return requester.GetGrantTypes().ExactOne("urn:ietf:params:oauth:grant-type:pre-authorized_code")
+	return requester.GetGrantTypes().ExactOne(grantType)
 }
 
 func (c *PreAuthorizeGrantHandler) CanSkipClientAuth(ctx context.Context, requester fosite.AccessRequester) bool {
@@ -42,6 +46,10 @@ func (c *PreAuthorizeGrantHandler) HandleTokenEndpointRequest(ctx context.Contex
 }
 
 func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(ctx context.Context, requester fosite.AccessRequester, responder fosite.AccessResponder) error {
+	if !lo.Contains(requester.GetGrantTypes(), grantType) {
+		return nil
+	}
+
 	for _, scope := range requester.GetRequestedScopes() {
 		requester.GrantScope(scope)
 	}
@@ -66,7 +74,6 @@ func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(ctx context.Con
 	if err = c.CoreStorage.CreateAccessTokenSession(ctx, accessSignature, requester); err != nil {
 		return err
 	}
-	fmt.Println(access, refresh)
 
 	responder.SetAccessToken(access)
 	responder.SetTokenType("bearer")
