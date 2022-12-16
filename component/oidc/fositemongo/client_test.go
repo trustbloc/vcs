@@ -28,6 +28,12 @@ func TestClientAsserting(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestReturnNonNilClient(t *testing.T) {
+	cl, err := (&Store{}).GetClient(context.TODO(), "")
+	assert.NoError(t, err)
+	assert.Equal(t, fosite.DefaultClient{}, *(cl.(*fosite.DefaultClient)))
+}
+
 func TestClientAssertingWithExpiration(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 

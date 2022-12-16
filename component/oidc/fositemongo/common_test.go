@@ -13,18 +13,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
-func TestCreateSessionInvalidObj(t *testing.T) {
-	s := &Store{}
-
-	type custom struct {
-		*fosite.Request
-	}
-
-	assert.ErrorContains(t,
-		s.createSession(context.TODO(), "coll", "sda", &custom{}, 0),
-		"expected record of type *fosite.Request")
-}
-
 func TestCreateSessionWithoutClient(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
@@ -49,6 +37,39 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 		GrantedAudience:   []string{"aud2"},
 		Lang:              language.Tag{},
 		Session:           &fosite.DefaultSession{},
+	}, 0))
+
+	resp, err := s.getSession(context.TODO(), clientsCollection, "123", &fosite.DefaultSession{})
+	assert.Nil(t, resp)
+	assert.ErrorIs(t, err, ErrDataNotFound)
+}
+
+func TestCreateSessionWithAccessRequest(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+
+	defer func() {
+		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	assert.NoError(t, mongoErr)
+
+	s, err := NewStore(context.Background(), client)
+	assert.NoError(t, err)
+
+	assert.NoError(t, s.createSession(context.TODO(), clientsCollection, "123", &fosite.AccessRequest{
+		Request: fosite.Request{
+			ID: uuid.New(),
+			Client: &Client{
+				ID: uuid.New(),
+			},
+			RequestedScope:    []string{"scope1"},
+			GrantedScope:      []string{"scope1"},
+			RequestedAudience: []string{"aud1"},
+			GrantedAudience:   []string{"aud2"},
+			Lang:              language.Tag{},
+			Session:           &fosite.DefaultSession{},
+		},
 	}, 0))
 
 	resp, err := s.getSession(context.TODO(), clientsCollection, "123", &fosite.DefaultSession{})
