@@ -1309,44 +1309,42 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"], "op_state" : "opp123"}`)),
 					}, nil)
-				oauthClient.EXPECT().GeneratePKCE().Return("verifier", "challenge", "S256", nil)
-				finalURL := "https://127.0.0.1/authorize"
 
-				cfg := oauth2.Config{
-					ClientID:     "oidc4vc_client",
-					ClientSecret: "foobar",
-					RedirectURL:  "http://127.0.0.1/callback",
-					Scopes:       []string{"a", "b"},
-					Endpoint: oauth2.Endpoint{
-						AuthURL:   "/oidc/authorize",
-						TokenURL:  "/oidc/token",
-						AuthStyle: oauth2.AuthStyleInParams,
+				accessRq := &fosite.AccessRequest{
+					Request: fosite.Request{
+						Session: &fosite.DefaultSession{},
 					},
 				}
 
-				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), cfg, "opp123", gomock.Any()).Return(finalURL)
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(accessRq, nil)
 
-				preAuthorizeClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-					assert.Equal(t, "/authorize", req.URL.Path)
-					return &http.Response{
-						StatusCode: http.StatusSeeOther,
-						Header: map[string][]string{
-							"Location": {"https://localhost/redirect?code=my-secure-code"},
+				mockOAuthProvider.EXPECT().NewAccessResponse(gomock.Any(), accessRq).
+					Return(&fosite.AccessResponse{
+						AccessToken: "123456",
+						Extra: map[string]interface{}{
+							"expires_in": 3600,
 						},
-					}, nil
-				})
+					}, nil)
 
-				oauthClient.EXPECT().Exchange(gomock.Any(), cfg, "my-secure-code",
-					gomock.Any(), gomock.Any()).Return(lo.ToPtr(oauth2.Token{
-					AccessToken: "123456",
-					Expiry:      time.Now().UTC().Add(10 * time.Minute),
-				}).WithExtra(map[string]interface{}{
-					"c_nonce": "c_nonce_toklen_one_more",
-				}), nil)
+				mockOAuthProvider.EXPECT().WriteAccessResponse(gomock.Any(), gomock.Any(), accessRq, gomock.Any()).
+					Do(func(ctx context.Context, rw http.ResponseWriter, requester fosite.AccessRequester, responder fosite.AccessResponder) {
+						js, err := json.Marshal(responder.ToMap())
+						if err != nil {
+							http.Error(rw, err.Error(), http.StatusInternalServerError)
+							return
+						}
+
+						rw.Header().Set("Content-Type", "application/json;charset=UTF-8")
+
+						rw.WriteHeader(http.StatusOK)
+						_, _ = rw.Write(js)
+					})
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.NoError(t, err)
 				var resp oidc4ci.AccessTokenResponse
+
 				assert.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 				assert.Equal(t, "123456", resp.AccessToken)
 				assert.NotEmpty(t, *resp.ExpiresIn)
@@ -1365,6 +1363,13 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 						PreAuthorizedCode: "123456",
 						UserPin:           lo.ToPtr("5678"),
 					}).Return(nil, errors.New("invalid pin"))
+
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{},
+						},
+					}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
 				assert.ErrorContains(t, err, "invalid pin")
@@ -1377,6 +1382,12 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				"pre-authorized_code": {"321"},
 			}.Encode()),
 			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{},
+						},
+					}, nil)
 				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 						PreAuthorizedCode: "321",
@@ -1391,124 +1402,29 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 			},
 		},
 		{
-			name: "fail pkce",
+			name: "invalid http code from validate pre authorize",
 			body: strings.NewReader(url.Values{
 				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 				"pre-authorized_code": {"321"},
 			}.Encode()),
 			setup: func() {
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
-					Return(&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{},
+						},
 					}, nil)
-				oauthClient.EXPECT().GeneratePKCE().Return("", "", "", errors.New("unexpected pkce error"))
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "unexpected pkce error")
-			},
-		},
-		{
-			name: "fail http pre-auth",
-			body: strings.NewReader(url.Values{
-				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-				"pre-authorized_code": {"321"},
-			}.Encode()),
-			setup: func() {
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
-					Return(&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
-					}, nil)
-				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
-				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return("https://localhost")
-
-				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("http error"))
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "http error")
-			},
-		},
-		{
-			name: "fail http status code pre-auth",
-			body: strings.NewReader(url.Values{
-				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-				"pre-authorized_code": {"321"},
-			}.Encode()),
-			setup: func() {
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
-					Return(&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
-					}, nil)
-				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
-				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return("https://localhost")
-
-				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
-					StatusCode: http.StatusOK,
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+						PreAuthorizedCode: "321",
+						UserPin:           lo.ToPtr(""),
+					}).Return(&http.Response{
+					Body:       io.NopCloser(strings.NewReader("{}")),
+					StatusCode: http.StatusBadRequest,
 				}, nil)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "unexpected status code 200")
-			},
-		},
-		{
-			name: "fail location code pre-auth",
-			body: strings.NewReader(url.Values{
-				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-				"pre-authorized_code": {"321"},
-			}.Encode()),
-			setup: func() {
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
-					Return(&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
-					}, nil)
-				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
-				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return("https://localhost")
-
-				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
-					StatusCode: http.StatusSeeOther,
-					Header: map[string][]string{
-						"Location": {"postgres://user:abc{DEf1=ghi@example.com:5432/db?sslmode=require"},
-					},
-				}, nil)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "net/url: invalid userinfo")
-			},
-		},
-		{
-			name: "fail exchange code pre-auth",
-			body: strings.NewReader(url.Values{
-				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-				"pre-authorized_code": {"321"},
-			}.Encode()),
-			setup: func() {
-				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(), gomock.Any()).
-					Return(&http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(strings.NewReader(`{"scopes" : ["a","b"]}`)),
-					}, nil)
-				oauthClient.EXPECT().GeneratePKCE().Return("a", "b", "c", nil)
-				oauthClient.EXPECT().AuthCodeURL(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return("https://localhost")
-
-				preAuthorizeClient.EXPECT().Do(gomock.Any()).Return(&http.Response{
-					StatusCode: http.StatusSeeOther,
-					Header: map[string][]string{
-						"Location": {"https://localhost"},
-					},
-				}, nil)
-
-				oauthClient.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("exchange error"))
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				assert.ErrorContains(t, err, "exchange error")
+				assert.ErrorContains(t, err, "validate pre-authorized code request: status code 400, code")
 			},
 		},
 	}

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -43,9 +42,6 @@ const (
 	authorizationDetailsKey    = "authDetails"
 	txIDKey                    = "txID"
 	preAuthorizedCodeGrantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
-	authorizeEndpoint          = "/oidc/authorize"
-	tokenEndpoint              = "/oidc/token"
-	tokenType                  = "bearer"
 	cNonceKey                  = "cNonce"
 	cNonceExpiresAtKey         = "cNonceExpiresAt"
 	cNonceTTL                  = 5 * time.Minute
@@ -213,16 +209,6 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		},
 	}
 
-	if lo.FromPtr(params.AuthorizationDetails) == preAuthorizedCodeGrantType { // TODO: Remove this
-		resp, err2 := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
-		if err2 != nil {
-			return resterr.NewFositeError(resterr.FositeAuthorizeError, e, c.oauth2Provider, err2).WithAuthorizeRequester(ar)
-		}
-
-		c.oauth2Provider.WriteAuthorizeResponse(ctx, e.Response().Writer, ar, resp)
-		return nil
-	}
-
 	var (
 		credentialType string
 		vcFormat       *string
@@ -376,62 +362,60 @@ func (c *Controller) OidcToken(e echo.Context) error {
 	req := e.Request()
 	ctx := req.Context()
 
-	if strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType) { // 1 call for pre-auth code flow
-		return apiUtil.WriteOutput(e)(c.oidcPreAuthorizedCode(
-			ctx,
-			e.FormValue("pre-authorized_code"),
-			e.FormValue("user_pin"),
-		))
-	}
-
 	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, new(fosite.DefaultSession))
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
 
-	nonce := mustGenerateNonce()
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
-	isPreAuthFlow := session.Extra[authorizationDetailsKey] == preAuthorizedCodeGrantType
+	if session.Extra == nil {
+		session.Extra = make(map[string]interface{})
+	}
 
-	if isPreAuthFlow {
-		c.setCNonceSession(session, nonce, req.FormValue(txIDKey))
+	nonce := mustGenerateNonce()
+	var txId string
 
-		responder, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
-		if err2 != nil {
-			return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err2).WithAccessRequester(ar)
+	isPreAuthFlow := strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType)
+	if isPreAuthFlow { // call for pre-auth code flow
+		resp, preAuthorizeErr := c.oidcPreAuthorizedCode(
+			ctx,
+			e.FormValue("pre-authorized_code"),
+			e.FormValue("user_pin"),
+		)
+
+		if preAuthorizeErr != nil {
+			return preAuthorizeErr
+		}
+		txId = resp.TxId
+	} else {
+		exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
+			ctx,
+			issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
+				OpState: ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
+			},
+		)
+
+		if err != nil {
+			return fmt.Errorf("exchange authorization code request: %w", err)
+		}
+		defer exchangeResp.Body.Close()
+
+		if exchangeResp.StatusCode != http.StatusOK {
+			return fmt.Errorf("exchange authorization code request: status code %d, %w",
+				exchangeResp.StatusCode,
+				parseInteractionError(exchangeResp.Body),
+			)
 		}
 
-		c.setCNonce(responder, nonce)
-		c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
-		return nil
+		var exchangeResult issuer.ExchangeAuthorizationCodeResponse
+
+		if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
+			return fmt.Errorf("read exchange auth code response: %w", err)
+		}
+		txId = exchangeResult.TxId
 	}
 
-	exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
-		ctx,
-		issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
-			OpState: ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("exchange authorization code request: %w", err)
-	}
-
-	defer exchangeResp.Body.Close()
-
-	if exchangeResp.StatusCode != http.StatusOK {
-		return fmt.Errorf("exchange authorization code request: status code %d, %w",
-			exchangeResp.StatusCode,
-			parseInteractionError(exchangeResp.Body),
-		)
-	}
-
-	var exchangeResult issuer.ExchangeAuthorizationCodeResponse
-
-	if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
-		return fmt.Errorf("read exchange auth code response: %w", err)
-	}
-
-	c.setCNonceSession(session, nonce, exchangeResult.TxId)
+	c.setCNonceSession(session, nonce, txId)
 
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
@@ -440,8 +424,57 @@ func (c *Controller) OidcToken(e echo.Context) error {
 
 	c.setCNonce(responder, nonce)
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
-
 	return nil
+	////
+	////if isPreAuthFlow {
+	////	c.setCNonceSession(session, nonce, req.FormValue(txIDKey))
+	////
+	////	responder, err2 := c.oauth2Provider.NewAccessResponse(ctx, ar)
+	////	if err2 != nil {
+	////		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err2).WithAccessRequester(ar)
+	////	}
+	////
+	////	c.setCNonce(responder, nonce)
+	////	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
+	////	return nil
+	////}
+	//
+	////exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
+	////	ctx,
+	////	issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
+	////		OpState: ar.GetSession().(*fosite.DefaultSession).Extra[sessionOpStateKey].(string),
+	////	},
+	////)
+	////if err != nil {
+	////	return fmt.Errorf("exchange authorization code request: %w", err)
+	////}
+	//
+	////defer exchangeResp.Body.Close()
+	////
+	////if exchangeResp.StatusCode != http.StatusOK {
+	////	return fmt.Errorf("exchange authorization code request: status code %d, %w",
+	////		exchangeResp.StatusCode,
+	////		parseInteractionError(exchangeResp.Body),
+	////	)
+	////}
+	////
+	////var exchangeResult issuer.ExchangeAuthorizationCodeResponse
+	////
+	////if err = json.NewDecoder(exchangeResp.Body).Decode(&exchangeResult); err != nil {
+	////	return fmt.Errorf("read exchange auth code response: %w", err)
+	////}
+	////
+	////c.setCNonceSession(session, nonce, exchangeResult.TxId)
+	//
+	//responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
+	//if err != nil {
+	//	return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
+	//}
+	//
+	//c.setCNonce(responder, nonce)
+	//c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
+	//
+	//return nil
 }
 
 func (c *Controller) setCNonce(
@@ -591,7 +624,7 @@ func (c *Controller) oidcPreAuthorizedCode(
 	ctx context.Context,
 	preAuthorizedCode string,
 	userPin string,
-) (*AccessTokenResponse, error) {
+) (*issuer.ValidatePreAuthorizedCodeResponse, error) {
 	resp, err := c.issuerInteractionClient.ValidatePreAuthorizedCodeRequest(ctx,
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
 			PreAuthorizedCode: preAuthorizedCode,
@@ -615,74 +648,7 @@ func (c *Controller) oidcPreAuthorizedCode(
 		return nil, err
 	}
 
-	verifier, challenge, method, err := c.oAuth2Client.GeneratePKCE()
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := oauth2.Config{
-		ClientID:     "oidc4vc_client",
-		RedirectURL:  "http://127.0.0.1/callback",
-		Scopes:       validateResponse.Scopes,
-		ClientSecret: "foobar",
-		Endpoint: oauth2.Endpoint{
-			AuthURL:   c.internalHostURL + authorizeEndpoint,
-			TokenURL:  c.internalHostURL + tokenEndpoint,
-			AuthStyle: oauth2.AuthStyleInParams,
-		},
-	}
-	authURL := c.oAuth2Client.AuthCodeURL(ctx,
-		cfg,
-		validateResponse.OpState,
-		oauth2client.SetAuthURLParam("authorization_details", preAuthorizedCodeGrantType),
-		oauth2client.SetAuthURLParam("op_state", validateResponse.OpState),
-		oauth2client.SetAuthURLParam("code_challenge_method", method),
-		oauth2client.SetAuthURLParam("code_challenge", challenge),
-	)
-
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", authURL, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err = c.preAuthorizeClient.Do(httpReq)
-	if err != nil {
-		return nil, err
-	}
-	if resp.Body != nil {
-		_ = resp.Body.Close()
-	}
-	if resp.StatusCode != http.StatusSeeOther {
-		return nil, fmt.Errorf("unexpected status code %v, expected %v", resp.StatusCode,
-			http.StatusSeeOther)
-	}
-
-	parsedURL, err := url.Parse(resp.Header.Get("location"))
-	if err != nil {
-		return nil, err
-	}
-
-	token, err := c.oAuth2Client.Exchange(ctx, cfg,
-		parsedURL.Query().Get("code"),
-		c.defaultHTTPClient,
-		oauth2client.SetAuthURLParam("code_verifier", verifier),
-		oauth2client.SetAuthURLParam(txIDKey, validateResponse.TxId),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	aResponse := &AccessTokenResponse{
-		AccessToken:  token.AccessToken,
-		RefreshToken: lo.ToPtr(token.RefreshToken),
-		TokenType:    tokenType,
-		CNonce:       lo.ToPtr(token.Extra("c_nonce").(string)),
-	}
-	if token.Expiry.Unix() > 0 {
-		aResponse.ExpiresIn = lo.ToPtr(int(token.Expiry.Unix()))
-	}
-
-	return aResponse, nil
+	return &validateResponse, nil
 }
 
 type interactionError struct {

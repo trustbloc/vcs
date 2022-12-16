@@ -191,6 +191,7 @@ replace (
 	github.com/trustbloc/vcs/component/event => ../../component/event
 	github.com/trustbloc/vcs/component/oidc/fositemongo => ../../component/oidc/fositemongo
 	github.com/trustbloc/vcs/component/otp => ../../component/otp
+	github.com/trustbloc/vcs/component/fosite-ext => ../../component/fosite-ext
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 
