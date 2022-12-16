@@ -36,19 +36,32 @@ const (
 	grantType = "urn:ietf:params:oauth:grant-type:pre-authorized_code"
 )
 
-func (c *PreAuthorizeGrantHandler) CanHandleTokenEndpointRequest(ctx context.Context, requester fosite.AccessRequester) bool {
+func (c *PreAuthorizeGrantHandler) CanHandleTokenEndpointRequest(
+	_ context.Context,
+	requester fosite.AccessRequester,
+) bool {
 	return requester.GetGrantTypes().ExactOne(grantType)
 }
 
-func (c *PreAuthorizeGrantHandler) CanSkipClientAuth(ctx context.Context, requester fosite.AccessRequester) bool {
+func (c *PreAuthorizeGrantHandler) CanSkipClientAuth(
+	_ context.Context,
+	_ fosite.AccessRequester,
+) bool {
 	return true
 }
 
-func (c *PreAuthorizeGrantHandler) HandleTokenEndpointRequest(ctx context.Context, requester fosite.AccessRequester) error {
+func (c *PreAuthorizeGrantHandler) HandleTokenEndpointRequest(
+	_ context.Context,
+	_ fosite.AccessRequester,
+) error {
 	return nil
 }
 
-func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(ctx context.Context, requester fosite.AccessRequester, responder fosite.AccessResponder) error {
+func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(
+	ctx context.Context,
+	requester fosite.AccessRequester,
+	responder fosite.AccessResponder,
+) error {
 	if !lo.Contains(requester.GetGrantTypes(), grantType) {
 		return nil
 	}
@@ -80,7 +93,12 @@ func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(ctx context.Con
 
 	responder.SetAccessToken(access)
 	responder.SetTokenType("bearer")
-	atLifespan := fosite.GetEffectiveLifespan(requester.GetClient(), fosite.GrantTypeAuthorizationCode, fosite.AccessToken, c.Config.GetAccessTokenLifespan(ctx))
+	atLifespan := fosite.GetEffectiveLifespan(
+		requester.GetClient(),
+		fosite.GrantTypeAuthorizationCode,
+		fosite.AccessToken,
+		c.Config.GetAccessTokenLifespan(ctx),
+	)
 	responder.SetExpiresIn(c.getExpiresIn(requester, fosite.AccessToken, atLifespan, time.Now().UTC()))
 	responder.SetScopes(requester.GetGrantedScopes())
 	if refresh != "" {
@@ -90,15 +108,19 @@ func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(ctx context.Con
 	return nil
 }
 
-func (c *PreAuthorizeGrantHandler) getExpiresIn(r fosite.Requester, key fosite.TokenType, defaultLifespan time.Duration, now time.Time) time.Duration {
+func (c *PreAuthorizeGrantHandler) getExpiresIn(
+	r fosite.Requester,
+	key fosite.TokenType,
+	defaultLifespan time.Duration,
+	now time.Time,
+) time.Duration {
 	if r.GetSession().GetExpiresAt(key).IsZero() {
 		return defaultLifespan
 	}
 	return time.Duration(r.GetSession().GetExpiresAt(key).UnixNano() - now.UnixNano())
 }
 
-// OAuth2PreAuthorizeFactory creates an OAuth2 authorize code grant ("authorize explicit flow") handler and registers
-// an access token, refresh token and authorize code validator.
+// OAuth2PreAuthorizeFactory creates an OAuth2 pre-authorize code grant handler.
 func OAuth2PreAuthorizeFactory(config fosite.Configurator, storage interface{}, strategy interface{}) interface{} {
 	return &PreAuthorizeGrantHandler{
 		AccessTokenStrategy:    strategy.(oauth2.AccessTokenStrategy),
