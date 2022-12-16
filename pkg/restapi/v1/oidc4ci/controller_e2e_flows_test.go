@@ -36,6 +36,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/fosite-ext"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -234,7 +235,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
 		compose.OAuth2TokenIntrospectionFactory,
-		oidc4ci.OAuth2PreAuthorizeFactory,
+		fosite_ext.OAuth2PreAuthorizeFactory,
 	)
 
 	interaction := NewMockIssuerInteractionClient(gomock.NewController(t))

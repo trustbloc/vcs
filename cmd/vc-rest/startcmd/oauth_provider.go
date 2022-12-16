@@ -17,6 +17,7 @@ import (
 	"github.com/ory/fosite/token/hmac"
 	"go.mongodb.org/mongo-driver/mongo"
 
+	fosite_ext "github.com/trustbloc/vcs/component/fosite-ext"
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -64,5 +65,6 @@ func bootstrapOAuthProvider(
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
 		compose.OAuth2TokenIntrospectionFactory,
+		fosite_ext.OAuth2PreAuthorizeFactory,
 	), nil
 }

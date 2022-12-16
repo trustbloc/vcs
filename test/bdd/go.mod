@@ -137,6 +137,7 @@ require (
 	github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
+	github.com/trustbloc/vcs/component/fosite-ext v0.0.0-00010101000000-000000000000 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.1 // indirect
@@ -170,6 +171,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/trustbloc/vcs => ../..
-
-replace github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
+replace (
+	github.com/trustbloc/vcs => ../..
+	github.com/trustbloc/vcs/component/fosite-ext => ../../component/fosite-ext
+	github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
+)

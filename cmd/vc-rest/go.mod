@@ -5,6 +5,7 @@
 module github.com/trustbloc/vcs/cmd/vc-rest
 
 require (
+	github.com/aws/aws-sdk-go v1.43.9
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/google/uuid v1.3.0
@@ -22,6 +23,7 @@ require (
 	github.com/trustbloc/vcs v0.1.8
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/fosite-ext v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/oidc/fositemongo v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0
@@ -36,7 +38,6 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
-	github.com/aws/aws-sdk-go v1.43.9 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcd v0.22.1 // indirect
@@ -189,9 +190,9 @@ replace (
 	github.com/trustbloc/vcs => ../..
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/event => ../../component/event
+	github.com/trustbloc/vcs/component/fosite-ext => ../../component/fosite-ext
 	github.com/trustbloc/vcs/component/oidc/fositemongo => ../../component/oidc/fositemongo
 	github.com/trustbloc/vcs/component/otp => ../../component/otp
-	github.com/trustbloc/vcs/component/fosite-ext => ../../component/fosite-ext
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )
 

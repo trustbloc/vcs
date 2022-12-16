@@ -361,11 +361,14 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 func (c *Controller) OidcToken(e echo.Context) error {
 	req := e.Request()
 	ctx := req.Context()
+	fmt.Println("STEP 0")
 
 	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, new(fosite.DefaultSession))
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
+
+	fmt.Println("STEP 1")
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 	if session.Extra == nil {
@@ -377,6 +380,8 @@ func (c *Controller) OidcToken(e echo.Context) error {
 
 	isPreAuthFlow := strings.EqualFold(e.FormValue("grant_type"), preAuthorizedCodeGrantType)
 	if isPreAuthFlow { // call for pre-auth code flow
+		fmt.Println("STEP 2")
+
 		resp, preAuthorizeErr := c.oidcPreAuthorizedCode(
 			ctx,
 			e.FormValue("pre-authorized_code"),
@@ -388,6 +393,8 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		}
 		txId = resp.TxId
 	} else {
+		fmt.Println("STEP 3")
+
 		exchangeResp, err := c.issuerInteractionClient.ExchangeAuthorizationCodeRequest(
 			ctx,
 			issuer.ExchangeAuthorizationCodeRequestJSONRequestBody{
@@ -414,15 +421,20 @@ func (c *Controller) OidcToken(e echo.Context) error {
 		}
 		txId = exchangeResult.TxId
 	}
+	fmt.Println("STEP 4")
 
 	c.setCNonceSession(session, nonce, txId)
+	fmt.Println("STEP 4.1")
 
 	responder, err := c.oauth2Provider.NewAccessResponse(ctx, ar)
 	if err != nil {
 		return resterr.NewFositeError(resterr.FositeAccessError, e, c.oauth2Provider, err).WithAccessRequester(ar)
 	}
+	fmt.Println("STEP 5")
 
 	c.setCNonce(responder, nonce)
+	fmt.Println("STEP 6")
+
 	c.oauth2Provider.WriteAccessResponse(ctx, e.Response().Writer, ar, responder)
 	return nil
 	////
@@ -524,6 +536,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
 	if err != nil {
+		fmt.Printf("%+v", err)
 		return resterr.NewUnauthorizedError(fmt.Errorf("introspect token: %w", err))
 	}
 

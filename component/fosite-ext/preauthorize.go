@@ -1,4 +1,4 @@
-package oidc4ci
+package fosite_ext
 
 import (
 	"context"
@@ -30,8 +30,6 @@ type PreAuthorizeGrantHandler struct {
 }
 
 func (c *PreAuthorizeGrantHandler) CanHandleTokenEndpointRequest(ctx context.Context, requester fosite.AccessRequester) bool {
-	// grant_type REQUIRED.
-	// Value MUST be set to "authorization_code"
 	return requester.GetGrantTypes().ExactOne("urn:ietf:params:oauth:grant-type:pre-authorized_code")
 }
 
