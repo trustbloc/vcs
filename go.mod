@@ -30,7 +30,7 @@ require (
 	github.com/pborman/uuid v1.2.1
 	github.com/piprate/json-gold v0.4.2
 	github.com/prometheus/client_golang v1.11.0
-	github.com/samber/lo v1.29.0
+	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.1
@@ -38,6 +38,7 @@ require (
 	github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
+	github.com/trustbloc/vcs/component/fosite-ext v0.0.0-00010101000000-000000000000
 	go.mongodb.org/mongo-driver v1.10.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.1.0
@@ -178,3 +179,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/trustbloc/vcs/component/fosite-ext => ./component/fosite-ext

@@ -81,7 +81,12 @@ func runBDDTests(tags, format string) int {
 }
 
 func InitializeTestSuite(ctx *godog.TestSuiteContext) {
-	return
+	if os.Getenv("DISABLE_COMPOSITION") == "true" {
+		return
+	}
+
+	ctx.BeforeSuite(beforeSuiteHook)
+	ctx.AfterSuite(afterSuiteHook)
 }
 
 func beforeSuiteHook() {
