@@ -1,6 +1,6 @@
 package handlers
 
-//go:generate mockgen -package handlers_test -destination preauthorize_mock_test.go github.com/ory/fosite AccessRequester
+//go:generate mockgen -package handlers_test -destination preauthorize_mock_test.go github.com/ory/fosite AccessResponder
 //go:generate mockgen -package handlers_test -destination preauthorize_mock_handler_test.go github.com/ory/fosite/handler/oauth2 CoreStorage,AccessTokenStrategy,RefreshTokenStrategy
 
 import (
@@ -83,12 +83,14 @@ func (c *PreAuthorizeGrantHandler) PopulateTokenEndpointResponse(
 		return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
 	}
 
-	if err = c.CoreStorage.CreateRefreshTokenSession(ctx, refreshSignature, requester.Sanitize([]string{})); err != nil {
-		return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
-	}
-
 	if err = c.CoreStorage.CreateAccessTokenSession(ctx, accessSignature, requester); err != nil {
 		return err
+	}
+
+	if refresh != "" {
+		if err = c.CoreStorage.CreateRefreshTokenSession(ctx, refreshSignature, requester.Sanitize([]string{})); err != nil {
+			return errorsx.WithStack(fosite.ErrServerError.WithWrap(err).WithDebug(err.Error()))
+		}
 	}
 
 	responder.SetAccessToken(access)
@@ -123,11 +125,9 @@ func (c *PreAuthorizeGrantHandler) getExpiresIn(
 // OAuth2PreAuthorizeFactory creates an OAuth2 pre-authorize code grant handler.
 func OAuth2PreAuthorizeFactory(config fosite.Configurator, storage interface{}, strategy interface{}) interface{} {
 	return &PreAuthorizeGrantHandler{
-		AccessTokenStrategy:    strategy.(oauth2.AccessTokenStrategy),
-		RefreshTokenStrategy:   strategy.(oauth2.RefreshTokenStrategy),
-		AuthorizeCodeStrategy:  strategy.(oauth2.AuthorizeCodeStrategy),
-		CoreStorage:            storage.(oauth2.CoreStorage),
-		TokenRevocationStorage: storage.(oauth2.TokenRevocationStorage),
-		Config:                 config,
+		AccessTokenStrategy:  strategy.(oauth2.AccessTokenStrategy),
+		RefreshTokenStrategy: strategy.(oauth2.RefreshTokenStrategy),
+		CoreStorage:          storage.(oauth2.CoreStorage),
+		Config:               config,
 	}
 }
