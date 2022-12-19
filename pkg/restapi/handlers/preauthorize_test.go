@@ -61,7 +61,7 @@ func TestPopulateTokenEndpoint(t *testing.T) {
 		&fosite.Config{},
 		storageMock,
 		strategy,
-	).(*handlers.PreAuthorizeGrantHandler)
+	).(*handlers.PreAuthorizeGrantHandler) //nolint
 	assert.NotNil(t, factory)
 
 	originalRequest := &fosite.AccessRequest{
@@ -95,7 +95,7 @@ func TestPopulateTokenEndpoint(t *testing.T) {
 	responderMock.EXPECT().SetExpiresIn(gomock.Any())
 	responderMock.EXPECT().SetExtra("refresh_token", refreshToken)
 
-	factory.PopulateTokenEndpointResponse(context.TODO(), originalRequest, responderMock)
+	assert.NoError(t, factory.PopulateTokenEndpointResponse(context.TODO(), originalRequest, responderMock))
 }
 
 func TestPopulateTokenWithWrongType(t *testing.T) {
