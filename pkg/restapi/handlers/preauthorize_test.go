@@ -57,11 +57,11 @@ func TestPopulateTokenEndpoint(t *testing.T) {
 		RefreshTokenStrategy: refreshTokenStrategy,
 	}
 
-	factory := handlers.OAuth2PreAuthorizeFactory(
+	factory := handlers.OAuth2PreAuthorizeFactory( //nolint
 		&fosite.Config{},
 		storageMock,
 		strategy,
-	).(*handlers.PreAuthorizeGrantHandler) //nolint
+	).(*handlers.PreAuthorizeGrantHandler)
 	assert.NotNil(t, factory)
 
 	originalRequest := &fosite.AccessRequest{
