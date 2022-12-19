@@ -27,10 +27,11 @@ require (
 	github.com/labstack/echo/v4 v4.8.0
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
+	github.com/ory/x v0.0.487
 	github.com/pborman/uuid v1.2.1
 	github.com/piprate/json-gold v0.4.2
 	github.com/prometheus/client_golang v1.11.0
-	github.com/samber/lo v1.29.0
+	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.1
@@ -125,7 +126,6 @@ require (
 	github.com/ory/go-acc v0.2.8 // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
 	github.com/ory/viper v1.7.5 // indirect
-	github.com/ory/x v0.0.487 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

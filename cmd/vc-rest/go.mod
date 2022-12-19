@@ -5,6 +5,7 @@
 module github.com/trustbloc/vcs/cmd/vc-rest
 
 require (
+	github.com/aws/aws-sdk-go v1.43.9
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/google/uuid v1.3.0
@@ -36,7 +37,6 @@ require (
 	github.com/PaesslerAG/jsonpath v0.1.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.7 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
-	github.com/aws/aws-sdk-go v1.43.9 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcd v0.22.1 // indirect
@@ -132,7 +132,7 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/samber/lo v1.29.0 // indirect
+	github.com/samber/lo v1.37.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

@@ -38,6 +38,7 @@ import (
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	"github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
@@ -234,6 +235,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
 		compose.OAuth2TokenIntrospectionFactory,
+		handlers.OAuth2PreAuthorizeFactory,
 	)
 
 	interaction := NewMockIssuerInteractionClient(gomock.NewController(t))
@@ -254,7 +256,6 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 
 	code := "awesome-pre-auth-code"
 	pin := "493536"
-	opState := "QIn85XAEHwlPyCVRhTww"
 
 	interaction.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
 		issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
@@ -266,23 +267,6 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(`{"scopes":["openid","profile"],"op_state":"QIn85XAEHwlPyCVRhTww", "tx_id" : "12345"}`)), //nolint:lll
 	}, nil)
 
-	preAuthClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
-		query := req.URL.Query()
-
-		assert.Equal(t, "/oidc/authorize", req.URL.Path)
-		assert.Equal(t, "urn:ietf:params:oauth:grant-type:pre-authorized_code",
-			req.URL.Query().Get("authorization_details"))
-		assert.True(t, len(query.Get("code_challenge")) > 20)
-		assert.Equal(t, "S256", query.Get("code_challenge_method"))
-		assert.Equal(t, opState, query.Get("state"))
-
-		client := &http.Client{
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		}
-		return client.Do(req)
-	})
 	resp, err := http.DefaultClient.PostForm(fmt.Sprintf("%v/oidc/token", srv.URL), url.Values{
 		"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
 		"pre-authorized_code": {code},

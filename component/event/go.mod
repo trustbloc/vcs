@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/event
 go 1.19
 
 require (
-	github.com/samber/lo v1.29.0
+	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
@@ -17,6 +17,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect

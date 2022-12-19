@@ -29,23 +29,23 @@ func (s *Store) createSession(
 	requester fosite.Requester,
 	ttl time.Duration,
 ) error {
-	mapped, ok := requester.(*fosite.Request)
-
-	if !ok {
-		return errors.New("expected record of type *fosite.Request")
+	clone := request{
+		ID:                requester.GetID(),
+		RequestedAt:       requester.GetRequestedAt(),
+		RequestedScope:    requester.GetRequestedScopes(),
+		GrantedScope:      requester.GetGrantedScopes(),
+		Form:              requester.GetRequestForm(),
+		RequestedAudience: requester.GetRequestedAudience(),
+		GrantedAudience:   requester.GetGrantedAudience(),
+		ClientID:          requester.GetClient().GetID(),
+		SessionExtra:      requester.GetSession().(*fosite.DefaultSession).Extra,
 	}
 
-	clone := request{
-		ID:                mapped.ID,
-		RequestedAt:       mapped.RequestedAt,
-		RequestedScope:    mapped.RequestedScope,
-		GrantedScope:      mapped.GrantedScope,
-		Form:              mapped.Form,
-		RequestedAudience: mapped.RequestedAudience,
-		GrantedAudience:   mapped.GrantedAudience,
-		Lang:              mapped.Lang,
-		ClientID:          mapped.Client.GetID(),
-		SessionExtra:      mapped.Session.(*fosite.DefaultSession).Extra,
+	switch mapped := requester.(type) {
+	case *fosite.Request:
+		clone.Lang = mapped.Lang
+	case *fosite.AccessRequest:
+		clone.Lang = mapped.Lang
 	}
 
 	collection := s.mongoClient.Database().Collection(collectionStr)

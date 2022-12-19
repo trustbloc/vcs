@@ -18,6 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
+	fosite_ext "github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -64,5 +65,6 @@ func bootstrapOAuthProvider(
 		compose.OAuth2PKCEFactory,
 		compose.PushedAuthorizeHandlerFactory,
 		compose.OAuth2TokenIntrospectionFactory,
+		fosite_ext.OAuth2PreAuthorizeFactory,
 	), nil
 }

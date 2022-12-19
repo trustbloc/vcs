@@ -17,7 +17,7 @@ require (
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20221025204933-b807371b6f1e
 	github.com/piprate/json-gold v0.4.2
 	github.com/rdumont/assistdog v0.0.0-20201106100018-168b06230d14
-	github.com/samber/lo v1.29.0
+	github.com/samber/lo v1.37.0
 	github.com/tidwall/gjson v1.14.0
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
@@ -170,6 +170,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/trustbloc/vcs => ../..
-
-replace github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
+replace (
+	github.com/trustbloc/vcs => ../..
+	github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
+)
