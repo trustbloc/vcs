@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	ariesdid "github.com/hyperledger/aries-framework-go/pkg/doc/did"
@@ -87,9 +88,9 @@ func createVDRI(universalResolver, orbDomain string, tlsConfig *tls.Config) (vdr
 		return nil, err
 	}
 
-	// add bloc vdr
+	// add vdr
 	opts = append(opts, vdrpkg.WithVDR(longformVDR), vdrpkg.WithVDR(orbVDR),
-		vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(&webVDR{
+		vdrpkg.WithVDR(key.New()), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(&webVDR{
 			http: &http.Client{
 				Transport: &http.Transport{
 					TLSClientConfig: tlsConfig,
@@ -102,9 +103,7 @@ func createVDRI(universalResolver, orbDomain string, tlsConfig *tls.Config) (vdr
 
 // acceptsDID returns if given did method is accepted by VC REST api
 func acceptsDID(method string) bool {
-	return method == didMethodVeres || method == didMethodElement || method == didMethodSov ||
-		method == didMethodWeb || method == didMethodFactom || method == didMethodORB ||
-		method == didMethodKey || method == didMethodION
+	return method == didMethodION
 }
 
 type webVDR struct {
