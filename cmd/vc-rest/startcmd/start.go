@@ -239,7 +239,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	cslStore := cslstore.NewStore(mongodbClient)
 	vcStore := vcstore.NewStore(mongodbClient)
-	statusListVCSvc := credentialstatus.New(&credentialstatus.Config{
+	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
 		TLSConfig:      tlsConfig,
 		RequestTokens:  conf.StartupParameters.requestTokens,
@@ -250,7 +250,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,
 		Crypto:         vcCrypto,
+		CMD:            cmd,
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
 		VCStore:         vcStore,
