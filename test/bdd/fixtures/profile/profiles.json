@@ -230,7 +230,7 @@
           "signatureRepresentation": 1,
           "keyType": "ECDSAP256DER",
           "format": "ldp",
-          "didMethod": "key",
+          "didMethod": "jwk",
           "status": {
             "type": "RevocationList2020Status"
           }

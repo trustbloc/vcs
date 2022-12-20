@@ -345,19 +345,7 @@ func TestAcceptedDIDs(t *testing.T) {
 			result bool
 		}{
 			{
-				method: didMethodVeres,
-				result: true,
-			},
-			{
-				method: didMethodSov,
-				result: true,
-			},
-			{
-				method: didMethodElement,
-				result: true,
-			},
-			{
-				method: didMethodWeb,
+				method: didMethodION,
 				result: true,
 			},
 			{

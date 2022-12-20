@@ -80,6 +80,7 @@ func (c *Creator) publicDID(method profileapi.Method, verificationMethodType vcs
 		profileapi.OrbDIDMethod: c.createDID,
 		profileapi.WebDIDMethod: c.webDID,
 		"ion":                   c.ionDID,
+		"jwk":                   c.jwkDID,
 	}
 
 	methodFn, supported := methods[method]
@@ -174,6 +175,30 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 
 	if err != nil {
 		return nil, fmt.Errorf("did:key: failed to create did: %w", err)
+	}
+
+	return &createResult{
+		didID:   didResolution.DIDDocument.ID,
+		creator: didResolution.DIDDocument.ID + "#" + verMethod[0].ID,
+	}, nil
+}
+
+func (c *Creator) jwkDID(verificationMethodType vcsverifiable.SignatureType, keyType kms.KeyType,
+	km KeysCreator, didDomain, difDidOrigin string) (*createResult, error) { //nolint: unparam
+	verMethod, err := newVerMethods(1, km, verificationMethodType, keyType)
+	if err != nil {
+		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
+	}
+
+	didResolution, err := c.config.vdr.Create(
+		key.DIDMethod,
+		&did.Doc{
+			VerificationMethod: []did.VerificationMethod{*verMethod[0]},
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("did:jwk failed to create did: %w", err)
 	}
 
 	return &createResult{
