@@ -36,7 +36,7 @@ const (
 	oidcProviderURL     = "https://localhost:4444"
 	universalResolver   = "http://did-resolver.trustbloc.local:8072/1.0/identifiers"
 	contextProviderURL  = "https://file-server.trustbloc.local:10096/ld-contexts.json"
-	issueCredentialURL  = "https://localhost:4455/issuer/profiles/i_myprofile_ud_es256_jwt/credentials/issue"
+	issueCredentialURL  = "https://api-gateway.trustbloc.local:5566/issuer/profiles/i_myprofile_ud_es256_jwt/credentials/issue"
 	testDataPath        = "testdata/vcs"
 )
 

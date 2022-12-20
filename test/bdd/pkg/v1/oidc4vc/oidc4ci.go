@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	vcsAPIGateway                       = "https://localhost:4455"
+	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
 	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/interactions/initiate-oidc"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"

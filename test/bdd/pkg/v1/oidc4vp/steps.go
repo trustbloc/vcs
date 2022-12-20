@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	credentialServiceURL               = "https://localhost:4455"
+	credentialServiceURL               = "https://api-gateway.trustbloc.local:5566"
 	oidc4vpWebhookURL                  = "http://localhost:8180/checktopics"
 	verifierProfileURL                 = credentialServiceURL + "/verifier/profiles"
 	verifierProfileURLFormat           = verifierProfileURL + "/%s"
@@ -30,17 +30,16 @@ func getOrgAuthTokenKey(org string) string {
 
 // Steps is steps for VC BDD tests
 type Steps struct {
-	bddContext          *bddcontext.BDDContext
-	tlsConfig           *tls.Config
-	wallet              *wallet.Wallet
-	ariesServices       *ariesServices
-	walletPassphrase    string
-	walletToken         string
-	walletUserID        string
-	walletDidID         string
-	walletDidKeyID      string
-	vpFlowExecutor      *VPFlowExecutor
-
+	bddContext       *bddcontext.BDDContext
+	tlsConfig        *tls.Config
+	wallet           *wallet.Wallet
+	ariesServices    *ariesServices
+	walletPassphrase string
+	walletToken      string
+	walletUserID     string
+	walletDidID      string
+	walletDidKeyID   string
+	vpFlowExecutor   *VPFlowExecutor
 }
 
 // NewSteps returns new agent from client SDK

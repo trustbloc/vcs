@@ -24,7 +24,7 @@ hydra clients create \
     --grant-types authorization_code \
     --response-types code \
     --scope openid,profile \
-    --callbacks https://localhost:4455/oidc/redirect \
+    --callbacks https://api-gateway.trustbloc.local:5566/oidc/redirect \
     --skip-tls-verify
 
 echo "Finished creating OAuth2 clients"

@@ -83,7 +83,7 @@ mock-login-consent-docker:
 	--build-arg ALPINE_VER=$(ALPINE_VER) test/bdd/loginconsent
 
 .PHONY: bdd-test
-bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker generate-test-keys
+bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
 	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test
@@ -121,6 +121,14 @@ build-wallet-cli-binaries: clean
 		-v $(abspath .):/opt/workspace/vcs \
 		--entrypoint "/opt/workspace/vcs/scripts/build-cli.sh" \
 		ghcr.io/gythialy/golang-cross:1.19.4-0
+
+.PHONY: build-krakend-plugin
+build-krakend-plugin: clean
+	@docker run -i --platform linux/amd64 --rm \
+		-v $(abspath .):/opt/workspace/vcs \
+		-w /opt/workspace/vcs/test/bdd/krakend-plugins/http-client-no-redirect \
+		devopsfaith/krakend-plugin-builder:2.1.3 \
+		go build -buildmode=plugin -o /opt/workspace/vcs/test/bdd/fixtures/krakend-config/plugins/http-client-no-redirect.so .
 
 .PHONY: clean
 clean:
