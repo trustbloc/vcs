@@ -117,7 +117,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(3).Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -127,6 +127,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		validateVCStatus(t, s, "https://localhost:8080/issuer/profiles/testProfileID/credentials/status/1", 0)
 		validateVCStatus(t, s, "https://localhost:8080/issuer/profiles/testProfileID/credentials/status/1", 1)
@@ -137,9 +138,10 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -154,10 +156,11 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -174,10 +177,11 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -194,10 +198,11 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -213,7 +218,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
 				store.getLatestListIDErr = errors.New("some error")
@@ -225,6 +230,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			Crypto: vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader),
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -239,7 +245,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -252,6 +258,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			Crypto: vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader),
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -266,7 +273,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -279,6 +286,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
@@ -293,7 +301,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -306,6 +314,8 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
+
 		status, err := s.CreateStatusID(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
@@ -318,9 +328,11 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
+		require.NoError(t, err)
+
 		csl, err := s.GetStatusListVC(profileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
@@ -332,9 +344,11 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
+		require.NoError(t, err)
+
 		csl, err := s.GetStatusListVC(profileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
@@ -345,7 +359,7 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -357,6 +371,8 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 			Crypto: vccrypto.New(&vdrmock.MockVDRegistry{},
 				loader),
 		})
+		require.NoError(t, err)
+
 		csl, err := s.GetStatusListVC(profileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
@@ -374,7 +390,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			ProfileService: mockProfileSrv,
@@ -384,6 +400,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		statusID, err := s.CreateStatusID(profileID)
 		require.NoError(t, err)
@@ -417,22 +434,24 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("UpdateVCStatus profileService.GetProfile error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
+		require.NoError(t, err)
 
-		err := s.UpdateVCStatus(profileID, "testID", "true", vc.StatusList2021VCStatus)
+		err = s.UpdateVCStatus(profileID, "testID", "true", vc.StatusList2021VCStatus)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to get profile")
 	})
 	t.Run("UpdateVCStatus invalid vc status type error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
+		require.NoError(t, err)
 
-		err := s.UpdateVCStatus(profileID, "testID", "true", vc.RevocationList2020VCStatus)
+		err = s.UpdateVCStatus(profileID, "testID", "true", vc.RevocationList2020VCStatus)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "not supported by current profile")
 	})
@@ -441,12 +460,13 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
+		require.NoError(t, err)
 
-		err := s.UpdateVCStatus(profileID, "testID", "true", vc.StatusList2021VCStatus)
+		err = s.UpdateVCStatus(profileID, "testID", "true", vc.StatusList2021VCStatus)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to get kms")
 	})
@@ -456,15 +476,16 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
 			ListSize:       2,
 		})
+		require.NoError(t, err)
 
-		err := s.UpdateVCStatus(profileID, "testprofile", "true", vc.StatusList2021VCStatus)
+		err = s.UpdateVCStatus(profileID, "testprofile", "true", vc.StatusList2021VCStatus)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "data not found")
 	})
@@ -477,7 +498,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        vcStore,
@@ -487,6 +508,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -510,7 +532,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			ProfileService: mockProfileSrv,
@@ -520,6 +542,8 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
+
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
 		require.NoError(t, err)
@@ -535,7 +559,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 	t.Run("test vc status not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -543,6 +567,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -556,7 +581,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status type not supported", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -564,6 +589,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -578,7 +604,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -586,6 +612,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -600,7 +627,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -608,6 +635,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -625,7 +653,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test vc status statusListCredential wrong value type", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -633,6 +661,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -653,7 +682,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test statusPurpose not exist", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -661,6 +690,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
 			verifiable.WithJSONLDDocumentLoader(loader))
@@ -685,7 +715,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -695,6 +725,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
 		statusID, err := s.CreateStatusID(profileID)
 		require.NoError(t, err)
@@ -724,7 +755,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 	t.Run("test error get csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
 				store.findErr = errors.New("some error")
@@ -734,8 +765,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
-		err := s.updateVC(&verifiable.Credential{
+		err = s.updateVC(&verifiable.Credential{
 			ID: credID,
 			Status: &verifiable.TypedID{
 				ID:   "test",
@@ -759,7 +791,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
 			&mockKMS{crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}}, nil)
 
-		s := New(&Config{
+		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStore:        newMockVCStore(),
@@ -769,8 +801,9 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
+		require.NoError(t, err)
 
-		_, err := s.CreateStatusID(profileID)
+		_, err = s.CreateStatusID(profileID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})

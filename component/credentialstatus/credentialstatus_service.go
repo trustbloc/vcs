@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
+	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 
@@ -91,6 +92,7 @@ type Config struct {
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
 	DocumentLoader ld.DocumentLoader
+	CMD            *cobra.Command
 }
 
 type Service struct {
@@ -104,10 +106,11 @@ type Service struct {
 	profileService profileService
 	kmsRegistry    kmsRegistry
 	documentLoader ld.DocumentLoader
+	cmd            *cobra.Command
 }
 
 // New returns new Credential Status service.
-func New(config *Config) *Service {
+func New(config *Config) (*Service, error) {
 	return &Service{
 		httpClient:     &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 		requestTokens:  config.RequestTokens,
@@ -119,7 +122,8 @@ func New(config *Config) *Service {
 		profileService: config.ProfileService,
 		kmsRegistry:    config.KMSRegistry,
 		documentLoader: config.DocumentLoader,
-	}
+		cmd:            config.CMD,
+	}, nil
 }
 
 // UpdateVCStatus fetches credential based on vcID and updates associated StatusListCredential to vcStatus.
