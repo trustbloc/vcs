@@ -498,6 +498,11 @@ func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.Signa
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {
 	req := ctx.Request()
 
+	headerContentType := req.Header.Get("Content-Type")
+	if headerContentType != "application/x-www-form-urlencoded" {
+		return nil, fmt.Errorf("content type is not application/x-www-form-urlencoded")
+	}
+
 	err := req.ParseForm()
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "body", err)
