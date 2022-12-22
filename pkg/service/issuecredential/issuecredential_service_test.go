@@ -56,10 +56,10 @@ func TestService_IssueCredential(t *testing.T) {
 	mockVCStore.EXPECT().Put(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().CreateStatusID(gomock.Any()).AnyTimes().Return(
-		&issuecredential.StatusID{
+	mockVCStatusManager.EXPECT().CreateStatusListEntry(gomock.Any()).AnyTimes().Return(
+		&issuecredential.StatusListEntry{
 			Context: "https://w3id.org/vc-revocation-list-2020/v1",
-			VCStatus: &verifiable.TypedID{
+			TypedID: &verifiable.TypedID{
 				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 				Type: string(vc.RevocationList2020VCStatus),
 			},
@@ -221,12 +221,12 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
-	t.Run("Error VCStatusManager.CreateStatusID", func(t *testing.T) {
+	t.Run("Error VCStatusManager.CreateStatusListEntry", func(t *testing.T) {
 		registry := NewMockKMSRegistry(gomock.NewController(t))
 		registry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any()).Return(nil, errors.New("some error"))
+		vcStatusManager.EXPECT().CreateStatusListEntry(gomock.Any()).Return(nil, errors.New("some error"))
 
 		service := issuecredential.New(&issuecredential.Config{
 			KMSRegistry:     registry,
@@ -249,9 +249,9 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any()).AnyTimes().Return(&issuecredential.StatusID{
+		vcStatusManager.EXPECT().CreateStatusListEntry(gomock.Any()).AnyTimes().Return(&issuecredential.StatusListEntry{
 			Context: vcutil.DefVCContext,
-			VCStatus: &verifiable.TypedID{
+			TypedID: &verifiable.TypedID{
 				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 				Type: "JsonSchemaValidator2018",
 			},
@@ -281,9 +281,9 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusID(gomock.Any()).AnyTimes().Return(&issuecredential.StatusID{
+		vcStatusManager.EXPECT().CreateStatusListEntry(gomock.Any()).AnyTimes().Return(&issuecredential.StatusListEntry{
 			Context: vcutil.DefVCContext,
-			VCStatus: &verifiable.TypedID{
+			TypedID: &verifiable.TypedID{
 				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
 				Type: "JsonSchemaValidator2018",
 			},

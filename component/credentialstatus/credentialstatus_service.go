@@ -174,8 +174,8 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 	return s.updateVC(credential, signer, statusValue)
 }
 
-// CreateStatusID creates issuecredential.StatusID for profileID.
-func (s *Service) CreateStatusID(profileID profileapi.ID) (*issuecredential.StatusID, error) {
+// CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
+func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredential.StatusListEntry, error) {
 	profile, err := s.profileService.GetProfile(profileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get profile: %w", err)
@@ -231,9 +231,9 @@ func (s *Service) CreateStatusID(profileID profileapi.ID) (*issuecredential.Stat
 		}
 	}
 
-	return &issuecredential.StatusID{
-		VCStatus: vcStatusProcessor.CreateVCStatus(statusListIndex, cslWrapper.VC.ID),
-		Context:  vcStatusProcessor.GetVCContext(),
+	return &issuecredential.StatusListEntry{
+		TypedID: vcStatusProcessor.CreateVCStatus(statusListIndex, cslWrapper.VC.ID),
+		Context: vcStatusProcessor.GetVCContext(),
 	}, nil
 }
 
