@@ -77,15 +77,15 @@ const (
 func validateVCStatus(t *testing.T, s *Service, expectedStatusListVCID string, expectedRevocationIndex int) {
 	t.Helper()
 
-	statusID, err := s.CreateStatusID(profileID)
+	statusID, err := s.CreateStatusListEntry(profileID)
 	require.NoError(t, err)
-	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.VCStatus.Type)
-	require.Equal(t, "revocation", statusID.VCStatus.CustomFields[statustype.StatusPurpose].(string))
+	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.TypedID.Type)
+	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
 
-	revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[statustype.StatusListIndex].(string))
+	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string))
 	require.NoError(t, err)
 	require.Equal(t, expectedRevocationIndex, revocationListIndex)
-	require.Equal(t, expectedStatusListVCID, statusID.VCStatus.CustomFields[statustype.StatusListCredential].(string))
+	require.Equal(t, expectedStatusListVCID, statusID.TypedID.CustomFields[statustype.StatusListCredential].(string))
 
 	chunks := strings.Split(expectedStatusListVCID, "/")
 	statusVCID := chunks[len(chunks)-1]
@@ -109,7 +109,7 @@ func validateVCStatus(t *testing.T, s *Service, expectedStatusListVCID string, e
 	require.False(t, bitSet)
 }
 
-func TestCredentialStatusList_CreateStatusID(t *testing.T) {
+func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -143,7 +143,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get profile")
@@ -162,7 +162,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get kms")
@@ -183,7 +183,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "unsupported VCStatusListType")
@@ -204,7 +204,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to create status URL")
@@ -232,7 +232,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -260,7 +260,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -288,7 +288,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store csl in store")
@@ -316,7 +316,7 @@ func TestCredentialStatusList_CreateStatusID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusID(profileID)
+		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -402,7 +402,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateStatusID(profileID)
+		statusListEntry, err := s.CreateStatusListEntry(profileID)
 		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
@@ -410,7 +410,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.NoError(t, err)
 
 		cred.ID = credID
-		cred.Status = statusID.VCStatus
+		cred.Status = statusListEntry.TypedID
 
 		err = vcStore.Put(profile.Name, cred)
 		require.NoError(t, err)
@@ -419,7 +419,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 
 		statusListVC, err := s.GetStatusListVC(profileID, "1")
 		require.NoError(t, err)
-		revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[statustype.StatusListIndex].(string))
+		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
 
 		credSubject, ok := statusListVC.Subject.([]verifiable.Subject)
@@ -727,7 +727,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateStatusID(profileID)
+		statusListEntry, err := s.CreateStatusListEntry(profileID)
 		require.NoError(t, err)
 
 		cred, err := verifiable.ParseCredential([]byte(universityDegreeCred),
@@ -735,12 +735,12 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		require.NoError(t, err)
 
 		cred.ID = credID
-		cred.Status = statusID.VCStatus
+		cred.Status = statusListEntry.TypedID
 		require.NoError(t, s.updateVC(cred, getTestSigner(), true))
 
 		revocationListVC, err := s.GetStatusListVC(profileID, "1")
 		require.NoError(t, err)
-		revocationListIndex, err := strconv.Atoi(statusID.VCStatus.CustomFields[statustype.StatusListIndex].(string))
+		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
 
 		credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
@@ -803,7 +803,7 @@ func TestCredentialStatusList_RevokeVC(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusID(profileID)
+		_, err = s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})

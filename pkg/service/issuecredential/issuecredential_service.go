@@ -34,12 +34,12 @@ type kmsRegistry interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusID(profileID string) (*StatusID, error)
+	CreateStatusListEntry(profileID string) (*StatusListEntry, error)
 }
 
-type StatusID struct {
-	Context  string
-	VCStatus *verifiable.TypedID
+type StatusListEntry struct {
+	Context string
+	TypedID *verifiable.TypedID
 }
 
 type Config struct {
@@ -84,16 +84,16 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		VCStatusListType:        profile.VCConfig.Status.Type,
 	}
 
-	var statusID *StatusID
+	var statusListEntry *StatusListEntry
 
 	if !profile.VCConfig.Status.Disable {
-		statusID, err = s.vcStatusManager.CreateStatusID(profile.ID)
+		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(profile.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add credential status: %w", err)
 		}
 
-		credential.Context = append(credential.Context, statusID.Context)
-		credential.Status = statusID.VCStatus
+		credential.Context = append(credential.Context, statusListEntry.Context)
+		credential.Status = statusListEntry.TypedID
 	}
 
 	// update context
