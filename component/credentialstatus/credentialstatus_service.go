@@ -61,8 +61,8 @@ type vcCrypto interface {
 		opts ...vccrypto.SigningOpts) (*verifiable.Credential, error)
 }
 
-type vcStore interface {
-	Get(profileName, vcID string) ([]byte, error)
+type vcStatusStore interface {
+	Get(profileID, vcID string) (*verifiable.TypedID, error)
 }
 
 type cslStore interface {
@@ -86,7 +86,7 @@ type Config struct {
 	RequestTokens  map[string]string
 	VDR            vdrapi.Registry
 	CSLStore       cslStore
-	VCStore        vcStore
+	VCStatusStore  vcStatusStore
 	ListSize       int
 	Crypto         vcCrypto
 	ProfileService profileService
@@ -100,7 +100,7 @@ type Service struct {
 	requestTokens  map[string]string
 	vdr            vdrapi.Registry
 	cslStore       cslStore
-	vcStore        vcStore
+	vcStatusStore  vcStatusStore
 	listSize       int
 	crypto         vcCrypto
 	profileService profileService
@@ -116,7 +116,7 @@ func New(config *Config) (*Service, error) {
 		requestTokens:  config.RequestTokens,
 		vdr:            config.VDR,
 		cslStore:       config.CSLStore,
-		vcStore:        config.VCStore,
+		vcStatusStore:  config.VCStatusStore,
 		listSize:       config.ListSize,
 		crypto:         config.Crypto,
 		profileService: config.ProfileService,
@@ -155,13 +155,7 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 		VCStatusListType:        issuerProfile.VCConfig.Status.Type,
 	}
 
-	vcBytes, err := s.vcStore.Get(issuerProfile.Name, vcID)
-	if err != nil {
-		return err
-	}
-
-	credential, err := verifiable.ParseCredential(vcBytes, verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+	typedID, err := s.vcStatusStore.Get(issuerProfile.ID, vcID)
 	if err != nil {
 		return err
 	}
@@ -171,7 +165,7 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 		return err
 	}
 
-	return s.updateVC(credential, signer, statusValue)
+	return s.updateVCStatus(typedID, signer, statusValue)
 }
 
 // CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
@@ -490,20 +484,20 @@ func getStringValue(key string, vMap map[string]interface{}) (string, error) {
 	return "", nil
 }
 
-// updateVC updates StatusListCredential associated with v.
+// updateVCStatus updates StatusListCredential associated with typedID.
 // nolint: gocyclo, funlen
-func (s *Service) updateVC(v *verifiable.Credential,
+func (s *Service) updateVCStatus(typedID *verifiable.TypedID,
 	profile *vc.Signer, status bool) error {
 	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListType)
 	if err != nil {
 		return err
 	}
 	// validate vc status
-	if err = vcStatusProcessor.ValidateStatus(v.Status); err != nil {
+	if err = vcStatusProcessor.ValidateStatus(typedID); err != nil {
 		return err
 	}
 
-	statusListVCID, err := vcStatusProcessor.GetStatusVCURI(v.Status)
+	statusListVCID, err := vcStatusProcessor.GetStatusVCURI(typedID)
 	if err != nil {
 		return err
 	}
@@ -528,7 +522,7 @@ func (s *Service) updateVC(v *verifiable.Credential,
 		return err
 	}
 
-	revocationListIndex, err := vcStatusProcessor.GetStatusListIndex(v.Status)
+	revocationListIndex, err := vcStatusProcessor.GetStatusListIndex(typedID)
 	if err != nil {
 		return err
 	}

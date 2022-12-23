@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package vcstore
+package vcstatusstore
 
 import (
 	"context"
@@ -34,16 +34,15 @@ const (
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
 	testProfile        = "test_profile"
+	testVCID           = "test_vc_id"
 )
 
 var (
 	//go:embed testdata/university_degree.jsonld
 	sampleVCJsonLD string
-	//go:embed testdata/university_degree.jwt
-	sampleVCJWT string
 )
 
-func TestWrapperStore(t *testing.T) {
+func TestVCStatusStore(t *testing.T) {
 	pool, mongoDBResource := startMongoDBContainer(t)
 
 	defer func() {
@@ -60,53 +59,22 @@ func TestWrapperStore(t *testing.T) {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
-	t.Run("Put, Get VC JSON-LD", func(t *testing.T) {
+	t.Run("Put, Get typedID", func(t *testing.T) {
 		vcExpected, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
 			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
 		// Create - Find
-		err = store.Put(testProfile, vcExpected)
+		err = store.Put(testProfile, vcExpected.ID, vcExpected.Status)
 		assert.NoError(t, err)
 
-		vcFoundBytes, err := store.Get(testProfile, vcExpected.ID)
+		statusFound, err := store.Get(testProfile, vcExpected.ID)
 		assert.NoError(t, err)
 
-		vcFound, err := verifiable.ParseCredential(vcFoundBytes,
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		assert.NoError(t, err)
-
-		if !assert.Equal(t, vcExpected, vcFound) {
-			t.Errorf("VC got = %v, want %v",
-				vcExpected, vcFound)
-		}
-	})
-
-	t.Run("Put, Get VC JWT", func(t *testing.T) {
-		vcExpected, err := verifiable.ParseCredential([]byte(sampleVCJWT),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		assert.NoError(t, err)
-		vcExpected.JWT = sampleVCJWT
-
-		// Create - Find
-		err = store.Put(testProfile, vcExpected)
-		assert.NoError(t, err)
-
-		vcFoundBytes, err := store.Get(testProfile, vcExpected.ID)
-		assert.NoError(t, err)
-
-		vcFound, err := verifiable.ParseCredential(vcFoundBytes,
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		assert.NoError(t, err)
-		vcFound.JWT = sampleVCJWT
-
-		if !assert.Equal(t, vcExpected, vcFound) {
-			t.Errorf("VC got = %v, want %v",
-				vcExpected, vcFound)
+		if !assert.Equal(t, vcExpected.Status, statusFound) {
+			t.Errorf("VC Status got = %v, want %v",
+				vcExpected.Status, statusFound)
 		}
 	})
 
@@ -136,7 +104,7 @@ func TestTimeouts(t *testing.T) {
 	}()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Put(testProfile, &verifiable.Credential{ID: "1"})
+		err = store.Put(testProfile, testVCID, &verifiable.TypedID{ID: "1"})
 
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
