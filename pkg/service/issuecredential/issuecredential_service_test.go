@@ -52,8 +52,8 @@ func TestService_IssueCredential(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
 		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
-	mockVCStore := NewMockVCStore(gomock.NewController(t))
-	mockVCStore.EXPECT().Put(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+	mockVCStore := NewMockVCStatusStore(gomock.NewController(t))
+	mockVCStore.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 	mockVCStatusManager.EXPECT().CreateStatusListEntry(gomock.Any()).AnyTimes().Return(
@@ -119,7 +119,7 @@ func TestService_IssueCredential(t *testing.T) {
 							VCStatusManager: mockVCStatusManager,
 							Crypto:          crypto,
 							KMSRegistry:     kmsRegistry,
-							VCStore:         mockVCStore,
+							VCStatusStore:   mockVCStore,
 						})
 
 						verifiableCredentials, err := service.IssueCredential(
@@ -183,7 +183,7 @@ func TestService_IssueCredential(t *testing.T) {
 					VCStatusManager: mockVCStatusManager,
 					Crypto:          crypto,
 					KMSRegistry:     kmsRegistry,
-					VCStore:         mockVCStore,
+					VCStatusStore:   mockVCStore,
 				})
 
 				verifiableCredentials, err := service.IssueCredential(
@@ -322,14 +322,14 @@ func TestService_IssueCredential(t *testing.T) {
 		crypto := vccrypto.New(
 			&vdrmock.MockVDRegistry{ResolveValue: didDoc}, testutil.DocumentLoader(t))
 
-		failedStore := NewMockVCStore(gomock.NewController(t))
-		failedStore.EXPECT().Put(gomock.Any(), gomock.Any()).AnyTimes().Return(errors.New("some error"))
+		failedStore := NewMockVCStatusStore(gomock.NewController(t))
+		failedStore.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(errors.New("some error"))
 
 		service := issuecredential.New(&issuecredential.Config{
 			VCStatusManager: mockVCStatusManager,
 			Crypto:          crypto,
 			KMSRegistry:     kmsRegistry,
-			VCStore:         failedStore,
+			VCStatusStore:   failedStore,
 		})
 
 		verifiableCredentials, err := service.IssueCredential(

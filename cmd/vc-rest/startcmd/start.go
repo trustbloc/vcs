@@ -70,7 +70,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 )
 
 const (
@@ -238,14 +238,14 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
 	cslStore := cslstore.NewStore(mongodbClient)
-	vcStore := vcstore.NewStore(mongodbClient)
+	vcStatusStore := vcstatusstore.NewStore(mongodbClient)
 	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
 		TLSConfig:      tlsConfig,
 		RequestTokens:  conf.StartupParameters.requestTokens,
 		DocumentLoader: documentLoader,
 		CSLStore:       cslStore,
-		VCStore:        vcStore,
+		VCStatusStore:  vcStatusStore,
 		ListSize:       cslSize,
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,
@@ -257,7 +257,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
-		VCStore:         vcStore,
+		VCStatusStore:   vcStatusStore,
 		VCStatusManager: statusListVCSvc,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,

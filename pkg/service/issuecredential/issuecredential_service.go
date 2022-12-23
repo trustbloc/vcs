@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,vcStore=MockVCStore
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,vcStatusStore=MockVCStatusStore
 
 package issuecredential
 
@@ -20,8 +20,8 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
-type vcStore interface {
-	Put(profileName string, vc *verifiable.Credential) error
+type vcStatusStore interface {
+	Put(profileID, credentialID string, typedID *verifiable.TypedID) error
 }
 
 type vcCrypto interface {
@@ -44,7 +44,7 @@ type StatusListEntry struct {
 
 type Config struct {
 	VCStatusManager vcStatusManager
-	VCStore         vcStore
+	VCStatusStore   vcStatusStore
 	Crypto          vcCrypto
 	KMSRegistry     kmsRegistry
 }
@@ -53,7 +53,7 @@ type Service struct {
 	vcStatusManager vcStatusManager
 	crypto          vcCrypto
 	kmsRegistry     kmsRegistry
-	vcStore         vcStore
+	vcStatusStore   vcStatusStore
 }
 
 func New(config *Config) *Service {
@@ -61,7 +61,7 @@ func New(config *Config) *Service {
 		vcStatusManager: config.VCStatusManager,
 		crypto:          config.Crypto,
 		kmsRegistry:     config.KMSRegistry,
-		vcStore:         config.VCStore,
+		vcStatusStore:   config.VCStatusStore,
 	}
 }
 
@@ -108,10 +108,10 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		return nil, fmt.Errorf("failed to sign credential: %w", err)
 	}
 
-	// Store to DB
-	err = s.vcStore.Put(profile.Name, signedVC)
+	// Store VC status to DB
+	err = s.vcStatusStore.Put(profile.ID, signedVC.ID, signedVC.Status)
 	if err != nil {
-		return nil, fmt.Errorf("failed to store credential: %w", err)
+		return nil, fmt.Errorf("failed to store credential status: %w", err)
 	}
 
 	return signedVC, nil
