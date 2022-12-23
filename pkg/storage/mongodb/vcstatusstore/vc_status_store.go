@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vcstatusstore
 
 import (
+	"encoding/json"
 	"fmt"
 
 	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
@@ -22,10 +23,9 @@ const (
 )
 
 type mongoDocument struct {
-	VcID         string                 `json:"vcID"`
-	ProfileID    string                 `json:"profileID"`
-	TypedID      *verifiable.TypedID    `json:"typedID"`
-	CustomFields map[string]interface{} `json:"customFields"`
+	VcID      string              `json:"vcID"`
+	ProfileID string              `json:"profileID"`
+	TypedID   *verifiable.TypedID `json:"typedID"`
 }
 
 // Store manages profile in mongodb.
@@ -43,10 +43,9 @@ func (p *Store) Put(profileID, credentialID string, typedID *verifiable.TypedID)
 	defer cancel()
 
 	document := mongoDocument{
-		VcID:         credentialID,
-		ProfileID:    profileID,
-		TypedID:      typedID,
-		CustomFields: typedID.CustomFields,
+		VcID:      credentialID,
+		ProfileID: profileID,
+		TypedID:   typedID,
 	}
 
 	mongoDBDocument, err := mongodbext.PrepareDataForBSONStorage(document)
@@ -65,19 +64,19 @@ func (p *Store) Get(profileID, vcID string) (*verifiable.TypedID, error) {
 
 	collection := p.mongoClient.Database().Collection(vcStatusStoreName)
 
-	mongoDBDocument := mongoDocument{}
-
-	err := collection.FindOne(ctxWithTimeout, bson.D{
+	decodeBytes, err := collection.FindOne(ctxWithTimeout, bson.D{
 		{Key: idFieldName, Value: vcID},
 		{Key: profileIDMongoDBFieldName, Value: profileID},
-	}).Decode(&mongoDBDocument)
+	}).DecodeBytes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to query MongoDB: %w", err)
 	}
 
-	return &verifiable.TypedID{
-		ID:           mongoDBDocument.TypedID.ID,
-		Type:         mongoDBDocument.TypedID.Type,
-		CustomFields: mongoDBDocument.CustomFields,
-	}, nil
+	mongoDBDocument := mongoDocument{}
+	err = json.Unmarshal([]byte(decodeBytes.String()), &mongoDBDocument)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode mongoDBDocument: %w", err)
+	}
+
+	return mongoDBDocument.TypedID, nil
 }
