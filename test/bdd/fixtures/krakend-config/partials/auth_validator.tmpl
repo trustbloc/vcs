@@ -1,0 +1,16 @@
+"auth/validator": {
+  "alg": "RS256",
+  "scopes": [
+    "org_admin"
+  ],
+  "jwk_url": "https://oidc-provider.example.com:4444/.well-known/jwks.json",
+  "cache": true,
+  "disable_jwk_security": true,
+  "operation_debug": true,
+  "propagate_claims": [
+    [
+      "sub",
+      "x-user"
+    ]
+  ]
+}

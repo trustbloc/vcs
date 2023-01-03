@@ -262,7 +262,7 @@
             "openid",
             "profile"
           ],
-          "redirect_uri": "https://localhost:4455/oidc/redirect",
+          "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
           "issuer_well_known": "https://oidc-provider.example.com:4444/.well-known/openid-configuration"
         },
         "credentialTemplates": [

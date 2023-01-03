@@ -1,0 +1,16 @@
+{
+  "port": 8080,
+  "default_hosts": [
+    "http://vc-rest-echo.trustbloc.local:8075"
+  ],
+  "timeout": "3s",
+  "cache_ttl": "300s",
+  "tls": {
+    "public_key": "/etc/tls/ec-pubCert.pem",
+    "private_key": "/etc/tls/ec-key.pem"
+  },
+  "plugin": {
+    "pattern": ".so",
+    "folder": "/etc/krakend/plugins/"
+  }
+}

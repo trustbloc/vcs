@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	credentialServiceURL            = "https://localhost:4455"
+	credentialServiceURL            = "https://api-gateway.trustbloc.local:5566"
 	verifierProfileURL              = "%s/verifier/profiles"
 	verifierProfileURLFormat        = verifierProfileURL + "/%s"
 	verifyCredentialURLFormat       = verifierProfileURLFormat + "/credentials/verify"

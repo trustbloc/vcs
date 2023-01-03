@@ -1,0 +1,48 @@
+{
+  "$schema": "https://www.krakend.io/schema/v3.json",
+  "version": 3,
+  "name": "VCS API Gateway",
+  "port": {{ .service.port }},
+  "host": {{ marshal .service.default_hosts }},
+  "timeout": "{{ .service.timeout }}",
+  "cache_ttl":  "{{ .service.cache_ttl }}",
+  "tls": {{ marshal .service.tls }},
+  "plugin": {{ marshal .service.plugin }},
+  "allow_insecure_connections": true,
+  "endpoints": [
+    {{ range $idx, $endpoint := .endpoint.profile }}
+    {{ if $idx }},{{ end }}
+      {
+        "endpoint": "{{ $endpoint.endpoint }}",
+        "method": "{{ $endpoint.method }}",
+        "output_encoding": "no-op",
+        {{ if $endpoint.input_headers }}
+        "input_headers": {{ marshal $endpoint.input_headers }},
+        {{ end }}
+        {{ if $endpoint.input_query_strings }}
+        "input_query_strings": {{ marshal $endpoint.input_query_strings }},
+        {{ end }}
+        {{ if $endpoint.protected }}
+        "extra_config": {
+        {{ include "auth_validator.tmpl" }}
+        },
+        {{ end }}
+        "backend": [
+            {
+              {{ if $endpoint.protected }}
+              "extra_config": {
+              {{ include "x_api_key_header.tmpl" }}
+              },
+              {{ end }}
+              {{ if $endpoint.backend_extra_config }}
+              "extra_config": {{ marshal $endpoint.backend_extra_config }},
+              {{ end }}
+              "url_pattern": "{{ $endpoint.endpoint }}",
+              "method": "{{ $endpoint.method }}",
+              "encoding": "no-op"
+            }
+        ]
+    }
+    {{ end }}
+  ]
+}

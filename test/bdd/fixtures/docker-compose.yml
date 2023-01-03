@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-version: '2'
+version: '2.4'
 
 services:
   vc-rest-echo.trustbloc.local:
@@ -11,7 +11,7 @@ services:
     image: ${VC_REST_IMAGE}:latest
     environment:
       - VC_REST_HOST_URL=0.0.0.0:8075
-      - VC_REST_API_GATEWAY_URL=https://localhost:4455
+      - VC_REST_API_GATEWAY_URL=https://api-gateway.trustbloc.local:5566
       - VC_REST_HOST_URL_EXTERNAL=http://vc-rest-echo.trustbloc.local:8075
       - VC_REST_PROFILES_FILE_PATH=/profile/profiles.json
       - VC_REST_ORB_DOMAIN=testnet.orb.local
@@ -184,23 +184,19 @@ services:
     networks:
       - bdd_net
 
-  oathkeeper.trustbloc.local:
-    container_name: oathkeeper.trustbloc.local
-    image: oryd/oathkeeper:${OATHKEEPER_IMAGE_TAG}
+  api-gateway.trustbloc.local:
+    container_name: api-gateway.trustbloc.local
+    image: devopsfaith/krakend:${KRAKEND_IMAGE_TAG}
+    platform: linux/amd64
     ports:
-      - "4455:4455"
-    command: /bin/sh -c "cp /etc/tls/ec-cacert.pem /usr/local/share/ca-certificates/;update-ca-certificates;oathkeeper serve proxy --config /oathkeeper/config.yaml"
-    user: root
-    entrypoint: ""
+      - "5566:8080"
+    command: run -d -c /etc/krakend/krakend.tmpl
     environment:
-      - LOG_LEVEL=debug
-      - PORT=4455
-      - ISSUER_URL=https://oathkeeper-proxy.trustbloc.local
-      - SERVE_PROXY_TLS_KEY_PATH=/etc/tls/ec-key.pem
-      - SERVE_PROXY_TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
-      - LOG_LEAK_SENSITIVE_VALUES=true
+      - FC_ENABLE=1
+      - FC_SETTINGS=/etc/krakend/settings
+      - FC_PARTIALS=/etc/krakend/partials
     volumes:
-      - ./oathkeeper-config:/oathkeeper
+      - ./krakend-config:/etc/krakend/
       - ./keys/tls:/etc/tls
     networks:
       - bdd_net
@@ -211,7 +207,7 @@ services:
     ports:
       - "4444:4444"
       - "4445:4445"
-    command: /bin/sh -c "sleep 20 && hydra migrate sql --read-from-env --yes; (sleep 10; tmp/hydra_configure.sh)& hydra serve all"
+    command: /bin/sh -c "sleep 20 && hydra migrate sql --read-from-env --yes; (sleep 25; tmp/hydra_configure.sh)& hydra serve all"
     entrypoint: ""
     environment:
       - DSN=mysql://thirdpartyoidc:thirdpartyoidc-secret-pw@tcp(mysql:3306)/thirdpartyoidc?max_conns=20&max_idle_conns=4
@@ -227,6 +223,8 @@ services:
       - SERVE_ADMIN_PORT=4445
       - LOG_LEAK_SENSITIVE_VALUES=true
       - LOG_LEVEL=debug
+      - STRATEGIES_ACCESS_TOKEN=jwt
+      - SERVE_TLS_ENABLED=false
     restart: unless-stopped
     volumes:
       - ./keys/tls:/etc/tls
