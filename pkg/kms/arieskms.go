@@ -108,7 +108,7 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			return nil, err
 		}
 
-		awsSvc := awssvc.New(awsSession, nil, "")
+		awsSvc := awssvc.New(awsSession, nil, "", awssvc.WithKeyAliasPrefix("vcs"))
 
 		return &KeyManager{
 			kmsType:    cfg.KMSType,
