@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
@@ -108,7 +109,13 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			return nil, err
 		}
 
-		awsSvc := awssvc.New(awsSession, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
+		awsConfig := &aws.Config{}
+
+		if cfg.RoleARN != "" {
+			awsConfig.Credentials = stscreds.NewCredentials(awsSession, cfg.RoleARN)
+		}
+
+		awsSvc := awssvc.New(awsSession, awsConfig, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
 
 		return &KeyManager{
 			kmsType:    cfg.KMSType,
