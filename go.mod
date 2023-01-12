@@ -36,7 +36,7 @@ require (
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/kms v0.1.9-0.20230112152414-5e9a31b2941c
+	github.com/trustbloc/kms v0.1.9-0.20230112232708-00c361fc29ad
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
 	go.mongodb.org/mongo-driver v1.10.0
