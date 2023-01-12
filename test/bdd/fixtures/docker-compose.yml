@@ -21,6 +21,7 @@ services:
       - VC_REST_DEFAULT_KMS_TYPE=aws
       - VC_REST_DEFAULT_KMS_ENDPOINT=http://aws-kms:8020
       - VC_REST_DEFAULT_KMS_REGION=ca-central-1
+      - VC_REST_DEFAULT_KMS_ALIAS_PREFIX=vcs
       - AWS_ACCESS_KEY_ID=mock
       - AWS_SECRET_ACCESS_KEY=mock
       - VC_REST_TLS_CACERTS=/etc/tls/ec-cacert.pem

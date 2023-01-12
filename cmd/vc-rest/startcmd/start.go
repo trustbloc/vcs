@@ -196,6 +196,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DBType:            conf.StartupParameters.dbParameters.databaseType,
 		DBURL:             conf.StartupParameters.dbParameters.databaseURL,
 		DBPrefix:          conf.StartupParameters.dbParameters.databasePrefix,
+		AliasPrefix:       conf.StartupParameters.kmsParameters.aliasPrefix,
 	}, metrics)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create default kms: %w", err)
