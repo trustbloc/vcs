@@ -12,6 +12,7 @@ require (
 	github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/piprate/json-gold v0.5.0
+	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
 	github.com/trustbloc/vcs v0.0.0
@@ -62,7 +63,7 @@ require (
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.4 // indirect
-	github.com/labstack/echo/v4 v4.8.0 // indirect
+	github.com/labstack/echo/v4 v4.9.0 // indirect
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
@@ -99,7 +100,6 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
-	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
@@ -109,7 +109,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b // indirect
+	github.com/trustbloc/kms v0.1.9-0.20230112103056-33d73ab7d5af // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect
