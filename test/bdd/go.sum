@@ -993,8 +993,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20200427203606-3cfed13b9966/go.mod h1
 github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce/go.mod h1:o8v6yHRoik09Xen7gje4m9ERNah1d1PPsVq1VEx9vE4=
 github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811 h1:0e1d1w9o662+e7ZnJvRYJH8yblcBXngme8qbsjTvhQc=
 github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811/go.mod h1:o/v7C1z6d/5UrjaC6GAUc1hk0XVuE3M4tpyvsMMUw5k=
-github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b h1:vZPXsVg1xZHv7jwwxZIbnDZKx/Q4yJbXkniaJH7uzQE=
-github.com/trustbloc/kms v0.1.9-0.20221213135236-1ae233cf6f7b/go.mod h1:JDlEYJtNQUBrKvPBrfgZLMk8r2LJz8LvtHmS6Jb1P6c=
+github.com/trustbloc/kms v0.1.9-0.20230112103056-33d73ab7d5af h1:o/Mc2XeP8tCeeBJ7k3UcIqh+YZ31IWfxNVHymCwJe4w=
+github.com/trustbloc/kms v0.1.9-0.20230112103056-33d73ab7d5af/go.mod h1:JDlEYJtNQUBrKvPBrfgZLMk8r2LJz8LvtHmS6Jb1P6c=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 h1:Mzg9wvEoUIWPoI/GHz3YlVbd4nKWeSPGc6+3l95eOZU=
 github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42/go.mod h1:HRaXVV1caceumbDBwLO3ByiCcAc18KwrNvZ7JQBvDIQ=
 github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a h1:hTNcFcgr6cGzQAqQMOzenV+ZRp3dqTjaq2KQzvjqRXM=
