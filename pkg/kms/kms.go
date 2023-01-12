@@ -28,10 +28,11 @@ const (
 
 // Config configure kms that stores signing keys.
 type Config struct {
-	KMSType    Type
-	Endpoint   string
-	Region     string
-	HTTPClient *http.Client
+	KMSType     Type
+	Endpoint    string
+	Region      string
+	AliasPrefix string
+	HTTPClient  *http.Client
 
 	SecretLockKeyPath string
 	DBType            string
