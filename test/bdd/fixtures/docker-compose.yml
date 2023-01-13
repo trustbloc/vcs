@@ -20,6 +20,7 @@ services:
       - DATABASE_PREFIX=vc_rest_echo_
       - VC_REST_DEFAULT_KMS_TYPE=aws
       - VC_REST_DEFAULT_KMS_ENDPOINT=http://aws-kms:8020
+      - AWS_REGION=ca-central-1
       - VC_REST_DEFAULT_KMS_REGION=ca-central-1
       - VC_REST_DEFAULT_KMS_ALIAS_PREFIX=vcs
       - AWS_ACCESS_KEY_ID=mock
