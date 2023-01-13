@@ -100,7 +100,7 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			metrics:    metrics,
 		}, nil
 	case AWS:
-		awsSession, err := session.NewSession(&aws.Config{})
+		awsSession, err := session.NewSession(&aws.Config{Region: aws.String(cfg.Region)})
 		if err != nil {
 			return nil, err
 		}
