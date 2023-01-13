@@ -86,6 +86,7 @@ func New(
 	}
 }
 
+//nolint:funlen
 func (s *Service) DidConfig(
 	ctx context.Context,
 	profileType ProfileType,
@@ -165,6 +166,7 @@ func (s *Service) DidConfig(
 			KeyType:                 profile.VCConfig.KeyType,
 			KMS:                     kms,
 			SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
+			SDJWT:                   profile.VCConfig.SDJWT,
 		}
 	default:
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",

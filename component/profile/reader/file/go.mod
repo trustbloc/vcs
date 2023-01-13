@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/profile/reader/file
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
@@ -48,6 +48,7 @@ require (
 	github.com/evanphx/json-patch v4.11.0+incompatible // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.3.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

@@ -16,10 +16,11 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/getkin/kin-openapi v0.94.0
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a
 	github.com/hyperledger/aries-framework-go-ext/component/storage/couchdb v0.0.0-20220428163625-96d8261511e1
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mysql v0.0.0-20220330151152-6bbd64bde42e
@@ -36,7 +37,6 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
-	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/kms v0.1.9-0.20230113182241-87a03ed7a9a1
@@ -154,6 +154,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/square/go-jose/v3 v3.0.0-20200630053402-0a67ce9b0693 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/teserakt-io/golang-ed25519 v0.0.0-20210104091850-3888c087a4c8 // indirect
 	github.com/tidwall/gjson v1.14.0 // indirect

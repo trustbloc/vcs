@@ -16,11 +16,11 @@ import (
 	"fmt"
 
 	"github.com/btcsuite/btcd/btcec"
+	jose2 "github.com/go-jose/go-jose/v3"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-	jose2 "github.com/square/go-jose/v3"
 )
 
 type keyManager interface {

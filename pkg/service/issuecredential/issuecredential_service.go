@@ -82,6 +82,7 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 		Format:                  profile.VCConfig.Format,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
 		VCStatusListType:        profile.VCConfig.Status.Type,
+		SDJWT:                   profile.VCConfig.SDJWT,
 	}
 
 	var statusListEntry *StatusListEntry
