@@ -100,16 +100,16 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			metrics:    metrics,
 		}, nil
 	case AWS:
-		awsSession, err := session.NewSession(&aws.Config{
-			Endpoint:                      &cfg.Endpoint,
-			Region:                        aws.String(cfg.Region),
-			CredentialsChainVerboseErrors: aws.Bool(true),
-		})
+		awsSession, err := session.NewSession(&aws.Config{})
 		if err != nil {
 			return nil, err
 		}
 
-		awsConfig := &aws.Config{}
+		awsConfig := &aws.Config{
+			Endpoint:                      &cfg.Endpoint,
+			Region:                        aws.String(cfg.Region),
+			CredentialsChainVerboseErrors: aws.Bool(true),
+		}
 
 		if cfg.RoleARN != "" {
 			awsConfig.Credentials = stscreds.NewCredentials(awsSession, cfg.RoleARN)
