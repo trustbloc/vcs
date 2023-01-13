@@ -7,19 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package kms
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	webcrypto "github.com/hyperledger/aries-framework-go/pkg/crypto/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
-	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	arieskms "github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/webkms"
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock"
@@ -34,21 +35,21 @@ import (
 )
 
 // nolint: gochecknoglobals
-var ariesSupportedKeyTypes = []kms.KeyType{
-	kms.ED25519Type,
-	kms.X25519ECDHKWType,
-	kms.ECDSASecp256k1TypeIEEEP1363,
-	kms.ECDSAP256TypeDER,
-	kms.ECDSAP384TypeDER,
-	kms.RSAPS256Type,
-	kms.BLS12381G2Type,
+var ariesSupportedKeyTypes = []arieskms.KeyType{
+	arieskms.ED25519Type,
+	arieskms.X25519ECDHKWType,
+	arieskms.ECDSASecp256k1TypeIEEEP1363,
+	arieskms.ECDSAP256TypeDER,
+	arieskms.ECDSAP384TypeDER,
+	arieskms.RSAPS256Type,
+	arieskms.BLS12381G2Type,
 }
 
 // nolint: gochecknoglobals
-var awsSupportedKeyTypes = []kms.KeyType{
-	kms.ECDSAP256TypeDER,
-	kms.ECDSAP384TypeDER,
-	kms.ECDSASecp256k1DER,
+var awsSupportedKeyTypes = []arieskms.KeyType{
+	arieskms.ECDSAP256TypeDER,
+	arieskms.ECDSAP384TypeDER,
+	arieskms.ECDSASecp256k1DER,
 }
 
 const (
@@ -59,7 +60,7 @@ const (
 
 type keyManager interface {
 	Get(keyID string) (interface{}, error)
-	CreateAndExportPubKeyBytes(kt kms.KeyType, opts ...kms.KeyOpts) (string, []byte, error)
+	CreateAndExportPubKeyBytes(kt arieskms.KeyType, opts ...arieskms.KeyOpts) (string, []byte, error)
 }
 
 type crypto interface {
@@ -100,22 +101,15 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 			metrics:    metrics,
 		}, nil
 	case AWS:
-		awsSession, err := session.NewSession(&aws.Config{Region: aws.String(cfg.Region)})
+		awsConfig, err := config.LoadDefaultConfig(
+			context.Background(),
+			config.WithEndpointResolverWithOptions(prepareResolver(cfg.Endpoint, cfg.Region)),
+		)
 		if err != nil {
 			return nil, err
 		}
 
-		awsConfig := &aws.Config{
-			Endpoint:                      &cfg.Endpoint,
-			Region:                        aws.String(cfg.Region),
-			CredentialsChainVerboseErrors: aws.Bool(true),
-		}
-
-		if cfg.RoleARN != "" {
-			awsConfig.Credentials = stscreds.NewCredentials(awsSession, cfg.RoleARN)
-		}
-
-		awsSvc := awssvc.New(awsSession, awsConfig, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
+		awsSvc := awssvc.New(&awsConfig, nil, "", awssvc.WithKeyAliasPrefix(cfg.AliasPrefix))
 
 		return &KeyManager{
 			kmsType:    cfg.KMSType,
@@ -126,6 +120,18 @@ func NewAriesKeyManager(cfg *Config, metrics metricsProvider) (*KeyManager, erro
 	}
 
 	return nil, fmt.Errorf("unsupported kms type: %s", cfg.KMSType)
+}
+
+func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOptionsFunc {
+	return func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if endpoint != "" && service == kms.ServiceID && region == reg {
+			return aws.Endpoint{
+				URL:           endpoint,
+				SigningRegion: reg,
+			}, nil
+		}
+		return aws.Endpoint{SigningRegion: reg}, &aws.EndpointNotFoundError{}
+	}
 }
 
 func createLocalKMS(cfg *Config) (keyManager, crypto, error) {
@@ -139,7 +145,7 @@ func createLocalKMS(cfg *Config) (keyManager, crypto, error) {
 		return nil, nil, err
 	}
 
-	kmsStore, err := kms.NewAriesProviderWrapper(storeProvider)
+	kmsStore, err := arieskms.NewAriesProviderWrapper(storeProvider)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,7 +168,7 @@ func createLocalKMS(cfg *Config) (keyManager, crypto, error) {
 	return localKms, crypto, nil
 }
 
-func (km *KeyManager) SupportedKeyTypes() []kms.KeyType {
+func (km *KeyManager) SupportedKeyTypes() []arieskms.KeyType {
 	if km.kmsType == AWS {
 		return awsSupportedKeyTypes
 	}
@@ -170,11 +176,11 @@ func (km *KeyManager) SupportedKeyTypes() []kms.KeyType {
 	return ariesSupportedKeyTypes
 }
 
-func (km *KeyManager) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+func (km *KeyManager) CreateJWKKey(keyType arieskms.KeyType) (string, *jwk.JWK, error) {
 	return key.JWKKeyCreator(keyType)(km.keyManager)
 }
 
-func (km *KeyManager) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+func (km *KeyManager) CreateCryptoKey(keyType arieskms.KeyType) (string, interface{}, error) {
 	return key.CryptoKeyCreator(keyType)(km.keyManager)
 }
 
@@ -227,11 +233,11 @@ func createStoreProvider(typ, url, prefix string) (storage.Provider, error) {
 }
 
 type kmsProvider struct {
-	storageProvider   kms.Store
+	storageProvider   arieskms.Store
 	secretLockService secretlock.Service
 }
 
-func (k kmsProvider) StorageProvider() kms.Store {
+func (k kmsProvider) StorageProvider() arieskms.Store {
 	return k.storageProvider
 }
 

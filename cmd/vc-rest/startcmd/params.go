@@ -48,11 +48,6 @@ const (
 	aliasPrefixFlagUsage = "alias prefix" +
 		commonEnvVarUsageText + aliasPrefixEnvKey
 
-	kmsRoleFlagName  = "default-kms-role"
-	kmsRoleEnvKey    = "VC_REST_DEFAULT_KMS_ROLE"
-	kmsRoleFlagUsage = "kms role" +
-		commonEnvVarUsageText + kmsRoleEnvKey
-
 	// Linter gosec flags these as "potential hardcoded credentials". They are not, hence the nolint annotations.
 	kmsSecretsDatabaseTypeFlagName      = "default-kms-secrets-database-type"         //nolint: gosec
 	kmsSecretsDatabaseTypeEnvKey        = "VC_REST_DEFAULT_KMS_SECRETS_DATABASE_TYPE" //nolint: gosec
@@ -266,7 +261,6 @@ type kmsParameters struct {
 	kmsSecretsDatabasePrefix string
 	secretLockKeyPath        string
 	aliasPrefix              string
-	roleARN                  string
 }
 
 // nolint: gocyclo,funlen
@@ -508,7 +502,6 @@ func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
 
 	secretLockKeyPath := cmdutils.GetUserSetOptionalVarFromString(cmd, secretLockKeyPathFlagName, secretLockKeyPathEnvKey)
 	aliasPrefix := cmdutils.GetUserSetOptionalVarFromString(cmd, aliasPrefixFlagName, aliasPrefixEnvKey)
-	kmsRole := cmdutils.GetUserSetOptionalVarFromString(cmd, kmsRoleFlagName, kmsRoleEnvKey)
 
 	keyDatabaseType, err := cmdutils.GetUserSetVarFromString(cmd, kmsSecretsDatabaseTypeFlagName,
 		kmsSecretsDatabaseTypeEnvKey, kmsType != kms.Local)
@@ -529,7 +522,6 @@ func getKMSParameters(cmd *cobra.Command) (*kmsParameters, error) {
 		kmsSecretsDatabaseURL:    keyDatabaseURL,
 		kmsSecretsDatabasePrefix: keyDatabasePrefix,
 		aliasPrefix:              aliasPrefix,
-		roleARN:                  kmsRole,
 	}, nil
 }
 

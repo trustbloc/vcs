@@ -30,7 +30,6 @@ const (
 type Config struct {
 	KMSType     Type
 	Endpoint    string
-	RoleARN     string
 	Region      string
 	AliasPrefix string
 	HTTPClient  *http.Client
