@@ -41,9 +41,11 @@ func (s *Service) InitiateIssuance(
 
 	var template *profileapi.CredentialTemplate
 
-	if req.CredentialTemplateID == "" && len(profile.CredentialTemplates) > 1 {
-		return nil, errors.New("credential template should be specified")
-	} else if req.CredentialTemplateID == "" {
+	if req.CredentialTemplateID == "" {
+		if len(profile.CredentialTemplates) > 1 {
+			return nil, errors.New("credential template should be specified")
+		}
+
 		template = profile.CredentialTemplates[0]
 	} else {
 		credTemplate, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
