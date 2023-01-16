@@ -1,0 +1,46 @@
+{
+  "Clients": {
+    "f13d1va9lp403pb9lyj89vk55": {
+      "AllowedOAuthFlows": [
+        "client_credentials"
+      ],
+      "AllowedOAuthScopes": [
+        "org_admin"
+      ],
+      "ClientId": "f13d1va9lp403pb9lyj89vk55",
+      "ClientName": "Test Org",
+      "ClientSecret": "ejqxi9jb1vew2jbdnogpjcgrz",
+      "CreationDate": "2023-01-13T15:45:43.942Z",
+      "LastModifiedDate": "2023-01-13T15:45:43.942Z",
+      "TokenValidityUnits": {
+        "AccessToken": "hours",
+        "IdToken": "minutes",
+        "RefreshToken": "days"
+      },
+      "UserPoolId": "local_5a9GzRvB"
+    },
+    "7d4u50e7w6nfq8tfayhzplgjf": {
+      "AllowedOAuthFlows": [
+        "authorization_code"
+      ],
+      "AllowedOAuthScopes": [
+        "openid",
+        "profile"
+      ],
+      "CallbackURLs": [
+        "https://api-gateway.trustbloc.local:5566/oidc/redirect"
+      ],
+      "ClientId": "7d4u50e7w6nfq8tfayhzplgjf",
+      "ClientName": "Bank Issuer",
+      "ClientSecret": "282ks4fkuqfosus5k0x30abnv",
+      "CreationDate": "2023-01-17T13:02:14.380Z",
+      "LastModifiedDate": "2023-01-17T13:02:14.380Z",
+      "TokenValidityUnits": {
+        "AccessToken": "hours",
+        "IdToken": "minutes",
+        "RefreshToken": "days"
+      },
+      "UserPoolId": "local_5a9GzRvB"
+    }
+  }
+}

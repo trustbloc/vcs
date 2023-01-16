@@ -203,36 +203,13 @@ services:
     networks:
       - bdd_net
 
-  oidc-provider.example.com:
-    container_name: oidc-provider.example.com
-    image: oryd/hydra:${HYDRA_IMAGE_TAG}
+  cognito-mock.trustbloc.local:
+    container_name: cognito-mock.trustbloc.local
+    image: aholovko/cognito-local:${COGNITO_MOCK_IMAGE_TAG}
     ports:
-      - "4444:4444"
-      - "4445:4445"
-    command: /bin/sh -c "sleep 20 && hydra migrate sql --read-from-env --yes; (sleep 25; tmp/hydra_configure.sh)& hydra serve all"
-    entrypoint: ""
-    environment:
-      - DSN=mysql://thirdpartyoidc:thirdpartyoidc-secret-pw@tcp(mysql:3306)/thirdpartyoidc?max_conns=20&max_idle_conns=4
-      - URLS_SELF_ISSUER=https://oidc-provider.example.com:4444/
-      - URLS_CONSENT=https://localhost:8099/consent
-      - URLS_LOGIN=https://localhost:8099/login
-      - SECRETS_SYSTEM=testSecretsSystem
-      - OIDC_SUBJECT_TYPES_SUPPORTED=public
-      - OIDC_SUBJECT_TYPE_PAIRWISE_SALT=testSecretsSystem
-      - SERVE_TLS_KEY_PATH=/etc/tls/ec-key.pem
-      - SERVE_TLS_CERT_PATH=/etc/tls/ec-pubCert.pem
-      - SERVE_PUBLIC_PORT=4444
-      - SERVE_ADMIN_PORT=4445
-      - LOG_LEAK_SENSITIVE_VALUES=true
-      - LOG_LEVEL=debug
-      - STRATEGIES_ACCESS_TOKEN=jwt
-      - SERVE_TLS_ENABLED=false
-    restart: unless-stopped
+      - "9229:9229"
     volumes:
-      - ./keys/tls:/etc/tls
-      - ./hydra-config/hydra_configure.sh:/tmp/hydra_configure.sh
-    depends_on:
-      - mysql
+      - ./cognito-config:/app/.cognito
     networks:
       - bdd_net
 
@@ -249,22 +226,6 @@ services:
       - "8099:8099"
     volumes:
       - ./keys/tls:/etc/tls
-    networks:
-      - bdd_net
-
-  mysql:
-    container_name: mysql
-    image: mysql:${MYSQL_IMAGE_TAG}
-    ports:
-      - "3306:3306"
-    restart: always
-    command: --default-authentication-plugin=mysql_native_password
-    environment:
-      MYSQL_ROOT_PASSWORD: secret
-    logging:
-      driver: "none"
-    volumes:
-      - ./mysql-config:/docker-entrypoint-initdb.d
     networks:
       - bdd_net
 

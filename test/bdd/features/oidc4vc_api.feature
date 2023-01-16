@@ -9,7 +9,7 @@
 Feature: OIDC4VC REST API
 
   Background:
-    Given Organization "test_org" has been authorized with client id "test_org" and secret "test-org-secret"
+    Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
     And   Issuer with id "bank_issuer" is authorized as a Profile user
     And   Issuer registers Client for vcs oidc interactions
     And   User creates the wallet

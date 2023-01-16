@@ -33,7 +33,7 @@ const (
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	vcsCredentialEndpoint               = vcsAPIGateway + "/oidc/credential"
-	oidcProviderURL                     = "https://localhost:4444"
+	oidcProviderURL                     = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
 	loginPageURL                        = "https://localhost:8099/login"
 	claimDataURL                        = "https://mock-login-consent.example.com:8099/claim-data"
 	didDomain                           = "https://testnet.orb.local"
@@ -93,7 +93,7 @@ func (s *Steps) authorizeIssuer(id string) error {
 	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
-		issuer.OrganizationID, "test-org-secret", []string{"org_admin"})
+		issuer.OrganizationID, "ejqxi9jb1vew2jbdnogpjcgrz", []string{"org_admin"})
 	if err != nil {
 		return err
 	}
@@ -181,6 +181,16 @@ func (s *Steps) getAuthCode() error {
 	httpClient := &http.Client{
 		Jar:       s.cookie,
 		Transport: &http.Transport{TLSClientConfig: s.bddContext.TLSConfig},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// intercept auth code
+			if strings.HasPrefix(req.URL.String(), s.oauthClient.RedirectURL) {
+				s.authCode = req.URL.Query().Get("code")
+
+				return http.ErrUseLastResponse
+			}
+
+			return nil
+		},
 	}
 
 	if s.debug {
@@ -207,21 +217,28 @@ func (s *Steps) getAuthCode() error {
 		return fmt.Errorf("get auth code request: %w", err)
 	}
 
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
-	}
+	_ = resp.Body.Close()
 
 	return nil
 }
 
 func (s *Steps) authenticateUser() error {
+	if s.authCode != "" {
+		return nil
+	}
+
 	httpClient := &http.Client{
 		Jar:       s.cookie,
 		Transport: &http.Transport{TLSClientConfig: s.bddContext.TLSConfig},
-		CheckRedirect: func(req *http.Request, via []*http.Request) error { // hijack redirects
-			return http.ErrUseLastResponse
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			// intercept auth code
+			if strings.HasPrefix(req.URL.String(), s.oauthClient.RedirectURL) {
+				s.authCode = req.URL.Query().Get("code")
+
+				return http.ErrUseLastResponse
+			}
+
+			return nil
 		},
 	}
 
@@ -235,45 +252,6 @@ func (s *Steps) authenticateUser() error {
 		return err
 	}
 	_ = resp.Body.Close()
-
-	// redirect back to third-party oidc provider after login
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return fmt.Errorf("redirect to third-party oidc provider: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	// redirect to consent page
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return fmt.Errorf("redirect to consent page: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	// redirect back to third-party oidc provider with consent verifier
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return fmt.Errorf("redirect back to auth after consent: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	// redirect to public vcs public /oidc/redirect
-	resp, err = httpClient.Get(resp.Header.Get("Location"))
-	if err != nil {
-		return fmt.Errorf("redirect to public oidc redirect: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	u, err := url.Parse(resp.Header.Get("Location"))
-	if err != nil {
-		return fmt.Errorf("parse client redirect url: %w", err)
-	}
-
-	if !strings.HasPrefix(u.String(), s.oauthClient.RedirectURL) {
-		return fmt.Errorf("invalid client redirect url")
-	}
-
-	s.authCode = u.Query().Get("code")
 
 	return nil
 }

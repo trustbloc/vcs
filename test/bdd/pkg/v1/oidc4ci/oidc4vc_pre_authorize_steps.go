@@ -138,7 +138,7 @@ func (s *PreAuthorizeStep) prepareIssuer(id string) error {
 	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
-		issuer.OrganizationID, "test-org-secret", []string{"org_admin"})
+		issuer.OrganizationID, "ejqxi9jb1vew2jbdnogpjcgrz", []string{"org_admin"})
 	if err != nil {
 		return err
 	}
