@@ -8,6 +8,7 @@ package oidc4ci
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -38,9 +39,19 @@ func (s *Service) InitiateIssuance(
 		return nil, ErrVCOptionsNotConfigured
 	}
 
-	template, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
-	if err != nil {
-		return nil, err
+	var template *profileapi.CredentialTemplate
+
+	if req.CredentialTemplateID == "" {
+		if len(profile.CredentialTemplates) > 1 {
+			return nil, errors.New("credential template should be specified")
+		}
+		template = profile.CredentialTemplates[0]
+	} else {
+		credTemplate, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
+		if err != nil {
+			return nil, err
+		}
+		template = credTemplate
 	}
 
 	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
@@ -72,15 +83,12 @@ func (s *Service) InitiateIssuance(
 	if data.GrantType == "" {
 		data.GrantType = defaultGrantType
 	}
-
 	if data.ResponseType == "" {
 		data.ResponseType = defaultResponseType
 	}
-
 	if len(data.Scope) == 0 {
 		data.Scope = []string{defaultScope}
 	}
-
 	if len(data.ClaimData) > 0 {
 		data.IsPreAuthFlow = true
 		data.PreAuthCode = generatePreAuthCode()

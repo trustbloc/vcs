@@ -241,6 +241,65 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "Success Pre-Auth without PIN and without template",
+			setup: func() {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				expectedCode := "super-secret-pre-auth-code"
+				claimData := map[string]interface{}{
+					"my_awesome_claim": "claim",
+				}
+
+				cp := testProfile
+				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
+				profile = &cp
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								ProfileID: profile.ID,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+								PreAuthCode:   expectedCode,
+								IsPreAuthFlow: true,
+							},
+						}, nil
+					})
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					ClaimData:          claimData,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "openid-initiate-issuance://?credential_type=PermanentResidentCard&issuer=https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer&pre-authorized_code=super-secret-pre-auth-code&user_pin_required=false", //nolint
+					resp.InitiateIssuanceURL)
+			},
+		},
+		{
 			name: "Fail Pre-Auth with PIN because of saving pin tx",
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
@@ -441,7 +500,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
-			name: "Credential template ID is required",
+			name: "Credential template ID is not required",
 			setup: func() {
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
@@ -456,7 +515,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
 				require.Nil(t, resp)
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateIDRequired)
+				require.ErrorContains(t, err, "credential template should be specified")
 			},
 		},
 		{

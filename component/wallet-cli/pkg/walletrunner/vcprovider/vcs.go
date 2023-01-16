@@ -148,7 +148,7 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 	}
 
 	req := &issuerv1.IssueCredentialData{
-		Credential: reqData,
+		Credential: &reqData,
 	}
 
 	requestBytes, err := json.Marshal(req)

@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
@@ -153,8 +155,11 @@ func (c *Controller) PostIssueCredentials(ctx echo.Context, profileID string) er
 	return util.WriteOutput(ctx)(c.issueCredential(ctx, &body, profileID))
 }
 
-func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData,
-	profileID string) (*verifiable.Credential, error) {
+func (c *Controller) issueCredential(
+	ctx echo.Context,
+	body *IssueCredentialData,
+	profileID string,
+) (*verifiable.Credential, error) {
 	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
 	if err != nil {
 		return nil, err
@@ -165,7 +170,67 @@ func (c *Controller) issueCredential(ctx echo.Context, body *IssueCredentialData
 		return nil, err
 	}
 
-	return c.signCredential(body.Credential, body.Options, profile)
+	var finalCredentials interface{}
+
+	if body.Credential != nil {
+		finalCredentials = *body.Credential
+	} else {
+		credentials, credErr := c.buildCredentialsFromTemplate(profile, body)
+		if credErr != nil {
+			return nil, credErr
+		}
+
+		finalCredentials = credentials
+	}
+
+	return c.signCredential(finalCredentials, body.Options, profile)
+}
+
+func (c *Controller) buildCredentialsFromTemplate(
+	profile *profileapi.Issuer,
+	body *IssueCredentialData,
+) (*verifiable.Credential, error) {
+	if len(profile.CredentialTemplates) == 0 {
+		return nil, errors.New("credential templates are not specified for profile")
+	}
+
+	if body.Claims == nil || len(*body.Claims) == 0 {
+		return nil, errors.New("no claims specified")
+	}
+
+	if body.CredentialTemplateId == nil && len(profile.CredentialTemplates) > 1 {
+		return nil, errors.New("credential template should be specified")
+	}
+
+	var credentialTemplate *profileapi.CredentialTemplate
+
+	if body.CredentialTemplateId != nil {
+		for _, template := range profile.CredentialTemplates {
+			if strings.EqualFold(template.ID, *body.CredentialTemplateId) {
+				credentialTemplate = template
+				break
+			}
+		}
+
+		if credentialTemplate == nil {
+			return nil, errors.New("credential template not found")
+		}
+	}
+
+	credentialTemplate = profile.CredentialTemplates[0]
+	vcc := &verifiable.Credential{
+		Context: credentialTemplate.Contexts,
+		ID:      uuid.New().URN(),
+		Types:   []string{"VerifiableCredential", credentialTemplate.Type},
+		Issuer:  verifiable.Issuer{ID: profile.SigningDID.DID},
+		Subject: verifiable.Subject{
+			ID:           profile.SigningDID.DID,
+			CustomFields: *body.Claims,
+		},
+		Issued: util2.NewTime(time.Now()),
+	}
+
+	return vcc, nil
 }
 
 func (c *Controller) signCredential(
