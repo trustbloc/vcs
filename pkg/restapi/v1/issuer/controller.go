@@ -171,55 +171,66 @@ func (c *Controller) issueCredential(
 	}
 
 	var finalCredentials interface{}
+
 	if body.Credential != nil {
 		finalCredentials = *body.Credential
-	}
-
-	if body.Credential == nil {
-		if len(profile.CredentialTemplates) == 0 {
-			return nil, errors.New("credential templates are not specified for profile")
+	} else {
+		credentials, credErr := c.buildCredentialsFromTemplate(profile, body)
+		if credErr != nil {
+			return nil, credErr
 		}
 
-		if body.Claims == nil || len(*body.Claims) == 0 {
-			return nil, errors.New("no claims specified")
-		}
-
-		if body.CredentialTemplateId == nil && len(profile.CredentialTemplates) > 1 {
-			return nil, errors.New("credential template should be specified")
-		}
-
-		var credentialTemplate *profileapi.CredentialTemplate
-
-		if body.CredentialTemplateId != nil {
-			for _, template := range profile.CredentialTemplates {
-				if strings.EqualFold(template.ID, *body.CredentialTemplateId) {
-					credentialTemplate = template
-					break
-				}
-			}
-
-			if credentialTemplate == nil {
-				return nil, errors.New("credential template not found")
-			}
-		}
-
-		credentialTemplate = profile.CredentialTemplates[0]
-		vcc := &verifiable.Credential{
-			Context: credentialTemplate.Contexts,
-			ID:      uuid.New().URN(),
-			Types:   []string{"VerifiableCredential", credentialTemplate.Type},
-			Issuer:  verifiable.Issuer{ID: profile.SigningDID.DID},
-			Subject: verifiable.Subject{
-				ID:           profile.SigningDID.DID,
-				CustomFields: *body.Claims,
-			},
-			Issued: util2.NewTime(time.Now()),
-		}
-
-		finalCredentials = vcc
+		finalCredentials = credentials
 	}
 
 	return c.signCredential(finalCredentials, body.Options, profile)
+}
+
+func (c *Controller) buildCredentialsFromTemplate(
+	profile *profileapi.Issuer,
+	body *IssueCredentialData,
+) (*verifiable.Credential, error) {
+	if len(profile.CredentialTemplates) == 0 {
+		return nil, errors.New("credential templates are not specified for profile")
+	}
+
+	if body.Claims == nil || len(*body.Claims) == 0 {
+		return nil, errors.New("no claims specified")
+	}
+
+	if body.CredentialTemplateId == nil && len(profile.CredentialTemplates) > 1 {
+		return nil, errors.New("credential template should be specified")
+	}
+
+	var credentialTemplate *profileapi.CredentialTemplate
+
+	if body.CredentialTemplateId != nil {
+		for _, template := range profile.CredentialTemplates {
+			if strings.EqualFold(template.ID, *body.CredentialTemplateId) {
+				credentialTemplate = template
+				break
+			}
+		}
+
+		if credentialTemplate == nil {
+			return nil, errors.New("credential template not found")
+		}
+	}
+
+	credentialTemplate = profile.CredentialTemplates[0]
+	vcc := &verifiable.Credential{
+		Context: credentialTemplate.Contexts,
+		ID:      uuid.New().URN(),
+		Types:   []string{"VerifiableCredential", credentialTemplate.Type},
+		Issuer:  verifiable.Issuer{ID: profile.SigningDID.DID},
+		Subject: verifiable.Subject{
+			ID:           profile.SigningDID.DID,
+			CustomFields: *body.Claims,
+		},
+		Issued: util2.NewTime(time.Now()),
+	}
+
+	return vcc, nil
 }
 
 func (c *Controller) signCredential(
