@@ -97,8 +97,14 @@ type InitiateOIDC4CIResponse struct {
 
 // Model for issuer credential.
 type IssueCredentialData struct {
+	// Should be specified if using credential template
+	Claims *map[string]interface{} `json:"claims,omitempty"`
+
 	// Credential in jws(string) or jsonld(object) formats.
-	Credential interface{} `json:"credential"`
+	Credential *interface{} `json:"credential,omitempty"`
+
+	// Credential template id
+	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
 
 	// Options for issuing credential.
 	Options *IssueCredentialOptions `json:"options,omitempty"`

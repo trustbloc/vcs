@@ -111,6 +111,263 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("Success LDP with TemplateId", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID: "did:orb:bank_issuer",
+				},
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "test_template",
+						Contexts: []string{
+							"https://www.w3.org/2018/credentials/v1",
+						},
+						Type: "VerifiedEmployee",
+					},
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+		})
+
+		req := &IssueCredentialData{
+			Claims: lo.ToPtr(map[string]interface{}{
+				"claim1": "value1",
+			}),
+			Credential:           nil,
+			CredentialTemplateId: lo.ToPtr("test_template"),
+			Options:              nil,
+		}
+
+		b, _ := json.Marshal(req)
+		c := echoContext(withRequestBody(b))
+
+		err := controller.PostIssueCredentials(c, "testId")
+		require.NoError(t, err)
+	})
+
+	t.Run("Success LDP without TemplateId", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID: "did:orb:bank_issuer",
+				},
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "test_template",
+						Contexts: []string{
+							"https://www.w3.org/2018/credentials/v1",
+						},
+						Type: "VerifiedEmployee",
+					},
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+		})
+
+		req := &IssueCredentialData{
+			Claims: lo.ToPtr(map[string]interface{}{
+				"claim1": "value1",
+			}),
+			Credential: nil,
+			Options:    nil,
+		}
+
+		b, _ := json.Marshal(req)
+		c := echoContext(withRequestBody(b))
+
+		err := controller.PostIssueCredentials(c, "testId")
+		require.NoError(t, err)
+	})
+
+	t.Run("Fail LDP without TemplateId and many templates", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID: "did:orb:bank_issuer",
+				},
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "test_template",
+						Contexts: []string{
+							"https://www.w3.org/2018/credentials/v1",
+						},
+						Type: "VerifiedEmployee",
+					},
+					{
+						ID: "test_template2",
+						Contexts: []string{
+							"https://www.w3.org/2018/credentials/v1",
+						},
+						Type: "VerifiedEmployee",
+					},
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+		})
+
+		req := &IssueCredentialData{
+			Claims: lo.ToPtr(map[string]interface{}{
+				"claim1": "value1",
+			}),
+			Credential: nil,
+			Options:    nil,
+		}
+
+		b, _ := json.Marshal(req)
+		c := echoContext(withRequestBody(b))
+
+		err := controller.PostIssueCredentials(c, "testId")
+		require.ErrorContains(t, err, "credential template should be specified")
+	})
+
+	t.Run("Fail LDP no template with TemplateId", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID: "did:orb:bank_issuer",
+				},
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "test_template",
+						Contexts: []string{
+							"https://www.w3.org/2018/credentials/v1",
+						},
+						Type: "VerifiedEmployee",
+					},
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+		})
+
+		req := &IssueCredentialData{
+			Claims: lo.ToPtr(map[string]interface{}{
+				"claim1": "value1",
+			}),
+			CredentialTemplateId: lo.ToPtr("random_template"),
+			Credential:           nil,
+			Options:              nil,
+		}
+
+		b, _ := json.Marshal(req)
+		c := echoContext(withRequestBody(b))
+
+		err := controller.PostIssueCredentials(c, "testId")
+		require.ErrorContains(t, err, "credential template not found")
+	})
+
+	t.Run("Fail LDP no credential templates", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID: "did:orb:bank_issuer",
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+		})
+
+		req := &IssueCredentialData{
+			Claims: lo.ToPtr(map[string]interface{}{
+				"claim1": "value1",
+			}),
+			CredentialTemplateId: lo.ToPtr("random_template"),
+			Credential:           nil,
+			Options:              nil,
+		}
+
+		b, _ := json.Marshal(req)
+		c := echoContext(withRequestBody(b))
+
+		err := controller.PostIssueCredentials(c, "testId")
+		require.ErrorContains(t, err, "credential templates are not specified for profile")
+	})
+
+	t.Run("Success LDP no template with TemplateId", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+			Return(&profileapi.Issuer{
+				OrganizationID: orgID,
+				ID:             "testId",
+				VCConfig: &profileapi.VCConfig{
+					Format: vcsverifiable.Ldp,
+				},
+				SigningDID: &profileapi.SigningDID{
+					DID: "did:orb:bank_issuer",
+				},
+				CredentialTemplates: []*profileapi.CredentialTemplate{
+					{
+						ID: "test_template",
+						Contexts: []string{
+							"https://www.w3.org/2018/credentials/v1",
+						},
+						Type: "VerifiedEmployee",
+					},
+				},
+			}, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:             mockProfileSvc,
+			DocumentLoader:         testutil.DocumentLoader(t),
+			IssueCredentialService: mockIssueCredentialSvc,
+		})
+
+		req := &IssueCredentialData{
+			CredentialTemplateId: lo.ToPtr("test_template"),
+			Credential:           nil,
+			Options:              nil,
+		}
+
+		b, _ := json.Marshal(req)
+		c := echoContext(withRequestBody(b))
+
+		err := controller.PostIssueCredentials(c, "testId")
+		require.ErrorContains(t, err, "no claims specified")
+	})
+
 	t.Run("Failed", func(t *testing.T) {
 		controller := NewController(&Config{})
 		c := echoContext(withRequestBody([]byte("abc")))
