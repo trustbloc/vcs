@@ -4,7 +4,7 @@
       "issuer": {
         "id": "i_myprofile_ud_P256k1",
         "name": "i_myprofile_ud_P256k1",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -26,7 +26,7 @@
       "issuer": {
         "id": "i_myprofile_ud_es256_jwt",
         "name": "i_myprofile_ud_es256_jwt",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -48,7 +48,7 @@
       "issuer": {
         "id": "i_myprofile_ud_es384_jwt",
         "name": "i_myprofile_ud_es384_jwt",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -70,7 +70,7 @@
       "issuer": {
         "id": "i_myprofile_ud_es256k_jwt",
         "name": "i_myprofile_ud_es256k_jwt",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -92,7 +92,7 @@
       "issuer": {
         "id": "i_myprofile_ud_p256",
         "name": "i_myprofile_ud_p256",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -114,7 +114,7 @@
       "issuer": {
         "id": "i_myprofile_prc_P256k1",
         "name": "i_myprofile_prc_P256k1",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -136,7 +136,7 @@
       "issuer": {
         "id": "i_myprofile_prc_p256",
         "name": "i_myprofile_prc_p256",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -158,7 +158,7 @@
       "issuer": {
         "id": "i_myprofile_cp_p384",
         "name": "i_myprofile_cp_p384",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -180,7 +180,7 @@
       "issuer": {
         "id": "i_myprofile_cp_p256",
         "name": "i_myprofile_cp_p256",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -202,7 +202,7 @@
       "issuer": {
         "id": "i_myprofile_cmtr_p384",
         "name": "i_myprofile_cmtr_p384",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -222,7 +222,7 @@
       "issuer": {
         "id": "i_myprofile_cmtr_p256",
         "name": "i_myprofile_cmtr_p256",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -242,7 +242,7 @@
       "issuer": {
         "id": "bank_issuer",
         "name": "Bank Issuer",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
         "active": true,
         "vcConfig": {
@@ -256,14 +256,14 @@
           }
         },
         "oidcConfig": {
-          "client_id": "bank_issuer",
-          "client_secret_handle": "bank-issuer-secret",
+          "client_id": "7d4u50e7w6nfq8tfayhzplgjf",
+          "client_secret_handle": "282ks4fkuqfosus5k0x30abnv",
           "scope": [
             "openid",
             "profile"
           ],
           "redirect_uri": "https://api-gateway.trustbloc.local:5566/oidc/redirect",
-          "issuer_well_known": "https://oidc-provider.example.com:4444/.well-known/openid-configuration"
+          "issuer_well_known": "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB/.well-known/openid-configuration"
         },
         "credentialTemplates": [
           {
@@ -367,7 +367,7 @@
       "verifier": {
         "id": "v_myprofile_ldp",
         "name": "v_myprofile_ldp",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",
@@ -460,7 +460,7 @@
       "verifier": {
         "id": "v_myprofile_jwt",
         "name": "v_myprofile_jwt",
-        "organizationID": "test_org",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "https://test-verifier.com",
         "active": true,
         "webHook": "http://vcs.webhook.example.com:8180",

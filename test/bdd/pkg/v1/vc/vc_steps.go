@@ -26,7 +26,7 @@ const (
 	issuerProfileURL                = "%s/issuer/profiles"
 	issuerProfileURLFormat          = issuerProfileURL + "/%s"
 	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
-	OidcProviderURL                 = "https://localhost:4444"
+	OidcProviderURL                 = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
 	updateCredentialStatusURLFormat = issuerProfileURLFormat + "/credentials/status"
 )
 
