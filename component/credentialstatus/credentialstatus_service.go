@@ -153,6 +153,7 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 		KMS:                     keyManager,
 		SignatureRepresentation: issuerProfile.VCConfig.SignatureRepresentation,
 		VCStatusListType:        issuerProfile.VCConfig.Status.Type,
+		SDJWT:                   issuerProfile.VCConfig.SDJWT,
 	}
 
 	typedID, err := s.vcStatusStore.Get(issuerProfile.ID, vcID)
@@ -189,6 +190,7 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredenti
 		Format:                  profile.VCConfig.Format,
 		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
 		VCStatusListType:        profile.VCConfig.Status.Type,
+		SDJWT:                   profile.VCConfig.SDJWT,
 	}
 
 	vcStatusProcessor, err := GetVCStatusProcessor(signer.VCStatusListType)
@@ -421,7 +423,9 @@ func (s *Service) createVC(vcID string,
 
 // prepareSigningOpts prepares signing opts from recently issued proof of given credential.
 func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
-	var signingOpts []vccrypto.SigningOpts
+	signingOpts := []vccrypto.SigningOpts{
+		vccrypto.WithEnabledSDJWT(false),
+	}
 
 	if len(proofs) == 0 {
 		return signingOpts, nil

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -90,6 +91,8 @@ type signingOpts struct {
 	Created            *time.Time
 	Challenge          string
 	Domain             string
+	SdJWTEnabled       bool
+	SdJWTDisclosures   []string
 }
 
 // SigningOpts is signing credential option.
@@ -144,6 +147,20 @@ func WithDomain(domain string) SigningOpts {
 	}
 }
 
+// WithEnabledSDJWT enables SD-JWT support.
+func WithEnabledSDJWT(enabled bool) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.SdJWTEnabled = enabled
+	}
+}
+
+// WithSDJWTDisclosures adds SD-JWT disclosures tail to JWT credential.
+func WithSDJWTDisclosures(d []string) SigningOpts {
+	return func(opts *signingOpts) {
+		opts.SdJWTDisclosures = d
+	}
+}
+
 // Crypto to sign credential.
 type Crypto struct {
 	vdr            vdrapi.Registry
@@ -154,6 +171,16 @@ func (c *Crypto) SignCredential(
 	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	switch signerData.Format {
 	case vcsverifiable.Jwt:
+		if signerData.SDJWT.Enable {
+			sdJWTDigests, err := c.getSDJWTCredentialSubjectDigests(vc, signerData.SDJWT.HashAlg)
+			if err != nil {
+				return nil, err
+			}
+
+			vc.Subject = sdJWTDigests.Subject
+			opts = append(opts, WithSDJWTDisclosures(sdJWTDigests.Disclosures))
+		}
+
 		return c.signCredentialJWT(signerData, vc, opts...)
 	case vcsverifiable.Ldp:
 		return c.signCredentialLDP(signerData, vc, opts...)
@@ -192,7 +219,7 @@ func (c *Crypto) signCredentialLDP(
 
 // signCredentialJWT returns vc in JWT format including the signature section.
 func (c *Crypto) signCredentialJWT(
-	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
+	signerData *vc.Signer, credential *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	signOpts := &signingOpts{}
 	// apply opts
 	for _, opt := range opts {
@@ -224,7 +251,7 @@ func (c *Crypto) signCredentialJWT(
 		return nil, fmt.Errorf("ValidateProofPurpose error: %w", err)
 	}
 
-	claims, err := vc.JWTClaims(false)
+	claims, err := credential.JWTClaims(false)
 	if err != nil {
 		return nil, fmt.Errorf("creating JWT claims for VC: %w", err)
 	}
@@ -234,14 +261,18 @@ func (c *Crypto) signCredentialJWT(
 		return nil, fmt.Errorf("getting JWS algo based on signature type: %w", err)
 	}
 
-	jws, err := claims.MarshalJWS(jwsAlgo, s, method)
+	jwt, err := claims.MarshalJWS(jwsAlgo, s, method)
 	if err != nil {
 		return nil, fmt.Errorf("MarshalJWS error: %w", err)
 	}
 
-	vc.JWT = jws
+	if len(signOpts.SdJWTDisclosures) > 0 {
+		jwt += common.CombinedFormatSeparator + strings.Join(signOpts.SdJWTDisclosures, common.CombinedFormatSeparator)
+	}
 
-	return vc, nil
+	credential.JWT = jwt
+
+	return credential, nil
 }
 
 // SignPresentation signs a presentation.

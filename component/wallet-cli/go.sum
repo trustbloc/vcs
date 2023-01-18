@@ -294,6 +294,8 @@ github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20191125211704-12ad95a8df72/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-gl/glfw/v3.3/glfw v0.0.0-20200222043503-6f7a984d4dc4/go.mod h1:tQ2UAYgL5IevRw8kRxooKSPJfGvJ9fJQFa0TUsXzTg8=
 github.com/go-ini/ini v1.25.4/go.mod h1:ByCAeIL28uOIIG0E3PJtZPDL8WnHpFKFOtgjp+3Ies8=
+github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214 h1:w5li6eMV6NCHh1YVbKRM/gMCVtZ2w7mnwq78eNnHXQQ=
+github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214/go.mod h1:RNkWWRld676jZEYoV3+XK8L2ZnNSvIsxFMht0mSX+u8=
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.9.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-kit/kit v0.10.0/go.mod h1:xUsJbQ/Fp4kEt7AFgCuvyX4a71u8h9jB8tj/ORgOZ7o=
@@ -497,8 +499,8 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/huandu/xstrings v1.0.0/go.mod h1:4qWG/gcEcfX4z/mBDHJ++3ReCw9ibxbsNJbcucJdbSo=
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10 h1:LHjSuIKIGhD3imKm6u8V6XUyqTWzGe5QNozyLmPellk=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10/go.mod h1:5lp5+NPjRngsjFLYYGg5mtkvw6I4Mr7CKz+wHYxROk0=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a h1:05dj1ZjENphfugb8+BFzKT+esJtAwsIR6jMs/5jSyEc=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a/go.mod h1:qrOxEGVsu8M2RahaJgM8nz9AcAHjR/dKd1JIJ3ieJhY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 h1:8ja6Vnp5EUsh8Oe4mI8ZNwpJtiM7c87X/b9sO/hEFiY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149/go.mod h1:GDANCnJONcCqBvv6QgKuk5Y2FWHyD/Hu26kyc7NTyfY=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49 h1:MbWVC1HQEAn5yw5DLs4D7kdcM06y6ZiN4r3ZtvDzxWE=

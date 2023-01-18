@@ -76,6 +76,7 @@ type VCConfig struct {
 	SignatureRepresentation verifiable.SignatureRepresentation `json:"signatureRepresentation,omitempty"`
 	Status                  StatusConfig                       `json:"status,omitempty"`
 	Context                 []string                           `json:"context,omitempty"`
+	SDJWT                   vc.SDJWT                           `json:"sdjwt,omitempty"`
 }
 
 // StatusConfig represents the VC status configuration.

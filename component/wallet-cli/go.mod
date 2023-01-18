@@ -10,7 +10,7 @@ require (
 	github.com/cli/browser v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221201182946-d011b92b2f10
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
@@ -48,6 +48,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.3.0 // indirect
 	github.com/getkin/kin-openapi v0.94.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/swag v0.21.1 // indirect
 	github.com/golang/glog v1.0.0 // indirect

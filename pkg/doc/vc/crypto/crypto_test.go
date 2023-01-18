@@ -7,16 +7,19 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -42,7 +45,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		)
 
 		signedVC, err := c.signCredentialLDP(
-			getTestSigner(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
+			getTestLDPSigner(), &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
 	})
@@ -176,7 +179,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					testutil.DocumentLoader(t),
 				)
 
-				vcSigner := getTestSigner()
+				vcSigner := getTestLDPSigner()
 				if tc.vcSigner != nil {
 					vcSigner = tc.vcSigner
 				}
@@ -225,7 +228,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
 			testutil.DocumentLoader(t),
 		)
-		p := getTestSigner()
+		p := getTestLDPSigner()
 		p.Creator = "wrongValue"
 		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
@@ -252,7 +255,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		c := New(
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
-		p := getTestSigner()
+		p := getTestLDPSigner()
 
 		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
@@ -266,7 +269,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		c := New(
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
-		p := getTestSigner()
+		p := getTestLDPSigner()
 
 		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
@@ -279,7 +282,7 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 		c := New(
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}, testutil.DocumentLoader(t))
 
-		p := getTestSigner()
+		p := getTestLDPSigner()
 
 		signedVC, err := c.signCredentialLDP(
 			p, &verifiable.Credential{ID: "http://example.edu/credentials/1872"},
@@ -315,7 +318,7 @@ func TestSignPresentation(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		signedVP, err := c.SignPresentation(getTestSigner(),
+		signedVP, err := c.SignPresentation(getTestLDPSigner(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
 		)
 		require.NoError(t, err)
@@ -328,7 +331,7 @@ func TestSignPresentation(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		signedVP, err := c.SignPresentation(getTestSigner(),
+		signedVP, err := c.SignPresentation(getTestLDPSigner(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
 			WithSignatureType(vcsverifiable.Ed25519Signature2020),
 		)
@@ -342,7 +345,7 @@ func TestSignPresentation(t *testing.T) {
 			testutil.DocumentLoader(t),
 		)
 
-		signedVP, err := c.SignPresentation(getTestSigner(),
+		signedVP, err := c.SignPresentation(getTestLDPSigner(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
 			WithSignatureType("invalid"),
 		)
@@ -357,7 +360,7 @@ func TestSignPresentation(t *testing.T) {
 			nil,
 		)
 
-		signedVP, err := c.SignPresentation(getTestSigner(),
+		signedVP, err := c.SignPresentation(getTestLDPSigner(),
 			&verifiable.Presentation{ID: "http://example.edu/presentation/1872"},
 			WithSignatureType(vcsverifiable.Ed25519Signature2018),
 		)
@@ -367,13 +370,188 @@ func TestSignPresentation(t *testing.T) {
 	})
 }
 
-func getTestSigner() *vc.Signer {
+func TestSignSignCredential(t *testing.T) {
+	t.Run("sign credential LDP - success", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID: "http://example.edu/credentials/1872",
+		}
+
+		signedVC, err := c.SignCredential(getTestLDPSigner(), unsignedVC)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(signedVC.Proofs))
+		require.Empty(t, signedVC.JWT)
+	})
+	t.Run("sign credential LDP - error", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: nil},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID: "http://example.edu/credentials/1872",
+		}
+
+		signedVC, err := c.SignCredential(getTestLDPSigner(), unsignedVC)
+		require.Error(t, err)
+		require.Nil(t, signedVC)
+	})
+	t.Run("sign credential - error undefined format", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: nil},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID: "http://example.edu/credentials/1872",
+		}
+
+		signedVC, err := c.SignCredential(&vc.Signer{
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+			KMS:           &mockKMS{},
+		}, unsignedVC)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "unknown signature format")
+		require.Nil(t, signedVC)
+	})
+	t.Run("sign credential JWT - success", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID:      "http://example.edu/credentials/1872",
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Issued: &util.TimeWrapper{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+		}
+
+		signedVC, err := c.SignCredential(getTestJWTSigner(), unsignedVC)
+		require.NoError(t, err)
+		require.NotNil(t, signedVC)
+		require.NotEmpty(t, signedVC.JWT)
+		require.False(t, strings.Contains(signedVC.JWT, common.CombinedFormatSeparator))
+	})
+	t.Run("sign credential JWT - error", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID:      "http://example.edu/credentials/1872",
+			Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+			Issued: &util.TimeWrapper{
+				Time: time.Now(),
+			},
+		}
+		s := getTestJWTSigner()
+		s.KeyType = ""
+
+		signedVC, err := c.SignCredential(s, unsignedVC)
+		require.Error(t, err)
+		require.Nil(t, signedVC)
+	})
+	t.Run("sign credential SD-JWT - success", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID: "http://example.edu/credentials/1872",
+			Subject: verifiable.Subject{
+				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+				CustomFields: map[string]interface{}{
+					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+					"name":   "Jayden Doe",
+					"degree": map[string]interface{}{
+						"type":   "BachelorDegree",
+						"degree": "MIT",
+					},
+				},
+			},
+			Issued: &util.TimeWrapper{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+		}
+
+		signedVC, err := c.SignCredential(getTestSDJWTSigner(), unsignedVC)
+		require.NoError(t, err)
+		require.NotNil(t, signedVC)
+		require.NotEmpty(t, signedVC.JWT)
+		require.True(t, strings.Contains(signedVC.JWT, common.CombinedFormatSeparator))
+		require.Len(t, signedVC.Subject.(verifiable.Subject).CustomFields[common.SDKey], 3)
+		require.Equal(t, signedVC.Subject.(verifiable.Subject).CustomFields[common.SDAlgorithmKey], "sha-256")
+	})
+	t.Run("sign credential SD-JWT - error", func(t *testing.T) {
+		c := New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
+			testutil.DocumentLoader(t),
+		)
+
+		unsignedVC := &verifiable.Credential{
+			ID: "http://example.edu/credentials/1872",
+			Issued: &util.TimeWrapper{
+				Time: time.Now(),
+			},
+			Issuer: verifiable.Issuer{
+				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+			},
+		}
+
+		signedVC, err := c.SignCredential(getTestSDJWTSigner(), unsignedVC)
+		require.Error(t, err)
+		require.Nil(t, signedVC)
+		require.ErrorContains(t, err, "subject id is not defined")
+	})
+}
+
+func getTestLDPSigner() *vc.Signer {
 	return &vc.Signer{
 		DID:           "did:trustbloc:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:trustbloc:abc#key1",
 		KMS:           &mockKMS{},
+		Format:        vcsverifiable.Ldp,
 	}
+}
+
+func getTestJWTSigner() *vc.Signer {
+	return &vc.Signer{
+		DID:           "did:trustbloc:abc",
+		SignatureType: "Ed25519Signature2018",
+		Creator:       "did:trustbloc:abc#key1",
+		KMS:           &mockKMS{},
+		Format:        vcsverifiable.Jwt,
+		KeyType:       kms.ED25519Type,
+	}
+}
+func getTestSDJWTSigner() *vc.Signer {
+	s := getTestJWTSigner()
+	s.SDJWT = vc.SDJWT{
+		Enable:  true,
+		HashAlg: crypto.SHA256,
+	}
+
+	return s
 }
 
 func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
@@ -398,8 +576,10 @@ func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.Signat
 	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType, nil)
 }
 
+type opt func(vm *did.VerificationMethod)
+
 // nolint: unparam
-func createDIDDoc(didID string) *did.Doc {
+func createDIDDoc(didID string, opts ...opt) *did.Doc {
 	const (
 		didContext = "https://w3id.org/did/v1"
 		keyType    = "Ed25519VerificationKey2018"
@@ -419,12 +599,15 @@ func createDIDDoc(didID string) *did.Doc {
 		RecipientKeys:   []string{creator},
 		Priority:        0,
 	}
-
 	signingKey := did.VerificationMethod{
 		ID:         creator,
 		Type:       keyType,
 		Controller: didID,
 		Value:      pubKey,
+	}
+
+	for _, f := range opts {
+		f(&signingKey)
 	}
 
 	createdTime := time.Now()
@@ -482,13 +665,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					Creator:       "did:trustbloc:abc#key1",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockKMS{},
-				},
+				signerData: getTestJWTSigner(),
 				getVC: func() *verifiable.Credential {
 					return &unsignedVc
 				},
@@ -504,11 +681,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: &vc.Signer{
-					DID:     "did:trustbloc:abc",
-					KeyType: kms.ED25519Type,
-					KMS:     &mockKMS{},
-				},
+				signerData: getTestJWTSigner(),
 				getVC: func() *verifiable.Credential {
 					return &unsignedVc
 				},
@@ -516,6 +689,27 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 					WithSignatureType("JsonWebSignature2020"),
 					WithVerificationMethod("did:trustbloc:abc#key1"),
 					WithPurpose(AssertionMethod),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "OK with options SD-JWT",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
+				},
+			},
+			args: args{
+				signerData: getTestJWTSigner(),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{
+					WithSignatureType("JsonWebSignature2020"),
+					WithVerificationMethod("did:trustbloc:abc#key1"),
+					WithPurpose(AssertionMethod),
+					WithSDJWTDisclosures([]string{"disclosureA", "disclosureB"}),
 				},
 			},
 			wantErr: false,
@@ -551,13 +745,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockKMS{},
-					Creator:       "did:trustbloc:abc#key1",
-				},
+				signerData: getTestJWTSigner(),
 				getVC: func() *verifiable.Credential {
 					return &unsignedVc
 				},
@@ -573,13 +761,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					Creator:       "did:trustbloc:abc#key1",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockKMS{},
-				},
+				signerData: getTestJWTSigner(),
 				getVC: func() *verifiable.Credential {
 					return &unsignedVc
 				},
@@ -599,13 +781,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					Creator:       "did:trustbloc:abc#key1",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockKMS{},
-				},
+				signerData: getTestJWTSigner(),
 				getVC: func() *verifiable.Credential {
 					return &unsignedVc
 				},
@@ -621,13 +797,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 				},
 			},
 			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					Creator:       "did:trustbloc:abc#key1",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockKMS{},
-				},
+				signerData: getTestJWTSigner(),
 				getVC: func() *verifiable.Credential {
 					cred := unsignedVc
 					cred.Subject = nil

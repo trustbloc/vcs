@@ -9,7 +9,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20221213142948-76c34cd92bcd
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
@@ -73,6 +73,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.3.0 // indirect
 	github.com/getkin/kin-openapi v0.94.0 // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1-0.20221117193127-916db76e8214 // indirect
 	github.com/go-kivik/couchdb/v3 v3.2.8 // indirect
 	github.com/go-kivik/kivik/v3 v3.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect

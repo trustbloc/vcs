@@ -31,4 +31,5 @@ type Signer struct {
 	SignatureRepresentation verifiable.SignatureRepresentation // For LDP only.
 	KMS                     keyManager
 	VCStatusListType        StatusType // Type of VC status list
+	SDJWT                   SDJWT
 }
