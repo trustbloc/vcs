@@ -67,6 +67,27 @@ paths:
       description: Returns did-config.
       tags:
         - devapi
+  '/issuer/{profileID}/.well-known/openid-credential-issuer':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile Id
+    get:
+      summary: Request openid-credential-issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
+      operationId: openid-credential-issuer-config
+      description: Returns openid-config.
+      tags:
+        - issuer
   '/issuer/{profileID}/.well-known/openid-configuration':
     parameters:
       - schema:
@@ -729,26 +750,44 @@ components:
       properties:
         authorization_endpoint:
           type: string
-        issuer:
-          type: string
         token_endpoint:
           type: string
         response_types_supported:
           type: array
           items:
             type: string
+      required:
+        - authorization_endpoint
+        - token_endpoint
+        - response_types_supported
+        - credential_supported
+      description: OpenID Config response.
+    WellKnownOpenIDIssuerConfiguration:
+      title: WellKnownOpenIDIssuerConfiguration response
+      x-tags:
+        - issuer
+      type: object
+      properties:
+        authorization_server:
+          type: string
+        display:
+          type: array
+          items:
+            $ref: '#/components/schemas/CredentialDisplay'
         credentials_supported:
-          type: object
+          type: array
         credential_issuer:
           $ref: '#/components/schemas/CredentialIssuer'
         credential_endpoint:
           type: string
+        batch_credential_endpoint:
+          type: string
       required:
-        - authorization_endpoint
+        - authorization_server
+        - credential_issuer
         - issuer
-        - token_endpoint
         - response_types_supported
-        - credential_supported
+        - credentials_supported
         - credential_endpoint
       description: OpenID Config response.
     RequestObject:
@@ -780,6 +819,16 @@ components:
           description: Credential in jws(string) or jsonld(object) formats.
       required:
         - credential
+    CredentialDisplay:
+      title: CredentialDisplay
+      x-tag:
+        - issuer
+      type: object
+      properties:
+        name:
+          type: string
+        locale:
+          type: string
     CredentialIssuer:
       title: CredentialIssuer
       x-tag:
