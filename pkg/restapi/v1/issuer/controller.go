@@ -629,7 +629,7 @@ func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIs
 			Name:   lo.ToPtr(issuer.Name),
 		},
 		CredentialsSupported: finalCredentials,
-		Display:              nil, // Optional. todo not sure what we should put here. https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#section-10.2.3.1-2.5.1
+		Display:              nil,
 	}
 
 	return final, nil
