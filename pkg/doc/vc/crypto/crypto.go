@@ -147,13 +147,6 @@ func WithDomain(domain string) SigningOpts {
 	}
 }
 
-// WithEnabledSDJWT enables SD-JWT support.
-func WithEnabledSDJWT(enabled bool) SigningOpts {
-	return func(opts *signingOpts) {
-		opts.SdJWTEnabled = enabled
-	}
-}
-
 // WithSDJWTDisclosures adds SD-JWT disclosures tail to JWT credential.
 func WithSDJWTDisclosures(d []string) SigningOpts {
 	return func(opts *signingOpts) {

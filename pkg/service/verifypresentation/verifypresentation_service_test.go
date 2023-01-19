@@ -17,7 +17,9 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -64,7 +66,8 @@ func TestNew(t *testing.T) {
 func TestService_VerifyPresentation(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -315,7 +318,8 @@ func TestService_VerifyPresentation(t *testing.T) {
 func TestService_validatePresentationProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
 
 	type fields struct {
 		getVDR func() vdrapi.Registry
@@ -409,7 +413,8 @@ func TestService_validatePresentationProof(t *testing.T) {
 func TestService_validateProofData(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
 	type fields struct {
 		vdr vdrapi.Registry
 	}
@@ -629,7 +634,8 @@ func TestService_validateProofData(t *testing.T) {
 func TestService_validateCredentialsProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue, vcs.Jwt, loader, crypto.AssertionMethod)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -710,7 +716,8 @@ func TestService_validateCredentialsProof(t *testing.T) {
 func TestService_validateCredentialsStatus(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+		t, []byte(sampleVPJsonLD),
+		kmskeytypes.ED25519Type, verifiable.SignatureProofValue, vcs.Jwt, loader, crypto.AssertionMethod)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry

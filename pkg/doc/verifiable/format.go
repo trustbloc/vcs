@@ -9,6 +9,9 @@ package verifiable
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 )
 
 type Format string
@@ -18,33 +21,47 @@ const (
 	Ldp Format = "ldp"
 )
 
-func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
-	strRep, isStr := data.(string)
+type FormatMetadata struct {
+	Data             []byte
+	Format           Format
+	SDJWTDisclosures string
+}
 
-	var dataBytes []byte
+func ValidateFormat(data interface{}, formats []Format) (*FormatMetadata, error) {
+	strRep, isStr := data.(string)
 
 	if isStr {
 		if !isFormatSupported(Jwt, formats) {
 			return nil, fmt.Errorf("invlaid format, should be %s", Jwt)
 		}
 
-		dataBytes = []byte(strRep)
-	}
-
-	if !isStr {
-		if !isFormatSupported(Ldp, formats) {
-			return nil, fmt.Errorf("invlaid format, should be %s", Ldp)
+		metadata := &FormatMetadata{
+			Data:   []byte(strRep),
+			Format: Jwt,
 		}
 
-		var err error
-		dataBytes, err = json.Marshal(data)
-
-		if err != nil {
-			return nil, fmt.Errorf("invlaid format: %w", err)
+		index := strings.Index(strRep, common.CombinedFormatSeparator)
+		if index > 0 {
+			metadata.Data = []byte(strRep[:index])
+			metadata.SDJWTDisclosures = strRep[index+1:]
 		}
+
+		return metadata, nil
 	}
 
-	return dataBytes, nil
+	if !isFormatSupported(Ldp, formats) {
+		return nil, fmt.Errorf("invlaid format, should be %s", Ldp)
+	}
+
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("invlaid format: %w", err)
+	}
+
+	return &FormatMetadata{
+		Data:   dataBytes,
+		Format: Ldp,
+	}, nil
 }
 
 func isFormatSupported(format Format, supportedFormats []Format) bool {

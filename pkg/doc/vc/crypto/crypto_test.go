@@ -489,7 +489,7 @@ func TestSignSignCredential(t *testing.T) {
 				Time: time.Now(),
 			},
 			Issuer: verifiable.Issuer{
-				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+				ID: "did:trustblock:abc",
 			},
 		}
 

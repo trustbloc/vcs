@@ -14,10 +14,12 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/holder"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -36,8 +38,21 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 			return fmt.Errorf("create document loader: %w", err)
 		}
 
-		cred, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(loader))
+		var cred *verifiable.Credential
+		if e.bddContext.IssuerProfiles[profileName].VCConfig.SDJWT.Enable {
+			err = e.checkIssuedSDJWTVC(credBytes)
+			if err != nil {
+				return err
+			}
+
+			cfi := common.ParseCombinedFormatForIssuance(string(vcsverifiable.UnQuote(credBytes)))
+
+			cred, err = verifiable.ParseCredential([]byte(cfi.SDJWT), verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(loader))
+		} else {
+			cred, err = verifiable.ParseCredential(credBytes, verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(loader))
+		}
 		if err != nil {
 			return err
 		}
@@ -169,8 +184,17 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 	createdCredential := e.bddContext.CreatedCredential
 	e.RUnlock()
 
-	cred, err := verifiable.ParseCredential(createdCredential, verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(loader))
+	var cred *verifiable.Credential
+	if e.bddContext.IssuerProfiles[profileName].VCConfig.SDJWT.Enable {
+		cfi := common.ParseCombinedFormatForIssuance(string(vcsverifiable.UnQuote(createdCredential)))
+
+		cred, err = verifiable.ParseCredential([]byte(cfi.SDJWT), verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
+	} else {
+		cred, err = verifiable.ParseCredential(createdCredential, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
+	}
+
 	if err != nil {
 		return err
 	}
@@ -222,10 +246,19 @@ func (e *Steps) getVerificationResult(
 	createdCredential := e.bddContext.CreatedCredential
 	e.RUnlock()
 
-	cred, err := verifiable.ParseCredential(createdCredential, verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(loader))
-	if err != nil {
-		return nil, err
+	var cred *verifiable.Credential
+	if vcsverifiable.IsSDJWT(string(createdCredential)) {
+		// SD-JWT case
+		cred = &verifiable.Credential{
+			JWT: string(vcsverifiable.UnQuote(createdCredential)) + common.CombinedFormatSeparator,
+		}
+
+	} else {
+		cred, err = verifiable.ParseCredential(createdCredential, verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(loader))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	req := &model.VerifyCredentialData{
@@ -284,6 +317,20 @@ func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation str
 
 	if checkProof {
 		return e.checkSignatureHolder(vcMap, signatureRepresentation)
+	}
+
+	return nil
+}
+
+func (e *Steps) checkIssuedSDJWTVC(vcBytes []byte) error {
+	b := string(vcsverifiable.UnQuote(vcBytes))
+	if !vcsverifiable.IsSDJWT(b) {
+		return fmt.Errorf("issued VC %s is not SD-JWT", string(vcBytes))
+	}
+
+	_, err := holder.Parse(b)
+	if err != nil {
+		return fmt.Errorf("holder.Parse() failed: %w", err)
 	}
 
 	return nil
@@ -390,16 +437,4 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
-}
-
-type unsecuredJWTSigner struct{}
-
-func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
-	return []byte(""), nil
-}
-
-func (s unsecuredJWTSigner) Headers() jose.Headers {
-	return map[string]interface{}{
-		jose.HeaderAlgorithm: "none",
-	}
 }

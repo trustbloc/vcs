@@ -46,6 +46,32 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_es256_sdjwt",
+        "name": "i_myprofile_ud_es256_sdjwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "StatusList2021Entry"
+          },
+          "sdjwt": {
+            "enable": true,
+            "hashAlg": 5
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es384_jwt",
         "name": "i_myprofile_ud_es384_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
@@ -68,6 +94,32 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_es384_sdjwt",
+        "name": "i_myprofile_ud_es384_sdjwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES384",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP384DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "RevocationList2021Status"
+          },
+          "sdjwt": {
+            "enable": true,
+            "hashAlg": 5
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es256k_jwt",
         "name": "i_myprofile_ud_es256k_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
@@ -81,6 +133,32 @@
           "didMethod": "orb",
           "status": {
             "type": "RevocationList2020Status"
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_es256k_sdjwt",
+        "name": "i_myprofile_ud_es256k_sdjwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "RevocationList2020Status"
+          },
+          "sdjwt": {
+            "enable": true,
+            "hashAlg": 5
           }
         }
       },

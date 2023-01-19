@@ -56,7 +56,7 @@ func TestCrypto_getSDJWTCredentialSubjectDigests(t *testing.T) {
 			require.Len(t, subject.CustomFields, 2)
 			sd, ok := subject.CustomFields[common.SDKey]
 			require.True(t, ok)
-			digests, ok := sd.([]interface{})
+			digests, ok := sd.([]string)
 			require.True(t, ok)
 			require.Len(t, digests, 3)
 			sdAlg, ok := subject.CustomFields[common.SDAlgorithmKey]
@@ -69,7 +69,7 @@ func TestCrypto_getSDJWTCredentialSubjectDigests(t *testing.T) {
 			subject, ok := got.Subject.(verifiable.Subject)
 			require.True(t, ok)
 
-			digests, ok := subject.CustomFields[common.SDKey].([]interface{})
+			digests, ok := subject.CustomFields[common.SDKey].([]string)
 			require.True(t, ok)
 
 			for _, disclosure := range got.Disclosures {
@@ -118,12 +118,11 @@ func TestCrypto_getSDJWTCredentialSubjectDigests(t *testing.T) {
 	})
 }
 
-func hashExist(t *testing.T, hash string, digests []interface{}) bool {
+func hashExist(t *testing.T, hash string, digests []string) bool {
 	t.Helper()
 
 	for _, d := range digests {
-		s, ok := d.(string)
-		if ok && s == hash {
+		if d == hash {
 			return true
 		}
 	}
