@@ -33,9 +33,16 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 
 	s.print("Getting issuer OIDC config")
 	oidcConfig, err := s.getIssuerOIDCConfig(parsedUrl.Query().Get("issuer"))
+	if err != nil {
+		return err
+	}
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(parsedUrl.Query().Get("issuer"))
+	if err != nil {
+		return fmt.Errorf("get issuer oidc issuer config: %w", err)
+	}
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
-	credentialsEndpoint := oidcConfig.CredentialEndpoint
+	credentialsEndpoint := oidcIssuerCredentialConfig.CredentialEndpoint
 
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},

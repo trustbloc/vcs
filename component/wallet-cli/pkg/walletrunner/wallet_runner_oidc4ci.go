@@ -57,6 +57,11 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
 
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(initiateIssuanceURL.Query().Get("issuer"))
+	if err != nil {
+		return fmt.Errorf("get issuer oidc issuer config: %w", err)
+	}
+
 	redirectURL, err := url.Parse(config.RedirectURI)
 	if err != nil {
 		return fmt.Errorf("parse redirect url: %w", err)
@@ -139,7 +144,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	}
 
 	s.print("Getting credential")
-	vc, err := s.getCredential(oidcConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
+	vc, err := s.getCredential(oidcIssuerCredentialConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
 	}
@@ -175,6 +180,28 @@ func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpen
 	}
 
 	var oidcConfig issuerv1.WellKnownOpenIDConfiguration
+
+	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
+		return nil, fmt.Errorf("decode issuer well-known: %w", err)
+	}
+
+	return &oidcConfig, nil
+}
+
+func (s *Service) getIssuerCredentialsOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
+	// GET /issuer/{profileID}/.well-known/openid-credential-issuer
+	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-credential-issuer")
+	if err != nil {
+		return nil, fmt.Errorf("get issuer well-known: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("get issuer well-known: status code %d", resp.StatusCode)
+	}
+
+	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
 
 	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
 		return nil, fmt.Errorf("decode issuer well-known: %w", err)
