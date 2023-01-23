@@ -20,6 +20,6 @@ type initiateOIDC4CIRequest struct {
 }
 
 type initiateOIDC4CIResponse struct {
-	InitiateIssuanceUrl string `json:"initiate_issuance_url"`
-	TxId                string `json:"tx_id"`
+	OfferCredentialURL string `json:"offer_credential_URL"`
+	TxId               string `json:"tx_id"`
 }

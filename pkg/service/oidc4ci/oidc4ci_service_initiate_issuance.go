@@ -8,10 +8,10 @@ package oidc4ci
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -115,8 +115,13 @@ func (s *Service) InitiateIssuance(
 		return nil, errSendEvent
 	}
 
+	finalUrl, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &InitiateIssuanceResponse{
-		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, template, tx),
+		InitiateIssuanceURL: finalUrl,
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
@@ -154,7 +159,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) string {
+) (string, error) {
 	var initiateIssuanceURL string
 
 	if req.ClientInitiateIssuanceURL != "" {
@@ -170,22 +175,48 @@ func (s *Service) buildInitiateIssuanceURL(
 	}
 
 	if initiateIssuanceURL == "" {
-		initiateIssuanceURL = "openid-initiate-issuance://"
+		initiateIssuanceURL = "openid-vc://"
 	}
 
-	q := url.Values{}
-	q.Set("credential_type", template.Type)
+	targetFormat, err := MapCredentialFormat(string(tx.CredentialFormat))
+	if err != nil {
+		return "", err
+	}
 
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 
-	if tx.IsPreAuthFlow {
-		q.Set("issuer", issuerURL)
-		q.Set("pre-authorized_code", tx.PreAuthCode)
-		q.Set("user_pin_required", strconv.FormatBool(req.UserPinRequired))
-	} else {
-		q.Set("issuer", issuerURL)
-		q.Set("op_state", req.OpState)
+	resp := CredentialOfferResponse{
+		CredentialIssuer: issuerURL,
+		Credentials: []CredentialOffer{
+			{
+				Format: targetFormat,
+				Types: []string{
+					"VerifiableCredential",
+					template.Type,
+				},
+			},
+		},
+		Grants: CredentialOfferGrant{},
 	}
 
-	return initiateIssuanceURL + "?" + q.Encode()
+	if tx.IsPreAuthFlow {
+		resp.Grants.PreAuthorizationGrant = &PreAuthorizationGrant{
+			PreAuthorizedCode: tx.PreAuthCode,
+			UserPinRequired:   req.UserPinRequired,
+		}
+	} else {
+		resp.Grants.AuthorizationCode = &AuthorizationCodeGrant{
+			IssuerState: req.OpState,
+		}
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+
+	q := url.Values{}
+	q.Set("credential_offer", string(b))
+
+	return initiateIssuanceURL + "?" + q.Encode(), nil
 }

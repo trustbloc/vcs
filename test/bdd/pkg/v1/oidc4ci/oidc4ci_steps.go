@@ -23,6 +23,7 @@ import (
 	"golang.org/x/oauth2"
 
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
@@ -160,7 +161,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 		return fmt.Errorf("unmarshal initiate oidc4ci resp: %w", err)
 	}
 
-	s.initiateIssuanceURL = r.InitiateIssuanceUrl
+	s.initiateIssuanceURL = r.OfferCredentialURL
 
 	return nil
 }
@@ -202,12 +203,18 @@ func (s *Steps) getAuthCode() error {
 		return fmt.Errorf("parse initiate issuance URL: %w", err)
 	}
 
-	opState := u.Query().Get("op_state")
+	credentialOfferURL := u.Query().Get("credential_offer")
+	var offerResponse oidc4ci.CredentialOfferResponse
+
+	if err = json.Unmarshal([]byte(credentialOfferURL), &offerResponse); err != nil {
+		return fmt.Errorf("can not parse credential offer. %w", err)
+	}
+
 	state := uuid.New().String()
 
 	resp, err := httpClient.Get(
 		s.oauthClient.AuthCodeURL(state,
-			oauth2.SetAuthURLParam("op_state", opState),
+			oauth2.SetAuthURLParam("op_state", offerResponse.Grants.AuthorizationCode.IssuerState),
 			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","credential_type":"VerifiedEmployee","format":"jwt_vc"}`), //nolint:lll

@@ -377,9 +377,9 @@ func (c *Controller) initiateIssuance(
 	}
 
 	return &InitiateOIDC4CIResponse{
-		InitiateIssuanceUrl: resp.InitiateIssuanceURL,
-		TxId:                string(resp.TxID),
-		UserPin:             lo.ToPtr(resp.UserPin),
+		OfferCredentialURL: resp.InitiateIssuanceURL,
+		TxId:               string(resp.TxID),
+		UserPin:            lo.ToPtr(resp.UserPin),
 	}, nil
 }
 
