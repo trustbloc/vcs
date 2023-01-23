@@ -30,17 +30,14 @@ func (s *Service) InitiateIssuance(
 	if !profile.Active {
 		return nil, ErrProfileNotActive
 	}
-
 	if profile.OIDCConfig == nil {
 		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
-
 	if profile.VCConfig == nil {
 		return nil, ErrVCOptionsNotConfigured
 	}
 
 	var template *profileapi.CredentialTemplate
-
 	if req.CredentialTemplateID == "" {
 		if len(profile.CredentialTemplates) > 1 {
 			return nil, errors.New("credential template should be specified")
@@ -93,7 +90,6 @@ func (s *Service) InitiateIssuance(
 		data.IsPreAuthFlow = true
 		data.PreAuthCode = generatePreAuthCode()
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
-		// todo user pin logic will be implemented later
 	}
 
 	tx, err := s.store.Create(ctx, data)
