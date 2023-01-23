@@ -28,6 +28,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 type OIDC4CIConfig struct {
@@ -46,18 +47,24 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	initiateIssuanceURL, err := url.Parse(config.InitiateIssuanceURL)
+	initiateIssuanceURLParsed, err := url.Parse(config.InitiateIssuanceURL)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
+	credentialOfferURL := initiateIssuanceURLParsed.Query().Get("credential_offer")
+	var offerResponse oidc4ci.CredentialOfferResponse
+
+	if err = json.Unmarshal([]byte(credentialOfferURL), &offerResponse); err != nil {
+		return fmt.Errorf("can not parse credential offer. %w", err)
+	}
 
 	s.print("Getting issuer OIDC config")
-	oidcConfig, err := s.getIssuerOIDCConfig(initiateIssuanceURL.Query().Get("issuer"))
+	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
 
-	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(initiateIssuanceURL.Query().Get("issuer"))
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
@@ -89,7 +96,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		},
 	}
 
-	opState := initiateIssuanceURL.Query().Get("op_state")
+	opState := offerResponse.Grants.AuthorizationCode.IssuerState
 	state := uuid.New().String()
 
 	b, err := json.Marshal(&common.AuthorizationDetails{

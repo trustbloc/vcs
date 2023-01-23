@@ -147,3 +147,28 @@ type eventPayload struct {
 	WebHook string `json:"webHook,omitempty"`
 	Error   string `json:"error,omitempty"`
 }
+
+type AuthorizationCodeGrant struct {
+	IssuerState string `json:"issuer_state"`
+}
+
+type PreAuthorizationGrant struct {
+	PreAuthorizedCode string `json:"pre-authorized_code"`
+	UserPinRequired   bool   `json:"user_pin_required"`
+}
+
+type CredentialOfferGrant struct {
+	AuthorizationCode     *AuthorizationCodeGrant `json:"authorization_code,omitempty"`
+	PreAuthorizationGrant *PreAuthorizationGrant  `json:"urn:ietf:params:oauth:grant-type:pre-authorized_code,omitempty"` // nolint:lll
+}
+
+type CredentialOffer struct {
+	Format string   `json:"format"`
+	Types  []string `json:"types"`
+}
+
+type CredentialOfferResponse struct {
+	CredentialIssuer string               `json:"credential_issuer"`
+	Credentials      []CredentialOffer    `json:"credentials"`
+	Grants           CredentialOfferGrant `json:"grants"`
+}

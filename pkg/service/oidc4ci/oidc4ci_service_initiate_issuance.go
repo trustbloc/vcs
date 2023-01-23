@@ -8,10 +8,10 @@ package oidc4ci
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -30,17 +30,14 @@ func (s *Service) InitiateIssuance(
 	if !profile.Active {
 		return nil, ErrProfileNotActive
 	}
-
 	if profile.OIDCConfig == nil {
 		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
-
 	if profile.VCConfig == nil {
 		return nil, ErrVCOptionsNotConfigured
 	}
 
 	var template *profileapi.CredentialTemplate
-
 	if req.CredentialTemplateID == "" {
 		if len(profile.CredentialTemplates) > 1 {
 			return nil, errors.New("credential template should be specified")
@@ -93,7 +90,6 @@ func (s *Service) InitiateIssuance(
 		data.IsPreAuthFlow = true
 		data.PreAuthCode = generatePreAuthCode()
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
-		// todo user pin logic will be implemented later
 	}
 
 	tx, err := s.store.Create(ctx, data)
@@ -115,8 +111,13 @@ func (s *Service) InitiateIssuance(
 		return nil, errSendEvent
 	}
 
+	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &InitiateIssuanceResponse{
-		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, template, tx),
+		InitiateIssuanceURL: finalURL,
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
@@ -154,7 +155,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) string {
+) (string, error) {
 	var initiateIssuanceURL string
 
 	if req.ClientInitiateIssuanceURL != "" {
@@ -170,22 +171,48 @@ func (s *Service) buildInitiateIssuanceURL(
 	}
 
 	if initiateIssuanceURL == "" {
-		initiateIssuanceURL = "openid-initiate-issuance://"
+		initiateIssuanceURL = "openid-vc://"
 	}
 
-	q := url.Values{}
-	q.Set("credential_type", template.Type)
+	targetFormat, err := MapCredentialFormat(string(tx.CredentialFormat))
+	if err != nil {
+		return "", err
+	}
 
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 
-	if tx.IsPreAuthFlow {
-		q.Set("issuer", issuerURL)
-		q.Set("pre-authorized_code", tx.PreAuthCode)
-		q.Set("user_pin_required", strconv.FormatBool(req.UserPinRequired))
-	} else {
-		q.Set("issuer", issuerURL)
-		q.Set("op_state", req.OpState)
+	resp := CredentialOfferResponse{
+		CredentialIssuer: issuerURL,
+		Credentials: []CredentialOffer{
+			{
+				Format: targetFormat,
+				Types: []string{
+					"VerifiableCredential",
+					template.Type,
+				},
+			},
+		},
+		Grants: CredentialOfferGrant{},
 	}
 
-	return initiateIssuanceURL + "?" + q.Encode()
+	if tx.IsPreAuthFlow {
+		resp.Grants.PreAuthorizationGrant = &PreAuthorizationGrant{
+			PreAuthorizedCode: tx.PreAuthCode,
+			UserPinRequired:   req.UserPinRequired,
+		}
+	} else {
+		resp.Grants.AuthorizationCode = &AuthorizationCodeGrant{
+			IssuerState: req.OpState,
+		}
+	}
+
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+
+	q := url.Values{}
+	q.Set("credential_offer", string(b))
+
+	return initiateIssuanceURL + "?" + q.Encode(), nil
 }
