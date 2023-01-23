@@ -115,13 +115,13 @@ func (s *Service) InitiateIssuance(
 		return nil, errSendEvent
 	}
 
-	finalUrl, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
+	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
 	if err != nil {
 		return nil, err
 	}
 
 	return &InitiateIssuanceResponse{
-		InitiateIssuanceURL: finalUrl,
+		InitiateIssuanceURL: finalURL,
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
