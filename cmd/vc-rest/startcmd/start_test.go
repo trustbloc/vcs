@@ -238,6 +238,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + oAuthClientsFilePathFlagName, oauthClientsFile.Name(),
 		"--" + databaseURLFlagName, mongoDBConnString,
 		"--" + devModeFlagName, "true",
+		"--" + issuerTopicFlagName, "dev1-vcs-issuer",
+		"--" + verifierTopicFlagName, "dev1-vcs-verifier",
 	}
 	startCmd.SetArgs(args)
 

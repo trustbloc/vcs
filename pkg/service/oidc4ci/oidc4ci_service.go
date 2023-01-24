@@ -99,6 +99,7 @@ type Config struct {
 	HTTPClient          httpClient
 	EventService        eventService
 	PinGenerator        pinGenerator
+	EventTopic          string
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -109,6 +110,7 @@ type Service struct {
 	oAuth2Client        oAuth2Client
 	httpClient          httpClient
 	eventSvc            eventService
+	eventTopic          string
 	pinGenerator        pinGenerator
 }
 
@@ -121,6 +123,7 @@ func NewService(config *Config) (*Service, error) {
 		oAuth2Client:        config.OAuth2Client,
 		httpClient:          config.HTTPClient,
 		eventSvc:            config.EventService,
+		eventTopic:          config.EventTopic,
 		pinGenerator:        config.PinGenerator,
 	}, nil
 }
@@ -411,7 +414,7 @@ func (s *Service) sendEventWithError(tx *Transaction, eventType spi.EventType, e
 		return err
 	}
 
-	return s.eventSvc.Publish(spi.IssuerEventTopic, event)
+	return s.eventSvc.Publish(s.eventTopic, event)
 }
 
 func (s *Service) sendFailedEvent(tx *Transaction, err error) {

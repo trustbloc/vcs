@@ -26,6 +26,7 @@ func TestStoreAuthCode(t *testing.T) {
 	srv, err := oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore: store,
 		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 

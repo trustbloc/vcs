@@ -104,6 +104,7 @@ type Config struct {
 	DocumentLoader           ld.DocumentLoader
 	ProfileService           profileService
 	EventSvc                 eventService
+	EventTopic               string
 	PresentationVerifier     presentationVerifier
 	PublicKeyFetcher         verifiable.PublicKeyFetcher
 
@@ -130,6 +131,7 @@ type metricsProvider interface {
 
 type Service struct {
 	eventSvc                 eventService
+	eventTopic               string
 	transactionManager       transactionManager
 	requestObjectPublicStore requestObjectPublicStore
 	kmsRegistry              kmsRegistry
@@ -169,6 +171,7 @@ func NewService(cfg *Config) *Service {
 
 	return &Service{
 		eventSvc:                 cfg.EventSvc,
+		eventTopic:               cfg.EventTopic,
 		transactionManager:       cfg.TransactionManager,
 		requestObjectPublicStore: cfg.RequestObjectPublicStore,
 		kmsRegistry:              cfg.KMSRegistry,
@@ -214,7 +217,7 @@ func (s *Service) sendEventWithError(tx *Transaction, profile *profileapi.Verifi
 		return err
 	}
 
-	return s.eventSvc.Publish(spi.VerifierEventTopic, event)
+	return s.eventSvc.Publish(s.eventTopic, event)
 }
 
 func (s *Service) sendFailedEvent(tx *Transaction, profile *profileapi.Verifier, err error) {
