@@ -408,7 +408,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader:           documentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,
-		RedirectURL:              conf.StartupParameters.hostURLExternal + oidc4VPCheckEndpoint,
+		RedirectURL:              conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
 		TokenLifetime:            15 * time.Minute,
 		Metrics:                  metrics,
 	})

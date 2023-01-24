@@ -13,6 +13,8 @@ import (
 	"net/http/cookiejar"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
@@ -241,7 +243,13 @@ func createVDR(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry
 		opts = append(opts, vdr.WithVDR(universalResolverVDRI))
 	}
 
+	longForm, err := longform.New()
+	if err != nil {
+		return nil, err
+	}
+
 	opts = append(opts,
+		vdr.WithVDR(longForm),
 		vdr.WithVDR(key.New()),
 		vdr.WithVDR(
 			&webVDR{
