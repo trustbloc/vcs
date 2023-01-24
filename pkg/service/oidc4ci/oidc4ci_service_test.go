@@ -489,6 +489,7 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore: mockTransactionStore,
 				EventService:     eventMock,
+				EventTopic:       spi.IssuerEventTopic,
 			})
 			require.NoError(t, err)
 
@@ -507,6 +508,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
 			EventService:     eventService,
+			EventTopic:       spi.IssuerEventTopic,
 			PinGenerator:     pinGenerator,
 		})
 		assert.NoError(t, err)
@@ -541,6 +543,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
 			EventService:     eventMock,
+			EventTopic:       spi.IssuerEventTopic,
 		})
 		assert.NoError(t, err)
 
@@ -573,6 +576,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 		srv, err := oidc4ci.NewService(&oidc4ci.Config{
 			TransactionStore: storeMock,
 			EventService:     eventMock,
+			EventTopic:       spi.IssuerEventTopic,
 		})
 		assert.NoError(t, err)
 
@@ -1039,6 +1043,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				TransactionStore: mockTransactionStore,
 				HTTPClient:       mockHTTPClient,
 				EventService:     eventMock,
+				EventTopic:       spi.IssuerEventTopic,
 			})
 			require.NoError(t, err)
 

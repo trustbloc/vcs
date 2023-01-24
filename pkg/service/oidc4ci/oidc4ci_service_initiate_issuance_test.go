@@ -659,6 +659,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				WellKnownService:    mockWellKnownService,
 				IssuerVCSPublicHost: issuerVCSPublicHost,
 				EventService:        eventService,
+				EventTopic:          spi.IssuerEventTopic,
 				PinGenerator:        pinGenerator,
 			})
 			require.NoError(t, err)

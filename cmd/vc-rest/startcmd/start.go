@@ -279,6 +279,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		HTTPClient:          httpClient,
 		EventService:        eventSvc,
 		PinGenerator:        otp.NewPinGenerator(),
+		EventTopic:          conf.StartupParameters.issuerEventTopic,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -393,14 +394,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, err
 	}
 
-	//TODO: add parameter to specify live time of interaction request object
+	// TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.apiGatewayURL + "/request-object/"
 	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
 
-	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc, requestObjStoreEndpoint)
+	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
+		requestObjStoreEndpoint, conf.StartupParameters.verifierEventTopic)
 
 	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 eventSvc,
+		EventTopic:               conf.StartupParameters.verifierEventTopic,
 		TransactionManager:       oidc4vpTxManager,
 		RequestObjectPublicStore: requestObjectStoreService,
 		KMSRegistry:              kmsRegistry,

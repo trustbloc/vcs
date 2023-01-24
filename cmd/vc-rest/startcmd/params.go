@@ -17,6 +17,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 )
@@ -198,6 +199,14 @@ const (
 	requestObjectRepositoryS3RegionEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_REGION"
 	requestObjectRepositoryS3RegionFlagUsage = "request-object S3 Region"
 
+	issuerTopicFlagName  = "issuer-event-topic"
+	issuerTopicEnvKey    = "VC_REST_ISSUER_EVENT_TOPIC"
+	issuerTopicFlagUsage = "The name of the issuer event topic. " + commonEnvVarUsageText + issuerTopicEnvKey
+
+	verifierTopicFlagName  = "verifier-event-topic"
+	verifierTopicEnvKey    = "VC_REST_VERIFIER_EVENT_TOPIC"
+	verifierTopicFlagUsage = "The name of the verifier event topic. " + commonEnvVarUsageText + verifierTopicEnvKey
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -233,6 +242,8 @@ type startupParameters struct {
 	requestObjectRepositoryType     string
 	requestObjectRepositoryS3Bucket string
 	requestObjectRepositoryS3Region string
+	issuerEventTopic                string
+	verifierEventTopic              string
 }
 
 type prometheusMetricsProviderParams struct {
@@ -373,6 +384,16 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3RegionEnvKey,
 	)
 
+	issuerTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, issuerTopicFlagName, issuerTopicEnvKey)
+	if issuerTopic == "" {
+		issuerTopic = spi.IssuerEventTopic
+	}
+
+	verifierTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, verifierTopicFlagName, verifierTopicEnvKey)
+	if verifierTopic == "" {
+		verifierTopic = spi.VerifierEventTopic
+	}
+
 	return &startupParameters{
 		hostURL:                         hostURL,
 		hostURLExternal:                 hostURLExternal,
@@ -396,6 +417,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryType:     requestObjectRepositoryType,
 		requestObjectRepositoryS3Bucket: requestObjectRepositoryS3Bucket,
 		requestObjectRepositoryS3Region: requestObjectRepositoryS3Region,
+		issuerEventTopic:                issuerTopic,
+		verifierEventTopic:              verifierTopic,
 	}, nil
 }
 
@@ -636,6 +659,9 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(requestObjectRepositoryTypeFlagName, "", requestObjectRepositoryTypeFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
+
+	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
+	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }

@@ -80,6 +80,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 &mockEvent{},
+		EventTopic:               spi.VerifierEventTopic,
 		TransactionManager:       txManager,
 		RequestObjectPublicStore: requestObjectPublicStore,
 		KMSRegistry:              kmsRegistry,
@@ -131,6 +132,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
+			EventTopic:               spi.VerifierEventTopic,
 			TransactionManager:       txManagerErr,
 			RequestObjectPublicStore: requestObjectPublicStore,
 			KMSRegistry:              kmsRegistry,
@@ -155,6 +157,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
+			EventTopic:               spi.VerifierEventTopic,
 			TransactionManager:       txManager,
 			RequestObjectPublicStore: requestObjectPublicStoreErr,
 			KMSRegistry:              kmsRegistry,
@@ -178,6 +181,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
+			EventTopic:               spi.VerifierEventTopic,
 			TransactionManager:       txManager,
 			RequestObjectPublicStore: requestObjectPublicStore,
 			KMSRegistry:              kmsRegistry,
@@ -228,6 +232,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
+		EventTopic:           spi.VerifierEventTopic,
 		TransactionManager:   txManager,
 		PresentationVerifier: presentationVerifier,
 		ProfileService:       profileService,
@@ -285,6 +290,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   errTxManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
@@ -319,6 +325,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   txManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       errProfileService,
@@ -341,6 +348,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			Return(nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   txManager,
 			PresentationVerifier: errPresentationVerifier,
 			ProfileService:       profileService,
@@ -379,6 +387,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   errTxManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,

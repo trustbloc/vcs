@@ -31,6 +31,7 @@ func TestExchangeCode(t *testing.T) {
 		OAuth2Client:     oauth2Client,
 		HTTPClient:       &http.Client{},
 		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 
@@ -104,6 +105,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 		OAuth2Client:     oauth2Client,
 		HTTPClient:       &http.Client{},
 		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 
@@ -142,6 +144,7 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 		OAuth2Client:     oauth2Client,
 		HTTPClient:       &http.Client{},
 		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 
@@ -187,6 +190,7 @@ func TestExchangeCodeInvalidState(t *testing.T) {
 	srv, err := oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore: store,
 		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 
@@ -220,6 +224,7 @@ func TestExchangeCodePublishError(t *testing.T) {
 		OAuth2Client:     oauth2Client,
 		HTTPClient:       &http.Client{},
 		EventService:     eventMock,
+		EventTopic:       spi.IssuerEventTopic,
 	})
 	assert.NoError(t, err)
 

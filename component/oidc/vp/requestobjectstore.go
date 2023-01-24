@@ -29,8 +29,9 @@ type eventService interface {
 }
 
 type RequestObjectStore struct {
-	repo     requestObjectStoreRepository
-	eventSvc eventService
+	repo       requestObjectStoreRepository
+	eventSvc   eventService
+	eventTopic string
 
 	selfURI string
 }
@@ -38,12 +39,13 @@ type RequestObjectStore struct {
 func NewRequestObjectStore(
 	repo requestObjectStoreRepository,
 	eventSvc eventService,
-	selfURI string,
+	selfURI, eventTopic string,
 ) *RequestObjectStore {
 	return &RequestObjectStore{
-		repo:     repo,
-		eventSvc: eventSvc,
-		selfURI:  selfURI,
+		repo:       repo,
+		eventSvc:   eventSvc,
+		selfURI:    selfURI,
+		eventTopic: eventTopic,
 	}
 }
 
@@ -84,7 +86,7 @@ func (s *RequestObjectStore) Get(ctx context.Context, id string) (*requestobject
 		return nil, err
 	}
 
-	err = s.eventSvc.Publish(spi.VerifierEventTopic, result.AccessRequestObjectEvent)
+	err = s.eventSvc.Publish(s.eventTopic, result.AccessRequestObjectEvent)
 	if err != nil {
 		return nil, err
 	}
