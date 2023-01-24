@@ -40,6 +40,18 @@
       }
     },
     {
+      "endpoint": "/issuer/{profileID}/.well-known/openid-configuration",
+      "method": "GET",
+      "input_query_strings": [
+        "*"
+      ],
+      "backend_extra_config": {
+        "plugin/http-client": {
+          "name": "http-client-no-redirect"
+        }
+      }
+    },
+    {
       "endpoint": "/oidc/par",
       "method": "POST"
     },

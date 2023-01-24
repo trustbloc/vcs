@@ -273,7 +273,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:    oidc4ciStore,
-		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
+		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
 		WellKnownService:    wellknown.NewService(httpClient),
 		OAuth2Client:        oauth2client.NewOAuth2Client(),
 		HTTPClient:          httpClient,
@@ -351,7 +351,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
-		ExternalHostURL:        conf.StartupParameters.hostURLExternal,
+		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
 	}))
 
 	// Verifier Profile Management API
