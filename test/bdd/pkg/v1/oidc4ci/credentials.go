@@ -14,6 +14,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"golang.org/x/oauth2"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 func getCredential(
@@ -57,7 +59,7 @@ func getCredential(
 
 	b, err := json.Marshal(credentialRequest{
 		DID:    diddoc.ID,
-		Format: "jwt_vc",
+		Format: string(verifiable.JwtVCJson),
 		Type:   "UniversityDegreeCredential",
 		Proof: jwtProof{
 			ProofType: "jwt",
@@ -84,7 +86,8 @@ func getCredential(
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get credential: status %s", resp.Status)
+		b1, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("get credential: status %s. body %v", resp.Status, string(b1))
 	}
 
 	var credentialResp credentialResponse

@@ -114,8 +114,8 @@ type OidcAuthorizeParams struct {
 	// An opaque user hint the wallet MAY use in subsequent callbacks to optimize the user's experience. RECOMMENDED in Dynamic Credential Request.
 	UserHint *string `form:"user_hint,omitempty" json:"user_hint,omitempty"`
 
-	// String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  op_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.
-	OpState string `form:"op_state" json:"op_state"`
+	// String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  issuer_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.
+	IssuerState string `form:"issuer_state" json:"issuer_state"`
 }
 
 // OidcCredentialJSONBody defines parameters for OidcCredential.
@@ -233,11 +233,11 @@ func (w *ServerInterfaceWrapper) OidcAuthorize(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter user_hint: %s", err))
 	}
 
-	// ------------- Required query parameter "op_state" -------------
+	// ------------- Required query parameter "issuer_state" -------------
 
-	err = runtime.BindQueryParameter("form", true, true, "op_state", ctx.QueryParams(), &params.OpState)
+	err = runtime.BindQueryParameter("form", true, true, "issuer_state", ctx.QueryParams(), &params.IssuerState)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter op_state: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter issuer_state: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments

@@ -11,12 +11,38 @@ import (
 	"fmt"
 )
 
+type OIDCFormat string
+
+func MapFormatToOIDCFormat(old Format) (OIDCFormat, error) {
+	mapped, ok := oldFormatToNew[old]
+	if !ok {
+		return "", fmt.Errorf("unsupported vc mapping for format: %v", old)
+	}
+
+	return mapped, nil
+}
+
 type Format string
 
 const (
 	Jwt Format = "jwt"
 	Ldp Format = "ldp"
 )
+
+const (
+	JwtVCJson = OIDCFormat("jwt_vc_json")
+	LdpVC     = OIDCFormat("ldp_vc")
+)
+
+var oldFormatToNew = map[Format]OIDCFormat{
+	Jwt: JwtVCJson,
+	Ldp: LdpVC,
+}
+
+var oidcFormatToFormat = map[OIDCFormat]Format{
+	JwtVCJson: Jwt,
+	LdpVC:     Ldp,
+}
 
 func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 	strRep, isStr := data.(string)

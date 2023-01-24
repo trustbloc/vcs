@@ -65,10 +65,10 @@ type TransactionData struct {
 
 // AuthorizationDetails are the VC-related details for VC issuance.
 type AuthorizationDetails struct {
-	Type           string
-	CredentialType string
-	Format         vcsverifiable.Format
-	Locations      []string
+	Type      string
+	Types     []string
+	Format    vcsverifiable.Format
+	Locations []string
 }
 
 // OIDCConfiguration represents an OIDC configuration from well-know endpoint (/.well-known/openid-configuration).
@@ -163,8 +163,8 @@ type CredentialOfferGrant struct {
 }
 
 type CredentialOffer struct {
-	Format string   `json:"format"`
-	Types  []string `json:"types"`
+	Format vcsverifiable.OIDCFormat `json:"format"`
+	Types  []string                 `json:"types"`
 }
 
 type CredentialOfferResponse struct {

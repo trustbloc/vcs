@@ -11,18 +11,18 @@ Feature: Using OIDC4VP REST API
     When "ACCESS_TOKEN_URL" Organization "ORG_ID" has been authorized with client id "CLIENT_ID" and secret "SECRET"
     And   User creates wallet
     And   New verifiable credentials is created from table:
-      | IssuerProfile             | Organization | Credential                      | VCFormat |
-      | i_myprofile_ud_P256k1     | test_org     | university_degree.json          | ldp_vc   |
-      | i_myprofile_ud_p256       | test_org     | university_degree.json          | ldp_vc   |
-      | i_myprofile_prc_P256k1    | test_org     | permanent_resident_card.json    | ldp_vc   |
-      | i_myprofile_prc_p256      | test_org     | permanent_resident_card.json    | ldp_vc   |
-      | i_myprofile_cp_p384       | test_org     | crude_product.json              | ldp_vc   |
-      | i_myprofile_cp_p256       | test_org     | crude_product.json              | ldp_vc   |
-      | i_myprofile_cmtr_p384     | test_org     | certified_mill_test_report.json | ldp_vc   |
-      | i_myprofile_cmtr_p256     | test_org     | certified_mill_test_report.json | ldp_vc   |
-      | i_myprofile_ud_es256_jwt  | test_org     | university_degree.json          | jwt_vc   |
-      | i_myprofile_ud_es384_jwt  | test_org     | university_degree.json          | jwt_vc   |
-      | i_myprofile_ud_es256k_jwt | test_org     | university_degree.json          | jwt_vc   |
+      | IssuerProfile             | Organization | Credential                      | VCFormat      |
+      | i_myprofile_ud_P256k1     | test_org     | university_degree.json          | ldp_vc        |
+      | i_myprofile_ud_p256       | test_org     | university_degree.json          | ldp_vc        |
+      | i_myprofile_prc_P256k1    | test_org     | permanent_resident_card.json    | ldp_vc        |
+      | i_myprofile_prc_p256      | test_org     | permanent_resident_card.json    | ldp_vc        |
+      | i_myprofile_cp_p384       | test_org     | crude_product.json              | ldp_vc        |
+      | i_myprofile_cp_p256       | test_org     | crude_product.json              | ldp_vc        |
+      | i_myprofile_cmtr_p384     | test_org     | certified_mill_test_report.json | ldp_vc        |
+      | i_myprofile_cmtr_p256     | test_org     | certified_mill_test_report.json | ldp_vc        |
+      | i_myprofile_ud_es256_jwt  | test_org     | university_degree.json          | jwt_vc_json   |
+      | i_myprofile_ud_es384_jwt  | test_org     | university_degree.json          | jwt_vc_json   |
+      | i_myprofile_ud_es256k_jwt | test_org     | university_degree.json          | jwt_vc_json   |
     And User saves credentials into wallet
 
   @e2e

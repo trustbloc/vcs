@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -27,6 +28,10 @@ func (s *Service) InitiateIssuance(
 	req *InitiateIssuanceRequest,
 	profile *profileapi.Issuer,
 ) (*InitiateIssuanceResponse, error) {
+	if req.OpState == "" {
+		req.OpState = uuid.NewString()
+	}
+
 	if !profile.Active {
 		return nil, ErrProfileNotActive
 	}
@@ -174,7 +179,7 @@ func (s *Service) buildInitiateIssuanceURL(
 		initiateIssuanceURL = "openid-vc://"
 	}
 
-	targetFormat, err := MapCredentialFormat(string(tx.CredentialFormat))
+	targetFormat, err := verifiable.MapFormatToOIDCFormat(tx.CredentialFormat)
 	if err != nil {
 		return "", err
 	}
