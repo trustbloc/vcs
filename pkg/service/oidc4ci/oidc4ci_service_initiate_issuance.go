@@ -31,7 +31,6 @@ func (s *Service) InitiateIssuance(
 	if req.OpState == "" {
 		req.OpState = uuid.NewString()
 	}
-
 	if !profile.Active {
 		return nil, ErrProfileNotActive
 	}
@@ -60,7 +59,6 @@ func (s *Service) InitiateIssuance(
 	if err != nil {
 		return nil, fmt.Errorf("get oidc configuration from well-known: %w", err)
 	}
-
 	data := &TransactionData{
 		ProfileID:                          profile.ID,
 		CredentialTemplate:                 template,

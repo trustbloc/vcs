@@ -147,7 +147,7 @@ func TestController_mapToVCFormat(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		tpe, err := MapToVCFormat(vcsverifiable.Jwt)
 		require.NoError(t, err)
-		require.Equal(t, JwtVc, tpe)
+		require.Equal(t, JwtVcJson, tpe)
 
 		tpe, err = MapToVCFormat(vcsverifiable.Ldp)
 		require.NoError(t, err)
@@ -199,7 +199,7 @@ func TestController_mapToDIDMethod(t *testing.T) {
 }
 
 func TestValidateVCFormat(t *testing.T) {
-	got, err := ValidateVCFormat(JwtVc)
+	got, err := ValidateVCFormat(JwtVcJson)
 	require.NoError(t, err)
 	require.Equal(t, vcsverifiable.Jwt, got)
 
@@ -250,12 +250,12 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 		}{
 			{
 				name: "ldp_vc format",
-				arg:  lo.ToPtr("ldp_vc"),
+				arg:  lo.ToPtr(string(LdpVc)),
 				want: vcsverifiable.Ldp,
 			},
 			{
 				name: "jwt_vc format",
-				arg:  lo.ToPtr("jwt_vc"),
+				arg:  lo.ToPtr(string(JwtVcJson)),
 				want: vcsverifiable.Jwt,
 			},
 			{
@@ -267,19 +267,19 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				ad := &AuthorizationDetails{
-					Type:           "openid_credential",
-					CredentialType: "UniversityDegreeCredential",
-					Format:         tt.arg,
-					Locations:      lo.ToPtr([]string{"https://example.com/rs1", "https://example.com/rs2"}),
+					Type:      "openid_credential",
+					Types:     []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format:    tt.arg,
+					Locations: lo.ToPtr([]string{"https://example.com/rs1", "https://example.com/rs2"}),
 				}
 
 				got, err := ValidateAuthorizationDetails(ad)
 				require.NoError(t, err)
 				require.Equal(t, &oidc4ci.AuthorizationDetails{
-					Type:           "openid_credential",
-					CredentialType: "UniversityDegreeCredential",
-					Format:         tt.want,
-					Locations:      []string{"https://example.com/rs1", "https://example.com/rs2"},
+					Type:      "openid_credential",
+					Types:     []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format:    tt.want,
+					Locations: []string{"https://example.com/rs1", "https://example.com/rs2"},
 				}, got)
 			})
 		}
@@ -287,9 +287,9 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 
 	t.Run("invalid format", func(t *testing.T) {
 		ad := &AuthorizationDetails{
-			Type:           "openid_credential",
-			CredentialType: "UniversityDegreeCredential",
-			Format:         lo.ToPtr("invalid"),
+			Type:   "openid_credential",
+			Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+			Format: lo.ToPtr("invalid"),
 		}
 
 		got, err := ValidateAuthorizationDetails(ad)
@@ -299,9 +299,9 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 
 	t.Run("type should be 'openid_credential'", func(t *testing.T) {
 		ad := &AuthorizationDetails{
-			Type:           "invalid",
-			CredentialType: "UniversityDegreeCredential",
-			Format:         lo.ToPtr("ldp_vc"),
+			Type:   "invalid",
+			Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+			Format: lo.ToPtr("ldp_vc"),
 		}
 
 		got, err := ValidateAuthorizationDetails(ad)

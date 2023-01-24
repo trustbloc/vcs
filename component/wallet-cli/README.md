@@ -117,7 +117,7 @@ The following CLI arguments are supported for oidc4vp command (./wallet-cli oidc
       --storage-provider string                     storage provider. supported: mem,leveldb,mongodb
       --storage-provider-connection-string string   storage provider connection string
       --uni-resolver-url string                     uni resolver url. example: https://did-resolver.stg.trustbloc.dev/1.0/identifiers
-      --vc-format string                            VC format (jwt_vc/ldp_vc) (default "jwt_vc")
+      --vc-format string                            VC format (jwt_vc_json/ldp_vc) (default "jwt_vc_json")
       --vc-issuer-url string                        VC Issuer URL
       --vc-provider string                          VC Provider (default "vcs")
       --wallet-did string                           existing wallet did

@@ -34,14 +34,9 @@ const (
 	LdpVC     = OIDCFormat("ldp_vc")
 )
 
-var oldFormatToNew = map[Format]OIDCFormat{
+var oldFormatToNew = map[Format]OIDCFormat{ //nolint
 	Jwt: JwtVCJson,
 	Ldp: LdpVC,
-}
-
-var oidcFormatToFormat = map[OIDCFormat]Format{
-	JwtVCJson: Jwt,
-	LdpVC:     Ldp,
 }
 
 func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
