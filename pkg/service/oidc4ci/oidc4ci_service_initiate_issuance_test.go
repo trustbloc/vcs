@@ -306,6 +306,66 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "Success Pre-Auth without PIN and without template and empty state",
+			setup: func() {
+				initialOpState := ""
+				expectedCode := "super-secret-pre-auth-code"
+				claimData := map[string]interface{}{
+					"my_awesome_claim": "claim",
+				}
+
+				cp := testProfile
+				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
+				profile = &cp
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								ProfileID:        profile.ID,
+								CredentialFormat: verifiable.Jwt,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+								PreAuthCode:   expectedCode,
+								IsPreAuthFlow: true,
+							},
+						}, nil
+					})
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					ClientWellKnownURL: walletWellKnownURL,
+					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
+					OpState:            initialOpState,
+					UserPinRequired:    false,
+					ClaimData:          claimData,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				require.Equal(t, "openid-vc://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
+					resp.InitiateIssuanceURL)
+			},
+		},
+		{
 			name: "Fail Pre-Auth with with invalid format",
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
