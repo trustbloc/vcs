@@ -186,10 +186,10 @@ func (s *Steps) getAuthCode() error {
 
 	resp, err := httpClient.Get(
 		s.oauthClient.AuthCodeURL(state,
-			oauth2.SetAuthURLParam("op_state", offerResponse.Grants.AuthorizationCode.IssuerState),
+			oauth2.SetAuthURLParam("issuer_state", offerResponse.Grants.AuthorizationCode.IssuerState),
 			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","credential_type":"VerifiedEmployee","format":"jwt_vc"}`), //nolint:lll
+			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","types":["VerifiableCredential","VerifiedEmployee"],"format":"jwt_vc_json"}`), //nolint:lll
 		),
 	)
 	if err != nil {

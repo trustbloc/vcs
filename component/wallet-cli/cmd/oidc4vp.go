@@ -82,7 +82,7 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().String("oidc4-vp-authorization-request", "", "OIDC4VP Authorization Request")
 	cmd.Flags().String("vc-provider", "vcs", "VC Provider")
 	cmd.Flags().String("vc-issuer-url", "", "VC Issuer URL")
-	cmd.Flags().String("vc-format", "jwt_vc", "VC format (jwt_vc/ldp_vc)")
+	cmd.Flags().String("vc-format", "jwt_vc_json", "VC format (jwt_vc_json/ldp_vc)")
 
 	cmd.Flags().String("context-provider-url", "", "context provider. example: https://static-file-server.stg.trustbloc.dev/ld-contexts.json") //nolint
 	cmd.Flags().String("did-domain", "", "did domain. example: https://orb-1.stg.trustbloc.dev")                                               //nolint

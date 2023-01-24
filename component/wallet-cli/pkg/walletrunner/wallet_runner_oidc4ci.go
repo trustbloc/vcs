@@ -100,16 +100,19 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	state := uuid.New().String()
 
 	b, err := json.Marshal(&common.AuthorizationDetails{
-		Type:           "openid_credential",
-		CredentialType: config.CredentialType,
-		Format:         lo.ToPtr(config.CredentialFormat),
+		Type: "openid_credential",
+		Types: []string{
+			"VerifiableCredential",
+			config.CredentialType,
+		},
+		Format: lo.ToPtr(config.CredentialFormat),
 	})
 	if err != nil {
 		return fmt.Errorf("marshal authorization details: %w", err)
 	}
 
 	authCodeURL := s.oauthClient.AuthCodeURL(state,
-		oauth2.SetAuthURLParam("op_state", opState),
+		oauth2.SetAuthURLParam("issuer_state", opState),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("authorization_details", string(b)),

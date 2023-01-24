@@ -52,8 +52,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "universitydegreecredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "universitydegreecredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -67,8 +67,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					nil, errors.New("find tx error"))
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -86,8 +86,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}, nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -108,8 +108,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}, nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "NotSupportedCredentialType",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "NotSupportedCredentialType"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -130,8 +130,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}, nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Jwt,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Jwt,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -154,8 +154,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -225,8 +225,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -278,8 +278,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -384,8 +384,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -423,8 +423,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -471,8 +471,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},

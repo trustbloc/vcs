@@ -164,10 +164,10 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 	r, err := c.issuerInteractionClient.PushAuthorizationDetails(ctx,
 		issuer.PushAuthorizationDetailsJSONRequestBody{
 			AuthorizationDetails: common.AuthorizationDetails{
-				CredentialType: authorizationDetails.CredentialType,
-				Format:         lo.ToPtr(string(authorizationDetails.Format)),
-				Locations:      lo.ToPtr(authorizationDetails.Locations),
-				Type:           authorizationDetails.Type,
+				Types:     authorizationDetails.Types,
+				Format:    lo.ToPtr(string(authorizationDetails.Format)),
+				Locations: lo.ToPtr(authorizationDetails.Locations),
+				Type:      authorizationDetails.Type,
 			},
 			OpState: par.OpState,
 		},
@@ -204,13 +204,13 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	ses := &fosite.DefaultSession{
 		Extra: map[string]interface{}{
-			sessionOpStateKey:       params.OpState,
+			sessionOpStateKey:       params.IssuerState,
 			authorizationDetailsKey: lo.FromPtr(params.AuthorizationDetails),
 		},
 	}
 
 	var (
-		credentialType string
+		credentialType []string
 		vcFormat       *string
 	)
 
@@ -227,22 +227,22 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			return err
 		}
 
-		credentialType = authorizationDetails.CredentialType
+		credentialType = authorizationDetails.Types
 		vcFormat = authorizationDetails.Format
 	} else {
 		// using scope parameter to request credential type
 		// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-using-scope-parameter-to-re
-		credentialType = scope[0]
+		credentialType = scope
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
 			AuthorizationDetails: &common.AuthorizationDetails{
-				Type:           "openid_credential",
-				CredentialType: credentialType,
-				Format:         vcFormat,
+				Type:   "openid_credential",
+				Types:  credentialType,
+				Format: vcFormat,
 			},
-			OpState:      params.OpState,
+			OpState:      params.IssuerState,
 			ResponseType: params.ResponseType,
 			Scope:        lo.ToPtr(scope),
 		},
@@ -277,7 +277,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
 	}
 
-	ar.(*fosite.AuthorizeRequest).State = params.OpState
+	ar.(*fosite.AuthorizeRequest).State = params.IssuerState
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 	if err != nil {
@@ -286,7 +286,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
-		params.OpState,
+		params.IssuerState,
 		&oidc4cistatestore.AuthorizeState{
 			RedirectURI: ar.GetRedirectURI(),
 			RespondMode: string(ar.GetResponseMode()),
@@ -302,14 +302,14 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			ctx,
 			oauthConfig,
 			*claimDataAuth.PushedAuthorizationRequestEndpoint,
-			params.OpState,
+			params.IssuerState,
 			c.defaultHTTPClient,
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		authCodeURL = c.oAuth2Client.AuthCodeURL(ctx, oauthConfig, params.OpState)
+		authCodeURL = c.oAuth2Client.AuthCodeURL(ctx, oauthConfig, params.IssuerState)
 	}
 
 	return e.Redirect(http.StatusSeeOther, authCodeURL)

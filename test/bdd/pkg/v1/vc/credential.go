@@ -18,6 +18,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+	verifiable2 "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
@@ -30,7 +31,7 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 	credBytes := e.bddContext.CreatedCredential
 	checkProof := true
 
-	if vcFormat == "jwt_vc" {
+	if vcFormat == string(verifiable2.JwtVCJson) {
 		loader, err := bddutil.DocumentLoader()
 		if err != nil {
 			return fmt.Errorf("create document loader: %w", err)

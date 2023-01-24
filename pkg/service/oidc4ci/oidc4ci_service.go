@@ -219,7 +219,8 @@ func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *Authorizat
 		return ErrCredentialTemplateNotConfigured
 	}
 
-	if !strings.EqualFold(ad.CredentialType, tx.CredentialTemplate.Type) {
+	targetType := ad.Types[len(ad.Types)-1]
+	if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
 		return ErrCredentialTypeNotSupported
 	}
 
