@@ -652,8 +652,67 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
 		assert.ErrorContains(t, err, "unexpected transaction from 5 to 2")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("pin should not be provided", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode: "1234",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin[]: server does not expect pin")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("pin should be provided", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode: "1234",
+				UserPin:     "123",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin[]: server expects user pin")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("valid pre auth code", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode: "12345",
+				UserPin:     "123",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123")
+		assert.ErrorContains(t, err, "oidc-tx-not-found[]: invalid pre-authorize code")
 		assert.Nil(t, resp)
 	})
 

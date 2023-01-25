@@ -1428,6 +1428,62 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				assert.ErrorContains(t, err, "validate pre-authorized code request: status code 400, code")
 			},
 		},
+		{
+			name: "invalid tx validate pre authorize",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{},
+						},
+					}, nil)
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+						PreAuthorizedCode: "321",
+						UserPin:           lo.ToPtr(""),
+					}).Return(&http.Response{
+					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-tx-not-found"}`)),
+					StatusCode: http.StatusBadRequest,
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err,
+					"oidc-error[]: validate pre-authorized code request: status code 400, "+
+						"code: oidc-tx-not-found")
+			},
+		},
+		{
+			name: "invalid expect pin pre authorize",
+			body: strings.NewReader(url.Values{
+				"grant_type":          {"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
+				"pre-authorized_code": {"321"},
+			}.Encode()),
+			setup: func() {
+				mockOAuthProvider.EXPECT().NewAccessRequest(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&fosite.AccessRequest{
+						Request: fosite.Request{
+							Session: &fosite.DefaultSession{},
+						},
+					}, nil)
+				mockInteractionClient.EXPECT().ValidatePreAuthorizedCodeRequest(gomock.Any(),
+					issuer.ValidatePreAuthorizedCodeRequestJSONRequestBody{
+						PreAuthorizedCode: "321",
+						UserPin:           lo.ToPtr(""),
+					}).Return(&http.Response{
+					Body:       io.NopCloser(strings.NewReader(`{"code": "oidc-pre-authorize-expect-pin"}`)),
+					StatusCode: http.StatusBadRequest,
+				}, nil)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				assert.ErrorContains(t, err,
+					"oidc-error[]: validate pre-authorized code request: status code 400, "+
+						"code: oidc-pre-authorize-expect-pin")
+			},
+		},
 	}
 
 	for _, tt := range tests {

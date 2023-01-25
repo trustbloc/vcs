@@ -14,12 +14,17 @@ import (
 type ErrorCode string
 
 const (
-	SystemError     ErrorCode = "system-error"
-	Unauthorized    ErrorCode = "unauthorized"
-	InvalidValue    ErrorCode = "invalid-value"
-	AlreadyExist    ErrorCode = "already-exist"
-	DoesntExist     ErrorCode = "doesnt-exist"
-	ConditionNotMet ErrorCode = "condition-not-met"
+	SystemError                      ErrorCode = "system-error"
+	Unauthorized                     ErrorCode = "unauthorized"
+	InvalidValue                     ErrorCode = "invalid-value"
+	AlreadyExist                     ErrorCode = "already-exist"
+	DoesntExist                      ErrorCode = "doesnt-exist"
+	ConditionNotMet                  ErrorCode = "condition-not-met"
+	OIDCError                        ErrorCode = "oidc-error"
+	OIDCTxNotFound                   ErrorCode = "oidc-tx-not-found"
+	OIDCPreAuthorizeDoesNotExpectPin ErrorCode = "oidc-pre-authorize-does-not-expect-pin"
+	OIDCPreAuthorizeExpectPin        ErrorCode = "oidc-pre-authorize-expect-pin"
+	OIDCPreAuthorizeInvalidPin       ErrorCode = "oidc-pre-authorize-invalid-pin"
 )
 
 func (c ErrorCode) Name() string {
@@ -58,6 +63,21 @@ func NewUnauthorizedError(err error) *CustomError {
 	}
 }
 
+func NewCustomError(code ErrorCode, err error) *CustomError {
+	return &CustomError{
+		Code: code,
+		Err:  err,
+	}
+}
+
+func NewOIDCError(message string, raw error) *CustomError {
+	return &CustomError{
+		Code:      OIDCError,
+		Component: message,
+		Err:       raw,
+	}
+}
+
 func (e *CustomError) Error() string {
 	if e.Code == SystemError {
 		return fmt.Sprintf("%s[%s, %s]: %v", SystemError, e.Component, e.FailedOperation, e.Err)
@@ -72,7 +92,7 @@ func (e *CustomError) Error() string {
 func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 	var code int
 
-	switch e.Code {
+	switch e.Code { //nolint:exhaustive
 	case SystemError:
 		return http.StatusInternalServerError, map[string]interface{}{
 			"code":      SystemError.Name(),
@@ -84,6 +104,11 @@ func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 		return http.StatusUnauthorized, map[string]interface{}{
 			"code":    Unauthorized.Name(),
 			"message": e.Err.Error(),
+		}
+	case OIDCError:
+		return http.StatusBadRequest, map[string]interface{}{
+			"error": e.Component,
+			"_raw":  e.Err.Error(),
 		}
 	case AlreadyExist:
 		code = http.StatusConflict
