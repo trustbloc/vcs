@@ -589,10 +589,28 @@ func (c *Controller) oidcPreAuthorizedCode(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("validate pre-authorized code request: status code %d, %w",
+		parsedErr := parseInteractionError(resp.Body)
+
+		finalErr := fmt.Errorf("validate pre-authorized code request: status code %d, %w",
 			resp.StatusCode,
-			parseInteractionError(resp.Body),
+			parsedErr,
 		)
+
+		if parsed, ok := parsedErr.(*interactionError); ok {
+			switch parsed.Code {
+			case resterr.OIDCPreAuthorizeExpectPin:
+				fallthrough
+			case resterr.OIDCPreAuthorizeDoesNotExpectPin:
+				return nil, resterr.NewOIDCError("invalid_request", finalErr)
+
+			case resterr.OIDCTxNotFound:
+				fallthrough
+			case resterr.OIDCPreAuthorizeInvalidPin:
+				return nil, resterr.NewOIDCError("invalid_grant", finalErr)
+			}
+		}
+
+		return nil, finalErr
 	}
 
 	var validateResponse issuer.ValidatePreAuthorizedCodeResponse
@@ -603,12 +621,12 @@ func (c *Controller) oidcPreAuthorizedCode(
 	return &validateResponse, nil
 }
 
-type interactionError struct {
-	Code           string `json:"code"`
-	Component      string `json:"component,omitempty"`
-	Operation      string `json:"operation,omitempty"`
-	IncorrectValue string `json:"incorrectValue,omitempty"`
-	Message        string `json:"message,omitempty"`
+type interactionError struct { // in fact its CustomError
+	Code           resterr.ErrorCode `json:"code"`
+	Component      string            `json:"component,omitempty"`
+	Operation      string            `json:"operation,omitempty"`
+	IncorrectValue string            `json:"incorrectValue,omitempty"`
+	Message        string            `json:"message,omitempty"`
 }
 
 func (e *interactionError) Error() string {

@@ -11,13 +11,13 @@ package oidc4ci
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -244,7 +244,17 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 ) (*Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
-		return nil, fmt.Errorf("find tx by op state: %w", err)
+		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("find tx by op state: %w", err))
+	}
+
+	if len(pin) > 0 && len(tx.UserPin) == 0 {
+		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeDoesNotExpectPin,
+			fmt.Errorf("server does not expect pin"))
+	}
+
+	if len(pin) == 0 && len(tx.UserPin) > 0 {
+		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeExpectPin,
+			fmt.Errorf("server expects user pin"))
 	}
 
 	newState := TransactionStatePreAuthCodeValidated
@@ -254,11 +264,11 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	tx.State = newState
 
 	if tx.PreAuthCode != preAuthorizedCode {
-		return nil, errors.New("invalid pre-auth code")
+		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorize code"))
 	}
 
 	if len(tx.UserPin) > 0 && !s.pinGenerator.Validate(tx.UserPin, pin) {
-		return nil, errors.New("invalid pin")
+		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidPin, fmt.Errorf("invalid pin"))
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
