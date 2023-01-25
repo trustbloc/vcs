@@ -92,7 +92,7 @@ func (e *CustomError) Error() string {
 func (e *CustomError) HTTPCodeMsg() (int, interface{}) {
 	var code int
 
-	switch e.Code {
+	switch e.Code { //nolint:exhaustive
 	case SystemError:
 		return http.StatusInternalServerError, map[string]interface{}{
 			"code":      SystemError.Name(),

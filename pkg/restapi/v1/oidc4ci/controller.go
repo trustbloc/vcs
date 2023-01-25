@@ -596,8 +596,10 @@ func (c *Controller) oidcPreAuthorizedCode(
 			parsedErr,
 		)
 
-		if parsed, ok := parsedErr.(*interactionError); ok {
-			switch parsed.Code {
+		var interactionErr *interactionError
+
+		if ok := errors.As(parsedErr, &interactionErr); ok {
+			switch interactionErr.Code { //nolint:exhaustive
 			case resterr.OIDCPreAuthorizeExpectPin:
 				fallthrough
 			case resterr.OIDCPreAuthorizeDoesNotExpectPin:
