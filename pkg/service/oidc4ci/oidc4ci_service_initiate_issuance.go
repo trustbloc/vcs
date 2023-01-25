@@ -69,20 +69,8 @@ func (s *Service) InitiateIssuance(
 		WebHookURL:         profile.WebHook,
 	}
 
-	if profile.OIDCConfig != nil {
-		oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
-		if err != nil {
-			return nil, fmt.Errorf("get oidc configuration from well-known: %w", err)
-		}
-
-		data.AuthorizationEndpoint = oidcConfig.AuthorizationEndpoint
-		data.PushedAuthorizationRequestEndpoint = oidcConfig.PushedAuthorizationRequestEndpoint
-		data.TokenEndpoint = oidcConfig.TokenEndpoint
-
-		data.ClientID = profile.OIDCConfig.ClientID
-		data.ClientSecret = profile.OIDCConfig.ClientSecretHandle
-		data.Scope = profile.OIDCConfig.Scope
-		data.RedirectURI = profile.OIDCConfig.RedirectURI
+	if err := s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
+		return nil, err
 	}
 
 	if data.GrantType == "" {
@@ -98,7 +86,6 @@ func (s *Service) InitiateIssuance(
 		data.IsPreAuthFlow = isPreAuthorizeFlow
 		data.PreAuthCode = generatePreAuthCode()
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
-		// todo user pin logic will be implemented later
 	}
 
 	tx, err := s.store.Create(ctx, data)
@@ -125,6 +112,32 @@ func (s *Service) InitiateIssuance(
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
+}
+
+func (s *Service) extendTransactionWithOIDCConfig(
+	ctx context.Context,
+	profile *profileapi.Issuer,
+	data *TransactionData,
+) error {
+	if profile.OIDCConfig == nil { // optional for pre-authorize, must have for authorize flow
+		return nil
+	}
+
+	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
+	if err != nil {
+		return fmt.Errorf("get oidc configuration from well-known: %w", err)
+	}
+
+	data.AuthorizationEndpoint = oidcConfig.AuthorizationEndpoint
+	data.PushedAuthorizationRequestEndpoint = oidcConfig.PushedAuthorizationRequestEndpoint
+	data.TokenEndpoint = oidcConfig.TokenEndpoint
+
+	data.ClientID = profile.OIDCConfig.ClientID
+	data.ClientSecret = profile.OIDCConfig.ClientSecretHandle
+	data.Scope = profile.OIDCConfig.Scope
+	data.RedirectURI = profile.OIDCConfig.RedirectURI
+
+	return nil
 }
 
 func generatePreAuthCode() string {

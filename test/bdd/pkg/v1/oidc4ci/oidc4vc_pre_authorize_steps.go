@@ -133,10 +133,6 @@ func (s *PreAuthorizeStep) prepareIssuer(id string) error {
 		return fmt.Errorf("issuer profile '%s' not found", id)
 	}
 
-	if issuer.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", id)
-	}
-
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
 		issuer.OrganizationID, "ejqxi9jb1vew2jbdnogpjcgrz", []string{"org_admin"})
 	if err != nil {
