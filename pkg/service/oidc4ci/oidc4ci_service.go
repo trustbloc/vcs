@@ -386,7 +386,9 @@ func (s *Service) createEvent(
 	e error,
 ) (*spi.Event, error) {
 	ep := eventPayload{
-		WebHook: tx.WebHookURL,
+		WebHook:   tx.WebHookURL,
+		ProfileID: tx.ProfileID,
+		OrgID:     tx.OrgID,
 	}
 
 	if e != nil {
