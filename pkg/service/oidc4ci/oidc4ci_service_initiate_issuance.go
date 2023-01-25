@@ -31,12 +31,13 @@ func (s *Service) InitiateIssuance(
 		return nil, ErrProfileNotActive
 	}
 
-	if profile.OIDCConfig == nil {
-		return nil, ErrAuthorizedCodeFlowNotSupported
-	}
-
 	if profile.VCConfig == nil {
 		return nil, ErrVCOptionsNotConfigured
+	}
+
+	isPreAuthorizeFlow := len(req.ClaimData) > 0
+	if !isPreAuthorizeFlow && profile.OIDCConfig == nil {
+		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
 
 	var template *profileapi.CredentialTemplate
@@ -54,30 +55,22 @@ func (s *Service) InitiateIssuance(
 		template = credTemplate
 	}
 
-	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
-	if err != nil {
-		return nil, fmt.Errorf("get oidc configuration from well-known: %w", err)
+	data := &TransactionData{
+		ProfileID:          profile.ID,
+		CredentialTemplate: template,
+		CredentialFormat:   profile.VCConfig.Format,
+		ClaimEndpoint:      req.ClaimEndpoint,
+		GrantType:          req.GrantType,
+		ResponseType:       req.ResponseType,
+		Scope:              req.Scope,
+		OpState:            req.OpState,
+		ClaimData:          req.ClaimData,
+		State:              TransactionStateIssuanceInitiated,
+		WebHookURL:         profile.WebHook,
 	}
 
-	data := &TransactionData{
-		ProfileID:                          profile.ID,
-		CredentialTemplate:                 template,
-		CredentialFormat:                   profile.VCConfig.Format,
-		AuthorizationEndpoint:              oidcConfig.AuthorizationEndpoint,
-		PushedAuthorizationRequestEndpoint: oidcConfig.PushedAuthorizationRequestEndpoint,
-		TokenEndpoint:                      oidcConfig.TokenEndpoint,
-		ClaimEndpoint:                      req.ClaimEndpoint,
-		ClientID:                           profile.OIDCConfig.ClientID,
-		ClientSecret:                       profile.OIDCConfig.ClientSecretHandle,
-		ClientScope:                        profile.OIDCConfig.Scope,
-		RedirectURI:                        profile.OIDCConfig.RedirectURI,
-		GrantType:                          req.GrantType,
-		ResponseType:                       req.ResponseType,
-		Scope:                              req.Scope,
-		OpState:                            req.OpState,
-		ClaimData:                          req.ClaimData,
-		State:                              TransactionStateIssuanceInitiated,
-		WebHookURL:                         profile.WebHook,
+	if err := s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
+		return nil, err
 	}
 
 	if data.GrantType == "" {
@@ -90,10 +83,9 @@ func (s *Service) InitiateIssuance(
 		data.Scope = []string{defaultScope}
 	}
 	if len(data.ClaimData) > 0 {
-		data.IsPreAuthFlow = true
+		data.IsPreAuthFlow = isPreAuthorizeFlow
 		data.PreAuthCode = generatePreAuthCode()
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
-		// todo user pin logic will be implemented later
 	}
 
 	tx, err := s.store.Create(ctx, data)
@@ -120,6 +112,32 @@ func (s *Service) InitiateIssuance(
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
+}
+
+func (s *Service) extendTransactionWithOIDCConfig(
+	ctx context.Context,
+	profile *profileapi.Issuer,
+	data *TransactionData,
+) error {
+	if profile.OIDCConfig == nil { // optional for pre-authorize, must have for authorize flow
+		return nil
+	}
+
+	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
+	if err != nil {
+		return fmt.Errorf("get oidc configuration from well-known: %w", err)
+	}
+
+	data.AuthorizationEndpoint = oidcConfig.AuthorizationEndpoint
+	data.PushedAuthorizationRequestEndpoint = oidcConfig.PushedAuthorizationRequestEndpoint
+	data.TokenEndpoint = oidcConfig.TokenEndpoint
+
+	data.ClientID = profile.OIDCConfig.ClientID
+	data.ClientSecret = profile.OIDCConfig.ClientSecretHandle
+	data.Scope = profile.OIDCConfig.Scope
+	data.RedirectURI = profile.OIDCConfig.RedirectURI
+
+	return nil
 }
 
 func generatePreAuthCode() string {
