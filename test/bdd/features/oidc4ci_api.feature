@@ -26,7 +26,7 @@ Feature: OIDC4CI REST API
     Then client receives a valid credential
 
   Scenario Outline: Credential issuance using OIDC4CI pre-authorization code flow
-    Given issuer with id "bank_issuer" wants to issue credentials to his client with pre-auth code flow
+    Given issuer with id "<issuerName>" wants to issue credentials to his client with pre-auth code flow
 
     When issuer sends request to initiate-issuance with requirePin "<requirePin>"
     Then issuer receives response with oidc url
@@ -39,6 +39,7 @@ Feature: OIDC4CI REST API
     Then client receives a valid credential with pre-authorize flow
 
     Examples:
-      | requirePin |
-      | true       |
-      | false      |
+      | issuerName          | requirePin |
+      | bank_issuer         | true       |
+      | bank_issuer         | false      |
+      | issuer_without_oidc | true       |
