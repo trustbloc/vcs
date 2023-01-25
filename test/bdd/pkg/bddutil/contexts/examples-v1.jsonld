@@ -42,6 +42,8 @@
     "evidenceDocument": "ex:evidenceDocument",
     "spouse": "schema:spouse",
     "subjectPresence": "ex:subjectPresence",
-    "verifier": {"@id": "ex:verifier", "@type": "@id"}
+    "verifier": {"@id": "ex:verifier", "@type": "@id"},
+    "_sd": "ex:_sd",
+    "_sd_alg": "ex:_sd_alg"
   }]
 }

@@ -166,7 +166,7 @@ func (s *Service) DidConfig(
 			KeyType:                 profile.VCConfig.KeyType,
 			KMS:                     kms,
 			SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
-			SDJWT:                   profile.VCConfig.SDJWT,
+			SDJWT:                   vc.SDJWT{Enable: false},
 		}
 	default:
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "profileType",

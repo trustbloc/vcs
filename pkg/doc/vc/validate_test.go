@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +25,8 @@ var sampleVCJsonLD string //nolint:gochecknoglobals
 
 //go:embed testdata/sample_vc.jwt
 var sampleVCJWT string //nolint:gochecknoglobals
+
+const disclosure = "WyJiekpGY1pYMkYyRjE3XzVsSFU2MjF3IiwibmFtZSIsIkpheWRlbiBEb2UiXQ"
 
 func TestValidateCredential(t *testing.T) {
 	type args struct {
@@ -53,6 +56,27 @@ func TestValidateCredential(t *testing.T) {
 				cred, err := verifiable.ParseCredential([]byte(sampleVCJWT), verifiable.WithDisabledProofCheck(),
 					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 				require.NoError(t, err)
+				return cred
+			},
+			wantErr: false,
+		},
+		{
+			name: "OK SD-JWT",
+			args: args{
+				cred: func(t *testing.T) interface{} {
+					return sampleVCJWT + common.CombinedFormatSeparator + disclosure
+				},
+				format: vcsverifiable.Jwt,
+				opts: []verifiable.CredentialOpt{
+					verifiable.WithDisabledProofCheck(),
+					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				},
+			},
+			want: func(t *testing.T) *verifiable.Credential {
+				cred, err := verifiable.ParseCredential([]byte(sampleVCJWT), verifiable.WithDisabledProofCheck(),
+					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)))
+				require.NoError(t, err)
+				cred.JWT += common.CombinedFormatSeparator + disclosure
 				return cred
 			},
 			wantErr: false,
