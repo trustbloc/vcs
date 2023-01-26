@@ -38,6 +38,7 @@ const (
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID
+	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
 	AuthorizationEndpoint              string
@@ -144,6 +145,8 @@ type InsertOptions struct {
 }
 
 type eventPayload struct {
-	WebHook string `json:"webHook,omitempty"`
-	Error   string `json:"error,omitempty"`
+	WebHook   string `json:"webHook,omitempty"`
+	ProfileID string `json:"profileID,omitempty"`
+	OrgID     string `json:"orgID,omitempty"`
+	Error     string `json:"error,omitempty"`
 }

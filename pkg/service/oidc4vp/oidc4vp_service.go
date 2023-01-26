@@ -154,8 +154,10 @@ type RequestObjectRegistration struct {
 }
 
 type eventPayload struct {
-	WebHook string `json:"webHook,omitempty"`
-	Error   string `json:"error,omitempty"`
+	WebHook   string `json:"webHook,omitempty"`
+	ProfileID string `json:"profileID,omitempty"`
+	OrgID     string `json:"orgID,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type jwtVCClaims struct {
@@ -188,7 +190,9 @@ func NewService(cfg *Config) *Service {
 func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	eventType spi.EventType, e error) (*spi.Event, error) {
 	ep := eventPayload{
-		WebHook: profile.WebHook,
+		WebHook:   profile.WebHook,
+		ProfileID: profile.ID,
+		OrgID:     profile.OrganizationID,
 	}
 
 	if e != nil {
