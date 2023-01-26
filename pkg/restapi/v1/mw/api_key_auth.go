@@ -24,6 +24,7 @@ const (
 	checkAuthorizationResponse = "/verifier/interactions/authorization-response"
 	oidcAuthorize              = "/oidc/authorize"
 	oidcRedirect               = "/oidc/redirect"
+	oidcPresent                = "/oidc/present"
 	oidcToken                  = "/oidc/token"
 	oidcCredential             = "/oidc/credential"
 	oidcWellKnown              = "/.well-known/openid-configuration"
@@ -55,6 +56,7 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 
 			if strings.HasPrefix(currentPath, oidcAuthorize) ||
 				strings.HasPrefix(currentPath, oidcRedirect) ||
+				strings.HasPrefix(currentPath, oidcPresent) ||
 				strings.HasPrefix(currentPath, oidcToken) ||
 				strings.HasPrefix(currentPath, oidcCredential) ||
 				strings.HasSuffix(currentPath, oidcWellKnown) {

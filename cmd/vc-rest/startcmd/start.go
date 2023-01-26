@@ -55,6 +55,7 @@ import (
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
+	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
@@ -75,7 +76,7 @@ import (
 
 const (
 	healthCheckEndpoint  = "/healthcheck"
-	oidc4VPCheckEndpoint = "/verifier/interactions/authorization-response"
+	oidc4VPCheckEndpoint = "/oidc/present"
 	cslSize              = 1000
 )
 
@@ -342,6 +343,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 			return client
 		}(),
 		JWTVerifier: jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
+	}))
+
+	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
+		DefaultHTTPClient: httpClient,
+		ExternalHostURL:   conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{

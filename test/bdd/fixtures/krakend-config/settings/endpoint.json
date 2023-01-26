@@ -76,6 +76,14 @@
       ]
     },
     {
+      "endpoint": "/oidc/present",
+      "method": "POST",
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/oidc/credential",
       "method": "POST",
       "input_headers": [
