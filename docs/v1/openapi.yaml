@@ -666,6 +666,32 @@ paths:
           in: query
           required: true
           description: state
+  /oidc/present:
+    post:
+      summary: Used to submit authorization response to verifier through VCS
+      operationId: present-authorization-response
+      tags:
+        - oidc4vp
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                id_token:
+                  type: string
+                  description: ID Token serves as an authentication receipt and includes metadata about the VP Token.
+                vp_token:
+                  type: string
+                  description: VP Token includes one or more Verifiable Presentations.
+                state:
+                  type: string
+                  description: State from authorization request for correlation
+      responses:
+        '200':
+          description: Sucess
+        '500':
+          description: Failure
   /oidc/credential:
     post:
       summary: OIDC Credential
