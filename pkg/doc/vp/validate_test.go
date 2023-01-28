@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/require"
 
@@ -26,8 +25,6 @@ var sampleVPJsonLD string //nolint:gochecknoglobals
 
 //go:embed testdata/sample_vp.jwt
 var sampleVPJWT string //nolint:gochecknoglobals
-
-const disclosure = "WyJiekpGY1pYMkYyRjE3XzVsSFU2MjF3IiwibmFtZSIsIkpheWRlbiBEb2UiXQ"
 
 func TestValidatePresentation(t *testing.T) {
 	type args struct {
@@ -58,28 +55,6 @@ func TestValidatePresentation(t *testing.T) {
 					verifiable.WithPresDisabledProofCheck(),
 					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)))
 				require.NoError(t, err)
-				return presentation
-			},
-			wantErr: false,
-		},
-		{
-			name: "OK SD-JWT",
-			args: args{
-				cred: func(t *testing.T) interface{} {
-					return sampleVPJWT + common.CombinedFormatSeparator + disclosure
-				},
-				format: vcsverifiable.Jwt,
-				opts: []verifiable.PresentationOpt{
-					verifiable.WithPresDisabledProofCheck(),
-					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-				},
-			},
-			want: func(t *testing.T) *verifiable.Presentation {
-				presentation, err := verifiable.ParsePresentation([]byte(sampleVPJWT),
-					verifiable.WithPresDisabledProofCheck(),
-					verifiable.WithPresJSONLDDocumentLoader(testutil.DocumentLoader(t)))
-				require.NoError(t, err)
-
 				return presentation
 			},
 			wantErr: false,

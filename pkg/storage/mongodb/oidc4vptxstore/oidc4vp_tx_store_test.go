@@ -42,6 +42,8 @@ var (
 	sampleVCJsonLD string
 	//go:embed testdata/university_degree.jwt
 	sampleVCJWT string
+	//go:embed testdata/university_degree.sdjwt
+	sampleVCSDJWT string
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -84,6 +86,32 @@ func TestTxStore_Success(t *testing.T) {
 		require.NotNil(t, id)
 
 		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
+			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+			verifiable.WithDisabledProofCheck())
+		require.NoError(t, err)
+
+		err = store.Update(oidc4vp.TransactionUpdate{
+			ID: id,
+			ReceivedClaims: &oidc4vp.ReceivedClaims{
+				Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
+			},
+		})
+		require.NoError(t, err)
+
+		tx, err := store.Get(id)
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
+		require.Equal(t, "http://example.gov/credentials/3732", tx.ReceivedClaims.Credentials["credID"].ID)
+	})
+
+	t.Run("Create tx then update with sdjwt vc", func(t *testing.T) {
+		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCSDJWT),
 			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 			verifiable.WithDisabledProofCheck())
 		require.NoError(t, err)

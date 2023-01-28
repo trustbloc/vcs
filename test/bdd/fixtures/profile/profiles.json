@@ -331,6 +331,9 @@
           "didMethod": "orb",
           "status": {
             "type": "StatusList2021Entry"
+          },
+          "sdjwt": {
+            "enable": true
           }
         },
         "oidcConfig": {
@@ -681,9 +684,9 @@
             "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
             "input_descriptors": [
               {
-                "id": "degree",
-                "name": "degree",
-                "purpose": "We can only hire with bachelor degree.",
+                "id": "type",
+                "name": "type",
+                "purpose": "We can only interact with specific status information for Verifiable Credentials",
                 "schema": [
                   {
                     "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
@@ -693,13 +696,13 @@
                   "fields": [
                     {
                       "path": [
-                        "$.credentialSubject.degree.type",
-                        "$.vc.credentialSubject.degree.type"
+                        "$.credentialStatus.type",
+                        "$.vc.credentialStatus.type"
                       ],
-                      "purpose": "We can only hire with bachelor degree.",
+                      "purpose": "We can only interact with specific status information for Verifiable Credentials",
                       "filter": {
                         "type": "string",
-                        "const": "BachelorDegree"
+                        "enum": ["StatusList2021Entry", "RevocationList2021Status", "RevocationList2020Status"]
                       }
                     }
                   ]

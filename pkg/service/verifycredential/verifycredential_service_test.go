@@ -12,9 +12,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/stretchr/testify/require"
@@ -27,21 +25,11 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
-const (
-	disclosureA = "WyJBSlZseUN6UEJmaFEyaExqX3NjQ1pnIiwibmFtZSIsIkpheWRlbiBEb2UiXQ"
-	disclosureB = "WyJLRXQtcGYyWVoyNngzY2lkcV8xOUJRIiwiZGVncmVlIix7ImRlZ3JlZSI6Ik" +
-		"1JVCIsInR5cGUiOiJCYWNoZWxvckRlZ3JlZSJ9XQ"
-	disclosureC = "WyJ5OWlxU2ZuMHlWWmhuc0o3eW1ndEh3Iiwic3BvdXNlIiwiZGlkOmV4YW1wbG" +
-		"U6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIl0"
-)
-
 var (
 	//go:embed testdata/university_degree.jsonld
 	sampleVCJsonLD string
 	//go:embed testdata/university_degree.jwt
 	sampleVCJWT string
-	//go:embed testdata/university_degree.sdjwt
-	sampleVCSDJWT string
 
 	// nolint:gochecknoglobals
 	verificationChecks = &profileapi.VerificationChecks{
@@ -137,18 +125,18 @@ func TestService_VerifyCredential(t *testing.T) {
 						for _, signatureFormatTestCase := range tests {
 							t.Run(signatureFormatTestCase.name, func(t *testing.T) {
 								tests := []struct {
-									name        string
-									vcFile      []byte
-									disclosures []string
+									name    string
+									vcFile  []byte
+									isSDJWT bool
 								}{
 									{
 										name:   "Credential format JWT",
 										vcFile: []byte(sampleVCJWT),
 									},
 									{
-										name:        "Credential format SD-JWT",
-										vcFile:      []byte(sampleVCSDJWT),
-										disclosures: []string{disclosureA, disclosureB, disclosureC},
+										name:    "Credential format SD-JWT",
+										vcFile:  []byte(sampleVCJWT),
+										isSDJWT: true,
 									},
 									{
 										name:   "Credential format JSON-LD",
@@ -163,7 +151,7 @@ func TestService_VerifyCredential(t *testing.T) {
 											signatureFormatTestCase.sf,
 											loader,
 											crypto.AssertionMethod,
-											vcFileTestCase.disclosures...)
+											vcFileTestCase.isSDJWT)
 										mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
 											StatusProcessor: &status.MockVCStatusProcessor{
 												StatusListIndex: 1,
@@ -634,7 +622,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVC, vdr := testutil.SignedVC(
 		t, []byte(sampleVCJsonLD), kmskeytypes.ED25519Type,
-		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
+		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod, false)
 	type args struct {
 		getVcByte        func() []byte
 		proofChallenge   string
@@ -691,111 +679,4 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestService_parseAndVerifyVCSDJWT(t *testing.T) {
-	testCases := []struct {
-		name        string
-		disclosures []string
-		isSDJWT     bool
-	}{
-		{
-			name:        "OK all disclosures",
-			disclosures: []string{disclosureA, disclosureB, disclosureC},
-			isSDJWT:     true,
-		},
-		{
-			name:        "OK one disclosure supplied",
-			disclosures: []string{disclosureA},
-			isSDJWT:     true,
-		},
-		{
-			name:        "OK no disclosures supplied",
-			disclosures: []string{},
-			isSDJWT:     false,
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			credential, vdr := getSignedVCSDJWT(t, tt.disclosures)
-			service := New(&Config{
-				DocumentLoader: testutil.DocumentLoader(t),
-				VDR:            vdr,
-			})
-
-			credentialBytes, err := credential.MarshalJSON()
-			require.NoError(t, err)
-			res, err := service.parseAndVerifyVCSDJWT(credentialBytes)
-			require.NoError(t, err)
-			require.Equal(t, tt.isSDJWT, vcs.IsSDJWT(res.JWT))
-			_, ok := res.Subject.(map[string]interface{})[common.SDKey]
-			require.False(t, ok)
-			_, ok = res.Subject.(map[string]interface{})[common.SDAlgorithmKey]
-			require.False(t, ok)
-			require.Equal(t,
-				len(res.Subject.(map[string]interface{})), len(tt.disclosures)+1)
-			require.Equal(t, res.Subject.(map[string]interface{})["id"], "did:example:ebfeb1f712ebc6f1c276e12ec21")
-		})
-	}
-
-	t.Run("Errors verifier.Parse VDR error", func(t *testing.T) {
-		credential, _ := getSignedVCSDJWT(t, []string{disclosureA, disclosureB, disclosureC})
-		service := New(&Config{
-			DocumentLoader: testutil.DocumentLoader(t),
-			VDR:            &vdrmock.MockVDRegistry{},
-		})
-
-		credentialBytes, err := credential.MarshalJSON()
-		require.NoError(t, err)
-
-		res, err := service.parseAndVerifyVCSDJWT(credentialBytes)
-		require.Nil(t, res)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "SD-JWT verifier.Parse error")
-	})
-
-	t.Run("Errors invalid disclosure supplied", func(t *testing.T) {
-		credential, vdr := getSignedVCSDJWT(t, []string{"aaa"})
-		service := New(&Config{
-			DocumentLoader: testutil.DocumentLoader(t),
-			VDR:            vdr,
-		})
-
-		credentialBytes, err := credential.MarshalJSON()
-		require.NoError(t, err)
-
-		res, err := service.parseAndVerifyVCSDJWT(credentialBytes)
-		require.Nil(t, res)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "SD-JWT verifier.Parse error")
-	})
-
-	t.Run("Errors combinedFormatForIssuance supplied", func(t *testing.T) {
-		credential, vdr := getSignedVCSDJWT(t, []string{disclosureA, disclosureB, disclosureC})
-		service := New(&Config{
-			DocumentLoader: testutil.DocumentLoader(t),
-			VDR:            vdr,
-		})
-
-		credential.JWT = credential.JWT[:len(credential.JWT)-1]
-
-		credentialBytes, err := credential.MarshalJSON()
-		require.NoError(t, err)
-
-		res, err := service.parseAndVerifyVCSDJWT(credentialBytes)
-		require.Nil(t, res)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "cnf must be present in SD-JWT")
-	})
-}
-
-func getSignedVCSDJWT(t *testing.T, disclosures []string) (*verifiable.Credential, vdrapi.Registry) {
-	t.Helper()
-	return testutil.SignedVC(
-		t, []byte(sampleVCSDJWT), kmskeytypes.ED25519Type, verifiable.SignatureJWS,
-		vcs.Jwt,
-		testutil.DocumentLoader(t),
-		crypto.AssertionMethod,
-		disclosures...)
 }

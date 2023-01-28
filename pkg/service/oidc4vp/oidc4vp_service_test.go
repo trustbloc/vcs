@@ -465,6 +465,20 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
 	})
+
+	t.Run("Error", func(t *testing.T) {
+		credential := &verifiable.Credential{
+			JWT:          "abc",
+			SDJWTHashAlg: "sha-256",
+		}
+
+		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
+				"id": credential,
+			}}})
+
+		require.Empty(t, claims)
+	})
 }
 
 func createKMS(t *testing.T) *localkms.LocalKMS {

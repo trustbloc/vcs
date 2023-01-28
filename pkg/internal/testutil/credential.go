@@ -8,7 +8,6 @@ package testutil
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/jsonwebsignature2020"
@@ -31,6 +29,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
@@ -43,7 +42,7 @@ func SignedVC(
 	sf vcsverifiable.Format,
 	loader ld.DocumentLoader,
 	purpose string,
-	disclosures ...string,
+	isSDJWT bool,
 ) (*verifiable.Credential, vdrapi.Registry) {
 	t.Helper()
 
@@ -53,15 +52,7 @@ func SignedVC(
 		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
-	mockVDRRegistry := proveVC(t, vc, kt, sr, sf, loader, purpose)
-
-	if len(disclosures) > 0 && sf == vcsverifiable.Jwt {
-		vc.JWT += common.CombinedFormatSeparator +
-			strings.Join(disclosures, common.CombinedFormatSeparator) +
-			common.CombinedFormatSeparator
-	}
-
-	return vc, mockVDRRegistry
+	return proveVC(t, vc, kt, sr, sf, loader, purpose, isSDJWT)
 }
 
 func proveVC(
@@ -72,7 +63,8 @@ func proveVC(
 	sf vcsverifiable.Format,
 	loader ld.DocumentLoader,
 	purpose string,
-) vdrapi.Registry {
+	isSDJWT bool,
+) (*verifiable.Credential, vdrapi.Registry) {
 	t.Helper()
 
 	customKMS := createKMS(t)
@@ -114,13 +106,30 @@ func proveVC(
 		jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kt)
 		require.NoError(t, err)
 
-		jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), didDoc.VerificationMethod[0].ID)
-		require.NoError(t, err)
+		if isSDJWT {
+			jwsAlgName, err := jwsAlgo.Name()
+			require.NoError(t, err)
 
-		credential.JWT = jws
+			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName, suite.NewCryptoSigner(customCrypto, kh))
+
+			sdjwtCredential, err := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID)
+			require.NoError(t, err)
+
+			vcParsed, err := verifiable.ParseCredential([]byte(sdjwtCredential),
+				verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(loader))
+			require.NoError(t, err)
+
+			credential = vcParsed
+		} else {
+			jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), didDoc.VerificationMethod[0].ID)
+			require.NoError(t, err)
+
+			credential.JWT = jws
+		}
 	}
 
-	return &vdrmock.MockVDRegistry{
+	return credential, &vdrmock.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			return &did.DocResolution{DIDDocument: didDoc}, nil
 		},
