@@ -1221,7 +1221,7 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
-			name: "invalid status code in prepare credential response (format)",
+			name: "invalid status code in prepare credential response (type)",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
 					Return(
@@ -1252,6 +1252,39 @@ func TestController_OidcCredential(t *testing.T) {
 				require.ErrorContains(t, err,
 					"oidc-error[]: prepare credential: status code 500, "+
 						"code: oidc-credential-type-not-supported")
+			},
+		},
+		{
+			name: "invalid status code in prepare credential response (random)",
+			setup: func() {
+				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
+					Return(
+						fosite.AccessToken,
+						fosite.NewAccessRequest(
+							&fosite.DefaultSession{
+								Extra: map[string]interface{}{
+									"txID":            "tx_id",
+									"cNonce":          "c_nonce",
+									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
+								},
+							},
+						), nil)
+
+				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).
+					Return(
+						&http.Response{
+							StatusCode: http.StatusInternalServerError,
+							Body:       io.NopCloser(strings.NewReader(`{"code" : "random", "message": "awesome"}`)),
+						}, nil)
+
+				accessToken = "access-token"
+
+				requestBody, err = json.Marshal(credentialReq)
+				require.NoError(t, err)
+			},
+			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
+				require.ErrorContains(t, err,
+					"prepare credential: status code 500, code: random; message: awesome")
 			},
 		},
 		{

@@ -512,7 +512,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 		var interactionErr *interactionError
 
 		if errors.As(parsedErr, &interactionErr) {
-			switch interactionErr.Code {
+			switch interactionErr.Code { //nolint:exhaustive
 			case resterr.OIDCCredentialFormatNotSupported:
 				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
 			case resterr.OIDCCredentialTypeNotSupported:
@@ -520,10 +520,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 			}
 		}
 
-		return fmt.Errorf("prepare credential: status code %d, %w",
-			resp.StatusCode,
-			parseInteractionError(resp.Body),
-		)
+		return finalErr
 	}
 
 	var result issuer.PrepareCredentialResult
@@ -566,7 +563,11 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 	return nil
 }
 
-func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier jose.SignatureVerifier) (string, error) {
+func validateProofClaims(
+	rawJwt string,
+	session *fosite.DefaultSession,
+	verifier jose.SignatureVerifier,
+) (string, error) {
 	jws, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("parse jwt: %w", err))
@@ -586,8 +587,8 @@ func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("invalid nonce"))
 	}
 
-	keyId, _ := jws.Headers.KeyID()
-	return strings.Split(keyId, "#")[0], nil
+	keyID, _ := jws.Headers.KeyID()
+	return strings.Split(keyID, "#")[0], nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.
