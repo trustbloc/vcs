@@ -562,6 +562,11 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		},
 	)
 	if err != nil {
+		var custom *resterr.CustomError
+		if errors.As(err, &custom) {
+			return custom
+		}
+
 		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential", err)
 	}
 

@@ -471,18 +471,20 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
-		return resterr.NewUnauthorizedError(errors.New("missing access token"))
+		return resterr.NewOIDCError("invalid_token", errors.New("missing access token"))
 	}
 
 	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
 	if err != nil {
-		return resterr.NewUnauthorizedError(fmt.Errorf("introspect token: %w", err))
+		return resterr.NewOIDCError("invalid_token", fmt.Errorf("introspect token: %w", err))
 	}
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	if err = validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "proof", err)
+	did, err := validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier)
+
+	if err != nil {
+		return resterr.NewOIDCError("invalid_or_missing_proof", err)
 	}
 
 	txID := session.Extra[txIDKey].(string) //nolint:errcheck
@@ -490,7 +492,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
 		issuer.PrepareCredentialJSONRequestBody{
 			TxId:   txID,
-			Did:    lo.ToPtr(credentialRequest.Did),
+			Did:    lo.ToPtr(did),
 			Type:   credentialRequest.Type,
 			Format: credentialRequest.Format,
 		},
@@ -502,6 +504,22 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		parsedErr := parseInteractionError(resp.Body)
+		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
+			resp.StatusCode,
+			parsedErr)
+
+		var interactionErr *interactionError
+
+		if errors.As(parsedErr, &interactionErr) {
+			switch interactionErr.Code {
+			case resterr.OIDCCredentialFormatNotSupported:
+				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
+			case resterr.OIDCCredentialTypeNotSupported:
+				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+			}
+		}
+
 		return fmt.Errorf("prepare credential: status code %d, %w",
 			resp.StatusCode,
 			parseInteractionError(resp.Body),
@@ -534,41 +552,42 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 
 	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
 	if err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+		return resterr.NewOIDCError("invalid_request", err)
 	}
 
 	if req.Proof == nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "proof", errors.New("missing proof type"))
+		return resterr.NewOIDCError("invalid_request", errors.New("missing proof type"))
 	}
 
 	if req.Proof.ProofType != "jwt" || req.Proof.Jwt == "" {
-		return resterr.NewValidationError(resterr.InvalidValue, "proof", errors.New("invalid proof type"))
+		return resterr.NewOIDCError("invalid_request", errors.New("invalid proof type"))
 	}
 
 	return nil
 }
 
-func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier jose.SignatureVerifier) error {
+func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier jose.SignatureVerifier) (string, error) {
 	jws, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
-		return fmt.Errorf("parse jwt: %w", err)
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("parse jwt: %w", err))
 	}
 
 	var claims JWTProofClaims
 
 	if err = jws.DecodeClaims(&claims); err != nil {
-		return fmt.Errorf("decode claims: %w", err)
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("decode claims: %w", err))
 	}
 
 	if nonceExp := session.Extra[cNonceExpiresAtKey].(int64); nonceExp < time.Now().Unix() { //nolint:errcheck
-		return errors.New("nonce expired")
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
 	}
 
 	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
-		return errors.New("invalid nonce")
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("invalid nonce"))
 	}
 
-	return nil
+	keyId, _ := jws.Headers.KeyID()
+	return strings.Split(keyId, "#")[0], nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.
