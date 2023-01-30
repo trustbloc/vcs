@@ -25,6 +25,8 @@ const (
 	OIDCPreAuthorizeDoesNotExpectPin ErrorCode = "oidc-pre-authorize-does-not-expect-pin"
 	OIDCPreAuthorizeExpectPin        ErrorCode = "oidc-pre-authorize-expect-pin"
 	OIDCPreAuthorizeInvalidPin       ErrorCode = "oidc-pre-authorize-invalid-pin"
+	OIDCCredentialFormatNotSupported ErrorCode = "oidc-credential-format-not-supported" //nolint:gosec
+	OIDCCredentialTypeNotSupported   ErrorCode = "oidc-credential-type-not-supported"   //nolint:gosec
 )
 
 func (c ErrorCode) Name() string {

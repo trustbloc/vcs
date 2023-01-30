@@ -1310,6 +1310,20 @@ func TestController_PrepareCredential(t *testing.T) {
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareCredential(ctx), "service error")
 	})
+
+	t.Run("service custom error", func(t *testing.T) {
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Return(
+			nil, resterr.NewCustomError("rand-code", errors.New("rand")))
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+		}
+
+		req := `{"tx_id":"123","type":"UniversityDegreeCredential","format":"ldp_vc"}`
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareCredential(ctx), "rand-code[]: rand")
+	})
 }
 
 func TestOpenIDConfigurationController(t *testing.T) {

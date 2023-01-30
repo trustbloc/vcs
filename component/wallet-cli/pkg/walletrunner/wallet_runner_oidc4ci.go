@@ -356,7 +356,6 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 	}
 
 	b, err := json.Marshal(CredentialRequest{
-		DID:    s.vcProviderConf.WalletParams.DidID,
 		Format: credentialFormat,
 		Type:   credentialType,
 		Proof: JWTProof{

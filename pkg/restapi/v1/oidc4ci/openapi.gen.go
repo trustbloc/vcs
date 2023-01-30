@@ -37,9 +37,6 @@ type AccessTokenResponse struct {
 
 // Model for OIDC Credential request.
 type CredentialRequest struct {
-	// DID to which issued credential has to be bound.
-	Did string `json:"did"`
-
 	// Format of the credential being issued.
 	Format *string   `json:"format,omitempty"`
 	Proof  *JWTProof `json:"proof,omitempty"`

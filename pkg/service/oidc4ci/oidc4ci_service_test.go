@@ -980,7 +980,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
+				require.ErrorContains(t, err,
+					"oidc-credential-type-not-supported[]: credential template not configured")
 				require.Nil(t, resp)
 			},
 		},
@@ -1085,7 +1086,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
+				require.ErrorContains(t, err,
+					"oidc-credential-format-not-supported[]: credential format not supported")
 				require.Nil(t, resp)
 			},
 		},

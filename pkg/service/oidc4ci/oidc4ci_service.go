@@ -293,7 +293,7 @@ func (s *Service) PrepareCredential(
 
 	if tx.CredentialTemplate == nil {
 		s.sendFailedEvent(tx, ErrCredentialTemplateNotConfigured)
-		return nil, ErrCredentialTemplateNotConfigured
+		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
 	var claimData map[string]interface{}
@@ -339,7 +339,7 @@ func (s *Service) PrepareCredential(
 		credential = vc
 	default:
 		s.sendFailedEvent(tx, ErrCredentialFormatNotSupported)
-		return nil, ErrCredentialFormatNotSupported
+		return nil, resterr.NewCustomError(resterr.OIDCCredentialFormatNotSupported, ErrCredentialFormatNotSupported)
 	}
 
 	tx.State = TransactionStateCredentialsIssued

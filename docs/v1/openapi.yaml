@@ -1367,9 +1367,6 @@ components:
         format:
           type: string
           description: Format of the credential being issued.
-        did:
-          type: string
-          description: DID to which issued credential has to be bound.
         proof:
           $ref: '#/components/schemas/JWTProof'
       required:

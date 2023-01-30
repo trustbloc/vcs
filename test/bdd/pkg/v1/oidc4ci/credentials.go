@@ -58,7 +58,6 @@ func getCredential(
 	}
 
 	b, err := json.Marshal(credentialRequest{
-		DID:    diddoc.ID,
 		Format: string(verifiable.JwtVCJson),
 		Type:   "UniversityDegreeCredential",
 		Proof: jwtProof{
