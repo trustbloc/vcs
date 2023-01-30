@@ -46,7 +46,7 @@ func TestNewStore(t *testing.T) {
 				assert.NotEmpty(t, *input.Key)
 				assert.Equal(t, "application/json", *input.ContentType)
 
-				return nil, nil
+				return &s3.PutObjectOutput{}, nil
 			})
 
 		finalURL, err := s.Create(context.TODO(), req)

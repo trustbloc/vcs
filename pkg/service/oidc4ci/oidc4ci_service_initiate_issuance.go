@@ -119,17 +119,17 @@ func (s *Service) InitiateIssuance(
 		return nil, err
 	}
 
-	var remoteOfferUrl string
+	var remoteOfferURL string
 	if s.credentialOfferReferenceStore != nil {
 		remoteURL, remoteErr := s.credentialOfferReferenceStore.Create(ctx, credentialOffer)
 		if remoteErr != nil {
 			return nil, remoteErr
 		}
 
-		remoteOfferUrl = remoteURL
+		remoteOfferURL = remoteURL
 	}
 
-	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, remoteOfferUrl, credentialOffer)
+	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, remoteOfferURL, credentialOffer)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func (s *Service) prepareCredentialOffer(
 func (s *Service) buildInitiateIssuanceURL(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
-	offerUrl string,
+	offerURL string,
 	offer *CredentialOfferResponse,
 ) (string, error) {
 	var initiateIssuanceURL string
@@ -234,8 +234,8 @@ func (s *Service) buildInitiateIssuanceURL(
 	}
 
 	q := url.Values{}
-	if offerUrl != "" {
-		q.Set("credential_offer_uri", offerUrl)
+	if offerURL != "" {
+		q.Set("credential_offer_uri", offerURL)
 	} else {
 		b, err := json.Marshal(offer)
 		if err != nil {
