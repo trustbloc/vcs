@@ -41,18 +41,9 @@ func (s *Service) InitiateIssuance(
 		return nil, ErrVCOptionsNotConfigured
 	}
 
-	var template *profileapi.CredentialTemplate
-	if req.CredentialTemplateID == "" {
-		if len(profile.CredentialTemplates) > 1 {
-			return nil, errors.New("credential template should be specified")
-		}
-		template = profile.CredentialTemplates[0]
-	} else {
-		credTemplate, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
-		if err != nil {
-			return nil, err
-		}
-		template = credTemplate
+	template, err := s.findCredentialTemplate(req.CredentialTemplateID, profile)
+	if err != nil {
+		return nil, err
 	}
 
 	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
@@ -166,6 +157,21 @@ func findCredentialTemplate(
 	}
 
 	return nil, ErrCredentialTemplateNotFound
+}
+
+func (s *Service) findCredentialTemplate(
+	requestedTemplateID string,
+	profile *profileapi.Issuer,
+) (*profileapi.CredentialTemplate, error) {
+	if requestedTemplateID != "" {
+		return findCredentialTemplate(profile.CredentialTemplates, requestedTemplateID)
+	}
+
+	if len(profile.CredentialTemplates) > 1 {
+		return nil, errors.New("credential template should be specified")
+	}
+
+	return profile.CredentialTemplates[0], nil
 }
 
 func (s *Service) prepareCredentialOffer(
