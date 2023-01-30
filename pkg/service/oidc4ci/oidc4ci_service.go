@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore
 
 package oidc4ci
 
@@ -90,38 +90,48 @@ type eventService interface {
 	Publish(topic string, messages ...*spi.Event) error
 }
 
+type credentialOfferReferenceStore interface {
+	Create(
+		ctx context.Context,
+		request *CredentialOfferResponse,
+	) (string, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStore    transactionStore
-	WellKnownService    wellKnownService
-	IssuerVCSPublicHost string
-	OAuth2Client        oAuth2Client
-	HTTPClient          httpClient
-	EventService        eventService
-	PinGenerator        pinGenerator
+	TransactionStore              transactionStore
+	WellKnownService              wellKnownService
+	IssuerVCSPublicHost           string
+	OAuth2Client                  oAuth2Client
+	HTTPClient                    httpClient
+	EventService                  eventService
+	PinGenerator                  pinGenerator
+	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
 type Service struct {
-	store               transactionStore
-	wellKnownService    wellKnownService
-	issuerVCSPublicHost string
-	oAuth2Client        oAuth2Client
-	httpClient          httpClient
-	eventSvc            eventService
-	pinGenerator        pinGenerator
+	store                         transactionStore
+	wellKnownService              wellKnownService
+	issuerVCSPublicHost           string
+	oAuth2Client                  oAuth2Client
+	httpClient                    httpClient
+	eventSvc                      eventService
+	pinGenerator                  pinGenerator
+	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{
-		store:               config.TransactionStore,
-		wellKnownService:    config.WellKnownService,
-		issuerVCSPublicHost: config.IssuerVCSPublicHost,
-		oAuth2Client:        config.OAuth2Client,
-		httpClient:          config.HTTPClient,
-		eventSvc:            config.EventService,
-		pinGenerator:        config.PinGenerator,
+		store:                         config.TransactionStore,
+		wellKnownService:              config.WellKnownService,
+		issuerVCSPublicHost:           config.IssuerVCSPublicHost,
+		oAuth2Client:                  config.OAuth2Client,
+		httpClient:                    config.HTTPClient,
+		eventSvc:                      config.EventService,
+		pinGenerator:                  config.PinGenerator,
+		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 	}, nil
 }
 

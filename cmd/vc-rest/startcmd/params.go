@@ -198,6 +198,14 @@ const (
 	requestObjectRepositoryS3RegionEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_REGION"
 	requestObjectRepositoryS3RegionFlagUsage = "request-object S3 Region"
 
+	credentialOfferRepositoryS3BucketFlagName  = "credential-offer-repository-s3-bucket"
+	credentialOfferRepositoryS3BucketEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_BUCKET"
+	credentialOfferRepositoryS3BucketFlagUsage = "credential-offer S3 Bucket"
+
+	credentialOfferRepositoryS3RegionFlagName  = "credential-offer-repository-s3-region"
+	credentialOfferRepositoryS3RegionEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_REGION"
+	credentialOfferRepositoryS3RegionFlagUsage = "credential-offer S3 Region"
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -211,28 +219,30 @@ const (
 )
 
 type startupParameters struct {
-	hostURL                         string
-	hostURLExternal                 string
-	universalResolverURL            string
-	orbDomain                       string
-	mode                            string
-	dbParameters                    *dbParameters
-	kmsParameters                   *kmsParameters
-	token                           string
-	requestTokens                   map[string]string
-	logLevel                        string
-	contextProviderURLs             []string
-	contextEnableRemote             bool
-	tlsParameters                   *tlsParameters
-	devMode                         bool
-	oAuthSecret                     string
-	oAuthClientsFilePath            string
-	metricsProviderName             string
-	prometheusMetricsProviderParams *prometheusMetricsProviderParams
-	apiGatewayURL                   string
-	requestObjectRepositoryType     string
-	requestObjectRepositoryS3Bucket string
-	requestObjectRepositoryS3Region string
+	hostURL                           string
+	hostURLExternal                   string
+	universalResolverURL              string
+	orbDomain                         string
+	mode                              string
+	dbParameters                      *dbParameters
+	kmsParameters                     *kmsParameters
+	token                             string
+	requestTokens                     map[string]string
+	logLevel                          string
+	contextProviderURLs               []string
+	contextEnableRemote               bool
+	tlsParameters                     *tlsParameters
+	devMode                           bool
+	oAuthSecret                       string
+	oAuthClientsFilePath              string
+	metricsProviderName               string
+	prometheusMetricsProviderParams   *prometheusMetricsProviderParams
+	apiGatewayURL                     string
+	requestObjectRepositoryType       string
+	requestObjectRepositoryS3Bucket   string
+	requestObjectRepositoryS3Region   string
+	credentialOfferRepositoryS3Bucket string
+	credentialOfferRepositoryS3Region string
 }
 
 type prometheusMetricsProviderParams struct {
@@ -373,29 +383,42 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3RegionEnvKey,
 	)
 
+	credentialOfferRepositoryS3Bucket := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		credentialOfferRepositoryS3BucketFlagName,
+		credentialOfferRepositoryS3BucketEnvKey,
+	)
+	credentialOfferRepositoryS3Region := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		credentialOfferRepositoryS3RegionFlagName,
+		credentialOfferRepositoryS3RegionEnvKey,
+	)
+
 	return &startupParameters{
-		hostURL:                         hostURL,
-		hostURLExternal:                 hostURLExternal,
-		universalResolverURL:            universalResolverURL,
-		orbDomain:                       orbDomain,
-		mode:                            mode,
-		dbParameters:                    dbParams,
-		kmsParameters:                   kmsParams,
-		tlsParameters:                   tlsParameters,
-		token:                           token,
-		requestTokens:                   requestTokens,
-		logLevel:                        loggingLevel,
-		contextProviderURLs:             contextProviderURLs,
-		contextEnableRemote:             contextEnableRemote,
-		devMode:                         devMode,
-		oAuthSecret:                     oAuthSecret,
-		oAuthClientsFilePath:            oAuthClientsFilePath,
-		metricsProviderName:             metricsProviderName,
-		prometheusMetricsProviderParams: prometheusMetricsProviderParams,
-		apiGatewayURL:                   apiGatewayURL,
-		requestObjectRepositoryType:     requestObjectRepositoryType,
-		requestObjectRepositoryS3Bucket: requestObjectRepositoryS3Bucket,
-		requestObjectRepositoryS3Region: requestObjectRepositoryS3Region,
+		hostURL:                           hostURL,
+		hostURLExternal:                   hostURLExternal,
+		universalResolverURL:              universalResolverURL,
+		orbDomain:                         orbDomain,
+		mode:                              mode,
+		dbParameters:                      dbParams,
+		kmsParameters:                     kmsParams,
+		tlsParameters:                     tlsParameters,
+		token:                             token,
+		requestTokens:                     requestTokens,
+		logLevel:                          loggingLevel,
+		contextProviderURLs:               contextProviderURLs,
+		contextEnableRemote:               contextEnableRemote,
+		devMode:                           devMode,
+		oAuthSecret:                       oAuthSecret,
+		oAuthClientsFilePath:              oAuthClientsFilePath,
+		metricsProviderName:               metricsProviderName,
+		prometheusMetricsProviderParams:   prometheusMetricsProviderParams,
+		apiGatewayURL:                     apiGatewayURL,
+		requestObjectRepositoryType:       requestObjectRepositoryType,
+		requestObjectRepositoryS3Bucket:   requestObjectRepositoryS3Bucket,
+		requestObjectRepositoryS3Region:   requestObjectRepositoryS3Region,
+		credentialOfferRepositoryS3Bucket: credentialOfferRepositoryS3Bucket,
+		credentialOfferRepositoryS3Region: credentialOfferRepositoryS3Region,
 	}, nil
 }
 
@@ -636,6 +659,9 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(requestObjectRepositoryTypeFlagName, "", requestObjectRepositoryTypeFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
+
+	startCmd.Flags().String(credentialOfferRepositoryS3BucketFlagName, "", credentialOfferRepositoryS3BucketFlagUsage)
+	startCmd.Flags().String(credentialOfferRepositoryS3RegionFlagName, "", credentialOfferRepositoryS3RegionFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }

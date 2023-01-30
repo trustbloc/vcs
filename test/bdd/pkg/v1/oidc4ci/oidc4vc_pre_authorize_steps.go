@@ -20,9 +20,9 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
@@ -68,15 +68,9 @@ func (s *PreAuthorizeStep) parseUrl() error {
 		return fmt.Errorf("invalid prefix for initiateUrl. got %v", s.initiateResponse.OfferCredentialURL)
 	}
 
-	credentialOffer, err := url.Parse(s.initiateResponse.OfferCredentialURL)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(s.initiateResponse.OfferCredentialURL, s.httpClient)
 	if err != nil {
-		return err
-	}
-
-	var offerResponse oidc4ci.CredentialOfferResponse
-	credentialOfferData := credentialOffer.Query().Get("credential_offer")
-	if err = json.Unmarshal([]byte(credentialOfferData), &offerResponse); err != nil {
-		return fmt.Errorf("can not parse credential offer. %w", err)
+		return fmt.Errorf("parse initiate issuance URL: %w", err)
 	}
 
 	resp, err := s.httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", offerResponse.CredentialIssuer))

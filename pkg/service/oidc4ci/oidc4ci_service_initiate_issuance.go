@@ -114,7 +114,22 @@ func (s *Service) InitiateIssuance(
 		return nil, errSendEvent
 	}
 
-	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
+	credentialOffer, err := s.prepareCredentialOffer(ctx, req, template, tx)
+	if err != nil {
+		return nil, err
+	}
+
+	var remoteOfferUrl string
+	if s.credentialOfferReferenceStore != nil {
+		remoteURL, remoteErr := s.credentialOfferReferenceStore.Create(ctx, credentialOffer)
+		if remoteErr != nil {
+			return nil, remoteErr
+		}
+
+		remoteOfferUrl = remoteURL
+	}
+
+	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, remoteOfferUrl, credentialOffer)
 	if err != nil {
 		return nil, err
 	}
@@ -153,38 +168,20 @@ func findCredentialTemplate(
 	return nil, ErrCredentialTemplateNotFound
 }
 
-func (s *Service) buildInitiateIssuanceURL(
-	ctx context.Context,
+func (s *Service) prepareCredentialOffer(
+	_ context.Context,
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) (string, error) {
-	var initiateIssuanceURL string
-
-	if req.ClientInitiateIssuanceURL != "" {
-		initiateIssuanceURL = req.ClientInitiateIssuanceURL
-	} else if req.ClientWellKnownURL != "" {
-		c, err := s.wellKnownService.GetOIDCConfiguration(ctx, req.ClientWellKnownURL)
-		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to get OIDC configuration from well-known %q", req.ClientWellKnownURL),
-				log.WithError(err))
-		} else {
-			initiateIssuanceURL = c.InitiateIssuanceEndpoint
-		}
-	}
-
-	if initiateIssuanceURL == "" {
-		initiateIssuanceURL = "openid-vc://"
-	}
-
+) (*CredentialOfferResponse, error) {
 	targetFormat, err := verifiable.MapFormatToOIDCFormat(tx.CredentialFormat)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 
-	resp := CredentialOfferResponse{
+	resp := &CredentialOfferResponse{
 		CredentialIssuer: issuerURL,
 		Credentials: []CredentialOffer{
 			{
@@ -209,13 +206,43 @@ func (s *Service) buildInitiateIssuanceURL(
 		}
 	}
 
-	b, err := json.Marshal(resp)
-	if err != nil {
-		return "", err
+	return resp, nil
+}
+
+func (s *Service) buildInitiateIssuanceURL(
+	ctx context.Context,
+	req *InitiateIssuanceRequest,
+	offerUrl string,
+	offer *CredentialOfferResponse,
+) (string, error) {
+	var initiateIssuanceURL string
+
+	if req.ClientInitiateIssuanceURL != "" {
+		initiateIssuanceURL = req.ClientInitiateIssuanceURL
+	} else if req.ClientWellKnownURL != "" {
+		c, err := s.wellKnownService.GetOIDCConfiguration(ctx, req.ClientWellKnownURL)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to get OIDC configuration from well-known %q", req.ClientWellKnownURL),
+				log.WithError(err))
+		} else {
+			initiateIssuanceURL = c.InitiateIssuanceEndpoint
+		}
+	}
+
+	if initiateIssuanceURL == "" {
+		initiateIssuanceURL = "openid-vc://"
 	}
 
 	q := url.Values{}
-	q.Set("credential_offer", string(b))
+	if offerUrl != "" {
+		q.Set("credential_offer_uri", offerUrl)
+	} else {
+		b, err := json.Marshal(offer)
+		if err != nil {
+			return "", err
+		}
+		q.Set("credential_offer", string(b))
+	}
 
 	return initiateIssuanceURL + "?" + q.Encode(), nil
 }

@@ -408,9 +408,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
 
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
-
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					ClientWellKnownURL: walletWellKnownURL,
 					ClaimEndpoint:      "https://vcs.pb.example.com/claim",
@@ -794,6 +791,164 @@ func TestService_InitiateIssuance(t *testing.T) {
 				IssuerVCSPublicHost: issuerVCSPublicHost,
 				EventService:        eventService,
 				PinGenerator:        pinGenerator,
+			})
+			require.NoError(t, err)
+
+			resp, err := svc.InitiateIssuance(context.Background(), issuanceReq, profile)
+			tt.check(t, resp, err)
+		})
+	}
+}
+
+func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
+	var (
+		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
+		eventService         = NewMockEventService(gomock.NewController(t))
+		pinGenerator         = NewMockPinGenerator(gomock.NewController(t))
+		referenceStore       = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+		issuanceReq          *oidc4ci.InitiateIssuanceRequest
+		profile              *profileapi.Issuer
+	)
+
+	var testProfile profileapi.Issuer
+	require.NoError(t, json.Unmarshal(profileJSON, &testProfile))
+
+	tests := []struct {
+		name  string
+		setup func()
+		check func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error)
+	}{
+		{
+			name: "Success with reference store",
+			setup: func() {
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialFormat: verifiable.Jwt,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+							},
+						}, nil
+					})
+				referenceStore = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+				referenceStore.EXPECT().Create(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						request *oidc4ci.CredentialOfferResponse,
+					) (string, error) {
+						return "https://remote_url/file.jwt", nil
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{
+						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
+					}, nil)
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              "eyJhbGciOiJSU0Et",
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.NoError(t, err)
+				require.Contains(t, resp.InitiateIssuanceURL,
+					"https://wallet.example.com/initiate_issuance?"+
+						"credential_offer_uri=https%3A%2F%2Fremote_url%2Ffile.jwt")
+			},
+		},
+		{
+			name: "Fail uploading to remote",
+			setup: func() {
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						data *oidc4ci.TransactionData,
+						params ...func(insertOptions *oidc4ci.InsertOptions),
+					) (*oidc4ci.Transaction, error) {
+						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
+
+						return &oidc4ci.Transaction{
+							ID: "txID",
+							TransactionData: oidc4ci.TransactionData{
+								CredentialFormat: verifiable.Jwt,
+								CredentialTemplate: &profileapi.CredentialTemplate{
+									ID: "templateID",
+								},
+							},
+						}, nil
+					})
+				referenceStore = NewMockCredentialOfferReferenceStore(gomock.NewController(t))
+				referenceStore.EXPECT().Create(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						ctx context.Context,
+						request *oidc4ci.CredentialOfferResponse,
+					) (string, error) {
+						return "", errors.New("fail uploading to remote")
+					})
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
+
+						return nil
+					})
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              "eyJhbGciOiJSU0Et",
+				}
+
+				profile = &testProfile
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "fail uploading to remote")
+				require.Nil(t, resp)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.setup()
+
+			svc, err := oidc4ci.NewService(&oidc4ci.Config{
+				TransactionStore:              mockTransactionStore,
+				WellKnownService:              mockWellKnownService,
+				IssuerVCSPublicHost:           issuerVCSPublicHost,
+				EventService:                  eventService,
+				PinGenerator:                  pinGenerator,
+				CredentialOfferReferenceStore: referenceStore,
 			})
 			require.NoError(t, err)
 
