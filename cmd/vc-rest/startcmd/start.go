@@ -472,6 +472,13 @@ type requestObjectStore interface {
 	GetResourceURL(id string) string
 }
 
+type credentialOfferReferenceStore interface {
+	Create(
+		ctx context.Context,
+		request *oidc4ci.CredentialOfferResponse,
+	) (string, error)
+}
+
 func createRequestObjectStore(
 	repoType string,
 	s3Region string,
@@ -494,7 +501,7 @@ func createRequestObjectStore(
 func createCredentialOfferStore(
 	s3Region string,
 	s3Bucket string,
-) (*credentialoffer.Store, error) {
+) (credentialOfferReferenceStore, error) {
 	if s3Region == "" || s3Bucket == "" {
 		return nil, nil
 	}
