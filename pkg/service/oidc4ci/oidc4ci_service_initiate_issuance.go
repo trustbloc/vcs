@@ -41,18 +41,9 @@ func (s *Service) InitiateIssuance(
 		return nil, ErrVCOptionsNotConfigured
 	}
 
-	var template *profileapi.CredentialTemplate
-	if req.CredentialTemplateID == "" {
-		if len(profile.CredentialTemplates) > 1 {
-			return nil, errors.New("credential template should be specified")
-		}
-		template = profile.CredentialTemplates[0]
-	} else {
-		credTemplate, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
-		if err != nil {
-			return nil, err
-		}
-		template = credTemplate
+	template, err := s.findCredentialTemplate(req.CredentialTemplateID, profile)
+	if err != nil {
+		return nil, err
 	}
 
 	oidcConfig, err := s.wellKnownService.GetOIDCConfiguration(ctx, profile.OIDCConfig.IssuerWellKnownURL)
@@ -153,38 +144,35 @@ func findCredentialTemplate(
 	return nil, ErrCredentialTemplateNotFound
 }
 
-func (s *Service) buildInitiateIssuanceURL(
-	ctx context.Context,
+func (s *Service) findCredentialTemplate(
+	requestedTemplateID string,
+	profile *profileapi.Issuer,
+) (*profileapi.CredentialTemplate, error) {
+	if requestedTemplateID != "" {
+		return findCredentialTemplate(profile.CredentialTemplates, requestedTemplateID)
+	}
+
+	if len(profile.CredentialTemplates) > 1 {
+		return nil, errors.New("credential template should be specified")
+	}
+
+	return profile.CredentialTemplates[0], nil
+}
+
+func (s *Service) prepareCredentialOffer(
+	_ context.Context,
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) (string, error) {
-	var initiateIssuanceURL string
-
-	if req.ClientInitiateIssuanceURL != "" {
-		initiateIssuanceURL = req.ClientInitiateIssuanceURL
-	} else if req.ClientWellKnownURL != "" {
-		c, err := s.wellKnownService.GetOIDCConfiguration(ctx, req.ClientWellKnownURL)
-		if err != nil {
-			logger.Error(fmt.Sprintf("Failed to get OIDC configuration from well-known %q", req.ClientWellKnownURL),
-				log.WithError(err))
-		} else {
-			initiateIssuanceURL = c.InitiateIssuanceEndpoint
-		}
-	}
-
-	if initiateIssuanceURL == "" {
-		initiateIssuanceURL = "openid-vc://"
-	}
-
+) (*CredentialOfferResponse, error) {
 	targetFormat, err := verifiable.MapFormatToOIDCFormat(tx.CredentialFormat)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 
-	resp := CredentialOfferResponse{
+	resp := &CredentialOfferResponse{
 		CredentialIssuer: issuerURL,
 		Credentials: []CredentialOffer{
 			{
@@ -209,13 +197,58 @@ func (s *Service) buildInitiateIssuanceURL(
 		}
 	}
 
-	b, err := json.Marshal(resp)
+	return resp, nil
+}
+
+func (s *Service) buildInitiateIssuanceURL(
+	ctx context.Context,
+	req *InitiateIssuanceRequest,
+	template *profileapi.CredentialTemplate,
+	tx *Transaction,
+) (string, error) {
+	credentialOffer, err := s.prepareCredentialOffer(ctx, req, template, tx)
 	if err != nil {
 		return "", err
 	}
 
+	var remoteOfferURL string
+	if s.credentialOfferReferenceStore != nil {
+		remoteURL, remoteErr := s.credentialOfferReferenceStore.Create(ctx, credentialOffer)
+		if remoteErr != nil {
+			return "", remoteErr
+		}
+
+		remoteOfferURL = remoteURL
+	}
+
+	var initiateIssuanceURL string
+
+	if req.ClientInitiateIssuanceURL != "" {
+		initiateIssuanceURL = req.ClientInitiateIssuanceURL
+	} else if req.ClientWellKnownURL != "" {
+		c, err := s.wellKnownService.GetOIDCConfiguration(ctx, req.ClientWellKnownURL)
+		if err != nil {
+			logger.Error(fmt.Sprintf("Failed to get OIDC configuration from well-known %q", req.ClientWellKnownURL),
+				log.WithError(err))
+		} else {
+			initiateIssuanceURL = c.InitiateIssuanceEndpoint
+		}
+	}
+
+	if initiateIssuanceURL == "" {
+		initiateIssuanceURL = "openid-vc://"
+	}
+
 	q := url.Values{}
-	q.Set("credential_offer", string(b))
+	if remoteOfferURL != "" {
+		q.Set("credential_offer_uri", remoteOfferURL)
+	} else {
+		b, err := json.Marshal(credentialOffer)
+		if err != nil {
+			return "", err
+		}
+		q.Set("credential_offer", string(b))
+	}
 
 	return initiateIssuanceURL + "?" + q.Encode(), nil
 }

@@ -18,24 +18,18 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
-	oidc4ci2 "github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	initiateIssuanceURLParsed, err := url.Parse(config.InitiateIssuanceURL)
+
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
 	if err != nil {
-		return fmt.Errorf("failed to parse url %w", err)
-	}
-
-	credentialOfferURL := initiateIssuanceURLParsed.Query().Get("credential_offer")
-	var offerResponse oidc4ci2.CredentialOfferResponse
-
-	if err = json.Unmarshal([]byte(credentialOfferURL), &offerResponse); err != nil {
-		return fmt.Errorf("can not parse credential offer. %w", err)
+		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")

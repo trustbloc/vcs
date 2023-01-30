@@ -35,6 +35,7 @@ import (
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
+	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 
 	"github.com/trustbloc/vcs/api/spec"
@@ -271,14 +272,23 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	httpClient := getHTTPClient(tlsConfig)
 
+	credentialOfferStore, err := createCredentialOfferStore( // credentialOfferStore is optional, so it can be nil
+		conf.StartupParameters.credentialOfferRepositoryS3Region,
+		conf.StartupParameters.credentialOfferRepositoryS3Bucket,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate credentialOfferStore: %w", err)
+	}
+
 	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:    oidc4ciStore,
-		IssuerVCSPublicHost: conf.StartupParameters.hostURLExternal,
-		WellKnownService:    wellknown.NewService(httpClient),
-		OAuth2Client:        oauth2client.NewOAuth2Client(),
-		HTTPClient:          httpClient,
-		EventService:        eventSvc,
-		PinGenerator:        otp.NewPinGenerator(),
+		TransactionStore:              oidc4ciStore,
+		IssuerVCSPublicHost:           conf.StartupParameters.hostURLExternal,
+		WellKnownService:              wellknown.NewService(httpClient),
+		OAuth2Client:                  oauth2client.NewOAuth2Client(),
+		HTTPClient:                    httpClient,
+		EventService:                  eventSvc,
+		PinGenerator:                  otp.NewPinGenerator(),
+		CredentialOfferReferenceStore: credentialOfferStore,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -462,6 +472,13 @@ type requestObjectStore interface {
 	GetResourceURL(id string) string
 }
 
+type credentialOfferReferenceStore interface {
+	Create(
+		ctx context.Context,
+		request *oidc4ci.CredentialOfferResponse,
+	) (string, error)
+}
+
 func createRequestObjectStore(
 	repoType string,
 	s3Region string,
@@ -479,6 +496,22 @@ func createRequestObjectStore(
 	default:
 		return requestobjectstore.NewStore(mongoDbClient), nil
 	}
+}
+
+func createCredentialOfferStore(
+	s3Region string,
+	s3Bucket string,
+) (credentialOfferReferenceStore, error) {
+	if s3Region == "" || s3Bucket == "" {
+		return nil, nil
+	}
+
+	ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+	if err != nil {
+		return nil, err
+	}
+
+	return credentialoffer.NewStore(s3.New(ses), s3Bucket, s3Region), nil
 }
 
 func getHTTPClient(tlsConfig *tls.Config) *http.Client {

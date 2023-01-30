@@ -22,8 +22,8 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
@@ -199,16 +199,9 @@ func (s *Steps) getAuthCode() error {
 		httpClient.Transport = &DumpTransport{httpClient.Transport}
 	}
 
-	u, err := url.Parse(s.initiateIssuanceURL)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(s.initiateIssuanceURL, httpClient)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance URL: %w", err)
-	}
-
-	credentialOfferURL := u.Query().Get("credential_offer")
-	var offerResponse oidc4ci.CredentialOfferResponse
-
-	if err = json.Unmarshal([]byte(credentialOfferURL), &offerResponse); err != nil {
-		return fmt.Errorf("can not parse credential offer. %w", err)
 	}
 
 	state := uuid.New().String()
