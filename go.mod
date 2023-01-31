@@ -40,7 +40,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
 	github.com/trustbloc/kms v0.1.9-0.20230113182241-87a03ed7a9a1
-	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
+	github.com/trustbloc/logutil-go v0.0.0-20230126182954-5a79de16e7e0
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
 	go.mongodb.org/mongo-driver v1.10.0
 	go.uber.org/zap v1.23.0
