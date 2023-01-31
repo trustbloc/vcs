@@ -114,9 +114,9 @@ type Config struct {
 }
 
 type CredentialMetadata struct {
-	Format      string      `json:"format"`
-	Type        []string    `json:"type"`
-	SubjectData interface{} `json:"subjectData"`
+	Format      vcsverifiable.Format `json:"format"`
+	Type        []string             `json:"type"`
+	SubjectData interface{}          `json:"subjectData"`
 }
 
 type ProcessedVPToken struct {
@@ -354,17 +354,21 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 	result := map[string]CredentialMetadata{}
 
 	for _, cred := range tx.ReceivedClaims.Credentials {
+		credType := vcsverifiable.Ldp
+		if cred.JWT != "" {
+			credType = vcsverifiable.Jwt
+		}
+
 		var err error
+		// Creating display credential.
+		// For regular credentials (JWT and JSON-LD) this func will do nothing,
+		// but for SD-JWT case it returns verifiable.Credential with disclosed subject claims.
 		cred, err = cred.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 		if err != nil {
 			logger.Debug("RetrieveClaims - failed to CreateDisplayCredential", log.WithError(err))
 			continue
 		}
 
-		credType := "ldp"
-		if cred.JWT != "" {
-			credType = "jwt"
-		}
 		result[cred.ID] = CredentialMetadata{
 			Format:      credType,
 			Type:        cred.Types,
@@ -398,21 +402,6 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 	}
 
 	logger.Debug("extractClaimData pd matched")
-
-	//TODO: remove after fixing the bug when Disclosures are gone after tx.PresentationDefinition.Match()
-	// for SD-JWT credentials
-	for _, cred := range token.Presentation.Credentials() {
-		credential, ok := cred.(*verifiable.Credential)
-		if !ok {
-			continue
-		}
-
-		for k, v := range credentials {
-			if v.ID == credential.ID {
-				credentials[k] = credential
-			}
-		}
-	}
 
 	if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
 		err = checkVCSubject(credentials, token)

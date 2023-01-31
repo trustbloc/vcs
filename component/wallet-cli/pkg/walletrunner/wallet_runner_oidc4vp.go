@@ -264,27 +264,6 @@ func (e *VPFlowExecutor) QueryCredentialFromWallet() error {
 
 	e.requestPresentation = vps[0]
 
-	for _, c := range vps[0].Credentials() {
-		credential, ok := c.(*verifiable.Credential)
-		if !ok {
-			continue
-		}
-
-		//TODO: this condition must be gone once AFGO will properly support Marshal/Unmarshal SDJWT credential.
-		if credential.JWT != "" && len(credential.SDJWTDisclosures) > 0 {
-			// Creating Combined Format for Presentation from credential assuming that
-			// wallet.Query() returned only those disclosures, that must be disclosed according to query.
-			sdjwt, err := credential.MarshalWithDisclosure(verifiable.DiscloseAll())
-			if err != nil {
-				continue
-			}
-
-			sdjwt = strings.TrimSuffix(sdjwt, "~")
-
-			credential.JWT = sdjwt
-		}
-	}
-
 	return nil
 }
 
