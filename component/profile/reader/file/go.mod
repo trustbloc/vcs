@@ -12,7 +12,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
 	github.com/spf13/cobra v1.6.1
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42
+	github.com/trustbloc/logutil-go v0.0.0-20230126182954-5a79de16e7e0
 	github.com/trustbloc/vcs v0.0.0
 )
 

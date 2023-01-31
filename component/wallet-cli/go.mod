@@ -136,7 +136,7 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
 	github.com/trustbloc/kms v0.1.9-0.20230113182241-87a03ed7a9a1 // indirect
-	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 // indirect
+	github.com/trustbloc/logutil-go v0.0.0-20230126182954-5a79de16e7e0 // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect
