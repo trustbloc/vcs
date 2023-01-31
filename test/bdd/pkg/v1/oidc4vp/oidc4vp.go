@@ -21,7 +21,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
-	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -199,7 +199,7 @@ func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 
 	signr, err := signer.NewKMSSigner(km, crpt, didKeyID, "ES384", nil)
 
-	token, err := jwt.NewSigned(claims, nil, NewJWSSigner(didKeyID, "ES384", signr))
+	token, err := jwt.NewSigned(claims, nil, jws.NewSigner(didKeyID, "ES384", signr))
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)
 	}
@@ -210,31 +210,4 @@ func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	}
 
 	return tokenBytes, nil
-}
-
-type JWSSigner struct {
-	keyID            string
-	signingAlgorithm string
-	signer           vc.SignerAlgorithm
-}
-
-func NewJWSSigner(keyID string, signingAlgorithm string, signer vc.SignerAlgorithm) *JWSSigner {
-	return &JWSSigner{
-		keyID:            keyID,
-		signingAlgorithm: signingAlgorithm,
-		signer:           signer,
-	}
-}
-
-// Sign signs.
-func (s *JWSSigner) Sign(data []byte) ([]byte, error) {
-	return s.signer.Sign(data)
-}
-
-// Headers provides JWS headers. "alg" header must be provided (see https://tools.ietf.org/html/rfc7515#section-4.1)
-func (s *JWSSigner) Headers() jose.Headers {
-	return jose.Headers{
-		jose.HeaderKeyID:     s.keyID,
-		jose.HeaderAlgorithm: s.signingAlgorithm,
-	}
 }

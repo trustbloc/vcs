@@ -350,9 +350,17 @@ func (s *Service) GetTx(id TxID) (*Transaction, error) {
 }
 
 func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata {
+	logger.Debug("RetrieveClaims begin")
 	result := map[string]CredentialMetadata{}
 
 	for _, cred := range tx.ReceivedClaims.Credentials {
+		var err error
+		cred, err = cred.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		if err != nil {
+			logger.Debug("RetrieveClaims - failed to CreateDisplayCredential", log.WithError(err))
+			continue
+		}
+
 		credType := "ldp"
 		if cred.JWT != "" {
 			credType = "jwt"
@@ -363,6 +371,7 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 			SubjectData: cred.Subject,
 		}
 	}
+	logger.Debug("RetrieveClaims succeed")
 
 	return result
 }
@@ -389,6 +398,21 @@ func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, pro
 	}
 
 	logger.Debug("extractClaimData pd matched")
+
+	//TODO: remove after fixing the bug when Disclosures are gone after tx.PresentationDefinition.Match()
+	// for SD-JWT credentials
+	for _, cred := range token.Presentation.Credentials() {
+		credential, ok := cred.(*verifiable.Credential)
+		if !ok {
+			continue
+		}
+
+		for k, v := range credentials {
+			if v.ID == credential.ID {
+				credentials[k] = credential
+			}
+		}
+	}
 
 	if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
 		err = checkVCSubject(credentials, token)

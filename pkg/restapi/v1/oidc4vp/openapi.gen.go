@@ -9,7 +9,7 @@ import (
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Used by verifier applications to initiate OpenID presentation flow through VCS
+	// Used to submit authorization response to verifier through VCS
 	// (POST /oidc/present)
 	PresentAuthorizationResponse(ctx echo.Context) error
 }

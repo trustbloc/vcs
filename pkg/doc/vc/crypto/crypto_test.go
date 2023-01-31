@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
-	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
@@ -18,21 +17,29 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
 	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	ariesmockstorage "github.com/hyperledger/aries-framework-go/pkg/mock/storage"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
+)
+
+const (
+	didID = "did:trustbloc:abc"
 )
 
 func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
@@ -95,7 +102,10 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 					DID:           "did:trustbloc:abc",
 					SignatureType: "Ed25519Signature2018",
 					Creator:       "did:trustbloc:abc#key1",
-					KMS:           &mockKMS{},
+					KMS: &mockVCSKeyManager{
+						crypto: &cryptomock.Crypto{},
+						kms:    &mockkms.KeyManager{},
+					},
 				},
 				responsePurpose:   AssertionMethod,
 				responseVerMethod: "did:trustbloc:abc#key1",
@@ -243,8 +253,15 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			testutil.DocumentLoader(t),
 		)
 		signedVC, err := c.signCredentialLDP(
-			getTestSignerWithCrypto(
-				&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}),
+			&vc.Signer{
+				KeyType:       kms.ED25519Type,
+				DID:           "did:trustbloc:abc",
+				SignatureType: "Ed25519Signature2018",
+				Creator:       "did:trustbloc:abc#key1",
+				KMS: &mockVCSKeyManager{
+					kms:    &mockkms.KeyManager{},
+					crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}},
+			},
 			&verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
@@ -292,6 +309,295 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 	})
 }
 
+func TestCrypto_SignCredentialJWT(t *testing.T) {
+	unsignedVc := verifiable.Credential{
+		ID:      "http://example.edu/credentials/1872",
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		Subject: verifiable.Subject{
+			ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
+			CustomFields: map[string]interface{}{
+				"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
+				"name":   "Jayden Doe",
+				"degree": map[string]interface{}{
+					"type":   "BachelorDegree",
+					"degree": "MIT",
+				},
+			},
+		},
+		Issued: &util.TimeWrapper{
+			Time: time.Now(),
+		},
+		Issuer: verifiable.Issuer{
+			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
+		},
+		CustomFields: map[string]interface{}{
+			"first_name": "First name",
+			"last_name":  "Last name",
+			"info":       "Info",
+		},
+	}
+
+	customKMS := createKMS(t)
+
+	customCrypto, err := tinkcrypto.New()
+	require.NoError(t, err)
+
+	keyID, _, err := customKMS.CreateAndExportPubKeyBytes(kms.ED25519Type)
+	require.NoError(t, err)
+
+	didDoc := createDIDDoc(didID, func(vm *did.VerificationMethod) {
+		vm.ID = didID + "#" + keyID
+	})
+
+	type fields struct {
+		getVDR func() vdr.Registry
+	}
+	type args struct {
+		signerData *vc.Signer
+		getVC      func() *verifiable.Credential
+		opts       []SigningOpts
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "OK empty options",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: nil,
+			},
+			wantErr: false,
+		},
+		{
+			name: "OK with options",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{
+					WithSignatureType("JsonWebSignature2020"),
+					WithVerificationMethod(didID + "#" + keyID),
+					WithPurpose(AssertionMethod),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "OK with options SD-JWT",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getSDJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{
+					WithSignatureType("JsonWebSignature2020"),
+					WithVerificationMethod(didID + "#" + keyID),
+					WithPurpose(AssertionMethod),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "SD JWT signing error",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getSDJWTSigner(
+					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error getSigner",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: &vc.Signer{
+					DID:           didID,
+					SignatureType: "JsonWebSignature2020",
+					KeyType:       kms.ED25519Type,
+					KMS:           &mockVCSKeyManager{},
+				},
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{
+					WithVerificationMethod(didID),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error GetDIDDocFromVerificationMethod",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveErr: errors.New("some error")}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error proof purpose not supported",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{
+					WithPurpose("keyAgreement"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error unable to find matching key ID from DID",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					doc := createDIDDoc(didID)
+					doc.AssertionMethod[0].VerificationMethod.ID = ""
+					return &vdrmock.MockVDRegistry{ResolveValue: doc}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error empty VC subject",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(customCrypto, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					cred := unsignedVc
+					cred.Subject = nil
+					return &cred
+				},
+				opts: []SigningOpts{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Error kms:unsupported key type",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: &vc.Signer{
+					DID:           didID,
+					SignatureType: "Ed25519Signature2018",
+					Creator:       didID + "#" + keyID,
+					KMS: &mockVCSKeyManager{
+						crypto: customCrypto,
+						kms:    customKMS,
+					},
+					Format:  vcsverifiable.Jwt,
+					KeyType: "unsupported",
+				},
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "JWS signing error",
+			fields: fields{
+				getVDR: func() vdr.Registry {
+					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
+				},
+			},
+			args: args{
+				signerData: getJWTSigner(
+					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}, customKMS, keyID),
+				getVC: func() *verifiable.Credential {
+					return &unsignedVc
+				},
+				opts: []SigningOpts{},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Crypto{
+				vdr:            tt.fields.getVDR(),
+				documentLoader: testutil.DocumentLoader(t),
+			}
+			got, err := c.signCredentialJWT(tt.args.signerData, tt.args.getVC(), tt.args.opts...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SignCredentialJWT() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil {
+				return
+			}
+			if got.JWT == "" {
+				t.Errorf("JWT field empty")
+			}
+			if len(got.Proofs) > 0 {
+				t.Errorf("Proof field is not empty")
+			}
+		})
+	}
+}
+
 func TestCrypto_SignCredentialBBS(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		c := New(
@@ -304,7 +610,10 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 				DID:           "did:trustbloc:abc",
 				SignatureType: "BbsBlsSignature2020",
 				Creator:       "did:trustbloc:abc#key1",
-				KMS:           &mockKMS{},
+				KMS: &mockVCSKeyManager{
+					crypto: &cryptomock.Crypto{},
+					kms:    &mockkms.KeyManager{},
+				},
 			}, &verifiable.Credential{ID: "http://example.edu/credentials/1872"})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(signedVC.Proofs))
@@ -370,7 +679,7 @@ func TestSignPresentation(t *testing.T) {
 	})
 }
 
-func TestSignSignCredential(t *testing.T) {
+func TestSignCredential(t *testing.T) {
 	t.Run("sign credential LDP - success", func(t *testing.T) {
 		c := New(
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
@@ -414,7 +723,10 @@ func TestSignSignCredential(t *testing.T) {
 			DID:           "did:trustbloc:abc",
 			SignatureType: "Ed25519Signature2018",
 			Creator:       "did:trustbloc:abc#key1",
-			KMS:           &mockKMS{},
+			KMS: &mockVCSKeyManager{
+				crypto: &cryptomock.Crypto{},
+				kms:    &mockkms.KeyManager{},
+			},
 		}, unsignedVC)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "unknown signature format")
@@ -437,7 +749,17 @@ func TestSignSignCredential(t *testing.T) {
 			},
 		}
 
-		signedVC, err := c.SignCredential(getTestJWTSigner(), unsignedVC)
+		signedVC, err := c.SignCredential(&vc.Signer{
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+			KeyType:       kms.ED25519Type,
+			KMS: &mockVCSKeyManager{
+				crypto: &cryptomock.Crypto{},
+				kms:    &mockkms.KeyManager{},
+			},
+			Format: vcsverifiable.Jwt,
+		}, unsignedVC)
 		require.NoError(t, err)
 		require.NotNil(t, signedVC)
 		require.NotEmpty(t, signedVC.JWT)
@@ -459,68 +781,19 @@ func TestSignSignCredential(t *testing.T) {
 				Time: time.Now(),
 			},
 		}
-		s := getTestJWTSigner()
-		s.KeyType = ""
 
-		signedVC, err := c.SignCredential(s, unsignedVC)
+		signedVC, err := c.SignCredential(&vc.Signer{
+			DID:           "did:trustbloc:abc",
+			SignatureType: "Ed25519Signature2018",
+			Creator:       "did:trustbloc:abc#key1",
+			KMS: &mockVCSKeyManager{
+				crypto: &cryptomock.Crypto{},
+				kms:    &mockkms.KeyManager{},
+			},
+			Format: vcsverifiable.Jwt,
+		}, unsignedVC)
 		require.Error(t, err)
 		require.Nil(t, signedVC)
-	})
-	t.Run("sign credential SD-JWT - success", func(t *testing.T) {
-		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			testutil.DocumentLoader(t),
-		)
-
-		unsignedVC := &verifiable.Credential{
-			ID: "http://example.edu/credentials/1872",
-			Subject: verifiable.Subject{
-				ID: "did:example:ebfeb1f712ebc6f1c276e12ec21",
-				CustomFields: map[string]interface{}{
-					"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1",
-					"name":   "Jayden Doe",
-					"degree": map[string]interface{}{
-						"type":   "BachelorDegree",
-						"degree": "MIT",
-					},
-				},
-			},
-			Issued: &util.TimeWrapper{
-				Time: time.Now(),
-			},
-			Issuer: verifiable.Issuer{
-				ID: "did:trustblock:abc",
-			},
-		}
-
-		signedVC, err := c.SignCredential(getTestSDJWTSigner(), unsignedVC)
-		require.NoError(t, err)
-		require.NotNil(t, signedVC)
-		require.NotEmpty(t, signedVC.JWT)
-		require.True(t, strings.Contains(signedVC.JWT, common.CombinedFormatSeparator))
-		require.Len(t, signedVC.Subject.(verifiable.Subject).CustomFields[common.SDKey], 3)
-		require.Equal(t, signedVC.Subject.(verifiable.Subject).CustomFields[common.SDAlgorithmKey], "sha-256")
-	})
-	t.Run("sign credential SD-JWT - error", func(t *testing.T) {
-		c := New(
-			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")},
-			testutil.DocumentLoader(t),
-		)
-
-		unsignedVC := &verifiable.Credential{
-			ID: "http://example.edu/credentials/1872",
-			Issued: &util.TimeWrapper{
-				Time: time.Now(),
-			},
-			Issuer: verifiable.Issuer{
-				ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-			},
-		}
-
-		signedVC, err := c.SignCredential(getTestSDJWTSigner(), unsignedVC)
-		require.Error(t, err)
-		require.Nil(t, signedVC)
-		require.ErrorContains(t, err, "subject id is not defined")
 	})
 }
 
@@ -529,51 +802,61 @@ func getTestLDPSigner() *vc.Signer {
 		DID:           "did:trustbloc:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:trustbloc:abc#key1",
-		KMS:           &mockKMS{},
-		Format:        vcsverifiable.Ldp,
+		KMS: &mockVCSKeyManager{
+			crypto: &cryptomock.Crypto{},
+			kms:    &mockkms.KeyManager{},
+		},
+		Format: vcsverifiable.Ldp,
 	}
 }
 
-func getTestJWTSigner() *vc.Signer {
+func getJWTSigner(
+	customCrypto ariescrypto.Crypto,
+	customKMS kms.KeyManager,
+	kid string) *vc.Signer {
 	return &vc.Signer{
-		DID:           "did:trustbloc:abc",
+		DID:           didID,
 		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:trustbloc:abc#key1",
-		KMS:           &mockKMS{},
-		Format:        vcsverifiable.Jwt,
-		KeyType:       kms.ED25519Type,
+		Creator:       didID + "#" + kid,
+		KMS: &mockVCSKeyManager{
+			crypto: customCrypto,
+			kms:    customKMS,
+		},
+		Format:  vcsverifiable.Jwt,
+		KeyType: kms.ED25519Type,
 	}
 }
-func getTestSDJWTSigner() *vc.Signer {
-	s := getTestJWTSigner()
-	s.SDJWT = vc.SDJWT{
-		Enable:  true,
-		HashAlg: crypto.SHA256,
-	}
+
+func getSDJWTSigner(
+	customCrypto ariescrypto.Crypto,
+	customKMS kms.KeyManager,
+	kid string) *vc.Signer {
+	s := getJWTSigner(customCrypto, customKMS, kid)
+	s.SDJWT = vc.SDJWT{Enable: true}
 
 	return s
 }
 
-func getTestSignerWithCrypto(crypto ariescrypto.Crypto) *vc.Signer {
-	return &vc.Signer{
-		KeyType:       kms.ED25519Type,
-		DID:           "did:trustbloc:abc",
-		SignatureType: "Ed25519Signature2018",
-		Creator:       "did:trustbloc:abc#key1",
-		KMS:           &mockKMS{crypto: crypto},
-	}
+func createKMS(t *testing.T) *localkms.LocalKMS {
+	t.Helper()
+
+	p, err := mockkms.NewProviderForKMS(ariesmockstorage.NewMockStoreProvider(), &noop.NoLock{})
+	require.NoError(t, err)
+
+	k, err := localkms.New("local-lock://custom/primary/key/", p)
+	require.NoError(t, err)
+
+	return k
 }
 
-type mockKMS struct {
+type mockVCSKeyManager struct {
 	crypto ariescrypto.Crypto
+	kms    kms.KeyManager
 }
 
-func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
-	if m.crypto == nil {
-		m.crypto = &cryptomock.Crypto{}
-	}
-
-	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType, nil)
+func (m *mockVCSKeyManager) NewVCSigner(creator string,
+	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
+	return signer.NewKMSSigner(m.kms, m.crypto, creator, signatureType, nil)
 }
 
 type opt func(vm *did.VerificationMethod)
@@ -622,251 +905,5 @@ func createDIDDoc(didID string, opts ...opt) *did.Doc {
 		Authentication:       []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
 		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
-	}
-}
-
-func TestCrypto_SignCredentialJWT(t *testing.T) {
-	unsignedVc := verifiable.Credential{
-		ID:      "http://example.edu/credentials/1872",
-		Context: []string{verifiable.ContextURI},
-		Types:   []string{verifiable.VCType},
-		Subject: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		Issued: &util.TimeWrapper{
-			Time: time.Now(),
-		},
-		Issuer: verifiable.Issuer{
-			ID: "did:example:76e12ec712ebc6f1c221ebfeb1f",
-		},
-		CustomFields: map[string]interface{}{
-			"first_name": "First name",
-			"last_name":  "Last name",
-			"info":       "Info",
-		},
-	}
-	type fields struct {
-		getVDR func() vdr.Registry
-	}
-	type args struct {
-		signerData *vc.Signer
-		getVC      func() *verifiable.Credential
-		opts       []SigningOpts
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "OK empty options",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: nil,
-			},
-			wantErr: false,
-		},
-		{
-			name: "OK with options",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{
-					WithSignatureType("JsonWebSignature2020"),
-					WithVerificationMethod("did:trustbloc:abc#key1"),
-					WithPurpose(AssertionMethod),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "OK with options SD-JWT",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{
-					WithSignatureType("JsonWebSignature2020"),
-					WithVerificationMethod("did:trustbloc:abc#key1"),
-					WithPurpose(AssertionMethod),
-					WithSDJWTDisclosures([]string{"disclosureA", "disclosureB"}),
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Error getSigner",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockKMS{},
-				},
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{
-					WithVerificationMethod("did:trustbloc:abc"),
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error GetDIDDocFromVerificationMethod",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveErr: errors.New("some error")}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error proof purpose not supported",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{
-					WithPurpose("keyAgreement"),
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error unable to find matching key ID from DID",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					didDoc := createDIDDoc("did:trustbloc:abc")
-					didDoc.AssertionMethod[0].VerificationMethod.ID = ""
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error empty VC subject",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: getTestJWTSigner(),
-				getVC: func() *verifiable.Credential {
-					cred := unsignedVc
-					cred.Subject = nil
-					return &cred
-				},
-				opts: []SigningOpts{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error kms:unsupported key type",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "JsonWebSignature2020",
-					Creator:       "did:trustbloc:abc#key1",
-					KeyType:       "unsupported",
-					KMS:           &mockKMS{},
-				},
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{},
-			},
-			wantErr: true,
-		},
-		{
-			name: "Error kms:unsupported key type",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:trustbloc:abc")}
-				},
-			},
-			args: args{
-				signerData: getTestSignerWithCrypto(
-					&cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}),
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{},
-			},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			c := &Crypto{
-				vdr:            tt.fields.getVDR(),
-				documentLoader: testutil.DocumentLoader(t),
-			}
-			got, err := c.signCredentialJWT(tt.args.signerData, tt.args.getVC(), tt.args.opts...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SignCredentialJWT() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if err != nil {
-				return
-			}
-			if got.JWT == "" {
-				t.Errorf("JWT field empty")
-			}
-			if len(got.Proofs) > 0 {
-				t.Errorf("Proof field is not empty")
-			}
-		})
 	}
 }

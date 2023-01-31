@@ -12,11 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
@@ -24,7 +20,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -114,10 +109,6 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 }
 
 func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Credential, error) {
-	if vcsverifiable.IsSDJWT(string(vcBytes)) {
-		return s.parseAndVerifyVCSDJWT(vcBytes)
-	}
-
 	opts := []verifiable.CredentialOpt{
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
@@ -241,41 +232,4 @@ func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) 
 	}
 
 	return nil
-}
-
-func (s *Service) parseAndVerifyVCSDJWT(combinedFormatForPresentationBytes []byte) (*verifiable.Credential, error) {
-	sdJwtCombinedFormatForPresentation := string(vcsverifiable.UnQuote(combinedFormatForPresentationBytes))
-	disclosedClaims, err := verifier.Parse(sdJwtCombinedFormatForPresentation,
-		verifier.WithSignatureVerifier(
-			jwt.NewVerifier(jwt.KeyResolverFunc(
-				verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-			))),
-		verifier.WithIssuerSigningAlgorithms(vcsverifiable.SDJWTSignatureTypes))
-	if err != nil {
-		return nil, fmt.Errorf("SD-JWT verifier.Parse error: %w", err)
-	}
-
-	// Get combined format for presentation.
-	cfp := common.ParseCombinedFormatForPresentation(sdJwtCombinedFormatForPresentation)
-
-	// Parse credential from SD-JWT.
-	cred, err := verifiable.ParseCredential([]byte(cfp.SDJWT),
-		verifiable.WithDisabledProofCheck(),
-		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
-	if err != nil {
-		return nil, fmt.Errorf("SD-JWT verifiable.ParseCredential error: %w", err)
-	}
-
-	// Replace credential subject with disclosed claims.
-	if vcData, ok := disclosedClaims["vc"].(map[string]interface{}); ok {
-		cred.Subject = vcData["credentialSubject"]
-	}
-
-	// Prepend SD-JWT tail.
-	if len(cfp.Disclosures) > 0 {
-		cred.JWT += common.CombinedFormatSeparator + strings.Join(cfp.Disclosures, common.CombinedFormatSeparator) +
-			common.CombinedFormatSeparator + cfp.HolderBinding
-	}
-
-	return cred, nil
 }
