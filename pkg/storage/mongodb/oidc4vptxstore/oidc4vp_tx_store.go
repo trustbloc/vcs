@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -118,19 +117,6 @@ func (p *TxStore) Update(update oidc4vp.TransactionUpdate) error {
 
 	if update.ReceivedClaims != nil {
 		for key, cred := range update.ReceivedClaims.Credentials {
-			//TODO: this condition must be gone once AFGO will properly support Marshal/Unmarshal SDJWT credential.
-			if cred.JWT != "" && len(cred.SDJWTDisclosures) > 0 {
-				var sdjwt string
-				sdjwt, err = cred.MarshalWithDisclosure(verifiable.DiscloseAll())
-				if err != nil {
-					continue
-				}
-
-				sdjwt = strings.TrimSuffix(sdjwt, "~")
-
-				cred.JWT = sdjwt
-			}
-
 			receivedClaims[key], err = json.Marshal(cred)
 			if err != nil {
 				return fmt.Errorf("update tx doc: encode received claims %w", err)
