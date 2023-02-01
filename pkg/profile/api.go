@@ -50,7 +50,6 @@ type CredentialTemplate struct {
 	Contexts          []string        `json:"contexts"`
 	ID                string          `json:"id"`
 	Type              string          `json:"type"`
-	Issuer            string          `json:"issuer"`
 	CredentialSubject json.RawMessage `json:"credentialSubject"`
 }
 

@@ -62,6 +62,7 @@ type TransactionData struct {
 	State                              TransactionState
 	WebHookURL                         string
 	UserPin                            string
+	DID                                string
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.

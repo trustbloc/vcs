@@ -704,8 +704,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialTemplate: &profileapi.CredentialTemplate{
-							Type:   "VerifiedEmployee",
-							Issuer: "issuer",
+							Type: "VerifiedEmployee",
 						},
 						CredentialFormat: vcsverifiable.Jwt,
 					},
@@ -754,8 +753,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialTemplate: &profileapi.CredentialTemplate{
-							Type:   "VerifiedEmployee",
-							Issuer: "issuer",
+							Type: "VerifiedEmployee",
 						},
 						IsPreAuthFlow: true,
 						ClaimData: map[string]interface{}{
@@ -798,8 +796,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialTemplate: &profileapi.CredentialTemplate{
-							Type:   "VerifiedEmployee",
-							Issuer: "issuer",
+							Type: "VerifiedEmployee",
 						},
 						IsPreAuthFlow: true,
 						ClaimData: map[string]interface{}{
@@ -850,8 +847,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{
 						IssuerToken: "issuer-access-token",
 						CredentialTemplate: &profileapi.CredentialTemplate{
-							Type:   "VerifiedEmployee",
-							Issuer: "issuer",
+							Type: "VerifiedEmployee",
 						},
 						IsPreAuthFlow: true,
 						ClaimData: map[string]interface{}{

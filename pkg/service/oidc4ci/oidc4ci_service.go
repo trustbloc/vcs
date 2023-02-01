@@ -304,7 +304,7 @@ func (s *Service) PrepareCredential(
 		Context: tx.CredentialTemplate.Contexts,
 		ID:      uuid.New().URN(),
 		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
-		Issuer:  verifiable.Issuer{ID: tx.CredentialTemplate.Issuer},
+		Issuer:  verifiable.Issuer{ID: tx.DID},
 		Subject: verifiable.Subject{
 			ID:           req.DID,
 			CustomFields: claimData,

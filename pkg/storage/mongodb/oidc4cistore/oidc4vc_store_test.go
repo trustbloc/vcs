@@ -91,7 +91,6 @@ func TestStore(t *testing.T) {
 				Contexts:          []string{"https://www.w3.org/2018/credentials/v1", "https://w3id.org/citizenship/v1"},
 				ID:                "templateID",
 				Type:              "PermanentResidentCard",
-				Issuer:            "test_issuer",
 				CredentialSubject: []byte(`{"sub_1" : "abcd"}`),
 			},
 			ProfileID:                          "profileID",
@@ -119,6 +118,7 @@ func TestStore(t *testing.T) {
 			IsPreAuthFlow:  true,
 			PreAuthCode:    uuid.NewString(),
 			WebHookURL:     "http://remote-url",
+			DID:            "did:123",
 			ClaimData: map[string]interface{}{
 				"abcd": "awesome",
 			},

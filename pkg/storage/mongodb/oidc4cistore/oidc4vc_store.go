@@ -55,6 +55,7 @@ type mongoDocument struct {
 	ClaimData                          map[string]interface{}
 	Status                             oidc4ci.TransactionState
 	WebHookURL                         string
+	DID                                string
 	UserPin                            string
 }
 
@@ -218,6 +219,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		ClaimData:                          data.ClaimData,
 		Status:                             data.State,
 		WebHookURL:                         data.WebHookURL,
+		DID:                                data.DID,
 	}
 }
 
@@ -250,6 +252,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			ClaimData:                          doc.ClaimData,
 			State:                              doc.Status,
 			WebHookURL:                         doc.WebHookURL,
+			DID:                                doc.DID,
 		},
 	}
 }
