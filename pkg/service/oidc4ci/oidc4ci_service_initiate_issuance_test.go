@@ -46,6 +46,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 	var testProfile profileapi.Issuer
 	require.NoError(t, json.Unmarshal(profileJSON, &testProfile))
 
+	testProfile.SigningDID = &profileapi.SigningDID{DID: "did:123"}
+
 	tests := []struct {
 		name  string
 		setup func()

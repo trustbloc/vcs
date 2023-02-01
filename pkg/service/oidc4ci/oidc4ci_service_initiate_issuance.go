@@ -68,6 +68,7 @@ func (s *Service) InitiateIssuance(
 		ClaimData:          req.ClaimData,
 		State:              TransactionStateIssuanceInitiated,
 		WebHookURL:         profile.WebHook,
+		DID:                profile.SigningDID.DID,
 	}
 
 	if err := s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
