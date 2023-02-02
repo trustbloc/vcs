@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,claimDataStore=MockClaimDataStore
 
 package oidc4ci
 
@@ -65,6 +65,11 @@ type transactionStore interface {
 	) error
 }
 
+type claimDataStore interface {
+	Create(ctx context.Context, data *ClaimData) (string, error)
+	Get(ctx context.Context, id string) (*ClaimData, error)
+}
+
 type wellKnownService interface {
 	GetOIDCConfiguration(
 		ctx context.Context,
@@ -93,6 +98,7 @@ type eventService interface {
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore    transactionStore
+	ClaimDataStore      claimDataStore
 	WellKnownService    wellKnownService
 	IssuerVCSPublicHost string
 	OAuth2Client        oAuth2Client
@@ -105,6 +111,7 @@ type Config struct {
 // Service implements VCS credential interaction API for OIDC credential issuance.
 type Service struct {
 	store               transactionStore
+	claimDataStore      claimDataStore
 	wellKnownService    wellKnownService
 	issuerVCSPublicHost string
 	oAuth2Client        oAuth2Client
@@ -118,6 +125,7 @@ type Service struct {
 func NewService(config *Config) (*Service, error) {
 	return &Service{
 		store:               config.TransactionStore,
+		claimDataStore:      config.ClaimDataStore,
 		wellKnownService:    config.WellKnownService,
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
 		oAuth2Client:        config.OAuth2Client,
@@ -288,15 +296,16 @@ func (s *Service) PrepareCredential(
 		return nil, ErrCredentialTemplateNotConfigured
 	}
 
-	var claimData map[string]interface{}
+	var claimData *ClaimData
+
 	if tx.IsPreAuthFlow {
-		claimData = tx.ClaimData
-	} else {
-		r, requestErr := s.requestClaims(ctx, tx)
-		if requestErr != nil {
-			return nil, requestErr
+		if claimData, err = s.claimDataStore.Get(ctx, tx.ClaimDataID); err != nil {
+			return nil, fmt.Errorf("get claim data: %w", err)
 		}
-		claimData = r
+	} else {
+		if claimData, err = s.requestClaims(ctx, tx); err != nil {
+			return nil, err
+		}
 	}
 
 	// prepare credential for signing
@@ -305,11 +314,16 @@ func (s *Service) PrepareCredential(
 		ID:      uuid.New().URN(),
 		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
 		Issuer:  verifiable.Issuer{ID: tx.DID},
-		Subject: verifiable.Subject{
+		Issued:  util.NewTime(time.Now()),
+	}
+
+	if claimData != nil {
+		vc.Subject = verifiable.Subject{
 			ID:           req.DID,
-			CustomFields: claimData,
-		},
-		Issued: util.NewTime(time.Now()),
+			CustomFields: verifiable.CustomFields(*claimData),
+		}
+	} else {
+		vc.Subject = verifiable.Subject{ID: req.DID}
 	}
 
 	var credential interface{}
@@ -353,7 +367,7 @@ func (s *Service) PrepareCredential(
 	}, nil
 }
 
-func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[string]interface{}, error) {
+func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (*ClaimData, error) {
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -372,12 +386,14 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
 	}
 
-	var claimData map[string]interface{}
-	if err = json.NewDecoder(resp.Body).Decode(&claimData); err != nil {
+	var m map[string]interface{}
+	if err = json.NewDecoder(resp.Body).Decode(&m); err != nil {
 		return nil, fmt.Errorf("decode claim data: %w", err)
 	}
 
-	return claimData, nil
+	claimData := ClaimData(m)
+
+	return &claimData, nil
 }
 
 func (s *Service) createEvent(

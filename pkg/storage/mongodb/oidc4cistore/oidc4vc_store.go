@@ -52,7 +52,7 @@ type mongoDocument struct {
 	IssuerToken                        string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
-	ClaimData                          map[string]interface{}
+	ClaimDataID                        string
 	Status                             oidc4ci.TransactionState
 	WebHookURL                         string
 	DID                                string
@@ -216,7 +216,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		UserPin:                            data.UserPin,
 		IsPreAuthFlow:                      data.IsPreAuthFlow,
 		PreAuthCode:                        data.PreAuthCode,
-		ClaimData:                          data.ClaimData,
+		ClaimDataID:                        data.ClaimDataID,
 		Status:                             data.State,
 		WebHookURL:                         data.WebHookURL,
 		DID:                                data.DID,
@@ -249,7 +249,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			UserPin:                            doc.UserPin,
 			IsPreAuthFlow:                      doc.IsPreAuthFlow,
 			PreAuthCode:                        doc.PreAuthCode,
-			ClaimData:                          doc.ClaimData,
+			ClaimDataID:                        doc.ClaimDataID,
 			State:                              doc.Status,
 			WebHookURL:                         doc.WebHookURL,
 			DID:                                doc.DID,

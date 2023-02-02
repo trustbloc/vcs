@@ -176,6 +176,11 @@ const (
 	oAuthClientsFilePathFlagUsage = "Path to file with oauth clients. " +
 		commonEnvVarUsageText + oAuthClientsFilePathEnvKey
 
+	claimDataTTLFlagName  = "claim-data-ttl"
+	claimDataTTLEnvKey    = "VC_CLAIM_DATA_TTL"
+	claimDataTTLFlagUsage = "Claim data TTL in OIDC4VC pre-auth code flow. Defaults to 3600s. " +
+		commonEnvVarUsageText + hostURLExternalEnvKey
+
 	metricsProviderFlagName         = "metrics-provider-name"
 	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
 	allowedMetricsProviderFlagUsage = "The metrics provider name (for example: 'prometheus' etc.). " +
@@ -219,6 +224,10 @@ const (
 	splitRequestTokenLength = 2
 )
 
+const (
+	defaultClaimDataTTL = 3600 * time.Second
+)
+
 type startupParameters struct {
 	hostURL                         string
 	hostURLExternal                 string
@@ -244,6 +253,7 @@ type startupParameters struct {
 	requestObjectRepositoryS3Region string
 	issuerEventTopic                string
 	verifierEventTopic              string
+	claimDataTTL                    int32
 }
 
 type prometheusMetricsProviderParams struct {
@@ -394,6 +404,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		verifierTopic = spi.VerifierEventTopic
 	}
 
+	claimDataTTL, err := getDuration(cmd, claimDataTTLFlagName, claimDataTTLEnvKey, defaultClaimDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
 	return &startupParameters{
 		hostURL:                         hostURL,
 		hostURLExternal:                 hostURLExternal,
@@ -419,6 +434,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3Region: requestObjectRepositoryS3Region,
 		issuerEventTopic:                issuerTopic,
 		verifierEventTopic:              verifierTopic,
+		claimDataTTL:                    int32(claimDataTTL.Seconds()),
 	}, nil
 }
 
@@ -662,6 +678,7 @@ func createFlags(startCmd *cobra.Command) {
 
 	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
+	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }

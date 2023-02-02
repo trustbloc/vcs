@@ -35,6 +35,7 @@ import (
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 
 	"github.com/trustbloc/vcs/api/spec"
@@ -270,10 +271,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
 	}
 
+	claimDataStore, err := claimdatastore.New(context.Background(), mongodbClient, conf.StartupParameters.claimDataTTL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
+	}
+
 	httpClient := getHTTPClient(tlsConfig)
 
 	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:    oidc4ciStore,
+		ClaimDataStore:      claimDataStore,
 		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
 		WellKnownService:    wellknown.NewService(httpClient),
 		OAuth2Client:        oauth2client.NewOAuth2Client(),

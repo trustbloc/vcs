@@ -36,6 +36,7 @@ var profileJSON []byte
 func TestService_InitiateIssuance(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
 		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
 		eventService         = NewMockEventService(gomock.NewController(t))
 		pinGenerator         = NewMockPinGenerator(gomock.NewController(t))
@@ -124,7 +125,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.True(t, len(data.UserPin) == 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.Equal(t, claimData, data.ClaimData)
+						assert.NotEmpty(t, data.ClaimDataID)
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
 						return &oidc4ci.Transaction{
@@ -140,6 +141,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 							},
 						}, nil
 					})
+
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
@@ -198,7 +201,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.Equal(t, claimData, data.ClaimData)
+						assert.NotEmpty(t, data.ClaimDataID)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -212,6 +215,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 							},
 						}, nil
 					})
+
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
@@ -273,6 +278,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+
 				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
@@ -321,7 +328,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.True(t, len(data.UserPin) == 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.Equal(t, claimData, data.ClaimData)
+						assert.NotEmpty(t, data.ClaimDataID)
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
 
 						return &oidc4ci.Transaction{
@@ -337,6 +344,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 							},
 						}, nil
 					})
+
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
@@ -358,6 +367,38 @@ func TestService_InitiateIssuance(t *testing.T) {
 			},
 		},
 		{
+			name: "Fail Pre-Auth with PIN because of error during saving claim data",
+			setup: func() {
+				initialOpState := "eyJhbGciOiJSU0Et"
+				claimData := map[string]interface{}{
+					"my_awesome_claim": "claim",
+				}
+
+				profile = &testProfile
+				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("", errors.New("create error"))
+
+				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
+					&oidc4ci.OIDCConfiguration{}, nil)
+
+				pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+
+				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
+					CredentialTemplateID: "templateID",
+					ClientWellKnownURL:   walletWellKnownURL,
+					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
+					OpState:              initialOpState,
+					UserPinRequired:      true,
+					ClaimData:            claimData,
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
+				require.ErrorContains(t, err, "store claim data")
+			},
+		},
+		{
 			name: "Error because of event publishing",
 			setup: func() {
 				initialOpState := "eyJhbGciOiJSU0Et"
@@ -376,7 +417,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 						assert.Equal(t, data.OpState, data.PreAuthCode)
 						assert.Empty(t, data.UserPin)
 						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.Equal(t, claimData, data.ClaimData)
+						assert.NotEmpty(t, data.ClaimDataID)
 
 						return &oidc4ci.Transaction{
 							ID: "txID",
@@ -389,6 +430,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 							},
 						}, nil
 					})
+
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
@@ -658,6 +701,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore:    mockTransactionStore,
+				ClaimDataStore:      mockClaimDataStore,
 				WellKnownService:    mockWellKnownService,
 				IssuerVCSPublicHost: issuerVCSPublicHost,
 				EventService:        eventService,
