@@ -79,7 +79,7 @@ func (s *Store) Create(ctx context.Context, data *oidc4ci.ClaimData) (string, er
 	return result.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func (s *Store) Get(ctx context.Context, claimDataID string) (*oidc4ci.ClaimData, error) {
+func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.ClaimData, error) {
 	id, err := primitive.ObjectIDFromHex(claimDataID)
 	if err != nil {
 		return nil, fmt.Errorf("parse id %s: %w", claimDataID, err)
@@ -87,7 +87,7 @@ func (s *Store) Get(ctx context.Context, claimDataID string) (*oidc4ci.ClaimData
 
 	var doc mongoDocument
 
-	err = s.mongoClient.Database().Collection(collectionName).FindOne(ctx, bson.M{"_id": id}).Decode(&doc)
+	err = s.mongoClient.Database().Collection(collectionName).FindOneAndDelete(ctx, bson.M{"_id": id}).Decode(&doc)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, oidc4ci.ErrDataNotFound

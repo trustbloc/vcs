@@ -13,7 +13,9 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -84,7 +86,7 @@ func getCredential(
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get credential: status %s", resp.Status)
+		return nil, fmt.Errorf("get credential: %w", parseError(resp.Body))
 	}
 
 	var credentialResp credentialResponse
@@ -94,6 +96,30 @@ func getCredential(
 	}
 
 	return &credentialResp, nil
+}
+
+type responseError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+func (r *responseError) Error() string {
+	return r.Message
+}
+
+func parseError(r io.Reader) error {
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	var errResp responseError
+
+	if err = json.Unmarshal(b, &errResp); err != nil {
+		return errors.New(string(b))
+	}
+
+	return &errResp
 }
 
 func createDID(

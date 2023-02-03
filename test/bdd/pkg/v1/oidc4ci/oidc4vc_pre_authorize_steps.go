@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -59,6 +60,8 @@ func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^client requests credential for claim data with pre-authorize flow$`, s.getCredential)
 	sc.Step(`^client receives a valid credential with pre-authorize flow$`, s.checkCredential)
+
+	sc.Step(`^claim data are removed from the database$`, s.checkClaimData)
 }
 
 func (s *PreAuthorizeStep) parseUrl() error {
@@ -225,4 +228,16 @@ func (s *PreAuthorizeStep) checkCredential() error {
 	}
 
 	return nil
+}
+
+func (s *PreAuthorizeStep) checkClaimData() error {
+	if err := s.getCredential(); err != nil {
+		if strings.Contains(err.Error(), "get claim data: data not found") {
+			return nil
+		}
+
+		return err
+	}
+
+	return errors.New("claim data found")
 }

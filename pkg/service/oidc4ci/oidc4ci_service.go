@@ -67,7 +67,7 @@ type transactionStore interface {
 
 type claimDataStore interface {
 	Create(ctx context.Context, data *ClaimData) (string, error)
-	Get(ctx context.Context, id string) (*ClaimData, error)
+	GetAndDelete(ctx context.Context, id string) (*ClaimData, error)
 }
 
 type wellKnownService interface {
@@ -299,7 +299,7 @@ func (s *Service) PrepareCredential(
 	var claimData *ClaimData
 
 	if tx.IsPreAuthFlow {
-		if claimData, err = s.claimDataStore.Get(ctx, tx.ClaimDataID); err != nil {
+		if claimData, err = s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID); err != nil {
 			return nil, fmt.Errorf("get claim data: %w", err)
 		}
 	} else {
