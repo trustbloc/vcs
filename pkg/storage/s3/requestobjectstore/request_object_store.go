@@ -82,7 +82,7 @@ func (p *Store) Create(
 		Key:         aws.String(request.ID),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String(contentType),
-	}, nil)
+	})
 	if err != nil {
 		return nil, err
 	}
