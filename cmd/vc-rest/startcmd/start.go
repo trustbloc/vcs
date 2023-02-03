@@ -58,6 +58,7 @@ import (
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
+	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -66,13 +67,14 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
+	cslstoremongodb "github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
+	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslstore"
 )
 
 const (
@@ -240,7 +242,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
-	cslStore := cslstore.NewStore(mongodbClient)
+	cslStore, err := createCredentialStatusListStore(
+		conf.StartupParameters.cslStoreType,
+		conf.StartupParameters.cslStoreS3Region,
+		conf.StartupParameters.cslStoreS3Bucket,
+		conf.StartupParameters.cslStoreS3HostName,
+		mongodbClient)
+	if err != nil {
+		return nil, err
+	}
+
 	vcStatusStore := vcstatusstore.NewStore(mongodbClient)
 	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
@@ -497,6 +508,26 @@ func createRequestObjectStore(
 		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region, s3HostName), nil
 	default:
 		return requestobjectstore.NewStore(mongoDbClient), nil
+	}
+}
+
+func createCredentialStatusListStore(
+	repoType string,
+	s3Region string,
+	s3Bucket string,
+	hostName string,
+	mongoDbClient *mongodb.Client,
+) (credentialstatustypes.CSLStore, error) {
+	switch strings.ToLower(repoType) {
+	case "s3":
+		ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+		if err != nil {
+			return nil, err
+		}
+
+		return cslstores3.NewStore(s3.New(ses), s3Bucket, s3Region, hostName), nil
+	default:
+		return cslstoremongodb.NewStore(mongoDbClient), nil
 	}
 }
 

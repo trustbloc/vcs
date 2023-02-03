@@ -208,6 +208,22 @@ const (
 	requestObjectRepositoryS3HostNameEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_HOSTNAME"
 	requestObjectRepositoryS3HostNameFlagUsage = "request-object S3 Hostname"
 
+	cslStoreTypeFlagName = "csl-store-type"
+	cslStoreTypeEnvKey   = "CSL_STORE_TYPE"
+	cslStoreFlagUsage    = "Store type for CSL (Credential Status List). Supported: mongodb,s3. Default: mongodb"
+
+	cslStoreS3BucketFlagName  = "csl-store-s3-bucket"
+	cslStoreS3BucketEnvKey    = "CSL_STORE_S3_BUCKET"
+	cslStoreS3BucketFlagUsage = "CSL (Credential Status List) S3 Bucket"
+
+	cslStoreS3RegionFlagName  = "csl-store-s3-region"
+	cslStoreS3RegionEnvKey    = "CSL_STORE_S3_REGION"
+	cslStoreS3RegionFlagUsage = "CSL (Credential Status List) S3 Region"
+
+	cslStoreS3HostNameFlagName  = "csl-store-s3-hostname"
+	cslStoreS3HostNameEnvKey    = "CSL_STORE_S3_HOSTNAME"
+	cslStoreS3HostNameFlagUsage = "CSL (Credential Status List) S3 Hostname"
+
 	issuerTopicFlagName  = "issuer-event-topic"
 	issuerTopicEnvKey    = "VC_REST_ISSUER_EVENT_TOPIC"
 	issuerTopicFlagUsage = "The name of the issuer event topic. " + commonEnvVarUsageText + issuerTopicEnvKey
@@ -256,6 +272,10 @@ type startupParameters struct {
 	requestObjectRepositoryS3Bucket   string
 	requestObjectRepositoryS3Region   string
 	requestObjectRepositoryS3HostName string
+	cslStoreType                      string
+	cslStoreS3Bucket                  string
+	cslStoreS3Region                  string
+	cslStoreS3HostName                string
 	issuerEventTopic                  string
 	verifierEventTopic                string
 	claimDataTTL                      int32
@@ -405,6 +425,28 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3HostNameEnvKey,
 	)
 
+	cslStoreType := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreTypeFlagName,
+		cslStoreTypeEnvKey,
+	)
+	cslStoreS3Bucket := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreS3BucketFlagName,
+		cslStoreS3BucketEnvKey,
+	)
+	cslStoreS3Region := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreS3RegionFlagName,
+		cslStoreS3RegionEnvKey,
+	)
+
+	cslStoreS3HostName := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreS3HostNameFlagName,
+		cslStoreS3HostNameEnvKey,
+	)
+
 	issuerTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, issuerTopicFlagName, issuerTopicEnvKey)
 	if issuerTopic == "" {
 		issuerTopic = spi.IssuerEventTopic
@@ -444,6 +486,10 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3Bucket:   requestObjectRepositoryS3Bucket,
 		requestObjectRepositoryS3Region:   requestObjectRepositoryS3Region,
 		requestObjectRepositoryS3HostName: requestObjectRepositoryS3HostName,
+		cslStoreType:                      cslStoreType,
+		cslStoreS3Bucket:                  cslStoreS3Bucket,
+		cslStoreS3Region:                  cslStoreS3Region,
+		cslStoreS3HostName:                cslStoreS3HostName,
 		issuerEventTopic:                  issuerTopic,
 		verifierEventTopic:                verifierTopic,
 		claimDataTTL:                      int32(claimDataTTL.Seconds()),
@@ -688,6 +734,11 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3HostNameFlagName, "", requestObjectRepositoryS3HostNameFlagUsage)
+
+	startCmd.Flags().String(cslStoreTypeFlagName, "", cslStoreFlagUsage)
+	startCmd.Flags().String(cslStoreS3BucketFlagName, "", cslStoreS3BucketFlagUsage)
+	startCmd.Flags().String(cslStoreS3RegionFlagName, "", cslStoreS3RegionFlagUsage)
+	startCmd.Flags().String(cslStoreS3HostNameFlagName, "", cslStoreS3HostNameFlagUsage)
 
 	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)

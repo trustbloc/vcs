@@ -10,7 +10,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -27,6 +26,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
@@ -66,7 +66,7 @@ func TestWrapperStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
-		wrapperCreated := &CSLWrapper{
+		wrapperCreated := &credentialstatus.CSLWrapper{
 			VCByte:              []byte(sampleVCJsonLD),
 			RevocationListIndex: 1,
 			VC:                  vc,
@@ -102,7 +102,7 @@ func TestWrapperStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
-		wrapperCreated := &CSLWrapper{
+		wrapperCreated := &credentialstatus.CSLWrapper{
 			VCByte:              []byte(sampleVCJWT),
 			RevocationListIndex: 1,
 			VC:                  vc,
@@ -141,7 +141,7 @@ func TestWrapperStore(t *testing.T) {
 		resp, err := store.Get("63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, ErrDataNotFound)
+		assert.ErrorIs(t, err, credentialstatus.ErrDataNotFound)
 	})
 }
 
@@ -163,7 +163,7 @@ func TestTimeouts(t *testing.T) {
 	}()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Upsert(&CSLWrapper{
+		err = store.Upsert(&credentialstatus.CSLWrapper{
 			VC: &verifiable.Credential{ID: "1"},
 		})
 
@@ -198,14 +198,12 @@ func TestLatestListID(t *testing.T) {
 	t.Run("Find non-existing ID", func(t *testing.T) {
 		id, err := store.GetLatestListID()
 
-		assert.Equal(t, -1, id)
-		assert.ErrorIs(t, err, ErrDataNotFound)
+		assert.Equal(t, 1, id)
+		assert.NoError(t, err)
 	})
 
-	t.Run("Create - Update - Get LatestListID", func(t *testing.T) {
-		expectedID := rand.Int()
-		err := store.CreateLatestListID(expectedID)
-		require.NoError(t, err)
+	t.Run("Update - Get LatestListID", func(t *testing.T) {
+		expectedID := 1
 
 		receivedID, err := store.GetLatestListID()
 		require.NoError(t, err)
@@ -276,7 +274,7 @@ func pingMongoDB() error {
 	return db.Client().Ping(ctx, nil)
 }
 
-func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *CSLWrapper) {
+func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatus.CSLWrapper) {
 	t.Helper()
 
 	vcFound, err := verifiable.ParseCredential(wrapperFound.VCByte,
@@ -292,4 +290,19 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *CSLWrapper) {
 		t.Errorf("RevocationListIndex got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
+}
+
+func TestStore_GetCSLWrapperURL(t *testing.T) {
+	store := NewStore(nil)
+	require.NotNil(t, store)
+
+	cslWrapperURL, err := store.GetCSLWrapperURL(
+		"https://example.com", "test_issuer", "1")
+	assert.NoError(t, err)
+	assert.Equal(t, "https://example.com/issuer/profiles/test_issuer/credentials/status/1", cslWrapperURL)
+
+	cslWrapperURL, err = store.GetCSLWrapperURL(
+		" https://example.com", "test_issuer", "1")
+	assert.Error(t, err)
+	assert.Empty(t, cslWrapperURL)
 }
