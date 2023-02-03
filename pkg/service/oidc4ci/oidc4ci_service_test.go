@@ -14,13 +14,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/trustbloc/vcs/pkg/event/spi"
-
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
@@ -686,6 +686,7 @@ func TestValidatePreAuthCode(t *testing.T) {
 func TestService_PrepareCredential(t *testing.T) {
 	var (
 		mockTransactionStore = NewMockTransactionStore(gomock.NewController(t))
+		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
 		eventMock            = NewMockEventService(gomock.NewController(t))
 		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
 		req                  *oidc4ci.PrepareCredential
@@ -755,12 +756,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						CredentialTemplate: &profileapi.CredentialTemplate{
 							Type: "VerifiedEmployee",
 						},
-						IsPreAuthFlow: true,
-						ClaimData: map[string]interface{}{
-							"surname":   "Smith",
-							"givenName": "Pat",
-							"jobTitle":  "Worker",
-						},
+						IsPreAuthFlow:    true,
+						ClaimDataID:      uuid.NewString(),
 						CredentialFormat: vcsverifiable.Jwt,
 					},
 				}, nil)
@@ -779,6 +776,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
+				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
 				}
@@ -786,6 +785,36 @@ func TestService_PrepareCredential(t *testing.T) {
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Failed to get claims for pre-authorized flow",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "VerifiedEmployee",
+						},
+						IsPreAuthFlow:    true,
+						ClaimDataID:      uuid.NewString(),
+						CredentialFormat: vcsverifiable.Jwt,
+					},
+				}, nil)
+
+				eventMock.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(0)
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+
+				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, errors.New("get error"))
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.ErrorContains(t, err, "get claim data")
+				require.Nil(t, resp)
 			},
 		},
 		{
@@ -798,12 +827,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						CredentialTemplate: &profileapi.CredentialTemplate{
 							Type: "VerifiedEmployee",
 						},
-						IsPreAuthFlow: true,
-						ClaimData: map[string]interface{}{
-							"surname":   "Smith",
-							"givenName": "Pat",
-							"jobTitle":  "Worker",
-						},
+						IsPreAuthFlow:    true,
+						ClaimDataID:      uuid.NewString(),
 						CredentialFormat: vcsverifiable.Jwt,
 					},
 				}, nil)
@@ -813,6 +838,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
+
+				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
@@ -849,12 +876,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						CredentialTemplate: &profileapi.CredentialTemplate{
 							Type: "VerifiedEmployee",
 						},
-						IsPreAuthFlow: true,
-						ClaimData: map[string]interface{}{
-							"surname":   "Smith",
-							"givenName": "Pat",
-							"jobTitle":  "Worker",
-						},
+						IsPreAuthFlow:    true,
+						ClaimDataID:      uuid.NewString(),
 						CredentialFormat: vcsverifiable.Jwt,
 					},
 				}, nil)
@@ -864,6 +887,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
 						return errors.New("store err")
 					})
+
+				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
@@ -1037,6 +1062,7 @@ func TestService_PrepareCredential(t *testing.T) {
 
 			svc, err := oidc4ci.NewService(&oidc4ci.Config{
 				TransactionStore: mockTransactionStore,
+				ClaimDataStore:   mockClaimDataStore,
 				HTTPClient:       mockHTTPClient,
 				EventService:     eventMock,
 				EventTopic:       spi.IssuerEventTopic,

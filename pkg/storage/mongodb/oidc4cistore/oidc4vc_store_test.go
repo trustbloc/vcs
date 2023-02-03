@@ -119,9 +119,7 @@ func TestStore(t *testing.T) {
 			PreAuthCode:    uuid.NewString(),
 			WebHookURL:     "http://remote-url",
 			DID:            "did:123",
-			ClaimData: map[string]interface{}{
-				"abcd": "awesome",
-			},
+			ClaimDataID:    uuid.NewString(),
 		}
 
 		var resp *oidc4ci.Transaction

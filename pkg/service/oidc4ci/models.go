@@ -35,6 +35,9 @@ const (
 	TransactionStateCredentialsIssued               = TransactionState(5)
 )
 
+// ClaimData represents user claims in pre-auth code flow.
+type ClaimData map[string]interface{}
+
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID
@@ -58,7 +61,7 @@ type TransactionData struct {
 	OpState                            string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
-	ClaimData                          map[string]interface{}
+	ClaimDataID                        string
 	State                              TransactionState
 	WebHookURL                         string
 	UserPin                            string

@@ -22,7 +22,7 @@ import (
 )
 
 // InitiateIssuance creates credential issuance transaction and builds initiate issuance URL.
-func (s *Service) InitiateIssuance(
+func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
 	profile *profileapi.Issuer,
@@ -36,6 +36,7 @@ func (s *Service) InitiateIssuance(
 	}
 
 	isPreAuthorizeFlow := len(req.ClaimData) > 0
+
 	if !isPreAuthorizeFlow && profile.OIDCConfig == nil {
 		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
@@ -65,7 +66,6 @@ func (s *Service) InitiateIssuance(
 		ResponseType:       req.ResponseType,
 		Scope:              req.Scope,
 		OpState:            req.OpState,
-		ClaimData:          req.ClaimData,
 		State:              TransactionStateIssuanceInitiated,
 		WebHookURL:         profile.WebHook,
 		DID:                profile.SigningDID.DID,
@@ -78,14 +78,26 @@ func (s *Service) InitiateIssuance(
 	if data.GrantType == "" {
 		data.GrantType = defaultGrantType
 	}
+
 	if data.ResponseType == "" {
 		data.ResponseType = defaultResponseType
 	}
+
 	if len(data.Scope) == 0 {
 		data.Scope = []string{defaultScope}
 	}
-	if len(data.ClaimData) > 0 {
-		data.IsPreAuthFlow = isPreAuthorizeFlow
+
+	if isPreAuthorizeFlow {
+		claimData := ClaimData(req.ClaimData)
+
+		claimDataID, err := s.claimDataStore.Create(ctx, &claimData)
+		if err != nil {
+			return nil, fmt.Errorf("store claim data: %w", err)
+		}
+
+		data.ClaimDataID = claimDataID
+
+		data.IsPreAuthFlow = true
 		data.PreAuthCode = generatePreAuthCode()
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
 	}
