@@ -57,7 +57,7 @@ func TestStore(t *testing.T) {
 		id, err := store.Create(context.Background(), claims)
 		assert.NoError(t, err)
 
-		claimsInDB, err := store.Get(context.Background(), id)
+		claimsInDB, err := store.GetAndDelete(context.Background(), id)
 		assert.NoError(t, err)
 		assert.Equal(t, claims, claimsInDB)
 	})
@@ -65,13 +65,13 @@ func TestStore(t *testing.T) {
 	t.Run("get non existing document", func(t *testing.T) {
 		id := primitive.NewObjectID().Hex()
 
-		resp, err := store.Get(context.Background(), id)
+		resp, err := store.GetAndDelete(context.Background(), id)
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
 	})
 
 	t.Run("get invalid document id", func(t *testing.T) {
-		resp, err := store.Get(context.Background(), "invalid id")
+		resp, err := store.GetAndDelete(context.Background(), "invalid id")
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "parse id")
 	})
@@ -88,7 +88,7 @@ func TestStore(t *testing.T) {
 		id, err := storeExpired.Create(context.Background(), claims)
 		assert.NoError(t, err)
 
-		claimsInDB, err := storeExpired.Get(context.Background(), id)
+		claimsInDB, err := storeExpired.GetAndDelete(context.Background(), id)
 		assert.Nil(t, claimsInDB)
 		assert.ErrorIs(t, err, oidc4ci.ErrDataNotFound)
 	})

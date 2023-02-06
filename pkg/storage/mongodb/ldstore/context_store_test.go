@@ -52,9 +52,9 @@ const (
 )
 
 func TestContextStore(t *testing.T) {
-	connectionString := "mongodb://localhost:27029"
+	connectionString := "mongodb://localhost:27019"
 
-	pool, mongoDBResource := startMongoDBContainer(t, connectionString, "27029")
+	pool, mongoDBResource := startMongoDBContainer(t, connectionString, "27019")
 
 	t.Cleanup(func() {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")

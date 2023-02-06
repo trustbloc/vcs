@@ -776,7 +776,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -806,7 +806,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				eventMock.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(0)
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
 
-				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(nil, errors.New("get error"))
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(nil, errors.New("get error"))
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -839,7 +839,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
@@ -888,7 +888,7 @@ func TestService_PrepareCredential(t *testing.T) {
 						return errors.New("store err")
 					})
 
-				mockClaimDataStore.EXPECT().Get(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
 				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(topic string, messages ...*spi.Event) error {
