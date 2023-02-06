@@ -445,12 +445,17 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
 
+	profile, err := c.profileSvc.GetProfile(resp.ProfileID)
+	if err != nil {
+		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
+	}
+
 	return &PrepareClaimDataAuthorizationResponse{
 		AuthorizationRequest: OAuthParameters{
-			ClientId:     resp.AuthorizationParameters.ClientID,
-			ClientSecret: resp.AuthorizationParameters.ClientSecret,
-			ResponseType: resp.AuthorizationParameters.ResponseType,
-			Scope:        resp.AuthorizationParameters.Scope,
+			ClientId:     profile.OIDCConfig.ClientID,
+			ClientSecret: profile.OIDCConfig.ClientSecretHandle,
+			ResponseType: resp.ResponseType,
+			Scope:        resp.Scope,
 		},
 		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),

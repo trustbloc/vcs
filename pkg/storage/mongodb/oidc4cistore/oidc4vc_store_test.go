@@ -99,8 +99,6 @@ func TestStore(t *testing.T) {
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
 			TokenEndpoint:                      "tokenEndpoint",
 			ClaimEndpoint:                      "432",
-			ClientID:                           "321",
-			ClientSecret:                       "secret",
 			ClientScope:                        []string{"openid", "profile"},
 			GrantType:                          "342",
 			ResponseType:                       "123",

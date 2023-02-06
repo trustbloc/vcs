@@ -29,9 +29,15 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 	}
 	tx.State = newState
 
+	profile, err := s.profileService.GetProfile(tx.ProfileID)
+	if err != nil {
+		s.sendFailedEvent(tx, err)
+		return "", err
+	}
+
 	resp, err := s.oAuth2Client.Exchange(ctx, oauth2.Config{
-		ClientID:     tx.ClientID,
-		ClientSecret: tx.ClientSecret,
+		ClientID:     profile.OIDCConfig.ClientID,
+		ClientSecret: profile.OIDCConfig.ClientSecretHandle,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   tx.AuthorizationEndpoint,
 			TokenURL:  tx.TokenEndpoint,

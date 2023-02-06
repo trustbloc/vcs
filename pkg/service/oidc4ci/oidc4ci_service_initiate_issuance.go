@@ -146,8 +146,6 @@ func (s *Service) extendTransactionWithOIDCConfig(
 	data.PushedAuthorizationRequestEndpoint = oidcConfig.PushedAuthorizationRequestEndpoint
 	data.TokenEndpoint = oidcConfig.TokenEndpoint
 
-	data.ClientID = profile.OIDCConfig.ClientID
-	data.ClientSecret = profile.OIDCConfig.ClientSecretHandle
 	data.Scope = profile.OIDCConfig.Scope
 	data.RedirectURI = profile.OIDCConfig.RedirectURI
 

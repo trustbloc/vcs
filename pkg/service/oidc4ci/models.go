@@ -48,8 +48,6 @@ type TransactionData struct {
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
 	ClaimEndpoint                      string
-	ClientID                           string
-	ClientSecret                       string
 	ClientScope                        []string
 	RedirectURI                        string
 	GrantType                          string
@@ -117,10 +115,12 @@ type PrepareClaimDataAuthorizationRequest struct {
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
+	ProfileID                          profileapi.ID
+	TxID                               TxID
+	ResponseType                       string
+	Scope                              []string
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
-	AuthorizationParameters            *OAuthParameters
-	TxID                               TxID
 }
 
 type PrepareCredential struct {
@@ -135,13 +135,6 @@ type PrepareCredentialResult struct {
 	Credential interface{}
 	Format     vcsverifiable.Format
 	Retry      bool
-}
-
-type OAuthParameters struct {
-	ClientID     string
-	ClientSecret string
-	ResponseType string
-	Scope        []string
 }
 
 type InsertOptions struct {
