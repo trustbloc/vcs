@@ -17,9 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
-	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 )
@@ -27,8 +25,6 @@ import (
 const (
 	contentType = "application/json"
 )
-
-var logger = log.New("s3_request_object_store")
 
 type s3Uploader interface {
 	PutObjectWithContext(
@@ -91,10 +87,6 @@ func (p *Store) Create(
 		ContentType: aws.String(contentType),
 	})
 	if err != nil {
-		logger.Error(fmt.Sprintf("error uploading to s3 bucket [%v] %+v",
-			p.bucket, err))
-		logger.Error(spew.Sdump(err))
-
 		return nil, err
 	}
 
