@@ -402,6 +402,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		conf.StartupParameters.requestObjectRepositoryType,
 		conf.StartupParameters.requestObjectRepositoryS3Region,
 		conf.StartupParameters.requestObjectRepositoryS3Bucket,
+		conf.StartupParameters.requestObjectRepositoryS3HostName,
 		mongodbClient,
 	)
 	if err != nil {
@@ -483,6 +484,7 @@ func createRequestObjectStore(
 	repoType string,
 	s3Region string,
 	s3Bucket string,
+	s3HostName string,
 	mongoDbClient *mongodb.Client,
 ) (requestObjectStore, error) {
 	switch strings.ToLower(repoType) {
@@ -492,7 +494,7 @@ func createRequestObjectStore(
 			return nil, err
 		}
 
-		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region), nil
+		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region, s3HostName), nil
 	default:
 		return requestobjectstore.NewStore(mongoDbClient), nil
 	}

@@ -55,6 +55,7 @@ type Store struct {
 	s3Client s3Uploader
 	bucket   string
 	region   string
+	hostName string
 }
 
 // NewStore creates Store.
@@ -62,11 +63,13 @@ func NewStore(
 	s3Uploader s3Uploader,
 	bucket string,
 	region string,
+	hostName string,
 ) *Store {
 	return &Store{
 		s3Client: s3Uploader,
 		bucket:   bucket,
 		region:   region,
+		hostName: hostName,
 	}
 }
 
@@ -131,6 +134,11 @@ func (p *Store) Delete(
 }
 
 func (p *Store) GetResourceURL(key string) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		p.bucket, p.region, key)
+	hostName := fmt.Sprintf("https://%s.s3.%s.amazonaws.com", p.bucket, p.region)
+
+	if p.hostName != "" {
+		hostName = p.hostName
+	}
+
+	return fmt.Sprintf("%s/%s", hostName, key)
 }

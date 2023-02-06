@@ -204,6 +204,10 @@ const (
 	requestObjectRepositoryS3RegionEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_REGION"
 	requestObjectRepositoryS3RegionFlagUsage = "request-object S3 Region"
 
+	requestObjectRepositoryS3HostNameFlagName  = "request-object-repository-s3-hostname"
+	requestObjectRepositoryS3HostNameEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_HOSTNAME"
+	requestObjectRepositoryS3HostNameFlagUsage = "request-object S3 Hostname"
+
 	issuerTopicFlagName  = "issuer-event-topic"
 	issuerTopicEnvKey    = "VC_REST_ISSUER_EVENT_TOPIC"
 	issuerTopicFlagUsage = "The name of the issuer event topic. " + commonEnvVarUsageText + issuerTopicEnvKey
@@ -229,31 +233,32 @@ const (
 )
 
 type startupParameters struct {
-	hostURL                         string
-	hostURLExternal                 string
-	universalResolverURL            string
-	orbDomain                       string
-	mode                            string
-	dbParameters                    *dbParameters
-	kmsParameters                   *kmsParameters
-	token                           string
-	requestTokens                   map[string]string
-	logLevel                        string
-	contextProviderURLs             []string
-	contextEnableRemote             bool
-	tlsParameters                   *tlsParameters
-	devMode                         bool
-	oAuthSecret                     string
-	oAuthClientsFilePath            string
-	metricsProviderName             string
-	prometheusMetricsProviderParams *prometheusMetricsProviderParams
-	apiGatewayURL                   string
-	requestObjectRepositoryType     string
-	requestObjectRepositoryS3Bucket string
-	requestObjectRepositoryS3Region string
-	issuerEventTopic                string
-	verifierEventTopic              string
-	claimDataTTL                    int32
+	hostURL                           string
+	hostURLExternal                   string
+	universalResolverURL              string
+	orbDomain                         string
+	mode                              string
+	dbParameters                      *dbParameters
+	kmsParameters                     *kmsParameters
+	token                             string
+	requestTokens                     map[string]string
+	logLevel                          string
+	contextProviderURLs               []string
+	contextEnableRemote               bool
+	tlsParameters                     *tlsParameters
+	devMode                           bool
+	oAuthSecret                       string
+	oAuthClientsFilePath              string
+	metricsProviderName               string
+	prometheusMetricsProviderParams   *prometheusMetricsProviderParams
+	apiGatewayURL                     string
+	requestObjectRepositoryType       string
+	requestObjectRepositoryS3Bucket   string
+	requestObjectRepositoryS3Region   string
+	requestObjectRepositoryS3HostName string
+	issuerEventTopic                  string
+	verifierEventTopic                string
+	claimDataTTL                      int32
 }
 
 type prometheusMetricsProviderParams struct {
@@ -394,6 +399,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3RegionEnvKey,
 	)
 
+	requestObjectRepositoryS3HostName := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		requestObjectRepositoryS3HostNameFlagName,
+		requestObjectRepositoryS3HostNameEnvKey,
+	)
+
 	issuerTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, issuerTopicFlagName, issuerTopicEnvKey)
 	if issuerTopic == "" {
 		issuerTopic = spi.IssuerEventTopic
@@ -410,31 +421,32 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	return &startupParameters{
-		hostURL:                         hostURL,
-		hostURLExternal:                 hostURLExternal,
-		universalResolverURL:            universalResolverURL,
-		orbDomain:                       orbDomain,
-		mode:                            mode,
-		dbParameters:                    dbParams,
-		kmsParameters:                   kmsParams,
-		tlsParameters:                   tlsParameters,
-		token:                           token,
-		requestTokens:                   requestTokens,
-		logLevel:                        loggingLevel,
-		contextProviderURLs:             contextProviderURLs,
-		contextEnableRemote:             contextEnableRemote,
-		devMode:                         devMode,
-		oAuthSecret:                     oAuthSecret,
-		oAuthClientsFilePath:            oAuthClientsFilePath,
-		metricsProviderName:             metricsProviderName,
-		prometheusMetricsProviderParams: prometheusMetricsProviderParams,
-		apiGatewayURL:                   apiGatewayURL,
-		requestObjectRepositoryType:     requestObjectRepositoryType,
-		requestObjectRepositoryS3Bucket: requestObjectRepositoryS3Bucket,
-		requestObjectRepositoryS3Region: requestObjectRepositoryS3Region,
-		issuerEventTopic:                issuerTopic,
-		verifierEventTopic:              verifierTopic,
-		claimDataTTL:                    int32(claimDataTTL.Seconds()),
+		hostURL:                           hostURL,
+		hostURLExternal:                   hostURLExternal,
+		universalResolverURL:              universalResolverURL,
+		orbDomain:                         orbDomain,
+		mode:                              mode,
+		dbParameters:                      dbParams,
+		kmsParameters:                     kmsParams,
+		tlsParameters:                     tlsParameters,
+		token:                             token,
+		requestTokens:                     requestTokens,
+		logLevel:                          loggingLevel,
+		contextProviderURLs:               contextProviderURLs,
+		contextEnableRemote:               contextEnableRemote,
+		devMode:                           devMode,
+		oAuthSecret:                       oAuthSecret,
+		oAuthClientsFilePath:              oAuthClientsFilePath,
+		metricsProviderName:               metricsProviderName,
+		prometheusMetricsProviderParams:   prometheusMetricsProviderParams,
+		apiGatewayURL:                     apiGatewayURL,
+		requestObjectRepositoryType:       requestObjectRepositoryType,
+		requestObjectRepositoryS3Bucket:   requestObjectRepositoryS3Bucket,
+		requestObjectRepositoryS3Region:   requestObjectRepositoryS3Region,
+		requestObjectRepositoryS3HostName: requestObjectRepositoryS3HostName,
+		issuerEventTopic:                  issuerTopic,
+		verifierEventTopic:                verifierTopic,
+		claimDataTTL:                      int32(claimDataTTL.Seconds()),
 	}, nil
 }
 
@@ -675,6 +687,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(requestObjectRepositoryTypeFlagName, "", requestObjectRepositoryTypeFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
+	startCmd.Flags().String(requestObjectRepositoryS3HostNameFlagName, "", requestObjectRepositoryS3HostNameFlagUsage)
 
 	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
