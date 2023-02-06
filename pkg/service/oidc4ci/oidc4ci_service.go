@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,claimDataStore=MockClaimDataStore
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,claimDataStore=MockClaimDataStore,profileService=MockProfileService
 
 package oidc4ci
 
@@ -17,8 +17,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/trustbloc/vcs/pkg/event/spi"
-
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -26,7 +24,9 @@ import (
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 const (
@@ -77,6 +77,10 @@ type wellKnownService interface {
 	) (*OIDCConfiguration, error)
 }
 
+type profileService interface {
+	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+}
+
 type oAuth2Client interface {
 	Exchange(
 		ctx context.Context,
@@ -100,6 +104,7 @@ type Config struct {
 	TransactionStore    transactionStore
 	ClaimDataStore      claimDataStore
 	WellKnownService    wellKnownService
+	ProfileService      profileService
 	IssuerVCSPublicHost string
 	OAuth2Client        oAuth2Client
 	HTTPClient          httpClient
@@ -113,6 +118,7 @@ type Service struct {
 	store               transactionStore
 	claimDataStore      claimDataStore
 	wellKnownService    wellKnownService
+	profileService      profileService
 	issuerVCSPublicHost string
 	oAuth2Client        oAuth2Client
 	httpClient          httpClient
@@ -127,6 +133,7 @@ func NewService(config *Config) (*Service, error) {
 		store:               config.TransactionStore,
 		claimDataStore:      config.ClaimDataStore,
 		wellKnownService:    config.WellKnownService,
+		profileService:      config.ProfileService,
 		issuerVCSPublicHost: config.IssuerVCSPublicHost,
 		oAuth2Client:        config.OAuth2Client,
 		httpClient:          config.HTTPClient,
@@ -213,15 +220,12 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		AuthorizationParameters: &OAuthParameters{
-			ClientID:     tx.ClientID,
-			ClientSecret: tx.ClientSecret,
-			ResponseType: req.ResponseType,
-			Scope:        tx.ClientScope,
-		},
+		ProfileID:                          tx.ProfileID,
+		TxID:                               tx.ID,
+		ResponseType:                       tx.ResponseType,
+		Scope:                              tx.ClientScope,
 		AuthorizationEndpoint:              tx.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
-		TxID:                               tx.ID,
 	}, nil
 }
 

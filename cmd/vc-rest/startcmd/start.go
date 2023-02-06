@@ -283,6 +283,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		ClaimDataStore:      claimDataStore,
 		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
 		WellKnownService:    wellknown.NewService(httpClient),
+		ProfileService:      issuerProfileSvc,
 		OAuth2Client:        oauth2client.NewOAuth2Client(),
 		HTTPClient:          httpClient,
 		EventService:        eventSvc,
