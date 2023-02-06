@@ -137,7 +137,7 @@ func (p *Store) GetResourceURL(key string) string {
 	hostName := fmt.Sprintf("https://%s.s3.%s.amazonaws.com", p.bucket, p.region)
 
 	if p.hostName != "" {
-		hostName = p.hostName
+		hostName = fmt.Sprintf("https://%s", p.hostName)
 	}
 
 	return fmt.Sprintf("%s/%s", hostName, key)
