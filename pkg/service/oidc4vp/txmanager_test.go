@@ -21,8 +21,8 @@ import (
 func TestTxManager_CreateTx(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID("txID"), nil)
-		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(&oidc4vp.Transaction{ID: "txID", ProfileID: "org_id"}, nil)
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(
+			oidc4vp.TxID("txID"), &oidc4vp.Transaction{ID: "txID", ProfileID: "org_id"}, nil)
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID"), 100*time.Second).Times(1).Return(true, nil)
@@ -39,7 +39,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 
 	t.Run("Fail", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID(""), errors.New("test error"))
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID(""), nil, errors.New("test error"))
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 
@@ -52,26 +52,11 @@ func TestTxManager_CreateTx(t *testing.T) {
 
 	t.Run("Fail", func(t *testing.T) {
 		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID("txID"), nil)
+		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID("txID"), nil, nil)
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID"), 100*time.Second).
 			Times(1).Return(false, errors.New("test error"))
-
-		manager := oidc4vp.NewTxManager(nonceStore, store, 100*time.Second)
-
-		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, "org_id")
-
-		require.Contains(t, err.Error(), "test error")
-	})
-
-	t.Run("Fail", func(t *testing.T) {
-		store := NewMockTxStore(gomock.NewController(t))
-		store.EXPECT().Create(gomock.Any(), gomock.Any()).Return(oidc4vp.TxID("txID"), nil)
-		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(nil, errors.New("test error"))
-
-		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
-		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID"), 100*time.Second).Times(1).Return(true, nil)
 
 		manager := oidc4vp.NewTxManager(nonceStore, store, 100*time.Second)
 

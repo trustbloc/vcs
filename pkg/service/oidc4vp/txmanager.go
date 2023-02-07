@@ -17,7 +17,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 const (
@@ -44,7 +43,7 @@ type TransactionUpdate struct {
 }
 
 type txStore interface {
-	Create(pd *presexch.PresentationDefinition, profileID string) (TxID, error)
+	Create(pd *presexch.PresentationDefinition, profileID string) (TxID, *Transaction, error)
 	Update(update TransactionUpdate) error
 	Get(txID TxID) (*Transaction, error)
 }
@@ -72,24 +71,14 @@ func NewTxManager(store txNonceStore, txStore txStore, interactionLiveTime time.
 
 // CreateTx creates transaction and generate one time access token.
 func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error) {
-	txID, err := tm.txStore.Create(pd, profileID)
+	txID, tx, err := tm.txStore.Create(pd, profileID)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}
 
-	logger.Info("create tx ID", log.WithID(string(txID)))
-
 	nonce, err := tm.tryCreateTxNonce(txID)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx nonce create failed: %w", err)
-	}
-
-	// TODO remove sleep just for testing why can't find tx
-	time.Sleep(1 * time.Second)
-
-	tx, err := tm.txStore.Get(txID)
-	if err != nil {
-		return nil, "", fmt.Errorf("oidc tx get failed: %w", err)
 	}
 
 	return tx, nonce, nil
