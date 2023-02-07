@@ -468,10 +468,15 @@ func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-				fmt.Errorf("profile with given id %s, dosn't exists", profileID))
+				fmt.Errorf("profile with given id %s, doesn't exist", profileID))
 		}
 
 		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
+	}
+
+	if profile == nil {
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
 	}
 
 	return profile, nil
