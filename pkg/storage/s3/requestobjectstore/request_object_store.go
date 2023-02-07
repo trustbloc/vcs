@@ -11,8 +11,9 @@ package requestobjectstore
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -73,15 +74,10 @@ func (p *Store) Create(
 	ctx context.Context,
 	request requestobject.RequestObject,
 ) (*requestobject.RequestObject, error) {
-	data, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-
 	request.ID = uuid.NewString()
 
-	_, err = p.s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Body:        bytes.NewReader(data),
+	_, err := p.s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Body:        bytes.NewReader([]byte(request.Content)),
 		Key:         aws.String(request.ID),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String(contentType),
@@ -106,12 +102,15 @@ func (p *Store) Find(
 		return nil, err
 	}
 
-	var targetObject requestobject.RequestObject
-	if err = json.NewDecoder(res.Body).Decode(&targetObject); err != nil {
+	buf := new(strings.Builder)
+	_, err = io.Copy(buf, res.Body)
+	if err != nil {
 		return nil, err
 	}
 
-	return &targetObject, nil
+	return &requestobject.RequestObject{
+		Content: buf.String(),
+	}, nil
 }
 
 func (p *Store) Delete(
