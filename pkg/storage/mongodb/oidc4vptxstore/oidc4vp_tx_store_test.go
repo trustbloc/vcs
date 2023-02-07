@@ -63,13 +63,13 @@ func TestTxStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create tx", func(t *testing.T) {
-		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
 		require.NoError(t, err)
 		require.NotNil(t, id)
 	})
 
 	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -80,7 +80,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Create tx then update with jwt vc", func(t *testing.T) {
-		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -106,7 +106,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Create tx then update with sdjwt vc", func(t *testing.T) {
-		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -132,7 +132,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Create tx then update with ld vc", func(t *testing.T) {
-		id, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)

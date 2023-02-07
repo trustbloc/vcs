@@ -49,7 +49,8 @@ func NewTxStore(mongoClient *mongodb.Client, documentLoader jsonld.DocumentLoade
 }
 
 // Create creates transaction document in a database.
-func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) (oidc4vp.TxID, error) {
+func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) (oidc4vp.TxID,
+	*oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -57,7 +58,7 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) 
 
 	pdContent, err := mongodb.StructureToMap(pd)
 	if err != nil {
-		return "", fmt.Errorf("create tx doc: %w", err)
+		return "", nil, fmt.Errorf("create tx doc: %w", err)
 	}
 
 	txDoc := &txDocument{
@@ -67,12 +68,19 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) 
 
 	result, err := collection.InsertOne(ctxWithTimeout, txDoc)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	txID := result.InsertedID.(primitive.ObjectID) //nolint: errcheck
 
-	return oidc4vp.TxID(txID.Hex()), nil
+	txDoc.ID = txID
+
+	tx, err := txFromDocument(txDoc, p.documentLoader)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return oidc4vp.TxID(txID.Hex()), tx, nil
 }
 
 // Get profile by give id.
