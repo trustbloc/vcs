@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
 
 const (
@@ -76,10 +77,15 @@ func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID str
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}
 
+	logger.Info("create tx ID", log.WithID(string(txID)))
+
 	nonce, err := tm.tryCreateTxNonce(txID)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx nonce create failed: %w", err)
 	}
+
+	// TODO remove sleep just for testing why can't find tx
+	time.Sleep(1 * time.Second)
 
 	tx, err := tm.txStore.Get(txID)
 	if err != nil {
