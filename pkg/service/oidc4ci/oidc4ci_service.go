@@ -321,6 +321,10 @@ func (s *Service) PrepareCredential(
 		Issued:  util.NewTime(time.Now()),
 	}
 
+	if tx.CredentialExpiresAt != nil {
+		vc.Expired = util.NewTime(*tx.CredentialExpiresAt)
+	}
+
 	if claimData != nil {
 		vc.Subject = verifiable.Subject{
 			ID:           req.DID,

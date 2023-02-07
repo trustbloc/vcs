@@ -8,6 +8,7 @@ package profile
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -47,10 +48,11 @@ type Issuer struct {
 }
 
 type CredentialTemplate struct {
-	Contexts          []string        `json:"contexts"`
-	ID                string          `json:"id"`
-	Type              string          `json:"type"`
-	CredentialSubject json.RawMessage `json:"credentialSubject"`
+	Contexts                            []string        `json:"contexts"`
+	ID                                  string          `json:"id"`
+	Type                                string          `json:"type"`
+	CredentialSubject                   json.RawMessage `json:"credentialSubject"`
+	CredentialDefaultExpirationDuration *time.Duration  `json:"credentialDefaultExpirationDuration"`
 }
 
 type CredentialMetaData struct {

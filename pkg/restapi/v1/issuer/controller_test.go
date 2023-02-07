@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -128,7 +129,8 @@ func TestController_PostIssueCredentials(t *testing.T) {
 						Contexts: []string{
 							"https://www.w3.org/2018/credentials/v1",
 						},
-						Type: "VerifiedEmployee",
+						Type:                                "VerifiedEmployee",
+						CredentialDefaultExpirationDuration: lo.ToPtr(55 * time.Hour),
 					},
 				},
 			}, nil)

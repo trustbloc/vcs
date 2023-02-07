@@ -230,6 +230,12 @@ func (c *Controller) buildCredentialsFromTemplate(
 		Issued: util2.NewTime(time.Now()),
 	}
 
+	if credentialTemplate.CredentialDefaultExpirationDuration != nil {
+		vcc.Expired = util2.NewTime(time.Now().UTC().Add(*credentialTemplate.CredentialDefaultExpirationDuration))
+	} else {
+		vcc.Expired = util2.NewTime(time.Now().Add(365 * 24 * time.Hour))
+	}
+
 	return vcc, nil
 }
 
@@ -364,6 +370,7 @@ func (c *Controller) initiateIssuance(
 		OpState:                   lo.FromPtr(req.OpState),
 		ClaimData:                 lo.FromPtr(req.ClaimData),
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
+		CredentialExpiresAt:       req.CredentialExpiresAt,
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)

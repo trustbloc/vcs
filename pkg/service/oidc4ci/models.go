@@ -64,6 +64,7 @@ type TransactionData struct {
 	WebHookURL                         string
 	UserPin                            string
 	DID                                string
+	CredentialExpiresAt                *time.Time
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -97,6 +98,7 @@ type InitiateIssuanceRequest struct {
 	OpState                   string
 	ClaimData                 map[string]interface{}
 	UserPinRequired           bool
+	CredentialExpiresAt       *time.Time
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.
