@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry
+//go:generate mockgen -destination service_mocks_test.go -self_package github.com/trustbloc/vcs/component/credentialstatus -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry
 
 package credentialstatus
 
@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -32,8 +31,8 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 )
 
 const (
@@ -43,11 +42,7 @@ const (
 	jsonKeyProofPurpose       = "proofPurpose"
 	jsonKeyVerificationMethod = "verificationMethod"
 	jsonKeySignatureOfType    = "type"
-
-	issuerProfiles   = "/issuer/profiles"
-	credentialStatus = "/credentials/status"
-
-	cslRequestTokenName = "csl"
+	cslRequestTokenName       = "csl"
 )
 
 var logger = log.New("vcs-statuslist-service")
@@ -65,14 +60,6 @@ type vcStatusStore interface {
 	Get(profileID, vcID string) (*verifiable.TypedID, error)
 }
 
-type cslStore interface {
-	Upsert(cslWrapper *cslstore.CSLWrapper) error
-	Get(id string) (*cslstore.CSLWrapper, error)
-	CreateLatestListID(id int) error
-	UpdateLatestListID(id int) error
-	GetLatestListID() (int, error)
-}
-
 type profileService interface {
 	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
 }
@@ -85,7 +72,7 @@ type Config struct {
 	TLSConfig      *tls.Config
 	RequestTokens  map[string]string
 	VDR            vdrapi.Registry
-	CSLStore       cslStore
+	CSLStore       credentialstatus.CSLStore
 	VCStatusStore  vcStatusStore
 	ListSize       int
 	Crypto         vcCrypto
@@ -99,7 +86,7 @@ type Service struct {
 	httpClient     httpClient
 	requestTokens  map[string]string
 	vdr            vdrapi.Registry
-	cslStore       cslStore
+	cslStore       credentialstatus.CSLStore
 	vcStatusStore  vcStatusStore
 	listSize       int
 	crypto         vcCrypto
@@ -198,17 +185,12 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredenti
 		return nil, err
 	}
 
-	statusURL, err := s.getStatusListVCURL(profile.URL, profile.ID, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create status URL: %w", err)
-	}
-
-	cslWrapper, err := s.getLatestCSLWrapper(signer, statusURL, vcStatusProcessor)
+	cslWrapper, err := s.getLatestCSLWrapper(signer, profile, vcStatusProcessor)
 	if err != nil {
 		return nil, err
 	}
 
-	statusListIndex := strconv.FormatInt(int64(cslWrapper.RevocationListIndex), 10)
+	statusBitIndex := strconv.FormatInt(int64(cslWrapper.RevocationListIndex), 10)
 
 	cslWrapper.Size++
 	cslWrapper.RevocationListIndex++
@@ -228,7 +210,7 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredenti
 	}
 
 	return &issuecredential.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(statusListIndex, cslWrapper.VC.ID),
+		TypedID: vcStatusProcessor.CreateVCStatus(statusBitIndex, cslWrapper.VC.ID),
 		Context: vcStatusProcessor.GetVCContext(),
 	}, nil
 }
@@ -241,12 +223,12 @@ func (s *Service) GetStatusListVC(profileID profileapi.ID, statusID string) (*ve
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	statusURL, err := s.getStatusListVCURL(profile.URL, profile.ID, statusID)
+	cslWrapperURL, err := s.cslStore.GetCSLWrapperURL(profile.URL, profile.ID, statusID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get status URL: %w", err)
+		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
 	}
 
-	cslWrapper, err := s.getCSLWrapper(statusURL)
+	cslWrapper, err := s.getCSLWrapper(cslWrapperURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get revocationListVC from store: %w", err)
 	}
@@ -293,11 +275,6 @@ func (s *Service) resolveHTTPUrl(url string) ([]byte, error) {
 	return resp, nil
 }
 
-// getStatusListVCURL returns StatusListVC URL.
-func (s *Service) getStatusListVCURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
-	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, statusID)
-}
-
 func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, error) {
 	return verifiable.ParseCredential(
 		vcBytes,
@@ -308,8 +285,8 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, erro
 	)
 }
 
-func (s *Service) getCSLWrapper(id string) (*cslstore.CSLWrapper, error) {
-	cslWrapper, err := s.cslStore.Get(id)
+func (s *Service) getCSLWrapper(cslWrapperURL string) (*credentialstatus.CSLWrapper, error) {
+	cslWrapper, err := s.cslStore.Get(cslWrapperURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get csl from store: %w", err)
 	}
@@ -353,40 +330,24 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 }
 
 //nolint:gocognit
-func (s *Service) getLatestCSLWrapper(profile *vc.Signer,
-	url string, processor vc.StatusProcessor) (*cslstore.CSLWrapper, error) {
+func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Issuer,
+	processor vc.StatusProcessor) (*credentialstatus.CSLWrapper, error) {
 	// get latest id
-	id, err := s.cslStore.GetLatestListID()
-	if err != nil { //nolint: nestif
-		if errors.Is(err, cslstore.ErrDataNotFound) {
-			if errPut := s.cslStore.CreateLatestListID(1); errPut != nil {
-				return nil, fmt.Errorf("failed to store latest list ID in store: %w", errPut)
-			}
-
-			// create verifiable credential that encapsulates the revocation list
-			credentials, errCreateVC := s.createVC(url+"/1", profile, processor)
-			if errCreateVC != nil {
-				return nil, errCreateVC
-			}
-
-			vcBytes, errMarshal := credentials.MarshalJSON()
-			if errMarshal != nil {
-				return nil, errMarshal
-			}
-
-			return &cslstore.CSLWrapper{VCByte: vcBytes, ListID: 1, VC: credentials}, nil
-		}
-
+	latestListID, err := s.cslStore.GetLatestListID()
+	if err != nil {
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	vcID := url + "/" + strconv.Itoa(id)
+	cslWrapperURL, err := s.cslStore.GetCSLWrapperURL(profile.URL, profile.ID, strconv.Itoa(latestListID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
+	}
 
-	w, err := s.getCSLWrapper(vcID)
+	w, err := s.getCSLWrapper(cslWrapperURL)
 	if err != nil { //nolint: nestif
-		if errors.Is(err, cslstore.ErrDataNotFound) {
+		if errors.Is(err, credentialstatus.ErrDataNotFound) {
 			// create verifiable credential that encapsulates the revocation list
-			credentials, errCreateVC := s.createVC(vcID, profile, processor)
+			credentials, errCreateVC := s.createVC(cslWrapperURL, signer, processor)
 			if errCreateVC != nil {
 				return nil, errCreateVC
 			}
@@ -396,7 +357,13 @@ func (s *Service) getLatestCSLWrapper(profile *vc.Signer,
 				return nil, errMarshal
 			}
 
-			return &cslstore.CSLWrapper{VCByte: vcBytes, ListID: id, VC: credentials}, nil
+			return &credentialstatus.CSLWrapper{
+				VCByte:              vcBytes,
+				Size:                0,
+				RevocationListIndex: 0,
+				ListID:              latestListID,
+				VC:                  credentials,
+			}, nil
 		}
 
 		return nil, fmt.Errorf("failed to get csl from store: %w", err)
