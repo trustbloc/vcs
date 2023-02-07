@@ -816,6 +816,18 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				},
 			},
 			{
+				name: "Returned empty profile",
+				setup: func() {
+					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, nil)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					c = echoContext(withRequestBody(req))
+				},
+				check: func(t *testing.T, err error) {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "profile with given id profileID, doesn't exist")
+				},
+			},
+			{
 				name: "Credential template ID is required",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
