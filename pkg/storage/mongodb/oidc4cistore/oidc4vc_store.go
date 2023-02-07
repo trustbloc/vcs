@@ -55,6 +55,7 @@ type mongoDocument struct {
 	WebHookURL                         string
 	DID                                string
 	UserPin                            string
+	CredentialExpiresAt                *time.Time
 }
 
 // Store stores oidc transactions in mongo.
@@ -216,6 +217,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		Status:                             data.State,
 		WebHookURL:                         data.WebHookURL,
 		DID:                                data.DID,
+		CredentialExpiresAt:                data.CredentialExpiresAt,
 	}
 }
 
@@ -247,6 +249,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			State:                              doc.Status,
 			WebHookURL:                         doc.WebHookURL,
 			DID:                                doc.DID,
+			CredentialExpiresAt:                doc.CredentialExpiresAt,
 		},
 	}
 }

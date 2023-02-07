@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -57,18 +58,19 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}
 
 	data := &TransactionData{
-		ProfileID:          profile.ID,
-		OrgID:              profile.OrganizationID,
-		CredentialTemplate: template,
-		CredentialFormat:   profile.VCConfig.Format,
-		ClaimEndpoint:      req.ClaimEndpoint,
-		GrantType:          req.GrantType,
-		ResponseType:       req.ResponseType,
-		Scope:              req.Scope,
-		OpState:            req.OpState,
-		State:              TransactionStateIssuanceInitiated,
-		WebHookURL:         profile.WebHook,
-		DID:                profile.SigningDID.DID,
+		ProfileID:           profile.ID,
+		OrgID:               profile.OrganizationID,
+		CredentialTemplate:  template,
+		CredentialFormat:    profile.VCConfig.Format,
+		ClaimEndpoint:       req.ClaimEndpoint,
+		GrantType:           req.GrantType,
+		ResponseType:        req.ResponseType,
+		Scope:               req.Scope,
+		OpState:             req.OpState,
+		State:               TransactionStateIssuanceInitiated,
+		WebHookURL:          profile.WebHook,
+		DID:                 profile.SigningDID.DID,
+		CredentialExpiresAt: lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
 	}
 
 	if err := s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
@@ -126,6 +128,21 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
+}
+
+func (s *Service) GetCredentialsExpirationTime(
+	req *InitiateIssuanceRequest,
+	template *profileapi.CredentialTemplate,
+) time.Time {
+	if req != nil && req.CredentialExpiresAt != nil {
+		return *req.CredentialExpiresAt
+	}
+
+	if template != nil && template.CredentialDefaultExpirationDuration != nil {
+		return time.Now().UTC().Add(*template.CredentialDefaultExpirationDuration)
+	}
+
+	return time.Now().UTC().Add(365 * 24 * time.Hour)
 }
 
 func (s *Service) extendTransactionWithOIDCConfig(

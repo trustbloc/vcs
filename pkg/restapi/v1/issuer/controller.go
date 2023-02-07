@@ -364,6 +364,7 @@ func (c *Controller) initiateIssuance(
 		OpState:                   lo.FromPtr(req.OpState),
 		ClaimData:                 lo.FromPtr(req.ClaimData),
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
+		CredentialExpiresAt:       req.CredentialExpiresAt,
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)

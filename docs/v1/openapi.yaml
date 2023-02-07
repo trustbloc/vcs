@@ -1171,6 +1171,10 @@ components:
       type: object
       description: Model for Initiate OIDC Credential Issuance Request.
       properties:
+        credential_expires_at:
+          type: string
+          format: date-time
+          description: 'Date when credentials should be consider as expired'
         credential_template_id:
           type: string
           description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'

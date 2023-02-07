@@ -13,6 +13,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
+
+	"github.com/samber/lo"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 
@@ -714,4 +717,46 @@ func TestService_InitiateIssuance(t *testing.T) {
 			tt.check(t, resp, err)
 		})
 	}
+}
+
+func TestCalculateExpiration(t *testing.T) {
+	t.Run("in request", func(t *testing.T) {
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{})
+		assert.NoError(t, err)
+		expected := time.Now().UTC().Add(25 * time.Minute)
+
+		got := svc.GetCredentialsExpirationTime(&oidc4ci.InitiateIssuanceRequest{
+			CredentialExpiresAt: &expected,
+		}, nil)
+
+		assert.Equal(t, expected, got)
+	})
+
+	t.Run("in template", func(t *testing.T) {
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{})
+		assert.NoError(t, err)
+		expected := time.Now().UTC().Add(60 * time.Hour)
+
+		got := svc.GetCredentialsExpirationTime(&oidc4ci.InitiateIssuanceRequest{
+			CredentialExpiresAt: nil,
+		}, &profileapi.CredentialTemplate{
+			CredentialDefaultExpirationDuration: lo.ToPtr(60 * time.Hour),
+		})
+
+		assert.Equal(t, got.Truncate(time.Hour*24), expected.Truncate(time.Hour*24))
+	})
+
+	t.Run("default", func(t *testing.T) {
+		svc, err := oidc4ci.NewService(&oidc4ci.Config{})
+		assert.NoError(t, err)
+		expected := time.Now().UTC().Add(365 * 24 * time.Hour)
+
+		got := svc.GetCredentialsExpirationTime(&oidc4ci.InitiateIssuanceRequest{
+			CredentialExpiresAt: nil,
+		}, &profileapi.CredentialTemplate{
+			CredentialDefaultExpirationDuration: nil,
+		})
+
+		assert.Equal(t, got.Truncate(time.Hour*24), expected.Truncate(time.Hour*24))
+	})
 }

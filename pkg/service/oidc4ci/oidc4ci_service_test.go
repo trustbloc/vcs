@@ -13,9 +13,12 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -742,6 +745,59 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				require.NoError(t, err)
+				require.NotNil(t, resp)
+			},
+		},
+		{
+			name: "Success LDP",
+			setup: func() {
+				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
+					ID: "txID",
+					TransactionData: oidc4ci.TransactionData{
+						IssuerToken: "issuer-access-token",
+						CredentialTemplate: &profileapi.CredentialTemplate{
+							Type: "VerifiedEmployee",
+						},
+						CredentialFormat:    vcsverifiable.Ldp,
+						CredentialExpiresAt: lo.ToPtr(time.Now().UTC().Add(55 * time.Hour)),
+					},
+				}, nil)
+
+				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
+
+				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
+					req *http.Request,
+				) (*http.Response, error) {
+					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
+					}, nil
+				})
+
+				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, tx *oidc4ci.Transaction) error {
+						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
+						return nil
+					})
+
+				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+						assert.Len(t, messages, 1)
+						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
+
+						return nil
+					})
+
+				req = &oidc4ci.PrepareCredential{
+					TxID: "txID",
+				}
+			},
+			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
+				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
+					resp.Credential.(*verifiable.Credential).Expired.Time.Truncate(time.Hour*24))
+
 				require.NoError(t, err)
 				require.NotNil(t, resp)
 			},
