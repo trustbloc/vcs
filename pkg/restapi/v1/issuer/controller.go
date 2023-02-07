@@ -230,6 +230,12 @@ func (c *Controller) buildCredentialsFromTemplate(
 		Issued: util2.NewTime(time.Now()),
 	}
 
+	if credentialTemplate.CredentialDefaultExpirationDuration != nil {
+		vcc.Expired = util2.NewTime(time.Now().UTC().Add(*credentialTemplate.CredentialDefaultExpirationDuration))
+	} else {
+		vcc.Expired = util2.NewTime(time.Now().Add(365 * 24 * time.Hour))
+	}
+
 	return vcc, nil
 }
 
