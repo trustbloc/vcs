@@ -109,7 +109,7 @@ func (b *Bus) stop() {
 
 // Subscribe subscribes to a topic and returns the Go channel over which messages
 // are sent. The returned channel will be closed when Close() is called on this struct.
-func (b *Bus) Subscribe(_ context.Context, topic string, _ ...spi.Option) (<-chan *spi.Event, error) {
+func (b *Bus) Subscribe(_ context.Context, topic string) (<-chan *spi.Event, error) {
 	if b.State() != lifecycle.StateStarted {
 		return nil, lifecycle.ErrNotStarted
 	}
@@ -129,7 +129,7 @@ func (b *Bus) Subscribe(_ context.Context, topic string, _ ...spi.Option) (<-cha
 // Publish publishes the given messages to the given topic. This function returns
 // immediately after sending the messages to the Go channel(s), although it will
 // block if the concurrency limit (defined by Config.Concurrency) has been reached.
-func (b *Bus) Publish(topic string, messages ...*spi.Event) error {
+func (b *Bus) Publish(_ context.Context, topic string, messages ...*spi.Event) error {
 	if b.State() != lifecycle.StateStarted {
 		return lifecycle.ErrNotStarted
 	}
@@ -140,11 +140,6 @@ func (b *Bus) Publish(topic string, messages ...*spi.Event) error {
 	}
 
 	return nil
-}
-
-// PublishWithOpts simply calls Publish since options are not supported.
-func (b *Bus) PublishWithOpts(topic string, msg *spi.Event, _ ...spi.Option) error {
-	return b.Publish(topic, msg)
 }
 
 func (b *Bus) processMessages() {

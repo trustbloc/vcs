@@ -86,8 +86,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -147,8 +147,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -221,8 +221,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -283,8 +283,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -436,8 +436,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -603,8 +603,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 					OpState:                   "eyJhbGciOiJSU0Et",
 				}
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -630,8 +630,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					nil, errors.New("invalid json"))
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 

@@ -517,7 +517,7 @@ type mockEvent struct {
 	err error
 }
 
-func (m *mockEvent) Publish(topic string, messages ...*spi.Event) error {
+func (m *mockEvent) Publish(ctx context2.Context, topic string, messages ...*spi.Event) error {
 	if m.err != nil {
 		return m.err
 	}

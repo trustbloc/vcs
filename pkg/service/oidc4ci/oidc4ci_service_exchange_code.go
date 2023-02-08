@@ -24,14 +24,14 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 
 	newState := TransactionStateIssuerOIDCAuthorizationDone
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return "", err
 	}
 	tx.State = newState
 
 	profile, err := s.profileService.GetProfile(tx.ProfileID)
 	if err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return "", err
 	}
 
@@ -47,18 +47,18 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 		Scopes:      tx.Scope,
 	}, tx.IssuerAuthCode, s.httpClient.(*http.Client)) // TODO: Fix this!
 	if err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return "", err
 	}
 
 	tx.IssuerToken = resp.AccessToken
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return "", err
 	}
 
-	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
+	if err = s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationCodeExchanged); err != nil {
 		return "", err
 	}
 

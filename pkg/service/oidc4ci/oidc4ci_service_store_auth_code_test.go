@@ -58,8 +58,8 @@ func TestStoreAuthCode(t *testing.T) {
 				return errors.New("update error")
 			})
 
-		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -89,8 +89,8 @@ func TestStoreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeStored)
 
@@ -120,16 +120,16 @@ func TestStoreAuthCode(t *testing.T) {
 				return nil
 			})
 
-		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeStored)
 
 				return errors.New("publish error")
 			})
 
-		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 

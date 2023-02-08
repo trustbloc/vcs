@@ -103,7 +103,7 @@ func TestRequestObjectStore(t *testing.T) {
 		}, nil)
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
-		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil)
 
 		store := NewRequestObjectStore(repo, eventSvc, uri, spi.VerifierEventTopic)
 
@@ -135,7 +135,7 @@ func TestRequestObjectStore(t *testing.T) {
 		}, nil)
 
 		eventSvc := NewMockEventService(gomock.NewController(t))
-		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(1).Return(errors.New("publish failed"))
+		eventSvc.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(errors.New("publish failed"))
 
 		store := NewRequestObjectStore(repo, eventSvc, uri, spi.VerifierEventTopic)
 
