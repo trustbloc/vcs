@@ -215,8 +215,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						return nil
 					}).Times(2)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationRequestPrepared)
 
@@ -260,16 +260,16 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 						return nil
 					}).Times(2)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationRequestPrepared)
 
 						return errors.New("publish event")
 					})
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -372,8 +372,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -413,8 +413,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -452,8 +452,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -525,8 +525,8 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
 
@@ -550,8 +550,8 @@ func TestValidatePreAuthCode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
 
@@ -583,8 +583,8 @@ func TestValidatePreAuthCode(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-			DoAndReturn(func(topic string, messages ...*spi.Event) error {
+		eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+			DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 				assert.Len(t, messages, 1)
 				assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionQRScanned)
 
@@ -732,8 +732,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
 
@@ -782,8 +782,8 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
 
@@ -818,8 +818,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
 
@@ -859,7 +859,7 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(gomock.Any(), gomock.Any()).Times(0)
+				eventMock.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
 
 				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(nil, errors.New("get error"))
@@ -897,16 +897,16 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionSucceeded)
 
 						return errors.New("publish error")
 					})
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -946,8 +946,8 @@ func TestService_PrepareCredential(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -987,8 +987,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					TransactionData: oidc4ci.TransactionData{},
 				}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -1082,8 +1082,8 @@ func TestService_PrepareCredential(t *testing.T) {
 					},
 				}, nil)
 
-				eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 

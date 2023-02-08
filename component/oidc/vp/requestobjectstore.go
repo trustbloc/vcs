@@ -25,7 +25,7 @@ type requestObjectStoreRepository interface {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 type RequestObjectStore struct {
@@ -86,7 +86,7 @@ func (s *RequestObjectStore) Get(ctx context.Context, id string) (*requestobject
 		return nil, err
 	}
 
-	err = s.eventSvc.Publish(s.eventTopic, result.AccessRequestObjectEvent)
+	err = s.eventSvc.Publish(ctx, s.eventTopic, result.AccessRequestObjectEvent)
 	if err != nil {
 		return nil, err
 	}

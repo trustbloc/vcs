@@ -41,8 +41,8 @@ func TestExchangeCode(t *testing.T) {
 	opState := uuid.NewString()
 	authCode := uuid.NewString()
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 			assert.Len(t, messages, 1)
 			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeExchanged)
 
@@ -128,8 +128,8 @@ func TestExchangeCodeProfileGetError(t *testing.T) {
 
 	profileService.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("get profile error"))
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 			assert.Len(t, messages, 1)
 			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -164,8 +164,8 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 		},
 	}, nil)
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 			assert.Len(t, messages, 1)
 			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -218,8 +218,8 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 		},
 	}
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 			assert.Len(t, messages, 1)
 			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -267,8 +267,8 @@ func TestExchangeCodeInvalidState(t *testing.T) {
 		},
 	}, nil)
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 			assert.Len(t, messages, 1)
 			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
 
@@ -299,8 +299,8 @@ func TestExchangeCodePublishError(t *testing.T) {
 	opState := uuid.NewString()
 	authCode := uuid.NewString()
 
-	eventMock.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-		DoAndReturn(func(topic string, messages ...*spi.Event) error {
+	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 			assert.Len(t, messages, 1)
 			assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionAuthorizationCodeExchanged)
 

@@ -119,7 +119,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		}
 	}
 
-	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
+	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 

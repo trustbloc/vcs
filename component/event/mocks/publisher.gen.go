@@ -2,17 +2,19 @@
 package mocks
 
 import (
+	"context"
 	"sync"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
 type EventPublisher struct {
-	PublishStub        func(string, ...*spi.Event) error
+	PublishStub        func(context.Context, string, ...*spi.Event) error
 	publishMutex       sync.RWMutex
 	publishArgsForCall []struct {
-		arg1 string
-		arg2 []*spi.Event
+		arg1 context.Context
+		arg2 string
+		arg3 []*spi.Event
 	}
 	publishReturns struct {
 		result1 error
@@ -24,22 +26,24 @@ type EventPublisher struct {
 	invocationsMutex sync.RWMutex
 }
 
-func (fake *EventPublisher) Publish(arg1 string, arg2 ...*spi.Event) error {
+func (fake *EventPublisher) Publish(arg1 context.Context, arg2 string, arg3 ...*spi.Event) error {
 	fake.publishMutex.Lock()
 	ret, specificReturn := fake.publishReturnsOnCall[len(fake.publishArgsForCall)]
 	fake.publishArgsForCall = append(fake.publishArgsForCall, struct {
-		arg1 string
-		arg2 []*spi.Event
-	}{arg1, arg2})
-	fake.recordInvocation("Publish", []interface{}{arg1, arg2})
+		arg1 context.Context
+		arg2 string
+		arg3 []*spi.Event
+	}{arg1, arg2, arg3})
+	stub := fake.PublishStub
+	fakeReturns := fake.publishReturns
+	fake.recordInvocation("Publish", []interface{}{arg1, arg2, arg3})
 	fake.publishMutex.Unlock()
-	if fake.PublishStub != nil {
-		return fake.PublishStub(arg1, arg2...)
+	if stub != nil {
+		return stub(arg1, arg2, arg3...)
 	}
 	if specificReturn {
 		return ret.result1
 	}
-	fakeReturns := fake.publishReturns
 	return fakeReturns.result1
 }
 
@@ -49,17 +53,17 @@ func (fake *EventPublisher) PublishCallCount() int {
 	return len(fake.publishArgsForCall)
 }
 
-func (fake *EventPublisher) PublishCalls(stub func(string, ...*spi.Event) error) {
+func (fake *EventPublisher) PublishCalls(stub func(context.Context, string, ...*spi.Event) error) {
 	fake.publishMutex.Lock()
 	defer fake.publishMutex.Unlock()
 	fake.PublishStub = stub
 }
 
-func (fake *EventPublisher) PublishArgsForCall(i int) (string, []*spi.Event) {
+func (fake *EventPublisher) PublishArgsForCall(i int) (context.Context, string, []*spi.Event) {
 	fake.publishMutex.RLock()
 	defer fake.publishMutex.RUnlock()
 	argsForCall := fake.publishArgsForCall[i]
-	return argsForCall.arg1, argsForCall.arg2
+	return argsForCall.arg1, argsForCall.arg2, argsForCall.arg3
 }
 
 func (fake *EventPublisher) PublishReturns(result1 error) {

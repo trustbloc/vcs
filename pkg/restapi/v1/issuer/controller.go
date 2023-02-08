@@ -53,7 +53,7 @@ type profileService interface {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 type issueCredentialService interface {

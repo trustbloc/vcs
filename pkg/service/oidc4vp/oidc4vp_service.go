@@ -43,7 +43,7 @@ type InteractionInfo struct {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 type transactionManager interface {
@@ -210,22 +210,23 @@ func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	return event, nil
 }
 
-func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {
-	return s.sendEventWithError(tx, profile, eventType, nil)
+func (s *Service) sendEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier,
+	eventType spi.EventType) error {
+	return s.sendEventWithError(ctx, tx, profile, eventType, nil)
 }
 
-func (s *Service) sendEventWithError(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType,
-	e error) error {
+func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, profile *profileapi.Verifier,
+	eventType spi.EventType, e error) error {
 	event, err := s.createEvent(tx, profile, eventType, e)
 	if err != nil {
 		return err
 	}
 
-	return s.eventSvc.Publish(s.eventTopic, event)
+	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(tx *Transaction, profile *profileapi.Verifier, err error) {
-	e := s.sendEventWithError(tx, profile, spi.VerifierOIDCInteractionFailed, err)
+func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier, err error) {
+	e := s.sendEventWithError(ctx, tx, profile, spi.VerifierOIDCInteractionFailed, err)
 	logger.Debug("sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
 }
 
@@ -248,7 +249,7 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debug("InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
-	if errSendEvent := s.sendEvent(tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
+	if errSendEvent := s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -312,18 +313,20 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 
 	logger.Debug(" VerifyOIDCVerifiablePresentation vp string", logfields.WithVP(string(vpBytes)))
 
+	ctx := context.TODO() // TODO: Use OpenTelemetry context.
+
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
 	if err != nil {
 		e := fmt.Errorf("presentation verification failed: %w", err)
-		s.sendFailedEvent(tx, profile, e)
+		s.sendFailedEvent(ctx, tx, profile, e)
 
 		return e
 	}
 
 	if len(vr) > 0 {
 		e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
-		s.sendFailedEvent(tx, profile, e)
+		s.sendFailedEvent(ctx, tx, profile, e)
 
 		return e
 	}
@@ -332,12 +335,12 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 
 	err = s.extractClaimData(tx, token, profile)
 	if err != nil {
-		s.sendFailedEvent(tx, profile, err)
+		s.sendFailedEvent(ctx, tx, profile, err)
 
 		return err
 	}
 
-	if err = s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
+	if err = s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
 	}
 

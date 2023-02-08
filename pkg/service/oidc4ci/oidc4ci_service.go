@@ -96,7 +96,7 @@ type httpClient interface {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 // Config holds configuration options and dependencies for Service.
@@ -171,7 +171,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	newState := TransactionStateAwaitingIssuerOIDCAuthorization
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 	tx.State = newState
@@ -204,18 +204,18 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	if req.AuthorizationDetails != nil {
 		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
-			s.sendFailedEvent(tx, err)
+			s.sendFailedEvent(ctx, tx, err)
 			return nil, err
 		}
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 
-	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
-		s.sendFailedEvent(tx, err)
+	if err = s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 
@@ -279,7 +279,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 		return nil, err
 	}
 
-	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
+	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -296,7 +296,7 @@ func (s *Service) PrepareCredential(
 	}
 
 	if tx.CredentialTemplate == nil {
-		s.sendFailedEvent(tx, ErrCredentialTemplateNotConfigured)
+		s.sendFailedEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
 		return nil, ErrCredentialTemplateNotConfigured
 	}
 
@@ -340,30 +340,30 @@ func (s *Service) PrepareCredential(
 	case vcsverifiable.Jwt:
 		claims, jwtClaimsErr := vc.JWTClaims(false)
 		if jwtClaimsErr != nil {
-			s.sendFailedEvent(tx, jwtClaimsErr)
+			s.sendFailedEvent(ctx, tx, jwtClaimsErr)
 			return nil, fmt.Errorf("create jwt claims: %w", jwtClaimsErr)
 		}
 
 		credential, err = claims.MarshalUnsecuredJWT()
 		if err != nil {
-			s.sendFailedEvent(tx, err)
+			s.sendFailedEvent(ctx, tx, err)
 			return nil, fmt.Errorf("marshal unsecured jwt: %w", err)
 		}
 	case vcsverifiable.Ldp:
 		credential = vc
 	default:
-		s.sendFailedEvent(tx, ErrCredentialFormatNotSupported)
+		s.sendFailedEvent(ctx, tx, ErrCredentialFormatNotSupported)
 		return nil, ErrCredentialFormatNotSupported
 	}
 
 	tx.State = TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 
-	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		s.sendFailedEvent(tx, errSendEvent)
+	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		s.sendFailedEvent(ctx, tx, errSendEvent)
 		return nil, errSendEvent
 	}
 
@@ -430,20 +430,20 @@ func (s *Service) createEvent(
 	return event, nil
 }
 
-func (s *Service) sendEvent(tx *Transaction, eventType spi.EventType) error {
-	return s.sendEventWithError(tx, eventType, nil)
+func (s *Service) sendEvent(ctx context.Context, tx *Transaction, eventType spi.EventType) error {
+	return s.sendEventWithError(ctx, tx, eventType, nil)
 }
 
-func (s *Service) sendEventWithError(tx *Transaction, eventType spi.EventType, e error) error {
+func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, eventType spi.EventType, e error) error {
 	event, err := s.createEvent(tx, eventType, e)
 	if err != nil {
 		return err
 	}
 
-	return s.eventSvc.Publish(s.eventTopic, event)
+	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(tx *Transaction, err error) {
-	e := s.sendEventWithError(tx, spi.IssuerOIDCInteractionFailed, err)
+func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, err error) {
+	e := s.sendEventWithError(ctx, tx, spi.IssuerOIDCInteractionFailed, err)
 	logger.Debug("sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
 }
