@@ -198,6 +198,10 @@ func createJSONLDDocumentLoader(ldStore *ldStoreProvider, tlsConfig *tls.Config,
 	}
 
 	for _, url := range providerURLs {
+		if url == "" {
+			continue
+		}
+
 		loaderOpts = append(loaderOpts,
 			ld.WithRemoteProvider(
 				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
