@@ -108,6 +108,10 @@ func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 			return nil, credentialstatus.ErrDataNotFound
 		}
 
+		if strings.Contains(err.Error(), "AccessDenied") {
+			return nil, credentialstatus.ErrDataNotFound
+		}
+
 		return nil, fmt.Errorf("failed to get CSL from S3: %w", err)
 	}
 
@@ -124,6 +128,10 @@ func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	if err != nil {
 		var awsError awserr.Error
 		if ok := errors.As(err, &awsError); ok && awsError.Code() == s3.ErrCodeNoSuchKey {
+			return nil, credentialstatus.ErrDataNotFound
+		}
+
+		if strings.Contains(err.Error(), "AccessDenied") {
 			return nil, credentialstatus.ErrDataNotFound
 		}
 
@@ -153,6 +161,10 @@ func (p *Store) GetLatestListID() (int, error) {
 	if err != nil {
 		var awsError awserr.Error
 		if ok := errors.As(err, &awsError); ok && awsError.Code() == s3.ErrCodeNoSuchKey {
+			return p.createListID(1)
+		}
+
+		if strings.Contains(err.Error(), "AccessDenied") {
 			return p.createListID(1)
 		}
 
