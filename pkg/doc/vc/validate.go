@@ -16,8 +16,12 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
-func ValidateCredential(cred interface{}, formats []vcsverifiable.Format,
-	opts ...verifiable.CredentialOpt) (*verifiable.Credential, error) {
+func ValidateCredential(
+	cred interface{},
+	formats []vcsverifiable.Format,
+	checkExpiration bool,
+	opts ...verifiable.CredentialOpt,
+) (*verifiable.Credential, error) {
 	vcBytes, err := vcsverifiable.ValidateFormat(cred, formats)
 	if err != nil {
 		return nil, err
@@ -30,7 +34,7 @@ func ValidateCredential(cred interface{}, formats []vcsverifiable.Format,
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}
 
-	if credential.Expired != nil && time.Now().UTC().After(credential.Expired.Time) {
+	if checkExpiration && credential.Expired != nil && time.Now().UTC().After(credential.Expired.Time) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
 			errors.New("credential expired"))
 	}

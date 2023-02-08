@@ -246,7 +246,12 @@ func (c *Controller) signCredential(
 ) (*verifiable.Credential, error) {
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 
-	credential, err := vc.ValidateCredential(cred, []vcsverifiable.Format{profile.VCConfig.Format},
+	credential, err := vc.ValidateCredential(
+		cred,
+		[]vcsverifiable.Format{
+			profile.VCConfig.Format,
+		},
+		false,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
