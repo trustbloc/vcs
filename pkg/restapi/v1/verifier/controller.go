@@ -192,11 +192,15 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 		return nil, err
 	}
 
-	credential, err := vc.ValidateCredential(body.Credential, profile.Checks.Credential.Format,
+	credential, err := vc.ValidateCredential(
+		body.Credential,
+		profile.Checks.Credential.Format,
+		profile.Checks.Credential.CredentialExpiry,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
 		),
-		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
+		verifiable.WithJSONLDDocumentLoader(c.documentLoader),
+	)
 
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)

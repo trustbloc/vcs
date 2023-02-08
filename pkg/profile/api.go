@@ -123,9 +123,10 @@ type PresentationChecks struct {
 
 // CredentialChecks are checks to be performed during credential verification.
 type CredentialChecks struct {
-	Proof  bool                   `json:"proof,omitempty"`
-	Format []vcsverifiable.Format `json:"format,omitempty"`
-	Status bool                   `json:"status,omitempty"`
+	Proof            bool                   `json:"proof,omitempty"`
+	Format           []vcsverifiable.Format `json:"format,omitempty"`
+	Status           bool                   `json:"status,omitempty"`
+	CredentialExpiry bool                   `json:"credentialExpiry,omitempty"`
 }
 
 // SigningDID contains information about profile signing did.
