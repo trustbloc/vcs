@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -32,10 +33,11 @@ func TestValidateCredential(t *testing.T) {
 		opts   []verifiable.CredentialOpt
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    func(t *testing.T) *verifiable.Credential
-		wantErr bool
+		name      string
+		args      args
+		want      func(t *testing.T) *verifiable.Credential
+		wantErr   bool
+		wantErrFn func(t *testing.T, err error)
 	}{
 		{
 			name: "OK JWT",
@@ -136,10 +138,33 @@ func TestValidateCredential(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "expired credentials",
+			args: args{
+				cred: func(t *testing.T) interface{} {
+					return "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0.eyJleHAiOjE1Nzc5MDY2MDQsImlhdCI6MTI2MjM3MzgwNCwiaXNzIjoiZGlkOmV4YW1wbGU6NzZlMTJlYzcxMmViYzZmMWMyMjFlYmZlYjFmIiwianRpIjoiaHR0cDovL2V4YW1wbGUuZWR1L2NyZWRlbnRpYWxzLzE4NzIiLCJuYmYiOjEyNjIzNzM4MDQsInN1YiI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsInZjIjp7IkBjb250ZXh0IjpbImh0dHBzOi8vd3d3LnczLm9yZy8yMDE4L2NyZWRlbnRpYWxzL3YxIiwiaHR0cHM6Ly93d3cudzMub3JnLzIwMTgvY3JlZGVudGlhbHMvZXhhbXBsZXMvdjEiLCJodHRwczovL3czaWQub3JnL3NlY3VyaXR5L2Jicy92MSJdLCJjcmVkZW50aWFsU3ViamVjdCI6eyJkZWdyZWUiOnsidHlwZSI6IkJhY2hlbG9yRGVncmVlIiwidW5pdmVyc2l0eSI6Ik1JVCJ9LCJpZCI6ImRpZDpleGFtcGxlOmViZmViMWY3MTJlYmM2ZjFjMjc2ZTEyZWMyMSIsIm5hbWUiOiJKYXlkZW4gRG9lIiwic3BvdXNlIjoiZGlkOmV4YW1wbGU6YzI3NmUxMmVjMjFlYmZlYjFmNzEyZWJjNmYxIn0sImV4cGlyYXRpb25EYXRlIjoiMjAyMC0wMS0wMVQxOToyMzoyNFoiLCJpZCI6Imh0dHA6Ly9leGFtcGxlLmVkdS9jcmVkZW50aWFscy8xODcyIiwiaXNzdWFuY2VEYXRlIjoiMjAxMC0wMS0wMVQxOToyMzoyNFoiLCJpc3N1ZXIiOnsiaWQiOiJkaWQ6ZXhhbXBsZTo3NmUxMmVjNzEyZWJjNmYxYzIyMWViZmViMWYiLCJuYW1lIjoiRXhhbXBsZSBVbml2ZXJzaXR5In0sInJlZmVyZW5jZU51bWJlciI6OC4zMjk0ODQ3ZSswNywidHlwZSI6WyJWZXJpZmlhYmxlQ3JlZGVudGlhbCIsIlVuaXZlcnNpdHlEZWdyZWVDcmVkZW50aWFsIl19fQ." // nolint
+				},
+				format: vcsverifiable.Jwt,
+				opts: []verifiable.CredentialOpt{
+					verifiable.WithDisabledProofCheck(),
+					verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				},
+			},
+			want: func(t *testing.T) *verifiable.Credential {
+				return nil
+			},
+			wantErr: true,
+			wantErrFn: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "invalid-value[credential]: credential expired")
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ValidateCredential(tt.args.cred(t), []vcsverifiable.Format{tt.args.format}, tt.args.opts...)
+			if err != nil && tt.wantErrFn != nil {
+				tt.wantErrFn(t, err)
+			}
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateCredential() error = %v, wantErr %v", err, tt.wantErr)
 				return
