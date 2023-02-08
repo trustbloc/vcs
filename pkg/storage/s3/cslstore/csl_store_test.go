@@ -143,11 +143,28 @@ func TestWrapperStore(t *testing.T) {
 		err = NewStore(errClient, bucket, region, hostName).Upsert(wrapperCreated)
 
 		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to upload cslWrapper")
+		assert.ErrorContains(t, err, "failed to upload CSL")
 	})
 
-	t.Run("Find non-existing document", func(t *testing.T) {
-		resp, err := store.Get("63451f2358bde34a13b5d95b")
+	t.Run("Find non-existing CSL", func(t *testing.T) {
+		errClient := &mockS3Uploader{
+			m: map[string]*s3.PutObjectInput{},
+			t: t,
+		}
+		resp, err := NewStore(errClient, bucket, region, hostName).Get("http://example.gov/credentials/3732.json")
+
+		assert.Nil(t, resp)
+		assert.ErrorIs(t, err, credentialstatus.ErrDataNotFound)
+	})
+
+	t.Run("Find non-existing cslWrapper", func(t *testing.T) {
+		errClient := &mockS3Uploader{
+			m: map[string]*s3.PutObjectInput{
+				"http://example.gov/credentials/3732.json": {Body: bytes.NewReader([]byte(``))},
+			},
+			t: t,
+		}
+		resp, err := NewStore(errClient, bucket, region, hostName).Get("http://example.gov/credentials/3732.json")
 
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err, credentialstatus.ErrDataNotFound)
@@ -159,13 +176,14 @@ func TestWrapperStore(t *testing.T) {
 
 		assert.Nil(t, resp)
 		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to get CSLWrapper from S3")
+		assert.ErrorContains(t, err, "failed to get CSL from S3")
 	})
 
 	t.Run("Malformed data Error on get", func(t *testing.T) {
 		errClient := &mockS3Uploader{
 			m: map[string]*s3.PutObjectInput{
-				"http://example.gov/credentials/3732.json": {Body: bytes.NewReader([]byte(``))},
+				"http://example.gov/credentials/3732.json":         {Body: bytes.NewReader([]byte(``))},
+				"http://example.gov/credentials/3732_wrapper.json": {Body: bytes.NewReader([]byte(``))},
 			},
 			t: t,
 		}
@@ -252,16 +270,28 @@ func TestLatestListID(t *testing.T) {
 	})
 }
 
-func TestStore_GetCSLWrapperURL(t *testing.T) {
+func TestStore_GetCSLURL(t *testing.T) {
 	store := NewStore(nil, bucket, region, hostName)
 	require.NotNil(t, store)
 
-	cslWrapperURL, err := store.GetCSLWrapperURL(
+	cslURL, err := store.GetCSLURL(
 		"https://example.com", "test_issuer", "1")
 	assert.NoError(t, err)
 	assert.Equal(t,
 		"https://test-bucket.s3.test-region.amazonaws.com/issuer/profiles/test_issuer/credentials/status/1.json",
-		cslWrapperURL)
+		cslURL)
+
+	// Convert to CSL S3 key.
+	cslS3Key := store.resolveCSLS3Key(cslURL)
+	assert.Equal(t,
+		"/issuer/profiles/test_issuer/credentials/status/1.json",
+		cslS3Key)
+
+	// Convert to cslWrapper S3 key.
+	cslWrapperS3Key := store.resolveCSLWrapperS3Key(cslURL)
+	assert.Equal(t,
+		"/issuer/profiles/test_issuer/credentials/status/1_wrapper.json",
+		cslWrapperS3Key)
 }
 
 func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatus.CSLWrapper) {

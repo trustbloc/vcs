@@ -26,7 +26,7 @@ type CSL string
 // CSLWrapper contains CSL and metadata.
 type CSLWrapper struct {
 	// VCByte stores the CSL.
-	VCByte json.RawMessage `json:"vc"`
+	VCByte json.RawMessage `json:"vc,omitempty"`
 	// Size represents the amount of credentials that Issuer issued using given CSL.
 	Size int `json:"size"`
 	// RevocationListIndex represents the bit position in CSL that stores the status of certain credential.

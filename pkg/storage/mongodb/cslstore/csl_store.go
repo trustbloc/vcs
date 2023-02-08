@@ -70,13 +70,13 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	return err
 }
 
-// GetCSLWrapperURL returns the URL of credentialstatus.CSLWrapper.
-func (p *Store) GetCSLWrapperURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+// GetCSLURL returns the URL of credentialstatus.CSL.
+func (p *Store) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
 	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, statusID)
 }
 
-// Get returns credentialstatus.CSLWrapper.
-func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
+// Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
+func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -84,7 +84,7 @@ func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
 
 	mongoDBDocument := map[string]interface{}{}
 
-	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": id}).Decode(mongoDBDocument)
+	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": cslURL}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, credentialstatus.ErrDataNotFound
 	}
