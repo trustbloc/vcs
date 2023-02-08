@@ -33,6 +33,8 @@ const (
 var (
 	//go:embed testdata/university_degree.jsonld
 	sampleVCJsonLD string
+	//go:embed testdata/university_degree.jwt
+	sampleVCJWT string
 )
 
 type mockS3Uploader struct {
@@ -97,50 +99,68 @@ func (m *mockS3Uploader) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutpu
 }
 
 func TestWrapperStore(t *testing.T) {
-	client := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
-	store := NewStore(client, bucket, region, hostName)
-
-	vc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
-		verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-		verifiable.WithDisabledProofCheck())
-	assert.NoError(t, err)
-
-	wrapperCreated := &credentialstatus.CSLWrapper{
-		VCByte:              []byte(sampleVCJsonLD),
-		RevocationListIndex: 1,
-		VC:                  vc,
+	tests := []struct {
+		name string
+		file []byte
+	}{
+		{
+			name: "JSON-LD",
+			file: []byte(sampleVCJsonLD),
+		},
+		{
+			name: "JWT",
+			file: []byte(sampleVCJWT),
+		},
 	}
+	for _, tt := range tests {
+		t.Run("Create, update, find wrapper VC "+tt.name, func(t *testing.T) {
+			client := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
+			store := NewStore(client, bucket, region, hostName)
 
-	t.Run("Create, update, find wrapper VC JSON-LD", func(t *testing.T) {
-		// Create - Find
-		err = store.Upsert(wrapperCreated)
-		assert.NoError(t, err)
+			vc, err := verifiable.ParseCredential(tt.file,
+				verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+				verifiable.WithDisabledProofCheck())
+			assert.NoError(t, err)
 
-		var wrapperFound *credentialstatus.CSLWrapper
-		wrapperFound, err = store.Get(vc.ID)
-		assert.NoError(t, err)
-		compareWrappers(t, wrapperCreated, wrapperFound)
+			vcBytes, err := vc.MarshalJSON()
+			assert.NoError(t, err)
 
-		// Update - Find
-		wrapperCreated.VC.Issuer.ID += "_123"
-		var vcUpdateBytes []byte
-		vcUpdateBytes, err = wrapperCreated.VC.MarshalJSON()
-		assert.NoError(t, err)
-		wrapperCreated.RevocationListIndex++
-		wrapperCreated.VCByte = vcUpdateBytes
+			wrapperCreated := &credentialstatus.CSLWrapper{
+				VCByte:              vcBytes,
+				RevocationListIndex: 1,
+				VC:                  vc,
+			}
+			// Create - Find
+			err = store.Upsert(wrapperCreated)
+			assert.NoError(t, err)
 
-		err = store.Upsert(wrapperCreated)
-		assert.NoError(t, err)
+			var wrapperFound *credentialstatus.CSLWrapper
+			wrapperFound, err = store.Get(vc.ID)
+			assert.NoError(t, err)
+			compareWrappers(t, wrapperCreated, wrapperFound)
 
-		wrapperFound, err = store.Get(vc.ID)
-		assert.NoError(t, err)
+			// Update - Find
+			wrapperCreated.VCByte = vcBytes
+			wrapperCreated.RevocationListIndex++
+			wrapperCreated.Size++
+			wrapperCreated.ListID++
 
-		compareWrappers(t, wrapperCreated, wrapperFound)
-	})
+			err = store.Upsert(wrapperCreated)
+			assert.NoError(t, err)
+
+			wrapperFound, err = store.Get(vc.ID)
+			assert.NoError(t, err)
+
+			compareWrappers(t, wrapperCreated, wrapperFound)
+		})
+	}
 
 	t.Run("Unexpected error from s3 client on upsert", func(t *testing.T) {
 		errClient := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, putErr: errors.New("some error")}
-		err = NewStore(errClient, bucket, region, hostName).Upsert(wrapperCreated)
+		wrapperCreated := &credentialstatus.CSLWrapper{
+			VC: &verifiable.Credential{ID: ""},
+		}
+		err := NewStore(errClient, bucket, region, hostName).Upsert(wrapperCreated)
 
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "failed to upload CSL")
@@ -309,5 +329,50 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 	if !assert.Equal(t, wrapperCreated.RevocationListIndex, wrapperFound.RevocationListIndex) {
 		t.Errorf("RevocationListIndex got = %v, want %v",
 			wrapperFound, wrapperCreated)
+	}
+}
+
+func Test_unQuote(t *testing.T) {
+	type args struct {
+		s []byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want []byte
+	}{
+		{
+			name: "OK",
+			args: args{
+				s: []byte(`"abc"`),
+			},
+			want: []byte(`abc`),
+		},
+		{
+			name: "OK one quote",
+			args: args{
+				s: []byte(`abc"`),
+			},
+			want: []byte(`abc"`),
+		},
+		{
+			name: "OK no quotes",
+			args: args{
+				s: []byte(`abc`),
+			},
+			want: []byte(`abc`),
+		},
+		{
+			name: "OK empty string",
+			args: args{
+				s: []byte(``),
+			},
+			want: []byte(``),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equalf(t, tt.want, unQuote(tt.args.s), "unQuote(%v)", tt.args.s)
+		})
 	}
 }

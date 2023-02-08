@@ -65,7 +65,7 @@ func NewStore(s3Uploader s3Uploader, bucket, region, hostName string) *Store {
 func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	// Put CSL.
 	_, err := p.s3Uploader.PutObject(&s3.PutObjectInput{
-		Body:        bytes.NewReader(cslWrapper.VCByte),
+		Body:        bytes.NewReader(unQuote(cslWrapper.VCByte)),
 		Key:         aws.String(p.resolveCSLS3Key(cslWrapper.VC.ID)),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String(contentType),
@@ -221,4 +221,16 @@ func (p *Store) getAmazonPublicDomain() string {
 	}
 
 	return fmt.Sprintf(amazonPublicDomainFmt, p.bucket, p.region)
+}
+
+func unQuote(s []byte) []byte {
+	if len(s) <= 1 {
+		return s
+	}
+
+	if s[0] == '"' && s[len(s)-1] == '"' {
+		return s[1 : len(s)-1]
+	}
+
+	return s
 }
