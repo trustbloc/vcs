@@ -913,7 +913,7 @@ type mockCSLStore struct {
 	s                     map[string]*credentialstatus.CSLWrapper
 }
 
-func (m *mockCSLStore) GetCSLWrapperURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+func (m *mockCSLStore) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
 	return url.JoinPath(issuerProfileURL, "issuer/profiles", issuerProfileID, "credentials/status", statusID)
 }
 

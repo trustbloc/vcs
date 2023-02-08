@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -60,8 +61,22 @@ func NewStore(s3Uploader s3Uploader, bucket, region, hostName string) *Store {
 	}
 }
 
-// Upsert does upsert operation of cslWrapper against underlying MongoDB.
+// Upsert does upsert operation of credentialstatus.CSLWrapper.
 func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
+	// Put CSL.
+	_, err := p.s3Uploader.PutObject(&s3.PutObjectInput{
+		Body:        bytes.NewReader(cslWrapper.VCByte),
+		Key:         aws.String(p.resolveCSLS3Key(cslWrapper.VC.ID)),
+		Bucket:      aws.String(p.bucket),
+		ContentType: aws.String(contentType),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload CSL: %w", err)
+	}
+
+	// Put cslWrapper.
+	cslWrapper.VCByte = nil
+
 	data, err := json.Marshal(cslWrapper)
 	if err != nil {
 		return fmt.Errorf("failed to marshal cslWrapper: %w", err)
@@ -69,7 +84,7 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 
 	_, err = p.s3Uploader.PutObject(&s3.PutObjectInput{
 		Body:        bytes.NewReader(data),
-		Key:         aws.String(p.resolveCSLS3Key(cslWrapper.VC.ID)),
+		Key:         aws.String(p.resolveCSLWrapperS3Key(cslWrapper.VC.ID)),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String(contentType),
 	})
@@ -80,11 +95,31 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	return nil
 }
 
-// Get returns credentialstatus.CSLWrapper.
-func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
-	res, err := p.s3Uploader.GetObject(&s3.GetObjectInput{
+// Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
+func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
+	// Get CSL.
+	cslRes, err := p.s3Uploader.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
-		Key:    aws.String(p.resolveCSLS3Key(id)),
+		Key:    aws.String(p.resolveCSLS3Key(cslURL)),
+	})
+	if err != nil {
+		var awsError awserr.Error
+		if ok := errors.As(err, &awsError); ok && awsError.Code() == s3.ErrCodeNoSuchKey {
+			return nil, credentialstatus.ErrDataNotFound
+		}
+
+		return nil, fmt.Errorf("failed to get CSL from S3: %w", err)
+	}
+
+	cslBytes, err := io.ReadAll(cslRes.Body)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read CSL body: %w", err)
+	}
+
+	// Get CSLWrapper.
+	wrapperRes, err := p.s3Uploader.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(p.bucket),
+		Key:    aws.String(p.resolveCSLWrapperS3Key(cslURL)),
 	})
 	if err != nil {
 		var awsError awserr.Error
@@ -96,9 +131,11 @@ func (p *Store) Get(id string) (*credentialstatus.CSLWrapper, error) {
 	}
 
 	var cslWrapper credentialstatus.CSLWrapper
-	if err = json.NewDecoder(res.Body).Decode(&cslWrapper); err != nil {
+	if err = json.NewDecoder(wrapperRes.Body).Decode(&cslWrapper); err != nil {
 		return nil, fmt.Errorf("failed to decode cslWrapper: %w", err)
 	}
+
+	cslWrapper.VCByte = cslBytes
 
 	return &cslWrapper, nil
 }
@@ -130,8 +167,8 @@ func (p *Store) GetLatestListID() (int, error) {
 	return listID.ListID, nil
 }
 
-// GetCSLWrapperURL returns the URL of CSLWrapper.
-func (p *Store) GetCSLWrapperURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+// GetCSLURL returns the public URL of credentialstatus.CSL.
+func (p *Store) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
 	return url.JoinPath(
 		p.getAmazonPublicDomain(),
 		issuerProfiles,
@@ -160,8 +197,18 @@ func (p *Store) createListID(id int) (int, error) {
 	return id, nil
 }
 
-func (p *Store) resolveCSLS3Key(cslVCID string) string {
-	return strings.TrimPrefix(cslVCID, p.getAmazonPublicDomain())
+func (p *Store) resolveCSLS3Key(cslURL string) string {
+	return strings.TrimPrefix(cslURL, p.getAmazonPublicDomain())
+}
+
+func (p *Store) resolveCSLWrapperS3Key(cslURL string) string {
+	cslS3Key := p.resolveCSLS3Key(cslURL)
+
+	fileExtension := filepath.Ext(cslS3Key)
+
+	cslS3Key = strings.TrimSuffix(cslS3Key, fileExtension)
+
+	return cslS3Key + fmt.Sprintf("_wrapper%s", fileExtension)
 }
 
 func (p *Store) resolveLatestListIDS3Key() string {

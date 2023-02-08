@@ -223,12 +223,12 @@ func (s *Service) GetStatusListVC(profileID profileapi.ID, statusID string) (*ve
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	cslWrapperURL, err := s.cslStore.GetCSLWrapperURL(profile.URL, profile.ID, statusID)
+	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, statusID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
 	}
 
-	cslWrapper, err := s.getCSLWrapper(cslWrapperURL)
+	cslWrapper, err := s.getCSLWrapper(cslURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get revocationListVC from store: %w", err)
 	}
@@ -285,13 +285,14 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, erro
 	)
 }
 
-func (s *Service) getCSLWrapper(cslWrapperURL string) (*credentialstatus.CSLWrapper, error) {
-	cslWrapper, err := s.cslStore.Get(cslWrapperURL)
+func (s *Service) getCSLWrapper(cslURL string) (*credentialstatus.CSLWrapper, error) {
+	cslWrapper, err := s.cslStore.Get(cslURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get csl from store: %w", err)
 	}
 
-	cslWrapper.VC, err = verifiable.ParseCredential(cslWrapper.VCByte, verifiable.WithDisabledProofCheck(),
+	cslWrapper.VC, err = verifiable.ParseCredential(cslWrapper.VCByte,
+		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 	if err != nil {
 		return nil, err
@@ -338,16 +339,16 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	cslWrapperURL, err := s.cslStore.GetCSLWrapperURL(profile.URL, profile.ID, strconv.Itoa(latestListID))
+	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, strconv.Itoa(latestListID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
 	}
 
-	w, err := s.getCSLWrapper(cslWrapperURL)
+	w, err := s.getCSLWrapper(cslURL)
 	if err != nil { //nolint: nestif
 		if errors.Is(err, credentialstatus.ErrDataNotFound) {
 			// create verifiable credential that encapsulates the revocation list
-			credentials, errCreateVC := s.createVC(cslWrapperURL, signer, processor)
+			credentials, errCreateVC := s.createVC(cslURL, signer, processor)
 			if errCreateVC != nil {
 				return nil, errCreateVC
 			}

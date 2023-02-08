@@ -292,17 +292,17 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 	}
 }
 
-func TestStore_GetCSLWrapperURL(t *testing.T) {
+func TestStore_GetCSLURL(t *testing.T) {
 	store := NewStore(nil)
 	require.NotNil(t, store)
 
-	cslWrapperURL, err := store.GetCSLWrapperURL(
+	cslURL, err := store.GetCSLURL(
 		"https://example.com", "test_issuer", "1")
 	assert.NoError(t, err)
-	assert.Equal(t, "https://example.com/issuer/profiles/test_issuer/credentials/status/1", cslWrapperURL)
+	assert.Equal(t, "https://example.com/issuer/profiles/test_issuer/credentials/status/1", cslURL)
 
-	cslWrapperURL, err = store.GetCSLWrapperURL(
+	cslURL, err = store.GetCSLURL(
 		" https://example.com", "test_issuer", "1")
 	assert.Error(t, err)
-	assert.Empty(t, cslWrapperURL)
+	assert.Empty(t, cslURL)
 }
