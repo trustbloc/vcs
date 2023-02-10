@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
@@ -197,7 +198,7 @@ func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.Signa
 func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	km kms.KeyManager) (string, error) {
 
-	signr, err := signer.NewKMSSigner(km, crpt, didKeyID, "ES384", nil)
+	signr, err := signer.NewKMSSigner(km, crpt, strings.Split(didKeyID, "#")[1], "ES384", nil)
 
 	token, err := jwt.NewSigned(claims, nil, jws.NewSigner(didKeyID, "ES384", signr))
 	if err != nil {

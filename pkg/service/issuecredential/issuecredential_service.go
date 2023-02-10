@@ -76,6 +76,7 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	signer := &vc.Signer{
 		DID:                     profile.SigningDID.DID,
 		Creator:                 profile.SigningDID.Creator,
+		KMSKeyID:                profile.SigningDID.KMSKeyID,
 		SignatureType:           profile.VCConfig.SigningAlgorithm,
 		KeyType:                 profile.VCConfig.KeyType,
 		KMS:                     kms,

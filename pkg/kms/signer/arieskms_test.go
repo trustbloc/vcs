@@ -258,20 +258,6 @@ func TestNewKMSSigner(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Error invalid creator",
-			args: args{
-				keyManager: &mockkms.KeyManager{
-					GetKeyValue: &keyset.Handle{},
-					GetKeyErr:   nil,
-				},
-				c:             &mockcrypto.Crypto{},
-				creator:       "key1",
-				signatureType: vcsverifiable.BbsBlsSignature2020,
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
 			name: "Error key manager",
 			args: args{
 				keyManager: &mockkms.KeyManager{

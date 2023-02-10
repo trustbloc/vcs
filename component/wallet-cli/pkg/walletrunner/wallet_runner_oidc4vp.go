@@ -326,7 +326,7 @@ func (e *VPFlowExecutor) CreateAuthorizedResponse() (string, error) {
 func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	km kms.KeyManager, signType vcs.SignatureType) (string, error) {
 
-	kmsSigner, err := signer.NewKMSSigner(km, crpt, didKeyID, signType, nil)
+	kmsSigner, err := signer.NewKMSSigner(km, crpt, strings.Split(didKeyID, "#")[1], signType, nil)
 	if err != nil {
 		return "", fmt.Errorf("create kms signer: %w", err)
 	}

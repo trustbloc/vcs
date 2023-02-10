@@ -133,6 +133,7 @@ type CredentialChecks struct {
 type SigningDID struct {
 	DID            string `json:"did,omitempty"`
 	Creator        string `json:"creator,omitempty"`
+	KMSKeyID       string `json:"kmsKeyID,omitempty"`
 	UpdateKeyURL   string `json:"updateKeyURL,omitempty"`
 	RecoveryKeyURL string `json:"recoveryKeyURL,omitempty"`
 }

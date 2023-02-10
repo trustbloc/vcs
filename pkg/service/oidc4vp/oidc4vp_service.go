@@ -477,7 +477,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 		return "", fmt.Errorf("initiate oidc interaction: get jwt signature type failed: %w", err)
 	}
 
-	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.Creator, signingAlgorithm)
+	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.KMSKeyID, signingAlgorithm)
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err)
 	}

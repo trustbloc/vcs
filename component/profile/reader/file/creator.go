@@ -44,6 +44,7 @@ var signatureTypeToDidVerificationMethod = map[vcsverifiable.SignatureType]strin
 type createResult struct {
 	didID          string
 	creator        string
+	kmsKeyID       string
 	updateKeyURL   string
 	recoveryKeyURL string
 }
@@ -154,6 +155,7 @@ func (c *Creator) createDID(verificationMethodType vcsverifiable.SignatureType, 
 	return &createResult{
 		didID:          didResolution.DIDDocument.ID,
 		creator:        didResolution.DIDDocument.ID + "#" + assertion.ID,
+		kmsKeyID:       assertion.ID,
 		updateKeyURL:   updateURL,
 		recoveryKeyURL: recoveryURL,
 	}, nil
@@ -178,8 +180,9 @@ func (c *Creator) keyDID(verificationMethodType vcsverifiable.SignatureType, key
 	}
 
 	return &createResult{
-		didID:   didResolution.DIDDocument.ID,
-		creator: didResolution.DIDDocument.ID + "#" + verMethod[0].ID,
+		didID:    didResolution.DIDDocument.ID,
+		creator:  didResolution.DIDDocument.VerificationMethod[0].ID,
+		kmsKeyID: verMethod[0].ID,
 	}, nil
 }
 
@@ -202,8 +205,9 @@ func (c *Creator) jwkDID(verificationMethodType vcsverifiable.SignatureType, key
 	}
 
 	return &createResult{
-		didID:   didResolution.DIDDocument.ID,
-		creator: didResolution.DIDDocument.ID + "#" + verMethod[0].ID,
+		didID:    didResolution.DIDDocument.ID,
+		creator:  didResolution.DIDDocument.VerificationMethod[0].ID,
+		kmsKeyID: verMethod[0].ID,
 	}, nil
 }
 
@@ -222,6 +226,7 @@ func (c *Creator) webDID(verificationMethodType vcsverifiable.SignatureType, key
 	return &createResult{
 		didID:          didWeb,
 		creator:        creator,
+		kmsKeyID:       strings.Split(creator, "#")[1],
 		updateKeyURL:   r.updateKeyURL,
 		recoveryKeyURL: r.recoveryKeyURL,
 	}, nil
@@ -286,6 +291,7 @@ func (c *Creator) ionDID(verificationMethodType vcsverifiable.SignatureType, key
 	return &createResult{
 		didID:          didResolution.DIDDocument.ID,
 		creator:        didResolution.DIDDocument.ID + "#" + vm.ID,
+		kmsKeyID:       vm.ID,
 		updateKeyURL:   updateURL,
 		recoveryKeyURL: recoveryURL,
 	}, nil
