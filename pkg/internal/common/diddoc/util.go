@@ -12,7 +12,10 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
+	"github.com/trustbloc/logutil-go/pkg/log"
 )
+
+var logger = log.New("util")
 
 const (
 	creatorParts = 2
@@ -36,6 +39,9 @@ func GetKeyIDFromVerificationMethod(creator string) (string, error) {
 	if len(idSplit) != creatorParts {
 		return "", fmt.Errorf(fmt.Sprintf(invalidFormatErrMsgFmt, creator))
 	}
+
+	logger.Info("key creator", log.WithID(creator))
+	logger.Info("key creator after split", log.WithID(idSplit[1]))
 
 	return idSplit[1], nil
 }
