@@ -125,6 +125,7 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 			v.Data.SigningDID = &profileapi.SigningDID{
 				DID:            createResult.didID,
 				Creator:        createResult.creator,
+				KMSKeyID:       createResult.kmsKeyID,
 				UpdateKeyURL:   createResult.updateKeyURL,
 				RecoveryKeyURL: createResult.recoveryKeyURL,
 			}
@@ -216,6 +217,7 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 			v.Data.SigningDID = &profileapi.SigningDID{
 				DID:            createResult.didID,
 				Creator:        createResult.creator,
+				KMSKeyID:       createResult.kmsKeyID,
 				UpdateKeyURL:   createResult.updateKeyURL,
 				RecoveryKeyURL: createResult.recoveryKeyURL,
 			}

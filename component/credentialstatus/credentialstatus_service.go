@@ -135,6 +135,7 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 		Format:                  issuerProfile.VCConfig.Format,
 		DID:                     issuerProfile.SigningDID.DID,
 		Creator:                 issuerProfile.SigningDID.Creator,
+		KMSKeyID:                issuerProfile.SigningDID.KMSKeyID,
 		SignatureType:           issuerProfile.VCConfig.SigningAlgorithm,
 		KeyType:                 issuerProfile.VCConfig.KeyType,
 		KMS:                     keyManager,
@@ -171,6 +172,7 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredenti
 	signer := &vc.Signer{
 		DID:                     profile.SigningDID.DID,
 		Creator:                 profile.SigningDID.Creator,
+		KMSKeyID:                profile.SigningDID.KMSKeyID,
 		SignatureType:           profile.VCConfig.SigningAlgorithm,
 		KeyType:                 profile.VCConfig.KeyType,
 		KMS:                     kms,
@@ -420,12 +422,7 @@ func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccryp
 	}
 
 	// add verification method option only when it is not matching profile creator
-	if !strings.HasPrefix(profile.Creator, "did:key") &&
-		!strings.HasPrefix(profile.Creator, "did:jwk") &&
-		!strings.HasPrefix(profile.Creator, "did:orb") &&
-		!strings.HasPrefix(profile.Creator, "did:ion") &&
-		!strings.HasPrefix(profile.Creator, "did:web") &&
-		vm != profile.Creator {
+	if vm != profile.Creator {
 		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
 	}
 

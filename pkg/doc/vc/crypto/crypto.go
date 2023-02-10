@@ -177,7 +177,7 @@ func (c *Crypto) signCredentialLDP(
 		signatureType = signOpts.SignatureType
 	}
 
-	signingCtx, err := c.getLinkedDataProofContext(signerData.Creator, signerData.KMS, signatureType, AssertionMethod,
+	signingCtx, err := c.getLinkedDataProofContext(signerData, signerData.KMS, signatureType, AssertionMethod,
 		signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
@@ -205,10 +205,12 @@ func (c *Crypto) signCredentialJWT(
 		signatureType = signOpts.SignatureType
 	}
 
-	s, method, err := c.getSigner(signerData.Creator, signerData.KMS, signOpts, signatureType)
+	s, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signOpts, signatureType)
 	if err != nil {
 		return nil, fmt.Errorf("getting signer for JWS: %w", err)
 	}
+
+	method := signerData.Creator
 
 	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
 	if err != nil {
@@ -294,7 +296,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 	}
 
 	signingCtx, err := c.getLinkedDataProofContext(
-		signerData.Creator, signerData.KMS, signatureType, Authentication, signerData.SignatureRepresentation, signOpts)
+		signerData, signerData.KMS, signatureType, Authentication, signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -311,10 +313,10 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
+func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 	signatureType vcsverifiable.SignatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, method, err := c.getSigner(creator, km, opts, signatureType)
+	s, _, err := c.getSigner(signerData.KMSKeyID, km, opts, signatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -322,6 +324,8 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 	if opts.Purpose != "" {
 		proofPurpose = opts.Purpose
 	}
+
+	method := signerData.Creator
 
 	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
 	if err != nil {
@@ -359,12 +363,6 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 
 	vm := method
 
-	if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") ||
-		strings.HasPrefix(method, "did:orb") || strings.HasPrefix(method, "did:ion") ||
-		strings.HasPrefix(method, "did:web") {
-		vm = didDoc.AssertionMethod[0].VerificationMethod.ID
-	}
-
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      vm,
 		SignatureRepresentation: signRep,
@@ -381,16 +379,13 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method.
-func (c *Crypto) getSigner(creator string, km keyManager, opts *signingOpts,
+//
+//nolint:unparam
+func (c *Crypto) getSigner(kmsKeyID string, km keyManager, opts *signingOpts,
 	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, string, error) {
-	verificationMethod := creator
-	if opts.VerificationMethod != "" {
-		verificationMethod = opts.VerificationMethod
-	}
+	s, err := km.NewVCSigner(kmsKeyID, signatureType)
 
-	s, err := km.NewVCSigner(verificationMethod, signatureType)
-
-	return s, verificationMethod, err
+	return s, kmsKeyID, err
 }
 
 // ValidateProofPurpose validates the proof purpose.
@@ -434,13 +429,7 @@ func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
 
 func isValidVerificationMethod(method string, vms []did.Verification) bool {
 	for _, vm := range vms {
-		if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") ||
-			strings.HasPrefix(method, "did:orb") || strings.HasPrefix(method, "did:ion") ||
-			strings.HasPrefix(method, "did:web") {
-			if strings.Split(method, "#")[0] == strings.Split(vm.VerificationMethod.ID, "#")[0] {
-				return true
-			}
-		} else if method == vm.VerificationMethod.ID {
+		if method == vm.VerificationMethod.ID {
 			return true
 		}
 	}

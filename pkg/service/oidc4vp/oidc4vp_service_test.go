@@ -101,8 +101,9 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			KeyType: kms.ED25519Type,
 		},
 		SigningDID: &profileapi.SigningDID{
-			DID:     "did:test:acde",
-			Creator: "did:test:acde#" + keyID,
+			DID:      "did:test:acde",
+			Creator:  "did:test:acde#" + keyID,
+			KMSKeyID: keyID,
 		},
 	}
 
@@ -202,7 +203,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Invalid key", func(t *testing.T) {
 		incorrectProfile := &profileapi.Verifier{}
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
-		incorrectProfile.SigningDID.Creator = "invalid"
+		incorrectProfile.SigningDID.KMSKeyID = "invalid"
 
 		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 

@@ -76,12 +76,6 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 			err               string
 		}{
 			{
-				name:              "signing with verification method option",
-				signingOpts:       []SigningOpts{WithVerificationMethod("did:trustbloc:abc#key1")},
-				responsePurpose:   "assertionMethod",
-				responseVerMethod: "did:trustbloc:abc#key1",
-			},
-			{
 				name:              "signing with domain option",
 				signingOpts:       []SigningOpts{WithDomain("example.com")},
 				responsePurpose:   "assertionMethod",
@@ -94,26 +88,6 @@ func TestCrypto_SignCredentialLDP(t *testing.T) { //nolint:gocognit
 				responsePurpose:   "assertionMethod",
 				responseVerMethod: "did:trustbloc:abc#key1",
 				responseChallenge: "challenge",
-			},
-			{
-				name:        "signing with verification method option with profile DID",
-				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc#key1")},
-				vcSigner: &vc.Signer{
-					DID:           "did:trustbloc:abc",
-					SignatureType: "Ed25519Signature2018",
-					Creator:       "did:trustbloc:abc#key1",
-					KMS: &mockVCSKeyManager{
-						crypto: &cryptomock.Crypto{},
-						kms:    &mockkms.KeyManager{},
-					},
-				},
-				responsePurpose:   AssertionMethod,
-				responseVerMethod: "did:trustbloc:abc#key1",
-			},
-			{
-				name:        "signing with verification method option with profile DID",
-				signingOpts: []SigningOpts{WithVerificationMethod("did:trustbloc:abc")},
-				err:         "verificationMethod value did:trustbloc:abc should be in did#keyID format",
 			},
 			{
 				name: "signing with verification method, purpose options & representation(proofValue)",
@@ -438,29 +412,6 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Error getSigner",
-			fields: fields{
-				getVDR: func() vdr.Registry {
-					return &vdrmock.MockVDRegistry{ResolveValue: didDoc}
-				},
-			},
-			args: args{
-				signerData: &vc.Signer{
-					DID:           didID,
-					SignatureType: "JsonWebSignature2020",
-					KeyType:       kms.ED25519Type,
-					KMS:           &mockVCSKeyManager{},
-				},
-				getVC: func() *verifiable.Credential {
-					return &unsignedVc
-				},
-				opts: []SigningOpts{
-					WithVerificationMethod(didID),
-				},
-			},
-			wantErr: true,
-		},
-		{
 			name: "Error GetDIDDocFromVerificationMethod",
 			fields: fields{
 				getVDR: func() vdr.Registry {
@@ -542,6 +493,7 @@ func TestCrypto_SignCredentialJWT(t *testing.T) {
 					DID:           didID,
 					SignatureType: "Ed25519Signature2018",
 					Creator:       didID + "#" + keyID,
+					KMSKeyID:      keyID,
 					KMS: &mockVCSKeyManager{
 						crypto: customCrypto,
 						kms:    customKMS,
@@ -610,6 +562,7 @@ func TestCrypto_SignCredentialBBS(t *testing.T) {
 				DID:           "did:trustbloc:abc",
 				SignatureType: "BbsBlsSignature2020",
 				Creator:       "did:trustbloc:abc#key1",
+				KMSKeyID:      "key1",
 				KMS: &mockVCSKeyManager{
 					crypto: &cryptomock.Crypto{},
 					kms:    &mockkms.KeyManager{},
@@ -723,6 +676,7 @@ func TestSignCredential(t *testing.T) {
 			DID:           "did:trustbloc:abc",
 			SignatureType: "Ed25519Signature2018",
 			Creator:       "did:trustbloc:abc#key1",
+			KMSKeyID:      "key1",
 			KMS: &mockVCSKeyManager{
 				crypto: &cryptomock.Crypto{},
 				kms:    &mockkms.KeyManager{},
@@ -753,6 +707,7 @@ func TestSignCredential(t *testing.T) {
 			DID:           "did:trustbloc:abc",
 			SignatureType: "Ed25519Signature2018",
 			Creator:       "did:trustbloc:abc#key1",
+			KMSKeyID:      "key1",
 			KeyType:       kms.ED25519Type,
 			KMS: &mockVCSKeyManager{
 				crypto: &cryptomock.Crypto{},
@@ -786,6 +741,7 @@ func TestSignCredential(t *testing.T) {
 			DID:           "did:trustbloc:abc",
 			SignatureType: "Ed25519Signature2018",
 			Creator:       "did:trustbloc:abc#key1",
+			KMSKeyID:      "key1",
 			KMS: &mockVCSKeyManager{
 				crypto: &cryptomock.Crypto{},
 				kms:    &mockkms.KeyManager{},
@@ -802,6 +758,7 @@ func getTestLDPSigner() *vc.Signer {
 		DID:           "did:trustbloc:abc",
 		SignatureType: "Ed25519Signature2018",
 		Creator:       "did:trustbloc:abc#key1",
+		KMSKeyID:      "key1",
 		KMS: &mockVCSKeyManager{
 			crypto: &cryptomock.Crypto{},
 			kms:    &mockkms.KeyManager{},
@@ -818,6 +775,7 @@ func getJWTSigner(
 		DID:           didID,
 		SignatureType: "Ed25519Signature2018",
 		Creator:       didID + "#" + kid,
+		KMSKeyID:      kid,
 		KMS: &mockVCSKeyManager{
 			crypto: customCrypto,
 			kms:    customKMS,

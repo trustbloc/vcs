@@ -132,8 +132,9 @@ func TestService_IssueCredential(t *testing.T) {
 									Format:                  vcs.Ldp,
 								},
 								SigningDID: &profileapi.SigningDID{
-									DID:     didDoc.ID,
-									Creator: didDoc.VerificationMethod[0].ID,
+									DID:      didDoc.ID,
+									Creator:  didDoc.VerificationMethod[0].ID,
+									KMSKeyID: keyID,
 								}},
 						)
 						require.NoError(t, err)
@@ -196,8 +197,9 @@ func TestService_IssueCredential(t *testing.T) {
 							KeyType:          ktTestCase.kt,
 						},
 						SigningDID: &profileapi.SigningDID{
-							DID:     didDoc.ID,
-							Creator: didDoc.VerificationMethod[0].ID,
+							DID:      didDoc.ID,
+							Creator:  didDoc.VerificationMethod[0].ID,
+							KMSKeyID: keyID,
 						}},
 				)
 				require.NoError(t, err)
@@ -342,8 +344,9 @@ func TestService_IssueCredential(t *testing.T) {
 					Format:                  vcs.Ldp,
 				},
 				SigningDID: &profileapi.SigningDID{
-					DID:     didDoc.ID,
-					Creator: didDoc.VerificationMethod[0].ID,
+					DID:      didDoc.ID,
+					Creator:  didDoc.VerificationMethod[0].ID,
+					KMSKeyID: keyID,
 				}},
 		)
 		require.Error(t, err)
