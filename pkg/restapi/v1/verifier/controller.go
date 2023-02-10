@@ -196,6 +196,8 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 		body.Credential,
 		profile.Checks.Credential.Format,
 		profile.Checks.Credential.CredentialExpiry,
+		profile.Checks.Credential.Strict,
+		c.documentLoader,
 		verifiable.WithPublicKeyFetcher(
 			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
 		),

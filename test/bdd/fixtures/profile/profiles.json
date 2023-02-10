@@ -62,7 +62,7 @@
           },
           "sdjwt": {
             "enable": true,
-            "hashAlg": 5
+            "hashAlg": 6
           }
         }
       },
@@ -110,7 +110,7 @@
           },
           "sdjwt": {
             "enable": true,
-            "hashAlg": 5
+            "hashAlg": 6
           }
         }
       },
@@ -158,7 +158,7 @@
           },
           "sdjwt": {
             "enable": true,
-            "hashAlg": 5
+            "hashAlg": 6
           }
         }
       },
@@ -333,7 +333,8 @@
             "type": "StatusList2021Entry"
           },
           "sdjwt": {
-            "enable": true
+            "enable": true,
+            "hashAlg": 6
           }
         },
         "oidcConfig": {
@@ -349,11 +350,15 @@
         "credentialTemplates": [
           {
             "contexts": [
-              "https://www.w3.org/2018/credentials/v1"
+              "https://www.w3.org/2018/credentials/v1",
+              "https://www.w3.org/2018/credentials/examples/v1"
             ],
             "type": "VerifiedEmployee",
             "id": "templateID",
-            "issuer": "did:orb:bank_issuer"
+            "issuer": "did:orb:bank_issuer",
+            "checks": {
+              "strict": true
+            }
           }
         ],
         "credentialMetadata": {
@@ -462,11 +467,15 @@
         "credentialTemplates": [
           {
             "contexts": [
-              "https://www.w3.org/2018/credentials/v1"
+              "https://www.w3.org/2018/credentials/v1",
+              "https://www.w3.org/2018/credentials/examples/v1"
             ],
             "type": "VerifiedEmployee",
             "id": "templateID",
-            "issuer": "did:orb:issuer_without_oidc"
+            "issuer": "did:orb:issuer_without_oidc",
+            "checks": {
+              "strict": true
+            }
           }
         ],
         "credentialMetadata": {
@@ -664,7 +673,8 @@
               "jwt"
             ],
             "proof": true,
-            "status": true
+            "status": true,
+            "strict": true
           },
           "presentation": {
             "format": [

@@ -68,6 +68,7 @@ var (
 				vcsverifiable.Ldp,
 			},
 			Status: true,
+			Strict: true,
 		},
 		Presentation: &profileapi.PresentationChecks{
 			Proof: true,

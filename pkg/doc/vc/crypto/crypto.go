@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
+	"crypto"
 	"fmt"
 	"strings"
 	"time"
@@ -231,7 +232,7 @@ func (c *Crypto) signCredentialJWT(
 	}
 
 	if signerData.SDJWT.Enable {
-		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, method)
+		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, signerData.SDJWT.HashAlg, method)
 	}
 
 	return c.getJWTSignedCredential(credential, s, jwsAlgo, method)
@@ -261,6 +262,7 @@ func (c *Crypto) getSDJWTSignedCredential(
 	credential *verifiable.Credential,
 	signer vc.SignerAlgorithm,
 	jwsAlgo verifiable.JWSAlgorithm,
+	digestHashAlgo crypto.Hash,
 	signingKeyID string) (*verifiable.Credential, error) {
 	jwsAlgName, err := jwsAlgo.Name()
 	if err != nil {
@@ -269,7 +271,7 @@ func (c *Crypto) getSDJWTSignedCredential(
 
 	joseSigner := jws.NewSigner(signingKeyID, jwsAlgName, signer)
 
-	sdjwt, err := credential.MakeSDJWT(joseSigner, signingKeyID)
+	sdjwt, err := credential.MakeSDJWT(joseSigner, signingKeyID, verifiable.MakeSDJWTWithHash(digestHashAlgo))
 	if err != nil {
 		return nil, fmt.Errorf("make SDJWT credential error: %w", err)
 	}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package crypto
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
@@ -832,7 +833,7 @@ func getSDJWTSigner(
 	customKMS kms.KeyManager,
 	kid string) *vc.Signer {
 	s := getJWTSigner(customCrypto, customKMS, kid)
-	s.SDJWT = vc.SDJWT{Enable: true}
+	s.SDJWT = vc.SDJWT{Enable: true, HashAlg: crypto.SHA384}
 
 	return s
 }

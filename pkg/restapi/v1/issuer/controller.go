@@ -171,25 +171,37 @@ func (c *Controller) issueCredential(
 	}
 
 	var finalCredentials interface{}
+	var enforceStrictValidation bool
 
 	if body.Credential != nil {
 		finalCredentials = *body.Credential
 	} else {
-		credentials, credErr := c.buildCredentialsFromTemplate(profile, body)
-		if credErr != nil {
-			return nil, credErr
+		credentialTemplate, tmplErr := c.extractCredentialTemplate(profile, body)
+		if tmplErr != nil {
+			return nil, tmplErr
 		}
 
-		finalCredentials = credentials
+		enforceStrictValidation = credentialTemplate.Checks.Strict
+
+		finalCredentials = c.buildCredentialsFromTemplate(credentialTemplate, profile, body)
 	}
 
-	return c.signCredential(finalCredentials, body.Options, profile)
+	credentialParsed, err := c.parseCredential(finalCredentials, enforceStrictValidation, profile.VCConfig.Format)
+	if err != nil {
+		return nil, err
+	}
+
+	credOpts, err := validateIssueCredOptions(body.Options, profile)
+	if err != nil {
+		return nil, fmt.Errorf("validate validateIssueCredOptions failed: %w", err)
+	}
+
+	return c.signCredential(credentialParsed, credOpts, profile)
 }
 
-func (c *Controller) buildCredentialsFromTemplate(
+func (c *Controller) extractCredentialTemplate(
 	profile *profileapi.Issuer,
-	body *IssueCredentialData,
-) (*verifiable.Credential, error) {
+	body *IssueCredentialData) (*profileapi.CredentialTemplate, error) {
 	if len(profile.CredentialTemplates) == 0 {
 		return nil, errors.New("credential templates are not specified for profile")
 	}
@@ -218,6 +230,15 @@ func (c *Controller) buildCredentialsFromTemplate(
 	}
 
 	credentialTemplate = profile.CredentialTemplates[0]
+
+	return credentialTemplate, nil
+}
+
+func (c *Controller) buildCredentialsFromTemplate(
+	credentialTemplate *profileapi.CredentialTemplate,
+	profile *profileapi.Issuer,
+	body *IssueCredentialData,
+) *verifiable.Credential {
 	vcc := &verifiable.Credential{
 		Context: credentialTemplate.Contexts,
 		ID:      uuid.New().URN(),
@@ -236,22 +257,18 @@ func (c *Controller) buildCredentialsFromTemplate(
 		vcc.Expired = util2.NewTime(time.Now().Add(365 * 24 * time.Hour))
 	}
 
-	return vcc, nil
+	return vcc
 }
 
-func (c *Controller) signCredential(
-	cred interface{},
-	opts *IssueCredentialOptions,
-	profile *profileapi.Issuer,
-) (*verifiable.Credential, error) {
+func (c *Controller) parseCredential(cred interface{},
+	enforceStrictValidation bool, issuerProfileVCFormat vcsverifiable.Format) (*verifiable.Credential, error) {
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
-
 	credential, err := vc.ValidateCredential(
 		cred,
-		[]vcsverifiable.Format{
-			profile.VCConfig.Format,
-		},
+		[]vcsverifiable.Format{issuerProfileVCFormat},
 		false,
+		enforceStrictValidation,
+		c.documentLoader,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
@@ -259,12 +276,15 @@ func (c *Controller) signCredential(
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}
 
-	credOpts, err := validateIssueCredOptions(opts, profile)
-	if err != nil {
-		return nil, err
-	}
+	return credential, nil
+}
 
-	signedVC, err := c.issueCredentialService.IssueCredential(credential, credOpts, profile)
+func (c *Controller) signCredential(
+	credential *verifiable.Credential,
+	opts []crypto.SigningOpts,
+	profile *profileapi.Issuer,
+) (*verifiable.Credential, error) {
+	signedVC, err := c.issueCredentialService.IssueCredential(credential, opts, profile)
 	if err != nil {
 		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
 	}
@@ -592,7 +612,13 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return err
 	}
 
-	signedCredential, err := c.signCredential(result.Credential, nil, profile)
+	credentialParsed, err := c.parseCredential(
+		result.Credential, result.EnforceStrictValidation, profile.VCConfig.Format)
+	if err != nil {
+		return err
+	}
+
+	signedCredential, err := c.signCredential(credentialParsed, nil, profile)
 	if err != nil {
 		return err
 	}
