@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/observability/tracing"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 )
 
@@ -232,6 +233,21 @@ const (
 	verifierTopicEnvKey    = "VC_REST_VERIFIER_EVENT_TOPIC"
 	verifierTopicFlagUsage = "The name of the verifier event topic. " + commonEnvVarUsageText + verifierTopicEnvKey
 
+	tracingProviderFlagName  = "tracing-provider"
+	tracingProviderEnvKey    = "VC_REST_TRACING_PROVIDER"
+	tracingProviderFlagUsage = "The tracing provider (for example, JAEGER). " +
+		commonEnvVarUsageText + tracingProviderEnvKey
+
+	tracingCollectorURLFlagName  = "tracing-collector-url"
+	tracingCollectorURLEnvKey    = "VC_REST_TRACING_COLLECTOR_URL"
+	tracingCollectorURLFlagUsage = "The URL of the tracing collector. " +
+		commonEnvVarUsageText + tracingCollectorURLEnvKey
+
+	tracingServiceNameFlagName  = "tracing-service-name"
+	tracingServiceNameEnvKey    = "VC_REST_TRACING_SERVICE_NAME"
+	tracingServiceNameFlagUsage = "The name of the tracing service. Default: vcs. " +
+		commonEnvVarUsageText + tracingServiceNameEnvKey
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -242,6 +258,8 @@ const (
 	didMethodION     = "ion"
 
 	splitRequestTokenLength = 2
+
+	defaultTracingServiceName = "vcs"
 )
 
 const (
@@ -279,10 +297,17 @@ type startupParameters struct {
 	issuerEventTopic                  string
 	verifierEventTopic                string
 	claimDataTTL                      int32
+	tracingParams                     *tracingParams
 }
 
 type prometheusMetricsProviderParams struct {
 	url string
+}
+
+type tracingParams struct {
+	provider     tracing.ProviderType
+	collectorURL string
+	serviceName  string
 }
 
 type dbParameters struct {
@@ -462,6 +487,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	tracingParams, err := getTracingParams(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	return &startupParameters{
 		hostURL:                           hostURL,
 		hostURLExternal:                   hostURLExternal,
@@ -493,6 +523,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		issuerEventTopic:                  issuerTopic,
 		verifierEventTopic:                verifierTopic,
 		claimDataTTL:                      int32(claimDataTTL.Seconds()),
+		tracingParams:                     tracingParams,
 	}, nil
 }
 
@@ -694,6 +725,34 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 	return tokens
 }
 
+func getTracingParams(cmd *cobra.Command) (*tracingParams, error) {
+	serviceName := cmdutils.GetOptionalString(cmd, tracingServiceNameFlagName, tracingServiceNameEnvKey)
+	if serviceName == "" {
+		serviceName = defaultTracingServiceName
+	}
+
+	params := &tracingParams{
+		provider:    cmdutils.GetOptionalString(cmd, tracingProviderFlagName, tracingProviderEnvKey),
+		serviceName: serviceName,
+	}
+
+	switch params.provider {
+	case tracing.ProviderNone:
+		return params, nil
+	case tracing.ProviderJaeger:
+		var err error
+
+		params.collectorURL, err = cmdutils.GetString(cmd, tracingCollectorURLFlagName, tracingCollectorURLEnvKey, false)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported tracing provider: %s", params.provider)
+	}
+
+	return params, nil
+}
+
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(apiGatewayURLFlagName, apiGatewayURLFlagShorthand, "", apiGatewayURLFlagUsage)
@@ -743,6 +802,10 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
 	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
+
+	startCmd.Flags().StringP(tracingProviderFlagName, "", "", tracingProviderFlagUsage)
+	startCmd.Flags().StringP(tracingCollectorURLFlagName, "", "", tracingCollectorURLFlagUsage)
+	startCmd.Flags().StringP(tracingServiceNameFlagName, "", "", tracingServiceNameFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }
