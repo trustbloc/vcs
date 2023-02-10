@@ -10,8 +10,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http/cookiejar"
+	"time"
 
 	"github.com/cucumber/godog"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
@@ -20,9 +22,11 @@ import (
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
 )
 
+var logger = log.New("oidc4vc-steps")
+
 // Steps defines context for OIDC4VC scenario steps.
 type Steps struct {
-	// CI
+	// VC issuance
 	bddContext          *bddcontext.BDDContext
 	issuerProfile       *profileapi.Issuer
 	oauthClient         *oauth2.Config // oauthClient is a public client to vcs oidc provider
@@ -37,6 +41,12 @@ type Steps struct {
 	walletRunner            *walletrunner.Service
 	initiateOIDC4VPResponse *walletrunner.InitiateOIDC4VPResponse
 	vpFlowExecutor          *walletrunner.VPFlowExecutor
+
+	// Stress testing
+	usersNum                 int
+	demoIssuerURL            string
+	demoVerifierGetQRCodeURL string
+	stressTestResults        map[string][3]time.Duration // metric -> [avg, min, max]
 }
 
 // NewSteps returns new Steps context.
@@ -61,11 +71,12 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 	}
 
 	return &Steps{
-		bddContext:   ctx,
-		cookie:       jar,
-		debug:        false, // set to true to get request/response dumps
-		tlsConfig:    tlsConf,
-		walletRunner: walletRunner,
+		bddContext:        ctx,
+		cookie:            jar,
+		debug:             false, // set to true to get request/response dumps
+		tlsConfig:         tlsConf,
+		walletRunner:      walletRunner,
+		stressTestResults: map[string][3]time.Duration{},
 	}, nil
 }
 
@@ -98,4 +109,11 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^Wallet sends authorization response$`, s.sendAuthorizedResponse)
 	sc.Step(`^Verifier from organization "([^"]*)" retrieves interactions claims$`,
 		s.retrieveInteractionsClaim)
+
+	// Stress test
+	sc.Step(`^number of users "([^"]*)"$`, s.getUsersNum)
+	sc.Step(`^demo issuer URL "([^"]*)"$`, s.getDemoIssuerURL)
+	sc.Step(`^demo verifier URL to get QR code "([^"]*)"$`, s.getDemoVerifierGetQRCodeURL)
+	sc.Step(`^stress test is done$`, s.runStressTest)
+	sc.Step(`^metrics are collected and displayed$`, s.displayMetrics)
 }

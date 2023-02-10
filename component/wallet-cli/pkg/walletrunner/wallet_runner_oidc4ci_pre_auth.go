@@ -33,6 +33,9 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 
 	s.print("Getting issuer OIDC config")
 	oidcConfig, err := s.getIssuerOIDCConfig(parsedUrl.Query().Get("issuer"))
+	if err != nil {
+		return fmt.Errorf("get issuer oidc config: %w", err)
+	}
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
 	credentialsEndpoint := oidcConfig.CredentialEndpoint
