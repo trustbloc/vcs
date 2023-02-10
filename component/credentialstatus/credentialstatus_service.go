@@ -421,7 +421,11 @@ func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccryp
 
 	// add verification method option only when it is not matching profile creator
 	if !strings.HasPrefix(profile.Creator, "did:key") &&
-		!strings.HasPrefix(profile.Creator, "did:jwk") && vm != profile.Creator {
+		!strings.HasPrefix(profile.Creator, "did:jwk") &&
+		!strings.HasPrefix(profile.Creator, "did:orb") &&
+		!strings.HasPrefix(profile.Creator, "did:ion") &&
+		!strings.HasPrefix(profile.Creator, "did:web") &&
+		vm != profile.Creator {
 		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
 	}
 
