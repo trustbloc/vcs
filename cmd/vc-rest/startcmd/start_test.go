@@ -29,6 +29,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/pkg/observability/tracing"
 )
 
 const (
@@ -240,6 +241,8 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + devModeFlagName, "true",
 		"--" + issuerTopicFlagName, "dev1-vcs-issuer",
 		"--" + verifierTopicFlagName, "dev1-vcs-verifier",
+		"--" + tracingProviderFlagName, tracing.ProviderJaeger,
+		"--" + tracingCollectorURLFlagName, "http://yaeger.local.com",
 	}
 	startCmd.SetArgs(args)
 
