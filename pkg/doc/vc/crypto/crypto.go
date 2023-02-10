@@ -359,7 +359,9 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 
 	vm := method
 
-	if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") {
+	if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") ||
+		strings.HasPrefix(method, "did:orb") || strings.HasPrefix(method, "did:ion") ||
+		strings.HasPrefix(method, "did:web") {
 		vm = didDoc.AssertionMethod[0].VerificationMethod.ID
 	}
 
@@ -432,7 +434,9 @@ func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
 
 func isValidVerificationMethod(method string, vms []did.Verification) bool {
 	for _, vm := range vms {
-		if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") {
+		if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") ||
+			strings.HasPrefix(method, "did:orb") || strings.HasPrefix(method, "did:ion") ||
+			strings.HasPrefix(method, "did:web") {
 			if strings.Split(method, "#")[0] == strings.Split(vm.VerificationMethod.ID, "#")[0] {
 				return true
 			}
