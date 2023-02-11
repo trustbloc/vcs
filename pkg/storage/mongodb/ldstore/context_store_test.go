@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/spi/storage"
+
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/embed"
@@ -97,7 +99,7 @@ func TestContextStore(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = store.Get(sampleContextURL)
-		require.ErrorIs(t, err, mongo.ErrNoDocuments)
+		require.ErrorIs(t, err, storage.ErrDataNotFound)
 	})
 
 	t.Run("test import", func(t *testing.T) {
