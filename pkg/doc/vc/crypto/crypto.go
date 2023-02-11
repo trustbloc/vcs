@@ -177,7 +177,7 @@ func (c *Crypto) signCredentialLDP(
 		signatureType = signOpts.SignatureType
 	}
 
-	signingCtx, err := c.getLinkedDataProofContext(signerData, signerData.KMS, signatureType, AssertionMethod,
+	signingCtx, err := c.getLinkedDataProofContext(signerData, signerData.KMS, signatureType, Authentication,
 		signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
@@ -217,7 +217,7 @@ func (c *Crypto) signCredentialJWT(
 		return nil, fmt.Errorf("unable to get did doc from verification method %w", err)
 	}
 
-	proofPurpose := AssertionMethod
+	proofPurpose := Authentication
 	if signOpts.Purpose != "" {
 		proofPurpose = signOpts.Purpose
 	}
