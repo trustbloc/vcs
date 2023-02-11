@@ -13,16 +13,16 @@ import (
 	"net/http/cookiejar"
 	"strings"
 
-	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -130,7 +130,7 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 	}
 
 	loader, err := createJSONLDDocumentLoader(ldStore, tlsConfig,
-		[]string{s.vcProviderConf.ContextProviderURL}, false)
+		[]string{s.vcProviderConf.ContextProviderURL}, true)
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}

@@ -296,7 +296,7 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 
 	didKeyID := s.vcProviderConf.WalletParams.DidKeyID
 
-	kmsSigner, err := signer.NewKMSSigner(km, cr, didKeyID, s.vcProviderConf.WalletParams.SignType, nil)
+	kmsSigner, err := signer.NewKMSSigner(km, cr, strings.Split(didKeyID, "#")[1], s.vcProviderConf.WalletParams.SignType, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create kms signer: %w", err)
 	}
