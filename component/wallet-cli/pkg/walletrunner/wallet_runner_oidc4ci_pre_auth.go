@@ -13,7 +13,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"

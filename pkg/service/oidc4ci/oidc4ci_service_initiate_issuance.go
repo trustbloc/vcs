@@ -46,19 +46,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
 
-	var template *profileapi.CredentialTemplate
-
-	if req.CredentialTemplateID == "" {
-		if len(profile.CredentialTemplates) > 1 {
-			return nil, errors.New("credential template should be specified")
-		}
-		template = profile.CredentialTemplates[0]
-	} else {
-		credTemplate, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
-		if err != nil {
-			return nil, err
-		}
-		template = credTemplate
+	template, err := s.findCredentialTemplate(req.CredentialTemplateID, profile)
+	if err != nil {
+		return nil, err
 	}
 
 	data := &TransactionData{
@@ -77,7 +67,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		CredentialExpiresAt: lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
 	}
 
-	if err := s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
+	if err = s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
 		return nil, err
 	}
 
@@ -96,9 +86,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	if isPreAuthorizeFlow {
 		claimData := ClaimData(req.ClaimData)
 
-		claimDataID, err := s.claimDataStore.Create(ctx, &claimData)
-		if err != nil {
-			return nil, fmt.Errorf("store claim data: %w", err)
+		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, &claimData)
+		if claimDataErr != nil {
+			return nil, fmt.Errorf("store claim data: %w", claimDataErr)
 		}
 
 		data.ClaimDataID = claimDataID
