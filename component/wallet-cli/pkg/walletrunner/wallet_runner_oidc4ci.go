@@ -20,14 +20,15 @@ import (
 
 	"github.com/cli/browser"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
-	"golang.org/x/oauth2"
-
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"golang.org/x/oauth2"
 )
 
 type OIDC4CIConfig struct {
@@ -307,8 +308,26 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 		Nonce:    s.token.Extra("c_nonce").(string),
 	}
 
+	signerKeyID := didKeyID
+
+	if strings.Contains(didKeyID, "did:key") {
+		res, err := didkey.New().Read(strings.Split(didKeyID, "#")[0])
+		if err != nil {
+			return nil, err
+		}
+
+		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
+	} else if strings.Contains(didKeyID, "did:jwk") {
+		res, err := jwk.New().Read(strings.Split(didKeyID, "#")[0])
+		if err != nil {
+			return "", err
+		}
+
+		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
+	}
+
 	signedJWT, err := jwt.NewSigned(claims, nil,
-		NewJWSSigner(didKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
+		NewJWSSigner(signerKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
 	if err != nil {
 		return nil, fmt.Errorf("create signed jwt: %w", err)
 	}

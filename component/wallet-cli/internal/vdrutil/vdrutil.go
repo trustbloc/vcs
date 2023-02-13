@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-
+	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/kms/key"
 )
@@ -46,9 +47,59 @@ func (v *VDRUtil) Create(
 		return v.createION(keyType, registry, keyManager)
 	case "orb":
 		return v.createORB(keyType, registry, keyManager)
+	case "key":
+		return v.CreateKey(keyType, registry, keyManager)
+	case "jwk":
+		return v.CreateJWK(keyType, registry, keyManager)
 	default:
 		return nil, fmt.Errorf("did method [%v] is not supported", didMethod)
 	}
+}
+
+func (v *VDRUtil) CreateKey(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
+	verMethod, err := v.newVerMethods(1, keyManager, keyType)
+	if err != nil {
+		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
+	}
+
+	didResolution, err := registry.Create(
+		didkey.DIDMethod,
+		&did.Doc{
+			VerificationMethod: []did.VerificationMethod{*verMethod[0]},
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("did:key: failed to create did: %w", err)
+	}
+
+	return &CreateResult{
+		DidID: didResolution.DIDDocument.ID,
+		KeyID: didResolution.DIDDocument.ID + "#" + verMethod[0].ID,
+	}, nil
+}
+
+func (v *VDRUtil) CreateJWK(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) { //nolint: unparam
+	verMethod, err := v.newVerMethods(1, keyManager, keyType)
+	if err != nil {
+		return nil, fmt.Errorf("did:key: failed to create new ver method: %w", err)
+	}
+
+	didResolution, err := registry.Create(
+		jwk.DIDMethod,
+		&did.Doc{
+			VerificationMethod: []did.VerificationMethod{*verMethod[0]},
+		},
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("did:key: failed to create did: %w", err)
+	}
+
+	return &CreateResult{
+		DidID: didResolution.DIDDocument.ID,
+		KeyID: didResolution.DIDDocument.ID + "#" + verMethod[0].ID,
+	}, nil
 }
 
 func (v *VDRUtil) createION(keyType kms.KeyType, registry vdr.Registry, keyManager keyManager) (*CreateResult, error) {
