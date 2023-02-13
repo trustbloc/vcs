@@ -26,7 +26,6 @@ import (
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -110,47 +109,47 @@ type credentialOfferReferenceStore interface {
 
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStore    transactionStore
-	ClaimDataStore      claimDataStore
-	WellKnownService    wellKnownService
-	ProfileService      profileService
-	IssuerVCSPublicHost string
-	OAuth2Client        oAuth2Client
-	HTTPClient          httpClient
-	EventService        eventService
-	PinGenerator        pinGenerator
-	EventTopic          string
+	TransactionStore              transactionStore
+	ClaimDataStore                claimDataStore
+	WellKnownService              wellKnownService
+	ProfileService                profileService
+	IssuerVCSPublicHost           string
+	OAuth2Client                  oAuth2Client
+	HTTPClient                    httpClient
+	EventService                  eventService
+	PinGenerator                  pinGenerator
+	EventTopic                    string
 	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
 type Service struct {
-	store               transactionStore
-	claimDataStore      claimDataStore
-	wellKnownService    wellKnownService
-	profileService      profileService
-	issuerVCSPublicHost string
-	oAuth2Client        oAuth2Client
-	httpClient          httpClient
-	eventSvc            eventService
-	eventTopic          string
-	pinGenerator        pinGenerator
+	store                         transactionStore
+	claimDataStore                claimDataStore
+	wellKnownService              wellKnownService
+	profileService                profileService
+	issuerVCSPublicHost           string
+	oAuth2Client                  oAuth2Client
+	httpClient                    httpClient
+	eventSvc                      eventService
+	eventTopic                    string
+	pinGenerator                  pinGenerator
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{
-		store:               config.TransactionStore,
-		claimDataStore:      config.ClaimDataStore,
-		wellKnownService:    config.WellKnownService,
-		profileService:      config.ProfileService,
-		issuerVCSPublicHost: config.IssuerVCSPublicHost,
-		oAuth2Client:        config.OAuth2Client,
-		httpClient:          config.HTTPClient,
-		eventSvc:            config.EventService,
-		eventTopic:          config.EventTopic,
-		pinGenerator:        config.PinGenerator,
+		store:                         config.TransactionStore,
+		claimDataStore:                config.ClaimDataStore,
+		wellKnownService:              config.WellKnownService,
+		profileService:                config.ProfileService,
+		issuerVCSPublicHost:           config.IssuerVCSPublicHost,
+		oAuth2Client:                  config.OAuth2Client,
+		httpClient:                    config.HTTPClient,
+		eventSvc:                      config.EventService,
+		eventTopic:                    config.EventTopic,
+		pinGenerator:                  config.PinGenerator,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 	}, nil
 }
@@ -319,7 +318,7 @@ func (s *Service) PrepareCredential(
 	}
 
 	if tx.CredentialTemplate == nil {
-		s.sendFailedEvent(tx, ErrCredentialTemplateNotConfigured)
+		s.sendFailedEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
@@ -375,7 +374,7 @@ func (s *Service) PrepareCredential(
 	case vcsverifiable.Ldp:
 		credential = vc
 	default:
-		s.sendFailedEvent(tx, ErrCredentialFormatNotSupported)
+		s.sendFailedEvent(ctx, tx, ErrCredentialFormatNotSupported)
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialFormatNotSupported, ErrCredentialFormatNotSupported)
 	}
 
