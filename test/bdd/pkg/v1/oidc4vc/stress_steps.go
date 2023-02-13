@@ -10,6 +10,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
-func (s *Steps) getUsersNum(envVar string) error {
+func (s *Steps) getUsersNum(envVar, concurrentReqEnv string) error {
 	val := os.Getenv(envVar)
 	if val == "" {
 		return fmt.Errorf("%s is empty", envVar)
@@ -30,6 +31,18 @@ func (s *Steps) getUsersNum(envVar string) error {
 	}
 
 	s.usersNum = n
+
+	val = os.Getenv(concurrentReqEnv)
+	if val == "" {
+		return fmt.Errorf("%s is empty", concurrentReqEnv)
+	}
+
+	n, err = strconv.Atoi(val)
+	if err != nil {
+		return fmt.Errorf("parse %s: %w", concurrentReqEnv, err)
+	}
+
+	s.concurrentReq = n
 
 	return nil
 }
@@ -57,7 +70,7 @@ func (s *Steps) getDemoVerifierGetQRCodeURL(envVar string) error {
 }
 
 func (s *Steps) runStressTest() error {
-	workerPool := bddutil.NewWorkerPool(1, logger)
+	workerPool := bddutil.NewWorkerPool(s.concurrentReq, logger)
 
 	workerPool.Start()
 
@@ -81,10 +94,7 @@ func (s *Steps) runStressTest() error {
 
 	workerPool.Stop()
 
-	var (
-		preAuthFlowTime []int64
-		vpFlowTime      []int64
-	)
+	perfData := map[string][]time.Duration{}
 
 	for _, resp := range workerPool.Responses() {
 		if resp.Err != nil {
@@ -96,24 +106,25 @@ func (s *Steps) runStressTest() error {
 			return fmt.Errorf("invalid stressTestPerfInfo response")
 		}
 
-		preAuthFlowTime = append(preAuthFlowTime, perfInfo.PreAuthFlowTime)
-		vpFlowTime = append(vpFlowTime, perfInfo.VPFlowTime)
+		for k, v := range perfInfo {
+			perfData[k] = append(perfData[k], v)
+		}
 	}
 
-	calc := calculator.NewInt64(preAuthFlowTime)
+	for k, v := range perfData {
+		data := make([]int64, len(v))
 
-	s.stressTestResults["pre-auth flow"] = [3]time.Duration{
-		time.Duration(calc.Mean().Register.Mean) * time.Millisecond,
-		time.Duration(calc.Min().Register.MinValue) * time.Millisecond,
-		time.Duration(calc.Max().Register.MaxValue) * time.Millisecond,
-	}
+		for i, d := range v {
+			data[i] = d.Milliseconds()
+		}
 
-	calc = calculator.NewInt64(vpFlowTime)
+		calc := calculator.NewInt64(data)
 
-	s.stressTestResults["vp flow"] = [3]time.Duration{
-		time.Duration(calc.Mean().Register.Mean) * time.Millisecond,
-		time.Duration(calc.Min().Register.MinValue) * time.Millisecond,
-		time.Duration(calc.Max().Register.MaxValue) * time.Millisecond,
+		s.stressTestResults[k] = [3]time.Duration{
+			time.Duration(calc.Mean().Register.Mean) * time.Millisecond,
+			time.Duration(calc.Max().Register.MaxValue) * time.Millisecond,
+			time.Duration(calc.Min().Register.MinValue) * time.Millisecond,
+		}
 	}
 
 	return nil
@@ -121,15 +132,25 @@ func (s *Steps) runStressTest() error {
 
 func (s *Steps) displayMetrics() error {
 	records := [][]string{
-		{"metric", "avg", "min", "max"},
+		{"metric", "avg", "max", "min"},
 	}
 
-	for k, v := range s.stressTestResults {
+	sortedByAvg := make([]string, 0, len(s.stressTestResults))
+
+	for k := range s.stressTestResults {
+		sortedByAvg = append(sortedByAvg, k)
+	}
+
+	sort.Slice(sortedByAvg, func(i, j int) bool {
+		return s.stressTestResults[sortedByAvg[i]][0] > s.stressTestResults[sortedByAvg[j]][0]
+	})
+
+	for _, k := range sortedByAvg {
 		records = append(records, []string{
 			k,
-			v[0].String(),
-			v[1].String(),
-			v[2].String(),
+			s.stressTestResults[k][0].String(),
+			s.stressTestResults[k][1].String(),
+			s.stressTestResults[k][2].String(),
 		})
 	}
 

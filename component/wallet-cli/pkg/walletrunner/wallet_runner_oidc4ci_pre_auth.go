@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
@@ -32,10 +33,12 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	}
 
 	s.print("Getting issuer OIDC config")
+	startTime := time.Now()
 	oidcConfig, err := s.getIssuerOIDCConfig(parsedUrl.Query().Get("issuer"))
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
 	}
+	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
 	credentialsEndpoint := oidcConfig.CredentialEndpoint
@@ -57,10 +60,12 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	}
 
 	s.print("Getting access token")
+	startTime = time.Now()
 	tokenResp, tokenErr := s.httpClient.PostForm(tokenEndpoint, tokenValues)
 	if tokenErr != nil {
 		return tokenErr
 	}
+	s.perfInfo.GetAccessToken = time.Since(startTime)
 
 	var token oidc4ci.AccessTokenResponse
 	if err = json.NewDecoder(tokenResp.Body).Decode(&token); err != nil {
@@ -73,16 +78,20 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		"c_nonce": *token.CNonce,
 	})
 
+	startTime = time.Now()
 	err = s.CreateWallet()
 	if err != nil {
 		return fmt.Errorf("failed to create wallet: %w", err)
 	}
+	s.perfInfo.CreateWallet = time.Since(startTime)
 
 	s.print("Getting credential")
+	startTime = time.Now()
 	vc, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
 	}
+	s.perfInfo.GetCredential = time.Since(startTime)
 
 	b, err := json.Marshal(vc)
 	if err != nil {

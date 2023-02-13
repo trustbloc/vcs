@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 
@@ -53,6 +54,7 @@ type Service struct {
 	httpClient     *http.Client
 	oauthClient    *oauth2.Config
 	token          *oauth2.Token
+	perfInfo       *PerfInfo
 	debug          bool
 }
 
@@ -96,12 +98,29 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		vcProvider:     vcProvider,
 		vcProviderConf: config,
 		httpClient:     httpClient,
+		perfInfo:       &PerfInfo{},
 		debug:          config.Debug,
 	}, nil
 }
 
 func (s *Service) GetConfig() *vcprovider.Config {
 	return s.vcProviderConf
+}
+
+type PerfInfo struct {
+	CreateWallet               time.Duration `json:"vci_create_wallet"`
+	GetIssuerOIDCConfig        time.Duration `json:"vci_get_issuer_oidc_config"`
+	GetAccessToken             time.Duration `json:"vci_get_access_token"`
+	GetCredential              time.Duration `json:"vci_get_credential"`
+	FetchRequestObject         time.Duration `json:"vp_fetch_request_object"`
+	VerifyAuthorizationRequest time.Duration `json:"vp_verify_authorization_request"`
+	QueryCredentialFromWallet  time.Duration `json:"vp_query_credential_from_wallet"`
+	CreateAuthorizedResponse   time.Duration `json:"vp_create_authorized_response"`
+	SendAuthorizedResponse     time.Duration `json:"vp_send_authorized_response"`
+}
+
+func (s *Service) GetPerfInfo() *PerfInfo {
+	return s.perfInfo
 }
 
 func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, error) {

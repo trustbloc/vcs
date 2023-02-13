@@ -67,34 +67,44 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 	vpFlowExecutor := s.NewVPFlowExecutor(s.vcProviderConf.SkipSchemaValidation)
 
 	log.Println("Fetching request object")
+	startTime := time.Now()
 	rawRequestObject, err := vpFlowExecutor.FetchRequestObject(authorizationRequest)
 	if err != nil {
 		return err
 	}
+	s.perfInfo.FetchRequestObject = time.Since(startTime)
 
 	log.Println("Resolving request object")
+	startTime = time.Now()
 	err = vpFlowExecutor.VerifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
 	if err != nil {
 		return err
 	}
+	s.perfInfo.VerifyAuthorizationRequest = time.Since(startTime)
 
 	log.Println("Querying VC from wallet")
+	startTime = time.Now()
 	err = vpFlowExecutor.QueryCredentialFromWallet()
 	if err != nil {
 		return err
 	}
+	s.perfInfo.QueryCredentialFromWallet = time.Since(startTime)
 
 	log.Println("Creating authorized response")
+	startTime = time.Now()
 	authorizedResponse, err := vpFlowExecutor.CreateAuthorizedResponse()
 	if err != nil {
 		return err
 	}
+	s.perfInfo.CreateAuthorizedResponse = time.Since(startTime)
 
 	log.Println("Sending authorized response")
+	startTime = time.Now()
 	err = vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
 	if err != nil {
 		return err
 	}
+	s.perfInfo.SendAuthorizedResponse = time.Since(startTime)
 
 	log.Println("Credentials shared with verifier")
 	return nil

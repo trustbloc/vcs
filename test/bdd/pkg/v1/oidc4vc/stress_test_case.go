@@ -77,20 +77,13 @@ func NewTestCase(config *TestCaseConfig) (*TestCase, func(), error) {
 	}, cleanup, nil
 }
 
-type stressTestPerfInfo struct {
-	PreAuthFlowTime int64
-	VPFlowTime      int64
-}
+type stressTestPerfInfo map[string]time.Duration
 
 func (c *TestCase) Invoke() (interface{}, error) {
-	perfInfo := stressTestPerfInfo{}
-
 	initiateIssuanceURL, pin, err := c.fetchInitiateIssuanceURL(c.config.DemoIssuerURL)
 	if err != nil {
 		return nil, fmt.Errorf("fetch initiate issuance url: %w", err)
 	}
-
-	startTime := time.Now()
 
 	// run pre-auth flow and save credential in the wallet
 	if err = c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
@@ -101,8 +94,6 @@ func (c *TestCase) Invoke() (interface{}, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("run pre-auth issuance: %w", err)
 	}
-
-	perfInfo.PreAuthFlowTime = time.Since(startTime).Milliseconds()
 
 	providerConf := c.walletRunner.GetConfig()
 	providerConf.WalletUserId = providerConf.WalletParams.UserID
@@ -116,14 +107,21 @@ func (c *TestCase) Invoke() (interface{}, error) {
 		return nil, fmt.Errorf("fetch authorization request: %w", err)
 	}
 
-	startTime = time.Now()
-
 	err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest)
 	if err != nil {
 		return nil, fmt.Errorf("run vp: %w", err)
 	}
 
-	perfInfo.VPFlowTime = time.Since(startTime).Milliseconds()
+	b, err := json.Marshal(c.walletRunner.GetPerfInfo())
+	if err != nil {
+		return nil, fmt.Errorf("marshal perf info: %w", err)
+	}
+
+	var perfInfo stressTestPerfInfo
+
+	if err = json.Unmarshal(b, &perfInfo); err != nil {
+		return nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
+	}
 
 	return perfInfo, nil
 }

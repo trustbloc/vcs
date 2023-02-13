@@ -130,6 +130,17 @@ build-krakend-plugin: clean
 		devopsfaith/krakend-plugin-builder:2.1.3 \
 		go build -buildmode=plugin -o /opt/workspace/vcs/test/bdd/fixtures/krakend-config/plugins/http-client-no-redirect.so .
 
+.PHONY: stress-test
+stress-test:
+	@cd test/bdd && \
+	TAGS=oidc4vc_stress \
+	DISABLE_COMPOSITION=true \
+	DEMO_ISSUER_URL= \
+	DEMO_VERIFIER_GET_QR_CODE_URL= \
+	USERS_NUM=3 \
+	CONCURRENT_REQ=2 \
+	go test -count=1 -v -cover . -p 1 -timeout=10m -race
+
 .PHONY: clean
 clean:
 	@rm -rf ./.build
