@@ -368,10 +368,11 @@ func (s *Service) PrepareCredential(
 	}
 
 	return &PrepareCredentialResult{
-		ProfileID:  tx.ProfileID,
-		Credential: credential,
-		Format:     tx.CredentialFormat,
-		Retry:      false,
+		ProfileID:               tx.ProfileID,
+		Credential:              credential,
+		Format:                  tx.CredentialFormat,
+		Retry:                   false,
+		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
 	}, nil
 }
 

@@ -48,11 +48,16 @@ type Issuer struct {
 }
 
 type CredentialTemplate struct {
-	Contexts                            []string        `json:"contexts"`
-	ID                                  string          `json:"id"`
-	Type                                string          `json:"type"`
-	CredentialSubject                   json.RawMessage `json:"credentialSubject"`
-	CredentialDefaultExpirationDuration *time.Duration  `json:"credentialDefaultExpirationDuration"`
+	Contexts                            []string                 `json:"contexts"`
+	ID                                  string                   `json:"id"`
+	Type                                string                   `json:"type"`
+	CredentialSubject                   json.RawMessage          `json:"credentialSubject"`
+	CredentialDefaultExpirationDuration *time.Duration           `json:"credentialDefaultExpirationDuration"`
+	Checks                              CredentialTemplateChecks `json:"checks"`
+}
+
+type CredentialTemplateChecks struct {
+	Strict bool `json:"strict,omitempty"`
 }
 
 type CredentialMetaData struct {
@@ -127,6 +132,7 @@ type CredentialChecks struct {
 	Format           []vcsverifiable.Format `json:"format,omitempty"`
 	Status           bool                   `json:"status,omitempty"`
 	CredentialExpiry bool                   `json:"credentialExpiry,omitempty"`
+	Strict           bool                   `json:"strict,omitempty"`
 }
 
 // SigningDID contains information about profile signing did.
