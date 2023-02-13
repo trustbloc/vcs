@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination txmanager_mocks_test.go -self_package mocks -package oidc4vp_test -source=txmanager.go -mock_names txStore=MockTxStore,txNonceStore=MockTxNonceStore
+//go:generate mockgen -destination txmanager_mocks_test.go -self_package mocks -package oidc4vp_test -source=txmanager.go -mock_names txStore=MockTxStore,txNonceStore=MockTxNonceStore,txClaimsStore=MockTxClaimsStore
 
 package oidc4vp
 
@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
@@ -31,6 +32,7 @@ type Transaction struct {
 	ProfileID              string
 	PresentationDefinition *presexch.PresentationDefinition
 	ReceivedClaims         *ReceivedClaims
+	ReceivedClaimsID       string
 }
 
 type ReceivedClaims struct {
@@ -38,14 +40,19 @@ type ReceivedClaims struct {
 }
 
 type TransactionUpdate struct {
-	ID             TxID
-	ReceivedClaims *ReceivedClaims
+	ID               TxID
+	ReceivedClaimsID string
 }
 
 type txStore interface {
 	Create(pd *presexch.PresentationDefinition, profileID string) (TxID, *Transaction, error)
 	Update(update TransactionUpdate) error
 	Get(txID TxID) (*Transaction, error)
+}
+
+type txClaimsStore interface {
+	Create(claims *ReceivedClaims) (string, error)
+	Get(claimsID string) (*ReceivedClaims, error)
 }
 
 type txNonceStore interface {
@@ -57,14 +64,16 @@ type txNonceStore interface {
 type TxManager struct {
 	nonceStore          txNonceStore
 	txStore             txStore
+	txClaimsStore       txClaimsStore
 	interactionLiveTime time.Duration
 }
 
 // NewTxManager creates TxManager.
-func NewTxManager(store txNonceStore, txStore txStore, interactionLiveTime time.Duration) *TxManager {
+func NewTxManager(store txNonceStore, txStore txStore, txClaimsStore txClaimsStore, interactionLiveTime time.Duration) *TxManager { //nolint:lll
 	return &TxManager{
 		nonceStore:          store,
 		txStore:             txStore,
+		txClaimsStore:       txClaimsStore,
 		interactionLiveTime: interactionLiveTime,
 	}
 }
@@ -85,7 +94,12 @@ func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID str
 }
 
 func (tm *TxManager) StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error {
-	return tm.txStore.Update(TransactionUpdate{ID: txID, ReceivedClaims: claims})
+	receivedClaimsID, err := tm.txClaimsStore.Create(claims)
+	if err != nil {
+		return err
+	}
+
+	return tm.txStore.Update(TransactionUpdate{ID: txID, ReceivedClaimsID: receivedClaimsID})
 }
 
 // Get transaction id.
@@ -98,6 +112,17 @@ func (tm *TxManager) Get(txID TxID) (*Transaction, error) {
 	if err != nil {
 		return nil, fmt.Errorf("oidc get tx by id failed: %w", err)
 	}
+
+	if tx.ReceivedClaimsID == "" {
+		return tx, nil
+	}
+
+	receivedClaims, err := tm.txClaimsStore.Get(tx.ReceivedClaimsID)
+	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+		return nil, fmt.Errorf("find received claims: %w", err)
+	}
+
+	tx.ReceivedClaims = receivedClaims
 
 	return tx, nil
 }

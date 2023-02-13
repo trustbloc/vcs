@@ -802,7 +802,9 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
-			ProfileID: "p1",
+			ProfileID:        "p1",
+			ReceivedClaimsID: "claims-id",
+			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
 		}, nil)
 
 		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{})
@@ -826,7 +828,62 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Tx not fount", func(t *testing.T) {
+	t.Run("Error - claims expired", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+			Times(1).Return(&oidc4vp.Transaction{
+			ProfileID:        "p1",
+			ReceivedClaimsID: "claims-id",
+		}, nil)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+			Return(&profileapi.Verifier{
+				ID:             "p1",
+				OrganizationID: "orgID1",
+				Checks:         verificationChecks,
+			}, nil)
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "claims expired for transaction 'txid'")
+	})
+
+	t.Run("Error - claims were never received", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+			Times(1).Return(&oidc4vp.Transaction{
+			ProfileID: "p1",
+		}, nil)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+			Return(&profileapi.Verifier{
+				ID:             "p1",
+				OrganizationID: "orgID1",
+				Checks:         verificationChecks,
+			}, nil)
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "claims were not received for transaction 'txid'")
+	})
+
+	t.Run("Tx not found", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
 			Times(1).Return(nil, oidc4vp.ErrDataNotFound)

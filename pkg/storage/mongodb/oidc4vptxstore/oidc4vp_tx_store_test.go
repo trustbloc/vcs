@@ -16,7 +16,6 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -35,15 +34,8 @@ const (
 	mongoDBConnString  = "mongodb://localhost:27021"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
-)
 
-var (
-	//go:embed testdata/university_degree.jsonld
-	sampleVCJsonLD string
-	//go:embed testdata/university_degree.jwt
-	sampleVCJWT string
-	//go:embed testdata/university_degree.sdjwt
-	sampleVCSDJWT string
+	receivedClaimsID = "xyz"
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -79,82 +71,22 @@ func TestTxStore_Success(t *testing.T) {
 		require.NotNil(t, tx)
 	})
 
-	t.Run("Create tx then update with jwt vc", func(t *testing.T) {
+	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
 		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
-		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
 		err = store.Update(oidc4vp.TransactionUpdate{
-			ID: id,
-			ReceivedClaims: &oidc4vp.ReceivedClaims{
-				Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
-			},
+			ID:               id,
+			ReceivedClaimsID: receivedClaimsID,
 		})
 		require.NoError(t, err)
 
 		tx, err := store.Get(id)
 		require.NoError(t, err)
 		require.NotNil(t, tx)
-		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
-		require.Equal(t, "http://example.gov/credentials/3732", tx.ReceivedClaims.Credentials["credID"].ID)
-	})
-
-	t.Run("Create tx then update with sdjwt vc", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
-
-		require.NoError(t, err)
-		require.NotNil(t, id)
-
-		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCSDJWT),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
-		err = store.Update(oidc4vp.TransactionUpdate{
-			ID: id,
-			ReceivedClaims: &oidc4vp.ReceivedClaims{
-				Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
-			},
-		})
-		require.NoError(t, err)
-
-		tx, err := store.Get(id)
-		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
-		require.Equal(t, "http://example.gov/credentials/3732", tx.ReceivedClaims.Credentials["credID"].ID)
-	})
-
-	t.Run("Create tx then update with ld vc", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
-
-		require.NoError(t, err)
-		require.NotNil(t, id)
-
-		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
-		err = store.Update(oidc4vp.TransactionUpdate{
-			ID: id,
-			ReceivedClaims: &oidc4vp.ReceivedClaims{
-				Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
-			},
-		})
-		require.NoError(t, err)
-
-		tx, err := store.Get(id)
-		require.NoError(t, err)
-		require.NotNil(t, tx)
-		require.NotNil(t, tx.ReceivedClaims.Credentials["credID"])
-		require.Equal(t, "http://example.gov/credentials/3732", tx.ReceivedClaims.Credentials["credID"].ID)
+		require.Nil(t, tx.ReceivedClaims)
 	})
 }
 
@@ -216,18 +148,7 @@ func TestTxStore_Fails(t *testing.T) {
 			PresentationDefinition: map[string]interface{}{
 				"frame": "invalid",
 			},
-		}, testutil.DocumentLoader(t))
-
-		require.Error(t, err)
-	})
-
-	t.Run("invalid doc content", func(t *testing.T) {
-		_, err := txFromDocument(&txDocument{
-			ID: primitive.ObjectID{},
-			ReceivedClaims: map[string][]byte{
-				"credentials": []byte("invalid"),
-			},
-		}, testutil.DocumentLoader(t))
+		})
 
 		require.Error(t, err)
 	})
