@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/labstack/echo/v4"
@@ -69,6 +70,9 @@ type InitiateOIDC4CIRequest struct {
 
 	// String containing wallet/holder application OIDC client wellknown configuration URL.
 	ClientWellknown *string `json:"client_wellknown,omitempty"`
+
+	// Date when credentials should be consider as expired
+	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
 
 	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`

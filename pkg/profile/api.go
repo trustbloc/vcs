@@ -8,6 +8,7 @@ package profile
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -47,11 +48,11 @@ type Issuer struct {
 }
 
 type CredentialTemplate struct {
-	Contexts          []string        `json:"contexts"`
-	ID                string          `json:"id"`
-	Type              string          `json:"type"`
-	Issuer            string          `json:"issuer"`
-	CredentialSubject json.RawMessage `json:"credentialSubject"`
+	Contexts                            []string        `json:"contexts"`
+	ID                                  string          `json:"id"`
+	Type                                string          `json:"type"`
+	CredentialSubject                   json.RawMessage `json:"credentialSubject"`
+	CredentialDefaultExpirationDuration *time.Duration  `json:"credentialDefaultExpirationDuration"`
 }
 
 type CredentialMetaData struct {
@@ -122,15 +123,17 @@ type PresentationChecks struct {
 
 // CredentialChecks are checks to be performed during credential verification.
 type CredentialChecks struct {
-	Proof  bool                   `json:"proof,omitempty"`
-	Format []vcsverifiable.Format `json:"format,omitempty"`
-	Status bool                   `json:"status,omitempty"`
+	Proof            bool                   `json:"proof,omitempty"`
+	Format           []vcsverifiable.Format `json:"format,omitempty"`
+	Status           bool                   `json:"status,omitempty"`
+	CredentialExpiry bool                   `json:"credentialExpiry,omitempty"`
 }
 
 // SigningDID contains information about profile signing did.
 type SigningDID struct {
 	DID            string `json:"did,omitempty"`
 	Creator        string `json:"creator,omitempty"`
+	KMSKeyID       string `json:"kmsKeyID,omitempty"`
 	UpdateKeyURL   string `json:"updateKeyURL,omitempty"`
 	RecoveryKeyURL string `json:"recoveryKeyURL,omitempty"`
 }

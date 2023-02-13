@@ -46,6 +46,32 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_es256_sdjwt",
+        "name": "i_myprofile_ud_es256_sdjwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP256DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "StatusList2021Entry"
+          },
+          "sdjwt": {
+            "enable": true,
+            "hashAlg": 5
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es384_jwt",
         "name": "i_myprofile_ud_es384_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
@@ -68,6 +94,32 @@
     },
     {
       "issuer": {
+        "id": "i_myprofile_ud_es384_sdjwt",
+        "name": "i_myprofile_ud_es384_sdjwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES384",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSAP384DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "RevocationList2021Status"
+          },
+          "sdjwt": {
+            "enable": true,
+            "hashAlg": 5
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
         "id": "i_myprofile_ud_es256k_jwt",
         "name": "i_myprofile_ud_es256k_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
@@ -81,6 +133,32 @@
           "didMethod": "orb",
           "status": {
             "type": "RevocationList2020Status"
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "i_myprofile_ud_es256k_sdjwt",
+        "name": "i_myprofile_ud_es256k_sdjwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "ES256K",
+          "signatureRepresentation": 1,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "RevocationList2020Status"
+          },
+          "sdjwt": {
+            "enable": true,
+            "hashAlg": 5
           }
         }
       },
@@ -253,6 +331,9 @@
           "didMethod": "orb",
           "status": {
             "type": "StatusList2021Entry"
+          },
+          "sdjwt": {
+            "enable": true
           }
         },
         "oidcConfig": {
@@ -273,6 +354,119 @@
             "type": "VerifiedEmployee",
             "id": "templateID",
             "issuer": "did:orb:bank_issuer"
+          }
+        ],
+        "credentialMetadata": {
+          "credentials_supported": {
+            "VerifiedEmployee": {
+              "format": "jwt_vc_json",
+              "id": "VerifiedEmployee_JWT",
+              "types": [
+                "VerifiableCredential",
+                "VerifiedEmployee"
+              ],
+              "display": [
+                {
+                  "name": "Verified Employee",
+                  "locale": "en-US",
+                  "logo": {
+                    "url": "https://example.com/public/logo.png",
+                    "alternative_text": "a square logo of a employee verification"
+                  },
+                  "background_color": "#12107c",
+                  "text_color": "#FFFFFF"
+                }
+              ],
+              "credentialSubject": {
+                "displayName": {
+                  "display": [
+                    {
+                      "name": "Employee",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "givenName": {
+                  "display": [
+                    {
+                      "name": "Given Name",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "jobTitle": {
+                  "display": [
+                    {
+                      "name": "Job Title",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "surname": {
+                  "display": [
+                    {
+                      "name": "Surname",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "preferredLanguage": {
+                  "display": [
+                    {
+                      "name": "Preferred Language",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "mail": {
+                  "display": [
+                    {
+                      "name": "Mail",
+                      "locale": "en-US"
+                    }
+                  ]
+                },
+                "photo": {
+                  "display": [
+                    {
+                      "name": "Photo"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "createDID": true,
+      "didDomain": "https://testnet.orb.local",
+      "didServiceAuthToken": "tk1"
+    },
+    {
+      "issuer": {
+        "id": "issuer_without_oidc",
+        "name": "Issuer Without OIDC",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "http://vc-rest-echo.trustbloc.local:8075",
+        "active": true,
+        "vcConfig": {
+          "signingAlgorithm": "JsonWebSignature2020",
+          "signatureRepresentation": 0,
+          "keyType": "ECDSASecp256k1DER",
+          "format": "jwt",
+          "didMethod": "orb",
+          "status": {
+            "type": "StatusList2021Entry"
+          }
+        },
+        "credentialTemplates": [
+          {
+            "contexts": [
+              "https://www.w3.org/2018/credentials/v1"
+            ],
+            "type": "VerifiedEmployee",
+            "id": "templateID",
+            "issuer": "did:orb:issuer_without_oidc"
           }
         ],
         "credentialMetadata": {
@@ -490,9 +684,9 @@
             "id": "32f54163-7166-48f1-93d8-ff217bdb0653",
             "input_descriptors": [
               {
-                "id": "degree",
-                "name": "degree",
-                "purpose": "We can only hire with bachelor degree.",
+                "id": "type",
+                "name": "type",
+                "purpose": "We can only interact with specific status information for Verifiable Credentials",
                 "schema": [
                   {
                     "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
@@ -502,13 +696,13 @@
                   "fields": [
                     {
                       "path": [
-                        "$.credentialSubject.degree.type",
-                        "$.vc.credentialSubject.degree.type"
+                        "$.credentialStatus.type",
+                        "$.vc.credentialStatus.type"
                       ],
-                      "purpose": "We can only hire with bachelor degree.",
+                      "purpose": "We can only interact with specific status information for Verifiable Credentials",
                       "filter": {
                         "type": "string",
-                        "const": "BachelorDegree"
+                        "enum": ["StatusList2021Entry", "RevocationList2021Status", "RevocationList2020Status"]
                       }
                     }
                   ]

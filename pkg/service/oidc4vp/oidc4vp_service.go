@@ -43,7 +43,7 @@ type InteractionInfo struct {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 type transactionManager interface {
@@ -104,6 +104,7 @@ type Config struct {
 	DocumentLoader           ld.DocumentLoader
 	ProfileService           profileService
 	EventSvc                 eventService
+	EventTopic               string
 	PresentationVerifier     presentationVerifier
 	PublicKeyFetcher         verifiable.PublicKeyFetcher
 
@@ -113,9 +114,9 @@ type Config struct {
 }
 
 type CredentialMetadata struct {
-	Format      string      `json:"format"`
-	Type        []string    `json:"type"`
-	SubjectData interface{} `json:"subjectData"`
+	Format      vcsverifiable.Format `json:"format"`
+	Type        []string             `json:"type"`
+	SubjectData interface{}          `json:"subjectData"`
 }
 
 type ProcessedVPToken struct {
@@ -130,6 +131,7 @@ type metricsProvider interface {
 
 type Service struct {
 	eventSvc                 eventService
+	eventTopic               string
 	transactionManager       transactionManager
 	requestObjectPublicStore requestObjectPublicStore
 	kmsRegistry              kmsRegistry
@@ -152,8 +154,10 @@ type RequestObjectRegistration struct {
 }
 
 type eventPayload struct {
-	WebHook string `json:"webHook,omitempty"`
-	Error   string `json:"error,omitempty"`
+	WebHook   string `json:"webHook,omitempty"`
+	ProfileID string `json:"profileID,omitempty"`
+	OrgID     string `json:"orgID,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type jwtVCClaims struct {
@@ -169,6 +173,7 @@ func NewService(cfg *Config) *Service {
 
 	return &Service{
 		eventSvc:                 cfg.EventSvc,
+		eventTopic:               cfg.EventTopic,
 		transactionManager:       cfg.TransactionManager,
 		requestObjectPublicStore: cfg.RequestObjectPublicStore,
 		kmsRegistry:              cfg.KMSRegistry,
@@ -185,7 +190,9 @@ func NewService(cfg *Config) *Service {
 func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	eventType spi.EventType, e error) (*spi.Event, error) {
 	ep := eventPayload{
-		WebHook: profile.WebHook,
+		WebHook:   profile.WebHook,
+		ProfileID: profile.ID,
+		OrgID:     profile.OrganizationID,
 	}
 
 	if e != nil {
@@ -203,22 +210,23 @@ func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	return event, nil
 }
 
-func (s *Service) sendEvent(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType) error {
-	return s.sendEventWithError(tx, profile, eventType, nil)
+func (s *Service) sendEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier,
+	eventType spi.EventType) error {
+	return s.sendEventWithError(ctx, tx, profile, eventType, nil)
 }
 
-func (s *Service) sendEventWithError(tx *Transaction, profile *profileapi.Verifier, eventType spi.EventType,
-	e error) error {
+func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, profile *profileapi.Verifier,
+	eventType spi.EventType, e error) error {
 	event, err := s.createEvent(tx, profile, eventType, e)
 	if err != nil {
 		return err
 	}
 
-	return s.eventSvc.Publish(spi.VerifierEventTopic, event)
+	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(tx *Transaction, profile *profileapi.Verifier, err error) {
-	e := s.sendEventWithError(tx, profile, spi.VerifierOIDCInteractionFailed, err)
+func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, profile *profileapi.Verifier, err error) {
+	e := s.sendEventWithError(ctx, tx, profile, spi.VerifierOIDCInteractionFailed, err)
 	logger.Debug("sending Failed OIDC verifier event error, ignoring..", log.WithError(e))
 }
 
@@ -241,7 +249,7 @@ func (s *Service) InitiateOidcInteraction(
 
 	logger.Debug("InitiateOidcInteraction tx created", log.WithTxID(string(tx.ID)))
 
-	if errSendEvent := s.sendEvent(tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
+	if errSendEvent := s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionInitiated); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -305,18 +313,20 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 
 	logger.Debug(" VerifyOIDCVerifiablePresentation vp string", logfields.WithVP(string(vpBytes)))
 
+	ctx := context.TODO() // TODO: Use OpenTelemetry context.
+
 	// TODO: should domain and challenge be verified?
 	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
 	if err != nil {
 		e := fmt.Errorf("presentation verification failed: %w", err)
-		s.sendFailedEvent(tx, profile, e)
+		s.sendFailedEvent(ctx, tx, profile, e)
 
 		return e
 	}
 
 	if len(vr) > 0 {
 		e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
-		s.sendFailedEvent(tx, profile, e)
+		s.sendFailedEvent(ctx, tx, profile, e)
 
 		return e
 	}
@@ -325,12 +335,12 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 
 	err = s.extractClaimData(tx, token, profile)
 	if err != nil {
-		s.sendFailedEvent(tx, profile, err)
+		s.sendFailedEvent(ctx, tx, profile, err)
 
 		return err
 	}
 
-	if err = s.sendEvent(tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
+	if err = s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
 	}
 
@@ -343,19 +353,32 @@ func (s *Service) GetTx(id TxID) (*Transaction, error) {
 }
 
 func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata {
+	logger.Debug("RetrieveClaims begin")
 	result := map[string]CredentialMetadata{}
 
 	for _, cred := range tx.ReceivedClaims.Credentials {
-		credType := "ldp"
+		credType := vcsverifiable.Ldp
 		if cred.JWT != "" {
-			credType = "jwt"
+			credType = vcsverifiable.Jwt
 		}
+
+		var err error
+		// Creating display credential.
+		// For regular credentials (JWT and JSON-LD) this func will do nothing,
+		// but for SD-JWT case it returns verifiable.Credential with disclosed subject claims.
+		cred, err = cred.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		if err != nil {
+			logger.Debug("RetrieveClaims - failed to CreateDisplayCredential", log.WithError(err))
+			continue
+		}
+
 		result[cred.ID] = CredentialMetadata{
 			Format:      credType,
 			Type:        cred.Types,
 			SubjectData: cred.Subject,
 		}
 	}
+	logger.Debug("RetrieveClaims succeed")
 
 	return result
 }
@@ -454,7 +477,7 @@ func (s *Service) createRequestObjectJWT(presentationDefinition *presexch.Presen
 		return "", fmt.Errorf("initiate oidc interaction: get jwt signature type failed: %w", err)
 	}
 
-	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.Creator, signingAlgorithm)
+	vcsSigner, err := kms.NewVCSigner(profile.SigningDID.KMSKeyID, signingAlgorithm)
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: get create signer failed: %w", err)
 	}

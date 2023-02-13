@@ -687,6 +687,32 @@ paths:
           in: query
           required: true
           description: state
+  /oidc/present:
+    post:
+      summary: Used to submit authorization response to verifier through VCS
+      operationId: present-authorization-response
+      tags:
+        - oidc4vp
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                id_token:
+                  type: string
+                  description: ID Token serves as an authentication receipt and includes metadata about the VP Token.
+                vp_token:
+                  type: string
+                  description: VP Token includes one or more Verifiable Presentations.
+                state:
+                  type: string
+                  description: State from authorization request for correlation
+      responses:
+        '200':
+          description: Sucess
+        '500':
+          description: Failure
   /oidc/credential:
     post:
       summary: OIDC Credential
@@ -1194,6 +1220,10 @@ components:
       type: object
       description: Model for Initiate OIDC Credential Issuance Request.
       properties:
+        credential_expires_at:
+          type: string
+          format: date-time
+          description: 'Date when credentials should be consider as expired'
         credential_template_id:
           type: string
           description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'

@@ -48,24 +48,26 @@ func (s *Service) CreateWallet() error {
 		s.vcProviderConf.WalletParams.Passphrase = s.vcProviderConf.WalletPassPhrase
 	}
 
-	services, err := s.createAgentServices(s.vcProviderConf.TLS)
-	if err != nil {
-		return fmt.Errorf("Wallet services setup failed: %w", err)
+	if s.wallet == nil {
+		services, err := s.createAgentServices(s.vcProviderConf.TLS)
+		if err != nil {
+			return fmt.Errorf("wallet services setup failed: %w", err)
+		}
+
+		s.ariesServices = services
+
+		w, err := newWallet(
+			shouldCreateWallet,
+			s.vcProviderConf.WalletParams.UserID,
+			s.vcProviderConf.WalletParams.Passphrase,
+			s.ariesServices,
+		)
+		if err != nil {
+			return err
+		}
+
+		s.wallet = w
 	}
-
-	s.ariesServices = services
-
-	w, err := newWallet(
-		shouldCreateWallet,
-		s.vcProviderConf.WalletParams.UserID,
-		s.vcProviderConf.WalletParams.Passphrase,
-		s.ariesServices,
-	)
-	if err != nil {
-		return err
-	}
-
-	s.wallet = w
 
 	token, err := s.wallet.Open(wallet.WithUnlockByPassphrase(s.vcProviderConf.WalletParams.Passphrase))
 	if err != nil {

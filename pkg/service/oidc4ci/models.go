@@ -35,17 +35,19 @@ const (
 	TransactionStateCredentialsIssued               = TransactionState(5)
 )
 
+// ClaimData represents user claims in pre-auth code flow.
+type ClaimData map[string]interface{}
+
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID
+	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
 	ClaimEndpoint                      string
-	ClientID                           string
-	ClientSecret                       string
 	ClientScope                        []string
 	RedirectURI                        string
 	GrantType                          string
@@ -57,10 +59,12 @@ type TransactionData struct {
 	OpState                            string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
-	ClaimData                          map[string]interface{}
+	ClaimDataID                        string
 	State                              TransactionState
 	WebHookURL                         string
 	UserPin                            string
+	DID                                string
+	CredentialExpiresAt                *time.Time
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -94,6 +98,7 @@ type InitiateIssuanceRequest struct {
 	OpState                   string
 	ClaimData                 map[string]interface{}
 	UserPinRequired           bool
+	CredentialExpiresAt       *time.Time
 }
 
 // InitiateIssuanceResponse is the response from the Issuer to the Wallet with initiate issuance URL.
@@ -112,10 +117,12 @@ type PrepareClaimDataAuthorizationRequest struct {
 }
 
 type PrepareClaimDataAuthorizationResponse struct {
+	ProfileID                          profileapi.ID
+	TxID                               TxID
+	ResponseType                       string
+	Scope                              []string
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
-	AuthorizationParameters            *OAuthParameters
-	TxID                               TxID
 }
 
 type PrepareCredential struct {
@@ -132,20 +139,15 @@ type PrepareCredentialResult struct {
 	Retry      bool
 }
 
-type OAuthParameters struct {
-	ClientID     string
-	ClientSecret string
-	ResponseType string
-	Scope        []string
-}
-
 type InsertOptions struct {
 	TTL time.Duration
 }
 
 type eventPayload struct {
-	WebHook string `json:"webHook,omitempty"`
-	Error   string `json:"error,omitempty"`
+	WebHook   string `json:"webHook,omitempty"`
+	ProfileID string `json:"profileID,omitempty"`
+	OrgID     string `json:"orgID,omitempty"`
+	Error     string `json:"error,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {

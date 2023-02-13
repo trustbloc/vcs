@@ -10,7 +10,7 @@ require (
 	github.com/cli/browser v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20230117233243-61234113712a
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20230204032926-27ea93676061
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
@@ -21,7 +21,7 @@ require (
 	github.com/piprate/json-gold v0.4.2
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
-	github.com/trustbloc/vcs v0.1.9-0.20221129172256-49b6645bc550
+	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
 	golang.org/x/oauth2 v0.1.0
 )
 
@@ -135,8 +135,8 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/kms v0.1.9-0.20230113182241-87a03ed7a9a1 // indirect
-	github.com/trustbloc/logutil-go v0.0.0-20221124174025-c46110e3ea42 // indirect
+	github.com/trustbloc/kms v0.1.9-0.20230210163238-f6499467c9c5 // indirect
+	github.com/trustbloc/logutil-go v0.0.0-20230126182954-5a79de16e7e0 // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect

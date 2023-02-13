@@ -25,6 +25,7 @@ type SignerAlgorithm interface {
 type Signer struct {
 	DID                     string
 	Creator                 string
+	KMSKeyID                string
 	SignatureType           vcsverifiable.SignatureType
 	KeyType                 kms.KeyType
 	Format                  vcsverifiable.Format               // VC format - LDP/JWT.

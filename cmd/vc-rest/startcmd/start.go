@@ -34,7 +34,9 @@ import (
 
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/ld"
+	"github.com/trustbloc/vcs/pkg/observability/tracing"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 
@@ -56,7 +58,9 @@ import (
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
+	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
+	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -65,18 +69,19 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
+	cslstoremongodb "github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
+	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslstore"
 )
 
 const (
 	healthCheckEndpoint  = "/healthcheck"
-	oidc4VPCheckEndpoint = "/verifier/interactions/authorization-response"
+	oidc4VPCheckEndpoint = "/oidc/present"
 	cslSize              = 1000
 )
 
@@ -133,6 +138,14 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to prepare configuration: %w", err)
 			}
+
+			traceParams := params.tracingParams
+
+			stopTracingProvider, _, err := tracing.Initialize(traceParams.provider, traceParams.serviceName, traceParams.collectorURL)
+			if err != nil {
+				return fmt.Errorf("initialize tracing: %w", err)
+			}
+			defer stopTracingProvider()
 
 			var e *echo.Echo
 
@@ -239,7 +252,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
-	cslStore := cslstore.NewStore(mongodbClient)
+	cslStore, err := createCredentialStatusListStore(
+		conf.StartupParameters.cslStoreType,
+		conf.StartupParameters.cslStoreS3Region,
+		conf.StartupParameters.cslStoreS3Bucket,
+		conf.StartupParameters.cslStoreS3HostName,
+		mongodbClient)
+	if err != nil {
+		return nil, err
+	}
+
 	vcStatusStore := vcstatusstore.NewStore(mongodbClient)
 	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
@@ -270,6 +292,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
 	}
 
+	claimDataStore, err := claimdatastore.New(context.Background(), mongodbClient, conf.StartupParameters.claimDataTTL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
+	}
+
 	httpClient := getHTTPClient(tlsConfig)
 
 	credentialOfferStore, err := createCredentialOfferStore( // credentialOfferStore is optional, so it can be nil
@@ -281,13 +308,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:              oidc4ciStore,
-		IssuerVCSPublicHost:           conf.StartupParameters.hostURLExternal,
-		WellKnownService:              wellknown.NewService(httpClient),
-		OAuth2Client:                  oauth2client.NewOAuth2Client(),
-		HTTPClient:                    httpClient,
-		EventService:                  eventSvc,
-		PinGenerator:                  otp.NewPinGenerator(),
+		TransactionStore:    oidc4ciStore,
+		ClaimDataStore:      claimDataStore,
+		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
+		WellKnownService:    wellknown.NewService(httpClient),
+		ProfileService:      issuerProfileSvc,
+		OAuth2Client:        oauth2client.NewOAuth2Client(),
+		HTTPClient:          httpClient,
+		EventService:        eventSvc,
+		PinGenerator:        otp.NewPinGenerator(),
+		EventTopic:          conf.StartupParameters.issuerEventTopic,
 		CredentialOfferReferenceStore: credentialOfferStore,
 	})
 	if err != nil {
@@ -353,6 +383,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		JWTVerifier: jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
 	}))
 
+	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
+		DefaultHTTPClient: httpClient,
+		ExternalHostURL:   conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
+	}))
+
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
 		EventSvc:               eventSvc,
 		ProfileSvc:             issuerProfileSvc,
@@ -361,7 +396,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		IssueCredentialService: issueCredentialSvc,
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
-		ExternalHostURL:        conf.StartupParameters.hostURLExternal,
+		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
 	}))
 
 	// Verifier Profile Management API
@@ -397,20 +432,23 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		conf.StartupParameters.requestObjectRepositoryType,
 		conf.StartupParameters.requestObjectRepositoryS3Region,
 		conf.StartupParameters.requestObjectRepositoryS3Bucket,
+		conf.StartupParameters.requestObjectRepositoryS3HostName,
 		mongodbClient,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	//TODO: add parameter to specify live time of interaction request object
-	requestObjStoreEndpoint := conf.StartupParameters.hostURLExternal + "/request-object/"
+	// TODO: add parameter to specify live time of interaction request object
+	requestObjStoreEndpoint := conf.StartupParameters.apiGatewayURL + "/request-object/"
 	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
 
-	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc, requestObjStoreEndpoint)
+	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
+		requestObjStoreEndpoint, conf.StartupParameters.verifierEventTopic)
 
 	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 eventSvc,
+		EventTopic:               conf.StartupParameters.verifierEventTopic,
 		TransactionManager:       oidc4vpTxManager,
 		RequestObjectPublicStore: requestObjectStoreService,
 		KMSRegistry:              kmsRegistry,
@@ -418,7 +456,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		DocumentLoader:           documentLoader,
 		ProfileService:           verifierProfileSvc,
 		PresentationVerifier:     verifyPresentationSvc,
-		RedirectURL:              conf.StartupParameters.hostURLExternal + oidc4VPCheckEndpoint,
+		RedirectURL:              conf.StartupParameters.apiGatewayURL + oidc4VPCheckEndpoint,
 		TokenLifetime:            15 * time.Minute,
 		Metrics:                  metrics,
 	})
@@ -483,6 +521,7 @@ func createRequestObjectStore(
 	repoType string,
 	s3Region string,
 	s3Bucket string,
+	s3HostName string,
 	mongoDbClient *mongodb.Client,
 ) (requestObjectStore, error) {
 	switch strings.ToLower(repoType) {
@@ -492,7 +531,7 @@ func createRequestObjectStore(
 			return nil, err
 		}
 
-		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region), nil
+		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region, s3HostName), nil
 	default:
 		return requestobjectstore.NewStore(mongoDbClient), nil
 	}
@@ -512,6 +551,26 @@ func createCredentialOfferStore(
 	}
 
 	return credentialoffer.NewStore(s3.New(ses), s3Bucket, s3Region), nil
+}
+
+func createCredentialStatusListStore(
+	repoType string,
+	s3Region string,
+	s3Bucket string,
+	hostName string,
+	mongoDbClient *mongodb.Client,
+) (credentialstatustypes.CSLStore, error) {
+	switch strings.ToLower(repoType) {
+	case "s3":
+		ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+		if err != nil {
+			return nil, err
+		}
+
+		return cslstores3.NewStore(s3.New(ses), s3Bucket, s3Region, hostName), nil
+	default:
+		return cslstoremongodb.NewStore(mongoDbClient), nil
+	}
 }
 
 func getHTTPClient(tlsConfig *tls.Config) *http.Client {

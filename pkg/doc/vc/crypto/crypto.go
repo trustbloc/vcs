@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/jsonld"
 	ariessigner "github.com/hyperledger/aries-framework-go/pkg/doc/signature/signer"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
@@ -26,6 +25,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 )
@@ -91,8 +91,6 @@ type signingOpts struct {
 	Created            *time.Time
 	Challenge          string
 	Domain             string
-	SdJWTEnabled       bool
-	SdJWTDisclosures   []string
 }
 
 // SigningOpts is signing credential option.
@@ -147,20 +145,6 @@ func WithDomain(domain string) SigningOpts {
 	}
 }
 
-// WithEnabledSDJWT enables SD-JWT support.
-func WithEnabledSDJWT(enabled bool) SigningOpts {
-	return func(opts *signingOpts) {
-		opts.SdJWTEnabled = enabled
-	}
-}
-
-// WithSDJWTDisclosures adds SD-JWT disclosures tail to JWT credential.
-func WithSDJWTDisclosures(d []string) SigningOpts {
-	return func(opts *signingOpts) {
-		opts.SdJWTDisclosures = d
-	}
-}
-
 // Crypto to sign credential.
 type Crypto struct {
 	vdr            vdrapi.Registry
@@ -171,16 +155,6 @@ func (c *Crypto) SignCredential(
 	signerData *vc.Signer, vc *verifiable.Credential, opts ...SigningOpts) (*verifiable.Credential, error) {
 	switch signerData.Format {
 	case vcsverifiable.Jwt:
-		if signerData.SDJWT.Enable {
-			sdJWTDigests, err := c.getSDJWTCredentialSubjectDigests(vc, signerData.SDJWT.HashAlg)
-			if err != nil {
-				return nil, err
-			}
-
-			vc.Subject = sdJWTDigests.Subject
-			opts = append(opts, WithSDJWTDisclosures(sdJWTDigests.Disclosures))
-		}
-
 		return c.signCredentialJWT(signerData, vc, opts...)
 	case vcsverifiable.Ldp:
 		return c.signCredentialLDP(signerData, vc, opts...)
@@ -203,7 +177,7 @@ func (c *Crypto) signCredentialLDP(
 		signatureType = signOpts.SignatureType
 	}
 
-	signingCtx, err := c.getLinkedDataProofContext(signerData.Creator, signerData.KMS, signatureType, AssertionMethod,
+	signingCtx, err := c.getLinkedDataProofContext(signerData, signerData.KMS, signatureType, Authentication,
 		signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
@@ -231,17 +205,19 @@ func (c *Crypto) signCredentialJWT(
 		signatureType = signOpts.SignatureType
 	}
 
-	s, method, err := c.getSigner(signerData.Creator, signerData.KMS, signOpts, signatureType)
+	s, _, err := c.getSigner(signerData.KMSKeyID, signerData.KMS, signOpts, signatureType)
 	if err != nil {
 		return nil, fmt.Errorf("getting signer for JWS: %w", err)
 	}
+
+	method := signerData.Creator
 
 	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get did doc from verification method %w", err)
 	}
 
-	proofPurpose := AssertionMethod
+	proofPurpose := Authentication
 	if signOpts.Purpose != "" {
 		proofPurpose = signOpts.Purpose
 	}
@@ -251,26 +227,56 @@ func (c *Crypto) signCredentialJWT(
 		return nil, fmt.Errorf("ValidateProofPurpose error: %w", err)
 	}
 
-	claims, err := credential.JWTClaims(false)
-	if err != nil {
-		return nil, fmt.Errorf("creating JWT claims for VC: %w", err)
-	}
-
 	jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(signerData.KeyType)
 	if err != nil {
 		return nil, fmt.Errorf("getting JWS algo based on signature type: %w", err)
 	}
 
-	jwt, err := claims.MarshalJWS(jwsAlgo, s, method)
+	if signerData.SDJWT.Enable {
+		return c.getSDJWTSignedCredential(credential, s, jwsAlgo, method)
+	}
+
+	return c.getJWTSignedCredential(credential, s, jwsAlgo, method)
+}
+
+func (c *Crypto) getJWTSignedCredential(
+	credential *verifiable.Credential,
+	signer vc.SignerAlgorithm,
+	jwsAlgo verifiable.JWSAlgorithm,
+	signingKeyID string) (*verifiable.Credential, error) {
+	claims, err := credential.JWTClaims(false)
+	if err != nil {
+		return nil, fmt.Errorf("creating JWT claims for VC: %w", err)
+	}
+
+	jwt, err := claims.MarshalJWS(jwsAlgo, signer, signingKeyID)
 	if err != nil {
 		return nil, fmt.Errorf("MarshalJWS error: %w", err)
 	}
 
-	if len(signOpts.SdJWTDisclosures) > 0 {
-		jwt += common.CombinedFormatSeparator + strings.Join(signOpts.SdJWTDisclosures, common.CombinedFormatSeparator)
+	credential.JWT = jwt
+
+	return credential, nil
+}
+
+func (c *Crypto) getSDJWTSignedCredential(
+	credential *verifiable.Credential,
+	signer vc.SignerAlgorithm,
+	jwsAlgo verifiable.JWSAlgorithm,
+	signingKeyID string) (*verifiable.Credential, error) {
+	jwsAlgName, err := jwsAlgo.Name()
+	if err != nil {
+		return nil, fmt.Errorf("getting JWS algo name error: %w", err)
 	}
 
-	credential.JWT = jwt
+	joseSigner := jws.NewSigner(signingKeyID, jwsAlgName, signer)
+
+	sdjwt, err := credential.MakeSDJWT(joseSigner, signingKeyID)
+	if err != nil {
+		return nil, fmt.Errorf("make SDJWT credential error: %w", err)
+	}
+
+	credential.JWT = sdjwt
 
 	return credential, nil
 }
@@ -290,7 +296,7 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 	}
 
 	signingCtx, err := c.getLinkedDataProofContext(
-		signerData.Creator, signerData.KMS, signatureType, Authentication, signerData.SignatureRepresentation, signOpts)
+		signerData, signerData.KMS, signatureType, Authentication, signerData.SignatureRepresentation, signOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -307,10 +313,10 @@ func (c *Crypto) SignPresentation(signerData *vc.Signer, vp *verifiable.Presenta
 	return vp, nil
 }
 
-func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
+func (c *Crypto) getLinkedDataProofContext(signerData *vc.Signer, km keyManager,
 	signatureType vcsverifiable.SignatureType, proofPurpose string,
 	signRep verifiable.SignatureRepresentation, opts *signingOpts) (*verifiable.LinkedDataProofContext, error) {
-	s, method, err := c.getSigner(creator, km, opts, signatureType)
+	s, _, err := c.getSigner(signerData.KMSKeyID, km, opts, signatureType)
 	if err != nil {
 		return nil, err
 	}
@@ -318,6 +324,8 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 	if opts.Purpose != "" {
 		proofPurpose = opts.Purpose
 	}
+
+	method := signerData.Creator
 
 	didDoc, err := diddoc.GetDIDDocFromVerificationMethod(method, c.vdr)
 	if err != nil {
@@ -355,10 +363,6 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 
 	vm := method
 
-	if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") {
-		vm = didDoc.AssertionMethod[0].VerificationMethod.ID
-	}
-
 	signingCtx := &verifiable.LinkedDataProofContext{
 		VerificationMethod:      vm,
 		SignatureRepresentation: signRep,
@@ -375,16 +379,13 @@ func (c *Crypto) getLinkedDataProofContext(creator string, km keyManager,
 
 // getSigner returns signer and verification method based on profile and signing opts
 // verificationMethod from opts takes priority to create signer and verification method.
-func (c *Crypto) getSigner(creator string, km keyManager, opts *signingOpts,
+//
+//nolint:unparam
+func (c *Crypto) getSigner(kmsKeyID string, km keyManager, opts *signingOpts,
 	signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, string, error) {
-	verificationMethod := creator
-	if opts.VerificationMethod != "" {
-		verificationMethod = opts.VerificationMethod
-	}
+	s, err := km.NewVCSigner(kmsKeyID, signatureType)
 
-	s, err := km.NewVCSigner(verificationMethod, signatureType)
-
-	return s, verificationMethod, err
+	return s, kmsKeyID, err
 }
 
 // ValidateProofPurpose validates the proof purpose.
@@ -428,11 +429,7 @@ func ValidateProofPurpose(proofPurpose, method string, didDoc *did.Doc) error {
 
 func isValidVerificationMethod(method string, vms []did.Verification) bool {
 	for _, vm := range vms {
-		if strings.HasPrefix(method, "did:key") || strings.HasPrefix(method, "did:jwk") {
-			if strings.Split(method, "#")[0] == strings.Split(vm.VerificationMethod.ID, "#")[0] {
-				return true
-			}
-		} else if method == vm.VerificationMethod.ID {
+		if method == vm.VerificationMethod.ID {
 			return true
 		}
 	}

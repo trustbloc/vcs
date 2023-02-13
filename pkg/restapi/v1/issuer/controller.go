@@ -53,7 +53,7 @@ type profileService interface {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 type issueCredentialService interface {
@@ -230,6 +230,12 @@ func (c *Controller) buildCredentialsFromTemplate(
 		Issued: util2.NewTime(time.Now()),
 	}
 
+	if credentialTemplate.CredentialDefaultExpirationDuration != nil {
+		vcc.Expired = util2.NewTime(time.Now().UTC().Add(*credentialTemplate.CredentialDefaultExpirationDuration))
+	} else {
+		vcc.Expired = util2.NewTime(time.Now().Add(365 * 24 * time.Hour))
+	}
+
 	return vcc, nil
 }
 
@@ -240,7 +246,12 @@ func (c *Controller) signCredential(
 ) (*verifiable.Credential, error) {
 	vcSchema := verifiable.JSONSchemaLoader(verifiable.WithDisableRequiredField("issuanceDate"))
 
-	credential, err := vc.ValidateCredential(cred, []vcsverifiable.Format{profile.VCConfig.Format},
+	credential, err := vc.ValidateCredential(
+		cred,
+		[]vcsverifiable.Format{
+			profile.VCConfig.Format,
+		},
+		false,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithSchema(vcSchema),
 		verifiable.WithJSONLDDocumentLoader(c.documentLoader))
@@ -364,6 +375,7 @@ func (c *Controller) initiateIssuance(
 		OpState:                   lo.FromPtr(req.OpState),
 		ClaimData:                 lo.FromPtr(req.ClaimData),
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
+		CredentialExpiresAt:       req.CredentialExpiresAt,
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
@@ -445,12 +457,17 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
 
+	profile, err := c.profileSvc.GetProfile(resp.ProfileID)
+	if err != nil {
+		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
+	}
+
 	return &PrepareClaimDataAuthorizationResponse{
 		AuthorizationRequest: OAuthParameters{
-			ClientId:     resp.AuthorizationParameters.ClientID,
-			ClientSecret: resp.AuthorizationParameters.ClientSecret,
-			ResponseType: resp.AuthorizationParameters.ResponseType,
-			Scope:        resp.AuthorizationParameters.Scope,
+			ClientId:     profile.OIDCConfig.ClientID,
+			ClientSecret: profile.OIDCConfig.ClientSecretHandle,
+			ResponseType: resp.ResponseType,
+			Scope:        resp.Scope,
 		},
 		AuthorizationEndpoint:              resp.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: lo.ToPtr(resp.PushedAuthorizationRequestEndpoint),
@@ -463,10 +480,15 @@ func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-				fmt.Errorf("profile with given id %s, dosn't exists", profileID))
+				fmt.Errorf("profile with given id %s, doesn't exist", profileID))
 		}
 
 		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
+	}
+
+	if profile == nil {
+		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
+			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
 	}
 
 	return profile, nil

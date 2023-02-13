@@ -118,27 +118,3 @@ func NewEvent(uuid string, source string, eventType EventType) *Event {
 		Time:        util.NewTime(now),
 	}
 }
-
-// Options contains publisher/subscriber options.
-type Options struct {
-	PoolSize      int
-	DeliveryDelay time.Duration
-}
-
-// Option specifies a publisher/subscriber option.
-type Option func(option *Options)
-
-// WithPool sets the pool size.
-func WithPool(size int) Option {
-	return func(option *Options) {
-		option.PoolSize = size
-	}
-}
-
-// WithDeliveryDelay sets the delivery delay.
-// Note: Not all message brokers support this option.
-func WithDeliveryDelay(delay time.Duration) Option {
-	return func(option *Options) {
-		option.DeliveryDelay = delay
-	}
-}

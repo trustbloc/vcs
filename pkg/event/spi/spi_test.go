@@ -8,7 +8,6 @@ package spi
 
 import (
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -22,14 +21,4 @@ func TestEvent(t *testing.T) {
 
 	eventCopy := event.Copy()
 	require.NotNil(t, eventCopy)
-}
-
-func TestOptions(t *testing.T) {
-	var opts []Option
-	opts = append(opts, WithDeliveryDelay(time.Second), WithPool(2))
-
-	var options Options
-	for _, opt := range opts {
-		opt(&options)
-	}
 }

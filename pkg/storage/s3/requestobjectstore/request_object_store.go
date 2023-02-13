@@ -11,8 +11,9 @@ package requestobjectstore
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/request"
@@ -51,6 +52,7 @@ type Store struct {
 	s3Client s3Uploader
 	bucket   string
 	region   string
+	hostName string
 }
 
 // NewStore creates Store.
@@ -58,11 +60,13 @@ func NewStore(
 	s3Uploader s3Uploader,
 	bucket string,
 	region string,
+	hostName string,
 ) *Store {
 	return &Store{
 		s3Client: s3Uploader,
 		bucket:   bucket,
 		region:   region,
+		hostName: hostName,
 	}
 }
 
@@ -70,19 +74,14 @@ func (p *Store) Create(
 	ctx context.Context,
 	request requestobject.RequestObject,
 ) (*requestobject.RequestObject, error) {
-	data, err := json.Marshal(request)
-	if err != nil {
-		return nil, err
-	}
-
 	request.ID = uuid.NewString()
 
-	_, err = p.s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
-		Body:        bytes.NewReader(data),
+	_, err := p.s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
+		Body:        bytes.NewReader([]byte(request.Content)),
 		Key:         aws.String(request.ID),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String(contentType),
-	}, nil)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -103,12 +102,15 @@ func (p *Store) Find(
 		return nil, err
 	}
 
-	var targetObject requestobject.RequestObject
-	if err = json.NewDecoder(res.Body).Decode(&targetObject); err != nil {
+	buf := new(strings.Builder)
+	_, err = io.Copy(buf, res.Body)
+	if err != nil {
 		return nil, err
 	}
 
-	return &targetObject, nil
+	return &requestobject.RequestObject{
+		Content: buf.String(),
+	}, nil
 }
 
 func (p *Store) Delete(
@@ -123,6 +125,11 @@ func (p *Store) Delete(
 }
 
 func (p *Store) GetResourceURL(key string) string {
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s",
-		p.bucket, p.region, key)
+	hostName := fmt.Sprintf("https://%s.s3.%s.amazonaws.com", p.bucket, p.region)
+
+	if p.hostName != "" {
+		hostName = fmt.Sprintf("https://%s", p.hostName)
+	}
+
+	return fmt.Sprintf("%s/%s", hostName, key)
 }

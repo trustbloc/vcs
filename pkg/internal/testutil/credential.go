@@ -28,11 +28,10 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/secretlock/noop"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-)
 
-type provable interface {
-	AddLinkedDataProof(context *verifiable.LinkedDataProofContext, jsonldOpts ...jsonld.ProcessorOpts) error
-}
+	"github.com/trustbloc/vcs/pkg/doc/vc/jws"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+)
 
 // SignedVC returns signed VC represented by vcBytes.
 func SignedVC(
@@ -40,8 +39,10 @@ func SignedVC(
 	vcBytes []byte,
 	kt kmskeytypes.KeyType,
 	sr verifiable.SignatureRepresentation,
+	sf vcsverifiable.Format,
 	loader ld.DocumentLoader,
-	proofPurpose string,
+	purpose string,
+	isSDJWT bool,
 ) (*verifiable.Credential, vdrapi.Registry) {
 	t.Helper()
 
@@ -51,19 +52,19 @@ func SignedVC(
 		verifiable.WithJSONLDDocumentLoader(loader))
 	require.NoError(t, err)
 
-	mockVDRRegistry := prove(t, vc, kt, sr, loader, proofPurpose)
-
-	return vc, mockVDRRegistry
+	return proveVC(t, vc, kt, sr, sf, loader, purpose, isSDJWT)
 }
 
-func prove(
+func proveVC(
 	t *testing.T,
-	p provable,
+	credential *verifiable.Credential,
 	kt kmskeytypes.KeyType,
 	sr verifiable.SignatureRepresentation,
+	sf vcsverifiable.Format,
 	loader ld.DocumentLoader,
-	proofPurpose string,
-) vdrapi.Registry {
+	purpose string,
+	isSDJWT bool,
+) (*verifiable.Credential, vdrapi.Registry) {
 	t.Helper()
 
 	customKMS := createKMS(t)
@@ -83,21 +84,52 @@ func prove(
 	didDoc := createDIDDoc(t, "did:trustblock:abc", keyID, pkBytes, kt)
 
 	// Sign
-	signerSuite := jsonwebsignature2020.New(
-		suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh)))
-	err = p.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
-		SignatureType:           "JsonWebSignature2020",
-		Suite:                   signerSuite,
-		SignatureRepresentation: sr,
-		Created:                 &created,
-		VerificationMethod:      didDoc.VerificationMethod[0].ID,
-		Challenge:               "challenge",
-		Domain:                  "domain",
-		Purpose:                 proofPurpose,
-	}, jsonld.WithDocumentLoader(loader))
-	require.NoError(t, err)
+	switch sf {
+	case vcsverifiable.Ldp:
+		signerSuite := jsonwebsignature2020.New(
+			suite.WithSigner(suite.NewCryptoSigner(customCrypto, kh)))
+		err = credential.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+			SignatureType:           "JsonWebSignature2020",
+			Suite:                   signerSuite,
+			SignatureRepresentation: sr,
+			Created:                 &created,
+			VerificationMethod:      didDoc.VerificationMethod[0].ID,
+			Challenge:               "challenge",
+			Domain:                  "domain",
+			Purpose:                 purpose,
+		}, jsonld.WithDocumentLoader(loader))
+		require.NoError(t, err)
+	case vcsverifiable.Jwt:
+		claims, err := credential.JWTClaims(false)
+		require.NoError(t, err)
 
-	return &vdrmock.MockVDRegistry{
+		jwsAlgo, err := verifiable.KeyTypeToJWSAlgo(kt)
+		require.NoError(t, err)
+
+		if isSDJWT {
+			jwsAlgName, err := jwsAlgo.Name()
+			require.NoError(t, err)
+
+			joseSigner := jws.NewSigner(didDoc.VerificationMethod[0].ID, jwsAlgName, suite.NewCryptoSigner(customCrypto, kh))
+
+			sdjwtCredential, err := credential.MakeSDJWT(joseSigner, didDoc.VerificationMethod[0].ID)
+			require.NoError(t, err)
+
+			vcParsed, err := verifiable.ParseCredential([]byte(sdjwtCredential),
+				verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(loader))
+			require.NoError(t, err)
+
+			credential = vcParsed
+		} else {
+			jws, err := claims.MarshalJWS(jwsAlgo, suite.NewCryptoSigner(customCrypto, kh), didDoc.VerificationMethod[0].ID)
+			require.NoError(t, err)
+
+			credential.JWT = jws
+		}
+	}
+
+	return credential, &vdrmock.MockVDRegistry{
 		ResolveFunc: func(didID string, opts ...vdrapi.DIDMethodOption) (*did.DocResolution, error) {
 			return &did.DocResolution{DIDDocument: didDoc}, nil
 		},

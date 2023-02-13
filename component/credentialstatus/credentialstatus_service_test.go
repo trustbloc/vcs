@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -40,7 +41,7 @@ import (
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 const (
@@ -163,27 +164,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.Contains(t, err.Error(), "unsupported VCStatusListType")
 	})
 
-	t.Run("test error get status list vc url", func(t *testing.T) {
-		profile := getTestProfile()
-		profile.URL = " https://example.com"
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).Times(1).Return(profile, nil)
-
-		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
-
-		s, err := New(&Config{
-			ProfileService: mockProfileSrv,
-			KMSRegistry:    mockKMSRegistry,
-		})
-		require.NoError(t, err)
-
-		status, err := s.CreateStatusListEntry(profileID)
-		require.Error(t, err)
-		require.Nil(t, status)
-		require.Contains(t, err.Error(), "failed to create status URL")
-	})
-
 	t.Run("test error from get latest id from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 
@@ -237,7 +217,29 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		status, err := s.CreateStatusListEntry(profileID)
 		require.Error(t, err)
 		require.Nil(t, status)
-		require.Contains(t, err.Error(), "failed to store latest list ID in store")
+		require.Contains(t, err.Error(), "failed to get latestListID from store")
+	})
+
+	t.Run("test error create CSL wrapper URL", func(t *testing.T) {
+		profile := getTestProfile()
+		profile.URL = " https://example.com"
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).Times(1).Return(profile, nil)
+
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
+
+		s, err := New(&Config{
+			ProfileService: mockProfileSrv,
+			CSLStore:       newMockCSLStore(),
+			KMSRegistry:    mockKMSRegistry,
+		})
+		require.NoError(t, err)
+
+		status, err := s.CreateStatusListEntry(profileID)
+		require.Error(t, err)
+		require.Nil(t, status)
+		require.Contains(t, err.Error(), "failed to create CSL wrapper URL")
 	})
 
 	t.Run("test error from store csl list in store", func(t *testing.T) {
@@ -268,7 +270,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to store csl in store")
 	})
 
-	t.Run("test error from put latest id to store after store new list", func(t *testing.T) {
+	t.Run("test error update latest list id", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
@@ -320,13 +322,14 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
+			CSLStore:       newMockCSLStore(),
 		})
 		require.NoError(t, err)
 
 		csl, err := s.GetStatusListVC(profileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
-		require.Contains(t, err.Error(), "failed to get status URL")
+		require.Contains(t, err.Error(), "failed to get CSL wrapper URL")
 	})
 	t.Run("test error getting csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
@@ -907,13 +910,17 @@ type mockCSLStore struct {
 	createLatestListIDErr error
 	updateLatestListIDErr error
 	latestListID          int
-	s                     map[string]*cslstore.CSLWrapper
+	s                     map[string]*credentialstatus.CSLWrapper
+}
+
+func (m *mockCSLStore) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+	return url.JoinPath(issuerProfileURL, "issuer/profiles", issuerProfileID, "credentials/status", statusID)
 }
 
 func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
 	s := &mockCSLStore{
-		latestListID: -1,
-		s:            map[string]*cslstore.CSLWrapper{},
+		latestListID: 0,
+		s:            map[string]*credentialstatus.CSLWrapper{},
 	}
 	for _, f := range opts {
 		f(s)
@@ -921,7 +928,7 @@ func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
 	return s
 }
 
-func (m *mockCSLStore) Upsert(cslWrapper *cslstore.CSLWrapper) error {
+func (m *mockCSLStore) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -930,19 +937,19 @@ func (m *mockCSLStore) Upsert(cslWrapper *cslstore.CSLWrapper) error {
 	return nil
 }
 
-func (m *mockCSLStore) Get(id string) (*cslstore.CSLWrapper, error) {
+func (m *mockCSLStore) Get(id string) (*credentialstatus.CSLWrapper, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
 
 	w, ok := m.s[id]
 	if !ok {
-		return nil, cslstore.ErrDataNotFound
+		return nil, credentialstatus.ErrDataNotFound
 	}
 
 	return w, nil
 }
-func (m *mockCSLStore) CreateLatestListID(id int) error {
+func (m *mockCSLStore) createLatestListID(id int) error {
 	if m.createLatestListIDErr != nil {
 		return m.createLatestListIDErr
 	}
@@ -956,7 +963,7 @@ func (m *mockCSLStore) UpdateLatestListID(id int) error {
 	if m.updateLatestListIDErr != nil {
 		return m.updateLatestListIDErr
 	}
-	return m.CreateLatestListID(id)
+	return m.createLatestListID(id)
 }
 
 func (m *mockCSLStore) GetLatestListID() (int, error) {
@@ -964,8 +971,8 @@ func (m *mockCSLStore) GetLatestListID() (int, error) {
 		return -1, m.getLatestListIDErr
 	}
 
-	if m.latestListID == -1 {
-		return -1, cslstore.ErrDataNotFound
+	if m.latestListID == 0 {
+		return 1, m.createLatestListID(1)
 	}
 
 	return m.latestListID, nil

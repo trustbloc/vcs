@@ -46,6 +46,16 @@ type signatureTypeDesc struct {
 	SupportedKeyTypes []kms.KeyType
 }
 
+// SDJWTSignatureTypes stores the list of SD-JWT supported SignatureType by VCS
+// nolint: gochecknoglobals
+var SDJWTSignatureTypes = []string{
+	EdDSA.Name(),
+	ES256K.Name(),
+	ES256.Name(),
+	ES384.Name(),
+	PS256.Name(),
+}
+
 // nolint: gochecknoglobals
 var signatureTypes = []signatureTypeDesc{
 	{Ed25519Signature2018, Ldp, []kms.KeyType{kms.ED25519Type}},

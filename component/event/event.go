@@ -13,25 +13,47 @@ import (
 	"net/http"
 
 	"github.com/samber/lo"
+	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
+const (
+	issuerTopicFlagName = "issuer-event-topic"
+	issuerTopicEnvKey   = "VC_REST_ISSUER_EVENT_TOPIC"
+
+	verifierTopicFlagName = "verifier-event-topic"
+	verifierTopicEnvKey   = "VC_REST_VERIFIER_EVENT_TOPIC"
+)
+
 // Initialize event.
 func Initialize(cfg Config) (*Bus, error) {
 	eventBus := NewEventBus(cfg)
 
-	for _, topic := range []string{spi.VerifierEventTopic, spi.IssuerEventTopic} {
-		subscriber, err := NewEventSubscriber(eventBus, topic, eventBus.handleEvent)
-
-		if err != nil {
-			return nil, err
-		}
-
-		subscriber.Start()
+	issuerTopic := cmdutils.GetUserSetOptionalVarFromString(cfg.CMD, issuerTopicFlagName, issuerTopicEnvKey)
+	if issuerTopic == "" {
+		issuerTopic = spi.IssuerEventTopic
 	}
+
+	verifierTopic := cmdutils.GetUserSetOptionalVarFromString(cfg.CMD, verifierTopicFlagName, verifierTopicEnvKey)
+	if verifierTopic == "" {
+		verifierTopic = spi.VerifierEventTopic
+	}
+
+	issuerSubscriber, err := NewEventSubscriber(eventBus, issuerTopic, eventBus.handleEvent)
+	if err != nil {
+		return nil, err
+	}
+
+	verifierSubscriber, err := NewEventSubscriber(eventBus, verifierTopic, eventBus.handleEvent)
+	if err != nil {
+		return nil, err
+	}
+
+	issuerSubscriber.Start()
+	verifierSubscriber.Start()
 
 	return eventBus, nil
 }

@@ -84,16 +84,12 @@ func TestService_VerifyCredential(t *testing.T) {
 				kt:   kmskeytypes.ED25519Type,
 			},
 			{
-				name: "Algorithm ECDSA P256",
+				name: "Algorithm ECDSA ES256",
 				kt:   kmskeytypes.ECDSAP256TypeIEEEP1363,
 			},
 			{
-				name: "Algorithm ECDSA P384",
+				name: "Algorithm ECDSA ES384",
 				kt:   kmskeytypes.ECDSAP384TypeIEEEP1363,
-			},
-			{
-				name: "Algorithm ECDSA P521",
-				kt:   kmskeytypes.ECDSAP521TypeIEEEP1363,
 			},
 		}
 		for _, ktTestCase := range tests {
@@ -114,140 +110,166 @@ func TestService_VerifyCredential(t *testing.T) {
 				for _, sigRepresentationTextCase := range tests {
 					t.Run(sigRepresentationTextCase.name, func(t *testing.T) {
 						tests := []struct {
-							name   string
-							vcFile []byte
+							name string
+							sf   vcs.Format
 						}{
 							{
-								name:   "Credential format JWT",
-								vcFile: []byte(sampleVCJWT),
+								name: "Signature format JWT",
+								sf:   vcs.Jwt,
 							},
 							{
-								name:   "Credential format JSON-LD",
-								vcFile: []byte(sampleVCJsonLD),
+								name: "Signature format LDP",
+								sf:   vcs.Ldp,
 							},
 						}
-						for _, vcFileTestCase := range tests {
-							t.Run(vcFileTestCase.name, func(t *testing.T) {
-								// Assert
-								vc, vdr := testutil.SignedVC(
-									t, vcFileTestCase.vcFile, ktTestCase.kt, sigRepresentationTextCase.sr,
-									loader, crypto.AssertionMethod)
-								mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
-									StatusProcessor: &status.MockVCStatusProcessor{
-										StatusListIndex: 1,
+						for _, signatureFormatTestCase := range tests {
+							t.Run(signatureFormatTestCase.name, func(t *testing.T) {
+								tests := []struct {
+									name    string
+									vcFile  []byte
+									isSDJWT bool
+								}{
+									{
+										name:   "Credential format JWT",
+										vcFile: []byte(sampleVCJWT),
+									},
+									{
+										name:    "Credential format SD-JWT",
+										vcFile:  []byte(sampleVCJWT),
+										isSDJWT: true,
+									},
+									{
+										name:   "Credential format JSON-LD",
+										vcFile: []byte(sampleVCJsonLD),
 									},
 								}
+								for _, vcFileTestCase := range tests {
+									t.Run(vcFileTestCase.name, func(t *testing.T) {
+										// Assert
+										vc, vdr := testutil.SignedVC(
+											t, vcFileTestCase.vcFile, ktTestCase.kt, sigRepresentationTextCase.sr,
+											signatureFormatTestCase.sf,
+											loader,
+											crypto.AssertionMethod,
+											vcFileTestCase.isSDJWT)
+										mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+											StatusProcessor: &status.MockVCStatusProcessor{
+												StatusListIndex: 1,
+											},
+										}
 
-								// Verify
-								op := New(&Config{
-									VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
-									StatusListVCResolver:    mockStatusListVCGetter,
-									VDR:                     vdr,
-									DocumentLoader:          loader,
-								})
+										// Verify
+										op := New(&Config{
+											VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
+											StatusListVCResolver:    mockStatusListVCGetter,
+											VDR:                     vdr,
+											DocumentLoader:          loader,
+										})
 
-								res, err := op.VerifyCredential(vc, &Options{
-									Challenge: crypto.Challenge,
-									Domain:    crypto.Domain,
-								}, testProfile)
+										res, err := op.VerifyCredential(vc, &Options{
+											Challenge: crypto.Challenge,
+											Domain:    crypto.Domain,
+										}, testProfile)
 
-								require.NoError(t, err)
-								require.Nil(t, res)
+										require.NoError(t, err)
+										require.Nil(t, res)
+									})
+								}
 							})
 						}
 					})
 				}
 			})
 		}
-	})
 
-	t.Run("Failed", func(t *testing.T) {
-		// Assert
-		mockVDRRegistry := &vdrmock.MockVDRegistry{}
-		loader := testutil.DocumentLoader(t)
+		t.Run("Failed", func(t *testing.T) {
+			// Assert
+			mockVDRRegistry := &vdrmock.MockVDRegistry{}
+			loader := testutil.DocumentLoader(t)
 
-		vc, err := verifiable.ParseCredential(
-			[]byte(sampleVCJsonLD),
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(loader))
-		require.NoError(t, err)
+			vc, err := verifiable.ParseCredential(
+				[]byte(sampleVCJsonLD),
+				verifiable.WithDisabledProofCheck(),
+				verifiable.WithJSONLDDocumentLoader(loader))
+			require.NoError(t, err)
 
-		t.Run("Proof", func(t *testing.T) {
-			mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-			mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-				Subject: []verifiable.Subject{{
-					ID: "",
-					CustomFields: map[string]interface{}{
-						"statusListIndex": "1",
-						"statusPurpose":   "2",
-						"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+			t.Run("Proof", func(t *testing.T) {
+				mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+				mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+					Subject: []verifiable.Subject{{
+						ID: "",
+						CustomFields: map[string]interface{}{
+							"statusListIndex": "1",
+							"statusPurpose":   "2",
+							"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+						},
+					}},
+					Issuer: verifiable.Issuer{
+						ID: "did:trustblock:abc",
 					},
-				}},
-				Issuer: verifiable.Issuer{
-					ID: "did:trustblock:abc",
-				},
-			}, nil)
+				}, nil)
 
-			mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
-				StatusProcessor: &status.MockVCStatusProcessor{
-					StatusListIndex: 1,
-				},
-			}
+				mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+					StatusProcessor: &status.MockVCStatusProcessor{
+						StatusListIndex: 1,
+					},
+				}
 
-			service := New(&Config{
-				VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
-				StatusListVCResolver:    mockStatusListVCGetter,
-				VDR:                     mockVDRRegistry,
-				DocumentLoader:          loader,
+				service := New(&Config{
+					VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
+					StatusListVCResolver:    mockStatusListVCGetter,
+					VDR:                     mockVDRRegistry,
+					DocumentLoader:          loader,
+				})
+
+				var res []CredentialsVerificationCheckResult
+
+				res, err = service.VerifyCredential(vc, &Options{
+					Challenge: crypto.Challenge,
+					Domain:    crypto.Domain,
+				}, testProfile)
+
+				require.NoError(t, err)
+				require.Len(t, res, 1)
 			})
 
-			var res []CredentialsVerificationCheckResult
-
-			res, err = service.VerifyCredential(vc, &Options{
-				Challenge: crypto.Challenge,
-				Domain:    crypto.Domain,
-			}, testProfile)
-
-			require.NoError(t, err)
-			require.Len(t, res, 1)
-		})
-
-		t.Run("Proof and Status", func(t *testing.T) {
-			require.NoError(t, err)
-			failedStatusListGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-			failedStatusListGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-				Subject: []verifiable.Subject{{
-					ID: "",
-					CustomFields: map[string]interface{}{
-						"statusListIndex": "1",
-						"statusPurpose":   "2",
-						"encodedList":     "H4sIAAAAAAAA_2ICBAAA__-hjgw8AQAAAA",
+			t.Run("Proof and Status", func(t *testing.T) {
+				require.NoError(t, err)
+				failedStatusListGetter := NewMockStatusListVCResolver(gomock.NewController(t))
+				failedStatusListGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
+					Subject: []verifiable.Subject{{
+						ID: "",
+						CustomFields: map[string]interface{}{
+							"statusListIndex": "1",
+							"statusPurpose":   "2",
+							"encodedList":     "H4sIAAAAAAAA_2ICBAAA__-hjgw8AQAAAA",
+						},
+					}},
+					Issuer: verifiable.Issuer{
+						ID: "did:trustblock:abc",
 					},
-				}},
-				Issuer: verifiable.Issuer{
-					ID: "did:trustblock:abc",
-				},
-			}, nil)
+				}, nil)
 
-			mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
-				StatusProcessor: &status.MockVCStatusProcessor{
-					ValidateErr: errors.New("some error"),
-				},
-			}
+				mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
+					StatusProcessor: &status.MockVCStatusProcessor{
+						ValidateErr: errors.New("some error"),
+					},
+				}
 
-			service := New(&Config{
-				VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
-				StatusListVCResolver:    failedStatusListGetter,
-				VDR:                     mockVDRRegistry,
-				DocumentLoader:          loader,
+				service := New(&Config{
+					VCStatusProcessorGetter: mockStatusProcessorGetter.GetMockStatusProcessor,
+					StatusListVCResolver:    failedStatusListGetter,
+					VDR:                     mockVDRRegistry,
+					DocumentLoader:          loader,
+				})
+				res, err := service.VerifyCredential(vc, &Options{
+					Challenge: crypto.Challenge,
+					Domain:    crypto.Domain,
+				}, testProfile)
+
+				require.NoError(t, err)
+				require.Len(t, res, 2)
 			})
-			res, err := service.VerifyCredential(vc, &Options{
-				Challenge: crypto.Challenge,
-				Domain:    crypto.Domain,
-			}, testProfile)
-
-			require.NoError(t, err)
-			require.Len(t, res, 2)
 		})
 	})
 }
@@ -599,7 +621,8 @@ func TestService_checkVCStatus(t *testing.T) {
 func TestService_ValidateCredentialProof(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVC, vdr := testutil.SignedVC(
-		t, []byte(sampleVCJsonLD), kmskeytypes.ED25519Type, verifiable.SignatureProofValue, loader, crypto.AssertionMethod)
+		t, []byte(sampleVCJsonLD), kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod, false)
 	type args struct {
 		getVcByte        func() []byte
 		proofChallenge   string

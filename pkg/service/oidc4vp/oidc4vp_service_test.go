@@ -80,6 +80,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 &mockEvent{},
+		EventTopic:               spi.VerifierEventTopic,
 		TransactionManager:       txManager,
 		RequestObjectPublicStore: requestObjectPublicStore,
 		KMSRegistry:              kmsRegistry,
@@ -100,8 +101,9 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 			KeyType: kms.ED25519Type,
 		},
 		SigningDID: &profileapi.SigningDID{
-			DID:     "did:test:acde",
-			Creator: "did:test:acde#" + keyID,
+			DID:      "did:test:acde",
+			Creator:  "did:test:acde#" + keyID,
+			KMSKeyID: keyID,
 		},
 	}
 
@@ -131,6 +133,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
+			EventTopic:               spi.VerifierEventTopic,
 			TransactionManager:       txManagerErr,
 			RequestObjectPublicStore: requestObjectPublicStore,
 			KMSRegistry:              kmsRegistry,
@@ -155,6 +158,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
+			EventTopic:               spi.VerifierEventTopic,
 			TransactionManager:       txManager,
 			RequestObjectPublicStore: requestObjectPublicStoreErr,
 			KMSRegistry:              kmsRegistry,
@@ -178,6 +182,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
+			EventTopic:               spi.VerifierEventTopic,
 			TransactionManager:       txManager,
 			RequestObjectPublicStore: requestObjectPublicStore,
 			KMSRegistry:              kmsRegistry,
@@ -198,7 +203,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	t.Run("Invalid key", func(t *testing.T) {
 		incorrectProfile := &profileapi.Verifier{}
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
-		incorrectProfile.SigningDID.Creator = "invalid"
+		incorrectProfile.SigningDID.KMSKeyID = "invalid"
 
 		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
@@ -228,6 +233,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
+		EventTopic:           spi.VerifierEventTopic,
 		TransactionManager:   txManager,
 		PresentationVerifier: presentationVerifier,
 		ProfileService:       profileService,
@@ -285,6 +291,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   errTxManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
@@ -319,6 +326,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   txManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       errProfileService,
@@ -341,6 +349,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			Return(nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   txManager,
 			PresentationVerifier: errPresentationVerifier,
 			ProfileService:       profileService,
@@ -379,6 +388,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
 			TransactionManager:   errTxManager,
 			PresentationVerifier: presentationVerifier,
 			ProfileService:       profileService,
@@ -456,6 +466,20 @@ func TestService_RetrieveClaims(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
 	})
+
+	t.Run("Error", func(t *testing.T) {
+		credential := &verifiable.Credential{
+			JWT:          "abc",
+			SDJWTHashAlg: "sha-256",
+		}
+
+		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
+				"id": credential,
+			}}})
+
+		require.Empty(t, claims)
+	})
 }
 
 func createKMS(t *testing.T) *localkms.LocalKMS {
@@ -494,7 +518,7 @@ type mockEvent struct {
 	err error
 }
 
-func (m *mockEvent) Publish(topic string, messages ...*spi.Event) error {
+func (m *mockEvent) Publish(ctx context2.Context, topic string, messages ...*spi.Event) error {
 	if m.err != nil {
 		return m.err
 	}

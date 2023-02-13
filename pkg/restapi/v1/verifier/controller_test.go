@@ -1271,21 +1271,21 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-	mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Verifier{
-		OrganizationID: orgID,
-		Active:         true,
-		OIDCConfig:     &profileapi.OIDC4VPConfig{},
-		SigningDID:     &profileapi.SigningDID{},
-		PresentationDefinitions: []*presexch.PresentationDefinition{
-			&presexch.PresentationDefinition{},
-		},
-	}, nil)
-
 	oidc4VPSvc := NewMockOIDC4VPService(gomock.NewController(t))
 	oidc4VPSvc.EXPECT().InitiateOidcInteraction(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Verifier{
+			OrganizationID: orgID,
+			Active:         true,
+			OIDCConfig:     &profileapi.OIDC4VPConfig{},
+			SigningDID:     &profileapi.SigningDID{},
+			PresentationDefinitions: []*presexch.PresentationDefinition{
+				&presexch.PresentationDefinition{},
+			},
+		}, nil)
+
 		controller := NewController(&Config{
 			ProfileSvc:    mockProfileSvc,
 			KMSRegistry:   kmsRegistry,
@@ -1294,6 +1294,19 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 		c := createContext(orgID)
 		err := controller.InitiateOidcInteraction(c, "testId")
 		require.NoError(t, err)
+	})
+
+	t.Run("Profile not found", func(t *testing.T) {
+		mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, nil)
+
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+		c := createContext(orgID)
+		err := controller.InitiateOidcInteraction(c, "testId")
+		requireValidationError(t, resterr.DoesntExist, "profile", err)
 	})
 }
 

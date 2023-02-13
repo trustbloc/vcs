@@ -33,6 +33,7 @@ type mongoDocument struct {
 
 	OpState                            string `bson:"opState,omitempty"`
 	ProfileID                          string
+	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
 	ClaimEndpoint                      string
@@ -43,18 +44,18 @@ type mongoDocument struct {
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
 	AuthorizationDetails               *oidc4ci.AuthorizationDetails
-	ClientID                           string
-	ClientSecret                       string
 	ClientScope                        []string
 	RedirectURI                        string
 	IssuerAuthCode                     string
 	IssuerToken                        string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
-	ClaimData                          map[string]interface{}
+	ClaimDataID                        string
 	Status                             oidc4ci.TransactionState
 	WebHookURL                         string
+	DID                                string
 	UserPin                            string
+	CredentialExpiresAt                *time.Time
 }
 
 // Store stores oidc transactions in mongo.
@@ -194,6 +195,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
 		OpState:                            data.OpState,
 		ProfileID:                          data.ProfileID,
+		OrgID:                              data.OrgID,
 		CredentialTemplate:                 data.CredentialTemplate,
 		CredentialFormat:                   data.CredentialFormat,
 		ClaimEndpoint:                      data.ClaimEndpoint,
@@ -204,8 +206,6 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		PushedAuthorizationRequestEndpoint: data.PushedAuthorizationRequestEndpoint,
 		TokenEndpoint:                      data.TokenEndpoint,
 		AuthorizationDetails:               data.AuthorizationDetails,
-		ClientID:                           data.ClientID,
-		ClientSecret:                       data.ClientSecret,
 		ClientScope:                        data.ClientScope,
 		RedirectURI:                        data.RedirectURI,
 		IssuerAuthCode:                     data.IssuerAuthCode,
@@ -213,9 +213,11 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		UserPin:                            data.UserPin,
 		IsPreAuthFlow:                      data.IsPreAuthFlow,
 		PreAuthCode:                        data.PreAuthCode,
-		ClaimData:                          data.ClaimData,
+		ClaimDataID:                        data.ClaimDataID,
 		Status:                             data.State,
 		WebHookURL:                         data.WebHookURL,
+		DID:                                data.DID,
+		CredentialExpiresAt:                data.CredentialExpiresAt,
 	}
 }
 
@@ -224,14 +226,13 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 		ID: oidc4ci.TxID(doc.ID.Hex()),
 		TransactionData: oidc4ci.TransactionData{
 			ProfileID:                          doc.ProfileID,
+			OrgID:                              doc.OrgID,
 			CredentialTemplate:                 doc.CredentialTemplate,
 			CredentialFormat:                   doc.CredentialFormat,
 			AuthorizationEndpoint:              doc.AuthorizationEndpoint,
 			PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
 			TokenEndpoint:                      doc.TokenEndpoint,
 			ClaimEndpoint:                      doc.ClaimEndpoint,
-			ClientID:                           doc.ClientID,
-			ClientSecret:                       doc.ClientSecret,
 			ClientScope:                        doc.ClientScope,
 			RedirectURI:                        doc.RedirectURI,
 			GrantType:                          doc.GrantType,
@@ -244,9 +245,11 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			UserPin:                            doc.UserPin,
 			IsPreAuthFlow:                      doc.IsPreAuthFlow,
 			PreAuthCode:                        doc.PreAuthCode,
-			ClaimData:                          doc.ClaimData,
+			ClaimDataID:                        doc.ClaimDataID,
 			State:                              doc.Status,
 			WebHookURL:                         doc.WebHookURL,
+			DID:                                doc.DID,
+			CredentialExpiresAt:                doc.CredentialExpiresAt,
 		},
 	}
 }

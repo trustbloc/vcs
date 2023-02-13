@@ -11,9 +11,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext"
 	"github.com/hyperledger/aries-framework-go/pkg/store/ld"
+	"github.com/hyperledger/aries-framework-go/spi/storage"
 	jsonld "github.com/piprate/json-gold/ld"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -94,6 +96,9 @@ func (s *ContextStore) Get(u string) (*jsonld.RemoteDocument, error) {
 			},
 		},
 	).Decode(&bsonDoc); err != nil {
+		if strings.Contains(err.Error(), "no documents in result") {
+			return nil, storage.ErrDataNotFound
+		}
 		return nil, fmt.Errorf("find document: %w", err)
 	}
 
@@ -106,11 +111,13 @@ func (s *ContextStore) Get(u string) (*jsonld.RemoteDocument, error) {
 }
 
 // Put saves JSON-LD remote document into DB.
-func (s *ContextStore) Put(_ string, rd *jsonld.RemoteDocument) error {
+func (s *ContextStore) Put(u string, rd *jsonld.RemoteDocument) error {
 	collection := s.mongoClient.Database().Collection(contextCollectionName)
 
 	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
 	defer cancel()
+
+	rd.ContextURL = u
 
 	bsonDoc, err := mapToBSONRemoteDocument(rd)
 	if err != nil {

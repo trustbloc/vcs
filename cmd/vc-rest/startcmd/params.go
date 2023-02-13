@@ -17,7 +17,9 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/cmd/common"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/observability/tracing"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 )
 
@@ -175,6 +177,11 @@ const (
 	oAuthClientsFilePathFlagUsage = "Path to file with oauth clients. " +
 		commonEnvVarUsageText + oAuthClientsFilePathEnvKey
 
+	claimDataTTLFlagName  = "claim-data-ttl"
+	claimDataTTLEnvKey    = "VC_CLAIM_DATA_TTL"
+	claimDataTTLFlagUsage = "Claim data TTL in OIDC4VC pre-auth code flow. Defaults to 3600s. " +
+		commonEnvVarUsageText + hostURLExternalEnvKey
+
 	metricsProviderFlagName         = "metrics-provider-name"
 	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
 	allowedMetricsProviderFlagUsage = "The metrics provider name (for example: 'prometheus' etc.). " +
@@ -206,6 +213,49 @@ const (
 	credentialOfferRepositoryS3RegionEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_REGION"
 	credentialOfferRepositoryS3RegionFlagUsage = "credential-offer S3 Region"
 
+	requestObjectRepositoryS3HostNameFlagName  = "request-object-repository-s3-hostname"
+	requestObjectRepositoryS3HostNameEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_HOSTNAME"
+	requestObjectRepositoryS3HostNameFlagUsage = "request-object S3 Hostname"
+
+	cslStoreTypeFlagName = "csl-store-type"
+	cslStoreTypeEnvKey   = "CSL_STORE_TYPE"
+	cslStoreFlagUsage    = "Store type for CSL (Credential Status List). Supported: mongodb,s3. Default: mongodb"
+
+	cslStoreS3BucketFlagName  = "csl-store-s3-bucket"
+	cslStoreS3BucketEnvKey    = "CSL_STORE_S3_BUCKET"
+	cslStoreS3BucketFlagUsage = "CSL (Credential Status List) S3 Bucket"
+
+	cslStoreS3RegionFlagName  = "csl-store-s3-region"
+	cslStoreS3RegionEnvKey    = "CSL_STORE_S3_REGION"
+	cslStoreS3RegionFlagUsage = "CSL (Credential Status List) S3 Region"
+
+	cslStoreS3HostNameFlagName  = "csl-store-s3-hostname"
+	cslStoreS3HostNameEnvKey    = "CSL_STORE_S3_HOSTNAME"
+	cslStoreS3HostNameFlagUsage = "CSL (Credential Status List) S3 Hostname"
+
+	issuerTopicFlagName  = "issuer-event-topic"
+	issuerTopicEnvKey    = "VC_REST_ISSUER_EVENT_TOPIC"
+	issuerTopicFlagUsage = "The name of the issuer event topic. " + commonEnvVarUsageText + issuerTopicEnvKey
+
+	verifierTopicFlagName  = "verifier-event-topic"
+	verifierTopicEnvKey    = "VC_REST_VERIFIER_EVENT_TOPIC"
+	verifierTopicFlagUsage = "The name of the verifier event topic. " + commonEnvVarUsageText + verifierTopicEnvKey
+
+	tracingProviderFlagName  = "tracing-provider"
+	tracingProviderEnvKey    = "VC_REST_TRACING_PROVIDER"
+	tracingProviderFlagUsage = "The tracing provider (for example, JAEGER). " +
+		commonEnvVarUsageText + tracingProviderEnvKey
+
+	tracingCollectorURLFlagName  = "tracing-collector-url"
+	tracingCollectorURLEnvKey    = "VC_REST_TRACING_COLLECTOR_URL"
+	tracingCollectorURLFlagUsage = "The URL of the tracing collector. " +
+		commonEnvVarUsageText + tracingCollectorURLEnvKey
+
+	tracingServiceNameFlagName  = "tracing-service-name"
+	tracingServiceNameEnvKey    = "VC_REST_TRACING_SERVICE_NAME"
+	tracingServiceNameFlagUsage = "The name of the tracing service. Default: vcs. " +
+		commonEnvVarUsageText + tracingServiceNameEnvKey
+
 	didMethodVeres   = "v1"
 	didMethodElement = "elem"
 	didMethodSov     = "sov"
@@ -216,6 +266,12 @@ const (
 	didMethodION     = "ion"
 
 	splitRequestTokenLength = 2
+
+	defaultTracingServiceName = "vcs"
+)
+
+const (
+	defaultClaimDataTTL = 3600 * time.Second
 )
 
 type startupParameters struct {
@@ -243,10 +299,25 @@ type startupParameters struct {
 	requestObjectRepositoryS3Region   string
 	credentialOfferRepositoryS3Bucket string
 	credentialOfferRepositoryS3Region string
+	requestObjectRepositoryS3HostName string
+	cslStoreType                      string
+	cslStoreS3Bucket                  string
+	cslStoreS3Region                  string
+	cslStoreS3HostName                string
+	issuerEventTopic                  string
+	verifierEventTopic                string
+	claimDataTTL                      int32
+	tracingParams                     *tracingParams
 }
 
 type prometheusMetricsProviderParams struct {
 	url string
+}
+
+type tracingParams struct {
+	provider     tracing.ProviderType
+	collectorURL string
+	serviceName  string
 }
 
 type dbParameters struct {
@@ -383,6 +454,54 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3RegionEnvKey,
 	)
 
+	requestObjectRepositoryS3HostName := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		requestObjectRepositoryS3HostNameFlagName,
+		requestObjectRepositoryS3HostNameEnvKey,
+	)
+
+	cslStoreType := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreTypeFlagName,
+		cslStoreTypeEnvKey,
+	)
+	cslStoreS3Bucket := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreS3BucketFlagName,
+		cslStoreS3BucketEnvKey,
+	)
+	cslStoreS3Region := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreS3RegionFlagName,
+		cslStoreS3RegionEnvKey,
+	)
+
+	cslStoreS3HostName := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		cslStoreS3HostNameFlagName,
+		cslStoreS3HostNameEnvKey,
+	)
+
+	issuerTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, issuerTopicFlagName, issuerTopicEnvKey)
+	if issuerTopic == "" {
+		issuerTopic = spi.IssuerEventTopic
+	}
+
+	verifierTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, verifierTopicFlagName, verifierTopicEnvKey)
+	if verifierTopic == "" {
+		verifierTopic = spi.VerifierEventTopic
+	}
+
+	claimDataTTL, err := getDuration(cmd, claimDataTTLFlagName, claimDataTTLEnvKey, defaultClaimDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	tracingParams, err := getTracingParams(cmd)
+	if err != nil {
+		return nil, err
+	}
+
 	credentialOfferRepositoryS3Bucket := cmdutils.GetUserSetOptionalVarFromString(
 		cmd,
 		credentialOfferRepositoryS3BucketFlagName,
@@ -419,6 +538,15 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3Region:   requestObjectRepositoryS3Region,
 		credentialOfferRepositoryS3Bucket: credentialOfferRepositoryS3Bucket,
 		credentialOfferRepositoryS3Region: credentialOfferRepositoryS3Region,
+		requestObjectRepositoryS3HostName: requestObjectRepositoryS3HostName,
+		cslStoreType:                      cslStoreType,
+		cslStoreS3Bucket:                  cslStoreS3Bucket,
+		cslStoreS3Region:                  cslStoreS3Region,
+		cslStoreS3HostName:                cslStoreS3HostName,
+		issuerEventTopic:                  issuerTopic,
+		verifierEventTopic:                verifierTopic,
+		claimDataTTL:                      int32(claimDataTTL.Seconds()),
+		tracingParams:                     tracingParams,
 	}, nil
 }
 
@@ -620,6 +748,34 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 	return tokens
 }
 
+func getTracingParams(cmd *cobra.Command) (*tracingParams, error) {
+	serviceName := cmdutils.GetOptionalString(cmd, tracingServiceNameFlagName, tracingServiceNameEnvKey)
+	if serviceName == "" {
+		serviceName = defaultTracingServiceName
+	}
+
+	params := &tracingParams{
+		provider:    cmdutils.GetOptionalString(cmd, tracingProviderFlagName, tracingProviderEnvKey),
+		serviceName: serviceName,
+	}
+
+	switch params.provider {
+	case tracing.ProviderNone:
+		return params, nil
+	case tracing.ProviderJaeger:
+		var err error
+
+		params.collectorURL, err = cmdutils.GetString(cmd, tracingCollectorURLFlagName, tracingCollectorURLEnvKey, false)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported tracing provider: %s", params.provider)
+	}
+
+	return params, nil
+}
+
 func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(apiGatewayURLFlagName, apiGatewayURLFlagShorthand, "", apiGatewayURLFlagUsage)
@@ -659,9 +815,23 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(requestObjectRepositoryTypeFlagName, "", requestObjectRepositoryTypeFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
+	startCmd.Flags().String(requestObjectRepositoryS3HostNameFlagName, "", requestObjectRepositoryS3HostNameFlagUsage)
 
 	startCmd.Flags().String(credentialOfferRepositoryS3BucketFlagName, "", credentialOfferRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(credentialOfferRepositoryS3RegionFlagName, "", credentialOfferRepositoryS3RegionFlagUsage)
+
+	startCmd.Flags().String(cslStoreTypeFlagName, "", cslStoreFlagUsage)
+	startCmd.Flags().String(cslStoreS3BucketFlagName, "", cslStoreS3BucketFlagUsage)
+	startCmd.Flags().String(cslStoreS3RegionFlagName, "", cslStoreS3RegionFlagUsage)
+	startCmd.Flags().String(cslStoreS3HostNameFlagName, "", cslStoreS3HostNameFlagUsage)
+
+	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
+	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
+	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
+
+	startCmd.Flags().StringP(tracingProviderFlagName, "", "", tracingProviderFlagUsage)
+	startCmd.Flags().StringP(tracingCollectorURLFlagName, "", "", tracingCollectorURLFlagUsage)
+	startCmd.Flags().StringP(tracingServiceNameFlagName, "", "", tracingServiceNameFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }

@@ -14,7 +14,6 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
@@ -37,7 +36,7 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 			return fmt.Errorf("create document loader: %w", err)
 		}
 
-		cred, err := verifiable.ParseCredential(e.bddContext.CreatedCredential, verifiable.WithDisabledProofCheck(),
+		cred, err := verifiable.ParseCredential(credBytes, verifiable.WithDisabledProofCheck(),
 			verifiable.WithJSONLDDocumentLoader(loader))
 		if err != nil {
 			return err
@@ -391,16 +390,4 @@ func getVCMap(vcBytes []byte) (map[string]interface{}, error) {
 	}
 
 	return vcMap, nil
-}
-
-type unsecuredJWTSigner struct{}
-
-func (s unsecuredJWTSigner) Sign(_ []byte) ([]byte, error) {
-	return []byte(""), nil
-}
-
-func (s unsecuredJWTSigner) Headers() jose.Headers {
-	return map[string]interface{}{
-		jose.HeaderAlgorithm: "none",
-	}
 }

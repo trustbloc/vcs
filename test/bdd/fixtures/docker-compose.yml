@@ -35,6 +35,8 @@ services:
       - VC_METRICS_PROVIDER_NAME=prometheus
       - VC_PROM_HTTP_URL=vc-rest-echo.trustbloc.local:48127
       - VC_OAUTH_CLIENTS_FILE_PATH=/oauth-clients/clients.json
+      - VC_REST_TRACING_PROVIDER=JAEGER
+      - VC_REST_TRACING_COLLECTOR_URL=http://jaeger.example.com:14268/api/traces
     ports:
       - "8075:8075"
       - "48127:48127"
@@ -247,6 +249,16 @@ services:
       - 9095:9090
     volumes:
       - ./prometheus-config/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - bdd_net
+
+  jaeger.example.com:
+    container_name: jaeger.example.com
+    image: jaegertracing/all-in-one:1.41
+    ports:
+      - 6831:6831/udp
+      - 16686:16686
+      - 14268:14268
     networks:
       - bdd_net
 

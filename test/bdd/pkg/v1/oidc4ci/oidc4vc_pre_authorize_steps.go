@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -61,6 +62,8 @@ func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^client requests credential for claim data with pre-authorize flow$`, s.getCredential)
 	sc.Step(`^client receives a valid credential with pre-authorize flow$`, s.checkCredential)
+
+	sc.Step(`^claim data are removed from the database$`, s.checkClaimData)
 }
 
 func (s *PreAuthorizeStep) parseUrl() error {
@@ -131,10 +134,6 @@ func (s *PreAuthorizeStep) prepareIssuer(id string) error {
 	issuer, ok := s.bddContext.IssuerProfiles[id]
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", id)
-	}
-
-	if issuer.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", id)
 	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
@@ -229,4 +228,16 @@ func (s *PreAuthorizeStep) checkCredential() error {
 	}
 
 	return nil
+}
+
+func (s *PreAuthorizeStep) checkClaimData() error {
+	if err := s.getCredential(); err != nil {
+		if strings.Contains(err.Error(), "get claim data: data not found") {
+			return nil
+		}
+
+		return err
+	}
+
+	return errors.New("claim data found")
 }

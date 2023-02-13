@@ -109,12 +109,12 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 }
 
 func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Credential, error) {
-	opts := make([]verifiable.CredentialOpt, 0)
-
-	opts = append(opts, verifiable.WithPublicKeyFetcher(
-		verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-	),
-		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+	opts := []verifiable.CredentialOpt{
+		verifiable.WithPublicKeyFetcher(
+			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+		),
+		verifiable.WithJSONLDDocumentLoader(s.documentLoader),
+	}
 
 	if !isJWT {
 		opts = append(opts, verifiable.WithStrictValidation())

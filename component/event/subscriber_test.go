@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package event
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -22,6 +23,8 @@ import (
 
 func TestEventSubscriber(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
+		ctx := context.TODO()
+
 		eventBus := NewEventBus(Config{})
 
 		subscriber, err := NewEventSubscriber(eventBus, topic, printEvent)
@@ -31,9 +34,12 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-2", sourceURL, eventType, []byte(jsonMsg))))
-		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-3", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(ctx, topic,
+			spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(ctx, topic,
+			spi.NewEventWithPayload("id-2", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(ctx, topic,
+			spi.NewEventWithPayload("id-3", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 	})
@@ -48,7 +54,8 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(context.TODO(), topic,
+			spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 
@@ -67,7 +74,8 @@ func TestEventSubscriber(t *testing.T) {
 
 		publisher := NewEventPublisher(eventBus)
 
-		require.NoError(t, publisher.Publish(topic, spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
+		require.NoError(t, publisher.Publish(context.TODO(), topic,
+			spi.NewEventWithPayload("id-1", sourceURL, eventType, []byte(jsonMsg))))
 
 		time.Sleep(time.Second)
 	})

@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	vcStatusStoreName         = "verifiablecredentialsstatus"
+	vcStatusStoreName         = "credentialsstatus"
 	profileIDMongoDBFieldName = "profileID"
 	idFieldName               = "vcID"
 )

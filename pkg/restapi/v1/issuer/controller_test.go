@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
@@ -128,7 +129,8 @@ func TestController_PostIssueCredentials(t *testing.T) {
 						Contexts: []string{
 							"https://www.w3.org/2018/credentials/v1",
 						},
-						Type: "VerifiedEmployee",
+						Type:                                "VerifiedEmployee",
+						CredentialDefaultExpirationDuration: lo.ToPtr(55 * time.Hour),
 					},
 				},
 			}, nil)
@@ -816,6 +818,18 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				},
 			},
 			{
+				name: "Returned empty profile",
+				setup: func() {
+					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, nil)
+					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+					c = echoContext(withRequestBody(req))
+				},
+				check: func(t *testing.T, err error) {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "profile with given id profileID, doesn't exist")
+				},
+			},
+			{
 				name: "Credential template ID is required",
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
@@ -977,14 +991,18 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
 				assert.Equal(t, "123", req.OpState)
 
-				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
-					AuthorizationParameters: &oidc4ci.OAuthParameters{},
-				}, nil
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{}, nil
 			},
 		)
 
+		mockProfileService := NewMockProfileService(gomock.NewController(t))
+		mockProfileService.EXPECT().GetProfile(gomock.Any()).Return(&profileapi.Issuer{
+			OIDCConfig: &profileapi.OIDC4CIConfig{},
+		}, nil)
+
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
+			profileSvc:     mockProfileService,
 		}
 
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
@@ -1030,6 +1048,32 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
 		ctx := echoContext(withRequestBody([]byte(req)))
 		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "service error")
+	})
+
+	t.Run("get profile failed", func(t *testing.T) {
+		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
+		mockOIDC4CIService.EXPECT().PrepareClaimDataAuthorizationRequest(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(
+				ctx context.Context,
+				req *oidc4ci.PrepareClaimDataAuthorizationRequest,
+			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
+				assert.Equal(t, "123", req.OpState)
+
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{}, nil
+			},
+		)
+
+		mockProfileService := NewMockProfileService(gomock.NewController(t))
+		mockProfileService.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("get profile error"))
+
+		c := &Controller{
+			oidc4ciService: mockOIDC4CIService,
+			profileSvc:     mockProfileService,
+		}
+
+		req := `{"response_type":"code","op_state":"123","authorization_details":{"type":"openid_credential","credential_type":"https://did.example.org/healthCard","format":"ldp_vc","locations":[]}}` //nolint:lll
+		ctx := echoContext(withRequestBody([]byte(req)))
+		assert.ErrorContains(t, c.PrepareAuthorizationRequest(ctx), "get profile error")
 	})
 }
 

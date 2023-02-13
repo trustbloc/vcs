@@ -11,7 +11,6 @@ import (
 	"time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 )
 
@@ -38,15 +37,9 @@ type crypto interface {
 	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
 }
 
-func NewKMSSigner(keyManager keyManager, c crypto, creator string,
+func NewKMSSigner(keyManager keyManager, c crypto, kmsKeyID string,
 	signatureType vcsverifiable.SignatureType, metrics metricsProvider) (*KMSSigner, error) {
-	// creator will contain didID#keyID
-	keyID, err := diddoc.GetKeyIDFromVerificationMethod(creator)
-	if err != nil {
-		return nil, err
-	}
-
-	kh, err := keyManager.Get(keyID)
+	kh, err := keyManager.Get(kmsKeyID)
 	if err != nil {
 		return nil, err
 	}

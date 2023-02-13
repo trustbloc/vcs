@@ -9,7 +9,6 @@ package requestobjectstore_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"testing"
@@ -30,8 +29,6 @@ func TestCreate(t *testing.T) {
 		Content:                  "any string",
 		AccessRequestObjectEvent: &spi.Event{ID: "1234"},
 	}
-	b, err := json.Marshal(targetObj)
-	assert.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
@@ -47,12 +44,12 @@ func TestCreate(t *testing.T) {
 
 				data, err2 := io.ReadAll(input.Body)
 				assert.NoError(t, err2)
-				assert.Equal(t, b, data)
+				assert.Equal(t, []byte(targetObj.Content), data)
 
 				return &s3.PutObjectOutput{}, nil
 			})
 
-		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
+		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
 
 		result, err := repo.Create(context.TODO(), *targetObj)
 		assert.NoError(t, err)
@@ -64,7 +61,7 @@ func TestCreate(t *testing.T) {
 		uploader.EXPECT().PutObjectWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("s3 error"))
 
-		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
+		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
 
 		result, err := repo.Create(context.TODO(), *targetObj)
 		assert.Nil(t, result)
@@ -84,30 +81,16 @@ func TestFind(t *testing.T) {
 				assert.Equal(t, "awesome-bucket", *input.Bucket)
 				assert.Equal(t, "1234", *input.Key)
 				return &s3.GetObjectOutput{
-					Body: io.NopCloser(bytes.NewBufferString(`{"id" : "5678", "content" : "111"}`)),
+					Body: io.NopCloser(bytes.NewBufferString(`value`)),
 				}, nil
 			})
 
-		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
+		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
 		resp, err := repo.Find(context.TODO(), "1234")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, "5678", resp.ID)
-		assert.Equal(t, "111", resp.Content)
-	})
-
-	t.Run("invalid json", func(t *testing.T) {
-		uploader := NewMockS3Uploader(gomock.NewController(t))
-		uploader.EXPECT().GetObjectWithContext(gomock.Any(), gomock.Any()).
-			Return(&s3.GetObjectOutput{
-				Body: io.NopCloser(bytes.NewBufferString("{")),
-			}, nil)
-
-		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
-		resp, err := repo.Find(context.TODO(), "1234")
-		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "unexpected EOF")
+		assert.Equal(t, "value", resp.Content)
 	})
 
 	t.Run("error", func(t *testing.T) {
@@ -115,7 +98,7 @@ func TestFind(t *testing.T) {
 		uploader.EXPECT().GetObjectWithContext(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("unexpected s3 error"))
 
-		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
+		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
 		resp, err := repo.Find(context.TODO(), "1234")
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "unexpected s3 error")
@@ -136,11 +119,11 @@ func TestDelete(t *testing.T) {
 			return &s3.DeleteObjectOutput{}, nil
 		})
 
-	resp := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west")
+	resp := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
 	assert.NoError(t, resp.Delete(context.TODO(), "1234"))
 }
 
 func TestBuildUrl(t *testing.T) {
-	resp := requestobjectstore.NewStore(nil, "awesome-bucket", "us-west")
+	resp := requestobjectstore.NewStore(nil, "awesome-bucket", "us-west", "")
 	assert.Equal(t, "https://awesome-bucket.s3.us-west.amazonaws.com/1111", resp.GetResourceURL("1111"))
 }

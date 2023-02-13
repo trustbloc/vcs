@@ -41,7 +41,7 @@ const (
 var secretLockKeyFile string
 
 func TestNewLocalKeyManager(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
+	t.Run("key not found", func(t *testing.T) {
 		km, err := kms.NewAriesKeyManager(&kms.Config{
 			KMSType:           kms.Local,
 			SecretLockKeyPath: secretLockKeyFile,
@@ -69,7 +69,7 @@ func TestNewLocalKeyManager(t *testing.T) {
 
 		_, err = km.NewVCSigner("did", "EdDSA")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "verificationMethod value did should be in did#keyID format")
+		require.Contains(t, err.Error(), "cannot read data for keysetID did")
 	})
 
 	t.Run("Success mongodb", func(t *testing.T) {

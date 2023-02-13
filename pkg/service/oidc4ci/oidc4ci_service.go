@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService
 
 package oidc4ci
 
@@ -26,7 +26,9 @@ import (
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 const (
@@ -65,11 +67,20 @@ type transactionStore interface {
 	) error
 }
 
+type claimDataStore interface {
+	Create(ctx context.Context, data *ClaimData) (string, error)
+	GetAndDelete(ctx context.Context, id string) (*ClaimData, error)
+}
+
 type wellKnownService interface {
 	GetOIDCConfiguration(
 		ctx context.Context,
 		url string,
 	) (*OIDCConfiguration, error)
+}
+
+type profileService interface {
+	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
 }
 
 type oAuth2Client interface {
@@ -87,7 +98,7 @@ type httpClient interface {
 }
 
 type eventService interface {
-	Publish(topic string, messages ...*spi.Event) error
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
 type credentialOfferReferenceStore interface {
@@ -99,38 +110,47 @@ type credentialOfferReferenceStore interface {
 
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStore              transactionStore
-	WellKnownService              wellKnownService
-	IssuerVCSPublicHost           string
-	OAuth2Client                  oAuth2Client
-	HTTPClient                    httpClient
-	EventService                  eventService
-	PinGenerator                  pinGenerator
+	TransactionStore    transactionStore
+	ClaimDataStore      claimDataStore
+	WellKnownService    wellKnownService
+	ProfileService      profileService
+	IssuerVCSPublicHost string
+	OAuth2Client        oAuth2Client
+	HTTPClient          httpClient
+	EventService        eventService
+	PinGenerator        pinGenerator
+	EventTopic          string
 	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
 type Service struct {
-	store                         transactionStore
-	wellKnownService              wellKnownService
-	issuerVCSPublicHost           string
-	oAuth2Client                  oAuth2Client
-	httpClient                    httpClient
-	eventSvc                      eventService
-	pinGenerator                  pinGenerator
+	store               transactionStore
+	claimDataStore      claimDataStore
+	wellKnownService    wellKnownService
+	profileService      profileService
+	issuerVCSPublicHost string
+	oAuth2Client        oAuth2Client
+	httpClient          httpClient
+	eventSvc            eventService
+	eventTopic          string
+	pinGenerator        pinGenerator
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{
-		store:                         config.TransactionStore,
-		wellKnownService:              config.WellKnownService,
-		issuerVCSPublicHost:           config.IssuerVCSPublicHost,
-		oAuth2Client:                  config.OAuth2Client,
-		httpClient:                    config.HTTPClient,
-		eventSvc:                      config.EventService,
-		pinGenerator:                  config.PinGenerator,
+		store:               config.TransactionStore,
+		claimDataStore:      config.ClaimDataStore,
+		wellKnownService:    config.WellKnownService,
+		profileService:      config.ProfileService,
+		issuerVCSPublicHost: config.IssuerVCSPublicHost,
+		oAuth2Client:        config.OAuth2Client,
+		httpClient:          config.HTTPClient,
+		eventSvc:            config.EventService,
+		eventTopic:          config.EventTopic,
+		pinGenerator:        config.PinGenerator,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 	}, nil
 }
@@ -163,7 +183,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	newState := TransactionStateAwaitingIssuerOIDCAuthorization
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 	tx.State = newState
@@ -196,31 +216,28 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	if req.AuthorizationDetails != nil {
 		if err = s.updateAuthorizationDetails(ctx, req.AuthorizationDetails, tx); err != nil {
-			s.sendFailedEvent(tx, err)
+			s.sendFailedEvent(ctx, tx, err)
 			return nil, err
 		}
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 
-	if err = s.sendEvent(tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
-		s.sendFailedEvent(tx, err)
+	if err = s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionAuthorizationRequestPrepared); err != nil {
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 
 	return &PrepareClaimDataAuthorizationResponse{
-		AuthorizationParameters: &OAuthParameters{
-			ClientID:     tx.ClientID,
-			ClientSecret: tx.ClientSecret,
-			ResponseType: req.ResponseType,
-			Scope:        tx.ClientScope,
-		},
+		ProfileID:                          tx.ProfileID,
+		TxID:                               tx.ID,
+		ResponseType:                       tx.ResponseType,
+		Scope:                              tx.ClientScope,
 		AuthorizationEndpoint:              tx.AuthorizationEndpoint,
 		PushedAuthorizationRequestEndpoint: tx.PushedAuthorizationRequestEndpoint,
-		TxID:                               tx.ID,
 	}, nil
 }
 
@@ -285,7 +302,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 		return nil, err
 	}
 
-	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
+	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionQRScanned); errSendEvent != nil {
 		return nil, errSendEvent
 	}
 
@@ -306,15 +323,16 @@ func (s *Service) PrepareCredential(
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
-	var claimData map[string]interface{}
+	var claimData *ClaimData
+
 	if tx.IsPreAuthFlow {
-		claimData = tx.ClaimData
-	} else {
-		r, requestErr := s.requestClaims(ctx, tx)
-		if requestErr != nil {
-			return nil, requestErr
+		if claimData, err = s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID); err != nil {
+			return nil, fmt.Errorf("get claim data: %w", err)
 		}
-		claimData = r
+	} else {
+		if claimData, err = s.requestClaims(ctx, tx); err != nil {
+			return nil, err
+		}
 	}
 
 	// prepare credential for signing
@@ -322,12 +340,21 @@ func (s *Service) PrepareCredential(
 		Context: tx.CredentialTemplate.Contexts,
 		ID:      uuid.New().URN(),
 		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
-		Issuer:  verifiable.Issuer{ID: tx.CredentialTemplate.Issuer},
-		Subject: verifiable.Subject{
+		Issuer:  verifiable.Issuer{ID: tx.DID},
+		Issued:  util.NewTime(time.Now()),
+	}
+
+	if tx.CredentialExpiresAt != nil {
+		vc.Expired = util.NewTime(*tx.CredentialExpiresAt)
+	}
+
+	if claimData != nil {
+		vc.Subject = verifiable.Subject{
 			ID:           req.DID,
-			CustomFields: claimData,
-		},
-		Issued: util.NewTime(time.Now()),
+			CustomFields: verifiable.CustomFields(*claimData),
+		}
+	} else {
+		vc.Subject = verifiable.Subject{ID: req.DID}
 	}
 
 	var credential interface{}
@@ -336,13 +363,13 @@ func (s *Service) PrepareCredential(
 	case vcsverifiable.Jwt:
 		claims, jwtClaimsErr := vc.JWTClaims(false)
 		if jwtClaimsErr != nil {
-			s.sendFailedEvent(tx, jwtClaimsErr)
+			s.sendFailedEvent(ctx, tx, jwtClaimsErr)
 			return nil, fmt.Errorf("create jwt claims: %w", jwtClaimsErr)
 		}
 
 		credential, err = claims.MarshalUnsecuredJWT()
 		if err != nil {
-			s.sendFailedEvent(tx, err)
+			s.sendFailedEvent(ctx, tx, err)
 			return nil, fmt.Errorf("marshal unsecured jwt: %w", err)
 		}
 	case vcsverifiable.Ldp:
@@ -354,12 +381,12 @@ func (s *Service) PrepareCredential(
 
 	tx.State = TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
-		s.sendFailedEvent(tx, err)
+		s.sendFailedEvent(ctx, tx, err)
 		return nil, err
 	}
 
-	if errSendEvent := s.sendEvent(tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
-		s.sendFailedEvent(tx, errSendEvent)
+	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionSucceeded); errSendEvent != nil {
+		s.sendFailedEvent(ctx, tx, errSendEvent)
 		return nil, errSendEvent
 	}
 
@@ -371,7 +398,7 @@ func (s *Service) PrepareCredential(
 	}, nil
 }
 
-func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[string]interface{}, error) {
+func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (*ClaimData, error) {
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -390,12 +417,14 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[strin
 		return nil, fmt.Errorf("claim endpoint returned status code %d", resp.StatusCode)
 	}
 
-	var claimData map[string]interface{}
-	if err = json.NewDecoder(resp.Body).Decode(&claimData); err != nil {
+	var m map[string]interface{}
+	if err = json.NewDecoder(resp.Body).Decode(&m); err != nil {
 		return nil, fmt.Errorf("decode claim data: %w", err)
 	}
 
-	return claimData, nil
+	claimData := ClaimData(m)
+
+	return &claimData, nil
 }
 
 func (s *Service) createEvent(
@@ -404,7 +433,9 @@ func (s *Service) createEvent(
 	e error,
 ) (*spi.Event, error) {
 	ep := eventPayload{
-		WebHook: tx.WebHookURL,
+		WebHook:   tx.WebHookURL,
+		ProfileID: tx.ProfileID,
+		OrgID:     tx.OrgID,
 	}
 
 	if e != nil {
@@ -422,20 +453,20 @@ func (s *Service) createEvent(
 	return event, nil
 }
 
-func (s *Service) sendEvent(tx *Transaction, eventType spi.EventType) error {
-	return s.sendEventWithError(tx, eventType, nil)
+func (s *Service) sendEvent(ctx context.Context, tx *Transaction, eventType spi.EventType) error {
+	return s.sendEventWithError(ctx, tx, eventType, nil)
 }
 
-func (s *Service) sendEventWithError(tx *Transaction, eventType spi.EventType, e error) error {
+func (s *Service) sendEventWithError(ctx context.Context, tx *Transaction, eventType spi.EventType, e error) error {
 	event, err := s.createEvent(tx, eventType, e)
 	if err != nil {
 		return err
 	}
 
-	return s.eventSvc.Publish(spi.IssuerEventTopic, event)
+	return s.eventSvc.Publish(ctx, s.eventTopic, event)
 }
 
-func (s *Service) sendFailedEvent(tx *Transaction, err error) {
-	e := s.sendEventWithError(tx, spi.IssuerOIDCInteractionFailed, err)
+func (s *Service) sendFailedEvent(ctx context.Context, tx *Transaction, err error) {
+	e := s.sendEventWithError(ctx, tx, spi.IssuerOIDCInteractionFailed, err)
 	logger.Debug("sending Failed OIDC issuer event error, ignoring..", log.WithError(e))
 }

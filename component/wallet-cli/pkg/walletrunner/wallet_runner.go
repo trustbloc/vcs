@@ -12,15 +12,18 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"strings"
+	"time"
+
+	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 
 	"github.com/henvic/httpretty"
 	"github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go/component/storage/leveldb"
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto/tinkcrypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	"github.com/hyperledger/aries-framework-go/pkg/kms/localkms"
@@ -51,6 +54,7 @@ type Service struct {
 	httpClient     *http.Client
 	oauthClient    *oauth2.Config
 	token          *oauth2.Token
+	perfInfo       *PerfInfo
 	debug          bool
 }
 
@@ -94,12 +98,29 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		vcProvider:     vcProvider,
 		vcProviderConf: config,
 		httpClient:     httpClient,
+		perfInfo:       &PerfInfo{},
 		debug:          config.Debug,
 	}, nil
 }
 
 func (s *Service) GetConfig() *vcprovider.Config {
 	return s.vcProviderConf
+}
+
+type PerfInfo struct {
+	CreateWallet               time.Duration `json:"vci_create_wallet"`
+	GetIssuerOIDCConfig        time.Duration `json:"vci_get_issuer_oidc_config"`
+	GetAccessToken             time.Duration `json:"vci_get_access_token"`
+	GetCredential              time.Duration `json:"vci_get_credential"`
+	FetchRequestObject         time.Duration `json:"vp_fetch_request_object"`
+	VerifyAuthorizationRequest time.Duration `json:"vp_verify_authorization_request"`
+	QueryCredentialFromWallet  time.Duration `json:"vp_query_credential_from_wallet"`
+	CreateAuthorizedResponse   time.Duration `json:"vp_create_authorized_response"`
+	SendAuthorizedResponse     time.Duration `json:"vp_send_authorized_response"`
+}
+
+func (s *Service) GetPerfInfo() *PerfInfo {
+	return s.perfInfo
 }
 
 func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, error) {
@@ -128,7 +149,7 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 	}
 
 	loader, err := createJSONLDDocumentLoader(ldStore, tlsConfig,
-		[]string{s.vcProviderConf.ContextProviderURL}, false)
+		[]string{s.vcProviderConf.ContextProviderURL}, true)
 	if err != nil {
 		return nil, fmt.Errorf("create document loader: %w", err)
 	}
@@ -196,6 +217,10 @@ func createJSONLDDocumentLoader(ldStore *ldStoreProvider, tlsConfig *tls.Config,
 	}
 
 	for _, url := range providerURLs {
+		if url == "" {
+			continue
+		}
+
 		loaderOpts = append(loaderOpts,
 			ld.WithRemoteProvider(
 				remote.NewProvider(url, remote.WithHTTPClient(httpClient)),
@@ -241,7 +266,13 @@ func createVDR(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry
 		opts = append(opts, vdr.WithVDR(universalResolverVDRI))
 	}
 
+	longForm, err := longform.New()
+	if err != nil {
+		return nil, err
+	}
+
 	opts = append(opts,
+		vdr.WithVDR(longForm),
 		vdr.WithVDR(key.New()),
 		vdr.WithVDR(
 			&webVDR{

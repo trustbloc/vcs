@@ -7,38 +7,32 @@ SPDX-License-Identifier: Apache-2.0
 package cslstore
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 
 	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
 const (
-	cslStoreName               = "credentialstatus"
+	cslStoreName               = "csl_store"
 	latestListIDDBEntryKey     = "LatestListID"
 	mongoDBDocumentIDFieldName = "_id"
 	idFieldName                = "id"
+
+	issuerProfiles   = "/issuer/profiles"
+	credentialStatus = "/credentials/status"
 )
 
 // Store manages profile in mongodb.
 type Store struct {
 	mongoClient *mongodb.Client
-}
-
-// CSLWrapper contains CSL and metadata.
-type CSLWrapper struct {
-	VCByte              json.RawMessage        `json:"vc"`
-	Size                int                    `json:"size"`
-	RevocationListIndex int                    `json:"revocationListIndex"`
-	ListID              int                    `json:"listID"`
-	VC                  *verifiable.Credential `json:"-"`
 }
 
 type latestListIDDocument struct {
@@ -52,7 +46,7 @@ func NewStore(mongoClient *mongodb.Client) *Store {
 }
 
 // Upsert does upsert operation of cslWrapper against underlying MongoDB.
-func (p *Store) Upsert(cslWrapper *CSLWrapper) error {
+func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -76,8 +70,13 @@ func (p *Store) Upsert(cslWrapper *CSLWrapper) error {
 	return err
 }
 
-// Get returns CSLWrapper.
-func (p *Store) Get(id string) (*CSLWrapper, error) {
+// GetCSLURL returns the URL of credentialstatus.CSL.
+func (p *Store) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, statusID)
+}
+
+// Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
+func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -85,9 +84,9 @@ func (p *Store) Get(id string) (*CSLWrapper, error) {
 
 	mongoDBDocument := map[string]interface{}{}
 
-	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": id}).Decode(mongoDBDocument)
+	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": cslURL}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return nil, ErrDataNotFound
+		return nil, credentialstatus.ErrDataNotFound
 	}
 
 	if err != nil {
@@ -99,7 +98,7 @@ func (p *Store) Get(id string) (*CSLWrapper, error) {
 		vcMap[idFieldName] = mongoDBDocument[mongoDBDocumentIDFieldName]
 	}
 
-	cslWrapper := &CSLWrapper{}
+	cslWrapper := &credentialstatus.CSLWrapper{}
 
 	err = mongodb.MapToStructure(mongoDBDocument, cslWrapper)
 	if err != nil {
@@ -107,18 +106,6 @@ func (p *Store) Get(id string) (*CSLWrapper, error) {
 	}
 
 	return cslWrapper, nil
-}
-
-func (p *Store) CreateLatestListID(id int) error {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
-
-	collection := p.mongoClient.Database().Collection(cslStoreName)
-	_, err := collection.InsertOne(ctxWithTimeout, latestListIDDocument{
-		ID:     latestListIDDBEntryKey,
-		ListID: id,
-	})
-	return err
 }
 
 func (p *Store) UpdateLatestListID(id int) error {
@@ -146,7 +133,7 @@ func (p *Store) GetLatestListID() (int, error) {
 	err := collection.FindOne(ctxWithTimeout,
 		bson.M{mongoDBDocumentIDFieldName: latestListIDDBEntryKey}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return -1, ErrDataNotFound
+		return p.createFirstListID()
 	}
 
 	if err != nil {
@@ -161,4 +148,20 @@ func (p *Store) GetLatestListID() (int, error) {
 	}
 
 	return latestListID.ListID, nil
+}
+
+func (p *Store) createFirstListID() (int, error) {
+	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	collection := p.mongoClient.Database().Collection(cslStoreName)
+	_, err := collection.InsertOne(ctxWithTimeout, latestListIDDocument{
+		ID:     latestListIDDBEntryKey,
+		ListID: 1,
+	})
+	if err != nil {
+		return -1, fmt.Errorf("failed to create first list id: %w", err)
+	}
+
+	return 1, nil
 }
