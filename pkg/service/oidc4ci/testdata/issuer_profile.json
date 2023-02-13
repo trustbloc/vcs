@@ -4,6 +4,9 @@
   "organizationID": "test_org",
   "url": "https://issuer.example.com",
   "active": true,
+  "signingDID": {
+    "did" : "did:orb:anything"
+  },
   "vcConfig": {
     "signingAlgorithm": "JsonWebSignature2020",
     "signatureRepresentation": 0,

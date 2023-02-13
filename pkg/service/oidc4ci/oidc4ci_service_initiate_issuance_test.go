@@ -15,8 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/samber/lo"
+
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 
 	"github.com/golang/mock/gomock"
@@ -328,6 +329,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 				cp := testProfile
 				cp.CredentialTemplates = []*profileapi.CredentialTemplate{cp.CredentialTemplates[0]}
 				profile = &cp
+
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
@@ -348,8 +352,8 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -408,8 +412,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -948,8 +953,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 						InitiateIssuanceEndpoint: "https://wallet.example.com/initiate_issuance",
 					}, nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -1005,8 +1010,8 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
 
-				eventService.EXPECT().Publish(spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(topic string, messages ...*spi.Event) error {
+				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
 						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionInitiated)
 
@@ -1040,6 +1045,7 @@ func TestService_InitiateIssuanceWithRemoteStore(t *testing.T) {
 				EventService:                  eventService,
 				PinGenerator:                  pinGenerator,
 				CredentialOfferReferenceStore: referenceStore,
+				EventTopic:                    spi.IssuerEventTopic,
 			})
 			require.NoError(t, err)
 
