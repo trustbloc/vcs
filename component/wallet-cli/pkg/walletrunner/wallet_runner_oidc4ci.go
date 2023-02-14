@@ -31,7 +31,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	"golang.org/x/oauth2"
 )
 
 type OIDC4CIConfig struct {
