@@ -31,6 +31,8 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/ld"
@@ -196,6 +198,10 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	e.Use(oapimw.OapiRequestValidator(swagger))
 
+	if conf.StartupParameters.tracingParams.provider != "" {
+		e.Use(otelecho.Middleware(""))
+	}
+
 	// Handlers
 	healthcheck.RegisterHandlers(e, &healthcheck.Controller{})
 
@@ -297,7 +303,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
 
-	httpClient := getHTTPClient(tlsConfig)
+	httpClient := getHTTPClient(tlsConfig, conf.StartupParameters)
 
 	credentialOfferStore, err := createCredentialOfferStore( // credentialOfferStore is optional, so it can be nil
 		conf.StartupParameters.credentialOfferRepositoryS3Region,
@@ -308,16 +314,16 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:    oidc4ciStore,
-		ClaimDataStore:      claimDataStore,
-		IssuerVCSPublicHost: conf.StartupParameters.apiGatewayURL,
-		WellKnownService:    wellknown.NewService(httpClient),
-		ProfileService:      issuerProfileSvc,
-		OAuth2Client:        oauth2client.NewOAuth2Client(),
-		HTTPClient:          httpClient,
-		EventService:        eventSvc,
-		PinGenerator:        otp.NewPinGenerator(),
-		EventTopic:          conf.StartupParameters.issuerEventTopic,
+		TransactionStore:              oidc4ciStore,
+		ClaimDataStore:                claimDataStore,
+		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
+		WellKnownService:              wellknown.NewService(httpClient),
+		ProfileService:                issuerProfileSvc,
+		OAuth2Client:                  oauth2client.NewOAuth2Client(),
+		HTTPClient:                    httpClient,
+		EventService:                  eventSvc,
+		PinGenerator:                  otp.NewPinGenerator(),
+		EventTopic:                    conf.StartupParameters.issuerEventTopic,
 		CredentialOfferReferenceStore: credentialOfferStore,
 	})
 	if err != nil {
@@ -374,7 +380,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		OAuth2Client:            oauth2client.NewOAuth2Client(),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		PreAuthorizeClient: func() *http.Client {
-			client := getHTTPClient(tlsConfig)
+			client := getHTTPClient(tlsConfig, conf.StartupParameters)
 			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			}
@@ -573,12 +579,18 @@ func createCredentialStatusListStore(
 	}
 }
 
-func getHTTPClient(tlsConfig *tls.Config) *http.Client {
+func getHTTPClient(tlsConfig *tls.Config, params *startupParameters) *http.Client {
+	var transport http.RoundTripper = &http.Transport{
+		TLSClientConfig: tlsConfig,
+	}
+
+	if params.tracingParams.provider != tracing.ProviderNone {
+		transport = otelhttp.NewTransport(transport)
+	}
+
 	return &http.Client{
-		Timeout: time.Minute,
-		Transport: &http.Transport{
-			TLSClientConfig: tlsConfig,
-		},
+		Timeout:   time.Minute,
+		Transport: transport,
 	}
 }
 
