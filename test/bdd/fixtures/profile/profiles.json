@@ -376,7 +376,7 @@
                   "locale": "en-US",
                   "logo": {
                     "url": "https://example.com/public/logo.png",
-                    "alternative_text": "a square logo of a employee verification"
+                    "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
@@ -493,7 +493,7 @@
                   "locale": "en-US",
                   "logo": {
                     "url": "https://example.com/public/logo.png",
-                    "alternative_text": "a square logo of a employee verification"
+                    "alt_text": "a square logo of a employee verification"
                   },
                   "background_color": "#12107c",
                   "text_color": "#FFFFFF"
