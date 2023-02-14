@@ -502,7 +502,21 @@ func TestController_IssueCredentials(t *testing.T) {
 				name: "Validate credential options error",
 				getCtx: func() echo.Context {
 					return echoContext(withRequestBody(
-						[]byte(`{"credential":"","options":{"credentialStatus":{"type":"statusPurpose"}}}`)))
+						[]byte(`{"credential":{
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1"
+    ],
+    "credentialSubject": {
+      "id": "did:example:ebfeb1f712ebc6f1c276e12ec21"
+    },
+    "issuer": {
+      "id": "did:example:76e12ec712ebc6f1c221ebfeb1f"
+    },
+    "type": [
+      "VerifiableCredential",
+      "UniversityDegreeCredential"
+    ]
+  },"options":{"credentialStatus":{"type":"statusPurpose"}}}`)))
 				},
 				getProfileSvc: func() profileService {
 					mockProfileSvc.EXPECT().GetProfile("testId").Times(1).

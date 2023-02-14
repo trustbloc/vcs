@@ -165,13 +165,10 @@ func (s *PreAuthorizeStep) initiateIssuance(requirePin string) error {
 
 	req := &initiateOIDC4CIRequest{
 		ClaimData: lo.ToPtr(map[string]interface{}{
-			"displayName":       "John Doe",
-			"givenName":         "John",
-			"jobTitle":          "Software Developer",
-			"surname":           "Doe",
-			"preferredLanguage": "English",
-			"mail":              "john.doe@foo.bar",
-			"photo":             "base64photo",
+			"familyName":   "John Doe",
+			"givenName":    "John",
+			"degree":       "MIT",
+			"degreeSchool": "MIT school",
 		}),
 		CredentialTemplateId: "templateID",
 		GrantType:            "authorization_code",

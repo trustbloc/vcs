@@ -451,7 +451,7 @@ func checkVCSubject(credentials map[string]*verifiable.Credential, token *Proces
 		}
 
 		if token.Signer != subjectID {
-			return fmt.Errorf("vc subject(%s) is not much with vp signer(%s)",
+			return fmt.Errorf("vc subject(%s) does not match with vp signer(%s)",
 				subjectID, token.Signer)
 		}
 	}

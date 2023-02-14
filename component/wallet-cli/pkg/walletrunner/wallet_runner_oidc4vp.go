@@ -19,21 +19,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
-	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
-
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
-
-	"github.com/trustbloc/vcs/pkg/doc/vc"
-	"github.com/trustbloc/vcs/pkg/kms/signer"
-
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/kms/signer"
 )
 
 func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
@@ -341,7 +339,25 @@ func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 		return "", fmt.Errorf("create kms signer: %w", err)
 	}
 
-	token, err := jwt.NewSigned(claims, map[string]interface{}{"typ": "JWT"}, NewJWSSigner(didKeyID,
+	signerKeyID := didKeyID
+
+	if strings.Contains(didKeyID, "did:key") {
+		res, err := didkey.New().Read(strings.Split(didKeyID, "#")[0])
+		if err != nil {
+			return "", err
+		}
+
+		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
+	} else if strings.Contains(didKeyID, "did:jwk") {
+		res, err := jwk.New().Read(strings.Split(didKeyID, "#")[0])
+		if err != nil {
+			return "", err
+		}
+
+		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
+	}
+
+	token, err := jwt.NewSigned(claims, map[string]interface{}{"typ": "JWT"}, NewJWSSigner(signerKeyID,
 		string(signType), kmsSigner))
 	if err != nil {
 		return "", fmt.Errorf("initiate oidc interaction: sign token failed: %w", err)

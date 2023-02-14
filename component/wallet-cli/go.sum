@@ -527,10 +527,12 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/huandu/xstrings v1.0.0/go.mod h1:4qWG/gcEcfX4z/mBDHJ++3ReCw9ibxbsNJbcucJdbSo=
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20230204032926-27ea93676061 h1:DI3MarybBk6+lg5SgFSY9lnl949cl8ti2T97rayi0WY=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20230204032926-27ea93676061/go.mod h1:qrOxEGVsu8M2RahaJgM8nz9AcAHjR/dKd1JIJ3ieJhY=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20230210055123-c509c1eb30d8 h1:yWQozh6vn0drCQg+heXHD9a34ROK4ypq5+drtgmGsvk=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20230210055123-c509c1eb30d8/go.mod h1:qrOxEGVsu8M2RahaJgM8nz9AcAHjR/dKd1JIJ3ieJhY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 h1:8ja6Vnp5EUsh8Oe4mI8ZNwpJtiM7c87X/b9sO/hEFiY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149/go.mod h1:GDANCnJONcCqBvv6QgKuk5Y2FWHyD/Hu26kyc7NTyfY=
+github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c h1:74wqdvAd3S9BuKolIV0obbG8PhbChtF9sQrE/ov2se0=
+github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c/go.mod h1:55cgCXsUzNwKYnAt1B1MElNop+kklmig/tP9aMCOlIE=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49 h1:MbWVC1HQEAn5yw5DLs4D7kdcM06y6ZiN4r3ZtvDzxWE=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49/go.mod h1:ZFh90O86GlAVdzZ+/MbmTTwGtKJUNgeIECgdo4gyMo4=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 h1:AiQyIn1EJd8FN/2nxk3Z3zIMI5ZOgqV+HWRK2uN2Ktg=

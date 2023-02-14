@@ -11,15 +11,15 @@ import (
 	"strings"
 	"time"
 
-	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
-
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
 )
@@ -89,7 +89,8 @@ func (s *Service) CreateWallet() error {
 		return err
 	}
 
-	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()), vdrapi.WithVDR(lf))
+	vdrRegistry := vdrapi.New(vdrapi.WithVDR(vdrService), vdrapi.WithVDR(key.New()), vdrapi.WithVDR(lf),
+		vdrapi.WithVDR(jwk.New()))
 
 	if shouldCreateWallet {
 		createRes, err := vdrutil.DefaultVdrUtil.Create(

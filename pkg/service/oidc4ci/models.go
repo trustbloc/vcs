@@ -133,10 +133,11 @@ type PrepareCredential struct {
 }
 
 type PrepareCredentialResult struct {
-	ProfileID  profileapi.ID
-	Credential interface{}
-	Format     vcsverifiable.Format
-	Retry      bool
+	ProfileID               profileapi.ID
+	Credential              interface{}
+	Format                  vcsverifiable.Format
+	Retry                   bool
+	EnforceStrictValidation bool
 }
 
 type InsertOptions struct {

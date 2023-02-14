@@ -281,7 +281,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				Signer:       "did:example1:ebfeb1f712ebc6f1c276e12ec21",
 			})
 
-		require.Contains(t, err.Error(), "is not much with vp signer")
+		require.Contains(t, err.Error(), "does not match with vp signer")
 	})
 
 	t.Run("Invalid Nonce", func(t *testing.T) {
