@@ -69,10 +69,10 @@ type TransactionData struct {
 
 // AuthorizationDetails are the VC-related details for VC issuance.
 type AuthorizationDetails struct {
-	Type           string
-	CredentialType string
-	Format         vcsverifiable.Format
-	Locations      []string
+	Type      string
+	Types     []string
+	Format    vcsverifiable.Format
+	Locations []string
 }
 
 // OIDCConfiguration represents an OIDC configuration from well-know endpoint (/.well-known/openid-configuration).
@@ -149,4 +149,29 @@ type eventPayload struct {
 	ProfileID string `json:"profileID,omitempty"`
 	OrgID     string `json:"orgID,omitempty"`
 	Error     string `json:"error,omitempty"`
+}
+
+type AuthorizationCodeGrant struct {
+	IssuerState string `json:"issuer_state"`
+}
+
+type PreAuthorizationGrant struct {
+	PreAuthorizedCode string `json:"pre-authorized_code"`
+	UserPinRequired   bool   `json:"user_pin_required"`
+}
+
+type CredentialOfferGrant struct {
+	AuthorizationCode     *AuthorizationCodeGrant `json:"authorization_code,omitempty"`
+	PreAuthorizationGrant *PreAuthorizationGrant  `json:"urn:ietf:params:oauth:grant-type:pre-authorized_code,omitempty"` // nolint:lll
+}
+
+type CredentialOffer struct {
+	Format vcsverifiable.OIDCFormat `json:"format"`
+	Types  []string                 `json:"types"`
+}
+
+type CredentialOfferResponse struct {
+	CredentialIssuer string               `json:"credential_issuer"`
+	Credentials      []CredentialOffer    `json:"credentials"`
+	Grants           CredentialOfferGrant `json:"grants"`
 }

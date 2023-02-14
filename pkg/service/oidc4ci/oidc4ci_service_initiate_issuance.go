@@ -8,16 +8,17 @@ package oidc4ci
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -28,6 +29,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	req *InitiateIssuanceRequest,
 	profile *profileapi.Issuer,
 ) (*InitiateIssuanceResponse, error) {
+	if req.OpState == "" {
+		req.OpState = uuid.NewString()
+	}
 	if !profile.Active {
 		return nil, ErrProfileNotActive
 	}
@@ -42,19 +46,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, ErrAuthorizedCodeFlowNotSupported
 	}
 
-	var template *profileapi.CredentialTemplate
-
-	if req.CredentialTemplateID == "" {
-		if len(profile.CredentialTemplates) > 1 {
-			return nil, errors.New("credential template should be specified")
-		}
-		template = profile.CredentialTemplates[0]
-	} else {
-		credTemplate, err := findCredentialTemplate(profile.CredentialTemplates, req.CredentialTemplateID)
-		if err != nil {
-			return nil, err
-		}
-		template = credTemplate
+	template, err := s.findCredentialTemplate(req.CredentialTemplateID, profile)
+	if err != nil {
+		return nil, err
 	}
 
 	data := &TransactionData{
@@ -73,7 +67,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		CredentialExpiresAt: lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
 	}
 
-	if err := s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
+	if err = s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {
 		return nil, err
 	}
 
@@ -92,9 +86,9 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	if isPreAuthorizeFlow {
 		claimData := ClaimData(req.ClaimData)
 
-		claimDataID, err := s.claimDataStore.Create(ctx, &claimData)
-		if err != nil {
-			return nil, fmt.Errorf("store claim data: %w", err)
+		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, &claimData)
+		if claimDataErr != nil {
+			return nil, fmt.Errorf("store claim data: %w", claimDataErr)
 		}
 
 		data.ClaimDataID = claimDataID
@@ -123,8 +117,13 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		return nil, errSendEvent
 	}
 
+	finalURL, err := s.buildInitiateIssuanceURL(ctx, req, template, tx)
+	if err != nil {
+		return nil, err
+	}
+
 	return &InitiateIssuanceResponse{
-		InitiateIssuanceURL: s.buildInitiateIssuanceURL(ctx, req, template, tx),
+		InitiateIssuanceURL: finalURL,
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
@@ -196,12 +195,83 @@ func findCredentialTemplate(
 	return nil, ErrCredentialTemplateNotFound
 }
 
+func (s *Service) findCredentialTemplate(
+	requestedTemplateID string,
+	profile *profileapi.Issuer,
+) (*profileapi.CredentialTemplate, error) {
+	if requestedTemplateID != "" {
+		return findCredentialTemplate(profile.CredentialTemplates, requestedTemplateID)
+	}
+
+	if len(profile.CredentialTemplates) > 1 {
+		return nil, errors.New("credential template should be specified")
+	}
+
+	return profile.CredentialTemplates[0], nil
+}
+
+func (s *Service) prepareCredentialOffer(
+	_ context.Context,
+	req *InitiateIssuanceRequest,
+	template *profileapi.CredentialTemplate,
+	tx *Transaction,
+) (*CredentialOfferResponse, error) {
+	targetFormat, err := verifiable.MapFormatToOIDCFormat(tx.CredentialFormat)
+	if err != nil {
+		return nil, err
+	}
+
+	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
+
+	resp := &CredentialOfferResponse{
+		CredentialIssuer: issuerURL,
+		Credentials: []CredentialOffer{
+			{
+				Format: targetFormat,
+				Types: []string{
+					"VerifiableCredential",
+					template.Type,
+				},
+			},
+		},
+		Grants: CredentialOfferGrant{},
+	}
+
+	if tx.IsPreAuthFlow {
+		resp.Grants.PreAuthorizationGrant = &PreAuthorizationGrant{
+			PreAuthorizedCode: tx.PreAuthCode,
+			UserPinRequired:   req.UserPinRequired,
+		}
+	} else {
+		resp.Grants.AuthorizationCode = &AuthorizationCodeGrant{
+			IssuerState: req.OpState,
+		}
+	}
+
+	return resp, nil
+}
+
 func (s *Service) buildInitiateIssuanceURL(
 	ctx context.Context,
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) string {
+) (string, error) {
+	credentialOffer, err := s.prepareCredentialOffer(ctx, req, template, tx)
+	if err != nil {
+		return "", err
+	}
+
+	var remoteOfferURL string
+	if s.credentialOfferReferenceStore != nil {
+		remoteURL, remoteErr := s.credentialOfferReferenceStore.Create(ctx, credentialOffer)
+		if remoteErr != nil {
+			return "", remoteErr
+		}
+
+		remoteOfferURL = remoteURL
+	}
+
 	var initiateIssuanceURL string
 
 	if req.ClientInitiateIssuanceURL != "" {
@@ -217,22 +287,19 @@ func (s *Service) buildInitiateIssuanceURL(
 	}
 
 	if initiateIssuanceURL == "" {
-		initiateIssuanceURL = "openid-initiate-issuance://"
+		initiateIssuanceURL = "openid-vc://"
 	}
 
 	q := url.Values{}
-	q.Set("credential_type", template.Type)
-
-	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
-
-	if tx.IsPreAuthFlow {
-		q.Set("issuer", issuerURL)
-		q.Set("pre-authorized_code", tx.PreAuthCode)
-		q.Set("user_pin_required", strconv.FormatBool(req.UserPinRequired))
+	if remoteOfferURL != "" {
+		q.Set("credential_offer_uri", remoteOfferURL)
 	} else {
-		q.Set("issuer", issuerURL)
-		q.Set("op_state", req.OpState)
+		b, err := json.Marshal(credentialOffer)
+		if err != nil {
+			return "", err
+		}
+		q.Set("credential_offer", string(b))
 	}
 
-	return initiateIssuanceURL + "?" + q.Encode()
+	return initiateIssuanceURL + "?" + q.Encode(), nil
 }

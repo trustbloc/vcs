@@ -55,8 +55,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "universitydegreecredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "universitydegreecredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -70,8 +70,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 					nil, errors.New("find tx error"))
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -89,8 +89,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}, nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -111,8 +111,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}, nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "NotSupportedCredentialType",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "NotSupportedCredentialType"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -133,8 +133,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				}, nil)
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Jwt,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Jwt,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -157,8 +157,8 @@ func TestService_PushAuthorizationDetails(t *testing.T) {
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("update error"))
 
 				ad = &oidc4ci.AuthorizationDetails{
-					CredentialType: "UniversityDegreeCredential",
-					Format:         vcsverifiable.Ldp,
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+					Format: vcsverifiable.Ldp,
 				}
 			},
 			check: func(t *testing.T, err error) {
@@ -228,8 +228,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -281,8 +281,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -387,8 +387,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -426,8 +426,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -474,8 +474,8 @@ func TestService_PrepareClaimDataAuthorizationRequest(t *testing.T) {
 					ResponseType: "code",
 					Scope:        []string{"openid", "profile"},
 					AuthorizationDetails: &oidc4ci.AuthorizationDetails{
-						CredentialType: "UniversityDegreeCredential",
-						Format:         vcsverifiable.Ldp,
+						Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
+						Format: vcsverifiable.Ldp,
 					},
 				}
 			},
@@ -659,8 +659,67 @@ func TestValidatePreAuthCode(t *testing.T) {
 			},
 		}, nil)
 
-		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
 		assert.ErrorContains(t, err, "unexpected transaction from 5 to 2")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("pin should not be provided", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode: "1234",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "567")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-does-not-expect-pin[]: server does not expect pin")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("pin should be provided", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode: "1234",
+				UserPin:     "123",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "")
+		assert.ErrorContains(t, err, "oidc-pre-authorize-expect-pin[]: server expects user pin")
+		assert.Nil(t, resp)
+	})
+
+	t.Run("valid pre auth code", func(t *testing.T) {
+		storeMock := NewMockTransactionStore(gomock.NewController(t))
+		srv, err := oidc4ci.NewService(&oidc4ci.Config{
+			TransactionStore: storeMock,
+		})
+		assert.NoError(t, err)
+
+		storeMock.EXPECT().FindByOpState(gomock.Any(), "1234").Return(&oidc4ci.Transaction{
+			TransactionData: oidc4ci.TransactionData{
+				PreAuthCode: "12345",
+				UserPin:     "123",
+				State:       oidc4ci.TransactionStateIssuanceInitiated,
+			},
+		}, nil)
+
+		resp, err := srv.ValidatePreAuthorizedCodeRequest(context.TODO(), "1234", "123")
+		assert.ErrorContains(t, err, "oidc-tx-not-found[]: invalid pre-authorize code")
 		assert.Nil(t, resp)
 	})
 
@@ -1002,7 +1061,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialTemplateNotConfigured)
+				require.ErrorContains(t, err,
+					"oidc-credential-type-not-supported[]: credential template not configured")
 				require.Nil(t, resp)
 			},
 		},
@@ -1107,7 +1167,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				}
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorIs(t, err, oidc4ci.ErrCredentialFormatNotSupported)
+				require.ErrorContains(t, err,
+					"oidc-credential-format-not-supported[]: credential format not supported")
 				require.Nil(t, resp)
 			},
 		},

@@ -67,6 +67,27 @@ paths:
       description: Returns did-config.
       tags:
         - devapi
+  '/issuer/{profileID}/.well-known/openid-credential-issuer':
+    parameters:
+      - schema:
+          type: string
+        name: profileID
+        in: path
+        required: true
+        description: Profile Id
+    get:
+      summary: Request openid-credential-issuer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WellKnownOpenIDIssuerConfiguration'
+      operationId: openid-credential-issuer-config
+      description: Returns openid-config.
+      tags:
+        - issuer
   '/issuer/{profileID}/.well-known/openid-configuration':
     parameters:
       - schema:
@@ -585,8 +606,8 @@ paths:
         - schema:
             type: string
           in: query
-          name: op_state
-          description: 'String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  op_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.'
+          name: issuer_state
+          description: 'String value identifying a certain processing context at the credential issuer. A value for this parameter is typically passed in an issuance initiation request from the issuer to the wallet. This request parameter is used to pass the  issuer_state value back to the credential issuer. The issuer must take into account that op_state is not guaranteed to originate from this issuer, could be an attack.'
           required: true
       tags:
         - oidc4ci
@@ -755,26 +776,44 @@ components:
       properties:
         authorization_endpoint:
           type: string
-        issuer:
-          type: string
         token_endpoint:
           type: string
         response_types_supported:
           type: array
           items:
             type: string
+      required:
+        - authorization_endpoint
+        - token_endpoint
+        - response_types_supported
+        - credential_supported
+      description: OpenID Config response.
+    WellKnownOpenIDIssuerConfiguration:
+      title: WellKnownOpenIDIssuerConfiguration response
+      x-tags:
+        - issuer
+      type: object
+      properties:
+        authorization_server:
+          type: string
+        display:
+          type: array
+          items:
+            $ref: '#/components/schemas/CredentialDisplay'
         credentials_supported:
-          type: object
+          type: array
         credential_issuer:
           $ref: '#/components/schemas/CredentialIssuer'
         credential_endpoint:
           type: string
+        batch_credential_endpoint:
+          type: string
       required:
-        - authorization_endpoint
+        - authorization_server
+        - credential_issuer
         - issuer
-        - token_endpoint
         - response_types_supported
-        - credential_supported
+        - credentials_supported
         - credential_endpoint
       description: OpenID Config response.
     RequestObject:
@@ -806,6 +845,16 @@ components:
           description: Credential in jws(string) or jsonld(object) formats.
       required:
         - credential
+    CredentialDisplay:
+      title: CredentialDisplay
+      x-tag:
+        - issuer
+      type: object
+      properties:
+        name:
+          type: string
+        locale:
+          type: string
     CredentialIssuer:
       title: CredentialIssuer
       x-tag:
@@ -1217,7 +1266,7 @@ components:
       type: object
       description: Model for Initiate OIDC Credential Issuance Response.
       properties:
-        initiate_issuance_url:
+        offer_credential_URL:
           type: string
           description: OIDC4CI initiate issuance URL to be used by the Issuer to pass relevant information to the Wallet to initiate issuance flow. Supports both HTTP GET and HTTP Redirect. Issuers may present QR code containing request data for users to scan from their mobile Wallet app.
         tx_id:
@@ -1227,7 +1276,7 @@ components:
           type: string
           description: Pre-authorized flow. Generated OTP pin for issuance.
       required:
-        - initiate_issuance_url
+        - offer_credential_URL
         - tx_id
       x-tags:
         - issuer
@@ -1348,9 +1397,6 @@ components:
         format:
           type: string
           description: Format of the credential being issued.
-        did:
-          type: string
-          description: DID to which issued credential has to be bound.
         proof:
           $ref: '#/components/schemas/JWTProof'
       required:

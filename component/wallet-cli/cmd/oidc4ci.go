@@ -187,7 +187,7 @@ func NewOIDC4CICommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.RedirectURI, "redirect-uri", "", "callback where the authorization code should be sent")
 	cmd.Flags().StringVar(&flags.Login, "login", "", "user login email")
 	cmd.Flags().StringVar(&flags.Password, "password", "", "user login password")
-	cmd.Flags().StringVar(&flags.VCFormat, "vc-format", "jwt_vc", "vc format [jwt_vc|ldp_vc]")
+	cmd.Flags().StringVar(&flags.VCFormat, "vc-format", "jwt_vc_json", "vc format [jwt_vc_json|ldp_vc]")
 	cmd.Flags().StringVar(&flags.VCProvider, "vc-provider", "vcs", "vc provider")
 	cmd.Flags().StringVar(&flags.CredentialType, "credential-type", "", "credential type")
 	cmd.Flags().StringVar(&flags.CredentialFormat, "credential-format", "", "credential format")

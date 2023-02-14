@@ -13,13 +13,13 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 )
 
@@ -27,28 +27,33 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	parsedUrl, err := url.Parse(config.InitiateIssuanceURL)
+
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
 	if err != nil {
-		return fmt.Errorf("failed to parse url %w", err)
+		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")
 	startTime := time.Now()
-	oidcConfig, err := s.getIssuerOIDCConfig(parsedUrl.Query().Get("issuer"))
+	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
 	if err != nil {
-		return fmt.Errorf("get issuer oidc config: %w", err)
+		return err
+	}
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
+	if err != nil {
+		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
 	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
-	credentialsEndpoint := oidcConfig.CredentialEndpoint
+	credentialsEndpoint := oidcIssuerCredentialConfig.CredentialEndpoint
 
 	tokenValues := url.Values{
 		"grant_type":          []string{"urn:ietf:params:oauth:grant-type:pre-authorized_code"},
-		"pre-authorized_code": []string{parsedUrl.Query().Get("pre-authorized_code")},
+		"pre-authorized_code": []string{offerResponse.Grants.PreAuthorizationGrant.PreAuthorizedCode},
 	}
 
-	if strings.EqualFold(parsedUrl.Query().Get("user_pin_required"), "true") {
+	if offerResponse.Grants.PreAuthorizationGrant.UserPinRequired {
 		if len(config.Pin) == 0 {
 			log.Println("Enter PIN:")
 			scanner := bufio.NewScanner(os.Stdin)

@@ -9,7 +9,23 @@ package verifiable
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func TestMapFormat(t *testing.T) {
+	t.Run("success", func(t *testing.T) {
+		resp, err := MapFormatToOIDCFormat(Jwt)
+		assert.NoError(t, err)
+		assert.NotEmpty(t, resp)
+	})
+
+	t.Run("fail", func(t *testing.T) {
+		resp, err := MapFormatToOIDCFormat("random")
+		assert.ErrorContains(t, err, "unsupported vc mapping for format: random")
+		assert.Empty(t, resp)
+	})
+}
 
 func TestValidateFormat(t *testing.T) {
 	type args struct {

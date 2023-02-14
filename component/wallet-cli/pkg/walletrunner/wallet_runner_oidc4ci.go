@@ -25,10 +25,12 @@ import (
 	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
+	"golang.org/x/oauth2"
+
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
-	"golang.org/x/oauth2"
 )
 
 type OIDC4CIConfig struct {
@@ -47,15 +49,20 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	log.Println("Starting OIDC4VCI authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-	initiateIssuanceURL, err := url.Parse(config.InitiateIssuanceURL)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")
-	oidcConfig, err := s.getIssuerOIDCConfig(initiateIssuanceURL.Query().Get("issuer"))
+	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
 	if err != nil {
 		return fmt.Errorf("get issuer oidc config: %w", err)
+	}
+
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
+	if err != nil {
+		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
 
 	redirectURL, err := url.Parse(config.RedirectURI)
@@ -85,20 +92,23 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		},
 	}
 
-	opState := initiateIssuanceURL.Query().Get("op_state")
+	opState := offerResponse.Grants.AuthorizationCode.IssuerState
 	state := uuid.New().String()
 
 	b, err := json.Marshal(&common.AuthorizationDetails{
-		Type:           "openid_credential",
-		CredentialType: config.CredentialType,
-		Format:         lo.ToPtr(config.CredentialFormat),
+		Type: "openid_credential",
+		Types: []string{
+			"VerifiableCredential",
+			config.CredentialType,
+		},
+		Format: lo.ToPtr(config.CredentialFormat),
 	})
 	if err != nil {
 		return fmt.Errorf("marshal authorization details: %w", err)
 	}
 
 	authCodeURL := s.oauthClient.AuthCodeURL(state,
-		oauth2.SetAuthURLParam("op_state", opState),
+		oauth2.SetAuthURLParam("issuer_state", opState),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("authorization_details", string(b)),
@@ -140,7 +150,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	}
 
 	s.print("Getting credential")
-	vc, err := s.getCredential(oidcConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
+	vc, err := s.getCredential(oidcIssuerCredentialConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
 	}
@@ -176,6 +186,28 @@ func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpen
 	}
 
 	var oidcConfig issuerv1.WellKnownOpenIDConfiguration
+
+	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
+		return nil, fmt.Errorf("decode issuer well-known: %w", err)
+	}
+
+	return &oidcConfig, nil
+}
+
+func (s *Service) getIssuerCredentialsOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpenIDIssuerConfiguration, error) {
+	// GET /issuer/{profileID}/.well-known/openid-credential-issuer
+	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-credential-issuer")
+	if err != nil {
+		return nil, fmt.Errorf("get issuer well-known: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("get issuer well-known: status code %d", resp.StatusCode)
+	}
+
+	var oidcConfig issuerv1.WellKnownOpenIDIssuerConfiguration
 
 	if err = json.NewDecoder(resp.Body).Decode(&oidcConfig); err != nil {
 		return nil, fmt.Errorf("decode issuer well-known: %w", err)
@@ -338,7 +370,6 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 	}
 
 	b, err := json.Marshal(CredentialRequest{
-		DID:    s.vcProviderConf.WalletParams.DidID,
 		Format: credentialFormat,
 		Type:   credentialType,
 		Proof: JWTProof{

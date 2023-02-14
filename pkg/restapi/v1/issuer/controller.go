@@ -409,9 +409,9 @@ func (c *Controller) initiateIssuance(
 	}
 
 	return &InitiateOIDC4CIResponse{
-		InitiateIssuanceUrl: resp.InitiateIssuanceURL,
-		TxId:                string(resp.TxID),
-		UserPin:             lo.ToPtr(resp.UserPin),
+		OfferCredentialURL: resp.InitiateIssuanceURL,
+		TxId:               string(resp.TxID),
+		UserPin:            lo.ToPtr(resp.UserPin),
 	}, nil
 }
 
@@ -604,6 +604,11 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		},
 	)
 	if err != nil {
+		var custom *resterr.CustomError
+		if errors.As(err, &custom) {
+			return custom
+		}
+
 		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential", err)
 	}
 
@@ -636,7 +641,13 @@ func (c *Controller) OpenidConfig(ctx echo.Context, profileID string) error {
 	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID))
 }
 
-func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfiguration, error) {
+// OpenidCredentialIssuerConfig request openid credentials configuration for issuer.
+// GET /issuer/{profileID}/.well-known/openid-credential-issuer.
+func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID string) error {
+	return util.WriteOutput(ctx)(c.getOpenIDIssuerConfig(profileID))
+}
+
+func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIssuerConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
@@ -647,25 +658,20 @@ func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfigur
 		return nil, err
 	}
 
-	finalCredentials := map[string]interface{}{}
-	for k, t := range issuer.CredentialMetaData.CredentialsSupported {
+	var finalCredentials []interface{}
+	for _, t := range issuer.CredentialMetaData.CredentialsSupported {
 		if issuer.VCConfig != nil {
 			t["cryptographic_binding_methods_supported"] = []string{string(issuer.VCConfig.DIDMethod)}
 			t["cryptographic_suites_supported"] = []string{string(issuer.VCConfig.KeyType)}
 		}
-		finalCredentials[k] = t
+		finalCredentials = append(finalCredentials, t)
 	}
 
-	return &WellKnownOpenIDConfiguration{
-		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
-		Issuer:                fmt.Sprintf("%s%s", host, profileID),
-		ResponseTypesSupported: []string{
-			"code",
-		},
-		TokenEndpoint:        fmt.Sprintf("%soidc/token", host),
-		CredentialsSupported: &finalCredentials,
-		CredentialEndpoint:   fmt.Sprintf("%soidc/credential", host),
-		CredentialIssuer: &CredentialIssuer{
+	final := &WellKnownOpenIDIssuerConfiguration{
+		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host), // todo check
+		BatchCredentialEndpoint: nil,                                   // no support for now
+		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
+		CredentialIssuer: CredentialIssuer{
 			Display: &[]map[string]interface{}{
 				{
 					"name":   issuer.Name,
@@ -675,5 +681,29 @@ func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfigur
 			Locale: lo.ToPtr("en-US"),
 			Name:   lo.ToPtr(issuer.Name),
 		},
+		CredentialsSupported: finalCredentials,
+		Display:              nil,
+	}
+
+	return final, nil
+}
+
+func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfiguration, error) {
+	host := c.externalHostURL
+	if !strings.HasSuffix(host, "/") {
+		host += "/"
+	}
+
+	_, err := c.profileSvc.GetProfile(profileID) // no need currently
+	if err != nil {
+		return nil, err
+	}
+
+	return &WellKnownOpenIDConfiguration{
+		AuthorizationEndpoint: fmt.Sprintf("%soidc/authorize", host),
+		ResponseTypesSupported: []string{
+			"code",
+		},
+		TokenEndpoint: fmt.Sprintf("%soidc/token", host),
 	}, nil
 }

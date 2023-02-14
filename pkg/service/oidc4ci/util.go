@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4ci
 
-import "time"
+import (
+	"time"
+)
 
 func WithDocumentTTL(ttl time.Duration) func(insertOptions *InsertOptions) {
 	return func(insertOptions *InsertOptions) {

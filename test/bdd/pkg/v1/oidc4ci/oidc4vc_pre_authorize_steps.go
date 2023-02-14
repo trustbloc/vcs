@@ -14,12 +14,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/cucumber/godog"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -65,18 +67,16 @@ func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 }
 
 func (s *PreAuthorizeStep) parseUrl() error {
-	if !strings.HasPrefix(s.initiateResponse.InitiateIssuanceUrl, "openid-initiate-issuance://") {
-		return fmt.Errorf("invalid prefix for initiateUrl. got %v", s.initiateResponse.InitiateIssuanceUrl)
+	if !strings.HasPrefix(s.initiateResponse.OfferCredentialURL, "openid-vc://") {
+		return fmt.Errorf("invalid prefix for initiateUrl. got %v", s.initiateResponse.OfferCredentialURL)
 	}
 
-	parsed, err := url.Parse(s.initiateResponse.InitiateIssuanceUrl)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(s.initiateResponse.OfferCredentialURL, s.httpClient)
 	if err != nil {
-		return err
+		return fmt.Errorf("parse initiate issuance URL: %w", err)
 	}
 
-	issuerUrl := parsed.Query().Get("issuer")
-
-	resp, err := s.httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", issuerUrl))
+	resp, err := s.httpClient.Get(fmt.Sprintf("%s/.well-known/openid-configuration", offerResponse.CredentialIssuer))
 	if err != nil {
 		return err
 	}
@@ -91,8 +91,8 @@ func (s *PreAuthorizeStep) parseUrl() error {
 	}
 
 	s.preAuthorizeUrl = cfg.TokenEndpoint
-	s.preAuthorizeCode = parsed.Query().Get("pre-authorized_code")
-	s.preAuthorizePinRequired = parsed.Query().Get("user_pin_required")
+	s.preAuthorizeCode = offerResponse.Grants.PreAuthorizationGrant.PreAuthorizedCode
+	s.preAuthorizePinRequired = strconv.FormatBool(offerResponse.Grants.PreAuthorizationGrant.UserPinRequired)
 
 	return nil
 }

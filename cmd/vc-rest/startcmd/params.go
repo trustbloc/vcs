@@ -205,6 +205,14 @@ const (
 	requestObjectRepositoryS3RegionEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_REGION"
 	requestObjectRepositoryS3RegionFlagUsage = "request-object S3 Region"
 
+	credentialOfferRepositoryS3BucketFlagName  = "credential-offer-repository-s3-bucket"
+	credentialOfferRepositoryS3BucketEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_BUCKET"
+	credentialOfferRepositoryS3BucketFlagUsage = "credential-offer S3 Bucket"
+
+	credentialOfferRepositoryS3RegionFlagName  = "credential-offer-repository-s3-region"
+	credentialOfferRepositoryS3RegionEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_REGION"
+	credentialOfferRepositoryS3RegionFlagUsage = "credential-offer S3 Region"
+
 	requestObjectRepositoryS3HostNameFlagName  = "request-object-repository-s3-hostname"
 	requestObjectRepositoryS3HostNameEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_HOSTNAME"
 	requestObjectRepositoryS3HostNameFlagUsage = "request-object S3 Hostname"
@@ -289,6 +297,8 @@ type startupParameters struct {
 	requestObjectRepositoryType       string
 	requestObjectRepositoryS3Bucket   string
 	requestObjectRepositoryS3Region   string
+	credentialOfferRepositoryS3Bucket string
+	credentialOfferRepositoryS3Region string
 	requestObjectRepositoryS3HostName string
 	cslStoreType                      string
 	cslStoreS3Bucket                  string
@@ -492,6 +502,17 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	credentialOfferRepositoryS3Bucket := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		credentialOfferRepositoryS3BucketFlagName,
+		credentialOfferRepositoryS3BucketEnvKey,
+	)
+	credentialOfferRepositoryS3Region := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		credentialOfferRepositoryS3RegionFlagName,
+		credentialOfferRepositoryS3RegionEnvKey,
+	)
+
 	return &startupParameters{
 		hostURL:                           hostURL,
 		hostURLExternal:                   hostURLExternal,
@@ -515,6 +536,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryType:       requestObjectRepositoryType,
 		requestObjectRepositoryS3Bucket:   requestObjectRepositoryS3Bucket,
 		requestObjectRepositoryS3Region:   requestObjectRepositoryS3Region,
+		credentialOfferRepositoryS3Bucket: credentialOfferRepositoryS3Bucket,
+		credentialOfferRepositoryS3Region: credentialOfferRepositoryS3Region,
 		requestObjectRepositoryS3HostName: requestObjectRepositoryS3HostName,
 		cslStoreType:                      cslStoreType,
 		cslStoreS3Bucket:                  cslStoreS3Bucket,
@@ -793,6 +816,9 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().String(requestObjectRepositoryS3BucketFlagName, "", requestObjectRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3RegionFlagName, "", requestObjectRepositoryS3RegionFlagUsage)
 	startCmd.Flags().String(requestObjectRepositoryS3HostNameFlagName, "", requestObjectRepositoryS3HostNameFlagUsage)
+
+	startCmd.Flags().String(credentialOfferRepositoryS3BucketFlagName, "", credentialOfferRepositoryS3BucketFlagUsage)
+	startCmd.Flags().String(credentialOfferRepositoryS3RegionFlagName, "", credentialOfferRepositoryS3RegionFlagUsage)
 
 	startCmd.Flags().String(cslStoreTypeFlagName, "", cslStoreFlagUsage)
 	startCmd.Flags().String(cslStoreS3BucketFlagName, "", cslStoreS3BucketFlagUsage)

@@ -20,6 +20,12 @@ import (
 	externalRef0 "github.com/trustbloc/vcs/pkg/restapi/v1/common"
 )
 
+// CredentialDisplay defines model for CredentialDisplay.
+type CredentialDisplay struct {
+	Locale *string `json:"locale,omitempty"`
+	Name   *string `json:"name,omitempty"`
+}
+
 // CredentialIssuer defines model for CredentialIssuer.
 type CredentialIssuer struct {
 	Display *[]map[string]interface{} `json:"display,omitempty"`
@@ -90,7 +96,7 @@ type InitiateOIDC4CIRequest struct {
 // Model for Initiate OIDC Credential Issuance Response.
 type InitiateOIDC4CIResponse struct {
 	// OIDC4CI initiate issuance URL to be used by the Issuer to pass relevant information to the Wallet to initiate issuance flow. Supports both HTTP GET and HTTP Redirect. Issuers may present QR code containing request data for users to scan from their mobile Wallet app.
-	InitiateIssuanceUrl string `json:"initiate_issuance_url"`
+	OfferCredentialURL string `json:"offer_credential_URL"`
 
 	// To be used by Issuer applications for correlation if needed.
 	TxId string `json:"tx_id"`
@@ -241,13 +247,19 @@ type ValidatePreAuthorizedCodeResponse struct {
 
 // OpenID Config response.
 type WellKnownOpenIDConfiguration struct {
-	AuthorizationEndpoint  string                  `json:"authorization_endpoint"`
-	CredentialEndpoint     string                  `json:"credential_endpoint"`
-	CredentialIssuer       *CredentialIssuer       `json:"credential_issuer,omitempty"`
-	CredentialsSupported   *map[string]interface{} `json:"credentials_supported,omitempty"`
-	Issuer                 string                  `json:"issuer"`
-	ResponseTypesSupported []string                `json:"response_types_supported"`
-	TokenEndpoint          string                  `json:"token_endpoint"`
+	AuthorizationEndpoint  string   `json:"authorization_endpoint"`
+	ResponseTypesSupported []string `json:"response_types_supported"`
+	TokenEndpoint          string   `json:"token_endpoint"`
+}
+
+// OpenID Config response.
+type WellKnownOpenIDIssuerConfiguration struct {
+	AuthorizationServer     string               `json:"authorization_server"`
+	BatchCredentialEndpoint *string              `json:"batch_credential_endpoint,omitempty"`
+	CredentialEndpoint      string               `json:"credential_endpoint"`
+	CredentialIssuer        CredentialIssuer     `json:"credential_issuer"`
+	CredentialsSupported    []interface{}        `json:"credentials_supported"`
+	Display                 *[]CredentialDisplay `json:"display,omitempty"`
 }
 
 // ExchangeAuthorizationCodeRequestJSONBody defines parameters for ExchangeAuthorizationCodeRequest.
@@ -427,6 +439,9 @@ type ClientInterface interface {
 
 	// OpenidConfig request
 	OpenidConfig(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OpenidCredentialIssuerConfig request
+	OpenidCredentialIssuerConfig(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ExchangeAuthorizationCodeRequestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -659,6 +674,18 @@ func (c *Client) InitiateCredentialIssuance(ctx context.Context, profileID strin
 
 func (c *Client) OpenidConfig(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewOpenidConfigRequest(c.Server, profileID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) OpenidCredentialIssuerConfig(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOpenidCredentialIssuerConfigRequest(c.Server, profileID)
 	if err != nil {
 		return nil, err
 	}
@@ -1125,6 +1152,40 @@ func NewOpenidConfigRequest(server string, profileID string) (*http.Request, err
 	return req, nil
 }
 
+// NewOpenidCredentialIssuerConfigRequest generates requests for OpenidCredentialIssuerConfig
+func NewOpenidCredentialIssuerConfigRequest(server string, profileID string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/%s/.well-known/openid-credential-issuer", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1218,6 +1279,9 @@ type ClientWithResponsesInterface interface {
 
 	// OpenidConfig request
 	OpenidConfigWithResponse(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*OpenidConfigResponse, error)
+
+	// OpenidCredentialIssuerConfig request
+	OpenidCredentialIssuerConfigWithResponse(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigResponse, error)
 }
 
 type ExchangeAuthorizationCodeRequestResponse struct {
@@ -1461,6 +1525,28 @@ func (r OpenidConfigResponse) StatusCode() int {
 	return 0
 }
 
+type OpenidCredentialIssuerConfigResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WellKnownOpenIDIssuerConfiguration
+}
+
+// Status returns HTTPResponse.Status
+func (r OpenidCredentialIssuerConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OpenidCredentialIssuerConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // ExchangeAuthorizationCodeRequestWithBodyWithResponse request with arbitrary body returning *ExchangeAuthorizationCodeRequestResponse
 func (c *ClientWithResponses) ExchangeAuthorizationCodeRequestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExchangeAuthorizationCodeRequestResponse, error) {
 	rsp, err := c.ExchangeAuthorizationCodeRequestWithBody(ctx, contentType, body, reqEditors...)
@@ -1630,6 +1716,15 @@ func (c *ClientWithResponses) OpenidConfigWithResponse(ctx context.Context, prof
 		return nil, err
 	}
 	return ParseOpenidConfigResponse(rsp)
+}
+
+// OpenidCredentialIssuerConfigWithResponse request returning *OpenidCredentialIssuerConfigResponse
+func (c *ClientWithResponses) OpenidCredentialIssuerConfigWithResponse(ctx context.Context, profileID string, reqEditors ...RequestEditorFn) (*OpenidCredentialIssuerConfigResponse, error) {
+	rsp, err := c.OpenidCredentialIssuerConfig(ctx, profileID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOpenidCredentialIssuerConfigResponse(rsp)
 }
 
 // ParseExchangeAuthorizationCodeRequestResponse parses an HTTP response from a ExchangeAuthorizationCodeRequestWithResponse call
@@ -1908,6 +2003,32 @@ func ParseOpenidConfigResponse(rsp *http.Response) (*OpenidConfigResponse, error
 	return response, nil
 }
 
+// ParseOpenidCredentialIssuerConfigResponse parses an HTTP response from a OpenidCredentialIssuerConfigWithResponse call
+func ParseOpenidCredentialIssuerConfigResponse(rsp *http.Response) (*OpenidCredentialIssuerConfigResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OpenidCredentialIssuerConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WellKnownOpenIDIssuerConfiguration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Exchange authorization code from issuer oauth provider
@@ -1943,6 +2064,9 @@ type ServerInterface interface {
 	// Request openid-config
 	// (GET /issuer/{profileID}/.well-known/openid-configuration)
 	OpenidConfig(ctx echo.Context, profileID string) error
+	// Request openid-credential-issuer
+	// (GET /issuer/{profileID}/.well-known/openid-credential-issuer)
+	OpenidCredentialIssuerConfig(ctx echo.Context, profileID string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -2092,6 +2216,22 @@ func (w *ServerInterfaceWrapper) OpenidConfig(ctx echo.Context) error {
 	return err
 }
 
+// OpenidCredentialIssuerConfig converts echo context to params.
+func (w *ServerInterfaceWrapper) OpenidCredentialIssuerConfig(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "profileID" -------------
+	var profileID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.OpenidCredentialIssuerConfig(ctx, profileID)
+	return err
+}
+
 // This is a simple interface which specifies echo.Route addition functions which
 // are present on both echo.Echo and echo.Group, since we want to allow using
 // either of them for path registration
@@ -2131,5 +2271,6 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)
 	router.POST(baseURL+"/issuer/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/.well-known/openid-configuration", wrapper.OpenidConfig)
+	router.GET(baseURL+"/issuer/:profileID/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)
 
 }

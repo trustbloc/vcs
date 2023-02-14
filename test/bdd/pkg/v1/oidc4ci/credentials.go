@@ -29,6 +29,7 @@ import (
 	"golang.org/x/oauth2"
 
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 func getCredential(
@@ -58,8 +59,7 @@ func getCredential(
 	}
 
 	b, err := json.Marshal(credentialRequest{
-		DID:    diddoc.ID,
-		Format: "jwt_vc",
+		Format: string(verifiable.JwtVCJson),
 		Type:   "UniversityDegreeCredential",
 		Proof: jwtProof{
 			ProofType: "jwt",

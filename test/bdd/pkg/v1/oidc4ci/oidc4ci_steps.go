@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/credentialoffer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -151,6 +152,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		fmt.Println(string(b))
 		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, b)
 	}
 
@@ -160,7 +162,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 		return fmt.Errorf("unmarshal initiate oidc4ci resp: %w", err)
 	}
 
-	s.initiateIssuanceURL = r.InitiateIssuanceUrl
+	s.initiateIssuanceURL = r.OfferCredentialURL
 
 	return nil
 }
@@ -197,22 +199,25 @@ func (s *Steps) getAuthCode() error {
 		httpClient.Transport = &DumpTransport{httpClient.Transport}
 	}
 
-	u, err := url.Parse(s.initiateIssuanceURL)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(s.initiateIssuanceURL, httpClient)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance URL: %w", err)
 	}
 
-	opState := u.Query().Get("op_state")
 	state := uuid.New().String()
 
 	resp, err := httpClient.Get(
 		s.oauthClient.AuthCodeURL(state,
-			oauth2.SetAuthURLParam("op_state", opState),
+			oauth2.SetAuthURLParam("issuer_state", offerResponse.Grants.AuthorizationCode.IssuerState),
 			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","credential_type":"VerifiedEmployee","format":"jwt_vc"}`), //nolint:lll
+			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","types":["VerifiableCredential","VerifiedEmployee"],"format":"jwt_vc_json"}`), //nolint:lll
 		),
 	)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusSeeOther {
+		return fmt.Errorf("got unexpected status code: %v", resp.StatusCode)
+	}
+
 	if err != nil {
 		return fmt.Errorf("get auth code request: %w", err)
 	}

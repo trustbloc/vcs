@@ -40,6 +40,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4cisvc "github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -150,7 +151,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	params := []oauth2.AuthCodeOption{
 		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
 		oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
-		oauth2.SetAuthURLParam("op_state", opState),
+		oauth2.SetAuthURLParam("issuer_state", opState),
 	}
 
 	authCodeURL := oauthClient.AuthCodeURL(opState, params...)
@@ -186,8 +187,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
-		Did:    "did:example:123",
-		Format: lo.ToPtr("jwt_vc"),
+		Format: lo.ToPtr(string(common.JwtVcJson)),
 		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
 		Type:   "UniversityDegreeCredential",
 	})

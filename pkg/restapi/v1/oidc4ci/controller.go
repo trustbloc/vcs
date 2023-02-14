@@ -164,10 +164,10 @@ func (c *Controller) OidcPushedAuthorizationRequest(e echo.Context) error {
 	r, err := c.issuerInteractionClient.PushAuthorizationDetails(ctx,
 		issuer.PushAuthorizationDetailsJSONRequestBody{
 			AuthorizationDetails: common.AuthorizationDetails{
-				CredentialType: authorizationDetails.CredentialType,
-				Format:         lo.ToPtr(string(authorizationDetails.Format)),
-				Locations:      lo.ToPtr(authorizationDetails.Locations),
-				Type:           authorizationDetails.Type,
+				Types:     authorizationDetails.Types,
+				Format:    lo.ToPtr(string(authorizationDetails.Format)),
+				Locations: lo.ToPtr(authorizationDetails.Locations),
+				Type:      authorizationDetails.Type,
 			},
 			OpState: par.OpState,
 		},
@@ -204,13 +204,13 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	ses := &fosite.DefaultSession{
 		Extra: map[string]interface{}{
-			sessionOpStateKey:       params.OpState,
+			sessionOpStateKey:       params.IssuerState,
 			authorizationDetailsKey: lo.FromPtr(params.AuthorizationDetails),
 		},
 	}
 
 	var (
-		credentialType string
+		credentialType []string
 		vcFormat       *string
 	)
 
@@ -227,22 +227,22 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			return err
 		}
 
-		credentialType = authorizationDetails.CredentialType
+		credentialType = authorizationDetails.Types
 		vcFormat = authorizationDetails.Format
 	} else {
 		// using scope parameter to request credential type
 		// https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0.html#name-using-scope-parameter-to-re
-		credentialType = scope[0]
+		credentialType = scope
 	}
 
 	r, err := c.issuerInteractionClient.PrepareAuthorizationRequest(ctx,
 		issuer.PrepareAuthorizationRequestJSONRequestBody{
 			AuthorizationDetails: &common.AuthorizationDetails{
-				Type:           "openid_credential",
-				CredentialType: credentialType,
-				Format:         vcFormat,
+				Type:   "openid_credential",
+				Types:  credentialType,
+				Format: vcFormat,
 			},
-			OpState:      params.OpState,
+			OpState:      params.IssuerState,
 			ResponseType: params.ResponseType,
 			Scope:        lo.ToPtr(scope),
 		},
@@ -277,7 +277,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 		Scopes:      claimDataAuth.AuthorizationRequest.Scope,
 	}
 
-	ar.(*fosite.AuthorizeRequest).State = params.OpState
+	ar.(*fosite.AuthorizeRequest).State = params.IssuerState
 
 	resp, err := c.oauth2Provider.NewAuthorizeResponse(ctx, ar, ses)
 	if err != nil {
@@ -286,7 +286,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
-		params.OpState,
+		params.IssuerState,
 		&oidc4cistatestore.AuthorizeState{
 			RedirectURI: ar.GetRedirectURI(),
 			RespondMode: string(ar.GetResponseMode()),
@@ -302,14 +302,14 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 			ctx,
 			oauthConfig,
 			*claimDataAuth.PushedAuthorizationRequestEndpoint,
-			params.OpState,
+			params.IssuerState,
 			c.defaultHTTPClient,
 		)
 		if err != nil {
 			return err
 		}
 	} else {
-		authCodeURL = c.oAuth2Client.AuthCodeURL(ctx, oauthConfig, params.OpState)
+		authCodeURL = c.oAuth2Client.AuthCodeURL(ctx, oauthConfig, params.IssuerState)
 	}
 
 	return e.Redirect(http.StatusSeeOther, authCodeURL)
@@ -471,18 +471,20 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
-		return resterr.NewUnauthorizedError(errors.New("missing access token"))
+		return resterr.NewOIDCError("invalid_token", errors.New("missing access token"))
 	}
 
 	_, ar, err := c.oauth2Provider.IntrospectToken(ctx, token, fosite.AccessToken, new(fosite.DefaultSession))
 	if err != nil {
-		return resterr.NewUnauthorizedError(fmt.Errorf("introspect token: %w", err))
+		return resterr.NewOIDCError("invalid_token", fmt.Errorf("introspect token: %w", err))
 	}
 
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
-	if err = validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier); err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "proof", err)
+	did, err := validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier)
+
+	if err != nil {
+		return resterr.NewOIDCError("invalid_or_missing_proof", err)
 	}
 
 	txID := session.Extra[txIDKey].(string) //nolint:errcheck
@@ -490,7 +492,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
 		issuer.PrepareCredentialJSONRequestBody{
 			TxId:   txID,
-			Did:    lo.ToPtr(credentialRequest.Did),
+			Did:    lo.ToPtr(did),
 			Type:   credentialRequest.Type,
 			Format: credentialRequest.Format,
 		},
@@ -502,10 +504,23 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("prepare credential: status code %d, %w",
+		parsedErr := parseInteractionError(resp.Body)
+		finalErr := fmt.Errorf("prepare credential: status code %d, %w",
 			resp.StatusCode,
-			parseInteractionError(resp.Body),
-		)
+			parsedErr)
+
+		var interactionErr *interactionError
+
+		if errors.As(parsedErr, &interactionErr) {
+			switch interactionErr.Code { //nolint:exhaustive
+			case resterr.OIDCCredentialFormatNotSupported:
+				return resterr.NewOIDCError("unsupported_credential_format", finalErr)
+			case resterr.OIDCCredentialTypeNotSupported:
+				return resterr.NewOIDCError("unsupported_credential_type", finalErr)
+			}
+		}
+
+		return finalErr
 	}
 
 	var result issuer.PrepareCredentialResult
@@ -534,41 +549,46 @@ func validateCredentialRequest(e echo.Context, req *CredentialRequest) error {
 
 	_, err := common.ValidateVCFormat(common.VCFormat(lo.FromPtr(req.Format)))
 	if err != nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
+		return resterr.NewOIDCError("invalid_request", err)
 	}
 
 	if req.Proof == nil {
-		return resterr.NewValidationError(resterr.InvalidValue, "proof", errors.New("missing proof type"))
+		return resterr.NewOIDCError("invalid_request", errors.New("missing proof type"))
 	}
 
 	if req.Proof.ProofType != "jwt" || req.Proof.Jwt == "" {
-		return resterr.NewValidationError(resterr.InvalidValue, "proof", errors.New("invalid proof type"))
+		return resterr.NewOIDCError("invalid_request", errors.New("invalid proof type"))
 	}
 
 	return nil
 }
 
-func validateProofClaims(rawJwt string, session *fosite.DefaultSession, verifier jose.SignatureVerifier) error {
+func validateProofClaims(
+	rawJwt string,
+	session *fosite.DefaultSession,
+	verifier jose.SignatureVerifier,
+) (string, error) {
 	jws, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
-		return fmt.Errorf("parse jwt: %w", err)
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("parse jwt: %w", err))
 	}
 
 	var claims JWTProofClaims
 
 	if err = jws.DecodeClaims(&claims); err != nil {
-		return fmt.Errorf("decode claims: %w", err)
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("decode claims: %w", err))
 	}
 
 	if nonceExp := session.Extra[cNonceExpiresAtKey].(int64); nonceExp < time.Now().Unix() { //nolint:errcheck
-		return errors.New("nonce expired")
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
 	}
 
 	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
-		return errors.New("invalid nonce")
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("invalid nonce"))
 	}
 
-	return nil
+	keyID, _ := jws.Headers.KeyID()
+	return strings.Split(keyID, "#")[0], nil
 }
 
 // oidcPreAuthorizedCode handles pre-authorized code token request.
@@ -589,10 +609,30 @@ func (c *Controller) oidcPreAuthorizedCode(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("validate pre-authorized code request: status code %d, %w",
+		parsedErr := parseInteractionError(resp.Body)
+
+		finalErr := fmt.Errorf("validate pre-authorized code request: status code %d, %w",
 			resp.StatusCode,
-			parseInteractionError(resp.Body),
+			parsedErr,
 		)
+
+		var interactionErr *interactionError
+
+		if ok := errors.As(parsedErr, &interactionErr); ok {
+			switch interactionErr.Code { //nolint:exhaustive
+			case resterr.OIDCPreAuthorizeExpectPin:
+				fallthrough
+			case resterr.OIDCPreAuthorizeDoesNotExpectPin:
+				return nil, resterr.NewOIDCError("invalid_request", finalErr)
+
+			case resterr.OIDCTxNotFound:
+				fallthrough
+			case resterr.OIDCPreAuthorizeInvalidPin:
+				return nil, resterr.NewOIDCError("invalid_grant", finalErr)
+			}
+		}
+
+		return nil, finalErr
 	}
 
 	var validateResponse issuer.ValidatePreAuthorizedCodeResponse
@@ -603,12 +643,12 @@ func (c *Controller) oidcPreAuthorizedCode(
 	return &validateResponse, nil
 }
 
-type interactionError struct {
-	Code           string `json:"code"`
-	Component      string `json:"component,omitempty"`
-	Operation      string `json:"operation,omitempty"`
-	IncorrectValue string `json:"incorrectValue,omitempty"`
-	Message        string `json:"message,omitempty"`
+type interactionError struct { // in fact its CustomError
+	Code           resterr.ErrorCode `json:"code"`
+	Component      string            `json:"component,omitempty"`
+	Operation      string            `json:"operation,omitempty"`
+	IncorrectValue string            `json:"incorrectValue,omitempty"`
+	Message        string            `json:"message,omitempty"`
 }
 
 func (e *interactionError) Error() string {

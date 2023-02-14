@@ -4,18 +4,20 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,claimDataStore=MockClaimDataStore,profileService=MockProfileService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService
 
 package oidc4ci
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -24,7 +26,6 @@ import (
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
-	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -99,47 +100,57 @@ type eventService interface {
 	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
+type credentialOfferReferenceStore interface {
+	Create(
+		ctx context.Context,
+		request *CredentialOfferResponse,
+	) (string, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
-	TransactionStore    transactionStore
-	ClaimDataStore      claimDataStore
-	WellKnownService    wellKnownService
-	ProfileService      profileService
-	IssuerVCSPublicHost string
-	OAuth2Client        oAuth2Client
-	HTTPClient          httpClient
-	EventService        eventService
-	PinGenerator        pinGenerator
-	EventTopic          string
+	TransactionStore              transactionStore
+	ClaimDataStore                claimDataStore
+	WellKnownService              wellKnownService
+	ProfileService                profileService
+	IssuerVCSPublicHost           string
+	OAuth2Client                  oAuth2Client
+	HTTPClient                    httpClient
+	EventService                  eventService
+	PinGenerator                  pinGenerator
+	EventTopic                    string
+	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
 type Service struct {
-	store               transactionStore
-	claimDataStore      claimDataStore
-	wellKnownService    wellKnownService
-	profileService      profileService
-	issuerVCSPublicHost string
-	oAuth2Client        oAuth2Client
-	httpClient          httpClient
-	eventSvc            eventService
-	eventTopic          string
-	pinGenerator        pinGenerator
+	store                         transactionStore
+	claimDataStore                claimDataStore
+	wellKnownService              wellKnownService
+	profileService                profileService
+	issuerVCSPublicHost           string
+	oAuth2Client                  oAuth2Client
+	httpClient                    httpClient
+	eventSvc                      eventService
+	eventTopic                    string
+	pinGenerator                  pinGenerator
+	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
 // NewService returns a new Service instance.
 func NewService(config *Config) (*Service, error) {
 	return &Service{
-		store:               config.TransactionStore,
-		claimDataStore:      config.ClaimDataStore,
-		wellKnownService:    config.WellKnownService,
-		profileService:      config.ProfileService,
-		issuerVCSPublicHost: config.IssuerVCSPublicHost,
-		oAuth2Client:        config.OAuth2Client,
-		httpClient:          config.HTTPClient,
-		eventSvc:            config.EventService,
-		eventTopic:          config.EventTopic,
-		pinGenerator:        config.PinGenerator,
+		store:                         config.TransactionStore,
+		claimDataStore:                config.ClaimDataStore,
+		wellKnownService:              config.WellKnownService,
+		profileService:                config.ProfileService,
+		issuerVCSPublicHost:           config.IssuerVCSPublicHost,
+		oAuth2Client:                  config.OAuth2Client,
+		httpClient:                    config.HTTPClient,
+		eventSvc:                      config.EventService,
+		eventTopic:                    config.EventTopic,
+		pinGenerator:                  config.PinGenerator,
+		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 	}, nil
 }
 
@@ -234,7 +245,8 @@ func (s *Service) updateAuthorizationDetails(ctx context.Context, ad *Authorizat
 		return ErrCredentialTemplateNotConfigured
 	}
 
-	if !strings.EqualFold(ad.CredentialType, tx.CredentialTemplate.Type) {
+	targetType := ad.Types[len(ad.Types)-1]
+	if !strings.EqualFold(targetType, tx.CredentialTemplate.Type) {
 		return ErrCredentialTypeNotSupported
 	}
 
@@ -258,7 +270,17 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 ) (*Transaction, error) {
 	tx, err := s.store.FindByOpState(ctx, preAuthorizedCode)
 	if err != nil {
-		return nil, fmt.Errorf("find tx by op state: %w", err)
+		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("find tx by op state: %w", err))
+	}
+
+	if len(pin) > 0 && len(tx.UserPin) == 0 {
+		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeDoesNotExpectPin,
+			fmt.Errorf("server does not expect pin"))
+	}
+
+	if len(pin) == 0 && len(tx.UserPin) > 0 {
+		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeExpectPin,
+			fmt.Errorf("server expects user pin"))
 	}
 
 	newState := TransactionStatePreAuthCodeValidated
@@ -268,11 +290,11 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	tx.State = newState
 
 	if tx.PreAuthCode != preAuthorizedCode {
-		return nil, errors.New("invalid pre-auth code")
+		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorize code"))
 	}
 
 	if len(tx.UserPin) > 0 && !s.pinGenerator.Validate(tx.UserPin, pin) {
-		return nil, errors.New("invalid pin")
+		return nil, resterr.NewCustomError(resterr.OIDCPreAuthorizeInvalidPin, fmt.Errorf("invalid pin"))
 	}
 
 	if err = s.store.Update(ctx, tx); err != nil {
@@ -297,7 +319,7 @@ func (s *Service) PrepareCredential(
 
 	if tx.CredentialTemplate == nil {
 		s.sendFailedEvent(ctx, tx, ErrCredentialTemplateNotConfigured)
-		return nil, ErrCredentialTemplateNotConfigured
+		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
 	var claimData *ClaimData
@@ -353,7 +375,7 @@ func (s *Service) PrepareCredential(
 		credential = vc
 	default:
 		s.sendFailedEvent(ctx, tx, ErrCredentialFormatNotSupported)
-		return nil, ErrCredentialFormatNotSupported
+		return nil, resterr.NewCustomError(resterr.OIDCCredentialFormatNotSupported, ErrCredentialFormatNotSupported)
 	}
 
 	tx.State = TransactionStateCredentialsIssued
