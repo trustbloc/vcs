@@ -143,7 +143,7 @@ func (c *TestCase) fetchInitiateIssuanceURL(demoIssuerURL string) (string, strin
 	_ = resp.Body.Close()
 
 	parsedURL := string(body)
-	r := regexp.MustCompile(`(openid-initiate-issuance://\?[^<]+)`)
+	r := regexp.MustCompile(`(openid-vc://\?[^<]+)`)
 	parsedURL = r.FindString(parsedURL)
 	parsedURL, err = url.QueryUnescape(parsedURL)
 	parsedURL = strings.ReplaceAll(parsedURL, "&amp;", "&")

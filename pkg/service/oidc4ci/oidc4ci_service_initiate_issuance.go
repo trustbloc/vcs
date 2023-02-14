@@ -162,7 +162,10 @@ func (s *Service) extendTransactionWithOIDCConfig(
 	data.PushedAuthorizationRequestEndpoint = oidcConfig.PushedAuthorizationRequestEndpoint
 	data.TokenEndpoint = oidcConfig.TokenEndpoint
 
-	data.Scope = profile.OIDCConfig.Scope
+	if len(data.Scope) == 0 { // set scopes only if we dont have it in request
+		data.Scope = profile.OIDCConfig.Scope
+	}
+
 	data.RedirectURI = profile.OIDCConfig.RedirectURI
 
 	return nil

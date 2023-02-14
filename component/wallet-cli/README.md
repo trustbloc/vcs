@@ -59,7 +59,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --qr-code "/mnt/qrcode.png" \
 --grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code \
 --credential-type VerifiedEmployee \
---credential-format jwt_vc \
+--credential-format jwt_vc_json \
 --did-domain https://orb-1.stg.trustbloc.dev \
 --did-service-auth-token ADMIN_TOKEN \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
@@ -80,7 +80,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --redirect-uri http://127.0.0.1/callback \
 --client-id oidc4vc_client \
 --credential-type VerifiedEmployee \
---credential-format jwt_vc \
+--credential-format jwt_vc_json \
 --did-domain https://orb-1.stg.trustbloc.dev \
 --did-service-auth-token ADMIN_TOKEN \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
@@ -135,7 +135,7 @@ Note:
 --qrcode-path "/mnt/qrcode.png" \
 --vc-provider vcs \
 --vc-issuer-url https://api-gateway.stg.trustbloc.dev/issuer/profiles/bank_issuer/credentials/issue \
---vc-format jwt_vc \
+--vc-format jwt_vc_json \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
 --did-domain https://orb-1.stg.trustbloc.dev \
 --did-service-auth-token ADMIN_TOKEN \
