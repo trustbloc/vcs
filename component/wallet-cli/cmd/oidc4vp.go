@@ -8,13 +8,15 @@ package cmd
 
 import (
 	"fmt"
+	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"os"
 
+	"github.com/makiuchi-d/gozxing"
+	gozxingqr "github.com/makiuchi-d/gozxing/qrcode"
 	"github.com/spf13/cobra"
-	"github.com/tuotoo/qrcode"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
@@ -205,10 +207,15 @@ func readQRCode(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("unable to read image from %s: %w", path, err)
 	}
-	defer file.Close()
-	qrData, err := qrcode.Decode(file)
+	img, _, err := image.Decode(file)
+	bmp, err := gozxing.NewBinaryBitmapFromImage(img)
 	if err != nil {
-		return "", fmt.Errorf("unable to decode image: %w", err)
+		return "", fmt.Errorf("unable to create binaty bitmap: %w", err)
 	}
-	return qrData.Content, nil
+	result, err := gozxingqr.NewQRCodeReader().Decode(bmp, nil)
+	if err != nil {
+		return "", fmt.Errorf("unable to decode bitmap: %w", err)
+	}
+
+	return result.String(), nil
 }
