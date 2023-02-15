@@ -210,6 +210,10 @@ const (
 	requestObjectRepositoryS3RegionEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_REGION"
 	requestObjectRepositoryS3RegionFlagUsage = "request-object S3 Region"
 
+	requestObjectRepositoryS3HostNameFlagName  = "request-object-repository-s3-hostname"
+	requestObjectRepositoryS3HostNameEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_HOSTNAME"
+	requestObjectRepositoryS3HostNameFlagUsage = "request-object S3 Hostname"
+
 	credentialOfferRepositoryS3BucketFlagName  = "credential-offer-repository-s3-bucket"
 	credentialOfferRepositoryS3BucketEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_BUCKET"
 	credentialOfferRepositoryS3BucketFlagUsage = "credential-offer S3 Bucket"
@@ -218,9 +222,9 @@ const (
 	credentialOfferRepositoryS3RegionEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_REGION"
 	credentialOfferRepositoryS3RegionFlagUsage = "credential-offer S3 Region"
 
-	requestObjectRepositoryS3HostNameFlagName  = "request-object-repository-s3-hostname"
-	requestObjectRepositoryS3HostNameEnvKey    = "REQUEST_OBJECT_REPOSITORY_S3_HOSTNAME"
-	requestObjectRepositoryS3HostNameFlagUsage = "request-object S3 Hostname"
+	credentialOfferRepositoryS3HostNameFlagName  = "credential-offer-repository-s3-hostname"
+	credentialOfferRepositoryS3HostNameEnvKey    = "CREDENTIAL_OFFER_REPOSITORY_S3_HOSTNAME"
+	credentialOfferRepositoryS3HostNameFlagUsage = "credential-offer S3 Hostname"
 
 	cslStoreTypeFlagName = "csl-store-type"
 	cslStoreTypeEnvKey   = "CSL_STORE_TYPE"
@@ -261,14 +265,7 @@ const (
 	tracingServiceNameFlagUsage = "The name of the tracing service. Default: vcs. " +
 		commonEnvVarUsageText + tracingServiceNameEnvKey
 
-	didMethodVeres   = "v1"
-	didMethodElement = "elem"
-	didMethodSov     = "sov"
-	didMethodWeb     = "web"
-	didMethodFactom  = "factom"
-	didMethodORB     = "orb"
-	didMethodKey     = "key"
-	didMethodION     = "ion"
+	didMethodION = "ion"
 
 	splitRequestTokenLength = 2
 
@@ -281,40 +278,41 @@ const (
 )
 
 type startupParameters struct {
-	hostURL                           string
-	hostURLExternal                   string
-	universalResolverURL              string
-	orbDomain                         string
-	mode                              string
-	dbParameters                      *dbParameters
-	kmsParameters                     *kmsParameters
-	token                             string
-	requestTokens                     map[string]string
-	logLevel                          string
-	contextProviderURLs               []string
-	contextEnableRemote               bool
-	tlsParameters                     *tlsParameters
-	devMode                           bool
-	oAuthSecret                       string
-	oAuthClientsFilePath              string
-	metricsProviderName               string
-	prometheusMetricsProviderParams   *prometheusMetricsProviderParams
-	apiGatewayURL                     string
-	requestObjectRepositoryType       string
-	requestObjectRepositoryS3Bucket   string
-	requestObjectRepositoryS3Region   string
-	credentialOfferRepositoryS3Bucket string
-	credentialOfferRepositoryS3Region string
-	requestObjectRepositoryS3HostName string
-	cslStoreType                      string
-	cslStoreS3Bucket                  string
-	cslStoreS3Region                  string
-	cslStoreS3HostName                string
-	issuerEventTopic                  string
-	verifierEventTopic                string
-	claimDataTTL                      int32
-	vpReceivedClaimsDataTTL           int32
-	tracingParams                     *tracingParams
+	hostURL                             string
+	hostURLExternal                     string
+	universalResolverURL                string
+	orbDomain                           string
+	mode                                string
+	dbParameters                        *dbParameters
+	kmsParameters                       *kmsParameters
+	token                               string
+	requestTokens                       map[string]string
+	logLevel                            string
+	contextProviderURLs                 []string
+	contextEnableRemote                 bool
+	tlsParameters                       *tlsParameters
+	devMode                             bool
+	oAuthSecret                         string
+	oAuthClientsFilePath                string
+	metricsProviderName                 string
+	prometheusMetricsProviderParams     *prometheusMetricsProviderParams
+	apiGatewayURL                       string
+	requestObjectRepositoryType         string
+	requestObjectRepositoryS3Bucket     string
+	requestObjectRepositoryS3Region     string
+	credentialOfferRepositoryS3Bucket   string
+	credentialOfferRepositoryS3Region   string
+	requestObjectRepositoryS3HostName   string
+	credentialOfferRepositoryS3HostName string
+	cslStoreType                        string
+	cslStoreS3Bucket                    string
+	cslStoreS3Region                    string
+	cslStoreS3HostName                  string
+	issuerEventTopic                    string
+	verifierEventTopic                  string
+	claimDataTTL                        int32
+	vpReceivedClaimsDataTTL             int32
+	tracingParams                       *tracingParams
 }
 
 type prometheusMetricsProviderParams struct {
@@ -467,6 +465,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		requestObjectRepositoryS3HostNameEnvKey,
 	)
 
+	credentialOfferRepositoryS3HostName := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		credentialOfferRepositoryS3HostNameFlagName,
+		credentialOfferRepositoryS3HostNameEnvKey,
+	)
+
 	cslStoreType := cmdutils.GetUserSetOptionalVarFromString(
 		cmd,
 		cslStoreTypeFlagName,
@@ -526,40 +530,41 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	)
 
 	return &startupParameters{
-		hostURL:                           hostURL,
-		hostURLExternal:                   hostURLExternal,
-		universalResolverURL:              universalResolverURL,
-		orbDomain:                         orbDomain,
-		mode:                              mode,
-		dbParameters:                      dbParams,
-		kmsParameters:                     kmsParams,
-		tlsParameters:                     tlsParameters,
-		token:                             token,
-		requestTokens:                     requestTokens,
-		logLevel:                          loggingLevel,
-		contextProviderURLs:               contextProviderURLs,
-		contextEnableRemote:               contextEnableRemote,
-		devMode:                           devMode,
-		oAuthSecret:                       oAuthSecret,
-		oAuthClientsFilePath:              oAuthClientsFilePath,
-		metricsProviderName:               metricsProviderName,
-		prometheusMetricsProviderParams:   prometheusMetricsProviderParams,
-		apiGatewayURL:                     apiGatewayURL,
-		requestObjectRepositoryType:       requestObjectRepositoryType,
-		requestObjectRepositoryS3Bucket:   requestObjectRepositoryS3Bucket,
-		requestObjectRepositoryS3Region:   requestObjectRepositoryS3Region,
-		credentialOfferRepositoryS3Bucket: credentialOfferRepositoryS3Bucket,
-		credentialOfferRepositoryS3Region: credentialOfferRepositoryS3Region,
-		requestObjectRepositoryS3HostName: requestObjectRepositoryS3HostName,
-		cslStoreType:                      cslStoreType,
-		cslStoreS3Bucket:                  cslStoreS3Bucket,
-		cslStoreS3Region:                  cslStoreS3Region,
-		cslStoreS3HostName:                cslStoreS3HostName,
-		issuerEventTopic:                  issuerTopic,
-		verifierEventTopic:                verifierTopic,
-		claimDataTTL:                      int32(claimDataTTL.Seconds()),
-		vpReceivedClaimsDataTTL:           int32((vpReceivedClaimsDataTTL.Seconds())),
-		tracingParams:                     tracingParams,
+		hostURL:                             hostURL,
+		hostURLExternal:                     hostURLExternal,
+		universalResolverURL:                universalResolverURL,
+		orbDomain:                           orbDomain,
+		mode:                                mode,
+		dbParameters:                        dbParams,
+		kmsParameters:                       kmsParams,
+		tlsParameters:                       tlsParameters,
+		token:                               token,
+		requestTokens:                       requestTokens,
+		logLevel:                            loggingLevel,
+		contextProviderURLs:                 contextProviderURLs,
+		contextEnableRemote:                 contextEnableRemote,
+		devMode:                             devMode,
+		oAuthSecret:                         oAuthSecret,
+		oAuthClientsFilePath:                oAuthClientsFilePath,
+		metricsProviderName:                 metricsProviderName,
+		prometheusMetricsProviderParams:     prometheusMetricsProviderParams,
+		apiGatewayURL:                       apiGatewayURL,
+		requestObjectRepositoryType:         requestObjectRepositoryType,
+		requestObjectRepositoryS3Bucket:     requestObjectRepositoryS3Bucket,
+		requestObjectRepositoryS3Region:     requestObjectRepositoryS3Region,
+		credentialOfferRepositoryS3Bucket:   credentialOfferRepositoryS3Bucket,
+		credentialOfferRepositoryS3Region:   credentialOfferRepositoryS3Region,
+		requestObjectRepositoryS3HostName:   requestObjectRepositoryS3HostName,
+		credentialOfferRepositoryS3HostName: credentialOfferRepositoryS3HostName,
+		cslStoreType:                        cslStoreType,
+		cslStoreS3Bucket:                    cslStoreS3Bucket,
+		cslStoreS3Region:                    cslStoreS3Region,
+		cslStoreS3HostName:                  cslStoreS3HostName,
+		issuerEventTopic:                    issuerTopic,
+		verifierEventTopic:                  verifierTopic,
+		claimDataTTL:                        int32(claimDataTTL.Seconds()),
+		vpReceivedClaimsDataTTL:             int32((vpReceivedClaimsDataTTL.Seconds())),
+		tracingParams:                       tracingParams,
 	}, nil
 }
 
@@ -832,6 +837,7 @@ func createFlags(startCmd *cobra.Command) {
 
 	startCmd.Flags().String(credentialOfferRepositoryS3BucketFlagName, "", credentialOfferRepositoryS3BucketFlagUsage)
 	startCmd.Flags().String(credentialOfferRepositoryS3RegionFlagName, "", credentialOfferRepositoryS3RegionFlagUsage)
+	startCmd.Flags().String(credentialOfferRepositoryS3HostNameFlagName, "", credentialOfferRepositoryS3HostNameFlagUsage)
 
 	startCmd.Flags().String(cslStoreTypeFlagName, "", cslStoreFlagUsage)
 	startCmd.Flags().String(cslStoreS3BucketFlagName, "", cslStoreS3BucketFlagUsage)
