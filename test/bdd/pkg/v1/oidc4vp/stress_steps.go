@@ -8,6 +8,7 @@ package oidc4vp
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -214,7 +215,7 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 
 	startTime = time.Now()
 
-	err = r.vpFlowExecutor.retrieveInteractionsClaim(r.vpFlowExecutor.transactionID, r.authToken)
+	err = r.vpFlowExecutor.retrieveInteractionsClaim(r.vpFlowExecutor.transactionID, r.authToken, http.StatusOK)
 	if err != nil {
 		return nil, err
 	}

@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	collectionName = "oidc4vpclaims"
+	collectionName = "oidc4vp_claims"
 )
 
 type mongoDocument struct {

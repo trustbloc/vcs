@@ -17,7 +17,6 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
@@ -118,7 +117,7 @@ func (tm *TxManager) Get(txID TxID) (*Transaction, error) {
 	}
 
 	receivedClaims, err := tm.txClaimsStore.Get(tx.ReceivedClaimsID)
-	if err != nil && !errors.Is(err, mongo.ErrNoDocuments) {
+	if err != nil && !errors.Is(err, ErrDataNotFound) {
 		return nil, fmt.Errorf("find received claims: %w", err)
 	}
 

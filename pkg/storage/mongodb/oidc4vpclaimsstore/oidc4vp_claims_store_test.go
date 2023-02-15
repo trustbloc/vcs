@@ -152,7 +152,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
-		storeExpired, err := New(context.Background(), client, testutil.DocumentLoader(t), 0)
+		storeExpired, err := New(context.Background(), client, testutil.DocumentLoader(t), 1)
 		assert.NoError(t, err)
 
 		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
@@ -166,6 +166,8 @@ func TestStore(t *testing.T) {
 
 		id, err := storeExpired.Create(receivedClaims)
 		require.NoError(t, err)
+
+		time.Sleep(2 * time.Second)
 
 		claimsInDB, err := storeExpired.Get(id)
 		assert.Nil(t, claimsInDB)

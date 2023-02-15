@@ -41,6 +41,7 @@ type VPFlowExecutor struct {
 	authorizationRequest string
 	transactionID        string
 	requestPresentation  *verifiable.Presentation
+	claimsTransactionID  string
 }
 
 func (e *VPFlowExecutor) initiateInteraction(profileName, authToken string) error {
@@ -197,7 +198,7 @@ func (e *VPFlowExecutor) sendAuthorizedResponse(responseBody string) error {
 	return nil
 }
 
-func (e *VPFlowExecutor) retrieveInteractionsClaim(txID, authToken string) error {
+func (e *VPFlowExecutor) retrieveInteractionsClaim(txID, authToken string, status int) error {
 	endpointURL := fmt.Sprintf(e.URLs.RetrieveInteractionsClaimURLFormat, txID)
 	resp, err := bddutil.HTTPSDo(http.MethodGet, endpointURL, "application/json", authToken, //nolint: bodyclose
 		nil, e.tlsConfig)
@@ -211,8 +212,8 @@ func (e *VPFlowExecutor) retrieveInteractionsClaim(txID, authToken string) error
 		return err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	if resp.StatusCode != status {
+		return bddutil.ExpectedStatusCodeError(status, resp.StatusCode, respBytes)
 	}
 
 	return nil
