@@ -63,7 +63,7 @@ func (p *Store) Create(
 		Key:         aws.String(key),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String("application/json"),
-	}, nil)
+	})
 	if err != nil {
 		return "", err
 	}
