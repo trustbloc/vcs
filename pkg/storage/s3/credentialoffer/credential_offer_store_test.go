@@ -26,7 +26,7 @@ func TestNewStore(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		up := NewMockS3Uploader(gomock.NewController(t))
-		s := credentialoffer.NewStore(up, "a", "b")
+		s := credentialoffer.NewStore(up, "a", "b", "")
 
 		key := ""
 		up.EXPECT().PutObjectWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
@@ -57,7 +57,7 @@ func TestNewStore(t *testing.T) {
 
 	t.Run("err upload", func(t *testing.T) {
 		up := NewMockS3Uploader(gomock.NewController(t))
-		s := credentialoffer.NewStore(up, "a", "b")
+		s := credentialoffer.NewStore(up, "a", "b", "")
 
 		up.EXPECT().PutObjectWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(

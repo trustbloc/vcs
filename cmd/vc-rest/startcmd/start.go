@@ -309,6 +309,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	credentialOfferStore, err := createCredentialOfferStore( // credentialOfferStore is optional, so it can be nil
 		conf.StartupParameters.credentialOfferRepositoryS3Region,
 		conf.StartupParameters.credentialOfferRepositoryS3Bucket,
+		conf.StartupParameters.credentialOfferRepositoryS3HostName,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate credentialOfferStore: %w", err)
@@ -552,6 +553,7 @@ func createRequestObjectStore(
 func createCredentialOfferStore(
 	s3Region string,
 	s3Bucket string,
+	s3HostName string,
 ) (credentialOfferReferenceStore, error) {
 	if s3Region == "" || s3Bucket == "" {
 		return nil, nil
@@ -562,7 +564,7 @@ func createCredentialOfferStore(
 		return nil, err
 	}
 
-	return credentialoffer.NewStore(s3.New(ses), s3Bucket, s3Region), nil
+	return credentialoffer.NewStore(s3.New(ses), s3Bucket, s3Region, s3HostName), nil
 }
 
 func createCredentialStatusListStore(
