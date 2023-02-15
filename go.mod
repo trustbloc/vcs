@@ -34,7 +34,7 @@ require (
 	github.com/ory/x v0.0.487
 	github.com/pborman/uuid v1.2.1
 	github.com/piprate/json-gold v0.4.2
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
