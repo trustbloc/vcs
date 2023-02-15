@@ -12,9 +12,9 @@ import (
 	"os"
 
 	"github.com/trustbloc/logutil-go/pkg/log"
-	jaegerprop "go.opentelemetry.io/contrib/propagators/jaeger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
@@ -49,8 +49,6 @@ func Initialize(provider, serviceName, url string) (func(), trace.Tracer, error)
 
 	switch provider {
 	case ProviderJaeger:
-		otel.SetTextMapPropagator(jaegerprop.Jaeger{})
-
 		var err error
 
 		tp, err = newJaegerTracerProvider(serviceName, url)
@@ -64,6 +62,8 @@ func Initialize(provider, serviceName, url string) (func(), trace.Tracer, error)
 	// Register the TracerProvider as the global so any imported
 	// instrumentation in the future will default to using it.
 	otel.SetTracerProvider(tp)
+
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	return func() {
 		if err := tp.Shutdown(context.Background()); err != nil {
