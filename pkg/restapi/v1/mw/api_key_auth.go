@@ -28,6 +28,7 @@ const (
 	oidcToken                  = "/oidc/token"
 	oidcCredential             = "/oidc/credential"
 	oidcWellKnown              = "/.well-known/openid-configuration"
+	oidcCredentialWellKnown    = "/.well-known/openid-credential-issuer"
 )
 
 // APIKeyAuth returns a middleware that authenticates requests using the API key from X-API-Key header.
@@ -59,7 +60,8 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 				strings.HasPrefix(currentPath, oidcPresent) ||
 				strings.HasPrefix(currentPath, oidcToken) ||
 				strings.HasPrefix(currentPath, oidcCredential) ||
-				strings.HasSuffix(currentPath, oidcWellKnown) {
+				strings.HasSuffix(currentPath, oidcWellKnown) ||
+				strings.HasSuffix(currentPath, oidcCredentialWellKnown) {
 				return next(c)
 			}
 
