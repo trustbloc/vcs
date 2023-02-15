@@ -182,6 +182,11 @@ const (
 	claimDataTTLFlagUsage = "Claim data TTL in OIDC4VC pre-auth code flow. Defaults to 3600s. " +
 		commonEnvVarUsageText + hostURLExternalEnvKey
 
+	vpReceivedClaimsDataTTLFlagName  = "vp-received-claims-data-ttl"
+	vpReceivedClaimsDataTTLEnvKey    = "VP_RECEIVED_CLAIMS_DATA_TTL"
+	vpReceivedClaimsDataTTLFlagUsage = "VP Received Claims data TTL in OIDC4VP pre-auth code flow. Defaults to 3600s. " +
+		commonEnvVarUsageText + hostURLExternalEnvKey
+
 	metricsProviderFlagName         = "metrics-provider-name"
 	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
 	allowedMetricsProviderFlagUsage = "The metrics provider name (for example: 'prometheus' etc.). " +
@@ -271,7 +276,8 @@ const (
 )
 
 const (
-	defaultClaimDataTTL = 3600 * time.Second
+	defaultClaimDataTTL            = 3600 * time.Second
+	defaultVPReceivedClaimsDataTTL = 3600 * time.Second
 )
 
 type startupParameters struct {
@@ -307,6 +313,7 @@ type startupParameters struct {
 	issuerEventTopic                  string
 	verifierEventTopic                string
 	claimDataTTL                      int32
+	vpReceivedClaimsDataTTL           int32
 	tracingParams                     *tracingParams
 }
 
@@ -497,6 +504,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	vpReceivedClaimsDataTTL, err := getDuration(cmd, vpReceivedClaimsDataTTLFlagName, vpReceivedClaimsDataTTLEnvKey, defaultVPReceivedClaimsDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
 	tracingParams, err := getTracingParams(cmd)
 	if err != nil {
 		return nil, err
@@ -546,6 +558,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		issuerEventTopic:                  issuerTopic,
 		verifierEventTopic:                verifierTopic,
 		claimDataTTL:                      int32(claimDataTTL.Seconds()),
+		vpReceivedClaimsDataTTL:           int32((vpReceivedClaimsDataTTL.Seconds())),
 		tracingParams:                     tracingParams,
 	}, nil
 }
@@ -828,6 +841,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
 	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
+	startCmd.Flags().StringP(vpReceivedClaimsDataTTLFlagName, "", "", vpReceivedClaimsDataTTLFlagUsage)
 
 	startCmd.Flags().StringP(tracingProviderFlagName, "", "", tracingProviderFlagUsage)
 	startCmd.Flags().StringP(tracingCollectorURLFlagName, "", "", tracingCollectorURLFlagUsage)

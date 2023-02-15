@@ -416,6 +416,19 @@ func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
+func TestInvalidVPReceivedClaimsDataTTLEnvVar(t *testing.T) {
+	startCmd := GetStartCmd()
+
+	setEnvVars(t, databaseTypeMongoDBOption, "")
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(vpReceivedClaimsDataTTLEnvKey, "not int"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid syntax")
+}
+
 func TestDidWeb(t *testing.T) {
 	v := webVDR{}
 

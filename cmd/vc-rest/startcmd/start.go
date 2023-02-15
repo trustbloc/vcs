@@ -72,6 +72,7 @@ import (
 	cslstoremongodb "github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
@@ -423,6 +424,11 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	})
 	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
 
+	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClient, documentLoader, conf.StartupParameters.vpReceivedClaimsDataTTL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
+	}
+
 	oidcNonceStore, err := oidcnoncestore.New(mongodbClient)
 	if err != nil {
 		return nil, err
@@ -441,7 +447,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 
 	// TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.apiGatewayURL + "/request-object/"
-	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, 15*time.Minute)
+	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, oidc4vpClaimsStore, 15*time.Minute)
 
 	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
 		requestObjStoreEndpoint, conf.StartupParameters.verifierEventTopic)

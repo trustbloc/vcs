@@ -365,6 +365,14 @@ func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) er
 		return err
 	}
 
+	if tx.ReceivedClaimsID == "" {
+		return fmt.Errorf("claims were not received for transaction '%s'", txID)
+	}
+
+	if tx.ReceivedClaims == nil {
+		return fmt.Errorf("claims expired for transaction '%s'", txID)
+	}
+
 	claims := c.oidc4VPService.RetrieveClaims(tx)
 
 	logger.Debug("RetrieveInteractionsClaim succeed")
