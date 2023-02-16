@@ -27,6 +27,7 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -182,7 +183,7 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredenti
 		SDJWT:                   vc.SDJWT{Enable: false},
 	}
 
-	vcStatusProcessor, err := GetVCStatusProcessor(signer.VCStatusListType)
+	vcStatusProcessor, err := statustype.GetVCStatusProcessor(signer.VCStatusListType)
 	if err != nil {
 		return nil, err
 	}
@@ -459,7 +460,7 @@ func getStringValue(key string, vMap map[string]interface{}) (string, error) {
 // nolint: gocyclo, funlen
 func (s *Service) updateVCStatus(typedID *verifiable.TypedID,
 	profile *vc.Signer, status bool) error {
-	vcStatusProcessor, err := GetVCStatusProcessor(profile.VCStatusListType)
+	vcStatusProcessor, err := statustype.GetVCStatusProcessor(profile.VCStatusListType)
 	if err != nil {
 		return err
 	}
