@@ -33,10 +33,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/component/credentialstatus/internal/testutil"
-	"github.com/trustbloc/vcs/component/credentialstatus/statustype"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/kms/signer"

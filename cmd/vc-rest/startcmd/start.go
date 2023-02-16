@@ -35,6 +35,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/trustbloc/vcs/component/otp"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/observability/tracing"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
@@ -419,7 +420,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	verifyCredentialSvc := verifycredential.New(&verifycredential.Config{
-		VCStatusProcessorGetter: credentialstatus.GetVCStatusProcessor,
+		VCStatusProcessorGetter: statustype.GetVCStatusProcessor,
 		StatusListVCResolver:    statusListVCSvc,
 		DocumentLoader:          documentLoader,
 		VDR:                     conf.VDR,
