@@ -1,6 +1,36 @@
 {
   "profile": [
     {
+      "endpoint": "/profiles/{profileID}/credentials/status",
+      "method": "GET",
+      "protected": true,
+      "input_headers": [
+        "X-User",
+        "Content-Type"
+      ],
+      "backend_host": "http://credential-status-mgmt.trustbloc.local:8090"
+    },
+    {
+      "endpoint": "/profiles/{profileID}/credentials/status",
+      "method": "POST",
+      "protected": true,
+      "input_headers": [
+        "X-User",
+        "Content-Type"
+      ],
+      "backend_host": "http://credential-status-mgmt.trustbloc.local:8090"
+    },
+    {
+      "endpoint": "/profiles/{profileID}/credentials/status/{statusID}",
+      "method": "POST",
+      "protected": true,
+      "input_headers": [
+        "X-User",
+        "Content-Type"
+      ],
+      "backend_host": "http://credential-status-mgmt.trustbloc.local:8090"
+    },
+    {
       "endpoint": "/issuer/profiles/{profileID}/credentials/issue",
       "method": "POST",
       "protected": true,
