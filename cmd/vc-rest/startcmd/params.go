@@ -563,7 +563,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		issuerEventTopic:                    issuerTopic,
 		verifierEventTopic:                  verifierTopic,
 		claimDataTTL:                        int32(claimDataTTL.Seconds()),
-		vpReceivedClaimsDataTTL:             int32((vpReceivedClaimsDataTTL.Seconds())),
+		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
 		tracingParams:                       tracingParams,
 	}, nil
 }

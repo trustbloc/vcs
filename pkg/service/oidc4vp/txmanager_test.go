@@ -8,6 +8,7 @@ package oidc4vp_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -142,6 +143,8 @@ func TestTxManager_Get(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Equal(t, "org_id", tx.ProfileID)
+		require.Nil(t, tx.ReceivedClaims)
+		require.Empty(t, tx.ReceivedClaimsID)
 	})
 
 	t.Run("Success - with claims ID", func(t *testing.T) {
@@ -165,6 +168,56 @@ func TestTxManager_Get(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Equal(t, "org_id", tx.ProfileID)
+		require.Equal(t, tx.ReceivedClaimsID, "claims_id")
+		require.NotNil(t, tx.ReceivedClaims)
+	})
+
+	t.Run("Success - claims not found", func(t *testing.T) {
+		store := NewMockTxStore(gomock.NewController(t))
+		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(
+			&oidc4vp.Transaction{
+				ID:               "txID",
+				ProfileID:        "org_id",
+				ReceivedClaimsID: "claims_id"},
+			nil)
+
+		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
+		claimsStore.EXPECT().Get(gomock.Any()).Return(nil, oidc4vp.ErrDataNotFound)
+
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second)
+
+		tx, err := manager.Get("txID")
+
+		require.NoError(t, err)
+		require.NotNil(t, tx)
+		require.Equal(t, "org_id", tx.ProfileID)
+		require.Equal(t, tx.ReceivedClaimsID, "claims_id")
+		require.Nil(t, tx.ReceivedClaims)
+	})
+
+	t.Run("Error - claims store error", func(t *testing.T) {
+		store := NewMockTxStore(gomock.NewController(t))
+		store.EXPECT().Get(oidc4vp.TxID("txID")).Return(
+			&oidc4vp.Transaction{
+				ID:               "txID",
+				ProfileID:        "org_id",
+				ReceivedClaimsID: "claims_id"},
+			nil)
+
+		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
+		claimsStore.EXPECT().Get(gomock.Any()).Return(nil, fmt.Errorf("store error"))
+
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second)
+
+		tx, err := manager.Get("txID")
+
+		require.Error(t, err)
+		require.Nil(t, tx)
+		require.Contains(t, err.Error(), "find received claims: store error")
 	})
 
 	t.Run("Fail Get", func(t *testing.T) {

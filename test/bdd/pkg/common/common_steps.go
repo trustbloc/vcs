@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/tidwall/gjson"
@@ -33,8 +34,15 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 
 // RegisterSteps registers agent steps.
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
+	s.Step(`^we wait (\d+) seconds$`, e.wait)
 	s.Step(`^an HTTP GET is sent to "([^"]*)"$`, e.httpGet)
 	s.Step(`^the JSON path "([^"]*)" of the response equals "([^"]*)"$`, e.jsonPathOfCCResponseEquals)
+}
+
+func (e *Steps) wait(seconds int) error {
+	time.Sleep(time.Duration(seconds) * time.Second)
+
+	return nil
 }
 
 // httpGet sends a GET request to the given URL.

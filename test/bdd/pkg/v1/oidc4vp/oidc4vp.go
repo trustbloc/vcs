@@ -142,7 +142,17 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
-	return e.vpFlowExecutor.retrieveInteractionsClaim(txID, token)
+	e.vpFlowExecutor.claimsTransactionID = txID
+
+	return e.vpFlowExecutor.retrieveInteractionsClaim(txID, token, http.StatusOK)
+}
+
+func (e *Steps) retrieveExpiredInteractionsClaim(organizationName string) error {
+	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+
+	txID := e.vpFlowExecutor.claimsTransactionID
+
+	return e.vpFlowExecutor.retrieveInteractionsClaim(txID, token, http.StatusInternalServerError)
 }
 
 func (e *Steps) waitForEvent(eventType string) (string, error) {
