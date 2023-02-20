@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager,vcStatusStore=MockVCStatusStore
+//go:generate mockgen -destination service_mocks_test.go -self_package mocks -package issuecredential_test -source=issuecredential_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,vcStatusManager=MockVCStatusManager
 
 package issuecredential
 
@@ -20,10 +20,6 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
-type vcStatusStore interface {
-	Put(profileID, credentialID string, typedID *verifiable.TypedID) error
-}
-
 type vcCrypto interface {
 	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
 		opts ...crypto.SigningOpts) (*verifiable.Credential, error)
@@ -34,7 +30,7 @@ type kmsRegistry interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusListEntry(profileID string) (*StatusListEntry, error)
+	CreateStatusListEntry(profileID, credentialID string) (*StatusListEntry, error)
 }
 
 type StatusListEntry struct {
@@ -44,7 +40,6 @@ type StatusListEntry struct {
 
 type Config struct {
 	VCStatusManager vcStatusManager
-	VCStatusStore   vcStatusStore
 	Crypto          vcCrypto
 	KMSRegistry     kmsRegistry
 }
@@ -53,7 +48,6 @@ type Service struct {
 	vcStatusManager vcStatusManager
 	crypto          vcCrypto
 	kmsRegistry     kmsRegistry
-	vcStatusStore   vcStatusStore
 }
 
 func New(config *Config) *Service {
@@ -61,7 +55,6 @@ func New(config *Config) *Service {
 		vcStatusManager: config.VCStatusManager,
 		crypto:          config.Crypto,
 		kmsRegistry:     config.KMSRegistry,
-		vcStatusStore:   config.VCStatusStore,
 	}
 }
 
@@ -89,7 +82,7 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	var statusListEntry *StatusListEntry
 
 	if !profile.VCConfig.Status.Disable {
-		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(profile.ID)
+		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(profile.ID, credential.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add credential status: %w", err)
 		}
@@ -108,12 +101,6 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	signedVC, err := s.crypto.SignCredential(signer, credential, issuerSigningOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign credential: %w", err)
-	}
-
-	// Store VC status to DB
-	err = s.vcStatusStore.Put(profile.ID, signedVC.ID, signedVC.Status)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store credential status: %w", err)
 	}
 
 	return signedVC, nil
