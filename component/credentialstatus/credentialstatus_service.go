@@ -59,6 +59,7 @@ type vcCrypto interface {
 
 type vcStatusStore interface {
 	Get(profileID, vcID string) (*verifiable.TypedID, error)
+	Put(profileID, credentialID string, typedID *verifiable.TypedID) error
 }
 
 type profileService interface {
@@ -159,7 +160,7 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 }
 
 // CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
-func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredential.StatusListEntry, error) {
+func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID string) (*issuecredential.StatusListEntry, error) {
 	profile, err := s.profileService.GetProfile(profileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get profile: %w", err)
@@ -212,10 +213,17 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID) (*issuecredenti
 		}
 	}
 
-	return &issuecredential.StatusListEntry{
+	statusListEntry := &issuecredential.StatusListEntry{
 		TypedID: vcStatusProcessor.CreateVCStatus(statusBitIndex, cslWrapper.VC.ID),
 		Context: vcStatusProcessor.GetVCContext(),
-	}, nil
+	}
+	// Store VC status to DB
+	err = s.vcStatusStore.Put(profile.ID, credentialID, statusListEntry.TypedID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store credential status: %w", err)
+	}
+
+	return statusListEntry, nil
 }
 
 // GetStatusListVC returns StatusListVC from underlying cslStore.

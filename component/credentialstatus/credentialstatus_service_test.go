@@ -297,6 +297,34 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
 	})
+
+	t.Run("test error put typedID to store", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
+
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       newMockCSLStore(),
+			VCStatusStore: &mockVCStore{
+				putErr: errors.New("some error"),
+				s:      map[string]*verifiable.TypedID{},
+			},
+			ListSize:       2,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto: vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+		})
+		require.NoError(t, err)
+
+		status, err := s.CreateStatusListEntry(profileID)
+		require.Error(t, err)
+		require.Nil(t, status)
+		require.Contains(t, err.Error(), "failed to store credential status")
+	})
 }
 
 func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
@@ -979,7 +1007,8 @@ func (m *mockCSLStore) GetLatestListID() (int, error) {
 }
 
 type mockVCStore struct {
-	s map[string]*verifiable.TypedID
+	putErr error
+	s      map[string]*verifiable.TypedID
 }
 
 func newMockVCStatusStore() *mockVCStore {
@@ -998,6 +1027,10 @@ func (m *mockVCStore) Get(profileID, vcID string) (*verifiable.TypedID, error) {
 }
 
 func (m *mockVCStore) Put(profileID, vcID string, typedID *verifiable.TypedID) error {
+	if m.putErr != nil {
+		return m.putErr
+	}
+
 	m.s[fmt.Sprintf("%s_%s", profileID, vcID)] = typedID
 	return nil
 }

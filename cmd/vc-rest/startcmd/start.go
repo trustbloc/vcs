@@ -270,14 +270,13 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		return nil, err
 	}
 
-	vcStatusStore := vcstatusstore.NewStore(mongodbClient)
 	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
 		TLSConfig:      tlsConfig,
 		RequestTokens:  conf.StartupParameters.requestTokens,
 		DocumentLoader: documentLoader,
 		CSLStore:       cslStore,
-		VCStatusStore:  vcStatusStore,
+		VCStatusStore:  vcstatusstore.NewStore(mongodbClient),
 		ListSize:       cslSize,
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,
@@ -289,7 +288,6 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	}
 
 	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
-		VCStatusStore:   vcStatusStore,
 		VCStatusManager: statusListVCSvc,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,
