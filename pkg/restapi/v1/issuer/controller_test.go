@@ -1393,8 +1393,8 @@ func TestOpenIDConfigurationController(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: map[string]map[string]interface{}{
-				"VerifiedEmployee": {
+			CredentialsSupported: []map[string]interface{}{
+				{
 					"id": "VerifiedEmployee_JWT",
 				},
 			},
@@ -1418,8 +1418,8 @@ func TestOpenIDIssuerConfigurationController(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: map[string]map[string]interface{}{
-				"VerifiedEmployee": {
+			CredentialsSupported: []map[string]interface{}{
+				{
 					"id": "VerifiedEmployee_JWT",
 				},
 			},
@@ -1450,8 +1450,8 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: map[string]map[string]interface{}{
-				"VerifiedEmployee": {
+			CredentialsSupported: []map[string]interface{}{
+				{
 					"id": "VerifiedEmployee_JWT",
 				},
 			},
@@ -1470,11 +1470,8 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
 
 		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
-		assert.Equal(t, "random_name", *result.CredentialIssuer.Name)
-		assert.Equal(t, "en-US", *result.CredentialIssuer.Locale)
-		assert.Equal(t, "random_name", (*result.CredentialIssuer.Display)[0]["name"])
-		assert.Equal(t, "en-US", (*result.CredentialIssuer.Display)[0]["locale"])
-
+		assert.Equal(t, "random_name", *(*result.Display)[0].Name)
+		assert.Equal(t, "en-US", *(*result.Display)[0].Locale)
 		assert.Len(t, result.CredentialsSupported, 1)
 
 		meta := (result.CredentialsSupported)[0].(map[string]interface{}) //nolint
@@ -1527,8 +1524,8 @@ func TestOpenIdConfiguration(t *testing.T) {
 			KeyType:   "ECDSASecp256k1DER",
 		},
 		CredentialMetaData: &profileapi.CredentialMetaData{
-			CredentialsSupported: map[string]map[string]interface{}{
-				"VerifiedEmployee": {
+			CredentialsSupported: []map[string]interface{}{
+				{
 					"id": "VerifiedEmployee_JWT",
 				},
 			},

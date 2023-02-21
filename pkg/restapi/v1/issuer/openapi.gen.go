@@ -26,13 +26,6 @@ type CredentialDisplay struct {
 	Name   *string `json:"name,omitempty"`
 }
 
-// CredentialIssuer defines model for CredentialIssuer.
-type CredentialIssuer struct {
-	Display *[]map[string]interface{} `json:"display,omitempty"`
-	Locale  *string                   `json:"locale,omitempty"`
-	Name    *string                   `json:"name,omitempty"`
-}
-
 // Credential status.
 type CredentialStatus struct {
 	Status string `json:"status"`
@@ -257,7 +250,6 @@ type WellKnownOpenIDIssuerConfiguration struct {
 	AuthorizationServer     string               `json:"authorization_server"`
 	BatchCredentialEndpoint *string              `json:"batch_credential_endpoint,omitempty"`
 	CredentialEndpoint      string               `json:"credential_endpoint"`
-	CredentialIssuer        CredentialIssuer     `json:"credential_issuer"`
 	CredentialsSupported    []interface{}        `json:"credentials_supported"`
 	Display                 *[]CredentialDisplay `json:"display,omitempty"`
 }

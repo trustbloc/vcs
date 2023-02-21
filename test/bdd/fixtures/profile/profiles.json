@@ -362,8 +362,8 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": {
-            "VerifiedEmployee": {
+          "credentials_supported": [
+            {
               "format": "jwt_vc_json",
               "id": "VerifiedEmployee_JWT",
               "types": [
@@ -440,7 +440,7 @@
                 }
               }
             }
-          }
+          ]
         }
       },
       "createDID": true,
@@ -479,8 +479,8 @@
           }
         ],
         "credentialMetadata": {
-          "credentials_supported": {
-            "VerifiedEmployee": {
+          "credentials_supported": [
+            {
               "format": "jwt_vc_json",
               "id": "VerifiedEmployee_JWT",
               "types": [
@@ -557,7 +557,7 @@
                 }
               }
             }
-          }
+          ]
         }
       },
       "createDID": true,
@@ -712,7 +712,11 @@
                       "purpose": "We can only interact with specific status information for Verifiable Credentials",
                       "filter": {
                         "type": "string",
-                        "enum": ["StatusList2021Entry", "RevocationList2021Status", "RevocationList2020Status"]
+                        "enum": [
+                          "StatusList2021Entry",
+                          "RevocationList2021Status",
+                          "RevocationList2020Status"
+                        ]
                       }
                     }
                   ]
