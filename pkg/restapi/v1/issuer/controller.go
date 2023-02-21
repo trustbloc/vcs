@@ -671,18 +671,13 @@ func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIs
 		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host), // todo check
 		BatchCredentialEndpoint: nil,                                   // no support for now
 		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
-		CredentialIssuer: CredentialIssuer{
-			Display: &[]map[string]interface{}{
-				{
-					"name":   issuer.Name,
-					"locale": "en-US",
-				},
+		CredentialsSupported:    finalCredentials,
+		Display: lo.ToPtr([]CredentialDisplay{
+			{
+				Locale: lo.ToPtr("en-US"),
+				Name:   lo.ToPtr(issuer.Name),
 			},
-			Locale: lo.ToPtr("en-US"),
-			Name:   lo.ToPtr(issuer.Name),
-		},
-		CredentialsSupported: finalCredentials,
-		Display:              nil,
+		}),
 	}
 
 	return final, nil

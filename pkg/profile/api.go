@@ -61,7 +61,7 @@ type CredentialTemplateChecks struct {
 }
 
 type CredentialMetaData struct {
-	CredentialsSupported map[string]map[string]interface{} `json:"credentials_supported"`
+	CredentialsSupported []map[string]interface{} `json:"credentials_supported"`
 }
 
 // OIDC4CIConfig is issuer's OIDC configuration used during OIDC credential issuance flow.
