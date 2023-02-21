@@ -95,6 +95,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 		data.IsPreAuthFlow = true
 		data.PreAuthCode = generatePreAuthCode()
+		data.PreAuthCodeExpiresAt = lo.ToPtr(time.Now().UTC().Add(time.Duration(s.preAuthCodeTTL) * time.Second))
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
 	}
 
