@@ -324,6 +324,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		HTTPClient:                    httpClient,
 		EventService:                  eventSvc,
 		PinGenerator:                  otp.NewPinGenerator(),
+		PreAuthCodeTTL:                conf.StartupParameters.claimDataTTL,
 		EventTopic:                    conf.StartupParameters.issuerEventTopic,
 		CredentialOfferReferenceStore: credentialOfferStore,
 	})

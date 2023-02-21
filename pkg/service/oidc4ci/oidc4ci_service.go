@@ -119,6 +119,7 @@ type Config struct {
 	EventService                  eventService
 	PinGenerator                  pinGenerator
 	EventTopic                    string
+	PreAuthCodeTTL                int32
 	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
@@ -134,6 +135,7 @@ type Service struct {
 	eventSvc                      eventService
 	eventTopic                    string
 	pinGenerator                  pinGenerator
+	preAuthCodeTTL                int32
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 }
 
@@ -150,6 +152,7 @@ func NewService(config *Config) (*Service, error) {
 		eventSvc:                      config.EventService,
 		eventTopic:                    config.EventTopic,
 		pinGenerator:                  config.PinGenerator,
+		preAuthCodeTTL:                config.PreAuthCodeTTL,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 	}, nil
 }
@@ -289,8 +292,12 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 	}
 	tx.State = newState
 
+	if tx.PreAuthCodeExpiresAt.UTC().Before(time.Now().UTC()) {
+		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorization code"))
+	}
+
 	if tx.PreAuthCode != preAuthorizedCode {
-		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorize code"))
+		return nil, resterr.NewCustomError(resterr.OIDCTxNotFound, fmt.Errorf("invalid pre-authorization code"))
 	}
 
 	if len(tx.UserPin) > 0 && !s.pinGenerator.Validate(tx.UserPin, pin) {

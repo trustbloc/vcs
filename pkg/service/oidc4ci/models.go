@@ -59,6 +59,7 @@ type TransactionData struct {
 	OpState                            string
 	IsPreAuthFlow                      bool
 	PreAuthCode                        string
+	PreAuthCodeExpiresAt               *time.Time
 	ClaimDataID                        string
 	State                              TransactionState
 	WebHookURL                         string

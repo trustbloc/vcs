@@ -56,6 +56,7 @@ type mongoDocument struct {
 	DID                                string
 	UserPin                            string
 	CredentialExpiresAt                *time.Time
+	PreAuthCodeExpiresAt               *time.Time
 }
 
 // Store stores oidc transactions in mongo.
@@ -218,6 +219,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		WebHookURL:                         data.WebHookURL,
 		DID:                                data.DID,
 		CredentialExpiresAt:                data.CredentialExpiresAt,
+		PreAuthCodeExpiresAt:               data.PreAuthCodeExpiresAt,
 	}
 }
 
@@ -250,6 +252,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			WebHookURL:                         doc.WebHookURL,
 			DID:                                doc.DID,
 			CredentialExpiresAt:                doc.CredentialExpiresAt,
+			PreAuthCodeExpiresAt:               doc.PreAuthCodeExpiresAt,
 		},
 	}
 }
