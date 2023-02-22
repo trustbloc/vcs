@@ -230,7 +230,7 @@ func readIssuanceCodeFromIssuerUrl(issuerUrl string, insecureSkipVerify bool) (s
 	_ = resp.Body.Close()
 
 	urlParsed := string(data)
-	r := regexp.MustCompile(`(openid-vc://\?[^<]+)`)
+	r := regexp.MustCompile(`(openid-credential-offer://\?[^<]+)`)
 	urlParsed = r.FindString(urlParsed)
 	urlParsed, err = url.QueryUnescape(urlParsed)
 	urlParsed = strings.ReplaceAll(urlParsed, "&amp;", "&")

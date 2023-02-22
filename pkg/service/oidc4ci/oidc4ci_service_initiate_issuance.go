@@ -291,7 +291,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	}
 
 	if initiateIssuanceURL == "" {
-		initiateIssuanceURL = "openid-vc://"
+		initiateIssuanceURL = "openid-credential-offer://"
 	}
 
 	q := url.Values{}
