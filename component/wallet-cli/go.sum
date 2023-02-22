@@ -163,8 +163,6 @@ github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+Ce
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=
-github.com/bits-and-blooms/bitset v1.2.1 h1:M+/hrU9xlMp7t4TyTDQW97d3tRPVuKFC6zBEK16QnXY=
-github.com/bits-and-blooms/bitset v1.2.1/go.mod h1:gIdJ4wp64HaoK2YrL1Q5/N7Y16edYb8uY+O0FJTyyDA=
 github.com/bketelsen/crypt v0.0.3-0.20200106085610-5cbc8cc4026c/go.mod h1:MKsuJmJgSg28kpZDP6UIiPt0e0Oz0kqKNGyRaWEPv84=
 github.com/blakesmith/ar v0.0.0-20190502131153-809d4375e1fb/go.mod h1:PkYb9DJNAwrSvRx5DYA+gUcOIgTGVMNkfSCbZM8cWpI=
 github.com/bluele/gcache v0.0.2 h1:WcbfdXICg7G/DGBh1PFfcirkWOQV+v077yF1pSy3DGw=
@@ -529,8 +527,8 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/huandu/xstrings v1.0.0/go.mod h1:4qWG/gcEcfX4z/mBDHJ++3ReCw9ibxbsNJbcucJdbSo=
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
 github.com/hudl/fargo v1.3.0/go.mod h1:y3CKSmjA+wD2gak7sUSXTAoopbhU08POFhmITJgmKTg=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20230210055123-c509c1eb30d8 h1:yWQozh6vn0drCQg+heXHD9a34ROK4ypq5+drtgmGsvk=
-github.com/hyperledger/aries-framework-go v0.1.9-0.20230210055123-c509c1eb30d8/go.mod h1:qrOxEGVsu8M2RahaJgM8nz9AcAHjR/dKd1JIJ3ieJhY=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20230222063211-02f80847168a h1:WL/pO7LGGbUWi6qq5hmfRUSCxsfsn8Gy8Wg6w8meNK4=
+github.com/hyperledger/aries-framework-go v0.1.9-0.20230222063211-02f80847168a/go.mod h1:qrOxEGVsu8M2RahaJgM8nz9AcAHjR/dKd1JIJ3ieJhY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 h1:8ja6Vnp5EUsh8Oe4mI8ZNwpJtiM7c87X/b9sO/hEFiY=
 github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149/go.mod h1:GDANCnJONcCqBvv6QgKuk5Y2FWHyD/Hu26kyc7NTyfY=
 github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c h1:74wqdvAd3S9BuKolIV0obbG8PhbChtF9sQrE/ov2se0=
@@ -665,8 +663,6 @@ github.com/mailru/easyjson v0.7.7 h1:UGYAvKxe3sBsEDzO8ZeWOSlIQfWFlxbzLZe7hwFURr0
 github.com/mailru/easyjson v0.7.7/go.mod h1:xzfreul335JAWq5oZzymOObrkdz5UnU4kGfJJLY9Nlc=
 github.com/makiuchi-d/gozxing v0.1.1 h1:xxqijhoedi+/lZlhINteGbywIrewVdVv2wl9r5O9S1I=
 github.com/makiuchi-d/gozxing v0.1.1/go.mod h1:eRIHbOjX7QWxLIDJoQuMLhuXg9LAuw6znsUtRkNw9DU=
-github.com/maruel/rs v1.1.0 h1:dh4OceAF5yD06EASOrb+DS358LI4g0B90YApSdjCP6U=
-github.com/maruel/rs v1.1.0/go.mod h1:vzwMjzSJJxLIXmU62qHj6O5QRn5kvCKxFrfaFCxBcUY=
 github.com/matryer/moq v0.2.7/go.mod h1:kITsx543GOENm48TUAQyJ9+SAvFSr7iGQXPoth/VUBk=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-colorable v0.1.1/go.mod h1:FuOcm+DKB9mbwrcAfNl7/TZVBZ6rcnceauSikq3lYCQ=
@@ -999,8 +995,6 @@ github.com/trustbloc/sidetree-core-go v1.0.0-rc4 h1:dkmNLKbHjr//JgJPLQgTNBgK40LA
 github.com/trustbloc/sidetree-core-go v1.0.0-rc4/go.mod h1:SOuPJu8u7DSs2c494HPFAkkZ3KlfR/4swQ+YWqxZ2C8=
 github.com/trustbloc/vct v1.0.0-rc4 h1:XYvbsyy2mxdeILiT6lQH1EGXSSD6C2zHSr670Vppn+g=
 github.com/trustbloc/vct v1.0.0-rc4/go.mod h1:2kzD3kdeD1LFVRpWo2/C8ktnsfJR3gtH3pf/AqfRqow=
-github.com/tuotoo/qrcode v0.0.0-20220425170535-52ccc2bebf5d h1:4x1FeGJRB00cvxnKXnRJDT89fvG/Lzm2ecm0vlr/qDs=
-github.com/tuotoo/qrcode v0.0.0-20220425170535-52ccc2bebf5d/go.mod h1:uSELzeIcTceNCgzbKdJuJa0ouCqqtkyzL+6bnA3rM+M=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go v1.2.7/go.mod h1:nF9osbDWLy6bDVv/Rtoh6QgnvNDpmCalQV5urGCCS6M=
@@ -1629,8 +1623,6 @@ honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 pack.ag/amqp v0.11.2/go.mod h1:4/cbmt4EJXSKlG6LCfWHoqmN0uFdy5i/+YFz+fTfhV4=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
-rsc.io/qr v0.2.0 h1:6vBLea5/NRMVTz8V66gipeLycZMl/+UlFmk8DvqQ6WY=
-rsc.io/qr v0.2.0/go.mod h1:IF+uZjkb9fqyeF/4tlBoynqmQxUoPfWEKh921coOuXs=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
 sigs.k8s.io/yaml v1.1.0/go.mod h1:UJmg0vDUVViEyp3mgSv9WPwZCDxu4rQW1olrI1uml+o=

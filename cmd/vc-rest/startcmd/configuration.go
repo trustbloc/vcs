@@ -61,6 +61,8 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 }
 
 func createVDRI(universalResolver, orbDomain string, tlsConfig *tls.Config) (vdrapi.Registry, error) {
+	tlsConfig.InsecureSkipVerify = true
+
 	var opts []vdrpkg.Option
 
 	if universalResolver != "" {

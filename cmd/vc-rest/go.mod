@@ -204,6 +204,7 @@ require (
 )
 
 replace (
+	github.com/piprate/json-gold => ./json-gold
 	github.com/trustbloc/vcs => ../..
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/event => ../../component/event
