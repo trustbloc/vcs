@@ -114,7 +114,7 @@ const (
 	databaseTypeEnvKey        = "DATABASE_TYPE"
 	databaseTypeFlagShorthand = "t"
 	databaseTypeFlagUsage     = "The type of database to use for everything except key storage. " +
-		"Supported options: mem, couchdb, mysql, mongodb. " + commonEnvVarUsageText + databaseTypeEnvKey
+		"Supported options: mongodb. " + commonEnvVarUsageText + databaseTypeEnvKey
 
 	databaseURLFlagName      = "database-url"
 	databaseURLEnvKey        = "DATABASE_URL"
