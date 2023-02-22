@@ -51,7 +51,7 @@ type accessTokenResponse struct {
 type credentialRequest struct {
 	DID    string   `json:"did"`
 	Format string   `json:"format,omitempty"`
-	Type   string   `json:"type"`
+	Types  []string `json:"types"`
 	Proof  jwtProof `json:"proof,omitempty"`
 }
 

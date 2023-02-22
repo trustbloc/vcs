@@ -886,7 +886,7 @@ func TestController_OidcCredential(t *testing.T) {
 	credentialReq := oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJson)),
 		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
-		Type:   "UniversityDegreeCredential",
+		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	}
 
 	tests := []struct {
@@ -944,7 +944,7 @@ func TestController_OidcCredential(t *testing.T) {
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr("invalid"),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
-					Type:   "UniversityDegreeCredential",
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
 			},
@@ -963,7 +963,7 @@ func TestController_OidcCredential(t *testing.T) {
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJson)),
 					Proof:  nil,
-					Type:   "UniversityDegreeCredential",
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
 			},
@@ -982,7 +982,7 @@ func TestController_OidcCredential(t *testing.T) {
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJson)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: ""},
-					Type:   "UniversityDegreeCredential",
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
 			},
@@ -1045,7 +1045,7 @@ func TestController_OidcCredential(t *testing.T) {
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJson)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: "invalid jws"},
-					Type:   "UniversityDegreeCredential",
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
 			},
@@ -1082,7 +1082,7 @@ func TestController_OidcCredential(t *testing.T) {
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJson)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
-					Type:   "UniversityDegreeCredential",
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
 			},
@@ -1150,7 +1150,7 @@ func TestController_OidcCredential(t *testing.T) {
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
 					Format: lo.ToPtr(string(common.JwtVcJson)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
-					Type:   "UniversityDegreeCredential",
+					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
 				require.NoError(t, err)
 			},

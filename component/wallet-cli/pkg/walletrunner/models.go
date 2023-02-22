@@ -82,7 +82,7 @@ type JWTProofClaims struct {
 
 type CredentialRequest struct {
 	Format string   `json:"format,omitempty"`
-	Type   string   `json:"type"`
+	Types  []string `json:"types"`
 	Proof  JWTProof `json:"proof,omitempty"`
 }
 

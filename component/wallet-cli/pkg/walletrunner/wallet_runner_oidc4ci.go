@@ -371,7 +371,7 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 
 	b, err := json.Marshal(CredentialRequest{
 		Format: credentialFormat,
-		Type:   credentialType,
+		Types:  []string{"VerifiableCredential", credentialType},
 		Proof: JWTProof{
 			ProofType: "jwt",
 			JWT:       jws,

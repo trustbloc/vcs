@@ -128,7 +128,7 @@ type PrepareClaimDataAuthorizationResponse struct {
 
 type PrepareCredential struct {
 	TxID             TxID
-	CredentialType   string
+	CredentialTypes  []string
 	CredentialFormat vcsverifiable.Format
 	DID              string
 }

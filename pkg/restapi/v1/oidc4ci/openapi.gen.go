@@ -41,8 +41,8 @@ type CredentialRequest struct {
 	Format *string   `json:"format,omitempty"`
 	Proof  *JWTProof `json:"proof,omitempty"`
 
-	// Type of the credential being issued.
-	Type string `json:"type"`
+	// Array of types of the credential being issued.
+	Types []string `json:"types"`
 }
 
 // Model for OIDC Credential response.
