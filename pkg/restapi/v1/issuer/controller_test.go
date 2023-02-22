@@ -1440,6 +1440,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 	expected := &WellKnownOpenIDIssuerConfiguration{
 		AuthorizationServer: "https://localhost/oidc/authorize",
 		CredentialEndpoint:  "https://localhost/oidc/credential",
+		CredentialIssuer:    "https://localhost/issuer/123456",
 	}
 
 	profileSvc := NewMockProfileService(gomock.NewController(t))
@@ -1478,6 +1479,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 		assert.Equal(t, "VerifiedEmployee_JWT", meta["id"])
 		assert.Equal(t, []string{"orb"}, meta["cryptographic_binding_methods_supported"])
 		assert.Equal(t, []string{"ECDSASecp256k1DER"}, meta["cryptographic_suites_supported"])
+		assert.Equal(t, expected.CredentialIssuer, result.CredentialIssuer)
 	})
 
 	t.Run("without /", func(t *testing.T) {
@@ -1490,6 +1492,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, expected.AuthorizationServer, result.AuthorizationServer)
 		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
+		assert.Equal(t, expected.CredentialIssuer, result.CredentialIssuer)
 	})
 
 	t.Run("profile error", func(t *testing.T) {

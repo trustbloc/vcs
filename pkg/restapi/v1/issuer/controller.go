@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -667,11 +668,14 @@ func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIs
 		finalCredentials = append(finalCredentials, t)
 	}
 
+	issuerURL, _ := url.JoinPath(c.externalHostURL, "issuer", profileID)
+
 	final := &WellKnownOpenIDIssuerConfiguration{
 		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host), // todo check
 		BatchCredentialEndpoint: nil,                                   // no support for now
 		CredentialEndpoint:      fmt.Sprintf("%soidc/credential", host),
 		CredentialsSupported:    finalCredentials,
+		CredentialIssuer:        issuerURL,
 		Display: lo.ToPtr([]CredentialDisplay{
 			{
 				Locale: lo.ToPtr("en-US"),

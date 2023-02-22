@@ -250,6 +250,7 @@ type WellKnownOpenIDIssuerConfiguration struct {
 	AuthorizationServer     string               `json:"authorization_server"`
 	BatchCredentialEndpoint *string              `json:"batch_credential_endpoint,omitempty"`
 	CredentialEndpoint      string               `json:"credential_endpoint"`
+	CredentialIssuer        string               `json:"credential_issuer"`
 	CredentialsSupported    []interface{}        `json:"credentials_supported"`
 	Display                 *[]CredentialDisplay `json:"display,omitempty"`
 }
