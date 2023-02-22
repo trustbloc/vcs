@@ -87,6 +87,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 		return err
 	}
 	s.perfInfo.QueryCredentialFromWallet = time.Since(startTime)
+	s.wallet.Close()
 
 	log.Println("Creating authorized response")
 	startTime = time.Now()
