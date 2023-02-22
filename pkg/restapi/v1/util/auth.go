@@ -15,14 +15,14 @@ import (
 )
 
 const (
-	userHeader = "X-User"
+	tenantIDHeader = "X-Tenant-ID"
 )
 
-func GetOrgIDFromOIDC(ctx echo.Context) (string, error) {
-	orgID := ctx.Request().Header.Get(userHeader)
-	if orgID == "" {
+func GetTenantIDFromRequest(ctx echo.Context) (string, error) {
+	tenantID := ctx.Request().Header.Get(tenantIDHeader)
+	if tenantID == "" {
 		return "", resterr.NewUnauthorizedError(errors.New("missing authorization"))
 	}
 
-	return orgID, nil
+	return tenantID, nil
 }

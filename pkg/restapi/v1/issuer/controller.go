@@ -161,7 +161,7 @@ func (c *Controller) issueCredential(
 	body *IssueCredentialData,
 	profileID string,
 ) (*verifiable.Credential, error) {
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	oidcOrgID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -361,12 +361,12 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 // InitiateCredentialIssuance initiates OIDC credential issuance flow.
 // POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
 func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID string) error {
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return err
 	}
 
-	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
+	profile, err := c.accessOIDCProfile(profileID, tenantID)
 	if err != nil {
 		return err
 	}
