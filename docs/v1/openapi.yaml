@@ -806,9 +806,12 @@ components:
           type: string
         batch_credential_endpoint:
           type: string
+        credential_issuer:
+          type: string
       required:
         - authorization_server
         - issuer
+        - credential_issuer
         - response_types_supported
         - credentials_supported
         - credential_endpoint
