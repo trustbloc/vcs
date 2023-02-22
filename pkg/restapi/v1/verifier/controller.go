@@ -182,12 +182,12 @@ func (c *Controller) PostVerifyCredentials(ctx echo.Context, profileID string) e
 
 func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialData, //nolint:dupl
 	profileID string) (*VerifyCredentialResponse, error) {
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	profile, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -232,12 +232,12 @@ func (c *Controller) PostVerifyPresentation(ctx echo.Context, profileID string) 
 
 func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentationData, //nolint:dupl
 	profileID string) (*VerifyPresentationResponse, error) {
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	profile, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -265,12 +265,12 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string) error {
 	logger.Debug("InitiateOidcInteraction begin")
 
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return err
 	}
 
-	profile, err := c.accessProfile(profileID, oidcOrgID)
+	profile, err := c.accessProfile(profileID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) error {
 	logger.Debug("RetrieveInteractionsClaim begin")
 
-	oidcOrgID, err := util.GetOrgIDFromOIDC(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return err
 	}
@@ -360,7 +360,7 @@ func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) er
 		return err
 	}
 
-	_, err = c.accessProfile(tx.ProfileID, oidcOrgID)
+	_, err = c.accessProfile(tx.ProfileID, tenantID)
 	if err != nil {
 		return err
 	}
@@ -562,7 +562,7 @@ func decodeFormValue(output *string, valName string, values url.Values) error {
 	return nil
 }
 
-func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Verifier, error) {
+func (c *Controller) accessProfile(profileID string, tenantID string) (*profileapi.Verifier, error) {
 	profile, err := c.profileSvc.GetProfile(profileID)
 	if err != nil {
 		if strings.Contains(err.Error(), "data not found") {
@@ -579,9 +579,9 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profile
 	}
 
 	// Profiles of other organization is not visible.
-	if profile.OrganizationID != oidcOrgID {
+	if profile.OrganizationID != tenantID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "organizationID",
-			fmt.Errorf("profile with given org id %q, doesn't exist", oidcOrgID))
+			fmt.Errorf("profile with given org id %q, doesn't exist", tenantID))
 	}
 
 	return profile, nil

@@ -5,7 +5,7 @@
       "method": "POST",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
@@ -14,7 +14,7 @@
       "method": "POST",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
@@ -23,7 +23,7 @@
       "method": "POST",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
@@ -108,7 +108,7 @@
       "method": "POST",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
@@ -117,7 +117,7 @@
       "method": "POST",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
@@ -126,7 +126,7 @@
       "method": "POST",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
@@ -135,7 +135,7 @@
       "method": "GET",
       "protected": true,
       "input_headers": [
-        "X-User",
+        "X-Tenant-ID",
         "Content-Type"
       ]
     },
