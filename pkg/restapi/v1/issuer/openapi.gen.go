@@ -176,8 +176,8 @@ type PrepareCredential struct {
 	// Transaction ID.
 	TxId string `json:"tx_id"`
 
-	// Type of the credential being issued.
-	Type string `json:"type"`
+	// Array of types of the credential being issued.
+	Types []string `json:"types"`
 }
 
 // Model for Prepare Credential response.

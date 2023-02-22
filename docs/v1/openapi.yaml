@@ -1348,9 +1348,11 @@ components:
         tx_id:
           type: string
           description: Transaction ID.
-        type:
-          type: string
-          description: Type of the credential being issued.
+        types:
+          type: array
+          items:
+            type: string
+          description: Array of types of the credential being issued.
         format:
           type: string
           description: Format of the credential being issued.
@@ -1359,7 +1361,7 @@ components:
           description: DID to which issued credential has to be bound.
       required:
         - tx_id
-        - type
+        - types
     PrepareCredentialResult:
       title: PrepareCredentialResult
       x-tags:
@@ -1388,16 +1390,18 @@ components:
       type: object
       description: Model for OIDC Credential request.
       properties:
-        type:
-          type: string
-          description: Type of the credential being issued.
+        types:
+          type: array
+          items:
+            type: string
+          description: Array of types of the credential being issued.
         format:
           type: string
           description: Format of the credential being issued.
         proof:
           $ref: '#/components/schemas/JWTProof'
       required:
-        - type
+        - types
     JWTProof:
       title: JWTProof
       x-tags:

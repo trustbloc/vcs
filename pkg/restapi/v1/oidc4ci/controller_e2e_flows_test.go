@@ -189,7 +189,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	b, err := json.Marshal(oidc4ci.CredentialRequest{
 		Format: lo.ToPtr(string(common.JwtVcJson)),
 		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
-		Type:   "UniversityDegreeCredential",
+		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	})
 	require.NoError(t, err)
 

@@ -493,7 +493,7 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 		issuer.PrepareCredentialJSONRequestBody{
 			TxId:   txID,
 			Did:    lo.ToPtr(did),
-			Type:   credentialRequest.Type,
+			Types:  credentialRequest.Types,
 			Format: credentialRequest.Format,
 		},
 	)

@@ -598,7 +598,7 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 	result, err := c.oidc4ciService.PrepareCredential(ctx.Request().Context(),
 		&oidc4ci.PrepareCredential{
 			TxID:             oidc4ci.TxID(body.TxId),
-			CredentialType:   body.Type,
+			CredentialTypes:  body.Types,
 			CredentialFormat: vcFormat,
 			DID:              lo.FromPtr(body.Did),
 		},
