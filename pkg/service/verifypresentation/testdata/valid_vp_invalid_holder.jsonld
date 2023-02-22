@@ -19,7 +19,7 @@
       "issuer": "https://example.edu/issuers/14",
       "issuanceDate": "2010-01-01T19:23:24Z",
       "credentialSubject": {
-        "id": "did:trustblock:abc",
+        "id": "did:trustblock:bbbbb",
         "alumniOf": "Example University"
       },
       "proof": {

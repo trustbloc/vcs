@@ -27,6 +27,9 @@ import (
 var (
 	//go:embed testdata/valid_vp.jsonld
 	sampleVPJsonLD string
+
+	//go:embed testdata/valid_vp_invalid_holder.jsonld
+	sampleVPJsonLDInvalidHOlder string
 )
 
 func TestNew(t *testing.T) {
@@ -66,8 +69,23 @@ func TestNew(t *testing.T) {
 func TestService_VerifyPresentation(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	signedVP, vdr := testutil.SignedVP(
-		t, []byte(sampleVPJsonLD), kmskeytypes.ED25519Type,
-		verifiable.SignatureProofValue, vcs.Ldp, loader, crypto.AssertionMethod)
+		t,
+		[]byte(sampleVPJsonLD),
+		kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue,
+		vcs.Ldp,
+		loader,
+		crypto.AssertionMethod,
+	)
+	signedVPWithInvalidCredentialHolder, vdrWithInvalidCredentialHolder := testutil.SignedVP(
+		t,
+		[]byte(sampleVPJsonLDInvalidHOlder),
+		kmskeytypes.ED25519Type,
+		verifiable.SignatureProofValue,
+		vcs.Ldp,
+		loader,
+		crypto.AssertionMethod,
+	)
 
 	type fields struct {
 		getVDR        func() vdrapi.Registry
@@ -238,6 +256,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 					Error: "verifiable presentation proof validation error : check embedded proof: " +
 						"check linked data proof: ed25519: invalid signature",
 				},
+				{
+					Check: "credentialHolderBinding",
+					Error: "holder binding check failed",
+				},
 			},
 			wantErr: false,
 		},
@@ -291,6 +313,56 @@ func TestService_VerifyPresentation(t *testing.T) {
 				{
 					Check: "credentialStatus",
 					Error: "some error",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Err Invalid holder",
+			fields: fields{
+				getVDR: func() vdrapi.Registry {
+					return vdrWithInvalidCredentialHolder
+				},
+				getVcVerifier: func() vcVerifier {
+					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
+					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateVCStatus(
+						gomock.Any(),
+						gomock.Any()).Times(1).Return(nil)
+					return mockVerifier
+				},
+			},
+			args: args{
+				getPresentation: func() *verifiable.Presentation {
+					return signedVPWithInvalidCredentialHolder
+				},
+				profile: &profileapi.Verifier{
+					Checks: &profileapi.VerificationChecks{
+						Presentation: &profileapi.PresentationChecks{
+							Proof:  true,
+							Format: nil,
+						},
+						Credential: profileapi.CredentialChecks{
+							Proof:  true,
+							Status: true,
+							Format: nil,
+						},
+					},
+				},
+				opts: &Options{
+					Domain:    crypto.Domain,
+					Challenge: crypto.Challenge,
+				},
+			},
+			want: []PresentationVerificationCheckResult{
+				{
+					Check: "credentialHolderBinding",
+					Error: "holder binding check failed",
 				},
 			},
 			wantErr: false,

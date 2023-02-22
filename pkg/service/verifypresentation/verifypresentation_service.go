@@ -104,6 +104,13 @@ func (s *Service) VerifyPresentation(
 		}
 	}
 
+	if err := s.validateHolderBinding(presentation); err != nil {
+		result = append(result, PresentationVerificationCheckResult{
+			Check: "credentialHolderBinding",
+			Error: err.Error(),
+		})
+	}
+
 	return result, nil
 }
 
@@ -204,6 +211,45 @@ func (s *Service) validateCredentialsStatus(vp *verifiable.Presentation) error {
 		err = s.vcVerifier.ValidateVCStatus(vc.Status, vc.Issuer.ID)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) validateHolderBinding(vp *verifiable.Presentation) error {
+	if vp == nil {
+		return nil
+	}
+
+	for _, cred := range vp.Credentials() {
+		vcBytes, err := json.Marshal(cred)
+		if err != nil {
+			return err
+		}
+
+		vc, err := verifiable.ParseCredential(vcBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+		if err != nil {
+			return err
+		}
+
+		subjects, ok := vc.Subject.([]verifiable.Subject)
+		if !ok {
+			return fmt.Errorf("can not map credentials subjects")
+		}
+
+		found := false
+		for _, sub := range subjects {
+			if sub.ID == vp.Holder {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("holder binding check failed")
 		}
 	}
 
