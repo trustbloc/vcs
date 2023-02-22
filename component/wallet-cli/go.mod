@@ -10,7 +10,7 @@ require (
 	github.com/cli/browser v1.1.0
 	github.com/google/uuid v1.3.0
 	github.com/henvic/httpretty v0.1.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20230210055123-c509c1eb30d8
+	github.com/hyperledger/aries-framework-go v0.1.9-0.20230222063211-02f80847168a
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
@@ -23,7 +23,6 @@ require (
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
 	github.com/trustbloc/vcs v0.1.9-0.20230210204445-f2870a36f0ea
-	github.com/tuotoo/qrcode v0.0.0-20220425170535-52ccc2bebf5d
 	golang.org/x/oauth2 v0.1.0
 )
 
@@ -92,7 +91,6 @@ require (
 	github.com/labstack/gommon v0.3.1 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/maruel/rs v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/goveralls v0.0.11 // indirect
@@ -174,7 +172,6 @@ require (
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	rsc.io/qr v0.2.0 // indirect
 )
 
 replace github.com/trustbloc/vcs => ../../
