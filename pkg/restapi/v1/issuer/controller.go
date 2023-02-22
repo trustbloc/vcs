@@ -161,12 +161,12 @@ func (c *Controller) issueCredential(
 	body *IssueCredentialData,
 	profileID string,
 ) (*verifiable.Credential, error) {
-	oidcOrgID, err := util.GetTenantIDFromRequest(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	profile, err := c.accessOIDCProfile(profileID, oidcOrgID)
+	profile, err := c.accessOIDCProfile(profileID, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -515,16 +515,16 @@ func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error)
 	return profile, nil
 }
 
-func (c *Controller) accessOIDCProfile(profileID string, oidcOrgID string) (*profileapi.Issuer, error) {
+func (c *Controller) accessOIDCProfile(profileID string, tenantID string) (*profileapi.Issuer, error) {
 	profile, err := c.accessProfile(profileID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Profiles of other organization is not visible.
-	if profile.OrganizationID != oidcOrgID {
+	if profile.OrganizationID != tenantID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("profile with given id %s, dosn't exists", profileID))
+			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
 	}
 
 	return profile, nil

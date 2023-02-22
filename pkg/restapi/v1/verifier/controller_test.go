@@ -43,8 +43,8 @@ import (
 )
 
 const (
-	orgID      = "orgID1"
-	userHeader = "X-User"
+	tenantID       = "orgID1"
+	tenantIDHeader = "X-Tenant-ID"
 )
 
 var (
@@ -80,13 +80,13 @@ var (
 	}
 )
 
-func createContext(orgID string) echo.Context {
+func createContext(tenantID string) echo.Context {
 	e := echo.New()
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	if orgID != "" {
-		req.Header.Set("X-User", orgID)
+	if tenantID != "" {
+		req.Header.Set("X-Tenant-ID", tenantID)
 	}
 
 	rec := httptest.NewRecorder()
@@ -98,7 +98,7 @@ func createContextWithBody(body []byte) echo.Context {
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	req.Header.Set(userHeader, orgID)
+	req.Header.Set(tenantIDHeader, tenantID)
 
 	rec := httptest.NewRecorder()
 	return e.NewContext(req, rec)
@@ -109,7 +109,7 @@ func createContextApplicationForm(body []byte) echo.Context {
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
-	req.Header.Set(userHeader, orgID)
+	req.Header.Set(tenantIDHeader, tenantID)
 
 	rec := httptest.NewRecorder()
 	return e.NewContext(req, rec)
@@ -220,7 +220,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 				name: "Missing authorization",
 				getCtx: func() echo.Context {
 					ctx := createContextWithBody([]byte(sampleVCJsonLD))
-					ctx.Request().Header.Set(userHeader, "")
+					ctx.Request().Header.Set(tenantIDHeader, "")
 					return ctx
 				},
 				getProfileSvc: func() profileService {
@@ -403,7 +403,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 				name: "Missing authorization",
 				getCtx: func() echo.Context {
 					ctx := createContextWithBody([]byte(sampleVPJsonLD))
-					ctx.Request().Header.Set(userHeader, "")
+					ctx.Request().Header.Set(tenantIDHeader, "")
 					return ctx
 				},
 				getProfileSvc: func() profileService {
@@ -1296,7 +1296,7 @@ func TestController_AuthFailed(t *testing.T) {
 
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
-		Return(&profileapi.Verifier{OrganizationID: orgID, SigningDID: &profileapi.SigningDID{}}, nil)
+		Return(&profileapi.Verifier{OrganizationID: tenantID, SigningDID: &profileapi.SigningDID{}}, nil)
 
 	t.Run("No token", func(t *testing.T) {
 		c := createContext("")
@@ -1335,7 +1335,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Verifier{
-			OrganizationID: orgID,
+			OrganizationID: tenantID,
 			Active:         true,
 			OIDCConfig:     &profileapi.OIDC4VPConfig{},
 			SigningDID:     &profileapi.SigningDID{},
@@ -1349,7 +1349,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			KMSRegistry:   kmsRegistry,
 			OIDCVPService: oidc4VPSvc,
 		})
-		c := createContext(orgID)
+		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, "testId")
 		require.NoError(t, err)
 	})
@@ -1362,7 +1362,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			KMSRegistry:   kmsRegistry,
 			OIDCVPService: oidc4VPSvc,
 		})
-		c := createContext(orgID)
+		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, "testId")
 		requireValidationError(t, resterr.DoesntExist, "profile", err)
 	})
@@ -1390,7 +1390,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		result, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
-				OrganizationID: orgID,
+				OrganizationID: tenantID,
 				Active:         true,
 				OIDCConfig:     &profileapi.OIDC4VPConfig{},
 				SigningDID:     &profileapi.SigningDID{},
@@ -1412,7 +1412,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
-				OrganizationID: orgID,
+				OrganizationID: tenantID,
 				Active:         false,
 				OIDCConfig:     &profileapi.OIDC4VPConfig{},
 				SigningDID:     &profileapi.SigningDID{},
@@ -1430,7 +1430,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
-				OrganizationID: orgID,
+				OrganizationID: tenantID,
 				Active:         true,
 				OIDCConfig:     nil,
 				SigningDID:     &profileapi.SigningDID{},
@@ -1450,7 +1450,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
-				OrganizationID: orgID,
+				OrganizationID: tenantID,
 				Active:         true,
 				OIDCConfig:     &profileapi.OIDC4VPConfig{},
 				SigningDID:     &profileapi.SigningDID{},
@@ -1472,7 +1472,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 		_, err := controller.initiateOidcInteraction(context.TODO(), &InitiateOIDC4VPData{},
 			&profileapi.Verifier{
-				OrganizationID: orgID,
+				OrganizationID: tenantID,
 				Active:         true,
 				OIDCConfig:     &profileapi.OIDC4VPConfig{},
 				SigningDID:     &profileapi.SigningDID{},

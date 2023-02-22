@@ -562,7 +562,7 @@ func decodeFormValue(output *string, valName string, values url.Values) error {
 	return nil
 }
 
-func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profileapi.Verifier, error) {
+func (c *Controller) accessProfile(profileID string, tenantID string) (*profileapi.Verifier, error) {
 	profile, err := c.profileSvc.GetProfile(profileID)
 	if err != nil {
 		if strings.Contains(err.Error(), "data not found") {
@@ -579,9 +579,9 @@ func (c *Controller) accessProfile(profileID string, oidcOrgID string) (*profile
 	}
 
 	// Profiles of other organization is not visible.
-	if profile.OrganizationID != oidcOrgID {
+	if profile.OrganizationID != tenantID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "organizationID",
-			fmt.Errorf("profile with given org id %q, doesn't exist", oidcOrgID))
+			fmt.Errorf("profile with given org id %q, doesn't exist", tenantID))
 	}
 
 	return profile, nil

@@ -452,7 +452,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				name: "Missing authorization",
 				getCtx: func() echo.Context {
 					ctx := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
-					ctx.Request().Header.Set("X-User", "")
+					ctx.Request().Header.Set("X-Tenant-ID", "")
 					return ctx
 				},
 				getProfileSvc: func() profileService {
@@ -592,7 +592,7 @@ func TestController_AuthFailed(t *testing.T) {
 		Return(&profileapi.Issuer{OrganizationID: orgID, SigningDID: &profileapi.SigningDID{}}, nil)
 
 	t.Run("No token", func(t *testing.T) {
-		c := echoContext(withOrgID(""), withRequestBody([]byte(sampleVCJWT)))
+		c := echoContext(withTenantID(""), withRequestBody([]byte(sampleVCJWT)))
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
@@ -601,7 +601,7 @@ func TestController_AuthFailed(t *testing.T) {
 	})
 
 	t.Run("Invalid org id", func(t *testing.T) {
-		c := echoContext(withOrgID("orgID2"), withRequestBody([]byte(sampleVCJWT)))
+		c := echoContext(withTenantID("orgID2"), withRequestBody([]byte(sampleVCJWT)))
 
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
 
@@ -789,7 +789,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(0)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-					c = echoContext(withRequestBody(req), withOrgID(""))
+					c = echoContext(withRequestBody(req), withTenantID(""))
 				},
 				check: func(t *testing.T, err error) {
 					requireAuthError(t, err)
@@ -800,7 +800,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				setup: func() {
 					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
-					c = echoContext(withRequestBody(req), withOrgID("invalid"))
+					c = echoContext(withRequestBody(req), withTenantID("invalid"))
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
@@ -1575,15 +1575,15 @@ func TestOpenIdConfiguration(t *testing.T) {
 }
 
 type options struct {
-	orgID       string
+	tenantID    string
 	requestBody []byte
 }
 
 type contextOpt func(*options)
 
-func withOrgID(orgID string) contextOpt {
+func withTenantID(tenantID string) contextOpt {
 	return func(o *options) {
-		o.orgID = orgID
+		o.tenantID = tenantID
 	}
 }
 
@@ -1595,7 +1595,7 @@ func withRequestBody(body []byte) contextOpt {
 
 func echoContext(opts ...contextOpt) echo.Context {
 	o := &options{
-		orgID: orgID,
+		tenantID: orgID,
 	}
 
 	for _, fn := range opts {
@@ -1613,8 +1613,8 @@ func echoContext(opts ...contextOpt) echo.Context {
 	req := httptest.NewRequest(http.MethodPost, "/", body)
 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
-	if o.orgID != "" {
-		req.Header.Set("X-User", o.orgID)
+	if o.tenantID != "" {
+		req.Header.Set("X-Tenant-ID", o.tenantID)
 	}
 
 	rec := httptest.NewRecorder()
