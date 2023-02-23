@@ -31,8 +31,8 @@ const (
 
 // Defines values for VCFormat.
 const (
-	JwtVcJson VCFormat = "jwt_vc_json"
-	LdpVc     VCFormat = "ldp_vc"
+	JwtVcJsonLd VCFormat = "jwt_vc_json-ld"
+	LdpVc       VCFormat = "ldp_vc"
 )
 
 // Defines values for VPFormat.
@@ -43,7 +43,7 @@ const (
 
 // Model to convey the details about the Credentials the Client wants to obtain.
 type AuthorizationDetails struct {
-	// String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc_json and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+	// String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc_json-ld and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
 	Format *string `json:"format,omitempty"`
 
 	// An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
@@ -92,23 +92,23 @@ type VPFormat string
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/5xW0W/buA/+Vwg9bYCXFr/9nvLWc3ZA0PZWLGv2cBsKWaJjNbbkE+mkuaH/+4Fy3KSN",
-	"e+jupagp8SP58ROZn8qEpg0ePZOa/lRkKmx0+vei4ypE97dmF/wMWbs62S2Sia4Vq5qq62CxBg5ggt/g",
-	"DrhCsP1l0EXoOFnyiBY9O11T/1079Axb7ZnEORSsnZ+oTLUxtBjZYYpVhthoPo264Oj8CiK2EUmA/Qo0",
-	"9LfBedhWzlQvIoMjiPhXh8RoJWiB4Ig6tBNY6tpZ2Oi6QwKLpfNoodjB5/ks//8yBx0R7rd8tzF39xQ8",
-	"aG+htu3dxkxgLhgRjPYQsewIU1x9zN4QF1yZDldugx7MITXetZhA9yWY0BRBEvaBgbq2DZHRCj9yU00V",
-	"JQLUY6bqYFKMkd5ceNAx6h2EEnoHYV8z6LoOWwINpu8DB6AWjSv7/g2Q4iffESl00SAQxg3Gd/S+RxDW",
-	"5fyZUmCRLglm4zyD7qxDbxIKR2eEfG0MkjR+jZ6kKsfYpAJOytsbUh2H71f0kIqzyBgb55FGGjFIU2Am",
-	"cH27+CoyIEwcfFehRe/s3aEz35W0ZNDBaAPEQK+m1DfAog880JUcDtwOijwo9VcYecyUQLiIVk3/7A+H",
-	"nH5kih3Xcnv0MT9hheIeDQv4bD67Rq6CPS1oNp9Bk86G3MXSv6OOMGkXyK288yupAH3XSEohFipTW5S/",
-	"a9ylrF7WdHm9yIMv3eq1ASPYl9cLmTKlW3Ux1XE6L2xxE7F0D6cwvV0yt5p1oWmfdLFLcq9h3dBoe23x",
-	"dVRyYv1PcLdfrk7Rbr9cCZW/CIbetsH5kQEpXA2no66EJiJfBbO+xN2N5mqEMs1VGg3pqqSyfmNe/K+M",
-	"rRvqcWRrRNTcjz7iEHtNrXFHxwpKwZ40pLc0oqGxd3Ck/4PAXoo+Uw8fWK9IvNI6iOrHY6aW+e+v7Z5h",
-	"HMMy38/rZ9ke7QmVqX5LHKfyhDxC3PLmDVFvXo3aDgHbtwUU1pwvw0ivYkf8Wx0MLPPFsIGON5ZQpWWs",
-	"S+s2GF3p9kujIxl03z7msMw/XNzMQdfBr2DruILPLfr5TDZqGwMHE/qX3fN+lmAwgvOMUZuElty+6brG",
-	"pOPaGfSUxOV1kyZbq02FH/43OVeZ6mKtpqpibml6drbdbic6HU9CXJ3tfensap5/+mPxSXwm/JDm3sBV",
-	"Hpom+P2IltSWqTRd1M9+SsiOcwbh3TJfvFeZ2mCknrjziWTymKVVolunpurj5Dwl12quSE19V9eP/wQA",
-	"AP//+njpXngJAAA=",
+	"H4sIAAAAAAAC/5xW0W/buA/+Vwg9bYCbFr/9nvLWc3ZA0PYWLGv2cBsKWaJjNbLkk+i4uaH/+4Fy3DSN",
+	"c9jupagp8SP58ROZH0L5uvEOHUUx/SGiqrCW6d/rliofzN+SjHczJGlssmuMKpiGrWIq7rxGC+RBebfF",
+	"HVCFoPvLIAvfUrLkATU6MtLG/tsadASddBTZ2RckjZuITDTBNxjIYIpV+lBLOo26pGDcGgI2ASMDuzVI",
+	"6G+DcdBVRlVvIoOJEPCvFiOh5qAFgomxRT2BlbRGw1baFiNoLI1DDcUOPs1n+f9XOciA8NjRw1Y9PEbv",
+	"LqwG6TRY3Txs1QTmDBNASQcByzZiCi1fEziEBlOmw7XZogN1yI52DSbQfRXK14XnnJ0niG3T+EComSK+",
+	"KaYiJg7EcyasVynGSHuuHcgQ5A58Cb0DN0ASSGt9F0GC6ltBHmKDypR9CwdI9uPvgNG3QSFEDFsM7+L7",
+	"HoGJ5/MjscAyXWLM2jgC2WqDTiUUCkYx/1IpjNz7DbrIVRnCOhVwUt7ekOo4fJ+RRCpOI2GojcM40ohB",
+	"nQwzgbv75RdWQsTEwTfhG3RGPxw6801wSwYpjDaADfFsSn0DNDpPA13J4cDtIMqDWH+FkedMMIQJqMX0",
+	"z/5wyOl7JsiQ5duj7/kFyxePqIjBZ/PZHVLl9WlBs/kM6nQ25M6W/im1EZN2IZq1M27NFaBra07Jh0Jk",
+	"okP+u8FdyuptTTd3y9y70qzPzRjGvrlb8qApzboNqY7TkaGLRcDSPJ3C9HbOXEuShYz7pItdkruFTR1H",
+	"26uLL6OSY+t/grv/fHuKdv/5lqn8RTB0uvHGjcxI5mo4HXWNqALSrVebG9wtJFUjlEmq0mhIVzmVzU/m",
+	"Rf/K2KaOPQ4vjoCS+tEXyYdeUxvcxdcKSsFeNCS7OKKhsXfwSv8Hgb0VfSaeLkiuI3uljRDE9+dMrPLf",
+	"z62fYRzDKt/P66Nsj1eFyES/KF5n8wI+wt1q8ROBF2cDN0PA5ijg4lxAJs640o+0K7SRfrNewSpfDkvo",
+	"9dJitiRPdu7eFoMpzX5vtJFn3dcPOazyi+vFHKT1bg2doQo+NejmM96rTfDkle8fd0/9ZYLBAMYRBqkS",
+	"WnL7Kq3FJGVrFLqY9OVknYZbI1WFF/+bXIlMtMGKqaiImji9vOy6biLT8cSH9eXeN17ezvOPfyw/ss+E",
+	"ntLoG7jKfV17t5/SnNoqlSYLe/SDgtecUQjvVvnyvcjEFkPsibuacCbPWdomsjFiKj5MrlJyjaQqiqlr",
+	"rX3+JwAA///XafVnfgkAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -176,7 +176,7 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 
 func GetIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat string) (interface{}, error) {
 	switch desiredFormat {
-	case string(common.JwtVcJson):
+	case string(common.JwtVcJsonLd):
 		claims, err := vc.JWTClaims(false)
 		if err != nil {
 			return nil, err

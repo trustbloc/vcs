@@ -211,7 +211,7 @@ func (s *Steps) getAuthCode() error {
 			oauth2.SetAuthURLParam("issuer_state", offerResponse.Grants.AuthorizationCode.IssuerState),
 			oauth2.SetAuthURLParam("code_challenge", "MLSjJIlPzeRQoN9YiIsSzziqEuBSmS4kDgI3NDjbfF8"),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","types":["VerifiableCredential","VerifiedEmployee"],"format":"jwt_vc_json"}`), //nolint:lll
+			oauth2.SetAuthURLParam("authorization_details", `{"type":"openid_credential","types":["VerifiableCredential","VerifiedEmployee"],"format":"jwt_vc_json-ld"}`), //nolint:lll
 		),
 	)
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusSeeOther {

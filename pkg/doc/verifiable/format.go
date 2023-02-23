@@ -30,12 +30,12 @@ const (
 )
 
 const (
-	JwtVCJson = OIDCFormat("jwt_vc_json")
-	LdpVC     = OIDCFormat("ldp_vc")
+	JwtVCJsonLD = OIDCFormat("jwt_vc_json-ld")
+	LdpVC       = OIDCFormat("ldp_vc")
 )
 
 var oldFormatToNew = map[Format]OIDCFormat{ //nolint
-	Jwt: JwtVCJson,
+	Jwt: JwtVCJsonLD,
 	Ldp: LdpVC,
 }
 

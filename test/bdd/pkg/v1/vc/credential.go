@@ -30,7 +30,7 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 	credBytes := e.bddContext.CreatedCredential
 	checkProof := true
 
-	if vcFormat == string(verifiable2.JwtVCJson) {
+	if vcFormat == string(verifiable2.JwtVCJsonLD) {
 		loader, err := bddutil.DocumentLoader()
 		if err != nil {
 			return fmt.Errorf("create document loader: %w", err)
