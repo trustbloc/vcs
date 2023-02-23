@@ -11,7 +11,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/globocom/echo-prometheus v0.1.2
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.10-0.20230302151103-5cac1cf196b8
+	github.com/hyperledger/aries-framework-go v0.1.10-0.20230303200344-175d6587dbb1
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
