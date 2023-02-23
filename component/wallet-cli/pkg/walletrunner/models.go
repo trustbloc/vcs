@@ -9,6 +9,8 @@ package walletrunner
 import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
+	verifiable2 "github.com/trustbloc/vcs/pkg/doc/verifiable"
 )
 
 type RequestObject struct {
@@ -92,9 +94,9 @@ type JWTProof struct {
 }
 
 type CredentialResponse struct {
-	AcceptanceToken string      `json:"acceptance_token,omitempty"`
-	CNonce          string      `json:"c_nonce,omitempty"`
-	CNonceExpiresIn int         `json:"c_nonce_expires_in,omitempty"`
-	Credential      interface{} `json:"credential"`
-	Format          string      `json:"format"`
+	AcceptanceToken string                 `json:"acceptance_token,omitempty"`
+	CNonce          string                 `json:"c_nonce,omitempty"`
+	CNonceExpiresIn int                    `json:"c_nonce_expires_in,omitempty"`
+	Credential      interface{}            `json:"credential"`
+	Format          verifiable2.OIDCFormat `json:"format"`
 }
