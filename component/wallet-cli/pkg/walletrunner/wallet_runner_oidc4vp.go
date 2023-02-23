@@ -62,11 +62,11 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 		log.Println("Using existing credentials")
 	}
 
-	vpFlowExecutor := s.NewVPFlowExecutor(s.vcProviderConf.SkipSchemaValidation)
+	s.vpFlowExecutor = s.NewVPFlowExecutor(s.vcProviderConf.SkipSchemaValidation)
 
 	log.Println("Fetching request object")
 	startTime := time.Now()
-	rawRequestObject, err := vpFlowExecutor.FetchRequestObject(authorizationRequest)
+	rawRequestObject, err := s.vpFlowExecutor.FetchRequestObject(authorizationRequest)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 
 	log.Println("Resolving request object")
 	startTime = time.Now()
-	err = vpFlowExecutor.VerifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
+	err = s.vpFlowExecutor.VerifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 
 	log.Println("Querying VC from wallet")
 	startTime = time.Now()
-	err = vpFlowExecutor.QueryCredentialFromWallet()
+	err = s.vpFlowExecutor.QueryCredentialFromWallet()
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 
 	log.Println("Creating authorized response")
 	startTime = time.Now()
-	authorizedResponse, err := vpFlowExecutor.CreateAuthorizedResponse()
+	authorizedResponse, err := s.vpFlowExecutor.CreateAuthorizedResponse()
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 
 	log.Println("Sending authorized response")
 	startTime = time.Now()
-	err = vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
+	err = s.vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
 	if err != nil {
 		return err
 	}
@@ -133,6 +133,10 @@ func (s *Service) NewVPFlowExecutor(skipSchemaValidation bool) *VPFlowExecutor {
 		walletSignType:       s.vcProviderConf.WalletParams.SignType,
 		skipSchemaValidation: skipSchemaValidation,
 	}
+}
+
+func (s *Service) GetVPFlowExecutor() *VPFlowExecutor {
+	return s.vpFlowExecutor
 }
 
 func (e *VPFlowExecutor) InitiateInteraction(url, authToken string) (*InitiateOIDC4VPResponse, error) {
