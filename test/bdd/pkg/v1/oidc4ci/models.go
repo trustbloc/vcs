@@ -6,6 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 
 package oidc4ci
 
+import "github.com/trustbloc/vcs/pkg/doc/verifiable"
+
 type initiateOIDC4CIRequest struct {
 	ClaimData                 *map[string]interface{} `json:"claim_data,omitempty"`
 	ClaimEndpoint             string                  `json:"claim_endpoint,omitempty"`
@@ -68,9 +70,9 @@ type jwtProofClaims struct {
 }
 
 type credentialResponse struct {
-	AcceptanceToken string      `json:"acceptance_token,omitempty"`
-	CNonce          string      `json:"c_nonce,omitempty"`
-	CNonceExpiresIn int         `json:"c_nonce_expires_in,omitempty"`
-	Credential      interface{} `json:"credential"`
-	Format          string      `json:"format"`
+	AcceptanceToken string                `json:"acceptance_token,omitempty"`
+	CNonce          string                `json:"c_nonce,omitempty"`
+	CNonceExpiresIn int                   `json:"c_nonce_expires_in,omitempty"`
+	Credential      interface{}           `json:"credential"`
+	Format          verifiable.OIDCFormat `json:"format"`
 }
