@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -346,6 +347,7 @@ func validateVC(
 	require.NotNil(t, vc)
 	require.NotNil(t, vc.Issuer)
 	require.Equal(t, "did:trustblock:abc", vc.Issuer.ID)
+	require.True(t, strings.HasPrefix(vc.ID, "urn:uuid:"))
 
 	if vcFormat == vcs.Jwt {
 		require.NotEmpty(t, vc.JWT)
