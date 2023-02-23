@@ -55,6 +55,7 @@ type Service struct {
 	oauthClient    *oauth2.Config
 	token          *oauth2.Token
 	perfInfo       *PerfInfo
+	vpFlowExecutor *VPFlowExecutor
 	debug          bool
 }
 
