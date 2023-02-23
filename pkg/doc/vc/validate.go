@@ -15,10 +15,13 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
+
+var logger = log.New("credential-validation")
 
 const (
 	// https://www.w3.org/TR/vc-data-model/#base-context
@@ -64,9 +67,13 @@ func ValidateCredential(
 		jwtRepresentation := credential.JWT
 		credential.JWT = ""
 
+		logger.Info("validateJWTCredential")
+		credBytes, errMarshal := credential.MarshalJSON()
+		logger.Info(fmt.Sprintf("JWT credBytes: %s, err: %v", string(credBytes), errMarshal))
+
 		err = validateCredentialClaims(credential, documentLoader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to validate SDJWT credential claims: %w", err)
+			return nil, fmt.Errorf("failed to validate JWT credential claims: %w", err)
 		}
 
 		credential.JWT = jwtRepresentation
@@ -77,10 +84,17 @@ func ValidateCredential(
 
 func validateSDJWTCredential(
 	credential *verifiable.Credential, documentLoader jsonld.DocumentLoader) (*verifiable.Credential, error) {
+	logger.Info("validateSDJWTCredential")
+	credBytes, err := credential.MarshalJSON()
+	logger.Info(fmt.Sprintf("SDJWT credBytes: %s, err: %v", string(credBytes), err))
+
 	displayCredential, err := credential.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create display credential: %w", err)
 	}
+
+	displayCredBytes, err := displayCredential.MarshalJSON()
+	logger.Info(fmt.Sprintf("SDJWT displayCredBytes: %s, err: %v", string(displayCredBytes), err))
 
 	err = validateCredentialClaims(displayCredential, documentLoader)
 	if err != nil {
