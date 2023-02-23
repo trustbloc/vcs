@@ -112,3 +112,8 @@ func UpdateSignatureTypeContext(credential *verifiable.Credential, signatureType
 		credential.Context = append(credential.Context, bbsBlsSignature2020Context)
 	}
 }
+
+// PrependCredentialPrefix prepends prefix to credential.ID.
+func PrependCredentialPrefix(credential *verifiable.Credential, prefix string) {
+	credential.ID = fmt.Sprintf("%s%s", prefix, credential.ID)
+}

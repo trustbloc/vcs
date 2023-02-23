@@ -20,6 +20,10 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
+const (
+	defaultCredentialPrefix = "urn:uuid:" //nolint:gosec
+)
+
 type vcCrypto interface {
 	SignCredential(signerData *vc.Signer, vc *verifiable.Credential,
 		opts ...crypto.SigningOpts) (*verifiable.Credential, error)
@@ -80,6 +84,9 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	}
 
 	var statusListEntry *StatusListEntry
+
+	// update credential prefix.
+	vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
 
 	if !profile.VCConfig.Status.Disable {
 		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(profile.ID, credential.ID)
