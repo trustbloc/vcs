@@ -46,7 +46,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
       --storage-provider string                     storage provider. supported: mem,leveldb,mongodb
       --storage-provider-connection-string string   storage provider connection string
       --uni-resolver-url string                     uni resolver url. example: https://did-resolver.stg.trustbloc.dev/1.0/identifiers
-      --vc-format string                            vc format [jwt_vc_json|ldp_vc] (default "jwt_vc_json")
+      --vc-format string                            vc format [jwt_vc_json-ld|ldp_vc] (default "jwt_vc_json-ld")
       --vc-provider string                          vc provider (default "vcs")
       --wallet-did string                           existing wallet did
       --wallet-did-keyid string                     existing wallet did key id
@@ -59,7 +59,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --qr-code "/mnt/qrcode.png" \
 --grant-type urn:ietf:params:oauth:grant-type:pre-authorized_code \
 --credential-type VerifiedEmployee \
---credential-format jwt_vc_json \
+--credential-format jwt_vc_json-ld \
 --did-domain https://orb-1.stg.trustbloc.dev \
 --did-service-auth-token ADMIN_TOKEN \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
@@ -80,7 +80,7 @@ The following CLI arguments are supported for oidc4ci command (./wallet-cli oidc
 --redirect-uri http://127.0.0.1/callback \
 --client-id oidc4vc_client \
 --credential-type VerifiedEmployee \
---credential-format jwt_vc_json \
+--credential-format jwt_vc_json-ld \
 --did-domain https://orb-1.stg.trustbloc.dev \
 --did-service-auth-token ADMIN_TOKEN \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
@@ -117,7 +117,7 @@ The following CLI arguments are supported for oidc4vp command (./wallet-cli oidc
       --storage-provider string                     storage provider. supported: mem,leveldb,mongodb
       --storage-provider-connection-string string   storage provider connection string
       --uni-resolver-url string                     uni resolver url. example: https://did-resolver.stg.trustbloc.dev/1.0/identifiers
-      --vc-format string                            VC format (jwt_vc_json/ldp_vc) (default "jwt_vc_json")
+      --vc-format string                            VC format (jwt_vc_json-ld/ldp_vc) (default "jwt_vc_json-ld")
       --vc-issuer-url string                        VC Issuer URL
       --vc-provider string                          VC Provider (default "vcs")
       --wallet-did string                           existing wallet did
@@ -135,7 +135,7 @@ Note:
 --qrcode-path "/mnt/qrcode.png" \
 --vc-provider vcs \
 --vc-issuer-url https://api-gateway.stg.trustbloc.dev/issuer/profiles/bank_issuer/credentials/issue \
---vc-format jwt_vc_json \
+--vc-format jwt_vc_json-ld \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
 --did-domain https://orb-1.stg.trustbloc.dev \
 --did-service-auth-token ADMIN_TOKEN \

@@ -364,7 +364,7 @@
         "credentialMetadata": {
           "credentials_supported": [
             {
-              "format": "jwt_vc_json",
+              "format": "jwt_vc_json-ld",
               "id": "VerifiedEmployee_JWT",
               "types": [
                 "VerifiableCredential",
@@ -481,7 +481,7 @@
         "credentialMetadata": {
           "credentials_supported": [
             {
-              "format": "jwt_vc_json",
+              "format": "jwt_vc_json-ld",
               "id": "VerifiedEmployee_JWT",
               "types": [
                 "VerifiableCredential",

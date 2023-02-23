@@ -885,7 +885,7 @@ func TestController_OidcCredential(t *testing.T) {
 	require.NoError(t, err)
 
 	credentialReq := oidc4ci.CredentialRequest{
-		Format: lo.ToPtr(string(common.JwtVcJson)),
+		Format: lo.ToPtr(string(common.JwtVcJsonLd)),
 		Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: jws},
 		Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 	}
@@ -952,7 +952,7 @@ func TestController_OidcCredential(t *testing.T) {
 
 				b, marshalErr := json.Marshal(issuer.PrepareCredentialResult{
 					Credential: "credential in jwt format",
-					Format:     string(common.JwtVcJson),
+					Format:     string(common.JwtVcJsonLd),
 				})
 				require.NoError(t, marshalErr)
 
@@ -969,8 +969,8 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, err)
 			},
 			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "can not map [jwt_vc_json] to oidc format. "+
-					"unsupported vc mapping for format: jwt_vc_json")
+				require.ErrorContains(t, err, "can not map [jwt_vc_json-ld] to oidc format. "+
+					"unsupported vc mapping for format: jwt_vc_json-ld")
 			},
 		},
 		{
@@ -1001,7 +1001,7 @@ func TestController_OidcCredential(t *testing.T) {
 				accessToken = "access-token"
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJson)),
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
 					Proof:  nil,
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
@@ -1020,7 +1020,7 @@ func TestController_OidcCredential(t *testing.T) {
 				accessToken = "access-token"
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJson)),
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: ""},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
@@ -1083,7 +1083,7 @@ func TestController_OidcCredential(t *testing.T) {
 				accessToken = "access-token"
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJson)),
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: "invalid jws"},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
@@ -1120,7 +1120,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, marshalErr)
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJson)),
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})
@@ -1188,7 +1188,7 @@ func TestController_OidcCredential(t *testing.T) {
 				require.NoError(t, marshalErr)
 
 				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJson)),
+					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
 					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
 					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
 				})

@@ -25,9 +25,9 @@ Feature: OIDC4VC REST API
 #    Then Wallet receives a valid credential
 
     And   New verifiable credentials is created from table:
-      | IssuerProfile              | Organization | Credential             | VCFormat       |
-      | i_myprofile_ud_es256_sdjwt | test_org     | university_degree.json | jwt_vc_json    |
-      | i_myprofile_ud_es256k_jwt  | test_org     | university_degree.json | jwt_vc_json    |
+      | IssuerProfile              | Organization | Credential             | VCFormat           |
+      | i_myprofile_ud_es256_sdjwt | test_org     | university_degree.json | jwt_vc_json-ld    |
+      | i_myprofile_ud_es256k_jwt  | test_org     | university_degree.json | jwt_vc_json-ld    |
     And User saves credentials into the wallet
 
     When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt" profile for organization "test_org"

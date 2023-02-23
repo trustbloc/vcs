@@ -32,24 +32,24 @@ const (
 
 func ValidateVCFormat(format VCFormat) (vcsverifiable.Format, error) {
 	switch format {
-	case JwtVcJson:
+	case JwtVcJsonLd:
 		return vcsverifiable.Jwt, nil
 	case LdpVc:
 		return vcsverifiable.Ldp, nil
 	}
 
-	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVcJson, LdpVc)
+	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVcJsonLd, LdpVc)
 }
 
 func MapToVCFormat(format vcsverifiable.Format) (VCFormat, error) {
 	switch format {
 	case vcsverifiable.Jwt:
-		return JwtVcJson, nil
+		return JwtVcJsonLd, nil
 	case vcsverifiable.Ldp:
 		return LdpVc, nil
 	}
 
-	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVcJson, LdpVc)
+	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVcJsonLd, LdpVc)
 }
 
 func ValidateVPFormat(format VPFormat) (vcsverifiable.Format, error) {
@@ -60,7 +60,7 @@ func ValidateVPFormat(format VPFormat) (vcsverifiable.Format, error) {
 		return vcsverifiable.Ldp, nil
 	}
 
-	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVcJson, LdpVc)
+	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVcJsonLd, LdpVc)
 }
 
 func MapToVPFormat(format vcsverifiable.Format) (VPFormat, error) {
@@ -71,7 +71,7 @@ func MapToVPFormat(format vcsverifiable.Format) (VPFormat, error) {
 		return LdpVp, nil
 	}
 
-	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVcJson, LdpVc)
+	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVcJsonLd, LdpVc)
 }
 
 func ValidateDIDMethod(method DIDMethod) (profileapi.Method, error) {

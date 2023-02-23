@@ -147,7 +147,7 @@ func TestController_mapToVCFormat(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		tpe, err := MapToVCFormat(vcsverifiable.Jwt)
 		require.NoError(t, err)
-		require.Equal(t, JwtVcJson, tpe)
+		require.Equal(t, JwtVcJsonLd, tpe)
 
 		tpe, err = MapToVCFormat(vcsverifiable.Ldp)
 		require.NoError(t, err)
@@ -199,7 +199,7 @@ func TestController_mapToDIDMethod(t *testing.T) {
 }
 
 func TestValidateVCFormat(t *testing.T) {
-	got, err := ValidateVCFormat(JwtVcJson)
+	got, err := ValidateVCFormat(JwtVcJsonLd)
 	require.NoError(t, err)
 	require.Equal(t, vcsverifiable.Jwt, got)
 
@@ -255,7 +255,7 @@ func TestValidateAuthorizationDetails(t *testing.T) {
 			},
 			{
 				name: "jwt_vc format",
-				arg:  lo.ToPtr(string(JwtVcJson)),
+				arg:  lo.ToPtr(string(JwtVcJsonLd)),
 				want: vcsverifiable.Jwt,
 			},
 			{

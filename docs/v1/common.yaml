@@ -49,11 +49,11 @@ components:
       title: VCFormat
       type: string
       enum:
-        - jwt_vc_json
+        - jwt_vc_json-ld
         - ldp_vc
       description: Supported VC formats.
     VPFormat:
-      title: VCFormat
+      title: VPFormat
       type: string
       enum:
         - jwt_vp
@@ -81,7 +81,7 @@ components:
           description: String array denoting the types of the requested Credential.
         format:
           type: string
-          description: String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc_json and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
+          description: String representing a format in which the Credential is requested to be issued. Valid values defined by OIDC4VC are jwt_vc_json-ld and ldp_vc. Issuer can refuse the authorization request if the given credential type and format combo is not supported.
         locations:
           description: An array of strings that allows a client to specify the location of the resource server(s) allowing the Authorization Server to mint audience restricted access tokens.
           type: array
