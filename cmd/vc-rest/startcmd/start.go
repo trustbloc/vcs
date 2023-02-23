@@ -34,6 +34,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/ld"
@@ -136,6 +137,10 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			params, err := getStartupParameters(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get startup parameters: %w", err)
+			}
+
+			if params.logLevel != "" {
+				common.SetDefaultLogLevel(logger, params.logLevel)
 			}
 
 			conf, err := prepareConfiguration(params)
