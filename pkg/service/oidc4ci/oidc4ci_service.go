@@ -343,11 +343,12 @@ func (s *Service) PrepareCredential(
 
 	// prepare credential for signing
 	vc := &verifiable.Credential{
-		Context: tx.CredentialTemplate.Contexts,
-		ID:      uuid.New().URN(),
-		Types:   []string{"VerifiableCredential", tx.CredentialTemplate.Type},
-		Issuer:  verifiable.Issuer{ID: tx.DID},
-		Issued:  util.NewTime(time.Now()),
+		Context:      tx.CredentialTemplate.Contexts,
+		ID:           uuid.New().URN(),
+		Types:        []string{"VerifiableCredential", tx.CredentialTemplate.Type},
+		Issuer:       verifiable.Issuer{ID: tx.DID},
+		Issued:       util.NewTime(time.Now()),
+		CustomFields: tx.CredentialTemplate.CustomFields,
 	}
 
 	if tx.CredentialExpiresAt != nil {

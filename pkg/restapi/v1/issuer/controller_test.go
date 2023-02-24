@@ -1638,3 +1638,95 @@ func requireAuthError(t *testing.T, actual error) {
 
 	require.Equal(t, resterr.Unauthorized, actualErr.Code)
 }
+
+func TestController_buildCredentialsFromTemplate_(t *testing.T) {
+	controller := NewController(&Config{})
+	profile := &profileapi.Issuer{
+		SigningDID: &profileapi.SigningDID{DID: "did:test:abc"},
+	}
+	body := &IssueCredentialData{Claims: &map[string]interface{}{"first_name": "Joe"}}
+
+	t.Run("with custom fields", func(t *testing.T) {
+		credentialTemplate := &profileapi.CredentialTemplate{
+			Contexts: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/citizenship/v1",
+			},
+			ID:                "CredentialTemplateID",
+			Type:              "VerifiedEmployee",
+			CredentialSubject: []byte(`some data`),
+			Checks: profileapi.CredentialTemplateChecks{
+				Strict: true,
+			},
+			CustomFields: map[string]interface{}{
+				"credentialName":        "Passport",
+				"credentialDescription": "Passport description",
+			},
+		}
+
+		createdCredential := controller.buildCredentialsFromTemplate(credentialTemplate, profile, body)
+		require.NotNil(t, createdCredential)
+
+		createdCredential.ID = ""
+		createdCredential.Issued = nil
+		createdCredential.Expired = nil
+
+		expectedCredential := &verifiable.Credential{
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/citizenship/v1",
+			},
+			Types: []string{"VerifiableCredential", credentialTemplate.Type},
+			Subject: verifiable.Subject{
+				ID:           profile.SigningDID.DID,
+				CustomFields: *body.Claims,
+			},
+			Issuer: verifiable.Issuer{ID: profile.SigningDID.DID},
+			CustomFields: map[string]interface{}{
+				"credentialName":        "Passport",
+				"credentialDescription": "Passport description",
+			},
+		}
+
+		require.Equal(t, expectedCredential, createdCredential)
+	})
+
+	t.Run("without custom fields", func(t *testing.T) {
+		credentialTemplate := &profileapi.CredentialTemplate{
+			Contexts: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/citizenship/v1",
+			},
+			ID:                "CredentialTemplateID",
+			Type:              "VerifiedEmployee",
+			CredentialSubject: []byte(`some data`),
+			Checks:            profileapi.CredentialTemplateChecks{},
+		}
+
+		createdCredential := controller.buildCredentialsFromTemplate(credentialTemplate, profile, body)
+		require.NotNil(t, createdCredential)
+
+		createdCredential.ID = ""
+		createdCredential.Issued = nil
+		createdCredential.Expired = nil
+
+		expectedCredential := &verifiable.Credential{
+			Context: []string{
+				"https://www.w3.org/2018/credentials/v1",
+				"https://www.w3.org/2018/credentials/examples/v1",
+				"https://w3id.org/citizenship/v1",
+			},
+			Types: []string{"VerifiableCredential", credentialTemplate.Type},
+			Subject: verifiable.Subject{
+				ID:           profile.SigningDID.DID,
+				CustomFields: *body.Claims,
+			},
+			Issuer: verifiable.Issuer{ID: profile.SigningDID.DID},
+		}
+
+		require.Equal(t, expectedCredential, createdCredential)
+	})
+}

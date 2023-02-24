@@ -54,6 +54,7 @@ type CredentialTemplate struct {
 	CredentialSubject                   json.RawMessage          `json:"credentialSubject"`
 	CredentialDefaultExpirationDuration *time.Duration           `json:"credentialDefaultExpirationDuration"`
 	Checks                              CredentialTemplateChecks `json:"checks"`
+	CustomFields                        verifiable.CustomFields  `json:"customFields,omitempty"`
 }
 
 type CredentialTemplateChecks struct {

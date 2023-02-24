@@ -249,7 +249,8 @@ func (c *Controller) buildCredentialsFromTemplate(
 			ID:           profile.SigningDID.DID,
 			CustomFields: *body.Claims,
 		},
-		Issued: util2.NewTime(time.Now()),
+		Issued:       util2.NewTime(time.Now()),
+		CustomFields: credentialTemplate.CustomFields,
 	}
 
 	if credentialTemplate.CredentialDefaultExpirationDuration != nil {

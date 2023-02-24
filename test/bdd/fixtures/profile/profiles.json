@@ -351,13 +351,18 @@
           {
             "contexts": [
               "https://www.w3.org/2018/credentials/v1",
-              "https://www.w3.org/2018/credentials/examples/v1"
+              "https://www.w3.org/2018/credentials/examples/v1",
+              "https://w3id.org/citizenship/v1"
             ],
             "type": "VerifiedEmployee",
             "id": "templateID",
             "issuer": "did:orb:bank_issuer",
             "checks": {
               "strict": true
+            },
+            "customFields": {
+              "name": "VerifiedEmployee credential name",
+              "description": "VerifiedEmployee credential description"
             }
           }
         ],
