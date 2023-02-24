@@ -110,7 +110,9 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 
 	log.Printf("Credential with type [%v] added successfully", config.CredentialType)
 
-	s.wallet.Close()
+	if !s.keepWalletOpen {
+		s.wallet.Close()
+	}
 
 	return nil
 }

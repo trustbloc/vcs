@@ -46,6 +46,7 @@ type Config struct {
 	WalletDidID                   string
 	DidMethod                     string
 	DidKeyType                    string
+	KeepWalletOpen                bool
 }
 
 type WalletParams struct {

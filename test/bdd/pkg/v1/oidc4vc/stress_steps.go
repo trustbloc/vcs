@@ -7,15 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
+	"net/http"
 	"os"
 	"sort"
 	"strconv"
 	"time"
 
 	"github.com/greenpau/go-calculator"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 
+	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
 
@@ -47,48 +52,61 @@ func (s *Steps) getUsersNum(envVar, concurrentReqEnv string) error {
 	return nil
 }
 
-func (s *Steps) getDemoIssuerURL(envVar string) error {
-	val := os.Getenv(envVar)
-	if val == "" {
-		return fmt.Errorf("%s is empty", envVar)
+func (s *Steps) runStressTest(ctx context.Context) error {
+	vcsAPIURL := os.Getenv("VCS_API_URL")
+	if vcsAPIURL == "" {
+		return fmt.Errorf("VCS_API_URL is empty")
 	}
 
-	s.demoIssuerURL = val
-
-	return nil
-}
-
-func (s *Steps) getDemoVerifierGetQRCodeURL(envVar string) error {
-	val := os.Getenv(envVar)
-	if val == "" {
-		return fmt.Errorf("%s is empty", envVar)
+	c := clientcredentials.Config{
+		TokenURL:     vcsAPIURL + "/cognito/oauth2/token",
+		ClientID:     os.Getenv("TOKEN_CLIENT_ID"),
+		ClientSecret: os.Getenv("TOKEN_CLIENT_SECRET"),
+		AuthStyle:    oauth2.AuthStyleInHeader,
 	}
 
-	s.demoVerifierGetQRCodeURL = val
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: s.tlsConfig,
+		},
+	}
 
-	return nil
-}
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
 
-func (s *Steps) runStressTest() error {
+	token, tokenErr := c.Token(ctx)
+	if tokenErr != nil {
+		return fmt.Errorf("failed to get token: %w", tokenErr)
+	}
+
+	idToken, ok := token.Extra("id_token").(string)
+	if !ok {
+		return fmt.Errorf("missing id_token")
+	}
+
 	workerPool := bddutil.NewWorkerPool(s.concurrentReq, logger)
 
 	workerPool.Start()
 
 	for i := 0; i < s.usersNum; i++ {
-		testCase, cleanup, err := NewTestCase(&TestCaseConfig{
-			DemoIssuerURL:            s.demoIssuerURL,
-			DemoVerifierGetQRCodeURL: s.demoVerifierGetQRCodeURL,
-			DIDKeyType:               "ED25519",
-			DIDMethod:                "ion",
-			CredentialType:           "midyVerifiedDocument",
-			CredentialFormat:         "jwt_vc",
-		})
+		testCase, err := NewTestCase(
+			WithVCProviderOption(func(c *vcprovider.Config) {
+				c.DidKeyType = "ED25519"
+				c.DidMethod = "ion"
+				c.InsecureTls = true
+				c.KeepWalletOpen = true
+			}),
+			WithVCSAPIURL(vcsAPIURL),
+			WithIssuerProfileID(os.Getenv("ISSUER_PROFILE_ID")),
+			WithVerifierProfileID(os.Getenv("VERIFIER_PROFILE_ID")),
+			WithCredentialTemplateID(os.Getenv("CREDENTIAL_TEMPLATE_ID")),
+			WithHTTPClient(httpClient),
+			WithCredentialType("midyVerifiedDocument"),
+			WithToken(idToken),
+		)
 		if err != nil {
-			cleanup()
 			return fmt.Errorf("create test case: %w", err)
 		}
 
-		//defer cleanup()
 		workerPool.Submit(testCase)
 	}
 

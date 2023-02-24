@@ -43,11 +43,9 @@ type Steps struct {
 	vpFlowExecutor          *walletrunner.VPFlowExecutor
 
 	// Stress testing
-	usersNum                 int
-	concurrentReq            int
-	demoIssuerURL            string
-	demoVerifierGetQRCodeURL string
-	stressTestResults        map[string][3]time.Duration // metric -> [avg, max, min]
+	usersNum          int
+	concurrentReq     int
+	stressTestResults map[string][3]time.Duration // metric -> [avg, max, min]
 }
 
 // NewSteps returns new Steps context.
@@ -113,8 +111,6 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	// Stress test
 	sc.Step(`^number of users "([^"]*)" making "([^"]*)" concurrent requests$`, s.getUsersNum)
-	sc.Step(`^demo issuer URL "([^"]*)"$`, s.getDemoIssuerURL)
-	sc.Step(`^demo verifier URL to get QR code "([^"]*)"$`, s.getDemoVerifierGetQRCodeURL)
 	sc.Step(`^stress test is done$`, s.runStressTest)
 	sc.Step(`^metrics are collected and displayed$`, s.displayMetrics)
 }

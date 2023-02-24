@@ -135,8 +135,12 @@ stress-test:
 	@cd test/bdd && \
 	TAGS=oidc4vc_stress \
 	DISABLE_COMPOSITION=true \
-	DEMO_ISSUER_URL= \
-	DEMO_VERIFIER_GET_QR_CODE_URL= \
+	VCS_API_URL= \
+	ISSUER_PROFILE_ID= \
+	VERIFIER_PROFILE_ID= \
+	CREDENTIAL_TEMPLATE_ID= \
+	TOKEN_CLIENT_ID= \
+	TOKEN_CLIENT_SECRET= \
 	USERS_NUM=3 \
 	CONCURRENT_REQ=2 \
 	go test -count=1 -v -cover . -p 1 -timeout=10m -race
