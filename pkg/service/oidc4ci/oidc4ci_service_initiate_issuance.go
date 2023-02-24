@@ -52,19 +52,21 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}
 
 	data := &TransactionData{
-		ProfileID:           profile.ID,
-		OrgID:               profile.OrganizationID,
-		CredentialTemplate:  template,
-		CredentialFormat:    profile.VCConfig.Format,
-		ClaimEndpoint:       req.ClaimEndpoint,
-		GrantType:           req.GrantType,
-		ResponseType:        req.ResponseType,
-		Scope:               req.Scope,
-		OpState:             req.OpState,
-		State:               TransactionStateIssuanceInitiated,
-		WebHookURL:          profile.WebHook,
-		DID:                 profile.SigningDID.DID,
-		CredentialExpiresAt: lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
+		ProfileID:             profile.ID,
+		OrgID:                 profile.OrganizationID,
+		CredentialTemplate:    template,
+		CredentialFormat:      profile.VCConfig.Format,
+		ClaimEndpoint:         req.ClaimEndpoint,
+		GrantType:             req.GrantType,
+		ResponseType:          req.ResponseType,
+		Scope:                 req.Scope,
+		OpState:               req.OpState,
+		State:                 TransactionStateIssuanceInitiated,
+		WebHookURL:            profile.WebHook,
+		DID:                   profile.SigningDID.DID,
+		CredentialExpiresAt:   lo.ToPtr(s.GetCredentialsExpirationTime(req, template)),
+		CredentialName:        req.CredentialName,
+		CredentialDescription: req.CredentialDescription,
 	}
 
 	if err = s.extendTransactionWithOIDCConfig(ctx, profile, data); err != nil {

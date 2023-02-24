@@ -983,6 +983,12 @@ components:
             - type: string
             - type: object
           description: Credential in jws(string) or jsonld(object) formats.
+        credential_name:
+          type: string
+          description: Credential name
+        credential_description:
+          type: string
+          description: Credential description
         credential_template_id:
           type: string
           description: Credential template id
@@ -1224,6 +1230,12 @@ components:
           type: string
           format: date-time
           description: 'Date when credentials should be consider as expired'
+        credential_name:
+          type: string
+          description: Credential name
+        credential_description:
+          type: string
+          description: Credential description
         credential_template_id:
           type: string
           description: 'Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.'

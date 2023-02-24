@@ -145,9 +145,11 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			Claims: lo.ToPtr(map[string]interface{}{
 				"claim1": "value1",
 			}),
-			Credential:           nil,
-			CredentialTemplateId: lo.ToPtr("test_template"),
-			Options:              nil,
+			Credential:            nil,
+			CredentialTemplateId:  lo.ToPtr("test_template"),
+			Options:               nil,
+			CredentialDescription: lo.ToPtr("awesome"),
+			CredentialName:        lo.ToPtr("awesome2"),
 		}
 
 		b, _ := json.Marshal(req)

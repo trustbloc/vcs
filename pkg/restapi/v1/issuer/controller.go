@@ -249,7 +249,15 @@ func (c *Controller) buildCredentialsFromTemplate(
 			ID:           profile.SigningDID.DID,
 			CustomFields: *body.Claims,
 		},
-		Issued: util2.NewTime(time.Now()),
+		Issued:       util2.NewTime(time.Now()),
+		CustomFields: map[string]interface{}{},
+	}
+
+	if lo.FromPtr(body.CredentialDescription) != "" {
+		vcc.CustomFields["description"] = *body.CredentialDescription
+	}
+	if lo.FromPtr(body.CredentialName) != "" {
+		vcc.CustomFields["name"] = *body.CredentialName
 	}
 
 	if credentialTemplate.CredentialDefaultExpirationDuration != nil {
@@ -397,6 +405,8 @@ func (c *Controller) initiateIssuance(
 		ClaimData:                 lo.FromPtr(req.ClaimData),
 		UserPinRequired:           lo.FromPtr(req.UserPinRequired),
 		CredentialExpiresAt:       req.CredentialExpiresAt,
+		CredentialName:            lo.FromPtr(req.CredentialName),
+		CredentialDescription:     lo.FromPtr(req.CredentialDescription),
 	}
 
 	resp, err := c.oidc4ciService.InitiateIssuance(ctx, issuanceReq, profile)
