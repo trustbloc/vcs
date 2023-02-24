@@ -64,8 +64,14 @@ type InitiateOIDC4CIRequest struct {
 	// String containing wallet/holder application OIDC client wellknown configuration URL.
 	ClientWellknown *string `json:"client_wellknown,omitempty"`
 
+	// Credential description
+	CredentialDescription *string `json:"credential_description,omitempty"`
+
 	// Date when credentials should be consider as expired
 	CredentialExpiresAt *time.Time `json:"credential_expires_at,omitempty"`
+
+	// Credential name
+	CredentialName *string `json:"credential_name,omitempty"`
 
 	// Template of the credential to be issued while successfully concluding this interaction. REQUIRED, if the profile is configured to use multiple credential templates.
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
@@ -105,6 +111,12 @@ type IssueCredentialData struct {
 
 	// Credential in jws(string) or jsonld(object) formats.
 	Credential *interface{} `json:"credential,omitempty"`
+
+	// Credential description
+	CredentialDescription *string `json:"credential_description,omitempty"`
+
+	// Credential name
+	CredentialName *string `json:"credential_name,omitempty"`
 
 	// Credential template id
 	CredentialTemplateId *string `json:"credential_template_id,omitempty"`
