@@ -7,89 +7,154 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
-	"os"
-	"regexp"
-	"strings"
 	"time"
+
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 )
 
 type TestCase struct {
-	walletRunner *walletrunner.Service
-	httpClient   *http.Client
-	config       *TestCaseConfig
-	walletFileDB string
+	walletRunner         *walletrunner.Service
+	httpClient           *http.Client
+	vcsAPIURL            string
+	issuerProfileID      string
+	verifierProfileID    string
+	credentialTemplateID string
+	credentialType       string
+	credentialFormat     string
+	token                string
 }
 
-type TestCaseConfig struct {
-	DemoIssuerURL            string
-	DemoVerifierGetQRCodeURL string
-	ContextProviderURL       string
-	DIDKeyType               string
-	DIDMethod                string
-	CredentialType           string
-	CredentialFormat         string
+type TestCaseOptions struct {
+	vcProviderOptions    []vcprovider.ConfigOption
+	httpClient           *http.Client
+	vcsAPIURL            string
+	issuerProfileID      string
+	verifierProfileID    string
+	credentialTemplateID string
+	credentialType       string
+	credentialFormat     string
+	token                string
 }
 
-func NewTestCase(config *TestCaseConfig) (*TestCase, func(), error) {
-	walletFileDB, err := os.CreateTemp("", "wallet-*.db")
-	if err != nil {
-		return nil, func() {}, fmt.Errorf("create wallet file db: %w", err)
-	}
+type TestCaseOption func(opts *TestCaseOptions)
 
-	cleanup := func() {
-		_ = os.Remove(walletFileDB.Name())
-	}
-
-	runner, err := walletrunner.New(vcprovider.ProviderVCS,
-		func(c *vcprovider.Config) {
-			c.ContextProviderURL = config.ContextProviderURL
-			c.DidKeyType = config.DIDKeyType
-			c.DidMethod = config.DIDMethod
-			c.StorageProvider = "leveldb"
-			c.StorageProviderConnString = walletFileDB.Name()
-			c.InsecureTls = true
+func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
+	opts := &TestCaseOptions{
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
 		},
-	)
-	if err != nil {
-		cleanup()
-		return nil, cleanup, fmt.Errorf("create wallet runner: %w", err)
+		credentialFormat: "jwt_vc_json-ld",
 	}
 
-	httpClient := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		},
+	for _, opt := range options {
+		opt(opts)
+	}
+
+	if opts.vcsAPIURL == "" {
+		return nil, fmt.Errorf("vcs api url is empty")
+	}
+
+	if opts.issuerProfileID == "" {
+		return nil, fmt.Errorf("issuer profile id is empty")
+	}
+
+	if opts.verifierProfileID == "" {
+		return nil, fmt.Errorf("verifier profile id is empty")
+	}
+
+	if opts.credentialType == "" {
+		return nil, fmt.Errorf("credential type is empty")
+	}
+
+	runner, err := walletrunner.New(vcprovider.ProviderVCS, opts.vcProviderOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("create wallet runner: %w", err)
 	}
 
 	return &TestCase{
-		walletRunner: runner,
-		httpClient:   httpClient,
-		config:       config,
-	}, cleanup, nil
+		walletRunner:         runner,
+		httpClient:           opts.httpClient,
+		vcsAPIURL:            opts.vcsAPIURL,
+		issuerProfileID:      opts.issuerProfileID,
+		verifierProfileID:    opts.verifierProfileID,
+		credentialTemplateID: opts.credentialTemplateID,
+		credentialType:       opts.credentialType,
+		credentialFormat:     opts.credentialFormat,
+		token:                opts.token,
+	}, nil
+}
+
+func WithVCProviderOption(opt vcprovider.ConfigOption) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.vcProviderOptions = append(opts.vcProviderOptions, opt)
+	}
+}
+
+func WithHTTPClient(client *http.Client) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.httpClient = client
+	}
+}
+
+func WithVCSAPIURL(apiURL string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.vcsAPIURL = apiURL
+	}
+}
+
+func WithIssuerProfileID(issuerProfileID string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.issuerProfileID = issuerProfileID
+	}
+}
+
+func WithVerifierProfileID(verifierProfileID string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.verifierProfileID = verifierProfileID
+	}
+}
+
+func WithCredentialTemplateID(credentialTemplateID string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.credentialTemplateID = credentialTemplateID
+	}
+}
+
+func WithCredentialType(credentialType string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.credentialType = credentialType
+	}
+}
+
+func WithToken(token string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.token = token
+	}
 }
 
 type stressTestPerfInfo map[string]time.Duration
 
 func (c *TestCase) Invoke() (interface{}, error) {
-	initiateIssuanceURL, pin, err := c.fetchInitiateIssuanceURL(c.config.DemoIssuerURL)
+	credentialOfferURL, pin, err := c.fetchCredentialOfferURL()
 	if err != nil {
-		return nil, fmt.Errorf("fetch initiate issuance url: %w", err)
+		return nil, fmt.Errorf("fetch credential offer url: %w", err)
 	}
 
 	// run pre-auth flow and save credential in the wallet
 	if err = c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
-		InitiateIssuanceURL: initiateIssuanceURL,
-		CredentialType:      c.config.CredentialType,
-		CredentialFormat:    c.config.CredentialFormat,
+		InitiateIssuanceURL: credentialOfferURL,
+		CredentialType:      c.credentialType,
+		CredentialFormat:    c.credentialFormat,
 		Pin:                 pin,
 	}); err != nil {
 		return nil, fmt.Errorf("run pre-auth issuance: %w", err)
@@ -102,7 +167,7 @@ func (c *TestCase) Invoke() (interface{}, error) {
 	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID
 	providerConf.SkipSchemaValidation = true
 
-	authorizationRequest, err := c.fetchAuthorizationRequest(c.config.DemoVerifierGetQRCodeURL)
+	authorizationRequest, err := c.fetchAuthorizationRequest()
 	if err != nil {
 		return nil, fmt.Errorf("fetch authorization request: %w", err)
 	}
@@ -126,63 +191,108 @@ func (c *TestCase) Invoke() (interface{}, error) {
 	return perfInfo, nil
 }
 
-func (c *TestCase) fetchInitiateIssuanceURL(demoIssuerURL string) (string, string, error) {
-	resp, err := c.httpClient.Get(demoIssuerURL)
+func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
+	b, err := json.Marshal(&initiateOIDC4CIRequest{
+		ClaimData: &map[string]interface{}{
+			"type":              []string{"midyVerifiedPassport"},
+			"birthdate":         "1990-08-02",
+			"expiry_date":       "2029-05-06",
+			"doc_number":        "34234234123",
+			"doc_type":          "passport",
+			"given_name":        "Harry",
+			"issue_date":        "2019-05-06",
+			"nationality":       "CA",
+			"issuing_country":   "CA",
+			"issuing_authority": "CA",
+			"family_name":       "Tester",
+		},
+		CredentialTemplateId: c.credentialTemplateID,
+		UserPinRequired:      true,
+	})
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("marshal initiate oidc4ci request: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost,
+		fmt.Sprintf(
+			"%v/issuer/profiles/%v/interactions/initiate-oidc",
+			c.vcsAPIURL,
+			c.issuerProfileID,
+		),
+		bytes.NewBuffer(b))
+	if err != nil {
+		return "", "", fmt.Errorf("create initiate oidc4ci request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", c.token))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", "", fmt.Errorf("send initiate oidc4ci request: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("status code %d", resp.StatusCode)
+		return "", "", fmt.Errorf("initiate oidc4ci request failed: %v", resp.Status)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", "", err
+	if resp.Body != nil {
+		defer func() {
+			err = resp.Body.Close()
+			if err != nil {
+				logger.Error("failed to close response body", log.WithError(err))
+			}
+		}()
 	}
-	_ = resp.Body.Close()
 
-	parsedURL := string(body)
-	r := regexp.MustCompile(`(openid-vc://\?[^<]+)`)
-	parsedURL = r.FindString(parsedURL)
-	parsedURL, err = url.QueryUnescape(parsedURL)
-	parsedURL = strings.ReplaceAll(parsedURL, "&amp;", "&")
+	var parsedResp initiateOIDC4CIResponse
 
-	if parsedURL == "" {
-		return "", "", fmt.Errorf("initiate issuance url not found")
+	if err = json.NewDecoder(resp.Body).Decode(&parsedResp); err != nil {
+		return "", "", fmt.Errorf("decode initiate oidc4ci response: %w", err)
 	}
 
 	pin := ""
-	pinGroups := regexp.MustCompile(`<div id="pin">([^<]+)`).FindAllStringSubmatch(string(body), -1)
-	if len(pinGroups) == 1 {
-		if len(pinGroups[0]) == 2 {
-			pin = pinGroups[0][1]
-		}
+	if parsedResp.UserPin != nil {
+		pin = *parsedResp.UserPin
 	}
 
-	return parsedURL, pin, nil
+	return parsedResp.OfferCredentialURL, pin, nil
 }
 
-type GetQRCodeResponse struct {
-	QRText string `json:"qrText"`
-	TxID   string `json:"txID"`
-}
-
-func (c *TestCase) fetchAuthorizationRequest(qrCodeURL string) (string, error) {
-	resp, err := c.httpClient.Get(qrCodeURL)
+func (c *TestCase) fetchAuthorizationRequest() (string, error) {
+	req, err := http.NewRequest(http.MethodPost,
+		fmt.Sprintf(
+			"%s/verifier/profiles/%s/interactions/initiate-oidc",
+			c.vcsAPIURL,
+			c.verifierProfileID,
+		),
+		http.NoBody)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("create initiate oidc4vp request: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("status code %d", resp.StatusCode)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %v", c.token))
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("send initiate oidc4vp request: %w", err)
 	}
 
-	var qrCodeResp GetQRCodeResponse
-
-	if err = json.NewDecoder(resp.Body).Decode(&qrCodeResp); err != nil {
-		return "", err
+	if resp.Body != nil {
+		defer func() {
+			err = resp.Body.Close()
+			if err != nil {
+				logger.Error("failed to close response body", log.WithError(err))
+			}
+		}()
 	}
 
-	return qrCodeResp.QRText, nil
+	var parsedResp initiateOIDC4VPResponse
+
+	if err = json.NewDecoder(resp.Body).Decode(&parsedResp); err != nil {
+		return "", fmt.Errorf("decode initiate oidc4vp response: %w", err)
+	}
+
+	return parsedResp.AuthorizationRequest, nil
 }

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/vdrutil"
@@ -71,10 +73,14 @@ func (s *Service) CreateWallet() error {
 
 	token, err := s.wallet.Open(wallet.WithUnlockByPassphrase(s.vcProviderConf.WalletParams.Passphrase))
 	if err != nil {
-		return fmt.Errorf("unlock wallet: %w", err)
+		if !errors.Is(err, wallet.ErrAlreadyUnlocked) {
+			return fmt.Errorf("unlock wallet: %w", err)
+		}
 	}
 
-	s.vcProviderConf.WalletParams.Token = token
+	if token != "" {
+		s.vcProviderConf.WalletParams.Token = token
+	}
 
 	vdrService, err := orb.New(nil,
 		orb.WithDomain(s.vcProviderConf.DidDomain),

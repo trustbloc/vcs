@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"

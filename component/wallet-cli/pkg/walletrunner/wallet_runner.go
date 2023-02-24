@@ -56,6 +56,7 @@ type Service struct {
 	token          *oauth2.Token
 	perfInfo       *PerfInfo
 	vpFlowExecutor *VPFlowExecutor
+	keepWalletOpen bool
 	debug          bool
 }
 
@@ -101,6 +102,7 @@ func New(vcProviderType string, opts ...vcprovider.ConfigOption) (*Service, erro
 		httpClient:     httpClient,
 		perfInfo:       &PerfInfo{},
 		debug:          config.Debug,
+		keepWalletOpen: config.KeepWalletOpen,
 	}, nil
 }
 
