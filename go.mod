@@ -20,7 +20,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20230222063211-02f80847168a
+	github.com/hyperledger/aries-framework-go v0.1.9
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85
@@ -35,8 +35,8 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/samber/lo v1.37.0
 	github.com/stretchr/testify v1.8.1
-	github.com/trustbloc/kms v0.1.9-0.20230210163238-f6499467c9c5
-	github.com/trustbloc/logutil-go v0.0.0-20230126182954-5a79de16e7e0
+	github.com/trustbloc/kms v1.0.0-rc1
+	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
 	go.mongodb.org/mongo-driver v1.10.0
 	go.opentelemetry.io/otel v1.12.0
