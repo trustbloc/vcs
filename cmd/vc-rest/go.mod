@@ -9,7 +9,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.1.9-0.20230222063211-02f80847168a
+	github.com/hyperledger/aries-framework-go v0.1.9
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
@@ -20,7 +20,7 @@ require (
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.1
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/logutil-go v0.0.0-20230126182954-5a79de16e7e0
+	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vcs v0.1.8
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000a
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
@@ -161,7 +161,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.4 // indirect
-	github.com/trustbloc/kms v0.1.9-0.20230210163238-f6499467c9c5 // indirect
+	github.com/trustbloc/kms v1.0.0-rc1 // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect
