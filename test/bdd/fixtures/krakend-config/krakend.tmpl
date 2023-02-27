@@ -42,7 +42,11 @@
               {{ if $endpoint.backend_extra_config }}
               "extra_config": {{ marshal $endpoint.backend_extra_config }},
               {{ end }}
+              {{ if $endpoint.endpoint_override }}
+              "url_pattern": "{{ $endpoint.endpoint_override }}",
+              {{ else }}
               "url_pattern": "{{ $endpoint.endpoint }}",
+              {{ end }}
               "method": "{{ $endpoint.method }}",
               "encoding": "no-op"
             }
