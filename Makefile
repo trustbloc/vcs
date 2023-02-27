@@ -12,6 +12,7 @@ WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 OPENAPIGEN_VERSION 					?=v1.11.0
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
+ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 
 
@@ -78,7 +79,8 @@ sample-webhook-docker:
 	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(WEBHOOK_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) \
-	--build-arg GO_IMAGE=$(GO_IMAGE) .
+	--build-arg GO_IMAGE=$(GO_IMAGE) \
+	--build-arg ALPINE_IMAGE=$(ALPINE_IMAGE) .
 
 .PHONY: mock-login-consent-docker
 mock-login-consent-docker:

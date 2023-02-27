@@ -7,6 +7,7 @@
 ARG GO_VER
 ARG GO_IMAGE
 ARG ALPINE_VER
+ARG ALPINE_IMAGE
 
 FROM ${GO_IMAGE}:${GO_VER}-alpine${ALPINE_VER} as golang
 RUN apk add --no-cache \
@@ -26,6 +27,6 @@ ARG GOPROXY
 RUN GO_TAGS=${GO_TAGS} GOPROXY=${GOPROXY} make sample-webhook
 
 
-FROM alpine:${ALPINE_VER} as base
+FROM ${ALPINE_IMAGE}:${ALPINE_VER} as base
 COPY --from=aries-framework /go/src/github.com/hyperledger/aries-framework-go/build/bin/webhook-server /usr/local/bin
 CMD WEBHOOK_PORT=${WEBHOOK_PORT} webhook-server
