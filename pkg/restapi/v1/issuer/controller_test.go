@@ -1623,6 +1623,30 @@ func echoContext(opts ...contextOpt) echo.Context {
 	return e.NewContext(req, rec)
 }
 
+func TestBuildResponse(t *testing.T) {
+	c := Controller{}
+
+	t.Run("valid_url", func(t *testing.T) {
+		resp := c.buildOIDC4CIResponse("https://s3.local/file.json", "a", "b")
+		assert.Equal(t, "https://s3.local/file.json", *resp.CredentialOfferUri)
+		assert.Nil(t, resp.CredentialOffer)
+		assert.Equal(t, "a", resp.TxId)
+		assert.Equal(t, "b", *resp.UserPin)
+	})
+
+	t.Run("json object", func(t *testing.T) {
+		expected := "openid-credential-offer://credential_offer=%7B%22credential_issuer%22:%2" +
+			"2https://credential-issuer.example.com\n%22,%22credentials%22:%5B%7B%22format%22:%22jwt" +
+			"_vc_json%22,%22types%22:%5B%22VerifiableCr\nedential%22,%22UniversityDegreeCredential%22%" +
+			"5D%7D%5D,%22issuer_state%22:%22eyJhbGciOiJSU0Et...\nFYUaBy%22%7D"
+		resp := c.buildOIDC4CIResponse(expected, "a", "b")
+		assert.Nil(t, resp.CredentialOfferUri)
+		assert.Equal(t, expected, *resp.CredentialOffer)
+		assert.Equal(t, "a", resp.TxId)
+		assert.Equal(t, "b", *resp.UserPin)
+	})
+}
+
 func requireValidationError(t *testing.T, expectedCode resterr.ErrorCode, incorrectValueName string, actual error) {
 	require.IsType(t, &resterr.CustomError{}, actual)
 	actualErr := &resterr.CustomError{}

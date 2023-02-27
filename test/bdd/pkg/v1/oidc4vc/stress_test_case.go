@@ -256,7 +256,7 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 		pin = *parsedResp.UserPin
 	}
 
-	return parsedResp.OfferCredentialURL, pin, nil
+	return parsedResp.GetOfferCredential(), pin, nil
 }
 
 func (c *TestCase) fetchAuthorizationRequest() (string, error) {

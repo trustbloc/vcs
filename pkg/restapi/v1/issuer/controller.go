@@ -419,11 +419,26 @@ func (c *Controller) initiateIssuance(
 		return nil, resterr.NewSystemError("OIDC4CIService", "InitiateIssuance", err)
 	}
 
-	return &InitiateOIDC4CIResponse{
-		OfferCredentialURL: resp.InitiateIssuanceURL,
-		TxId:               string(resp.TxID),
-		UserPin:            lo.ToPtr(resp.UserPin),
-	}, nil
+	return c.buildOIDC4CIResponse(resp.InitiateIssuanceURL, string(resp.TxID), resp.UserPin), nil
+}
+
+func (c *Controller) buildOIDC4CIResponse(
+	initiateURL string,
+	txID string,
+	pin string,
+) *InitiateOIDC4CIResponse {
+	resp := &InitiateOIDC4CIResponse{
+		TxId:    txID,
+		UserPin: lo.ToPtr(pin),
+	}
+
+	if _, err := url.Parse(initiateURL); err == nil {
+		resp.CredentialOfferUri = &initiateURL
+	} else {
+		resp.CredentialOffer = &initiateURL
+	}
+
+	return resp
 }
 
 // PushAuthorizationDetails updates authorization details.

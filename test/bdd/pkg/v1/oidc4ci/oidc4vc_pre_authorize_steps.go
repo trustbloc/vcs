@@ -67,11 +67,11 @@ func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 }
 
 func (s *PreAuthorizeStep) parseUrl() error {
-	if !strings.HasPrefix(s.initiateResponse.OfferCredentialURL, "openid-credential-offer://") {
-		return fmt.Errorf("invalid prefix for initiateUrl. got %v", s.initiateResponse.OfferCredentialURL)
+	if !strings.HasPrefix(s.initiateResponse.GetOfferCredential(), "openid-credential-offer://") {
+		return fmt.Errorf("invalid prefix for initiateUrl. got %v", s.initiateResponse.GetOfferCredential())
 	}
 
-	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(s.initiateResponse.OfferCredentialURL, s.httpClient)
+	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(s.initiateResponse.GetOfferCredential(), s.httpClient)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance URL: %w", err)
 	}

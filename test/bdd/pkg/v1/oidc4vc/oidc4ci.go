@@ -112,7 +112,7 @@ func (s *Steps) initiateCredentialIssuance() error {
 		return fmt.Errorf("unmarshal initiate oidc4vc resp: %w", err)
 	}
 
-	s.initiateIssuanceURL = r.OfferCredentialURL
+	s.initiateIssuanceURL = r.GetOfferCredential()
 
 	return nil
 }

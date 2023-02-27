@@ -20,9 +20,18 @@ type initiateOIDC4CIRequest struct {
 }
 
 type initiateOIDC4CIResponse struct {
-	OfferCredentialURL string  `json:"offer_credential_URL"`
+	CredentialOffer    string  `json:"credential_offer"`
+	CredentialOfferUri string  `json:"credential_offer_uri"`
 	TxId               string  `json:"tx_id"`
 	UserPin            *string `json:"user_pin"`
+}
+
+func (i initiateOIDC4CIResponse) GetOfferCredential() string {
+	if i.CredentialOffer != "" {
+		return i.CredentialOffer
+	}
+
+	return i.CredentialOfferUri
 }
 
 type initiateOIDC4VPResponse struct {
