@@ -420,7 +420,7 @@ func (c *Controller) initiateIssuance(
 	}
 
 	return &InitiateOIDC4CIResponse{
-		OfferCredentialURL: resp.InitiateIssuanceURL,
+		OfferCredentialUrl: resp.InitiateIssuanceURL,
 		TxId:               string(resp.TxID),
 		UserPin:            lo.ToPtr(resp.UserPin),
 	}, nil
