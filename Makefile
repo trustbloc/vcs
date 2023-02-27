@@ -14,6 +14,7 @@ MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
+REVOCATION_ENDPOINT_PREFIX ?=issuer/profiles
 
 
 
@@ -92,7 +93,7 @@ mock-login-consent-docker:
 
 .PHONY: bdd-test
 bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
-	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
+	@cd test/bdd && REVOCATION_ENDPOINT_PREFIX=$(REVOCATION_ENDPOINT_PREFIX) go test -count=1 -v -cover . -p 1 -timeout=10m -race
 
 .PHONY: unit-test
 unit-test: generate

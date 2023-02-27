@@ -27,7 +27,7 @@ const (
 	issuerProfileURLFormat          = issuerProfileURL + "/%s"
 	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
 	OidcProviderURL                 = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
-	updateCredentialStatusURLFormat = issuerProfileURLFormat + "/credentials/status"
+	updateCredentialStatusURLFormat = "%s/%s/%s/credentials/status"
 )
 
 func getOrgAuthTokenKey(org string) string {

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -188,7 +189,13 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(updateCredentialStatusURLFormat, credentialServiceURL, profileName)
+	revocationEndpointPrefix := os.Getenv("REVOCATION_ENDPOINT_PREFIX")
+	if revocationEndpointPrefix == "" {
+		return fmt.Errorf("REVOCATION_ENDPOINT_PREFIX is empty")
+	}
+
+	endpointURL := fmt.Sprintf(
+		updateCredentialStatusURLFormat, credentialServiceURL, revocationEndpointPrefix, profileName)
 
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
