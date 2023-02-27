@@ -11,6 +11,8 @@ VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 OPENAPIGEN_VERSION 					?=v1.11.0
 MOCK_VERSION 	?=v1.7.0-rc.1
+GO_IMAGE 	?=golang
+
 
 # OpenAPI spec
 SWAGGER_DOCKER_IMG =quay.io/goswagger/swagger
@@ -73,14 +75,16 @@ sample-webhook-docker:
 	@echo "Building sample webhook server docker image"
 	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(WEBHOOK_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
-	--build-arg ALPINE_VER=$(ALPINE_VER) .
+	--build-arg ALPINE_VER=$(ALPINE_VER) \
+	--build-arg GO_IMAGE=$(GO_IMAGE) .
 
 .PHONY: mock-login-consent-docker
 mock-login-consent-docker:
 	@echo "Building mock login consent server"
 	@docker build -f ./images/mocks/loginconsent/Dockerfile --no-cache -t  vcs/mock-login-consent:latest \
 	--build-arg GO_VER=$(GO_VER) \
-	--build-arg ALPINE_VER=$(ALPINE_VER) test/bdd/loginconsent
+	--build-arg ALPINE_VER=$(ALPINE_VER) \
+	--build-arg GO_IMAGE=$(GO_IMAGE) test/bdd/loginconsent
 
 .PHONY: bdd-test
 bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker generate-test-keys build-krakend-plugin
