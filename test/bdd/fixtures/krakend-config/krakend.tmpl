@@ -29,6 +29,11 @@
         {{ end }}
         "backend": [
             {
+              {{ if $endpoint.backend_host }}
+              "host": [
+                "{{ $endpoint.backend_host }}"
+              ],
+              {{ end }}
               {{ if $endpoint.protected }}
               "extra_config": {
               {{ include "x_api_key_header.tmpl" }}

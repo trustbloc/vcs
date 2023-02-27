@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/common/model"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
 )
 
@@ -125,12 +126,40 @@ func (s *Service) getQueryValues(didRelativeURL string) (url.Values, error) {
 func (s *Service) getIdentityHubServiceEndpoint(did *did.Doc) (string, error) {
 	for _, service := range did.Service {
 		if service.Type == serviceTypeIdentityHub {
-			serviceEndpoint, err := service.ServiceEndpoint.URI()
-			if err != nil {
-				return "", fmt.Errorf("unable to get service endpoint URL: %w", err)
-			}
+			switch service.ServiceEndpoint.Type() {
+			case model.Generic:
+				serviceEndpoint, err := service.ServiceEndpoint.URI()
+				if err == nil {
+					return serviceEndpoint, nil
+				}
 
-			return serviceEndpoint, nil
+				serviceEndpointBytes, err := service.ServiceEndpoint.MarshalJSON()
+				if err != nil {
+					return "", fmt.Errorf("unable to marshal DIDCore service endpoint: %w", err)
+				}
+
+				var mapped map[string]interface{}
+				if err = json.Unmarshal(serviceEndpointBytes, &mapped); err != nil {
+					return "", fmt.Errorf("unable to unmarshal DIDCore service endpoint: %w", err)
+				}
+
+				for _, v := range mapped {
+					didCoreEndpoint := model.NewDIDCoreEndpoint(v)
+					serviceEndpoint, err = didCoreEndpoint.URI()
+					if err == nil {
+						return serviceEndpoint, nil
+					}
+				}
+
+				return "", fmt.Errorf("unable to extract DIDCore service endpoint")
+			default:
+				serviceEndpoint, err := service.ServiceEndpoint.URI()
+				if err != nil {
+					return "", fmt.Errorf("unable to get service endpoint URL: %w", err)
+				}
+
+				return serviceEndpoint, nil
+			}
 		}
 	}
 

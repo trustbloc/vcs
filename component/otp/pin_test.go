@@ -15,7 +15,7 @@ import (
 func TestPinGenerator(t *testing.T) {
 	gen := NewPinGenerator()
 	for i := 0; i < 100; i++ {
-		assert.Len(t, gen.Generate(), 6)
+		assert.Len(t, gen.Generate(""), 6)
 	}
 }
 

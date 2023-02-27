@@ -43,6 +43,27 @@ PKGS=`go list github.com/trustbloc/vcs/component/event/... 2> /dev/null | \
                                                  grep -v /mocks`
 go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
 amend_coverage_file
+cd "$pwd"
+
+# Running credentialstatus component unit tests
+echo "... done"
+echo "credentialstatus unit tests..."
+cd component/credentialstatus
+go generate ./...
+PKGS=`go list github.com/trustbloc/vcs/component/credentialstatus/... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd "$pwd"
+
+# Running otp component unit tests
+echo "... done"
+echo "otp unit tests..."
+cd component/otp
+PKGS=`go list github.com/trustbloc/vcs/component/otp/... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd "$pwd"
 
 echo "... done all unit-tests"
-cd "$pwd"
