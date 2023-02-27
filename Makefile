@@ -12,6 +12,8 @@ WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 OPENAPIGEN_VERSION 					?=v1.11.0
 MOCK_VERSION 	?=v1.7.0-rc.1
 GO_IMAGE 	?=golang
+OPENSSL_IMAGE ?=frapsoft/openssl
+
 
 
 # OpenAPI spec
@@ -102,7 +104,7 @@ generate-test-keys: clean
 	@docker run -i --platform linux/amd64 --rm \
 		-v $(abspath .):/opt/workspace/vcs \
 		--entrypoint /opt/workspace/vcs/scripts/generate_test_keys.sh \
-		frapsoft/openssl
+		$(OPENSSL_IMAGE)
 
 .PHONY: open-api-spec
 open-api-spec: clean
