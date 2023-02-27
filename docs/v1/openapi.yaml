@@ -1278,7 +1278,7 @@ components:
       type: object
       description: Model for Initiate OIDC Credential Issuance Response.
       properties:
-        offer_credential_URL:
+        offer_credential_url:
           type: string
           description: OIDC4CI initiate issuance URL to be used by the Issuer to pass relevant information to the Wallet to initiate issuance flow. Supports both HTTP GET and HTTP Redirect. Issuers may present QR code containing request data for users to scan from their mobile Wallet app.
         tx_id:
@@ -1288,7 +1288,7 @@ components:
           type: string
           description: Pre-authorized flow. Generated OTP pin for issuance.
       required:
-        - offer_credential_URL
+        - offer_credential_url
         - tx_id
       x-tags:
         - issuer
