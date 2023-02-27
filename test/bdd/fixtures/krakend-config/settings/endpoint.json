@@ -149,6 +149,16 @@
     {
       "endpoint": "/request-object/{uuid}",
       "method": "GET"
+    },
+    {
+      "endpoint": "/profiles/{profileID}/credentials/status",
+      "method": "POST",
+      "protected": true,
+      "backend_host": "http://credential-status-mgmt.trustbloc.local:8090",
+      "input_headers": [
+        "X-Tenant-ID",
+        "Content-Type"
+      ]
     }
   ]
 }

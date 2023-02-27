@@ -52,7 +52,7 @@ const (
 func validateVCStatus(t *testing.T, s *Service, expectedStatusListVCID string, expectedRevocationIndex int) {
 	t.Helper()
 
-	statusID, err := s.CreateStatusListEntry(profileID)
+	statusID, err := s.CreateStatusListEntry(profileID, credID)
 	require.NoError(t, err)
 	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.TypedID.Type)
 	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
@@ -118,7 +118,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get profile")
@@ -137,7 +137,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get kms")
@@ -158,7 +158,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "unsupported VCStatusListType")
@@ -186,7 +186,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -214,7 +214,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -236,7 +236,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to create CSL wrapper URL")
@@ -264,7 +264,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store csl in store")
@@ -292,7 +292,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -320,7 +320,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID)
+		status, err := s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store credential status")
@@ -407,7 +407,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(profileID)
+		statusListEntry, err := s.CreateStatusListEntry(profileID, credID)
 		require.NoError(t, err)
 
 		err = vcStore.Put(profileID, credID, statusListEntry.TypedID)
@@ -644,7 +644,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(profileID)
+		statusListEntry, err := s.CreateStatusListEntry(profileID, credID)
 		require.NoError(t, err)
 
 		require.NoError(t, s.updateVCStatus(statusListEntry.TypedID, getTestSigner(), true))
@@ -709,7 +709,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusListEntry(profileID)
+		_, err = s.CreateStatusListEntry(profileID, credID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})
