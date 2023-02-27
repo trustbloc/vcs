@@ -22,7 +22,7 @@ type initiateOIDC4CIRequest struct {
 }
 
 type initiateOIDC4CIResponse struct {
-	OfferCredentialURL string  `json:"offer_credential_URL"`
+	OfferCredentialURL string  `json:"offer_credential_url"`
 	TxId               string  `json:"tx_id"`
 	UserPin            *string `json:"user_pin"`
 }

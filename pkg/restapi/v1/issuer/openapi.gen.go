@@ -95,7 +95,7 @@ type InitiateOIDC4CIRequest struct {
 // Model for Initiate OIDC Credential Issuance Response.
 type InitiateOIDC4CIResponse struct {
 	// OIDC4CI initiate issuance URL to be used by the Issuer to pass relevant information to the Wallet to initiate issuance flow. Supports both HTTP GET and HTTP Redirect. Issuers may present QR code containing request data for users to scan from their mobile Wallet app.
-	OfferCredentialURL string `json:"offer_credential_URL"`
+	OfferCredentialUrl string `json:"offer_credential_url"`
 
 	// To be used by Issuer applications for correlation if needed.
 	TxId string `json:"tx_id"`
