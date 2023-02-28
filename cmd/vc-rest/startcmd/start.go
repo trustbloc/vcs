@@ -182,7 +182,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			opts = append(opts, WithHTTPHandler(e))
 
 			go func() {
-				if err = startServer(conf, ready, opts...); err != nil {
+				if err = startServer(conf, opts...); err != nil {
 					panic(err)
 				}
 			}()
@@ -681,7 +681,6 @@ func NewMetricsProvider(
 	switch parameters.metricsProviderName {
 	case "prometheus":
 		provider := promMetricsProvider.NewPrometheusProvider(internalEchoServer)
-		promMetricsProvider.NewHandler()
 
 		return provider, nil
 	default:
@@ -689,7 +688,7 @@ func NewMetricsProvider(
 	}
 }
 
-func startServer(conf *Configuration, ready *readiness, opts ...StartOpts) error {
+func startServer(conf *Configuration, opts ...StartOpts) error {
 	o := &startOpts{}
 
 	for _, opt := range opts {

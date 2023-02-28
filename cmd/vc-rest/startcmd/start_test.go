@@ -21,6 +21,7 @@ import (
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.mongodb.org/mongo-driver/bson"
@@ -434,6 +435,17 @@ func TestDidWeb(t *testing.T) {
 
 	_, err := v.Read("")
 	require.Error(t, err)
+}
+
+func TestGracefulSleep(t *testing.T) {
+	t.Run("with env", func(t *testing.T) {
+		t.Setenv("VC_REST_GRACEFUL_SHUTDOWN_DELAY_SEC", "50")
+		assert.Equal(t, 50*time.Second, getGracefulSleepDuration())
+	})
+
+	t.Run("default", func(t *testing.T) {
+		assert.Equal(t, defaultGracefulShutdownDuration, getGracefulSleepDuration())
+	})
 }
 
 func setEnvVars(t *testing.T, databaseType, filePath string) {
