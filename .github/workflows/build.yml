@@ -106,7 +106,7 @@ jobs:
         uses: christian-draeger/increment-semantic-version@1.0.2
         with:
           current-version: "${{ env.CURRENT_SEMVER }}"
-          version-fragment: 'bug'
+          version-fragment: 'rc'
 
       - name: Set ENV vars
         run: |
