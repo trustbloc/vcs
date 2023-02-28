@@ -31,6 +31,7 @@ import (
 var logger = log.New("vc-rest")
 
 func main() {
+	//_ = godotenv.Load(".env")
 	rootCmd := &cobra.Command{
 		Use: "vc-rest",
 		Run: func(cmd *cobra.Command, args []string) {

@@ -14,7 +14,10 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -44,6 +47,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 
+	echoPrometheus "github.com/globocom/echo-prometheus"
+
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
 	"github.com/trustbloc/vcs/component/event"
@@ -58,7 +63,6 @@ import (
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/healthcheck"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
@@ -85,9 +89,10 @@ import (
 )
 
 const (
-	healthCheckEndpoint  = "/healthcheck"
-	oidc4VPCheckEndpoint = "/oidc/present"
-	cslSize              = 1000
+	healthCheckEndpoint             = "/healthcheck"
+	oidc4VPCheckEndpoint            = "/oidc/present"
+	defaultGracefulShutdownDuration = 5 * time.Second
+	cslSize                         = 1000
 )
 
 var logger = log.New("vc-rest")
@@ -134,6 +139,9 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 		Short: "Start vc-rest",
 		Long:  "Start vc-rest inside the vcs",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			sig := make(chan os.Signal, 1)
+			signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+
 			params, err := getStartupParameters(cmd)
 			if err != nil {
 				return fmt.Errorf("failed to get startup parameters: %w", err)
@@ -156,19 +164,56 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			}
 			defer stopTracingProvider()
 
-			var e *echo.Echo
+			internalEchoAddress := conf.StartupParameters.prometheusMetricsProviderParams.url
+			internalEcho, ready := buildInternalEcho()
+			go func() {
+				if err = internalEcho.Start(internalEchoAddress); err != nil {
+					panic(fmt.Errorf("can not start internal echo handler on address [%v] with error : %w",
+						internalEchoAddress, err))
+				}
+			}()
 
-			e, err = buildEchoHandler(conf, cmd)
+			var e *echo.Echo
+			e, err = buildEchoHandler(conf, cmd, internalEcho)
 			if err != nil {
 				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
 
 			opts = append(opts, WithHTTPHandler(e))
 
-			return startServer(conf, opts...)
+			go func() {
+				if err = startServer(conf, ready, opts...); err != nil {
+					panic(err)
+				}
+			}()
+
+			ready.Ready(true)
+			sg := <-sig
+			ready.Ready(false)
+			shutdownDuration := getGracefulSleepDuration()
+
+			logger.Info(fmt.Sprintf("[Graceful Shutdown] GOT SIGNAL %v", sg.String()))
+			logger.Info(fmt.Sprintf("[Graceful Shutdown] Sleeping for %v", shutdownDuration.String()))
+			time.Sleep(shutdownDuration)
+			logger.Info("[Graceful Shutdown] Exit")
+
+			return nil
 		},
 	}
 }
+
+func getGracefulSleepDuration() time.Duration {
+	currentSec := os.Getenv("VC_REST_GRACEFUL_SHUTDOWN_DELAY_SEC")
+
+	if len(currentSec) > 0 {
+		if v, err := strconv.Atoi(currentSec); err == nil {
+			return time.Duration(v) * time.Second
+		}
+	}
+
+	return defaultGracefulShutdownDuration
+}
+
 func createEcho() *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
@@ -183,11 +228,26 @@ func createEcho() *echo.Echo {
 	return e
 }
 
-// buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
-func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, error) {
-	e := createEcho()
+func buildInternalEcho() (*echo.Echo, *readiness) {
+	e := echo.New()
+	e.HideBanner = true
+	e.Use(echomw.Recover())
+	e.GET(healthCheckEndpoint, func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+	ready := newReadinessController(e)
 
-	metrics, err := NewMetrics(conf.StartupParameters)
+	return e, ready
+}
+
+// buildEchoHandler builds an HTTP handler based on Echo web framework (https://echo.labstack.com).
+func buildEchoHandler(
+	conf *Configuration,
+	cmd *cobra.Command,
+	internalEchoServer *echo.Echo,
+) (*echo.Echo, error) {
+	e := createEcho()
+	metrics, err := NewMetrics(conf.StartupParameters, e)
 	if err != nil {
 		return nil, err
 	}
@@ -208,9 +268,6 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 	if conf.StartupParameters.tracingParams.provider != "" {
 		e.Use(otelecho.Middleware(""))
 	}
-
-	// Handlers
-	healthcheck.RegisterHandlers(e, &healthcheck.Controller{})
 
 	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}
 
@@ -506,7 +563,7 @@ func buildEchoHandler(conf *Configuration, cmd *cobra.Command) (*echo.Echo, erro
 		devapi.RegisterHandlers(e, devController)
 	}
 
-	metricsProvider, err := NewMetricsProvider(conf.StartupParameters)
+	metricsProvider, err := NewMetricsProvider(conf.StartupParameters, internalEchoServer)
 	if err != nil {
 		return nil, err
 	}
@@ -607,40 +664,32 @@ func getHTTPClient(tlsConfig *tls.Config, params *startupParameters) *http.Clien
 	}
 }
 
-func NewMetrics(parameters *startupParameters) (metricsProvider.Metrics, error) {
+func NewMetrics(parameters *startupParameters, e *echo.Echo) (metricsProvider.Metrics, error) {
 	switch parameters.metricsProviderName {
 	case "prometheus":
+		e.Use(echoPrometheus.MetricsMiddleware())
 		return promMetricsProvider.GetMetrics(), nil
 	default:
 		return noopMetricsProvider.GetMetrics(), nil
 	}
 }
 
-type httpServerHandler struct {
-	handler func(writer http.ResponseWriter, request *http.Request)
-}
-
-func (h *httpServerHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	h.handler(writer, request)
-}
-
-func NewMetricsProvider(parameters *startupParameters) (metricsProvider.Provider, error) {
+func NewMetricsProvider(
+	parameters *startupParameters,
+	internalEchoServer *echo.Echo,
+) (metricsProvider.Provider, error) {
 	switch parameters.metricsProviderName {
 	case "prometheus":
-		h := &httpServerHandler{handler: promMetricsProvider.NewHandler().Handler()}
+		provider := promMetricsProvider.NewPrometheusProvider(internalEchoServer)
+		promMetricsProvider.NewHandler()
 
-		metricsHttpServer := &http.Server{
-			Addr:    parameters.prometheusMetricsProviderParams.url,
-			Handler: h,
-		}
-
-		return promMetricsProvider.NewPrometheusProvider(metricsHttpServer), nil
+		return provider, nil
 	default:
 		return nil, nil
 	}
 }
 
-func startServer(conf *Configuration, opts ...StartOpts) error {
+func startServer(conf *Configuration, ready *readiness, opts ...StartOpts) error {
 	o := &startOpts{}
 
 	for _, opt := range opts {
@@ -666,10 +715,6 @@ func startServer(conf *Configuration, opts ...StartOpts) error {
 }
 
 func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, token string) bool {
-	if r.RequestURI == healthCheckEndpoint {
-		return true
-	}
-
 	actHdr := r.Header.Get("Authorization")
 	expHdr := "Bearer " + token
 

@@ -26,20 +26,6 @@ tags:
   - name: healthcheck
     description: server health check
 paths:
-  /healthcheck:
-    get:
-      summary: Health Check
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/HealthCheckResponse'
-      operationId: get-healthcheck
-      description: Returns server health check status.
-      tags:
-        - healthcheck
   '/{profileType}/profiles/{profileID}/well-known/did-config':
     parameters:
       - schema:

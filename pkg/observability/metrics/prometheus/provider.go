@@ -9,11 +9,12 @@ package prometheus
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/observability/metrics"
@@ -27,11 +28,11 @@ var (
 )
 
 type promProvider struct {
-	httpServer *http.Server
+	httpServer *echo.Echo
 }
 
 // NewPrometheusProvider creates new instance of Prometheus Metrics Provider.
-func NewPrometheusProvider(httpServer *http.Server) metrics.Provider {
+func NewPrometheusProvider(httpServer *echo.Echo) metrics.Provider {
 	return &promProvider{httpServer: httpServer}
 }
 
@@ -41,15 +42,15 @@ func (pp *promProvider) Create() error {
 		return fmt.Errorf("metrics HTTP server is nil, cannot start it")
 	}
 
-	go func() {
-		logger.Info("Starting vcs metrics server", log.WithURL(pp.httpServer.Addr))
-
-		if err := pp.httpServer.ListenAndServe(); err != nil {
-			logger.Error("Start metrics HTTP server failed", log.WithError(err))
-		}
-
-		logger.Info("Metrics server has stopped")
-	}()
+	pp.httpServer.GET("/metrics", func(c echo.Context) error {
+		promhttp.HandlerFor(prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				// Opt into OpenMetrics to support exemplars.
+				EnableOpenMetrics: true,
+			},
+		).ServeHTTP(c.Response().Writer, c.Request())
+		return nil
+	})
 
 	return nil
 }
