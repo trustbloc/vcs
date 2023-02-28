@@ -247,14 +247,12 @@ func TestStartCmdValidArgs(t *testing.T) {
 	}
 
 	startCmd.SetArgs(args)
-	ctx, cancel := context.WithCancel(context.TODO())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Second)
 	startCmd.SetContext(ctx)
-	go func() {
-		cancel()
-	}()
 
 	err = startCmd.Execute()
 	require.Nil(t, err)
+	cancel()
 }
 
 func TestStartCmdWithEchoHandler(t *testing.T) {
