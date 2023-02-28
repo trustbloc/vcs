@@ -245,11 +245,12 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + tracingProviderFlagName, tracing.ProviderJaeger,
 		"--" + tracingCollectorURLFlagName, "http://yaeger.local.com",
 	}
-	startCmd.SetArgs(args)
 
-	sig = make(chan os.Signal, 1)
+	startCmd.SetArgs(args)
+	ctx, cancel := context.WithCancel(context.TODO())
+	startCmd.SetContext(ctx)
 	go func() {
-		sig <- os.Kill
+		cancel()
 	}()
 
 	err = startCmd.Execute()
@@ -282,10 +283,10 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + profilePathFlag, file.Name(),
 	}
 	startCmd.SetArgs(args)
-
-	sig = make(chan os.Signal, 1)
+	ctx, cancel := context.WithCancel(context.TODO())
+	startCmd.SetContext(ctx)
 	go func() {
-		sig <- os.Kill
+		cancel()
 	}()
 
 	err = startCmd.Execute()
@@ -312,9 +313,10 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 
 	defer unsetEnvVars(t)
 
-	sig = make(chan os.Signal, 1)
+	ctx, cancel := context.WithCancel(context.TODO())
+	startCmd.SetContext(ctx)
 	go func() {
-		sig <- os.Kill
+		cancel()
 	}()
 	err = startCmd.Execute()
 	require.NoError(t, err)

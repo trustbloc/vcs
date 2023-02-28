@@ -14,7 +14,6 @@ import (
 	"strconv"
 
 	"github.com/cucumber/godog"
-	"github.com/tidwall/gjson"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
@@ -38,7 +37,6 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^I make an HTTP GET to "([^"]*)"$`, s.httpGet)
 	sc.Step(`^I receive response with status code "([^"]*)"$`, s.checkResponseStatus)
-	sc.Step(`^response contains "([^"]*)" with value "([^"]*)"$`, s.checkResponseValue)
 }
 
 func (s *Steps) httpGet(url string) error {
@@ -78,16 +76,6 @@ func (s *Steps) checkResponseStatus(status string) error {
 
 	if s.responseStatus != code {
 		return fmt.Errorf("expected %d, got %d", code, s.responseStatus)
-	}
-
-	return nil
-}
-
-func (s *Steps) checkResponseValue(path, value string) error {
-	res := gjson.Get(string(s.responseBody), path)
-
-	if res.Str != value {
-		return fmt.Errorf("got %q", res.Str)
 	}
 
 	return nil

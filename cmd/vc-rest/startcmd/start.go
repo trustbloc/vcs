@@ -133,14 +133,18 @@ func GetStartCmd(opts ...StartOpts) *cobra.Command {
 	return startCmd
 }
 
-var sig = make(chan os.Signal, 1)
-
 func createStartCmd(opts ...StartOpts) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start vc-rest",
 		Long:  "Start vc-rest inside the vcs",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			sig := make(chan os.Signal, 1)
+			go func() {
+				<-cmd.Context().Done()
+				sig <- syscall.SIGINT
+			}()
+
 			signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
 			params, err := getStartupParameters(cmd)
