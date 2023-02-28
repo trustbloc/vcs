@@ -172,9 +172,10 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			internalEchoAddress := conf.StartupParameters.prometheusMetricsProviderParams.url
 			internalEcho, ready := buildInternalEcho()
 			go func() {
-				if err = internalEcho.Start(internalEchoAddress); err != nil && err != http.ErrServerClosed {
+				if internalErr := internalEcho.Start(internalEchoAddress); internalErr != nil &&
+					internalErr != http.ErrServerClosed {
 					panic(fmt.Errorf("can not start internal echo handler on address [%v] with error : %w",
-						internalEchoAddress, err))
+						internalEchoAddress, internalErr))
 				}
 			}()
 
@@ -187,8 +188,9 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			opts = append(opts, WithHTTPHandler(e))
 
 			go func() {
-				if err = startServer(conf, opts...); err != nil && err != http.ErrServerClosed {
-					panic(err)
+				if internalErr := startServer(conf, opts...); internalErr != nil &&
+					internalErr != http.ErrServerClosed {
+					panic(internalErr)
 				}
 			}()
 
