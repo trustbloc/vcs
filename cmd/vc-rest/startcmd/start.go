@@ -91,7 +91,7 @@ import (
 const (
 	healthCheckEndpoint             = "/healthcheck"
 	oidc4VPCheckEndpoint            = "/oidc/present"
-	defaultGracefulShutdownDuration = 5 * time.Second
+	defaultGracefulShutdownDuration = 1 * time.Second
 	cslSize                         = 1000
 )
 
@@ -133,13 +133,14 @@ func GetStartCmd(opts ...StartOpts) *cobra.Command {
 	return startCmd
 }
 
+var sig = make(chan os.Signal, 1)
+
 func createStartCmd(opts ...StartOpts) *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
 		Short: "Start vc-rest",
 		Long:  "Start vc-rest inside the vcs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
 			params, err := getStartupParameters(cmd)
@@ -167,7 +168,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			internalEchoAddress := conf.StartupParameters.prometheusMetricsProviderParams.url
 			internalEcho, ready := buildInternalEcho()
 			go func() {
-				if err = internalEcho.Start(internalEchoAddress); err != nil {
+				if err = internalEcho.Start(internalEchoAddress); err != nil && err != http.ErrServerClosed {
 					panic(fmt.Errorf("can not start internal echo handler on address [%v] with error : %w",
 						internalEchoAddress, err))
 				}
@@ -182,7 +183,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			opts = append(opts, WithHTTPHandler(e))
 
 			go func() {
-				if err = startServer(conf, opts...); err != nil {
+				if err = startServer(conf, opts...); err != nil && err != http.ErrServerClosed {
 					panic(err)
 				}
 			}()
@@ -195,6 +196,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			logger.Info(fmt.Sprintf("[Graceful Shutdown] GOT SIGNAL %v", sg.String()))
 			logger.Info(fmt.Sprintf("[Graceful Shutdown] Sleeping for %v", shutdownDuration.String()))
 			time.Sleep(shutdownDuration)
+			_ = internalEcho.Close()
 			logger.Info("[Graceful Shutdown] Exit")
 
 			return nil

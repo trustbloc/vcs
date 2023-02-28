@@ -269,7 +269,8 @@ const (
 
 	splitRequestTokenLength = 2
 
-	defaultTracingServiceName = "vcs"
+	defaultTracingServiceName    = "vcs"
+	defaultInternalServerAddress = "0.0.0.0:50321"
 )
 
 const (
@@ -378,9 +379,9 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	var prometheusMetricsProviderParams *prometheusMetricsProviderParams
+	var prometheusMetricsProviderParamsVal *prometheusMetricsProviderParams
 	if metricsProviderName == "prometheus" {
-		prometheusMetricsProviderParams, err = getPrometheusMetricsProviderParams(cmd)
+		prometheusMetricsProviderParamsVal, err = getPrometheusMetricsProviderParams(cmd)
 	}
 	if err != nil {
 		return nil, err
@@ -529,6 +530,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		credentialOfferRepositoryS3RegionEnvKey,
 	)
 
+	if prometheusMetricsProviderParamsVal == nil {
+		prometheusMetricsProviderParamsVal = &prometheusMetricsProviderParams{
+			url: defaultInternalServerAddress,
+		}
+	}
+
 	return &startupParameters{
 		hostURL:                             hostURL,
 		hostURLExternal:                     hostURLExternal,
@@ -547,7 +554,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		oAuthSecret:                         oAuthSecret,
 		oAuthClientsFilePath:                oAuthClientsFilePath,
 		metricsProviderName:                 metricsProviderName,
-		prometheusMetricsProviderParams:     prometheusMetricsProviderParams,
+		prometheusMetricsProviderParams:     prometheusMetricsProviderParamsVal,
 		apiGatewayURL:                       apiGatewayURL,
 		requestObjectRepositoryType:         requestObjectRepositoryType,
 		requestObjectRepositoryS3Bucket:     requestObjectRepositoryS3Bucket,

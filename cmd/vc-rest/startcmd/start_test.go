@@ -247,8 +247,12 @@ func TestStartCmdValidArgs(t *testing.T) {
 	}
 	startCmd.SetArgs(args)
 
-	err = startCmd.Execute()
+	sig = make(chan os.Signal, 1)
+	go func() {
+		sig <- os.Kill
+	}()
 
+	err = startCmd.Execute()
 	require.Nil(t, err)
 }
 
@@ -279,6 +283,11 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 	}
 	startCmd.SetArgs(args)
 
+	sig = make(chan os.Signal, 1)
+	go func() {
+		sig <- os.Kill
+	}()
+
 	err = startCmd.Execute()
 
 	require.Nil(t, err)
@@ -303,6 +312,10 @@ func TestStartCmdValidArgsEnvVar(t *testing.T) {
 
 	defer unsetEnvVars(t)
 
+	sig = make(chan os.Signal, 1)
+	go func() {
+		sig <- os.Kill
+	}()
 	err = startCmd.Execute()
 	require.NoError(t, err)
 }
