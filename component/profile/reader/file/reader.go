@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -39,11 +40,16 @@ const (
 
 var logger = log.New("vc-rest")
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // Config contain config.
 type Config struct {
 	KMSRegistry *vcskms.Registry
 	TLSConfig   *tls.Config
 	CMD         *cobra.Command
+	HTTPClient  httpClient
 }
 
 // IssuerReader read issuer profiles.

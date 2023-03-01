@@ -10,7 +10,6 @@ package credentialstatus
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -23,6 +22,7 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
+
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
@@ -71,7 +71,7 @@ type kmsRegistry interface {
 }
 
 type Config struct {
-	TLSConfig      *tls.Config
+	HTTPClient     httpClient
 	RequestTokens  map[string]string
 	VDR            vdrapi.Registry
 	CSLStore       credentialstatus.CSLStore
@@ -101,7 +101,7 @@ type Service struct {
 // New returns new Credential Status service.
 func New(config *Config) (*Service, error) {
 	return &Service{
-		httpClient:     &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		httpClient:     config.HTTPClient,
 		requestTokens:  config.RequestTokens,
 		vdr:            config.VDR,
 		cslStore:       config.CSLStore,

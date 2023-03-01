@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package noop
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/trustbloc/vcs/pkg/observability/metrics"
@@ -23,3 +24,8 @@ func GetMetrics() metrics.Metrics {
 func (n *NoMetrics) SignTime(_ time.Duration)                             {}
 func (n *NoMetrics) CheckAuthorizationResponseTime(_ time.Duration)       {}
 func (n *NoMetrics) VerifyOIDCVerifiablePresentationTime(_ time.Duration) {}
+
+// InstrumentHTTPTransport simply returns the provided transport.
+func (n *NoMetrics) InstrumentHTTPTransport(_ metrics.ClientID, transport http.RoundTripper) http.RoundTripper {
+	return transport
+}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package metrics
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -31,6 +32,30 @@ const (
 	// Service operations.
 	Service      = "service"
 	VerifyOIDCVP = "service_verifyOIDCVerifiablePresentation_seconds"
+
+	// HTTPServer HTTP server subsystem.
+	HTTPServer = "httpserver"
+
+	// HTTPClient HTTP client subsystem.
+	HTTPClient                 = "httpclient"
+	HTTPClientInFlightRequests = "in_flight_requests"
+	HTTPClientTotalRequests    = "requests_total"
+	HTTPClientRequestDuration  = "request_duration_seconds"
+)
+
+// ClientID defines the ID of the client.
+type ClientID string
+
+const (
+	ClientPreAuth           ClientID = "preauthorize"
+	ClientIssuerProfile     ClientID = "issuer-profile"
+	ClientVerifierProfile   ClientID = "verifier-profile"
+	ClientCredentialStatus  ClientID = "credential-status" //nolint:gosec
+	ClientOIDC4CI           ClientID = "oidc4ci"
+	ClientOIDC4CIV1         ClientID = "oidc4civ1"
+	ClientOIDC4PV1          ClientID = "oidc4pv1"
+	ClientWellKnown         ClientID = "wellknown"
+	ClientIssuerInteraction ClientID = "issuer-interaction"
 )
 
 // Provider is an interface for metrics provider.
@@ -50,4 +75,6 @@ type Metrics interface {
 	SignTime(value time.Duration)
 	CheckAuthorizationResponseTime(value time.Duration)
 	VerifyOIDCVerifiablePresentationTime(value time.Duration)
+
+	InstrumentHTTPTransport(ClientID, http.RoundTripper) http.RoundTripper
 }
