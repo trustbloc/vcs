@@ -8,6 +8,7 @@ require (
 	github.com/aws/aws-sdk-go v1.43.9
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/deepmap/oapi-codegen v1.11.0
+	github.com/globocom/echo-prometheus v0.1.2
 	github.com/google/uuid v1.3.0
 	github.com/hyperledger/aries-framework-go v0.1.9
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c

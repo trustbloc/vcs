@@ -7,16 +7,16 @@ SPDX-License-Identifier: Apache-2.0
 package prometheus
 
 import (
-	"net/http"
 	"testing"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPromProvider(t *testing.T) {
-	provider := NewPrometheusProvider(&http.Server{})
+	provider := NewPrometheusProvider(echo.New())
 	require.NotNil(t, provider)
 
 	err := provider.Create()
