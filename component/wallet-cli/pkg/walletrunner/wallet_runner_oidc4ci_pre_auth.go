@@ -15,6 +15,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
@@ -108,7 +109,15 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		return fmt.Errorf("add credential to wallet: %w", err)
 	}
 
-	log.Printf("Credential with type [%v] added successfully", config.CredentialType)
+	vcParsed, err := verifiable.ParseCredential(b,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(
+			s.ariesServices.JSONLDDocumentLoader()))
+	if err != nil {
+		return fmt.Errorf("parse vc: %w", err)
+	}
+
+	log.Printf("Credential with ID [%s] and type [%v] added successfully", vcParsed.ID, config.CredentialType)
 
 	if !s.keepWalletOpen {
 		s.wallet.Close()
