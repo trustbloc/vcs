@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	didkey "github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	"github.com/samber/lo"
@@ -165,7 +166,15 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 		return fmt.Errorf("add credential: %w", err)
 	}
 
-	log.Printf("Credential with type [%v] added successfully", config.CredentialType)
+	vcParsed, err := verifiable.ParseCredential(b,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(
+			s.ariesServices.JSONLDDocumentLoader()))
+	if err != nil {
+		return fmt.Errorf("parse vc: %w", err)
+	}
+
+	log.Printf("Credential with ID [%s] and type [%v] added successfully", vcParsed.ID, config.CredentialType)
 
 	s.wallet.Close()
 
