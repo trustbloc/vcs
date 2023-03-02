@@ -17,3 +17,4 @@ Feature: Request DID Config
       | issuer      | i_myprofile_ud_es256_jwt  | jwt            |
       | verifier    | v_myprofile_ldp           | ldp            |
       | verifier    | v_myprofile_jwt           | jwt            |
+      | verifier    | v_myprofile_multivp_jwt   | jwt            |

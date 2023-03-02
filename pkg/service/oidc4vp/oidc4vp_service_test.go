@@ -274,7 +274,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Success - two VP tokens (not merged)", func(t *testing.T) {
+	t.Run("Success - two VP tokens (merged)", func(t *testing.T) {
 		var descriptors []*presexch.InputDescriptor
 		err := json.Unmarshal([]byte(twoInputDescriptors), &descriptors)
 		require.NoError(t, err)
@@ -283,33 +283,6 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			InputDescriptors: descriptors,
 		}
 
-		ps1 := &presexch.PresentationSubmission{
-			DescriptorMap: []*presexch.InputDescriptorMapping{
-				{
-					ID:   defs.InputDescriptors[0].ID,
-					Path: "$",
-					PathNested: &presexch.InputDescriptorMapping{
-						ID:   defs.InputDescriptors[0].ID,
-						Path: "$.verifiableCredential[0]",
-					},
-				},
-			},
-		}
-
-		ps2 := &presexch.PresentationSubmission{
-			DescriptorMap: []*presexch.InputDescriptorMapping{
-				{
-					ID:   defs.InputDescriptors[1].ID,
-					Path: "$",
-					PathNested: &presexch.InputDescriptorMapping{
-						ID:   defs.InputDescriptors[1].ID,
-						Path: "$.verifiableCredential[0]",
-					},
-				},
-			},
-		}
-
-		/* TODO: Talk to Sudesh/Filip about when to use merged submission and how to configure/construct it
 		mergedPS := &presexch.PresentationSubmission{
 			DescriptorMap: []*presexch.InputDescriptorMapping{
 				{
@@ -330,12 +303,11 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 				},
 			},
 		}
-		*/
 
 		testLoader := testutil.DocumentLoader(t)
 
-		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, agent, ps1, "PhDDegree")
-		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, agent, ps2, "BachelorDegree")
+		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, agent, mergedPS, "PhDDegree")
+		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, agent, mergedPS, "BachelorDegree")
 
 		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
 			switch issuerID {
@@ -384,6 +356,94 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			})
 
 		require.NoError(t, err)
+	})
+
+	t.Run("Error - Two VP tokens without presentation ID", func(t *testing.T) {
+		var descriptors []*presexch.InputDescriptor
+		err := json.Unmarshal([]byte(twoInputDescriptors), &descriptors)
+		require.NoError(t, err)
+
+		defs := &presexch.PresentationDefinition{
+			InputDescriptors: descriptors,
+		}
+
+		mergedPS := &presexch.PresentationSubmission{
+			DescriptorMap: []*presexch.InputDescriptorMapping{
+				{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$[0]",
+					PathNested: &presexch.InputDescriptorMapping{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+				{
+					ID:   defs.InputDescriptors[1].ID,
+					Path: "$[1]",
+					PathNested: &presexch.InputDescriptorMapping{
+						ID:   defs.InputDescriptors[1].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+			},
+		}
+
+		testLoader := testutil.DocumentLoader(t)
+
+		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, agent, mergedPS, "PhDDegree")
+		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, agent, mergedPS, "BachelorDegree")
+
+		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
+			switch issuerID {
+			case issuer1:
+				return pubKeyFetcher1(issuerID, keyID)
+
+			case issuer2:
+				return pubKeyFetcher2(issuerID, keyID)
+			}
+
+			return nil, fmt.Errorf("unexpected issuer")
+		}
+
+		txManager2 := NewMockTransactionManager(gomock.NewController(t))
+
+		s2 := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
+			TransactionManager:   txManager2,
+			PresentationVerifier: presentationVerifier,
+			ProfileService:       profileService,
+			DocumentLoader:       testLoader,
+			PublicKeyFetcher:     combinedFetcher,
+		})
+
+		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
+			ID:                     "txID1",
+			ProfileID:              "testP1",
+			PresentationDefinition: defs,
+		}, true, nil)
+
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
+
+		vp1.ID = ""
+		vp2.ID = ""
+
+		err = s2.VerifyOIDCVerifiablePresentation("txID1",
+			[]*oidc4vp.ProcessedVPToken{
+				{
+					Nonce:        "nonce1",
+					Presentation: vp1,
+					Signer:       issuer1,
+				},
+				{
+					Nonce:        "nonce1",
+					Presentation: vp2,
+					Signer:       issuer2,
+				},
+			})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate presentation ID: ")
 	})
 
 	t.Run("Must have at least one token", func(t *testing.T) {

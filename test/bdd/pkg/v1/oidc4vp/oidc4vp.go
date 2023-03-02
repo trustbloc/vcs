@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
@@ -102,6 +103,23 @@ func (e *Steps) initiateInteraction(profileName, organizationName string) error 
 			RetrieveInteractionsClaimURLFormat: retrieveInteractionsClaimURLFormat,
 		},
 	}
+
+	provider := &ariesServices{}
+
+	provider.storageProvider = mem.NewProvider()
+
+	ldStore, err := createLDStore(provider.storageProvider)
+	if err != nil {
+		return err
+	}
+
+	loader, err := createJSONLDDocumentLoader(ldStore, e.tlsConfig,
+		[]string{contextProviderURL}, false)
+	if err != nil {
+		return fmt.Errorf("create document loader: %w", err)
+	}
+
+	e.vpFlowExecutor.jSONLDDocumentLoader = loader
 
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	return e.vpFlowExecutor.initiateInteraction(profileName, token)

@@ -189,7 +189,7 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 	startTime := time.Now()
 
 	err := r.steps.createCredential(r.issuerUrl, r.credential, r.vcFormat, r.issuerProfileName,
-		r.organizationName)
+		r.organizationName, 0)
 	if err != nil {
 		return nil, fmt.Errorf("create vc %w", err)
 	}

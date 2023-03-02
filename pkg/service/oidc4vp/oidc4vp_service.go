@@ -35,6 +35,8 @@ import (
 
 var logger = log.New("oidc4vp-service")
 
+const vpSubmissionProperty = "presentation_submission"
+
 var ErrDataNotFound = errors.New("data not found")
 
 type InteractionInfo struct {
@@ -340,7 +342,14 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*Processe
 			return e
 		}
 
-		verifiedPresentations[token.Presentation.ID] = token
+		if _, ok := verifiedPresentations[token.Presentation.ID]; !ok {
+			verifiedPresentations[token.Presentation.ID] = token
+		} else {
+			e := fmt.Errorf("duplicate presentation ID: %s", token.Presentation.ID)
+			s.sendFailedEvent(ctx, tx, profile, e)
+
+			return e
+		}
 
 		logger.Debug(" VerifyOIDCVerifiablePresentation verified", logfields.WithVP(string(vpBytes)))
 	}
@@ -407,13 +416,19 @@ func (s *Service) extractClaimData(tx *Transaction, tokens []*ProcessedVPToken,
 		presentations = append(presentations, token.Presentation)
 	}
 
-	// TOD0: Aries will be able to accept multiple presentations
-	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader,
+	opts := []presexch.MatchOption{
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithPublicKeyFetcher(s.publicKeyFetcher),
-		), presexch.WithDisableSchemaValidation())
+			verifiable.WithPublicKeyFetcher(s.publicKeyFetcher)),
+		presexch.WithDisableSchemaValidation(),
+	}
 
+	if len(presentations) > 1 {
+		opts = append(opts,
+			presexch.WithMergedSubmissionMap(presentations[0].CustomFields[vpSubmissionProperty].(map[string]interface{})))
+	}
+
+	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader, opts...)
 	if err != nil {
 		return fmt.Errorf("presentation definition match: %w", err)
 	}
@@ -421,13 +436,13 @@ func (s *Service) extractClaimData(tx *Transaction, tokens []*ProcessedVPToken,
 	storeCredentials := make(map[string]*verifiable.Credential)
 
 	for inputDescID, mc := range matchedCredentials {
-		token, ok := verifiedPresentations[mc.PresentationID]
-		if !ok {
-			// this should never happen
-			return fmt.Errorf("missing verified presentation ID: %s", mc.PresentationID)
-		}
-
 		if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
+			token, ok := verifiedPresentations[mc.PresentationID]
+			if !ok {
+				// this should never happen
+				return fmt.Errorf("missing verified presentation ID: %s", mc.PresentationID)
+			}
+
 			err = checkVCSubject(mc.Credential, token)
 			if err != nil {
 				return fmt.Errorf("extractClaimData vc subject: %w", err)

@@ -727,6 +727,100 @@
         ]
       },
       "createDID": true
+    },
+    {
+      "verifier": {
+        "id": "v_myprofile_multivp_jwt",
+        "name": "v_myprofile_multivp_jwt",
+        "organizationID": "f13d1va9lp403pb9lyj89vk55",
+        "url": "https://test-verifier.com",
+        "active": true,
+        "webHook": "http://vcs.webhook.example.com:8180",
+        "checks": {
+          "credential": {
+            "format": [
+              "jwt"
+            ],
+            "proof": true,
+            "status": true,
+            "strict": true
+          },
+          "presentation": {
+            "format": [
+              "jwt"
+            ],
+            "vcSubject": true,
+            "proof": true
+          }
+        },
+        "oidcConfig": {
+          "roSigningAlgorithm": "EcdsaSecp256k1Signature2019",
+          "keyType": "ECDSASecp256k1DER",
+          "didMethod": "ion"
+        },
+        "presentationDefinitions": [
+          {
+            "id": "32f54163-7166-48f1-93d8-ff217bdb0654",
+            "input_descriptors": [
+              {
+                "id": "type",
+                "name": "type",
+                "purpose": "We can only interact with specific status information for Verifiable Credentials",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialStatus.type",
+                        "$.vc.credentialStatus.type"
+                      ],
+                      "purpose": "We can only interact with specific status information for Verifiable Credentials",
+                      "filter": {
+                        "type": "string",
+                        "enum": [
+                          "StatusList2021Entry",
+                          "RevocationList2021Status",
+                          "RevocationList2020Status"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "degree",
+                "name": "degree",
+                "purpose": "We can only hire with bachelor degree.",
+                "schema": [
+                  {
+                    "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+                  }
+                ],
+                "constraints": {
+                  "fields": [
+                    {
+                      "path": [
+                        "$.credentialSubject.degree.type",
+                        "$.vc.credentialSubject.degree.type"
+                      ],
+                      "purpose": "We can only hire with bachelor degree.",
+                      "filter": {
+                        "type": "string",
+                        "const": "BachelorDegree"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "createDID": true
     }
   ]
 }

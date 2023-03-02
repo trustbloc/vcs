@@ -22,6 +22,6 @@ func (s *Steps) createWallet() error {
 		return err
 	}
 
-	s.bddContext.CredentialSubject = s.walletRunner.GetConfig().WalletParams.DidID
+	s.bddContext.CredentialSubject = append(s.bddContext.CredentialSubject, s.walletRunner.GetConfig().WalletParams.DidID)
 	return nil
 }

@@ -89,6 +89,7 @@ type createVCParams struct {
 	Organization  string
 	Credential    string
 	VCFormat      string
+	DIDIndex      int
 }
 
 func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
@@ -100,7 +101,8 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 	allCreds := make([][]byte, 0)
 
 	for _, p := range params.([]*createVCParams) {
-		err = e.createCredential(credentialServiceURL, p.Credential, p.VCFormat, p.IssuerProfile, p.Organization)
+
+		err = e.createCredential(credentialServiceURL, p.Credential, p.VCFormat, p.IssuerProfile, p.Organization, p.DIDIndex)
 		if err != nil {
 			return err
 		}
