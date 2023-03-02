@@ -7,12 +7,15 @@ SPDX-License-Identifier: Apache-2.0
 package prometheus
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
+
+	"github.com/trustbloc/vcs/pkg/observability/metrics"
 )
 
 func TestPromProvider(t *testing.T) {
@@ -55,4 +58,19 @@ func TestNewHistogram(t *testing.T) {
 	labels := prometheus.Labels{"type": "create"}
 
 	require.NotNil(t, newHistogram("activityPub", "metric_name", "Some help", labels))
+}
+
+func TestMetrics_InstrumentHTTPTransport(t *testing.T) {
+	m := GetMetrics()
+	require.NotNil(t, m)
+
+	t1 := http.DefaultTransport
+
+	t2 := m.InstrumentHTTPTransport(metrics.ClientVerifierProfile, t1)
+	require.NotNil(t, t2)
+	require.False(t, t1 == t2)
+
+	require.Panics(t, func() {
+		m.InstrumentHTTPTransport("unknown", t1)
+	})
 }

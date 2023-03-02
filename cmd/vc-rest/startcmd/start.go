@@ -318,11 +318,16 @@ func buildEchoHandler(
 		return nil, err
 	}
 
+	getHTTPClient := func(id metricsProvider.ClientID) *http.Client {
+		return newHTTPClient(tlsConfig, conf.StartupParameters, metrics, id)
+	}
+
 	// Issuer Profile Management API
 	issuerProfileSvc, err := profilereader.NewIssuerReader(&profilereader.Config{
 		TLSConfig:   tlsConfig,
 		KMSRegistry: kmsRegistry,
 		CMD:         cmd,
+		HTTPClient:  getHTTPClient(metricsProvider.ClientIssuerProfile),
 	})
 	if err != nil {
 		return nil, err
@@ -342,7 +347,7 @@ func buildEchoHandler(
 
 	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
-		TLSConfig:      tlsConfig,
+		HTTPClient:     getHTTPClient(metricsProvider.ClientCredentialStatus),
 		RequestTokens:  conf.StartupParameters.requestTokens,
 		DocumentLoader: documentLoader,
 		CSLStore:       cslStore,
@@ -373,8 +378,6 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
 
-	httpClient := getHTTPClient(tlsConfig, conf.StartupParameters)
-
 	credentialOfferStore, err := createCredentialOfferStore( // credentialOfferStore is optional, so it can be nil
 		conf.StartupParameters.credentialOfferRepositoryS3Region,
 		conf.StartupParameters.credentialOfferRepositoryS3Bucket,
@@ -388,10 +391,10 @@ func buildEchoHandler(
 		TransactionStore:              oidc4ciStore,
 		ClaimDataStore:                claimDataStore,
 		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
-		WellKnownService:              wellknown.NewService(httpClient),
+		WellKnownService:              wellknown.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
 		ProfileService:                issuerProfileSvc,
 		OAuth2Client:                  oauth2client.NewOAuth2Client(),
-		HTTPClient:                    httpClient,
+		HTTPClient:                    getHTTPClient(metricsProvider.ClientOIDC4CI),
 		EventService:                  eventSvc,
 		PinGenerator:                  otp.NewPinGenerator(),
 		PreAuthCodeTTL:                conf.StartupParameters.claimDataTTL,
@@ -418,7 +421,7 @@ func buildEchoHandler(
 
 	issuerInteractionClient, err := issuerv1.NewClient(
 		conf.StartupParameters.hostURLExternal,
-		issuerv1.WithHTTPClient(httpClient),
+		issuerv1.WithHTTPClient(getHTTPClient(metricsProvider.ClientIssuerInteraction)),
 		issuerv1.WithRequestEditorFn(apiKeySecurityProvider.Intercept),
 	)
 	if err != nil {
@@ -448,11 +451,11 @@ func buildEchoHandler(
 		StateStore:              oidc4ciStateStore,
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
-		DefaultHTTPClient:       httpClient,
+		DefaultHTTPClient:       getHTTPClient(metricsProvider.ClientOIDC4CIV1),
 		OAuth2Client:            oauth2client.NewOAuth2Client(),
 		ExternalHostURL:         conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 		PreAuthorizeClient: func() *http.Client {
-			client := getHTTPClient(tlsConfig, conf.StartupParameters)
+			client := getHTTPClient(metricsProvider.ClientPreAuth)
 			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			}
@@ -462,7 +465,7 @@ func buildEchoHandler(
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
-		DefaultHTTPClient: httpClient,
+		DefaultHTTPClient: getHTTPClient(metricsProvider.ClientOIDC4PV1),
 		ExternalHostURL:   conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
 	}))
 
@@ -483,6 +486,7 @@ func buildEchoHandler(
 			TLSConfig:   tlsConfig,
 			KMSRegistry: kmsRegistry,
 			CMD:         cmd,
+			HTTPClient:  getHTTPClient(metricsProvider.ClientVerifierProfile),
 		})
 	if err != nil {
 		return nil, err
@@ -657,7 +661,8 @@ func createCredentialStatusListStore(
 	}
 }
 
-func getHTTPClient(tlsConfig *tls.Config, params *startupParameters) *http.Client {
+func newHTTPClient(tlsConfig *tls.Config, params *startupParameters,
+	metrics metricsProvider.Metrics, id metricsProvider.ClientID) *http.Client {
 	var transport http.RoundTripper = &http.Transport{
 		TLSClientConfig: tlsConfig,
 	}
@@ -668,14 +673,18 @@ func getHTTPClient(tlsConfig *tls.Config, params *startupParameters) *http.Clien
 
 	return &http.Client{
 		Timeout:   time.Minute,
-		Transport: transport,
+		Transport: metrics.InstrumentHTTPTransport(id, transport),
 	}
 }
 
 func NewMetrics(parameters *startupParameters, e *echo.Echo) (metricsProvider.Metrics, error) {
 	switch parameters.metricsProviderName {
 	case "prometheus":
-		e.Use(echoPrometheus.MetricsMiddleware())
+		cfg := echoPrometheus.DefaultConfig
+		cfg.Namespace = metricsProvider.Namespace
+		cfg.Subsystem = metricsProvider.HTTPServer
+
+		e.Use(echoPrometheus.MetricsMiddlewareWithConfig(cfg))
 		return promMetricsProvider.GetMetrics(), nil
 	default:
 		return noopMetricsProvider.GetMetrics(), nil
