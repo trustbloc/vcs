@@ -89,7 +89,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		claimData := ClaimData(req.ClaimData)
 
 		claimDataFields := ""
-		for k, _ := range claimData {
+		for k := range claimData {
 			claimDataFields = claimDataFields + k + ","
 		}
 
