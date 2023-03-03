@@ -88,6 +88,14 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	if isPreAuthorizeFlow {
 		claimData := ClaimData(req.ClaimData)
 
+		claimDataFields := ""
+		for k, _ := range claimData {
+			claimDataFields = claimDataFields + k + ","
+		}
+
+		logger.Debug("claim data", log.WithID(req.CredentialName),
+			log.WithID(claimDataFields))
+
 		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, &claimData)
 		if claimDataErr != nil {
 			return nil, fmt.Errorf("store claim data: %w", claimDataErr)
