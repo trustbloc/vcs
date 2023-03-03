@@ -19,10 +19,11 @@ import (
 type StoreProvider struct {
 	ContextStore        ld.ContextStore
 	RemoteProviderStore ld.RemoteProviderStore
+	CacheImpl           Cache
 }
 
 // NewStoreProvider returns a new instance of StoreProvider.
-func NewStoreProvider(mongoClient *mongodb.Client) (*StoreProvider, error) {
+func NewStoreProvider(mongoClient *mongodb.Client, cacheImpl Cache) (*StoreProvider, error) {
 	contextStore, err := ldstore.NewContextStore(mongoClient)
 	if err != nil {
 		return nil, fmt.Errorf("create JSON-LD context store: %w", err)
@@ -34,7 +35,7 @@ func NewStoreProvider(mongoClient *mongodb.Client) (*StoreProvider, error) {
 	}
 
 	return &StoreProvider{
-		ContextStore:        contextStore,
+		ContextStore:        NewCachedContextStore(cacheImpl, contextStore),
 		RemoteProviderStore: remoteProviderStore,
 	}, nil
 }
