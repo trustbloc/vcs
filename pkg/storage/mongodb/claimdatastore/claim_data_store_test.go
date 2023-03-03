@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	mongoDBConnString  = "mongodb://localhost:27031"
+	mongoDBConnString  = "mongodb://localhost:27032"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
 	defaultClaimsTTL   = 3600
@@ -125,7 +125,7 @@ func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 		Repository: dockerMongoDBImage,
 		Tag:        dockerMongoDBTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"27017/tcp": {{HostIP: "", HostPort: "27031"}},
+			"27017/tcp": {{HostIP: "", HostPort: "27032"}},
 		},
 	})
 	require.NoError(t, err)

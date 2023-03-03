@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/golang/mock/gomock"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -48,7 +49,7 @@ func TestNewStoreProvider(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		provider, err := ld.NewStoreProvider(client)
+		provider, err := ld.NewStoreProvider(client, NewMockCache(gomock.NewController(t)))
 
 		require.NotNil(t, provider)
 		require.NoError(t, err)

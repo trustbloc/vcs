@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
+	"github.com/dgraph-io/ristretto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
@@ -762,7 +763,16 @@ func getOAuth2Clients(path string) ([]fositemongo.Client, error) {
 
 func createJSONLDDocumentLoader(mongoClient *mongodb.Client, tlsConfig *tls.Config,
 	providerURLs []string, contextEnableRemote bool) (jsonld.DocumentLoader, error) {
-	ldStore, err := ld.NewStoreProvider(mongoClient)
+	cache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,
+		MaxCost:     1 << 30,
+		BufferItems: 64,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create ristretto cache: %w", err)
+	}
+
+	ldStore, err := ld.NewStoreProvider(mongoClient, cache)
 	if err != nil {
 		return nil, err
 	}
