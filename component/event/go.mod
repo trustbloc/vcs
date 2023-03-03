@@ -16,7 +16,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/hyperledger/aries-framework-go v0.1.9 // indirect
+	github.com/hyperledger/aries-framework-go v0.1.10-0.20230302151103-5cac1cf196b8 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
