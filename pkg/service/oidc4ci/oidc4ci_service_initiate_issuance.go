@@ -90,7 +90,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 		claimDataFields := ""
 		for k, v := range claimData {
-			claimDataFields = claimDataFields + fmt.Sprintf("%s=%v,", k, v)
+			claimDataFields += fmt.Sprintf("%s=%v,", k, v)
 		}
 
 		logger.Debug("claim data", log.WithID(req.CredentialName),
