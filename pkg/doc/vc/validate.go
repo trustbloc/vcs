@@ -66,7 +66,7 @@ func ValidateCredential(
 
 		err = validateCredentialClaims(credential, documentLoader)
 		if err != nil {
-			return nil, fmt.Errorf("failed to validate SDJWT credential claims: %w", err)
+			return nil, fmt.Errorf("failed to validate JWT credential claims: %w", err)
 		}
 
 		credential.JWT = jwtRepresentation
