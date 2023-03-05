@@ -47,6 +47,7 @@ func TestStandardFields(t *testing.T) {
 		vp := "{}"
 		vpToken := "somVPToken"
 		workers := 5
+		claimKeys := []string{"1", "2"}
 
 		logger.Info(
 			"Some message",
@@ -67,6 +68,7 @@ func TestStandardFields(t *testing.T) {
 			WithVP(vp),
 			WithVPToken(vpToken),
 			WithWorkers(workers),
+			WithClaimKeys(claimKeys),
 		)
 
 		l := unmarshalLogData(t, stdOut.Bytes())
@@ -87,6 +89,7 @@ func TestStandardFields(t *testing.T) {
 		require.Equal(t, vp, l.VP)
 		require.Equal(t, vpToken, l.VPToken)
 		require.Equal(t, workers, l.Workers)
+		require.Equal(t, claimKeys, l.ClaimKeys)
 	})
 }
 
@@ -120,6 +123,7 @@ type logData struct {
 	VP                  string      `json:"vp"`
 	VPToken             string      `json:"vpToken"`
 	Workers             int         `json:"workers"`
+	ClaimKeys           []string    `json:"claimKeys"`
 }
 
 func unmarshalLogData(t *testing.T, b []byte) *logData {

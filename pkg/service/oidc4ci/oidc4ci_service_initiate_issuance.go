@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -88,13 +89,14 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	if isPreAuthorizeFlow {
 		claimData := ClaimData(req.ClaimData)
 
-		claimDataFields := ""
-		for k, v := range claimData {
-			claimDataFields += fmt.Sprintf("%s=%v,", k, v)
-		}
+		if logger.IsEnabled(log.DEBUG) {
+			claimKeys := make([]string, 0)
+			for k := range claimData {
+				claimKeys = append(claimKeys, k)
+			}
 
-		logger.Debug("claim data", log.WithID(req.CredentialName),
-			log.WithID(claimDataFields))
+			logger.Debug("issuer claim keys", logfields.WithClaimKeys(claimKeys))
+		}
 
 		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, &claimData)
 		if claimDataErr != nil {

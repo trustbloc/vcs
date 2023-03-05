@@ -32,6 +32,7 @@ const (
 	FieldVP                  = "vp"
 	FieldVPToken             = "vpToken"
 	FieldWorkers             = "workers"
+	FieldClaimKeys           = "claimKeys"
 )
 
 // WithAdditionalMessage sets the AdditionalMessage field.
@@ -117,6 +118,11 @@ func WithVPToken(vpToken string) zap.Field {
 // WithWorkers sets the Workers field.
 func WithWorkers(workers int) zap.Field {
 	return zap.Int(FieldWorkers, workers)
+}
+
+// WithClaimKeys sets the Claim fields.
+func WithClaimKeys(claimKeys []string) zap.Field {
+	return zap.Strings(FieldClaimKeys, claimKeys)
 }
 
 // ObjectMarshaller uses reflection to marshal an object's fields.
