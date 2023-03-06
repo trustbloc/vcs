@@ -244,7 +244,7 @@ func (s *Service) prepareCredentialOffer(
 	req *InitiateIssuanceRequest,
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
-) (*CredentialOfferResponse, error) {
+) *CredentialOfferResponse {
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 
 	resp := &CredentialOfferResponse{
@@ -272,7 +272,7 @@ func (s *Service) prepareCredentialOffer(
 		}
 	}
 
-	return resp, nil
+	return resp
 }
 
 func (s *Service) buildInitiateIssuanceURL(
@@ -281,10 +281,7 @@ func (s *Service) buildInitiateIssuanceURL(
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
 ) (string, error) {
-	credentialOffer, err := s.prepareCredentialOffer(ctx, req, template, tx)
-	if err != nil {
-		return "", err
-	}
+	credentialOffer := s.prepareCredentialOffer(ctx, req, template, tx)
 
 	var remoteOfferURL string
 	if s.credentialOfferReferenceStore != nil {
