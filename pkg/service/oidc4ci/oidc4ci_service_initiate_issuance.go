@@ -143,7 +143,10 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}, nil
 }
 
-func (s *Service) selectProperOIDCFormat(format verifiable.Format, template *profileapi.CredentialTemplate) verifiable.OIDCFormat {
+func (s *Service) selectProperOIDCFormat(
+	format verifiable.Format,
+	template *profileapi.CredentialTemplate,
+) verifiable.OIDCFormat {
 	if format == verifiable.Ldp {
 		return verifiable.LdpVC
 	}
