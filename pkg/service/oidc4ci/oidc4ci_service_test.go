@@ -1280,3 +1280,26 @@ func TestService_PrepareCredential(t *testing.T) {
 		})
 	}
 }
+
+func TestSelectProperFormat(t *testing.T) {
+	srv, err := oidc4ci.NewService(&oidc4ci.Config{})
+	assert.NoError(t, err)
+
+	t.Run("ldp", func(t *testing.T) {
+		assert.Equal(t, vcsverifiable.LdpVC, srv.SelectProperOIDCFormat(vcsverifiable.Ldp, nil))
+	})
+
+	t.Run("strict", func(t *testing.T) {
+		assert.Equal(t, vcsverifiable.JwtVCJsonLD, srv.SelectProperOIDCFormat(vcsverifiable.Jwt,
+			&profileapi.CredentialTemplate{
+				Checks: profileapi.CredentialTemplateChecks{
+					Strict: true,
+				},
+			}))
+	})
+
+	t.Run("strict", func(t *testing.T) {
+		assert.Equal(t, vcsverifiable.JwtVCJson, srv.SelectProperOIDCFormat(vcsverifiable.Jwt,
+			&profileapi.CredentialTemplate{}))
+	})
+}

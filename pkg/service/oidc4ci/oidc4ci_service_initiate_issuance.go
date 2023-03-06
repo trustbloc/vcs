@@ -57,7 +57,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		OrgID:                 profile.OrganizationID,
 		CredentialTemplate:    template,
 		CredentialFormat:      profile.VCConfig.Format,
-		OIDCCredentialFormat:  s.selectProperOIDCFormat(profile.VCConfig.Format, template),
+		OIDCCredentialFormat:  s.SelectProperOIDCFormat(profile.VCConfig.Format, template),
 		ClaimEndpoint:         req.ClaimEndpoint,
 		GrantType:             req.GrantType,
 		ResponseType:          req.ResponseType,
@@ -143,7 +143,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}, nil
 }
 
-func (s *Service) selectProperOIDCFormat(
+func (s *Service) SelectProperOIDCFormat(
 	format verifiable.Format,
 	template *profileapi.CredentialTemplate,
 ) verifiable.OIDCFormat {
