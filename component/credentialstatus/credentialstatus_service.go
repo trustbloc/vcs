@@ -22,7 +22,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"github.com/trustbloc/vcs/internal/logfields"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 
@@ -118,14 +117,10 @@ func New(config *Config) (*Service, error) {
 
 // UpdateVCStatus fetches credential based on vcID and updates associated StatusListCredential to vcStatus.
 func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string, vcStatusType vc.StatusType) error {
-	logger.Info("UpdateVCStatus begin")
-
 	issuerProfile, err := s.profileService.GetProfile(profileID)
 	if err != nil {
 		return fmt.Errorf("failed to get profile: %w", err)
 	}
-
-	logger.Info("UpdateVCStatus GetProfile succeeded")
 
 	if vcStatusType != issuerProfile.VCConfig.Status.Type {
 		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
@@ -137,8 +132,6 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 	if err != nil {
 		return fmt.Errorf("failed to get kms: %w", err)
 	}
-
-	logger.Info("UpdateVCStatus GetKeyManager succeeded")
 
 	signer := &vc.Signer{
 		Format:                  issuerProfile.VCConfig.Format,
@@ -153,62 +146,30 @@ func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string,
 		SDJWT:                   vc.SDJWT{Enable: false},
 	}
 
-	logger.Info("UpdateVCStatus vcStatusStore.Get()",
-		logfields.WithProfileID(issuerProfile.ID),
-		logfields.WithCredentialID(vcID),
-	)
-
 	typedID, err := s.vcStatusStore.Get(issuerProfile.ID, vcID)
 	if err != nil {
-		logger.Info("UpdateVCStatus vcStatusStore.Get() error",
-			logfields.WithProfileID(issuerProfile.ID),
-			logfields.WithCredentialID(vcID),
-			log.WithError(err),
-		)
-
 		return err
 	}
-
-	logger.Info("UpdateVCStatus vcStatusStore.Get() succeeded")
 
 	statusValue, err := strconv.ParseBool(vcStatus)
 	if err != nil {
 		return err
 	}
 
-	err = s.updateVCStatus(typedID, signer, statusValue)
-	if err != nil {
-		logger.Info("updateVCStatus error",
-			logfields.WithProfileID(issuerProfile.ID),
-			logfields.WithCredentialID(vcID),
-			log.WithError(err),
-		)
-
-		return err
-	}
-
-	logger.Info("UpdateVCStatus succeeded")
-
-	return nil
+	return s.updateVCStatus(typedID, signer, statusValue)
 }
 
 // CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
 func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID string) (*issuecredential.StatusListEntry, error) {
-	logger.Info("CreateStatusListEntry begin")
-
 	profile, err := s.profileService.GetProfile(profileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	logger.Info("CreateStatusListEntry GetProfile succeeded")
-
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kms: %w", err)
 	}
-
-	logger.Info("CreateStatusListEntry GetKeyManager succeeded")
 
 	signer := &vc.Signer{
 		DID:                     profile.SigningDID.DID,
@@ -228,14 +189,10 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 		return nil, err
 	}
 
-	logger.Info("CreateStatusListEntry statustype.GetVCStatusProcessor succeeded")
-
 	cslWrapper, err := s.getLatestCSLWrapper(signer, profile, vcStatusProcessor)
 	if err != nil {
 		return nil, err
 	}
-
-	logger.Info("CreateStatusListEntry getLatestCSLWrapper succeeded")
 
 	statusBitIndex := strconv.FormatInt(int64(cslWrapper.RevocationListIndex), 10)
 
@@ -245,8 +202,6 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 	if err = s.cslStore.Upsert(cslWrapper); err != nil {
 		return nil, fmt.Errorf("failed to store csl in store: %w", err)
 	}
-
-	logger.Info("CreateStatusListEntry cslStore.Upsert() succeeded")
 
 	if cslWrapper.Size == s.listSize {
 		id := cslWrapper.ListID
@@ -262,25 +217,11 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 		TypedID: vcStatusProcessor.CreateVCStatus(statusBitIndex, cslWrapper.VC.ID),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
-
 	// Store VC status to DB
-	logger.Info("CreateStatusListEntry vcStatusStore.Put()",
-		logfields.WithProfileID(profile.ID),
-		logfields.WithCredentialID(credentialID),
-	)
-
 	err = s.vcStatusStore.Put(profile.ID, credentialID, statusListEntry.TypedID)
 	if err != nil {
-		logger.Info("CreateStatusListEntry vcStatusStore.Put() error",
-			logfields.WithProfileID(profile.ID),
-			logfields.WithCredentialID(credentialID),
-			log.WithError(err),
-		)
-
 		return nil, fmt.Errorf("failed to store credential status: %w", err)
 	}
-
-	logger.Info("CreateStatusListEntry succeeded")
 
 	return statusListEntry, nil
 }
@@ -409,14 +350,10 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	logger.Info("getLatestCSLWrapper cslStore.GetLatestListID() succeeded", log.WithID(strconv.Itoa(latestListID)))
-
 	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, strconv.Itoa(latestListID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
 	}
-
-	logger.Info("getLatestCSLWrapper cslStore.GetCSLURL() succeeded", log.WithURL(cslURL))
 
 	w, err := s.getCSLWrapper(cslURL)
 	if err != nil { //nolint: nestif
@@ -535,29 +472,20 @@ func (s *Service) updateVCStatus(typedID *verifiable.TypedID,
 	if err != nil {
 		return err
 	}
-
-	logger.Info("updateVCStatus statustype.GetVCStatusProcessor() succeeded")
-
 	// validate vc status
 	if err = vcStatusProcessor.ValidateStatus(typedID); err != nil {
 		return err
 	}
-
-	logger.Info("updateVCStatus vcStatusProcessor.ValidateStatus() succeeded")
 
 	statusListVCID, err := vcStatusProcessor.GetStatusVCURI(typedID)
 	if err != nil {
 		return err
 	}
 
-	logger.Info("updateVCStatus vcStatusProcessor.GetStatusVCURI() succeeded", log.WithURL(statusListVCID))
-
 	cslWrapper, err := s.getCSLWrapper(statusListVCID)
 	if err != nil {
 		return err
 	}
-
-	logger.Info("updateVCStatus getCSLWrapper() succeeded")
 
 	signOpts, err := prepareSigningOpts(profile, cslWrapper.VC.Proofs)
 	if err != nil {
@@ -595,8 +523,6 @@ func (s *Service) updateVCStatus(typedID *verifiable.TypedID,
 	if err != nil {
 		return err
 	}
-
-	logger.Info("updateVCStatus CSL signed successfully")
 
 	signedCredentialBytes, err := signedCredential.MarshalJSON()
 	if err != nil {

@@ -33,7 +33,6 @@ const (
 	FieldVPToken             = "vpToken"
 	FieldWorkers             = "workers"
 	FieldClaimKeys           = "claimKeys"
-	FieldCredentialID        = "credentialID" //nolint:gosec
 )
 
 // WithAdditionalMessage sets the AdditionalMessage field.
@@ -124,11 +123,6 @@ func WithWorkers(workers int) zap.Field {
 // WithClaimKeys sets the Claim fields.
 func WithClaimKeys(claimKeys []string) zap.Field {
 	return zap.Strings(FieldClaimKeys, claimKeys)
-}
-
-// WithCredentialID sets the credentialID field.
-func WithCredentialID(credentialID string) zap.Field {
-	return zap.String(FieldCredentialID, credentialID)
 }
 
 // ObjectMarshaller uses reflection to marshal an object's fields.
