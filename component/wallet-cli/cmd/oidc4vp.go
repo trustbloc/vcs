@@ -23,13 +23,14 @@ import (
 )
 
 type oidc4vpCommandFlags struct {
-	WalletUserId                  string
-	WalletPassPhrase              string
-	StorageProvider               string
-	StorageProviderConnString     string
-	OIDC4VPShouldFetchCredentials bool
-	WalletDidKeyID                string
-	WalletDidID                   string
+	WalletUserId                    string
+	WalletPassPhrase                string
+	StorageProvider                 string
+	StorageProviderConnString       string
+	OIDC4VPShouldFetchCredentials   bool
+	WalletDidKeyID                  string
+	WalletDidID                     string
+	LinkedDomainVerificationEnabled bool
 
 	InsecureTls bool
 	DidMethod   string
@@ -105,6 +106,8 @@ func createFlags(cmd *cobra.Command, flags *oidc4vpCommandFlags) {
 	cmd.Flags().StringVar(&flags.WalletDidID, "wallet-did", "", "existing wallet did")
 	cmd.Flags().StringVar(&flags.WalletDidKeyID, "wallet-did-keyid", "", "existing wallet did key id")
 	cmd.Flags().StringVar(&flags.DidKeyType, "did-key-type", "ECDSAP384DER", "did key type. default: ECDSAP384DER")
+
+	cmd.Flags().BoolVar(&flags.LinkedDomainVerificationEnabled, "linked-domain-verification-enabled", false, "enables Linked Domain Verification")
 }
 
 type runnerConfig struct {
@@ -192,6 +195,7 @@ func getWalletRunnerConfig(cmd *cobra.Command, flags *oidc4vpCommandFlags) (*run
 		c.OIDC4VPShouldFetchCredentials = flags.OIDC4VPShouldFetchCredentials
 		c.DidMethod = flags.DidMethod
 		c.DidKeyType = flags.DidKeyType
+		c.LinkedDomainVerificationEnabled = flags.LinkedDomainVerificationEnabled
 	})
 
 	return &runnerConfig{

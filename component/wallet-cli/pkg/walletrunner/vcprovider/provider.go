@@ -37,16 +37,17 @@ type Config struct {
 	SkipSchemaValidation bool
 	InsecureTls          bool
 
-	WalletUserId                  string // initial config
-	WalletPassPhrase              string // initial config
-	StorageProvider               string // initial config
-	StorageProviderConnString     string // initial config
-	OIDC4VPShouldFetchCredentials bool
-	WalletDidKeyID                string
-	WalletDidID                   string
-	DidMethod                     string
-	DidKeyType                    string
-	KeepWalletOpen                bool
+	WalletUserId                    string // initial config
+	WalletPassPhrase                string // initial config
+	StorageProvider                 string // initial config
+	StorageProviderConnString       string // initial config
+	OIDC4VPShouldFetchCredentials   bool
+	WalletDidKeyID                  string
+	WalletDidID                     string
+	DidMethod                       string
+	DidKeyType                      string
+	KeepWalletOpen                  bool
+	LinkedDomainVerificationEnabled bool
 }
 
 type WalletParams struct {
