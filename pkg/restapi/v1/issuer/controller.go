@@ -606,7 +606,8 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
 
-	result, err := c.oidc4ciService.PrepareCredential(ctx.Request().Context(),
+	result, err := c.oidc4ciService.PrepareCredential(
+		ctx.Request().Context(),
 		&oidc4ci.PrepareCredential{
 			TxID:             oidc4ci.TxID(body.TxId),
 			CredentialTypes:  body.Types,
@@ -614,6 +615,7 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 			DID:              lo.FromPtr(body.Did),
 		},
 	)
+
 	if err != nil {
 		var custom *resterr.CustomError
 		if errors.As(err, &custom) {
@@ -642,6 +644,7 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 	return util.WriteOutput(ctx)(PrepareCredentialResult{
 		Credential: signedCredential,
 		Format:     string(result.Format),
+		OidcFormat: string(result.OidcFormat),
 		Retry:      result.Retry,
 	}, nil)
 }

@@ -50,6 +50,7 @@ components:
       type: string
       enum:
         - jwt_vc_json-ld
+        - jwt_vc_json
         - ldp_vc
       description: Supported VC formats.
     VPFormat:

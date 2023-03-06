@@ -28,7 +28,6 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
-	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
@@ -535,14 +534,9 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	session.Extra[cNonceKey] = nonce
 	session.Extra[cNonceExpiresAtKey] = time.Now().Add(cNonceTTL).Unix()
 
-	oidcFormat, err := verifiable.MapFormatToOIDCFormat(verifiable.Format(result.Format))
-	if err != nil {
-		return fmt.Errorf("can not map [%v] to oidc format. %w", result.Format, err)
-	}
-
 	return apiUtil.WriteOutput(e)(CredentialResponse{
 		Credential:      result.Credential,
-		Format:          string(oidcFormat),
+		Format:          result.OidcFormat,
 		CNonce:          lo.ToPtr(nonce),
 		CNonceExpiresIn: lo.ToPtr(int(cNonceTTL.Seconds())),
 	}, nil)

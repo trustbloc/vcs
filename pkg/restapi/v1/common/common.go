@@ -32,6 +32,8 @@ const (
 
 func ValidateVCFormat(format VCFormat) (vcsverifiable.Format, error) {
 	switch format {
+	case JwtVcJson:
+		return vcsverifiable.Jwt, nil
 	case JwtVcJsonLd:
 		return vcsverifiable.Jwt, nil
 	case LdpVc:
@@ -40,18 +42,6 @@ func ValidateVCFormat(format VCFormat) (vcsverifiable.Format, error) {
 
 	return "", fmt.Errorf("unsupported vc format %s, use one of next [%s, %s]", format, JwtVcJsonLd, LdpVc)
 }
-
-func MapToVCFormat(format vcsverifiable.Format) (VCFormat, error) {
-	switch format {
-	case vcsverifiable.Jwt:
-		return JwtVcJsonLd, nil
-	case vcsverifiable.Ldp:
-		return LdpVc, nil
-	}
-
-	return "", fmt.Errorf("vc format missmatch %s, rest api supports only [%s, %s]", format, JwtVcJsonLd, LdpVc)
-}
-
 func ValidateVPFormat(format VPFormat) (vcsverifiable.Format, error) {
 	switch format {
 	case JwtVp:

@@ -199,6 +199,9 @@ type PrepareCredentialResult struct {
 	// Format of issued credential.
 	Format string `json:"format"`
 
+	// OIDC credential format
+	OidcFormat string `json:"oidc_format"`
+
 	// TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
 	Retry bool `json:"retry"`
 }
