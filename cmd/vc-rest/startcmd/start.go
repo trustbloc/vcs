@@ -94,6 +94,8 @@ const (
 	oidc4VPCheckEndpoint            = "/oidc/present"
 	defaultGracefulShutdownDuration = 1 * time.Second
 	cslSize                         = 1000
+	devApiRequestObjectEndpoint     = "/request-object/:uuid"
+	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
 )
 
 var logger = log.New("vc-rest")
@@ -272,7 +274,14 @@ func buildEchoHandler(
 
 	swagger.Servers = nil // skip validating server names matching
 
-	e.Use(oapimw.OapiRequestValidator(swagger))
+	e.Use(oapimw.OapiRequestValidatorWithOptions(swagger, &oapimw.Options{
+		Skipper: func(c echo.Context) bool {
+			if c.Path() == devApiRequestObjectEndpoint || c.Path() == devApiDidConfigEndpoint {
+				return true
+			}
+			return echomw.DefaultSkipper(c)
+		},
+	}))
 
 	if conf.StartupParameters.tracingParams.provider != "" {
 		e.Use(otelecho.Middleware(""))
@@ -568,12 +577,10 @@ func buildEchoHandler(
 	})
 
 	if conf.StartupParameters.devMode {
-		devController := devapi.NewController(&devapi.Config{
+		_ = devapi.NewController(&devapi.Config{
 			DidConfigService:          didConfigSvc,
 			RequestObjectStoreService: requestObjectStoreService,
-		})
-
-		devapi.RegisterHandlers(e, devController)
+		}, e)
 	}
 
 	metricsProvider, err := NewMetricsProvider(conf.StartupParameters, internalEchoServer)
