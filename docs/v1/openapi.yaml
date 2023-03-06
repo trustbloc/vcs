@@ -26,33 +26,6 @@ tags:
   - name: healthcheck
     description: server health check
 paths:
-  '/{profileType}/profiles/{profileID}/well-known/did-config':
-    parameters:
-      - schema:
-          type: string
-        name: profileType
-        in: path
-        required: true
-        description: Profile Type
-      - schema:
-          type: string
-        name: profileID
-        in: path
-        required: true
-        description: Profile Id
-    get:
-      summary: Request did-config
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DidConfig'
-      operationId: did-config
-      description: Returns did-config.
-      tags:
-        - devapi
   '/issuer/{profileID}/.well-known/openid-credential-issuer':
     parameters:
       - schema:
@@ -95,23 +68,6 @@ paths:
       description: Returns openid-config.
       tags:
         - issuer
-  '/request-object/{uuid}':
-    parameters:
-      - schema:
-          type: string
-        name: uuid
-        in: path
-        required: true
-        description: uuid of request object
-    get:
-      summary: Request request object by uuid
-      responses:
-        '200':
-          description: OK
-      operationId: request-object-by-uuid
-      description: Returns request object.
-      tags:
-        - devapi
   '/issuer/profiles/{profileID}/credentials/issue':
     parameters:
       - schema:
@@ -737,23 +693,6 @@ components:
       required:
         - status
       description: Response model for health check status.
-    DidConfig:
-      title: DidConfigResponse
-      x-tags:
-        - devapi
-      type: object
-      properties:
-        '@context':
-          type: string
-          description: context.
-        linked_dids:
-          type: array
-          items:
-            oneOf:
-              - type: string
-              - type: object
-          description: Presentation in jws(string) or jsonld(object) formats
-      description: DID Config response.
     WellKnownOpenIDConfiguration:
       title: WellKnownOpenIDConfiguration response
       x-tags:
@@ -802,19 +741,6 @@ components:
         - credentials_supported
         - credential_endpoint
       description: OpenID Config response.
-    RequestObject:
-      title: RequestObject
-      x-tags:
-        - devapi
-      type: object
-      properties:
-        id:
-          type: string
-          description: id.
-        content:
-          type: string
-          description: Content of requested object
-      description: DID Config response.
     VerifyCredentialData:
       title: VerifyCredentialData
       x-tags:
