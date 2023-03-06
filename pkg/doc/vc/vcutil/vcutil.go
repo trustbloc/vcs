@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 
@@ -115,5 +116,9 @@ func UpdateSignatureTypeContext(credential *verifiable.Credential, signatureType
 
 // PrependCredentialPrefix prepends prefix to credential.ID.
 func PrependCredentialPrefix(credential *verifiable.Credential, prefix string) {
+	if strings.HasPrefix(credential.ID, prefix) {
+		return
+	}
+
 	credential.ID = fmt.Sprintf("%s%s", prefix, credential.ID)
 }

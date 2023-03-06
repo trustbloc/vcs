@@ -220,6 +220,7 @@ func TestPrependCredentialPrefix(t *testing.T) {
 	credential := &verifiable.Credential{ID: "did:example:ebfeb1f712ebc6f1c276e12ec21"}
 
 	PrependCredentialPrefix(credential, "prefix_")
+	PrependCredentialPrefix(credential, "prefix_")
 
 	require.Equal(t, "prefix_did:example:ebfeb1f712ebc6f1c276e12ec21", credential.ID)
 }
