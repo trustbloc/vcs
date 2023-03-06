@@ -57,6 +57,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		OrgID:                 profile.OrganizationID,
 		CredentialTemplate:    template,
 		CredentialFormat:      profile.VCConfig.Format,
+		OIDCCredentialFormat:  s.selectProperOIDCFormat(profile.VCConfig.Format, template),
 		ClaimEndpoint:         req.ClaimEndpoint,
 		GrantType:             req.GrantType,
 		ResponseType:          req.ResponseType,
@@ -140,6 +141,18 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		TxID:                tx.ID,
 		UserPin:             tx.UserPin,
 	}, nil
+}
+
+func (s *Service) selectProperOIDCFormat(format verifiable.Format, template *profileapi.CredentialTemplate) verifiable.OIDCFormat {
+	if format == verifiable.Ldp {
+		return verifiable.LdpVC
+	}
+
+	if template.Checks.Strict {
+		return verifiable.JwtVCJsonLD
+	}
+
+	return verifiable.JwtVCJson
 }
 
 func (s *Service) GetCredentialsExpirationTime(
@@ -232,18 +245,13 @@ func (s *Service) prepareCredentialOffer(
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
 ) (*CredentialOfferResponse, error) {
-	targetFormat, err := verifiable.MapFormatToOIDCFormat(tx.CredentialFormat)
-	if err != nil {
-		return nil, err
-	}
-
 	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
 
 	resp := &CredentialOfferResponse{
 		CredentialIssuer: issuerURL,
 		Credentials: []CredentialOffer{
 			{
-				Format: targetFormat,
+				Format: tx.OIDCCredentialFormat,
 				Types: []string{
 					"VerifiableCredential",
 					template.Type,

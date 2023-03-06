@@ -1377,12 +1377,16 @@ components:
         format:
           type: string
           description: Format of issued credential.
+        oidc_format:
+          type: string
+          description: OIDC credential format
         retry:
           type: boolean
           description: TRUE if claim data is not yet available in the issuer OP server. This will indicate VCS OIDC to issue acceptance_token instead of credential response (Deferred Credential flow).
       required:
         - credential
         - format
+        - oidc_format
         - retry
     CredentialRequest:
       title: CredentialRequest

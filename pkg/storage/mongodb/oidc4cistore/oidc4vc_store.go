@@ -36,6 +36,7 @@ type mongoDocument struct {
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
+	OidcFormat                         vcsverifiable.OIDCFormat
 	ClaimEndpoint                      string
 	GrantType                          string
 	ResponseType                       string
@@ -224,6 +225,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		PreAuthCodeExpiresAt:               data.PreAuthCodeExpiresAt,
 		CredentialDescription:              data.CredentialDescription,
 		CredentialName:                     data.CredentialName,
+		OidcFormat:                         data.OidcFormat,
 	}
 }
 
@@ -259,6 +261,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			PreAuthCodeExpiresAt:               doc.PreAuthCodeExpiresAt,
 			CredentialDescription:              doc.CredentialDescription,
 			CredentialName:                     doc.CredentialName,
+			OidcFormat:                         doc.OidcFormat,
 		},
 	}
 }

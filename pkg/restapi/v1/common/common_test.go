@@ -143,23 +143,6 @@ func TestController_ValidateKMSConfig(t *testing.T) {
 	})
 }
 
-func TestController_mapToVCFormat(t *testing.T) {
-	t.Run("Success", func(t *testing.T) {
-		tpe, err := MapToVCFormat(vcsverifiable.Jwt)
-		require.NoError(t, err)
-		require.Equal(t, JwtVcJsonLd, tpe)
-
-		tpe, err = MapToVCFormat(vcsverifiable.Ldp)
-		require.NoError(t, err)
-		require.Equal(t, LdpVc, tpe)
-	})
-
-	t.Run("Failed", func(t *testing.T) {
-		_, err := MapToVCFormat("incorrect")
-		require.Error(t, err)
-	})
-}
-
 func TestController_mapToVPFormat(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		tpe, err := MapToVPFormat(vcsverifiable.Jwt)

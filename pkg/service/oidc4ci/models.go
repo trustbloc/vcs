@@ -44,6 +44,7 @@ type TransactionData struct {
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
+	OIDCCredentialFormat               vcsverifiable.OIDCFormat
 	AuthorizationEndpoint              string
 	PushedAuthorizationRequestEndpoint string
 	TokenEndpoint                      string
@@ -68,6 +69,7 @@ type TransactionData struct {
 	CredentialExpiresAt                *time.Time
 	CredentialName                     string
 	CredentialDescription              string
+	OidcFormat                         vcsverifiable.OIDCFormat
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
@@ -143,6 +145,7 @@ type PrepareCredentialResult struct {
 	Format                  vcsverifiable.Format
 	Retry                   bool
 	EnforceStrictValidation bool
+	OidcFormat              vcsverifiable.OIDCFormat
 }
 
 type InsertOptions struct {

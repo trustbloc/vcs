@@ -13,15 +13,6 @@ import (
 
 type OIDCFormat string
 
-func MapFormatToOIDCFormat(old Format) (OIDCFormat, error) {
-	mapped, ok := oldFormatToNew[old]
-	if !ok {
-		return "", fmt.Errorf("unsupported vc mapping for format: %v", old)
-	}
-
-	return mapped, nil
-}
-
 type Format string
 
 const (
@@ -31,6 +22,7 @@ const (
 
 const (
 	JwtVCJsonLD = OIDCFormat("jwt_vc_json-ld")
+	JwtVCJson   = OIDCFormat("jwt_vc_json")
 	LdpVC       = OIDCFormat("ldp_vc")
 )
 

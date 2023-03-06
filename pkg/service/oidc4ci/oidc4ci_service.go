@@ -408,6 +408,7 @@ func (s *Service) PrepareCredential(
 		ProfileID:               tx.ProfileID,
 		Credential:              credential,
 		Format:                  tx.CredentialFormat,
+		OidcFormat:              tx.OIDCCredentialFormat,
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
 	}, nil
