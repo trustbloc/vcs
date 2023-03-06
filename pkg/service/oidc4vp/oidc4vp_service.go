@@ -280,7 +280,7 @@ func (s *Service) InitiateOidcInteraction(
 	}, nil
 }
 
-func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVPToken) error {
+func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*ProcessedVPToken) error {
 	logger.Debug("VerifyOIDCVerifiablePresentation begin")
 	startTime := time.Now()
 
@@ -288,7 +288,13 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 		logger.Debug("VerifyOIDCVerifiablePresentation", log.WithDuration(time.Since(startTime)))
 	}()
 
-	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(token.Nonce)
+	if len(tokens) == 0 {
+		// this should never happen
+		return fmt.Errorf("must have at least one token")
+	}
+
+	// All tokens have same nonce
+	tx, validNonce, err := s.transactionManager.GetByOneTimeToken(tokens[0].Nonce)
 	if err != nil {
 		return fmt.Errorf("get tx by nonce failed: %w", err)
 	}
@@ -306,39 +312,47 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, token *ProcessedVP
 
 	logger.Debug("VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
-	vpBytes, err := token.Presentation.MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	logger.Debug(" VerifyOIDCVerifiablePresentation vp string", logfields.WithVP(string(vpBytes)))
-
 	ctx := context.TODO() // TODO: Use OpenTelemetry context.
 
-	// TODO: should domain and challenge be verified?
-	vr, err := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
-	if err != nil {
-		e := fmt.Errorf("presentation verification failed: %w", err)
-		s.sendFailedEvent(ctx, tx, profile, e)
+	verifiedPresentations := make(map[string]*ProcessedVPToken)
 
-		return e
+	for _, token := range tokens {
+		vpBytes, innerErr := token.Presentation.MarshalJSON()
+		if innerErr != nil {
+			return innerErr
+		}
+
+		logger.Debug("VerifyOIDCVerifiablePresentation vp string", logfields.WithVP(string(vpBytes)))
+
+		// TODO: should domain and challenge be verified?
+		vr, innerErr := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
+		if innerErr != nil {
+			e := fmt.Errorf("presentation verification failed: %w", innerErr)
+			s.sendFailedEvent(ctx, tx, profile, e)
+
+			return e
+		}
+
+		if len(vr) > 0 {
+			e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
+			s.sendFailedEvent(ctx, tx, profile, e)
+
+			return e
+		}
+
+		verifiedPresentations[token.Presentation.ID] = token
+
+		logger.Debug(" VerifyOIDCVerifiablePresentation verified", logfields.WithVP(string(vpBytes)))
 	}
 
-	if len(vr) > 0 {
-		e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
-		s.sendFailedEvent(ctx, tx, profile, e)
-
-		return e
-	}
-
-	logger.Debug(" VerifyOIDCVerifiablePresentation verified", logfields.WithVP(string(vpBytes)))
-
-	err = s.extractClaimData(tx, token, profile)
+	err = s.extractClaimData(tx, tokens, profile, verifiedPresentations)
 	if err != nil {
 		s.sendFailedEvent(ctx, tx, profile, err)
 
 		return err
 	}
+
+	logger.Debug("extractClaimData claims stored")
 
 	if err = s.sendEvent(ctx, tx, profile, spi.VerifierOIDCInteractionSucceeded); err != nil {
 		return err
@@ -383,78 +397,84 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 	return result
 }
 
-func (s *Service) extractClaimData(tx *Transaction, token *ProcessedVPToken, profile *profileapi.Verifier) error {
-	// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
-	token.Presentation.JWT = ""
+func (s *Service) extractClaimData(tx *Transaction, tokens []*ProcessedVPToken,
+	profile *profileapi.Verifier, verifiedPresentations map[string]*ProcessedVPToken) error {
+	var presentations []*verifiable.Presentation
 
-	bytes, err := token.Presentation.MarshalJSON()
-	if err != nil {
-		return fmt.Errorf("extract claims: marshal VP token: %w", err)
+	for _, token := range tokens {
+		// TODO: think about better solution. If jwt is set, its wrap vp into sub object "vp" and this breaks Match
+		token.Presentation.JWT = ""
+		presentations = append(presentations, token.Presentation)
 	}
 
-	logger.Debug("extractClaimData vp", logfields.WithVP(string(bytes)))
-
-	credentials, err := tx.PresentationDefinition.Match(token.Presentation, s.documentLoader,
+	// TOD0: Aries will be able to accept multiple presentations
+	matchedCredentials, err := tx.PresentationDefinition.Match(presentations, s.documentLoader,
 		presexch.WithCredentialOptions(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 			verifiable.WithPublicKeyFetcher(s.publicKeyFetcher),
 		), presexch.WithDisableSchemaValidation())
 
 	if err != nil {
-		return fmt.Errorf("extract claims: match: %w", err)
+		return fmt.Errorf("presentation definition match: %w", err)
 	}
 
-	logger.Debug("extractClaimData pd matched")
+	storeCredentials := make(map[string]*verifiable.Credential)
 
-	if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
-		err = checkVCSubject(credentials, token)
-		if err != nil {
-			return fmt.Errorf("extractClaimData vc subject: %w", err)
+	for inputDescID, mc := range matchedCredentials {
+		token, ok := verifiedPresentations[mc.PresentationID]
+		if !ok {
+			// this should never happen
+			return fmt.Errorf("missing verified presentation ID: %s", mc.PresentationID)
 		}
 
-		logger.Debug("extractClaimData vc subject verified")
+		if profile.Checks != nil && profile.Checks.Presentation != nil && profile.Checks.Presentation.VCSubject {
+			err = checkVCSubject(mc.Credential, token)
+			if err != nil {
+				return fmt.Errorf("extractClaimData vc subject: %w", err)
+			}
+
+			logger.Debug("vc subject verified")
+		}
+
+		storeCredentials[inputDescID] = mc.Credential
 	}
 
-	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: credentials})
+	err = s.transactionManager.StoreReceivedClaims(tx.ID, &ReceivedClaims{Credentials: storeCredentials})
 	if err != nil {
-		return fmt.Errorf("extract claims: store: %w", err)
+		return fmt.Errorf("store received claims: %w", err)
 	}
-
-	logger.Debug("extractClaimData claims stored")
 
 	return nil
 }
 
-func checkVCSubject(credentials map[string]*verifiable.Credential, token *ProcessedVPToken) error {
-	for _, cred := range credentials {
-		var subjectID string
-		subjectID, err := verifiable.SubjectID(cred.Subject)
-		if err != nil {
-			return fmt.Errorf("fail to parse credential as jwt: %w", err)
-		}
-
-		if cred.JWT != "" {
-			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
-			credToken, credErr := jwt.Parse(cred.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
-			if credErr != nil {
-				return fmt.Errorf("fail to parse credential as jwt: %w", credErr)
-			}
-
-			claims := &jwtVCClaims{}
-
-			credErr = credToken.DecodeClaims(claims)
-			if credErr != nil {
-				return fmt.Errorf("fail to decode credential claims: %w", credErr)
-			}
-
-			subjectID = claims.Sub
-		}
-
-		if token.Signer != subjectID {
-			return fmt.Errorf("vc subject(%s) does not match with vp signer(%s)",
-				subjectID, token.Signer)
-		}
+func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error {
+	subjectID, err := verifiable.SubjectID(cred.Subject)
+	if err != nil {
+		return fmt.Errorf("fail to parse credential as jwt: %w", err)
 	}
+
+	if cred.JWT != "" {
+		// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
+		credToken, credErr := jwt.Parse(cred.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+		if credErr != nil {
+			return fmt.Errorf("fail to parse credential as jwt: %w", credErr)
+		}
+
+		claims := &jwtVCClaims{}
+
+		credErr = credToken.DecodeClaims(claims)
+		if credErr != nil {
+			return fmt.Errorf("fail to decode credential claims: %w", credErr)
+		}
+
+		subjectID = claims.Sub
+	}
+
+	if token.Signer != subjectID {
+		return fmt.Errorf("vc subject(%s) does not match with vp signer(%s)",
+			subjectID, token.Signer)
+	}
+
 	return nil
 }
 

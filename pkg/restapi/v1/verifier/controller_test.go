@@ -575,12 +575,12 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 
 		processedVPToken, err := c.verifyAuthorizationResponseTokens(&authorizationResponse{
 			IDToken: idToken,
-			VPToken: vpToken,
+			VPToken: []string{vpToken},
 			State:   "txid",
 		})
 
 		require.NoError(t, err)
-		require.Contains(t, processedVPToken.Presentation.Type, "PresentationSubmission")
+		require.Contains(t, processedVPToken[0].Presentation.Type, "PresentationSubmission")
 	})
 
 	t.Run("Presentation submission missed", func(t *testing.T) {
@@ -944,6 +944,18 @@ func TestController_validateAuthorizationResponse(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		body := "vp_token=toke1&" +
 			"&id_token=toke2" +
+			"&state=txid"
+
+		ctx := createContextApplicationForm([]byte(body))
+
+		ar, err := validateAuthorizationResponse(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, ar)
+	})
+
+	t.Run("Success - vp token is an array", func(t *testing.T) {
+		body := "vp_token=%5B%22token1%22%2C%22token2%22%5D" +
+			"&id_token=idtoken" +
 			"&state=txid"
 
 		ctx := createContextApplicationForm([]byte(body))

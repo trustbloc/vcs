@@ -52,7 +52,7 @@ var logger = log.New("oidc4vp")
 
 type authorizationResponse struct {
 	IDToken string
-	VPToken string
+	VPToken []string
 	State   string
 }
 
@@ -105,7 +105,7 @@ type oidc4VPService interface {
 		profile *profileapi.Verifier,
 	) (*oidc4vp.InteractionInfo, error)
 
-	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, token *oidc4vp.ProcessedVPToken) error
+	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, token []*oidc4vp.ProcessedVPToken) error
 
 	GetTx(id oidc4vp.TxID) (*oidc4vp.Transaction, error)
 
@@ -332,12 +332,12 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		return err
 	}
 
-	processedToken, err := c.verifyAuthorizationResponseTokens(authResp)
+	processedTokens, err := c.verifyAuthorizationResponseTokens(authResp)
 	if err != nil {
 		return err
 	}
 
-	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State), processedToken)
+	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State), processedTokens)
 	if err != nil {
 		return err
 	}
@@ -398,7 +398,7 @@ func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) 
 }
 
 func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationResponse) (
-	*oidc4vp.ProcessedVPToken, error) {
+	[]*oidc4vp.ProcessedVPToken, error) {
 	startTime := time.Now()
 	defer func() {
 		logger.Debug("validateResponseAuthTokens", log.WithDuration(time.Since(startTime)))
@@ -411,44 +411,50 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 
 	logger.Info("CheckAuthorizationResponse id_token verified", logfields.WithIDToken(authResp.IDToken))
 
-	vpTokenClaims, signer, err := validateVPToken(authResp.VPToken, c.jwtVerifier)
-	if err != nil {
-		return nil, err
+	var processedVPTokens []*oidc4vp.ProcessedVPToken
+
+	for _, vpt := range authResp.VPToken {
+		vpTokenClaims, signer, err := validateVPToken(vpt, c.jwtVerifier)
+		if err != nil {
+			return nil, err
+		}
+
+		logger.Info("CheckAuthorizationResponse vp_token verified", logfields.WithVPToken(vpt))
+
+		if vpTokenClaims.Nonce != idTokenClaims.Nonce {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
+				errors.New("nonce should be the same for both id_token and vp_token"))
+		}
+
+		presentation, err := verifiable.ParsePresentation(vpTokenClaims.VP,
+			verifiable.WithPresPublicKeyFetcher(
+				verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
+			),
+			verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
+		)
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
+		}
+
+		logger.Debug("CheckAuthorizationResponse vp validated")
+
+		presentation.JWT = vpt
+		if presentation.CustomFields == nil {
+			presentation.CustomFields = map[string]interface{}{}
+		}
+
+		presentation.Context = append(presentation.Context, presexch.PresentationSubmissionJSONLDContextIRI)
+		presentation.Type = append(presentation.Type, presexch.PresentationSubmissionJSONLDType)
+		presentation.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
+
+		processedVPTokens = append(processedVPTokens, &oidc4vp.ProcessedVPToken{
+			Nonce:        idTokenClaims.Nonce,
+			Presentation: presentation,
+			Signer:       signer,
+		})
 	}
 
-	logger.Info("CheckAuthorizationResponse vp_token verified", logfields.WithVPToken(authResp.VPToken))
-
-	if vpTokenClaims.Nonce != idTokenClaims.Nonce {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
-			errors.New("nonce should be the same for both id_token and vp_token"))
-	}
-
-	presentation, err := verifiable.ParsePresentation(vpTokenClaims.VP,
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(c.vdr).PublicKeyFetcher(),
-		),
-		verifiable.WithPresJSONLDDocumentLoader(c.documentLoader),
-	)
-	if err != nil {
-		return nil, resterr.NewValidationError(resterr.InvalidValue, "vp_token.vp", err)
-	}
-
-	logger.Debug("CheckAuthorizationResponse vp validated")
-
-	presentation.JWT = authResp.VPToken
-	if presentation.CustomFields == nil {
-		presentation.CustomFields = map[string]interface{}{}
-	}
-
-	presentation.Context = append(presentation.Context, presexch.PresentationSubmissionJSONLDContextIRI)
-	presentation.Type = append(presentation.Type, presexch.PresentationSubmissionJSONLDType)
-	presentation.CustomFields[vpSubmissionProperty] = idTokenClaims.VPToken.PresentationSubmission
-
-	return &oidc4vp.ProcessedVPToken{
-		Nonce:        idTokenClaims.Nonce,
-		Presentation: presentation,
-		Signer:       signer,
-	}, nil
+	return processedVPTokens, nil
 }
 
 func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
@@ -531,12 +537,16 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 
 	logger.Info("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
 
-	err = decodeFormValue(&res.VPToken, "vp_token", req.PostForm)
+	var vpTokenStr string
+
+	err = decodeFormValue(&vpTokenStr, "vp_token", req.PostForm)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("AuthorizationResponse vp_token decoded", logfields.WithVPToken(res.VPToken))
+	res.VPToken = getVPTokens(vpTokenStr)
+
+	logger.Info("AuthorizationResponse vp_token decoded", logfields.WithVPToken(fmt.Sprintf("%s", res.VPToken)))
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {
@@ -546,6 +556,16 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 	logger.Debug("AuthorizationResponse state decoded", log.WithState(res.State))
 
 	return res, nil
+}
+
+func getVPTokens(tokenStr string) []string {
+	var tokens []string
+
+	if err := json.Unmarshal([]byte(tokenStr), &tokens); err != nil {
+		return []string{tokenStr}
+	}
+
+	return tokens
 }
 
 func decodeFormValue(output *string, valName string, values url.Values) error {

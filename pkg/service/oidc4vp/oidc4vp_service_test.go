@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
@@ -229,7 +230,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	txManager := NewMockTransactionManager(gomock.NewController(t))
 	profileService := NewMockProfileService(gomock.NewController(t))
 	presentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-	vp, pd, pubKeyFetcher, loader := newVPWithPD(t, agent)
+	vp, pd, issuer, pubKeyFetcher, loader := newVPWithPD(t, agent)
 
 	s := oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:             &mockEvent{},
@@ -264,22 +265,142 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
-				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+				Signer:       issuer,
+			}})
+
+		require.NoError(t, err)
+	})
+
+	t.Run("Success - two VP tokens (not merged)", func(t *testing.T) {
+		var descriptors []*presexch.InputDescriptor
+		err := json.Unmarshal([]byte(twoInputDescriptors), &descriptors)
+		require.NoError(t, err)
+
+		defs := &presexch.PresentationDefinition{
+			InputDescriptors: descriptors,
+		}
+
+		ps1 := &presexch.PresentationSubmission{
+			DescriptorMap: []*presexch.InputDescriptorMapping{
+				{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$",
+					PathNested: &presexch.InputDescriptorMapping{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+			},
+		}
+
+		ps2 := &presexch.PresentationSubmission{
+			DescriptorMap: []*presexch.InputDescriptorMapping{
+				{
+					ID:   defs.InputDescriptors[1].ID,
+					Path: "$",
+					PathNested: &presexch.InputDescriptorMapping{
+						ID:   defs.InputDescriptors[1].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+			},
+		}
+
+		/* TODO: Talk to Sudesh/Filip about when to use merged submission and how to configure/construct it
+		mergedPS := &presexch.PresentationSubmission{
+			DescriptorMap: []*presexch.InputDescriptorMapping{
+				{
+					ID:   defs.InputDescriptors[0].ID,
+					Path: "$[0]",
+					PathNested: &presexch.InputDescriptorMapping{
+						ID:   defs.InputDescriptors[0].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+				{
+					ID:   defs.InputDescriptors[1].ID,
+					Path: "$[1]",
+					PathNested: &presexch.InputDescriptorMapping{
+						ID:   defs.InputDescriptors[1].ID,
+						Path: "$.verifiableCredential[0]",
+					},
+				},
+			},
+		}
+		*/
+
+		testLoader := testutil.DocumentLoader(t)
+
+		vp1, issuer1, pubKeyFetcher1 := newVPWithPS(t, agent, ps1, "PhDDegree")
+		vp2, issuer2, pubKeyFetcher2 := newVPWithPS(t, agent, ps2, "BachelorDegree")
+
+		combinedFetcher := func(issuerID string, keyID string) (*verifier.PublicKey, error) {
+			switch issuerID {
+			case issuer1:
+				return pubKeyFetcher1(issuerID, keyID)
+
+			case issuer2:
+				return pubKeyFetcher2(issuerID, keyID)
+			}
+
+			return nil, fmt.Errorf("unexpected issuer")
+		}
+
+		txManager2 := NewMockTransactionManager(gomock.NewController(t))
+
+		s2 := oidc4vp.NewService(&oidc4vp.Config{
+			EventSvc:             &mockEvent{},
+			EventTopic:           spi.VerifierEventTopic,
+			TransactionManager:   txManager2,
+			PresentationVerifier: presentationVerifier,
+			ProfileService:       profileService,
+			DocumentLoader:       testLoader,
+			PublicKeyFetcher:     combinedFetcher,
+		})
+
+		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
+			ID:                     "txID1",
+			ProfileID:              "testP1",
+			PresentationDefinition: defs,
+		}, true, nil)
+
+		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
+
+		err = s2.VerifyOIDCVerifiablePresentation("txID1",
+			[]*oidc4vp.ProcessedVPToken{
+				{
+					Nonce:        "nonce1",
+					Presentation: vp1,
+					Signer:       issuer1,
+				},
+				{
+					Nonce:        "nonce1",
+					Presentation: vp2,
+					Signer:       issuer2,
+				},
 			})
 
 		require.NoError(t, err)
 	})
 
+	t.Run("Must have at least one token", func(t *testing.T) {
+		err := s.VerifyOIDCVerifiablePresentation("txID1",
+			[]*oidc4vp.ProcessedVPToken{})
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "must have at least one token")
+	})
+
 	t.Run("VC subject is not much with vp signer", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
 				Signer:       "did:example1:ebfeb1f712ebc6f1c276e12ec21",
-			})
+			}})
 
 		require.Contains(t, err.Error(), "does not match with vp signer")
 	})
@@ -299,22 +420,22 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
 				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
-			})
+			}})
 
 		require.Contains(t, err.Error(), "invalid nonce1")
 	})
 
 	t.Run("Invalid Nonce 2", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation("txID2",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
 				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
-			})
+			}})
 
 		require.Contains(t, err.Error(), "invalid nonce")
 	})
@@ -334,11 +455,11 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
 				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
-			})
+			}})
 
 		require.Contains(t, err.Error(), "get profile error")
 	})
@@ -354,24 +475,25 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PresentationVerifier: errPresentationVerifier,
 			ProfileService:       profileService,
 			DocumentLoader:       loader,
+			PublicKeyFetcher:     pubKeyFetcher,
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
 				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
-			})
+			}})
 
 		require.Contains(t, err.Error(), "verification failed")
 	})
 
 	t.Run("Match failed", func(t *testing.T) {
 		err := s.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: &verifiable.Presentation{},
-			})
+			}})
 		require.Contains(t, err.Error(), "match:")
 	})
 
@@ -397,11 +519,11 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		})
 
 		err := withError.VerifyOIDCVerifiablePresentation("txID1",
-			&oidc4vp.ProcessedVPToken{
+			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
-				Signer:       "did:example123:ebfeb1f712ebc6f1c276e12ec21",
-			})
+				Signer:       issuer,
+			}})
 
 		require.Contains(t, err.Error(), "store error")
 	})
@@ -527,12 +649,12 @@ func (m *mockEvent) Publish(ctx context2.Context, topic string, messages ...*spi
 }
 
 func newVPWithPD(t *testing.T, agent *context.Provider) (
-	*verifiable.Presentation, *presexch.PresentationDefinition, verifiable.PublicKeyFetcher, *ld.DocumentLoader) {
+	*verifiable.Presentation, *presexch.PresentationDefinition, string, verifiable.PublicKeyFetcher, *ld.DocumentLoader) {
 	uri := randomURI()
 
 	customType := "CustomType"
 
-	expected, pubKeyFetcher := newSignedJWTVC(t, agent, []string{uri})
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, agent, []string{uri}, "", "")
 	expected.Types = append(expected.Types, customType)
 
 	defs := &presexch.PresentationDefinition{
@@ -552,12 +674,22 @@ func newVPWithPD(t *testing.T, agent *context.Provider) (
 			Path: "$.verifiableCredential[0]",
 		}}},
 		expected,
-	), defs, pubKeyFetcher, docLoader
+	), defs, issuer, pubKeyFetcher, docLoader
+}
+
+func newVPWithPS(t *testing.T, agent *context.Provider, ps *presexch.PresentationSubmission, value string) (
+	*verifiable.Presentation, string, verifiable.PublicKeyFetcher) {
+	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, agent, nil, "degree", value)
+
+	return newVP(t, ps,
+		expected,
+	), issuer, pubKeyFetcher
 }
 
 func newVP(t *testing.T, submission *presexch.PresentationSubmission,
 	vcs ...*verifiable.Credential) *verifiable.Presentation {
 	vp, err := verifiable.NewPresentation(verifiable.WithCredentials(vcs...))
+	vp.ID = uuid.New().String() // TODO: Can we rely on this for code
 	require.NoError(t, err)
 
 	vp.Context = append(vp.Context, "https://identity.foundation/presentation-exchange/submission/v1")
@@ -571,17 +703,42 @@ func newVP(t *testing.T, submission *presexch.PresentationSubmission,
 	return vp
 }
 
-func newVC(ctx []string) *verifiable.Credential {
+func newVC(issuer string, ctx []string) *verifiable.Credential {
 	cred := &verifiable.Credential{
 		Context: []string{verifiable.ContextURI},
 		Types:   []string{verifiable.VCType},
 		ID:      "http://test.credential.com/123",
-		Issuer:  verifiable.Issuer{ID: "http://test.issuer.com"},
+		Issuer:  verifiable.Issuer{ID: issuer},
 		Issued: &util.TimeWrapper{
 			Time: time.Now(),
 		},
 		Subject: map[string]interface{}{
-			"id": "did:example123:ebfeb1f712ebc6f1c276e12ec21",
+			"id": issuer,
+		},
+	}
+
+	if ctx != nil {
+		cred.Context = append(cred.Context, ctx...)
+	}
+
+	return cred
+}
+
+func newDegreeVC(issuer string, degreeType string, ctx []string) *verifiable.Credential {
+	cred := &verifiable.Credential{
+		Context: []string{verifiable.ContextURI},
+		Types:   []string{verifiable.VCType},
+		ID:      uuid.New().String(),
+		Issuer:  verifiable.Issuer{ID: issuer},
+		Issued: &util.TimeWrapper{
+			Time: time.Now(),
+		},
+		Subject: map[string]interface{}{
+			"id": issuer,
+			"degree": map[string]interface{}{
+				"type":   degreeType,
+				"degree": "MIT",
+			},
 		},
 	}
 
@@ -593,10 +750,9 @@ func newVC(ctx []string) *verifiable.Credential {
 }
 
 func newSignedJWTVC(t *testing.T,
-	agent *context.Provider, ctx []string) (*verifiable.Credential, verifiable.PublicKeyFetcher) {
+	agent *context.Provider, ctx []string,
+	vcType string, value string) (*verifiable.Credential, string, verifiable.PublicKeyFetcher) {
 	t.Helper()
-
-	vc := newVC(ctx)
 
 	keyID, kh, err := agent.KMS().Create(kms.ED25519Type)
 	require.NoError(t, err)
@@ -611,6 +767,15 @@ func newSignedJWTVC(t *testing.T,
 
 	issuer, verMethod := fingerprint.CreateDIDKeyByCode(fingerprint.ED25519PubKeyMultiCodec, pubKey)
 
+	var vc *verifiable.Credential
+
+	switch vcType {
+	case "degree":
+		vc = newDegreeVC(issuer, value, ctx)
+	default:
+		vc = newVC(issuer, ctx)
+	}
+
 	vc.Issuer = verifiable.Issuer{ID: issuer}
 
 	claims, err := vc.JWTClaims(false)
@@ -624,7 +789,7 @@ func newSignedJWTVC(t *testing.T,
 
 	vc.JWT = jws
 
-	return vc, pubKeyFetcher
+	return vc, issuer, pubKeyFetcher
 }
 
 func randomURI() string {
@@ -680,3 +845,57 @@ func toMap(t *testing.T, v interface{}) map[string]interface{} {
 
 	return m
 }
+
+const twoInputDescriptors = `
+[
+  {
+    "id": "phd-degree",
+    "name": "phd-degree",
+    "purpose": "We can only hire with PhD degree.",
+    "schema": [
+      {
+        "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+      }
+    ],
+    "constraints": {
+      "fields": [
+        {
+          "path": [
+            "$.credentialSubject.degree.type",
+            "$.vc.credentialSubject.degree.type"
+          ],
+          "purpose": "We can only hire with PhD degree.",
+          "filter": {
+            "type": "string",
+            "const": "PhDDegree"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "id": "bachelor-degree",
+    "name": "bachelor-degree",
+    "purpose": "We can only hire with bachelor degree.",
+    "schema": [
+      {
+        "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+      }
+    ],
+    "constraints": {
+      "fields": [
+        {
+          "path": [
+            "$.credentialSubject.degree.type",
+            "$.vc.credentialSubject.degree.type"
+          ],
+          "purpose": "We can only hire with bachelor degree.",
+          "filter": {
+            "type": "string",
+            "const": "BachelorDegree"
+          }
+        }
+      ]
+    }
+  }
+]`
