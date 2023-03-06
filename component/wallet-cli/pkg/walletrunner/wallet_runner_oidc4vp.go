@@ -36,6 +36,12 @@ import (
 )
 
 func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
+	if s.vcProviderConf.LinkedDomainVerificationEnabled {
+		if err := s.runLinkedDomainVerification(s.vcProviderConf.WalletDidID); err != nil {
+			return fmt.Errorf("linked domain verification failed: %w", err)
+		}
+	}
+
 	log.Println("Start OIDC4VP flow")
 	log.Println("AuthorizationRequest:", authorizationRequest)
 

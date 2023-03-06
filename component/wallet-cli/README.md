@@ -124,6 +124,7 @@ The following CLI arguments are supported for oidc4vp command (./wallet-cli oidc
       --wallet-did-keyid string                     existing wallet did key id
       --wallet-passphrase string                    existing wallet pass phrase
       --wallet-user-id string                       existing wallet user id
+      --linked-domain-verification-enabled          enables Linked Domain Verification (default "false")
 Note:
 
     Either `qrcode-path` or `oidc4-vp-authorization-request"` must be supplied.
@@ -152,7 +153,8 @@ Note:
 --wallet-passphrase "" \
 --wallet-user-id "" \
 --wallet-did "" \
---wallet-did-keyid "" 
+--wallet-did-keyid "" \
+--linked-domain-verification-enabled=false
 
 Note: 
   if you are not specifying the existing wallet using (wallet-user-id,wallet-passphrase,wallet-did-keyid,wallet-did) a new wallet will be automatically created and credentials will be available in the command outpu
