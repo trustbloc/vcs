@@ -190,6 +190,10 @@ func TestValidateVCFormat(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, vcsverifiable.Ldp, got)
 
+	got, err = ValidateVCFormat(JwtVcJson)
+	require.NoError(t, err)
+	require.Equal(t, vcsverifiable.Jwt, got)
+
 	_, err = ValidateVCFormat("invalid")
 	require.Error(t, err)
 }
