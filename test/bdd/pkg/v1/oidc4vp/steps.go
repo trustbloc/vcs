@@ -37,8 +37,9 @@ type Steps struct {
 	walletPassphrase string
 	walletToken      string
 	walletUserID     string
-	walletDidID      string
-	walletDidKeyID   string
+	walletDidCount   int
+	walletDidID      []string
+	walletDidKeyID   []string
 	vpFlowExecutor   *VPFlowExecutor
 }
 
@@ -49,12 +50,13 @@ func NewSteps(ctx *bddcontext.BDDContext) *Steps {
 		tlsConfig: &tls.Config{
 			InsecureSkipVerify: true,
 		},
+		walletDidCount: 1,
 	}
 }
 
 // RegisterSteps registers agent steps
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
-	s.Step(`^User creates wallet$`, e.createWallet)
+	s.Step(`^User creates wallet with (\d+) DID$`, e.createWallet)
 	s.Step(`^User saves credentials into wallet$`, e.saveCredentialsInWallet)
 	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.initiateInteraction)

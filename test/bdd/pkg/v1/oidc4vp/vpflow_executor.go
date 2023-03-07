@@ -16,10 +16,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
+	jsonld "github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -30,18 +32,20 @@ type VPFlowExecutorURLs struct {
 }
 
 type VPFlowExecutor struct {
-	tlsConfig            *tls.Config
-	ariesServices        *ariesServices
-	wallet               *wallet.Wallet
-	walletToken          string
-	walletDidID          string
-	walletDidKeyID       string
-	URLs                 *VPFlowExecutorURLs
-	requestObject        *RequestObject
-	authorizationRequest string
-	transactionID        string
-	requestPresentation  *verifiable.Presentation
-	claimsTransactionID  string
+	tlsConfig                     *tls.Config
+	ariesServices                 *ariesServices
+	wallet                        *wallet.Wallet
+	walletToken                   string
+	walletDidID                   []string
+	walletDidKeyID                []string
+	URLs                          *VPFlowExecutorURLs
+	requestObject                 *RequestObject
+	authorizationRequest          string
+	transactionID                 string
+	requestPresentation           []*verifiable.Presentation
+	requestPresentationSubmission *presexch.PresentationSubmission
+	claimsTransactionID           string
+	jSONLDDocumentLoader          jsonld.DocumentLoader
 }
 
 func (e *VPFlowExecutor) initiateInteraction(profileName, authToken string) error {
@@ -119,53 +123,164 @@ func (e *VPFlowExecutor) queryCredentialFromWallet() error {
 		return fmt.Errorf("presentation definition marshal: %w", err)
 	}
 
-	vps, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
+	// This query will always return one VP - so far no plans to change this
+	// We will only use this to get relevant credentials from wallet
+	legacyVP, err := e.wallet.Query(e.walletToken, &wallet.QueryParams{
 		Type:  "PresentationExchange",
 		Query: []json.RawMessage{pdBytes},
 	})
 
+	credentials, err := e.getCredentials(legacyVP[0].Credentials())
 	if err != nil {
-		return fmt.Errorf("query vc using presentation definition: %w", err)
+		return fmt.Errorf("failed to parse credentials from vp: %w", err)
 	}
 
-	e.requestPresentation = vps[0]
+	// New way of doing it
+	vps, ps, err := e.requestObject.Claims.VPToken.PresentationDefinition.CreateVPArray(credentials, e.jSONLDDocumentLoader)
+	if err != nil {
+		return fmt.Errorf("failed to create VP array from selected credentials: %w", err)
+	}
+
+	e.requestPresentation = vps
+	e.requestPresentationSubmission = ps
 
 	return nil
 }
 
 func (e *VPFlowExecutor) createAuthorizedResponse() (string, error) {
-	presentationSubmission :=
-		e.requestPresentation.CustomFields["presentation_submission"].(*presexch.PresentationSubmission)
-
 	idToken := &IDTokenClaims{
 		VPToken: IDTokenVPToken{
-			PresentationSubmission: presentationSubmission,
+			PresentationSubmission: e.requestPresentationSubmission,
 		},
 		Nonce: e.requestObject.Nonce,
 		Exp:   time.Now().Unix() + 600,
 		Iss:   "https://self-issued.me/v2/openid-vc",
 	}
 
-	e.requestPresentation.CustomFields["presentation_submission"] = nil
-
-	vpToken := VPTokenClaims{
-		VP:    e.requestPresentation,
-		Nonce: e.requestObject.Nonce,
-		Exp:   time.Now().Unix() + 600,
-		Iss:   e.walletDidID,
-	}
-
-	idTokenJWS, err := signToken(idToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
+	idTokenJWS, err := signToken(idToken, e.walletDidKeyID[0], e.ariesServices.crypto, e.ariesServices.kms)
 	if err != nil {
 		return "", fmt.Errorf("sign id_token: %w", err)
 	}
 
-	vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID, e.ariesServices.crypto, e.ariesServices.kms)
-	if err != nil {
-		return "", fmt.Errorf("sign vp_token: %w", err)
+	var tokens []string
+
+	for _, vp := range e.requestPresentation {
+		did, err := e.getSubjectID(vp.Credentials())
+		if err != nil {
+			return "", err
+		}
+
+		didIndex := e.getDIDIndex(did)
+
+		vpToken := VPTokenClaims{
+			VP:    vp,
+			Nonce: e.requestObject.Nonce,
+			Exp:   time.Now().Unix() + 600,
+			Iss:   did,
+		}
+
+		vpTokenJWS, err := signToken(vpToken, e.walletDidKeyID[didIndex], e.ariesServices.crypto, e.ariesServices.kms)
+		if err != nil {
+			return "", fmt.Errorf("sign vp_token: %w", err)
+		}
+
+		tokens = append(tokens, vpTokenJWS)
 	}
 
-	return fmt.Sprintf("id_token=%s&vp_token=%s&state=%s", idTokenJWS, vpTokenJWS, e.requestObject.State), nil
+	tokensJSON := tokens[0]
+
+	if len(tokens) > 1 {
+		tokensJSONBytes, err := json.Marshal(tokens)
+		if err != nil {
+			return "", fmt.Errorf("marshal tokens: %w", err)
+		}
+
+		tokensJSON = string(tokensJSONBytes)
+	}
+
+	return fmt.Sprintf("id_token=%s&vp_token=%s&state=%s", idTokenJWS, tokensJSON, e.requestObject.State), nil
+}
+
+func (e *VPFlowExecutor) getDIDIndex(did string) int {
+	for index, walletDID := range e.walletDidID {
+		if did == walletDID {
+			return index
+		}
+	}
+
+	return -1
+}
+
+func (e *VPFlowExecutor) getSubjectID(creds []interface{}) (string, error) {
+	subjectIDMap := make(map[string]bool)
+
+	var subjectID string
+
+	for _, cred := range creds {
+		vcBytes, err := json.Marshal(cred)
+		if err != nil {
+			return "", err
+		}
+
+		vc, err := verifiable.ParseCredential(vcBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(e.jSONLDDocumentLoader))
+		if err != nil {
+			return "", fmt.Errorf("fail to parse credential: %w", err)
+		}
+
+		subjectID, err = verifiable.SubjectID(vc.Subject)
+		if err != nil {
+			return "", fmt.Errorf("failed to get subject ID: %w", err)
+		}
+
+		if vc.JWT != "" {
+			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
+			credToken, credErr := jwt.Parse(vc.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+			if credErr != nil {
+				return "", fmt.Errorf("fail to parse credential as jwt: %w", credErr)
+			}
+
+			claims := &jwtVCClaims{}
+
+			credErr = credToken.DecodeClaims(claims)
+			if credErr != nil {
+				return "", fmt.Errorf("fail to decode credential claims: %w", credErr)
+			}
+
+			subjectID = claims.Sub
+		}
+
+		subjectIDMap[subjectID] = true
+	}
+
+	if len(subjectIDMap) > 1 {
+		fmt.Println("WARNING ... more than one subject ID found in VP")
+	}
+
+	return subjectID, nil
+}
+
+func (e *VPFlowExecutor) getCredentials(creds []interface{}) ([]*verifiable.Credential, error) {
+	var credentials []*verifiable.Credential
+
+	for _, cred := range creds {
+		vcBytes, err := json.Marshal(cred)
+		if err != nil {
+			return nil, err
+		}
+
+		vc, err := verifiable.ParseCredential(vcBytes,
+			verifiable.WithDisabledProofCheck(),
+			verifiable.WithJSONLDDocumentLoader(e.jSONLDDocumentLoader))
+		if err != nil {
+			return nil, fmt.Errorf("fail to parse credential: %w", err)
+		}
+
+		credentials = append(credentials, vc)
+	}
+
+	return credentials, nil
 }
 
 func (e *VPFlowExecutor) sendAuthorizedResponse(responseBody string) error {
@@ -216,5 +331,17 @@ func (e *VPFlowExecutor) retrieveInteractionsClaim(txID, authToken string, statu
 		return bddutil.ExpectedStatusCodeError(status, resp.StatusCode, respBytes)
 	}
 
+	return nil
+}
+
+type jwtVCClaims struct {
+	Sub string `json:"sub"`
+}
+
+// noVerifier is used when no JWT signature verification is needed.
+// To be used with precaution.
+type noVerifier struct{}
+
+func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 	return nil
 }

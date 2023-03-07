@@ -10,11 +10,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"io"
+	"net/http"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	verifiable2 "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -23,7 +22,7 @@ import (
 )
 
 func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, signatureRepresentation string) error {
-	if err := e.createCredential(credentialServiceURL, credential, vcFormat, profileName, organizationName); err != nil {
+	if err := e.createCredential(credentialServiceURL, credential, vcFormat, profileName, organizationName, 0); err != nil {
 		return err
 	}
 
@@ -55,7 +54,7 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 	return e.checkVC(credBytes, profileName, signatureRepresentation, checkProof)
 }
 
-func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profileName, organizationName string) error {
+func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profileName, organizationName string, didIndex int) error {
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	template, ok := e.bddContext.TestData[credential]
@@ -81,8 +80,8 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 		return fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
 	}
 
-	if e.bddContext.CredentialSubject != "" {
-		subjs[0].ID = e.bddContext.CredentialSubject
+	if len(e.bddContext.CredentialSubject) > didIndex && e.bddContext.CredentialSubject[didIndex] != "" {
+		subjs[0].ID = e.bddContext.CredentialSubject[didIndex]
 	}
 
 	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, vcFormat)

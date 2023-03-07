@@ -52,7 +52,7 @@ const (
 	contextProviderURL  = "https://file-server.trustbloc.local:10096/ld-contexts.json"
 	didDomain           = "https://testnet.orb.local"
 	didServiceAuthToken = "tk1"
-	vdrResolveMaxRetry = 10
+	vdrResolveMaxRetry  = 10
 )
 
 type ariesServices struct {
@@ -64,9 +64,10 @@ type ariesServices struct {
 	mediaTypeProfiles    []string
 }
 
-func (e *Steps) createWallet() error {
+func (e *Steps) createWallet(numOfDIDs int) error {
 	e.walletUserID = "testUserID" + uuid.NewString()
 	e.walletPassphrase = "passphrase122334"
+	e.walletDidCount = numOfDIDs
 
 	services, err := CreateAgentServices(e.tlsConfig)
 	if err != nil {
@@ -96,23 +97,28 @@ func (e *Steps) createWallet() error {
 
 	vdrRegistry := vdrpkg.New(vdrpkg.WithVDR(vdr), vdrpkg.WithVDR(key.New()))
 
-	createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, e.ariesServices.kms)
-	if err != nil {
-		return err
-	}
+	for i := 0; i < e.walletDidCount; i++ {
 
-	e.walletDidID = createRes.DidID
-	e.bddContext.CredentialSubject = createRes.DidID
-	e.walletDidKeyID = createRes.KeyID
-
-	for i := 1; i <= vdrResolveMaxRetry; i++ {
-		_, err = vdrRegistry.Resolve(e.walletDidID)
-		println("walletDidID", e.walletDidID)
-		if err == nil {
-			break
+		createRes, err := vdrutil.CreateDID(kms.ECDSAP384TypeDER, vdrRegistry, e.ariesServices.kms)
+		if err != nil {
+			return err
 		}
 
-		time.Sleep(1 * time.Second)
+		e.walletDidID = append(e.walletDidID, createRes.DidID)
+		e.bddContext.CredentialSubject = append(e.bddContext.CredentialSubject, createRes.DidID)
+		e.walletDidKeyID = append(e.walletDidKeyID, createRes.KeyID)
+	}
+
+	for j := 0; j < e.walletDidCount; j++ {
+		for i := 1; i <= vdrResolveMaxRetry; i++ {
+			_, err = vdrRegistry.Resolve(e.walletDidID[j])
+			println("walletDidID", e.walletDidID[j])
+			if err == nil {
+				break
+			}
+
+			time.Sleep(1 * time.Second)
+		}
 	}
 
 	return nil
@@ -141,7 +147,6 @@ func NewWallet(userID string, passphrase string, services *ariesServices) (*wall
 	}
 
 	return w, nil
-
 }
 
 func (p *ariesServices) StorageProvider() storage.Provider {

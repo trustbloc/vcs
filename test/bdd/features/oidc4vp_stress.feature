@@ -9,7 +9,7 @@ Feature: Using OIDC4VP REST API
 
   Background:
     When "ACCESS_TOKEN_URL" Organization "ORG_ID" has been authorized with client id "CLIENT_ID" and secret "SECRET"
-    And   User creates wallet
+    And   User creates wallet with "1" DID
     And   New verifiable credentials is created from table:
       | IssuerProfile               | Organization | Credential                      | VCFormat        |
       | i_myprofile_ud_P256k1       | test_org     | university_degree.json          | ldp_vc          |
