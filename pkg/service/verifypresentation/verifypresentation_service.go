@@ -201,9 +201,11 @@ func (s *Service) validateCredentialsStatus(vp *verifiable.Presentation) error {
 			return err
 		}
 
-		err = s.vcVerifier.ValidateVCStatus(vc.Status, vc.Issuer.ID)
-		if err != nil {
-			return err
+		if vc.Status != nil {
+			err = s.vcVerifier.ValidateVCStatus(vc.Status, vc.Issuer.ID)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
