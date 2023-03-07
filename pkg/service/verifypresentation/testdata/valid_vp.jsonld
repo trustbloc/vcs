@@ -22,6 +22,13 @@
         "id": "did:example:ebfeb1f712ebc6f1c276e12ec21",
         "alumniOf": "Example University"
       },
+      "credentialStatus": {
+         "id": "urn:uuid:71d57ab4-9e3a-4267-a3fd-e64d661c0df3",
+         "statusListCredential": "https://test.com/2.json",
+         "statusListIndex": "17",
+         "statusPurpose": "revocation",
+         "type": "StatusList2021Entry"
+      },
       "proof": {
         "type": "RsaSignature2018"
       }
