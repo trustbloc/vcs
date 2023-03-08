@@ -13,6 +13,7 @@ type CSLStore interface {
 	Upsert(cslWrapper *CSLWrapper) error
 	// Get returns CSLWrapper based on URL to the CSL.
 	Get(cslURL string) (*CSLWrapper, error)
+
 	UpdateLatestListID(id int) error
 	GetLatestListID() (int, error)
 }

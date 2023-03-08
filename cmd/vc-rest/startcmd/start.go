@@ -656,6 +656,8 @@ func createCredentialStatusListStore(
 	hostName string,
 	mongoDbClient *mongodb.Client,
 ) (credentialstatustypes.CSLStore, error) {
+	cslStoreMongo := cslstoremongodb.NewStore(mongoDbClient)
+
 	switch strings.ToLower(repoType) {
 	case "s3":
 		ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
@@ -663,9 +665,9 @@ func createCredentialStatusListStore(
 			return nil, err
 		}
 
-		return cslstores3.NewStore(s3.New(ses), s3Bucket, s3Region, hostName), nil
+		return cslstores3.NewStore(s3.New(ses), cslStoreMongo, s3Bucket, s3Region, hostName), nil
 	default:
-		return cslstoremongodb.NewStore(mongoDbClient), nil
+		return cslStoreMongo, nil
 	}
 }
 
