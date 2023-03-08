@@ -4,7 +4,7 @@
 
 GOBIN_PATH=$(abspath .)/.build/bin
 VC_REST_PATH=cmd/vc-rest
-
+COMMIT_HASH=$(shell git rev-parse --short HEAD)
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
@@ -58,7 +58,8 @@ license:
 vc-rest:
 	@echo "Building vc-rest"
 	@mkdir -p ./.build/bin
-	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
+	@echo "Version is $(COMMIT_HASH)"
+	@cd ${VC_REST_PATH} && go build -ldflags="-X main.Version=$(COMMIT_HASH)" -o ../../.build/bin/vc-rest main.go
 
 .PHONY: vc-rest-docker
 vc-rest-docker: generate

@@ -28,6 +28,7 @@ import (
 	vcv1 "github.com/trustbloc/vcs/test/bdd/pkg/v1/vc"
 	vc_devapi "github.com/trustbloc/vcs/test/bdd/pkg/vc-devapi"
 	vc_echo "github.com/trustbloc/vcs/test/bdd/pkg/vc-echo"
+	vc_version "github.com/trustbloc/vcs/test/bdd/pkg/vc-version"
 )
 
 const (
@@ -165,6 +166,7 @@ func InitializeScenario(sc *godog.ScenarioContext) {
 		vc_echo.NewSteps(bddContext),
 		vc_devapi.NewSteps(bddContext),
 		oidc4ci.NewPreAuthorizeStep(bddContext),
+		vc_version.NewSteps(bddContext),
 	}
 
 	for _, f := range features {

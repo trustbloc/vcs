@@ -29,6 +29,8 @@ const (
 	oidcCredential             = "/oidc/credential"
 	oidcWellKnown              = "/.well-known/openid-configuration"
 	oidcCredentialWellKnown    = "/.well-known/openid-credential-issuer"
+	version                    = "/version/system"
+	versionSystem              = "/version"
 )
 
 // APIKeyAuth returns a middleware that authenticates requests using the API key from X-API-Key header.
@@ -52,6 +54,10 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc {
 			}
 
 			if strings.HasPrefix(currentPath, checkAuthorizationResponse) {
+				return next(c)
+			}
+
+			if currentPath == version || currentPath == versionSystem {
 				return next(c)
 			}
 
