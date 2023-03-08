@@ -163,9 +163,9 @@ func TestWrapperStore(t *testing.T) {
 			assert.NoError(t, err)
 
 			wrapperCreated := &credentialstatus.CSLWrapper{
-				VCByte:              vcBytes,
-				RevocationListIndex: 1,
-				VC:                  vc,
+				VCByte:      vcBytes,
+				UsedIndexes: []int{1},
+				VC:          vc,
 			}
 			// Create - Find
 			err = store.Upsert(wrapperCreated)
@@ -178,8 +178,7 @@ func TestWrapperStore(t *testing.T) {
 
 			// Update - Find
 			wrapperCreated.VCByte = vcBytes
-			wrapperCreated.RevocationListIndex++
-			wrapperCreated.Size++
+			wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 			wrapperCreated.ListID++
 
 			err = store.Upsert(wrapperCreated)
@@ -367,7 +366,7 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 		t.Errorf("VC got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
-	if !assert.Equal(t, wrapperCreated.RevocationListIndex, wrapperFound.RevocationListIndex) {
+	if !assert.Equal(t, wrapperCreated.UsedIndexes, wrapperFound.UsedIndexes) {
 		t.Errorf("RevocationListIndex got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
