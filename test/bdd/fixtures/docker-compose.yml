@@ -39,7 +39,7 @@ services:
       - VC_REST_TRACING_PROVIDER=JAEGER
       - VC_REST_TRACING_COLLECTOR_URL=http://jaeger.example.com:14268/api/traces
       - VP_RECEIVED_CLAIMS_DATA_TTL=10s
-      - VC_SERVER_VERSION=v1.0.0
+      - VC_SYSTEM_VERSION=v1.0.0
     ports:
       - "8075:8075"
       - "48127:48127"

@@ -43,7 +43,7 @@ func main() {
 
 	rootCmd.AddCommand(startcmd.GetStartCmd(
 		startcmd.WithVersion(Version),
-		startcmd.WithServerVersion(os.Getenv("VC_SERVER_VERSION")),
+		startcmd.WithServerVersion(os.Getenv("VC_SYSTEM_VERSION")),
 	))
 
 	if err := rootCmd.Execute(); err != nil {
