@@ -1,3 +1,8 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package version
 
 import (
@@ -5,6 +10,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
+
+//go:generate mockgen -destination controller_mocks_test.go -package version_test -source=controller.go
 
 type router interface {
 	GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
