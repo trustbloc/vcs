@@ -4,7 +4,6 @@
 
 GOBIN_PATH=$(abspath .)/.build/bin
 VC_REST_PATH=cmd/vc-rest
-
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
@@ -15,7 +14,16 @@ GO_IMAGE 	?=golang
 ALPINE_IMAGE 	?=alpine
 OPENSSL_IMAGE ?=frapsoft/openssl
 
-
+BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
+VC_REST_VERSION ?= $(subst v,,"$(shell git name-rev --tags --name-only $(shell git rev-parse HEAD))+$(BUILD_DATE)")
+ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
+	TAG=$(shell git describe --tags --abbrev=0)
+	RCPREFIX="-RC1"
+	ifneq (,$(findstring -rc,"$(TAG)"))
+		RCPREFIX=""
+	endif
+	VC_REST_VERSION = $(subst v,,"$(TAG)$(RCPREFIX)+$(BUILD_DATE)-$(shell git rev-parse --short HEAD)")
+endif
 
 # OpenAPI spec
 SWAGGER_DOCKER_IMG =quay.io/goswagger/swagger
@@ -58,7 +66,8 @@ license:
 vc-rest:
 	@echo "Building vc-rest"
 	@mkdir -p ./.build/bin
-	@cd ${VC_REST_PATH} && go build -o ../../.build/bin/vc-rest main.go
+	@echo "Version is '$(VC_REST_VERSION)'"
+	@cd ${VC_REST_PATH} && go build -ldflags="-X main.Version=$(VC_REST_VERSION)" -o ../../.build/bin/vc-rest main.go
 
 .PHONY: vc-rest-docker
 vc-rest-docker: generate

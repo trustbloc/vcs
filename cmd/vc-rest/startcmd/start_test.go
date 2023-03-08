@@ -268,7 +268,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 
 	defer func() { os.Remove(file.Name()) }()
 
-	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}))
+	startCmd := GetStartCmd(WithHTTPServer(&mockServer{}), WithServerVersion("123"), WithVersion("321"))
 
 	args := []string{
 		"--" + hostURLFlagName, "localhost:8080",

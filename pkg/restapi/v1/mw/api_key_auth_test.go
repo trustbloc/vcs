@@ -80,4 +80,64 @@ func TestApiKeyAuth(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, handlerCalled)
 	})
+
+	t.Run("skip version endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/version", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
+
+	t.Run("skip version endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/version", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
+
+	t.Run("skip system version endpoint", func(t *testing.T) {
+		handlerCalled := false
+		handler := func(c echo.Context) error {
+			handlerCalled = true
+			return c.String(http.StatusOK, "test")
+		}
+
+		middlewareChain := mw.APIKeyAuth("test-api-key")(handler)
+
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/version/system", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := middlewareChain(c)
+
+		require.NoError(t, err)
+		require.True(t, handlerCalled)
+	})
 }

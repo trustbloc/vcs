@@ -43,6 +43,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/observability/tracing"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
@@ -96,6 +97,8 @@ const (
 	cslSize                         = 1000
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
 	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
+	versionEndpoint                 = "/version/system"
+	versionSystemEndpoint           = "/version"
 )
 
 var logger = log.New("vc-rest")
@@ -106,8 +109,10 @@ type httpServer interface {
 }
 
 type startOpts struct {
-	server  httpServer
-	handler http.Handler
+	server        httpServer
+	handler       http.Handler
+	version       string
+	serverVersion string
 }
 
 // StartOpts configures the vc-rest server with custom options.
@@ -117,6 +122,20 @@ type StartOpts func(opts *startOpts)
 func WithHTTPServer(server httpServer) StartOpts {
 	return func(opts *startOpts) {
 		opts.server = server
+	}
+}
+
+// WithVersion sets the custom HTTP server.
+func WithVersion(version string) StartOpts {
+	return func(opts *startOpts) {
+		opts.version = version
+	}
+}
+
+// WithServerVersion sets the custom HTTP server.
+func WithServerVersion(version string) StartOpts {
+	return func(opts *startOpts) {
+		opts.serverVersion = version
 	}
 }
 
@@ -183,7 +202,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			}()
 
 			var e *echo.Echo
-			e, err = buildEchoHandler(conf, cmd, internalEcho)
+			e, err = buildEchoHandler(conf, cmd, internalEcho, buildOptions(opts...))
 			if err != nil {
 				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
@@ -256,6 +275,7 @@ func buildEchoHandler(
 	conf *Configuration,
 	cmd *cobra.Command,
 	internalEchoServer *echo.Echo,
+	options startOpts,
 ) (*echo.Echo, error) {
 	e := createEcho()
 	metrics, err := NewMetrics(conf.StartupParameters, e)
@@ -279,9 +299,18 @@ func buildEchoHandler(
 			if c.Path() == devApiRequestObjectEndpoint || c.Path() == devApiDidConfigEndpoint {
 				return true
 			}
+			if c.Path() == versionEndpoint || c.Path() == versionSystemEndpoint {
+				return true
+			}
+
 			return echomw.DefaultSkipper(c)
 		},
 	}))
+
+	version.NewController(e, version.Config{
+		Version:       options.version,
+		ServerVersion: options.serverVersion,
+	})
 
 	if conf.StartupParameters.tracingParams.provider != "" {
 		e.Use(otelecho.Middleware(""))
@@ -715,12 +744,18 @@ func NewMetricsProvider(
 	}
 }
 
-func startServer(conf *Configuration, opts ...StartOpts) error {
+func buildOptions(opts ...StartOpts) startOpts {
 	o := &startOpts{}
 
 	for _, opt := range opts {
 		opt(o)
 	}
+
+	return *o
+}
+
+func startServer(conf *Configuration, opts ...StartOpts) error {
+	o := buildOptions(opts...)
 
 	if o.server == nil {
 		o.server = &http.Server{

@@ -149,6 +149,14 @@
     {
       "endpoint": "/request-object/{uuid}",
       "method": "GET"
+    },
+    {
+      "endpoint": "/version",
+      "method": "GET"
+    },
+    {
+      "endpoint": "/version/system",
+      "method": "GET"
     }
   ]
 }
