@@ -39,25 +39,34 @@ type s3Uploader interface {
 	GetObject(*s3.GetObjectInput) (*s3.GetObjectOutput, error)
 }
 
+// underlyingCSLWrapperStore is used for storing credentialstatus.CSLWrapper in a different place then public S3 bucket.
+type underlyingCSLWrapperStore interface {
+	Get(cslURL string) (*credentialstatus.CSLWrapper, error)
+	Upsert(cslWrapper *credentialstatus.CSLWrapper) error
+}
+
 // Store manages profile in mongodb.
 type Store struct {
-	s3Uploader s3Uploader
-	bucket     string
-	region     string
-	hostName   string
+	s3Uploader       s3Uploader
+	cslLWrapperStore underlyingCSLWrapperStore
+	bucket           string
+	region           string
+	hostName         string
 }
 
 type latestListID struct {
 	ListID int `json:"listId"`
 }
 
-// NewStore creates Store.
-func NewStore(s3Uploader s3Uploader, bucket, region, hostName string) *Store {
+// NewStore creates S3 Store.
+func NewStore(
+	s3Uploader s3Uploader, cslLWrapperStore underlyingCSLWrapperStore, bucket, region, hostName string) *Store {
 	return &Store{
-		s3Uploader: s3Uploader,
-		bucket:     bucket,
-		region:     region,
-		hostName:   hostName,
+		s3Uploader:       s3Uploader,
+		cslLWrapperStore: cslLWrapperStore,
+		bucket:           bucket,
+		region:           region,
+		hostName:         hostName,
 	}
 }
 
@@ -77,19 +86,8 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	// Put cslWrapper.
 	cslWrapper.VCByte = nil
 
-	data, err := json.Marshal(cslWrapper)
-	if err != nil {
-		return fmt.Errorf("failed to marshal cslWrapper: %w", err)
-	}
-
-	_, err = p.s3Uploader.PutObject(&s3.PutObjectInput{
-		Body:        bytes.NewReader(data),
-		Key:         aws.String(p.resolveCSLWrapperS3Key(cslWrapper.VC.ID)),
-		Bucket:      aws.String(p.bucket),
-		ContentType: aws.String(contentType),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to upload cslWrapper: %w", err)
+	if err = p.cslLWrapperStore.Upsert(cslWrapper); err != nil {
+		return fmt.Errorf("failed to store cslWrapper: %w", err)
 	}
 
 	return nil
@@ -121,31 +119,14 @@ func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	}
 
 	// Get CSLWrapper.
-	wrapperRes, err := p.s3Uploader.GetObject(&s3.GetObjectInput{
-		Bucket: aws.String(p.bucket),
-		Key:    aws.String(p.resolveCSLWrapperS3Key(cslURL)),
-	})
+	cslWrapper, err := p.cslLWrapperStore.Get(cslURL)
 	if err != nil {
-		var awsError awserr.Error
-		if ok := errors.As(err, &awsError); ok && awsError.Code() == s3.ErrCodeNoSuchKey {
-			return nil, credentialstatus.ErrDataNotFound
-		}
-
-		if strings.Contains(err.Error(), "AccessDenied") {
-			return nil, credentialstatus.ErrDataNotFound
-		}
-
-		return nil, fmt.Errorf("failed to get CSLWrapper from S3: %w", err)
-	}
-
-	var cslWrapper credentialstatus.CSLWrapper
-	if err = json.NewDecoder(wrapperRes.Body).Decode(&cslWrapper); err != nil {
-		return nil, fmt.Errorf("failed to decode cslWrapper: %w", err)
+		return nil, fmt.Errorf("failed to get CSLWrapper from underlying store: %w", err)
 	}
 
 	cslWrapper.VCByte = cslBytes
 
-	return &cslWrapper, nil
+	return cslWrapper, nil
 }
 
 func (p *Store) UpdateLatestListID(id int) error {
@@ -211,16 +192,6 @@ func (p *Store) createListID(id int) (int, error) {
 
 func (p *Store) resolveCSLS3Key(cslURL string) string {
 	return strings.TrimPrefix(cslURL, p.getAmazonPublicDomain())
-}
-
-func (p *Store) resolveCSLWrapperS3Key(cslURL string) string {
-	cslS3Key := p.resolveCSLS3Key(cslURL)
-
-	fileExtension := filepath.Ext(cslS3Key)
-
-	cslS3Key = strings.TrimSuffix(cslS3Key, fileExtension)
-
-	return cslS3Key + fmt.Sprintf("_wrapper%s", fileExtension)
 }
 
 func (p *Store) resolveLatestListIDS3Key() string {

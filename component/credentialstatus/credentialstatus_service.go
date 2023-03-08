@@ -358,7 +358,7 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 	w, err := s.getCSLWrapper(cslURL)
 	if err != nil { //nolint: nestif
 		if errors.Is(err, credentialstatus.ErrDataNotFound) {
-			// create verifiable credential that encapsulates the revocation list
+			// create credentialstatus.CSL
 			credentials, errCreateVC := s.createVC(cslURL, signer, processor)
 			if errCreateVC != nil {
 				return nil, errCreateVC
