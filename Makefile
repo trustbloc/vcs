@@ -22,7 +22,7 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 	ifneq (,$(findstring -rc,"$(TAG)"))
 		RCPREFIX=""
 	endif
-	VC_REST_VERSION = $(subst v,,"$(shell git describe --tags --abbrev=0)$(RCPREFIX)+$(BUILD_DATE)-$(shell git rev-parse --short HEAD)")
+	VC_REST_VERSION = $(subst v,,"$(TAG)$(RCPREFIX)+$(BUILD_DATE)-$(shell git rev-parse --short HEAD)")
 endif
 
 # OpenAPI spec
