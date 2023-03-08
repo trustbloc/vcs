@@ -41,12 +41,8 @@ func NewController(router router, cfg Config) *Controller {
 		serverVersion: cfg.ServerVersion,
 	}
 
-	router.GET("/version", func(ctx echo.Context) error {
-		return c.Version(ctx)
-	})
-	router.GET("/version/system", func(ctx echo.Context) error {
-		return c.ServerVersion(ctx)
-	})
+	router.GET("/version", c.Version)
+	router.GET("/version/system", c.ServerVersion)
 
 	return c
 }
