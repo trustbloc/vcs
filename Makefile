@@ -17,7 +17,12 @@ OPENSSL_IMAGE ?=frapsoft/openssl
 BUILD_DATE=$(shell date +'%Y%m%d%H%M%S' -d @$(shell git show -s --format=%ct))
 VC_REST_VERSION ?= $(subst v,,"$(shell git name-rev --tags --name-only $(shell git rev-parse HEAD))+$(BUILD_DATE)")
 ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
-	VC_REST_VERSION = $(subst v,,"$(shell git describe --tags --abbrev=0)-RC1+$(BUILD_DATE)-$(shell git rev-parse --short HEAD)")
+	TAG=$(shell git describe --tags --abbrev=0)
+	RCPREFIX="-RC1"
+	ifneq (,$(findstring -rc,"$(TAG)"))
+		RCPREFIX=""
+	endif
+	VC_REST_VERSION = $(subst v,,"$(shell git describe --tags --abbrev=0)$(RCPREFIX)+$(BUILD_DATE)-$(shell git rev-parse --short HEAD)")
 endif
 
 # OpenAPI spec
