@@ -104,7 +104,10 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		return fmt.Errorf("marshal vc: %w", err)
 	}
 
+	log.Printf(string(b))
+
 	s.print("Adding credential to wallet")
+
 	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
 		return fmt.Errorf("add credential to wallet: %w", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 
 	"github.com/henvic/httpretty"
@@ -277,6 +278,7 @@ func createVDR(universalResolver string, tlsConfig *tls.Config) (vdrapi.Registry
 	opts = append(opts,
 		vdr.WithVDR(longForm),
 		vdr.WithVDR(key.New()),
+		vdr.WithVDR(jwk.New()),
 		vdr.WithVDR(
 			&webVDR{
 				http: &http.Client{

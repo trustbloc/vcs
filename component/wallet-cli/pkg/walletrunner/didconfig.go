@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 package walletrunner
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hyperledger/aries-framework-go/pkg/client/didconfig"
 )
@@ -15,6 +17,10 @@ import (
 const (
 	linkedDomainsService = "LinkedDomains"
 )
+
+type serviceEndpoint struct {
+	Origins []string `json:"origins"`
+}
 
 func (s *Service) runLinkedDomainVerification(didID string) error {
 	didDocResolution, vdrErr := s.ariesServices.vdrRegistry.Resolve(didID)
@@ -28,9 +34,15 @@ func (s *Service) runLinkedDomainVerification(didID string) error {
 			continue
 		}
 
-		serviceEndpoint, err := service.ServiceEndpoint.URI()
+		serviceEndpointBytes, err := service.ServiceEndpoint.MarshalJSON()
 		if err != nil {
 			return fmt.Errorf("failed to get LinkedDomains service endpoint: %w", err)
+		}
+
+		serviceEndpoint := &serviceEndpoint{}
+
+		if err := json.Unmarshal(serviceEndpointBytes, serviceEndpoint); err != nil {
+			return err
 		}
 
 		didConfigurationClient := didconfig.New(
@@ -39,7 +51,8 @@ func (s *Service) runLinkedDomainVerification(didID string) error {
 			didconfig.WithHTTPClient(s.httpClient),
 		)
 
-		if err = didConfigurationClient.VerifyDIDAndDomain(didID, serviceEndpoint); err != nil {
+		if err = didConfigurationClient.VerifyDIDAndDomain(didID,
+			strings.TrimSuffix(serviceEndpoint.Origins[0], "/")); err != nil {
 			return err
 		}
 
