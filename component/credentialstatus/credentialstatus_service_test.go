@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
@@ -58,20 +59,22 @@ func validateVCStatus(t *testing.T, s *Service, statusID *issuecredential.Status
 
 	revocationListIndex, err := strconv.Atoi(statusID.TypedID.CustomFields[statustype.StatusListIndex].(string))
 	require.NoError(t, err)
-	require.Equal(t, expectedStatusListVCID, statusID.TypedID.CustomFields[statustype.StatusListCredential].(string))
+	existingListID := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
+	listIDWithoutUuid := strings.Split(existingListID, "-")[0]
+	require.Equal(t, expectedStatusListVCID, listIDWithoutUuid)
 
-	chunks := strings.Split(expectedStatusListVCID, "/")
+	chunks := strings.Split(existingListID, "/")
 	statusVCID := chunks[len(chunks)-1]
 
 	statusListVC, err := s.GetStatusListVC(profileID, statusVCID)
 	require.NoError(t, err)
-	require.Equal(t, expectedStatusListVCID, statusListVC.ID)
+	require.Equal(t, existingListID, statusListVC.ID)
 	require.Equal(t, "did:test:abc", statusListVC.Issuer.ID)
 	require.Equal(t, vcutil.DefVCContext, statusListVC.Context[0])
 	require.Equal(t, statustype.StatusList2021Context, statusListVC.Context[1])
 	credSubject, ok := statusListVC.Subject.([]verifiable.Subject)
 	require.True(t, ok)
-	require.Equal(t, expectedStatusListVCID+"#list", credSubject[0].ID)
+	require.Equal(t, existingListID+"#list", credSubject[0].ID)
 	require.Equal(t, statustype.StatusList2021VCSubjectType, credSubject[0].CustomFields["type"].(string))
 	require.Equal(t, "revocation", credSubject[0].CustomFields[statustype.StatusPurpose].(string))
 	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
@@ -295,7 +298,10 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		statusProcessor, err := statustype.GetVCStatusProcessor(vc.StatusList2021VCStatus)
 		require.NoError(t, err)
 
-		cslURL, err := cslStore.GetCSLURL(profile.URL, profile.ID, "1")
+		listID, err := cslStore.GetLatestListID()
+		require.NoError(t, err)
+
+		cslURL, err := cslStore.GetCSLURL(profile.URL, profile.ID, listID.String())
 		require.NoError(t, err)
 
 		csl, err := statusProcessor.CreateVC(cslURL, 2, &vc.Signer{DID: profile.SigningDID.DID})
@@ -307,7 +313,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.NoError(t, cslStore.Upsert(&credentialstatus.CSLWrapper{
 			VCByte:      cslBytes,
 			UsedIndexes: []int{0, 1},
-			ListID:      1,
+			ListIDIndex: 1,
 			VC:          csl,
 		}))
 
@@ -501,7 +507,10 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		require.NoError(t, s.UpdateVCStatus(profileID, credID, "true", profile.VCConfig.Status.Type))
 
-		statusListVC, err := s.GetStatusListVC(profileID, "1")
+		listID, err := s.cslStore.GetLatestListID()
+		require.NoError(t, err)
+
+		statusListVC, err := s.GetStatusListVC(profileID, string(listID.String()))
 		require.NoError(t, err)
 		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
@@ -735,7 +744,10 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		require.NoError(t, s.updateVCStatus(statusListEntry.TypedID, getTestSigner(), true))
 
-		revocationListVC, err := s.GetStatusListVC(profileID, "1")
+		listID, err := s.cslStore.GetLatestListID()
+		require.NoError(t, err)
+
+		revocationListVC, err := s.GetStatusListVC(profileID, string(listID.String()))
 		require.NoError(t, err)
 		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
@@ -1023,17 +1035,17 @@ type mockCSLStore struct {
 	getLatestListIDErr    error
 	createLatestListIDErr error
 	updateLatestListIDErr error
-	latestListID          int
+	latestListID          credentialstatus.ListID
 	s                     map[string]*credentialstatus.CSLWrapper
 }
 
-func (m *mockCSLStore) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
-	return url.JoinPath(issuerProfileURL, "issuer/profiles", issuerProfileID, "credentials/status", statusID)
+func (m *mockCSLStore) GetCSLURL(issuerURL, issuerID string, statusID credentialstatus.ListIDStr) (string, error) {
+	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(statusID))
 }
 
 func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
 	s := &mockCSLStore{
-		latestListID: 0,
+		latestListID: credentialstatus.ListID{},
 		s:            map[string]*credentialstatus.CSLWrapper{},
 	}
 	for _, f := range opts {
@@ -1068,7 +1080,10 @@ func (m *mockCSLStore) createLatestListID(id int) error {
 		return m.createLatestListIDErr
 	}
 
-	m.latestListID = id
+	m.latestListID = credentialstatus.ListID{
+		Index: id,
+		UUID:  strings.Split(uuid.NewString(), "-")[0],
+	}
 
 	return nil
 }
@@ -1080,13 +1095,16 @@ func (m *mockCSLStore) UpdateLatestListID(id int) error {
 	return m.createLatestListID(id)
 }
 
-func (m *mockCSLStore) GetLatestListID() (int, error) {
+func (m *mockCSLStore) GetLatestListID() (credentialstatus.ListID, error) {
 	if m.getLatestListIDErr != nil {
-		return -1, m.getLatestListIDErr
+		return credentialstatus.ListID{}, m.getLatestListIDErr
 	}
 
-	if m.latestListID == 0 {
-		return 1, m.createLatestListID(1)
+	if m.latestListID.Index == 0 {
+		err := m.createLatestListID(1)
+		if err != nil {
+			return credentialstatus.ListID{}, err
+		}
 	}
 
 	return m.latestListID, nil

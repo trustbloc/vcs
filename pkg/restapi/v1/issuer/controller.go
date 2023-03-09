@@ -340,13 +340,13 @@ func validateIssueCredOptions(
 	return signingOpts, nil
 }
 
-// GetCredentialsStatus retrieves the credential status.
+// GetCredentialsStatus retrieves the credentialstatus.CSL.
 // GET /issuer/profiles/{profileID}/credentials/status/{statusID}.
 func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error {
 	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(profileID, statusID))
 }
 
-// PostCredentialsStatus updates credential status.
+// PostCredentialsStatus updates credentialstatus.CSL.
 // POST /issuer/profiles/{profileID}/credentials/status.
 func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) error {
 	var body UpdateCredentialStatusRequest

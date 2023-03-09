@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 
+	"github.com/google/uuid"
 	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -36,8 +38,9 @@ type Store struct {
 }
 
 type latestListIDDocument struct {
-	ID     string `json:"id,omitempty" bson:"_id,omitempty"`
-	ListID int    `json:"listId,omitempty" bson:"listId,omitempty"`
+	ID    string `json:"id,omitempty" bson:"_id,omitempty"`
+	Index int    `json:"index,omitempty" bson:"index,omitempty"`
+	UUID  string `json:"uuid,omitempty" bson:"uuid,omitempty"`
 }
 
 // NewStore creates Store.
@@ -71,8 +74,8 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 }
 
 // GetCSLURL returns the URL of credentialstatus.CSL.
-func (p *Store) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
-	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, statusID)
+func (p *Store) GetCSLURL(issuerURL, issuerID string, listIDStr credentialstatus.ListIDStr) (string, error) {
+	return url.JoinPath(issuerURL, issuerProfiles, issuerID, credentialStatus, string(listIDStr))
 }
 
 // Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
@@ -115,14 +118,15 @@ func (p *Store) UpdateLatestListID(id int) error {
 	collection := p.mongoClient.Database().Collection(cslStoreName)
 	_, err := collection.UpdateByID(ctxWithTimeout, latestListIDDBEntryKey, bson.M{
 		"$set": latestListIDDocument{
-			ListID: id,
+			Index: id,
+			UUID:  p.getShortUUID(),
 		},
 	})
 
 	return err
 }
 
-func (p *Store) GetLatestListID() (int, error) {
+func (p *Store) GetLatestListID() (credentialstatus.ListID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -137,31 +141,44 @@ func (p *Store) GetLatestListID() (int, error) {
 	}
 
 	if err != nil {
-		return -1, fmt.Errorf("latestListIDDocument find failed: %w", err)
+		return credentialstatus.ListID{}, fmt.Errorf("latestListIDDocument find failed: %w", err)
 	}
 
 	latestListID := &latestListIDDocument{}
 
 	err = mongodb.MapToStructure(mongoDBDocument, latestListID)
 	if err != nil {
-		return -1, fmt.Errorf("failed to decode to latestListIDDocument: %w", err)
+		return credentialstatus.ListID{}, fmt.Errorf("failed to decode to latestListIDDocument: %w", err)
 	}
 
-	return latestListID.ListID, nil
+	return credentialstatus.ListID{
+		Index: latestListID.Index,
+		UUID:  latestListID.UUID,
+	}, nil
 }
 
-func (p *Store) createFirstListID() (int, error) {
+func (p *Store) createFirstListID() (credentialstatus.ListID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
+	uuidStr := p.getShortUUID()
+
 	collection := p.mongoClient.Database().Collection(cslStoreName)
 	_, err := collection.InsertOne(ctxWithTimeout, latestListIDDocument{
-		ID:     latestListIDDBEntryKey,
-		ListID: 1,
+		ID:    latestListIDDBEntryKey,
+		Index: 1,
+		UUID:  uuidStr,
 	})
 	if err != nil {
-		return -1, fmt.Errorf("failed to create first list id: %w", err)
+		return credentialstatus.ListID{}, fmt.Errorf("failed to create first list id: %w", err)
 	}
 
-	return 1, nil
+	return credentialstatus.ListID{
+		Index: 1,
+		UUID:  uuidStr,
+	}, nil
+}
+
+func (p *Store) getShortUUID() string {
+	return strings.Split(uuid.NewString(), "-")[0]
 }
