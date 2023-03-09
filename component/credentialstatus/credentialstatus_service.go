@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -194,16 +195,21 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 		return nil, err
 	}
 
-	statusBitIndex := strconv.FormatInt(int64(cslWrapper.RevocationListIndex), 10)
+	unusedStatusBitIndex, err := s.getUnusedIndex(cslWrapper.UsedIndexes)
+	if err != nil {
+		return nil, fmt.Errorf("getUnusedIndex failed: %w", err)
+	}
 
-	cslWrapper.Size++
-	cslWrapper.RevocationListIndex++
+	// Append unusedStatusBitIndex to the cslWrapper.UsedIndexes so marking it as "used".
+	cslWrapper.UsedIndexes = append(cslWrapper.UsedIndexes, unusedStatusBitIndex)
 
 	if err = s.cslStore.Upsert(cslWrapper); err != nil {
 		return nil, fmt.Errorf("failed to store csl in store: %w", err)
 	}
 
-	if cslWrapper.Size == s.listSize {
+	// If amount of used indexes is the same as list size - increase LatestListID,
+	// so it will lead to creating new CSLWrapper with empty UsedIndexes list.
+	if len(cslWrapper.UsedIndexes) == s.listSize {
 		id := cslWrapper.ListID
 
 		id++
@@ -214,7 +220,7 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 	}
 
 	statusListEntry := &issuecredential.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(statusBitIndex, cslWrapper.VC.ID),
+		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(unusedStatusBitIndex), cslWrapper.VC.ID),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
 	// Store VC status to DB
@@ -224,6 +230,31 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 	}
 
 	return statusListEntry, nil
+}
+
+func (s *Service) getUnusedIndex(usedIndexes []int) (int, error) {
+	usedIndexesMap := make(map[int]struct{}, len(usedIndexes))
+
+	for _, i := range usedIndexes {
+		usedIndexesMap[i] = struct{}{}
+	}
+
+	unusedIndexes := make([]int, 0, s.listSize-len(usedIndexes))
+	for i := 0; i < s.listSize; i++ {
+		if _, ok := usedIndexesMap[i]; ok {
+			continue
+		}
+
+		unusedIndexes = append(unusedIndexes, i)
+	}
+
+	if len(unusedIndexes) == 0 {
+		return -1, errors.New("no possible unused indexes")
+	}
+
+	unusedIndexPosition := rand.Intn(len(unusedIndexes))
+
+	return unusedIndexes[unusedIndexPosition], nil
 }
 
 // GetStatusListVC returns StatusListVC from underlying cslStore.
@@ -344,7 +375,7 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 //nolint:gocognit
 func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Issuer,
 	processor vc.StatusProcessor) (*credentialstatus.CSLWrapper, error) {
-	// get latest id
+	// get latest List ID - global value among issuers.
 	latestListID, err := s.cslStore.GetLatestListID()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
@@ -370,11 +401,10 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 			}
 
 			return &credentialstatus.CSLWrapper{
-				VCByte:              vcBytes,
-				Size:                0,
-				RevocationListIndex: 0,
-				ListID:              latestListID,
-				VC:                  credentials,
+				VCByte:      vcBytes,
+				UsedIndexes: nil,
+				ListID:      latestListID,
+				VC:          credentials,
 			}, nil
 		}
 

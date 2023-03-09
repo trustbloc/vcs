@@ -67,9 +67,9 @@ func TestWrapperStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLWrapper{
-			VCByte:              []byte(sampleVCJsonLD),
-			RevocationListIndex: 1,
-			VC:                  vc,
+			VCByte:      []byte(sampleVCJsonLD),
+			UsedIndexes: []int{1},
+			VC:          vc,
 		}
 
 		// Create - Find
@@ -84,7 +84,7 @@ func TestWrapperStore(t *testing.T) {
 		wrapperCreated.VC.Issuer.ID += "_123"
 		vcUpdateBytes, err := wrapperCreated.VC.MarshalJSON()
 		assert.NoError(t, err)
-		wrapperCreated.RevocationListIndex++
+		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 		wrapperCreated.VCByte = vcUpdateBytes
 
 		err = store.Upsert(wrapperCreated)
@@ -103,9 +103,9 @@ func TestWrapperStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLWrapper{
-			VCByte:              []byte(sampleVCJWT),
-			RevocationListIndex: 1,
-			VC:                  vc,
+			VCByte:      []byte(sampleVCJWT),
+			UsedIndexes: []int{1},
+			VC:          vc,
 		}
 
 		// Create - Find
@@ -124,7 +124,7 @@ func TestWrapperStore(t *testing.T) {
 		jwt, err := claims.MarshalUnsecuredJWT()
 		assert.NoError(t, err)
 
-		wrapperCreated.RevocationListIndex++
+		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 
 		wrapperCreated.VCByte = []byte("\"" + jwt + "\"")
 
@@ -286,7 +286,7 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 		t.Errorf("VC got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
-	if !assert.Equal(t, wrapperCreated.RevocationListIndex, wrapperFound.RevocationListIndex) {
+	if !assert.Equal(t, wrapperCreated.UsedIndexes, wrapperFound.UsedIndexes) {
 		t.Errorf("RevocationListIndex got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
