@@ -116,7 +116,7 @@ func New(config *Config) (*Service, error) {
 	}, nil
 }
 
-// UpdateVCStatus fetches credential based on vcID and updates associated StatusListCredential to vcStatus.
+// UpdateVCStatus fetches credential based on vcID and updates associated credentialstatus.CSL to vcStatus.
 func (s *Service) UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string, vcStatusType vc.StatusType) error {
 	issuerProfile, err := s.profileService.GetProfile(profileID)
 	if err != nil {
@@ -210,7 +210,7 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 	// If amount of used indexes is the same as list size - increase LatestListID,
 	// so it will lead to creating new CSLWrapper with empty UsedIndexes list.
 	if len(cslWrapper.UsedIndexes) == s.listSize {
-		id := cslWrapper.ListID
+		id := cslWrapper.ListIDIndex
 
 		id++
 
@@ -265,7 +265,7 @@ func (s *Service) GetStatusListVC(profileID profileapi.ID, statusID string) (*ve
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, statusID)
+	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, credentialstatus.ListIDStr(statusID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
 	}
@@ -375,13 +375,13 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 //nolint:gocognit
 func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Issuer,
 	processor vc.StatusProcessor) (*credentialstatus.CSLWrapper, error) {
-	// get latest List ID - global value among issuers.
+	// get latest ListID - global value among issuers.
 	latestListID, err := s.cslStore.GetLatestListID()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, strconv.Itoa(latestListID))
+	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, latestListID.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
 	}
@@ -403,12 +403,12 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 			return &credentialstatus.CSLWrapper{
 				VCByte:      vcBytes,
 				UsedIndexes: nil,
-				ListID:      latestListID,
+				ListIDIndex: latestListID.Index,
 				VC:          credentials,
 			}, nil
 		}
 
-		return nil, fmt.Errorf("failed to get csl from store: %w", err)
+		return nil, fmt.Errorf("failed to get CSL from store: %w", err)
 	}
 
 	return w, nil

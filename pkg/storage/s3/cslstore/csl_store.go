@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/google/uuid"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -52,10 +53,6 @@ type Store struct {
 	bucket           string
 	region           string
 	hostName         string
-}
-
-type latestListID struct {
-	ListID int `json:"listId"`
 }
 
 // NewStore creates S3 Store.
@@ -134,7 +131,7 @@ func (p *Store) UpdateLatestListID(id int) error {
 	return err
 }
 
-func (p *Store) GetLatestListID() (int, error) {
+func (p *Store) GetLatestListID() (credentialstatus.ListID, error) {
 	res, err := p.s3Uploader.GetObject(&s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
 		Key:    aws.String(p.resolveLatestListIDS3Key()),
@@ -149,32 +146,37 @@ func (p *Store) GetLatestListID() (int, error) {
 			return p.createListID(1)
 		}
 
-		return -1, fmt.Errorf("failed to get latestListID from S3: %w", err)
+		return credentialstatus.ListID{}, fmt.Errorf("failed to get latestListID from S3: %w", err)
 	}
 
-	var listID latestListID
+	var listID credentialstatus.ListID
 	if err = json.NewDecoder(res.Body).Decode(&listID); err != nil {
-		return -1, fmt.Errorf("failed to decode latestListID: %w", err)
+		return listID, fmt.Errorf("failed to decode latestListID: %w", err)
 	}
 
-	return listID.ListID, nil
+	return listID, nil
 }
 
 // GetCSLURL returns the public URL of credentialstatus.CSL.
-func (p *Store) GetCSLURL(issuerProfileURL, issuerProfileID, statusID string) (string, error) {
+func (p *Store) GetCSLURL(_, issuerProfileID string, listIDStr credentialstatus.ListIDStr) (string, error) {
 	return url.JoinPath(
 		p.getAmazonPublicDomain(),
 		issuerProfiles,
 		issuerProfileID,
 		credentialStatus,
-		fmt.Sprintf("%s.json", statusID),
+		fmt.Sprintf("%s.json", listIDStr),
 	)
 }
 
-func (p *Store) createListID(id int) (int, error) {
-	data, err := json.Marshal(latestListID{ListID: id})
+func (p *Store) createListID(id int) (credentialstatus.ListID, error) {
+	listID := credentialstatus.ListID{
+		Index: id,
+		UUID:  p.getShortUUID(),
+	}
+
+	data, err := json.Marshal(listID)
 	if err != nil {
-		return -1, fmt.Errorf("failed to marshal latestListID: %w", err)
+		return credentialstatus.ListID{}, fmt.Errorf("failed to marshal latestListID: %w", err)
 	}
 
 	_, err = p.s3Uploader.PutObject(&s3.PutObjectInput{
@@ -184,10 +186,10 @@ func (p *Store) createListID(id int) (int, error) {
 		ContentType: aws.String(contentType),
 	})
 	if err != nil {
-		return -1, fmt.Errorf("failed to upload latestListID: %w", err)
+		return credentialstatus.ListID{}, fmt.Errorf("failed to upload latestListID: %w", err)
 	}
 
-	return id, nil
+	return listID, nil
 }
 
 func (p *Store) resolveCSLS3Key(cslURL string) string {
@@ -216,4 +218,8 @@ func unQuote(s []byte) []byte {
 	}
 
 	return s
+}
+
+func (p *Store) getShortUUID() string {
+	return strings.Split(uuid.NewString(), "-")[0]
 }

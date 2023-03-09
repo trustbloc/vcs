@@ -196,32 +196,34 @@ func TestLatestListID(t *testing.T) {
 	}()
 
 	t.Run("Find non-existing ID", func(t *testing.T) {
-		id, err := store.GetLatestListID()
+		listID, err := store.GetLatestListID()
 
-		assert.Equal(t, 1, id)
+		assert.Equal(t, 1, listID.Index)
+		assert.NotEmpty(t, listID.UUID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Update - Get LatestListID", func(t *testing.T) {
 		expectedID := 1
 
-		receivedID, err := store.GetLatestListID()
+		receivedListID, err := store.GetLatestListID()
+		uuid := receivedListID.UUID
 		require.NoError(t, err)
-		if !assert.Equal(t, expectedID, receivedID) {
+		require.NotEmpty(t, uuid)
+		if !assert.Equal(t, expectedID, receivedListID.Index) {
 			t.Errorf("LatestListID got = %v, want %v",
-				receivedID, expectedID)
+				receivedListID.Index, expectedID)
 		}
 
 		expectedID++
 		err = store.UpdateLatestListID(expectedID)
 		require.NoError(t, err)
 
-		receivedID, err = store.GetLatestListID()
+		receivedListID, err = store.GetLatestListID()
 		require.NoError(t, err)
-		if !assert.Equal(t, expectedID, receivedID) {
-			t.Errorf("LatestListID got = %v, want %v",
-				receivedID, expectedID)
-		}
+		require.NotEmpty(t, receivedListID.UUID)
+		require.NotEqual(t, uuid, receivedListID.UUID)
+		require.Equal(t, expectedID, receivedListID.Index)
 	})
 }
 
@@ -297,9 +299,9 @@ func TestStore_GetCSLURL(t *testing.T) {
 	require.NotNil(t, store)
 
 	cslURL, err := store.GetCSLURL(
-		"https://example.com", "test_issuer", "1")
+		"https://example.com", "test_issuer", "1-abcd")
 	assert.NoError(t, err)
-	assert.Equal(t, "https://example.com/issuer/profiles/test_issuer/credentials/status/1", cslURL)
+	assert.Equal(t, "https://example.com/issuer/profiles/test_issuer/credentials/status/1-abcd", cslURL)
 
 	cslURL, err = store.GetCSLURL(
 		" https://example.com", "test_issuer", "1")

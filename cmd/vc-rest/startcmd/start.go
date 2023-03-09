@@ -94,7 +94,7 @@ const (
 	healthCheckEndpoint             = "/healthcheck"
 	oidc4VPCheckEndpoint            = "/oidc/present"
 	defaultGracefulShutdownDuration = 1 * time.Second
-	cslSize                         = 1000
+	cslSize                         = 10000
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
 	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
 	versionEndpoint                 = "/version/system"
