@@ -207,14 +207,10 @@ func (s *Service) CreateStatusListEntry(profileID profileapi.ID, credentialID st
 		return nil, fmt.Errorf("failed to store csl in store: %w", err)
 	}
 
-	// If amount of used indexes is the same as list size - increase LatestListID,
+	// If amount of used indexes is the same as list size - update ListID,
 	// so it will lead to creating new CSLWrapper with empty UsedIndexes list.
 	if len(cslWrapper.UsedIndexes) == s.listSize {
-		id := cslWrapper.ListIDIndex
-
-		id++
-
-		if err = s.cslStore.UpdateLatestListID(id); err != nil {
+		if err = s.cslStore.UpdateLatestListID(); err != nil {
 			return nil, fmt.Errorf("failed to store latest list ID in store: %w", err)
 		}
 	}
@@ -259,13 +255,13 @@ func (s *Service) getUnusedIndex(usedIndexes []int) (int, error) {
 
 // GetStatusListVC returns StatusListVC from underlying cslStore.
 // Used for handling public HTTP requests.
-func (s *Service) GetStatusListVC(profileID profileapi.ID, statusID string) (*verifiable.Credential, error) {
+func (s *Service) GetStatusListVC(profileID profileapi.ID, listID string) (*verifiable.Credential, error) {
 	profile, err := s.profileService.GetProfile(profileID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, credentialstatus.ListIDStr(statusID))
+	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, credentialstatus.ListID(listID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
 	}
@@ -381,7 +377,7 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, latestListID.String())
+	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, latestListID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
 	}
@@ -403,7 +399,6 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 			return &credentialstatus.CSLWrapper{
 				VCByte:      vcBytes,
 				UsedIndexes: nil,
-				ListIDIndex: latestListID.Index,
 				VC:          credentials,
 			}, nil
 		}

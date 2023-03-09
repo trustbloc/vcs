@@ -29,9 +29,6 @@ type CSLWrapper struct {
 	VCByte json.RawMessage `json:"vc,omitempty"`
 	// UsedIndexes stores the list of used bit indexes in the CSL encoded list.
 	UsedIndexes []int `json:"usedIndexes"`
-	// ListIDIndex stores the value of ListID.Index obtained by CSLStore.GetLatestListID(),
-	// that was topical on a moment the given CSL was created.
-	ListIDIndex int `json:"listID"`
 	// VC represents parsed CSL.
 	VC *verifiable.Credential `json:"-"`
 }
