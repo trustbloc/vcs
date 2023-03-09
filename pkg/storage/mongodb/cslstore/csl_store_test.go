@@ -198,32 +198,22 @@ func TestLatestListID(t *testing.T) {
 	t.Run("Find non-existing ID", func(t *testing.T) {
 		listID, err := store.GetLatestListID()
 
-		assert.Equal(t, 1, listID.Index)
-		assert.NotEmpty(t, listID.UUID)
+		assert.NotEmpty(t, listID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Update - Get LatestListID", func(t *testing.T) {
-		expectedID := 1
-
 		receivedListID, err := store.GetLatestListID()
-		uuid := receivedListID.UUID
 		require.NoError(t, err)
-		require.NotEmpty(t, uuid)
-		if !assert.Equal(t, expectedID, receivedListID.Index) {
-			t.Errorf("LatestListID got = %v, want %v",
-				receivedListID.Index, expectedID)
-		}
+		require.NotEmpty(t, receivedListID)
 
-		expectedID++
-		err = store.UpdateLatestListID(expectedID)
+		err = store.UpdateLatestListID()
 		require.NoError(t, err)
 
-		receivedListID, err = store.GetLatestListID()
+		receivedListIDAfterUpdate, err := store.GetLatestListID()
 		require.NoError(t, err)
-		require.NotEmpty(t, receivedListID.UUID)
-		require.NotEqual(t, uuid, receivedListID.UUID)
-		require.Equal(t, expectedID, receivedListID.Index)
+		require.NotEmpty(t, receivedListIDAfterUpdate)
+		require.NotEqual(t, receivedListID, receivedListIDAfterUpdate)
 	})
 }
 

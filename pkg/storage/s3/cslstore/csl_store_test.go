@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -99,10 +100,13 @@ func (m *mockS3Uploader) GetObject(input *s3.GetObjectInput) (*s3.GetObjectOutpu
 }
 
 type mockUnderlyingCSLWrapperStore struct {
-	t      *testing.T
-	putErr error
-	getErr error
-	s      map[string]*credentialstatus.CSLWrapper
+	t               *testing.T
+	putErr          error
+	getErr          error
+	getListIDErr    error
+	updateListIDErr error
+	s               map[string]*credentialstatus.CSLWrapper
+	listID          credentialstatus.ListID
 }
 
 func (m *mockUnderlyingCSLWrapperStore) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
@@ -132,6 +136,30 @@ func (m *mockUnderlyingCSLWrapperStore) Upsert(cslWrapper *credentialstatus.CSLW
 	m.s[cslWrapper.VC.ID] = cslWrapper
 
 	return nil
+}
+
+func (m *mockUnderlyingCSLWrapperStore) GetLatestListID() (credentialstatus.ListID, error) {
+	if m.getListIDErr != nil {
+		return "", m.getListIDErr
+	}
+
+	m.listID = credentialstatus.ListID(m.getShortUUID())
+
+	return m.listID, nil
+}
+
+func (m *mockUnderlyingCSLWrapperStore) UpdateLatestListID() error {
+	if m.updateListIDErr != nil {
+		return m.updateListIDErr
+	}
+
+	m.listID = credentialstatus.ListID(m.getShortUUID())
+
+	return nil
+}
+
+func (m *mockUnderlyingCSLWrapperStore) getShortUUID() string {
+	return strings.Split(uuid.NewString(), "-")[0]
 }
 
 func TestWrapperStore(t *testing.T) {
@@ -179,7 +207,6 @@ func TestWrapperStore(t *testing.T) {
 			// Update - Find
 			wrapperCreated.VCByte = vcBytes
 			wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
-			wrapperCreated.ListIDIndex++
 
 			err = store.Upsert(wrapperCreated)
 			assert.NoError(t, err)
@@ -263,78 +290,30 @@ func TestWrapperStore(t *testing.T) {
 
 func TestLatestListID(t *testing.T) {
 	client := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
-	store := NewStore(client, nil, bucket, region, hostName)
+	mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{
+		t: t,
+	}
+	store := NewStore(client, mockUnderlyingStore, bucket, region, hostName)
 	require.NotNil(t, store)
 
 	t.Run("Find non-existing ID", func(t *testing.T) {
 		listID, err := store.GetLatestListID()
 
-		assert.Equal(t, 1, listID.Index)
-		assert.NotEmpty(t, listID.UUID)
+		assert.NotEmpty(t, listID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Create - Update - Get LatestListID", func(t *testing.T) {
-		expectedID := 1
-
 		receivedID, err := store.GetLatestListID()
-		uuid := receivedID.UUID
 		require.NoError(t, err)
-		require.NotEmpty(t, uuid)
-		if !assert.Equal(t, expectedID, receivedID.Index) {
-			t.Errorf("LatestListID got = %v, want %v",
-				receivedID, expectedID)
-		}
-
-		expectedID++
-		err = store.UpdateLatestListID(expectedID)
+		require.NotEmpty(t, receivedID)
+		err = store.UpdateLatestListID()
 		require.NoError(t, err)
 
-		receivedID, err = store.GetLatestListID()
+		receivedAfterUpdateID, err := store.GetLatestListID()
 		require.NoError(t, err)
-		require.NotEmpty(t, receivedID.UUID)
-		require.NotEqual(t, uuid, receivedID.UUID)
-		require.Equal(t, expectedID, receivedID.Index)
-	})
-
-	t.Run("Unexpected error from s3 client on GetLatestListID", func(t *testing.T) {
-		c := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, getErr: errors.New("some error")}
-		listID, err := NewStore(c, nil, bucket, region, hostName).GetLatestListID()
-
-		assert.Equal(t, credentialstatus.ListID{}, listID)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to get latestListID from S3")
-	})
-
-	t.Run("Malformed data error on GetLatestListID", func(t *testing.T) {
-		errClient := &mockS3Uploader{
-			m: map[string]*s3.PutObjectInput{
-				"/issuer/latestlistid/latestListID.json": {Body: bytes.NewReader([]byte(``))},
-			},
-			t: t,
-		}
-		id, err := NewStore(errClient, nil, bucket, region, hostName).GetLatestListID()
-
-		assert.Equal(t, credentialstatus.ListID{}, id)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to decode latestListID")
-	})
-
-	t.Run("Unexpected error from s3 client on CreateLatestListID", func(t *testing.T) {
-		c := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, putErr: errors.New("some error")}
-		id, err := NewStore(c, nil, bucket, region, hostName).GetLatestListID()
-
-		assert.Equal(t, credentialstatus.ListID{}, id)
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to upload latestListID")
-	})
-
-	t.Run("Unexpected error from s3 client on UpdateLatestListID", func(t *testing.T) {
-		c := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, putErr: errors.New("some error")}
-		err := NewStore(c, nil, bucket, region, hostName).UpdateLatestListID(1)
-
-		assert.Error(t, err)
-		assert.ErrorContains(t, err, "failed to upload latestListID")
+		require.NotEmpty(t, receivedAfterUpdateID)
+		require.NotEqual(t, receivedID, receivedAfterUpdateID)
 	})
 }
 
