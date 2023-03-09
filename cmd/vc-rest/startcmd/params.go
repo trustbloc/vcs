@@ -288,7 +288,7 @@ type startupParameters struct {
 	kmsParameters                       *kmsParameters
 	token                               string
 	requestTokens                       map[string]string
-	logLevel                            string
+	logLevels                           string
 	contextProviderURLs                 []string
 	contextEnableRemote                 bool
 	tlsParameters                       *tlsParameters
@@ -547,7 +547,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		tlsParameters:                       tlsParameters,
 		token:                               token,
 		requestTokens:                       requestTokens,
-		logLevel:                            loggingLevel,
+		logLevels:                           loggingLevel,
 		contextProviderURLs:                 contextProviderURLs,
 		contextEnableRemote:                 contextEnableRemote,
 		devMode:                             devMode,

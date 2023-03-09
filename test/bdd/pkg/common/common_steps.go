@@ -6,7 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 package common
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -36,6 +38,8 @@ func NewSteps(ctx *context.BDDContext) *Steps {
 func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^we wait (\d+) seconds$`, e.wait)
 	s.Step(`^an HTTP GET is sent to "([^"]*)"$`, e.httpGet)
+	s.Step(`^an HTTP POST is sent to "([^"]*)" with content "([^"]*)" of type "([^"]*)"$`, e.httpPost)
+	s.Step(`^an HTTP POST is sent to "([^"]*)" with content "([^"]*)" of type "([^"]*)" and the returned status code is (\d+)$`, e.httpPostWithExpectedCode)
 	s.Step(`^the JSON path "([^"]*)" of the response equals "([^"]*)"$`, e.jsonPathOfCCResponseEquals)
 }
 
@@ -80,6 +84,84 @@ func (e *Steps) httpGet(url string) error {
 	}
 
 	return nil
+}
+
+func (e *Steps) httpPost(url, data, contentType string) error {
+	resp, err := e.doHTTPPost(url, []byte(data), contentType)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("received status code %d: %s", resp.StatusCode, resp.ErrorMsg)
+	}
+
+	return nil
+}
+
+func (e *Steps) httpPostWithExpectedCode(url, data, contentType string, expectingCode int) error {
+	resp, err := e.doHTTPPost(url, []byte(data), contentType)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != expectingCode {
+		return fmt.Errorf("expecting status code %d but got %d", expectingCode, resp.StatusCode)
+	}
+
+	return nil
+}
+
+type httpResponse struct {
+	Payload    []byte
+	ErrorMsg   string
+	StatusCode int
+	Header     http.Header
+}
+
+func (e *Steps) doHTTPPost(url string, content []byte, contentType string) (*httpResponse, error) {
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: e.bddContext.TLSConfig}}
+	defer client.CloseIdleConnections()
+
+	httpReq, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(content))
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Info(fmt.Sprintf("Sending POST to url[%s] for content-type[%s] with content[%s]", url, contentType, string(content)))
+
+	httpReq.Header.Set("Content-Type", contentType)
+	httpReq.Header.Add("X-API-Key", "rw_token")
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			logger.Warn(fmt.Sprintf("Error closing HTTP response from [%s]: %s", url, err))
+		}
+	}()
+
+	payload, err := io.ReadAll(resp.Body)
+	if err != nil {
+		logger.Info(fmt.Sprintf("Error reading response body from [%s]: %s", url, err))
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return &httpResponse{
+			StatusCode: resp.StatusCode,
+			Header:     resp.Header,
+			ErrorMsg:   string(payload),
+		}, nil
+	}
+
+	return &httpResponse{
+		Payload:    payload,
+		StatusCode: http.StatusOK,
+		Header:     resp.Header,
+	}, nil
 }
 
 func (e *Steps) jsonPathOfCCResponseEquals(path, expected string) error {

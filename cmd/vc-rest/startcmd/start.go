@@ -38,7 +38,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
-	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/ld"
@@ -66,6 +65,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
 	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/logapi"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/mw"
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
@@ -97,6 +97,7 @@ const (
 	cslSize                         = 10000
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
 	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
+	logLevelsEndpoint               = "/loglevels"
 	versionEndpoint                 = "/version/system"
 	versionSystemEndpoint           = "/version"
 )
@@ -174,8 +175,10 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 				return fmt.Errorf("failed to get startup parameters: %w", err)
 			}
 
-			if params.logLevel != "" {
-				common.SetDefaultLogLevel(logger, params.logLevel)
+			if params.logLevels != "" {
+				if e := log.SetSpec(params.logLevels); e != nil {
+					logger.Warn("Error setting logging spec.", log.WithError(e))
+				}
 			}
 
 			conf, err := prepareConfiguration(params)
@@ -300,6 +303,10 @@ func buildEchoHandler(
 				return true
 			}
 			if c.Path() == versionEndpoint || c.Path() == versionSystemEndpoint {
+				return true
+			}
+
+			if c.Path() == logLevelsEndpoint {
 				return true
 			}
 
@@ -611,6 +618,8 @@ func buildEchoHandler(
 			RequestObjectStoreService: requestObjectStoreService,
 		}, e)
 	}
+
+	_ = logapi.NewController(e)
 
 	metricsProvider, err := NewMetricsProvider(conf.StartupParameters, internalEchoServer)
 	if err != nil {
