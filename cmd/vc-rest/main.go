@@ -4,21 +4,6 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-// Package vc-rest VC Issuer, Verifier and Holder REST API.
-//
-// Terms Of Service:
-//
-//	Schemes: http, https
-//	Version: 0.1.0
-//	License: SPDX-License-Identifier: Apache-2.0
-//
-//	Consumes:
-//	- application/json
-//
-//	Produces:
-//	- application/json
-//
-// swagger:meta
 package main
 
 import (

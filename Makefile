@@ -25,12 +25,6 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 	VC_REST_VERSION = $(subst v,,"$(TAG)$(RCPREFIX)+$(BUILD_DATE)-$(shell git rev-parse --short HEAD)")
 endif
 
-# OpenAPI spec
-SWAGGER_DOCKER_IMG =quay.io/goswagger/swagger
-SWAGGER_VERSION    =v0.29.0
-SWAGGER_DIR        ="./test/bdd/fixtures/spec"
-SWAGGER_OUTPUT     =$(SWAGGER_DIR)"/openAPI.yml"
-
 # Tool commands (overridable)
 ALPINE_VER ?= 3.16
 GO_VER ?= 1.19
@@ -46,7 +40,7 @@ endif
 all: checks unit-test bdd-test
 
 .PHONY: checks
-checks: license lint open-api-spec
+checks: license lint
 
 .PHONY: generate
 generate:
@@ -117,20 +111,6 @@ generate-test-keys: clean
 		--entrypoint /opt/workspace/vcs/scripts/generate_test_keys.sh \
 		$(OPENSSL_IMAGE)
 
-.PHONY: open-api-spec
-open-api-spec: clean
-	@GOBIN=$(GOBIN_PATH) go install github.com/go-swagger/go-swagger/cmd/swagger@$(SWAGGER_VERSION)
-	@echo "Generating Open API spec"
-	@mkdir $(SWAGGER_DIR)
-	@$(GOBIN_PATH)/swagger generate spec -w ./cmd/vc-rest -x github.com/trustbloc/orb -o $(SWAGGER_OUTPUT)
-	@echo "Validating generated spec"
-	@$(GOBIN_PATH)/swagger validate $(SWAGGER_OUTPUT)
-
-.PHONY: open-api-demo
-open-api-demo: clean open-api-spec generate-test-keys vc-rest-docker
-	@echo "Running Open API demo on http://localhost:8089/openapi"
-	@docker-compose -f test/bdd/fixtures/docker-compose.yml up --force-recreate -d vc-openapi.trustbloc.local
-
 .PHONY: build-wallet-cli-binaries
 build-wallet-cli-binaries: clean
 	@mkdir -p .build/dist/bin
@@ -167,4 +147,3 @@ clean:
 	@rm -rf ./.build
 	@rm -rf coverage*.out
 	@rm -Rf ./test/bdd/docker-compose.log
-	@rm -rf $(SWAGGER_DIR)
