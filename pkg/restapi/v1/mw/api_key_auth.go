@@ -19,6 +19,7 @@ import (
 const (
 	header                     = "X-API-Key"
 	healthCheckPath            = "/healthcheck"
+	logLevelsPath              = "/loglevels"
 	statusCheckPath            = "/credentials/status/"
 	requestObjectPath          = "/request-object/"
 	checkAuthorizationResponse = "/verifier/interactions/authorization-response"
@@ -58,6 +59,10 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc { //nolint:gocognit
 			}
 
 			if currentPath == version || currentPath == versionSystem {
+				return next(c)
+			}
+
+			if currentPath == logLevelsPath {
 				return next(c)
 			}
 

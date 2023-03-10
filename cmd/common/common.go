@@ -20,7 +20,10 @@ const (
 	// LogLevelFlagShorthand is the shorthand flag name used for setting the default log level.
 	LogLevelFlagShorthand = "l"
 	// LogLevelPrefixFlagUsage is the usage text for the log level flag.
-	LogLevelPrefixFlagUsage = "Logging level to set. Supported options: CRITICAL, ERROR, WARNING, INFO, DEBUG." +
+	LogLevelPrefixFlagUsage = "Sets logging levels for individual modules as well as the default level. `+" +
+		"`The format of the string is as follows: module1=level1:module2=level2:defaultLevel. `+" +
+		"`Supported levels are: CRITICAL, ERROR, WARNING, INFO, DEBUG." +
+		"`Example: oidc4vp=INFO:oidc4vp-service=WARNING:INFO. `+" +
 		`Defaults to info if not set. Setting to debug may adversely impact performance. Alternatively, this can be ` +
 		"set with the following environment variable: " + LogLevelEnvKey
 )
