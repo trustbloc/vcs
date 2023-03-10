@@ -25,6 +25,7 @@ type Config struct {
 type Controller struct {
 	version       string
 	serverVersion string
+	cslStore      cslStore
 }
 
 type versionResponse struct {
@@ -35,14 +36,20 @@ type serverVersionResponse struct {
 	Version string `json:"version"`
 }
 
-func NewController(router router, cfg Config) *Controller {
+type cslStore interface {
+	DeleteLatestListID() error
+}
+
+func NewController(router router, cfg Config, cslStore cslStore) *Controller {
 	c := &Controller{
+		cslStore:      cslStore,
 		version:       cfg.Version,
 		serverVersion: cfg.ServerVersion,
 	}
 
 	router.GET("/version", c.Version)
 	router.GET("/version/system", c.ServerVersion)
+	router.GET("/listid/cleanup", c.CleanupListID)
 
 	return c
 }
@@ -53,4 +60,14 @@ func (c *Controller) Version(ctx echo.Context) error {
 
 func (c *Controller) ServerVersion(ctx echo.Context) error {
 	return ctx.JSON(http.StatusOK, serverVersionResponse{Version: c.serverVersion})
+}
+
+func (c *Controller) CleanupListID(ctx echo.Context) error {
+	err := c.cslStore.DeleteLatestListID()
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError,
+			map[string]string{"message": "failed to cleanup ListID", "error": err.Error()})
+	}
+
+	return ctx.JSON(http.StatusOK, map[string]string{"status": "OK"})
 }

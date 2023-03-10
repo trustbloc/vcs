@@ -42,6 +42,7 @@ type underlyingCSLWrapperStore interface {
 	Upsert(cslWrapper *credentialstatus.CSLWrapper) error
 	GetLatestListID() (credentialstatus.ListID, error)
 	UpdateLatestListID() error
+	DeleteLatestListID() error
 }
 
 // Store manages profile in mongodb.
@@ -141,6 +142,10 @@ func (p *Store) GetCSLURL(_, issuerProfileID string, listID credentialstatus.Lis
 		credentialStatus,
 		fmt.Sprintf("%s.json", listID),
 	)
+}
+
+func (p *Store) DeleteLatestListID() error {
+	return p.cslLWrapperStore.DeleteLatestListID()
 }
 
 func (p *Store) resolveCSLS3Key(cslURL string) string {

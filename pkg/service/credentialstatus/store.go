@@ -17,6 +17,8 @@ type CSLStore interface {
 	GetLatestListID() (ListID, error)
 	// UpdateLatestListID updates underlying ListID.
 	UpdateLatestListID() error
+
+	DeleteLatestListID() error
 }
 
 // ListID is used for the pseudo-random shuffling of suffixes of CSL URL during the credential issuance.

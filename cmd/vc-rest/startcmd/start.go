@@ -277,6 +277,49 @@ func buildEchoHandler(
 	internalEchoServer *echo.Echo,
 	options startOpts,
 ) (*echo.Echo, error) {
+	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
+		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
+		15*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
+	}
+
+	cslStore, err := createCredentialStatusListStore(
+		conf.StartupParameters.cslStoreType,
+		conf.StartupParameters.cslStoreS3Region,
+		conf.StartupParameters.cslStoreS3Bucket,
+		conf.StartupParameters.cslStoreS3HostName,
+		mongodbClient)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("updating listID")
+	fmt.Printf("mongo config: DB URL %s, DB name: %s\n",
+		conf.StartupParameters.dbParameters.databaseURL, conf.StartupParameters.dbParameters.databasePrefix+"vcs_db")
+	fmt.Println("getting current listID")
+
+	listID, err := cslStore.GetLatestListID()
+	if err != nil {
+		fmt.Printf("getting current listID err %v\n", err)
+	}
+
+	fmt.Printf("current listID: %s\n", listID)
+	fmt.Println("updating list id")
+
+	if err = cslStore.UpdateLatestListID(); err != nil {
+		fmt.Printf("updating listID err %v", err)
+	}
+
+	fmt.Println("getting updated listID")
+	listID, err = cslStore.GetLatestListID()
+	if err != nil {
+		fmt.Printf("getting updated listID err %v\n", err)
+	}
+
+	fmt.Printf("updated listID: %s\n", listID)
+	fmt.Println("DONE")
+
 	e := createEcho()
 	metrics, err := NewMetrics(conf.StartupParameters, e)
 	if err != nil {
@@ -310,7 +353,7 @@ func buildEchoHandler(
 	version.NewController(e, version.Config{
 		Version:       options.version,
 		ServerVersion: options.serverVersion,
-	})
+	}, cslStore)
 
 	if conf.StartupParameters.tracingParams.provider != "" {
 		e.Use(otelecho.Middleware(""))
@@ -334,13 +377,6 @@ func buildEchoHandler(
 	}
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
-
-	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
-		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
-		15*time.Second)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
-	}
 
 	documentLoader, err := createJSONLDDocumentLoader(mongodbClient, tlsConfig,
 		conf.StartupParameters.contextProviderURLs, conf.StartupParameters.contextEnableRemote)
@@ -373,16 +409,6 @@ func buildEchoHandler(
 	}
 
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
-
-	cslStore, err := createCredentialStatusListStore(
-		conf.StartupParameters.cslStoreType,
-		conf.StartupParameters.cslStoreS3Region,
-		conf.StartupParameters.cslStoreS3Bucket,
-		conf.StartupParameters.cslStoreS3HostName,
-		mongodbClient)
-	if err != nil {
-		return nil, err
-	}
 
 	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,

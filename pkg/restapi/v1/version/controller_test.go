@@ -25,7 +25,7 @@ func TestController(t *testing.T) {
 
 	route.EXPECT().GET("/version", gomock.Any()).Return(nil)
 	route.EXPECT().GET("/version/system", gomock.Any()).Return(nil)
-	assert.NotNil(t, version.NewController(route, version.Config{}))
+	assert.NotNil(t, version.NewController(route, version.Config{}, nil))
 }
 
 func TestGetVersion(t *testing.T) {
@@ -35,7 +35,7 @@ func TestGetVersion(t *testing.T) {
 	c := version.NewController(route, version.Config{
 		Version:       "123",
 		ServerVersion: "321",
-	})
+	}, nil)
 
 	ctx, recorder := echoContext()
 	assert.NoError(t, c.Version(ctx))
@@ -51,7 +51,7 @@ func TestGetServerVersion(t *testing.T) {
 	c := version.NewController(route, version.Config{
 		Version:       "123",
 		ServerVersion: "321",
-	})
+	}, nil)
 
 	ctx, recorder := echoContext()
 	assert.NoError(t, c.ServerVersion(ctx))

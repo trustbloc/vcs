@@ -151,6 +151,18 @@ func (p *Store) GetLatestListID() (credentialstatus.ListID, error) {
 	return credentialstatus.ListID(latestListID.ListID), nil
 }
 
+func (p *Store) DeleteLatestListID() error {
+	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	collection := p.mongoClient.Database().Collection(cslStoreName)
+
+	_, err := collection.DeleteOne(ctxWithTimeout,
+		bson.M{mongoDBDocumentIDFieldName: latestListIDDBEntryKey})
+
+	return err
+}
+
 func (p *Store) createFirstListID() (credentialstatus.ListID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
