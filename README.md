@@ -19,9 +19,7 @@ The VCS uses golang packages from [Hyperledger Aries Framework Go]([aries-framew
 To build from source see [here](docs/build.md).
 
 ## Documentation
-- [VC Services](docs/vcs/README.md)
-- [OpenAPI Spec](docs/vc-rest/openapi_spec.md)
-- [OpenAPI Demo](docs/vc-rest/openapi_demo.md)
+- [OpenAPI Spec](https://trustbloc.github.io/vcs/)
 
 ## Contributing
 Thank you for your interest in contributing. Please see our [community contribution guidelines](https://github.com/trustbloc/community/blob/main/CONTRIBUTING.md) for more information.

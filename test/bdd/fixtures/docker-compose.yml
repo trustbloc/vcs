@@ -178,19 +178,6 @@ services:
     networks:
       - bdd_net
 
-  vc-openapi.trustbloc.local:
-    container_name: vc-openapi.trustbloc.local
-    image: swaggerapi/swagger-ui
-    environment:
-      - SWAGGER_JSON=/spec/openAPI.yml
-      - BASE_URL=/openapi
-    ports:
-      - "8089:8080"
-    volumes:
-      - ./spec:/spec
-    networks:
-      - bdd_net
-
   api-gateway.trustbloc.local:
     container_name: api-gateway.trustbloc.local
     image: devopsfaith/krakend:${KRAKEND_IMAGE_TAG}
