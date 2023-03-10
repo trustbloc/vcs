@@ -1095,13 +1095,9 @@ func (m *mockCSLStore) createLatestListID() error {
 		return m.createLatestListIDErr
 	}
 
-	m.latestListID = getShortUUID()
+	m.latestListID = credentialstatus.ListID(uuid.NewString())
 
 	return nil
-}
-
-func getShortUUID() credentialstatus.ListID {
-	return credentialstatus.ListID(strings.Split(uuid.NewString(), "-")[0])
 }
 
 func (m *mockCSLStore) UpdateLatestListID() error {

@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/google/uuid"
 	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
@@ -117,7 +116,7 @@ func (p *Store) UpdateLatestListID() error {
 	collection := p.mongoClient.Database().Collection(cslStoreName)
 	_, err := collection.UpdateByID(ctxWithTimeout, latestListIDDBEntryKey, bson.M{
 		"$set": latestListIDDocument{
-			ListID: p.getShortUUID(),
+			ListID: uuid.NewString(),
 		},
 	})
 
@@ -156,7 +155,7 @@ func (p *Store) createFirstListID() (credentialstatus.ListID, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
 
-	listID := p.getShortUUID()
+	listID := uuid.NewString()
 
 	collection := p.mongoClient.Database().Collection(cslStoreName)
 	_, err := collection.InsertOne(ctxWithTimeout, latestListIDDocument{
@@ -168,8 +167,4 @@ func (p *Store) createFirstListID() (credentialstatus.ListID, error) {
 	}
 
 	return credentialstatus.ListID(listID), nil
-}
-
-func (p *Store) getShortUUID() string {
-	return strings.Split(uuid.NewString(), "-")[0]
 }

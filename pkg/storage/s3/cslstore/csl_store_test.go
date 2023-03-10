@@ -143,7 +143,9 @@ func (m *mockUnderlyingCSLWrapperStore) GetLatestListID() (credentialstatus.List
 		return "", m.getListIDErr
 	}
 
-	m.listID = credentialstatus.ListID(m.getShortUUID())
+	if m.listID == "" {
+		m.listID = credentialstatus.ListID(uuid.NewString())
+	}
 
 	return m.listID, nil
 }
@@ -153,13 +155,9 @@ func (m *mockUnderlyingCSLWrapperStore) UpdateLatestListID() error {
 		return m.updateListIDErr
 	}
 
-	m.listID = credentialstatus.ListID(m.getShortUUID())
+	m.listID = credentialstatus.ListID(uuid.NewString())
 
 	return nil
-}
-
-func (m *mockUnderlyingCSLWrapperStore) getShortUUID() string {
-	return strings.Split(uuid.NewString(), "-")[0]
 }
 
 func TestWrapperStore(t *testing.T) {
