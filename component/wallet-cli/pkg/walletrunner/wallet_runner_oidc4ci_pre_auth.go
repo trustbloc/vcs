@@ -28,7 +28,6 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
-
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
 	if err != nil {
 		return fmt.Errorf("parse initiate issuance url: %w", err)
@@ -37,14 +36,18 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	s.print("Getting issuer OIDC config")
 	startTime := time.Now()
 	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
+	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
+
 	if err != nil {
 		return err
 	}
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
+	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
+	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
+
 	if err != nil {
 		return fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
-	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
 	credentialsEndpoint := oidcIssuerCredentialConfig.CredentialEndpoint
@@ -68,10 +71,11 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	s.print("Getting access token")
 	startTime = time.Now()
 	tokenResp, tokenErr := s.httpClient.PostForm(tokenEndpoint, tokenValues)
+	s.perfInfo.GetAccessToken = time.Since(startTime)
+	s.perfInfo.VcsCIFlowDuration += time.Since(startTime)
 	if tokenErr != nil {
 		return tokenErr
 	}
-	s.perfInfo.GetAccessToken = time.Since(startTime)
 
 	var token oidc4ci.AccessTokenResponse
 	if err = json.NewDecoder(tokenResp.Body).Decode(&token); err != nil {
@@ -93,10 +97,11 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 
 	s.print("Getting credential")
 	startTime = time.Now()
-	vc, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat)
+	vc, vcsDuration, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
 	}
+	s.perfInfo.VcsCIFlowDuration += vcsDuration
 	s.perfInfo.GetCredential = time.Since(startTime)
 
 	b, err := json.Marshal(vc)

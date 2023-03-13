@@ -151,7 +151,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 	}
 
 	s.print("Getting credential")
-	vc, err := s.getCredential(oidcIssuerCredentialConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
+	vc, _, err := s.getCredential(oidcIssuerCredentialConfig.CredentialEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
 		return fmt.Errorf("get credential: %w", err)
 	}
@@ -332,7 +332,11 @@ func (s *Service) getAuthCodeFromBrowser(listener net.Listener, authCodeURL stri
 	}
 }
 
-func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFormat string) (interface{}, error) {
+func (s *Service) getCredential(
+	credentialEndpoint,
+	credentialType,
+	credentialFormat string,
+) (interface{}, time.Duration, error) {
 	km := s.ariesServices.KMS()
 	cr := s.ariesServices.Crypto()
 
@@ -340,7 +344,7 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 
 	kmsSigner, err := signer.NewKMSSigner(km, cr, strings.Split(didKeyID, "#")[1], s.vcProviderConf.WalletParams.SignType, nil)
 	if err != nil {
-		return nil, fmt.Errorf("create kms signer: %w", err)
+		return nil, 0, fmt.Errorf("create kms signer: %w", err)
 	}
 
 	claims := &JWTProofClaims{
@@ -354,14 +358,14 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 	if strings.Contains(didKeyID, "did:key") {
 		res, err := didkey.New().Read(strings.Split(didKeyID, "#")[0])
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
 	} else if strings.Contains(didKeyID, "did:jwk") {
 		res, err := jwk.New().Read(strings.Split(didKeyID, "#")[0])
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
 
 		signerKeyID = res.DIDDocument.VerificationMethod[0].ID
@@ -370,12 +374,12 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 	signedJWT, err := jwt.NewSigned(claims, nil,
 		NewJWSSigner(signerKeyID, string(s.vcProviderConf.WalletParams.SignType), kmsSigner))
 	if err != nil {
-		return nil, fmt.Errorf("create signed jwt: %w", err)
+		return nil, 0, fmt.Errorf("create signed jwt: %w", err)
 	}
 
 	jws, err := signedJWT.Serialize(false)
 	if err != nil {
-		return nil, fmt.Errorf("serialize signed jwt: %w", err)
+		return nil, 0, fmt.Errorf("serialize signed jwt: %w", err)
 	}
 
 	b, err := json.Marshal(CredentialRequest{
@@ -387,29 +391,32 @@ func (s *Service) getCredential(credentialEndpoint, credentialType, credentialFo
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal credential request: %w", err)
+		return nil, 0, fmt.Errorf("marshal credential request: %w", err)
 	}
 
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, s.httpClient)
 
 	httpClient := s.oauthClient.Client(ctx, s.token)
 
+	vcsStart := time.Now()
+	finalDuration := time.Duration(0)
 	resp, err := httpClient.Post(credentialEndpoint, "application/json", bytes.NewBuffer(b))
+	finalDuration = time.Since(vcsStart)
 	if err != nil {
-		return nil, fmt.Errorf("get credential: %w", err)
+		return nil, 0, fmt.Errorf("get credential: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("get credential: status %s", resp.Status)
+		return nil, finalDuration, fmt.Errorf("get credential: status %s", resp.Status)
 	}
 
 	var credentialResp CredentialResponse
 
 	if err = json.NewDecoder(resp.Body).Decode(&credentialResp); err != nil {
-		return nil, fmt.Errorf("decode credential response: %w", err)
+		return nil, finalDuration, fmt.Errorf("decode credential response: %w", err)
 	}
 
-	return credentialResp.Credential, nil
+	return credentialResp.Credential, finalDuration, nil
 }
 
 func (s *Service) print(msg string) {

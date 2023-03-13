@@ -68,10 +68,11 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 	log.Println("Fetching request object")
 	startTime := time.Now()
 	rawRequestObject, err := s.vpFlowExecutor.FetchRequestObject(authorizationRequest)
+	s.perfInfo.FetchRequestObject = time.Since(startTime)
+	s.perfInfo.VcsVPFlowDuration += time.Since(startTime)
 	if err != nil {
 		return err
 	}
-	s.perfInfo.FetchRequestObject = time.Since(startTime)
 
 	log.Println("Resolving request object")
 	startTime = time.Now()
@@ -108,10 +109,11 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 	log.Println("Sending authorized response")
 	startTime = time.Now()
 	err = s.vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
+	s.perfInfo.SendAuthorizedResponse = time.Since(startTime)
+	s.perfInfo.VcsVPFlowDuration += time.Since(startTime)
 	if err != nil {
 		return err
 	}
-	s.perfInfo.SendAuthorizedResponse = time.Since(startTime)
 
 	log.Println("Credentials shared with verifier")
 	return nil
