@@ -72,7 +72,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	startTime = time.Now()
 	tokenResp, tokenErr := s.httpClient.PostForm(tokenEndpoint, tokenValues)
 	s.perfInfo.GetAccessToken = time.Since(startTime)
-	s.perfInfo.VcsCIFlowDuration = time.Since(startTime)
+	s.perfInfo.VcsCIFlowDuration += time.Since(startTime)
 	if tokenErr != nil {
 		return tokenErr
 	}
