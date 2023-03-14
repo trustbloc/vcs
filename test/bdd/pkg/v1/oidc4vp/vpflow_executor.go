@@ -129,6 +129,9 @@ func (e *VPFlowExecutor) queryCredentialFromWallet() error {
 		Type:  "PresentationExchange",
 		Query: []json.RawMessage{pdBytes},
 	})
+	if err != nil {
+		return fmt.Errorf("failed to query credentials from wallet: %w", err)
+	}
 
 	credentials, err := e.getCredentials(legacyVP[0].Credentials())
 	if err != nil {

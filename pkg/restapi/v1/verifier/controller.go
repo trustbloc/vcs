@@ -409,7 +409,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 		return nil, err
 	}
 
-	logger.Info("CheckAuthorizationResponse id_token verified", logfields.WithIDToken(authResp.IDToken))
+	logger.Debug("CheckAuthorizationResponse id_token verified")
 
 	var processedVPTokens []*oidc4vp.ProcessedVPToken
 
@@ -419,7 +419,7 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 			return nil, err
 		}
 
-		logger.Info("CheckAuthorizationResponse vp_token verified", logfields.WithVPToken(vpt))
+		logger.Debug("CheckAuthorizationResponse vp_token verified")
 
 		if vpTokenClaims.Nonce != idTokenClaims.Nonce {
 			return nil, resterr.NewValidationError(resterr.InvalidValue, "nonce",
@@ -516,6 +516,10 @@ func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.Signa
 }
 
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {
+	startTime := time.Now().UTC()
+	defer func() {
+		logger.Debug("validateAuthorizationResponse", log.WithDuration(time.Since(startTime)))
+	}()
 	req := ctx.Request()
 
 	headerContentType := req.Header.Get("Content-Type")
@@ -546,7 +550,7 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 
 	res.VPToken = getVPTokens(vpTokenStr)
 
-	logger.Info("AuthorizationResponse vp_token decoded", logfields.WithVPToken(fmt.Sprintf("%s", res.VPToken)))
+	logger.Debug("AuthorizationResponse vp_token decoded")
 
 	err = decodeFormValue(&res.State, "state", req.PostForm)
 	if err != nil {

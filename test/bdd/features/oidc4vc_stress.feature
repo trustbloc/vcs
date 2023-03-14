@@ -8,5 +8,6 @@
 Feature: OIDC4VC issuance and VP stress test
   Scenario: issuance with pre-auth code flow and vp sharing
     Given number of users "USERS_NUM" making "CONCURRENT_REQ" concurrent requests
+    Then get average network latency
     When stress test is done
     Then metrics are collected and displayed

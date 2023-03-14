@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -260,7 +261,7 @@ func (s *Service) InitiateOidcInteraction(
 		return nil, err
 	}
 
-	logger.Info("InitiateOidcInteraction request object created", log.WithToken(token))
+	logger.Debug("InitiateOidcInteraction request object created")
 
 	accessRequestObjectEvent, err := s.createEvent(tx, profile, spi.VerifierOIDCInteractionQRScanned, nil)
 	if err != nil {
@@ -272,7 +273,7 @@ func (s *Service) InitiateOidcInteraction(
 		return nil, fmt.Errorf("fail publish request object: %w", err)
 	}
 
-	logger.Info("InitiateOidcInteraction request object published", log.WithURL(token))
+	logger.Debug("InitiateOidcInteraction request object published")
 
 	logger.Debug("InitiateOidcInteraction succeed")
 
@@ -280,6 +281,68 @@ func (s *Service) InitiateOidcInteraction(
 		AuthorizationRequest: "openid-vc://?request_uri=" + requestURI,
 		TxID:                 tx.ID,
 	}, nil
+}
+
+func (s *Service) verifyTokens(
+	ctx context.Context,
+	tx *Transaction,
+	profile *profileapi.Verifier,
+	tokens []*ProcessedVPToken,
+) (map[string]*ProcessedVPToken, error) {
+	verifiedPresentations := make(map[string]*ProcessedVPToken)
+
+	var validationErrors []error
+	mut := sync.Mutex{}
+	wg := sync.WaitGroup{}
+	for _, token2 := range tokens {
+		token := token2
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			// TODO: should domain and challenge be verified?
+			vr, innerErr := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
+			if innerErr != nil {
+				e := fmt.Errorf("presentation verification failed: %w", innerErr)
+				s.sendFailedEvent(ctx, tx, profile, e)
+
+				mut.Lock()
+				validationErrors = append(validationErrors, e)
+				mut.Unlock()
+				return
+			}
+
+			if len(vr) > 0 {
+				e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
+				s.sendFailedEvent(ctx, tx, profile, e)
+
+				mut.Lock()
+				validationErrors = append(validationErrors, e)
+				mut.Unlock()
+				return
+			}
+
+			mut.Lock()
+			defer mut.Unlock()
+			if _, ok := verifiedPresentations[token.Presentation.ID]; !ok {
+				verifiedPresentations[token.Presentation.ID] = token
+			} else {
+				e := fmt.Errorf("duplicate presentation ID: %s", token.Presentation.ID)
+				s.sendFailedEvent(ctx, tx, profile, e)
+
+				validationErrors = append(validationErrors, e)
+				return
+			}
+		}()
+		logger.Debug(" VerifyOIDCVerifiablePresentation verified")
+	}
+	wg.Wait()
+
+	if len(validationErrors) > 0 {
+		return nil, validationErrors[0]
+	}
+
+	return verifiedPresentations, nil
 }
 
 func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*ProcessedVPToken) error {
@@ -316,42 +379,11 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*Processe
 
 	ctx := context.TODO() // TODO: Use OpenTelemetry context.
 
-	verifiedPresentations := make(map[string]*ProcessedVPToken)
+	logger.Debug(fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(tokens)))
 
-	for _, token := range tokens {
-		vpBytes, innerErr := token.Presentation.MarshalJSON()
-		if innerErr != nil {
-			return innerErr
-		}
-
-		logger.Debug("VerifyOIDCVerifiablePresentation vp string", logfields.WithVP(string(vpBytes)))
-
-		// TODO: should domain and challenge be verified?
-		vr, innerErr := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
-		if innerErr != nil {
-			e := fmt.Errorf("presentation verification failed: %w", innerErr)
-			s.sendFailedEvent(ctx, tx, profile, e)
-
-			return e
-		}
-
-		if len(vr) > 0 {
-			e := fmt.Errorf("presentation verification checks failed: %s", vr[0].Error)
-			s.sendFailedEvent(ctx, tx, profile, e)
-
-			return e
-		}
-
-		if _, ok := verifiedPresentations[token.Presentation.ID]; !ok {
-			verifiedPresentations[token.Presentation.ID] = token
-		} else {
-			e := fmt.Errorf("duplicate presentation ID: %s", token.Presentation.ID)
-			s.sendFailedEvent(ctx, tx, profile, e)
-
-			return e
-		}
-
-		logger.Debug(" VerifyOIDCVerifiablePresentation verified", logfields.WithVP(string(vpBytes)))
+	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, tokens)
+	if err != nil {
+		return err
 	}
 
 	err = s.extractClaimData(tx, tokens, profile, verifiedPresentations)

@@ -8,7 +8,6 @@ package oidc4vc
 
 import (
 	"context"
-	"encoding/csv"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,6 +18,8 @@ import (
 	"github.com/greenpau/go-calculator"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+
+	"github.com/jedib0t/go-pretty/v6/table"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
@@ -48,6 +49,26 @@ func (s *Steps) getUsersNum(envVar, concurrentReqEnv string) error {
 	}
 
 	s.concurrentReq = n
+
+	return nil
+}
+
+func (s *Steps) getNetworkLatency() error {
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: s.tlsConfig,
+		},
+	}
+	apiURL := os.Getenv("VCS_API_URL")
+
+	for i := 0; i < 5; i++ {
+		st := time.Now()
+		_, err := httpClient.Get(apiURL)
+		if err != nil {
+			return err
+		}
+		s.networkLatency = append(s.networkLatency, time.Since(st))
+	}
 
 	return nil
 }
@@ -129,6 +150,10 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 		}
 	}
 
+	if len(s.networkLatency) > 0 {
+		perfData["__network_latency"] = s.networkLatency
+	}
+
 	for k, v := range perfData {
 		data := make([]int64, len(v))
 
@@ -149,34 +174,33 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 }
 
 func (s *Steps) displayMetrics() error {
-	records := [][]string{
-		{"metric", "avg", "max", "min"},
-	}
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.AppendHeader(table.Row{"Metric", "AVG", "MAX", "MIN"})
 
-	sortedByAvg := make([]string, 0, len(s.stressTestResults))
-
-	for k := range s.stressTestResults {
-		sortedByAvg = append(sortedByAvg, k)
-	}
-
-	sort.Slice(sortedByAvg, func(i, j int) bool {
-		return s.stressTestResults[sortedByAvg[i]][0] > s.stressTestResults[sortedByAvg[j]][0]
-	})
-
-	for _, k := range sortedByAvg {
-		records = append(records, []string{
-			k,
-			s.stressTestResults[k][0].String(),
-			s.stressTestResults[k][1].String(),
-			s.stressTestResults[k][2].String(),
+	var metrics []metric
+	for k, v := range s.stressTestResults {
+		metrics = append(metrics, metric{
+			Name: k,
+			Avg:  v[0],
+			Max:  v[1],
+			Min:  v[2],
 		})
 	}
 
-	w := csv.NewWriter(os.Stdout)
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].Name < metrics[j].Name
+	})
 
-	if err := w.WriteAll(records); err != nil {
-		return fmt.Errorf("display metrics: %w", err)
+	for _, k := range metrics {
+		t.AppendRow(table.Row{
+			k.Name,
+			k.Avg.String(),
+			k.Max.String(),
+			k.Min.String(),
+		})
 	}
 
+	t.Render()
 	return nil
 }
