@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/trustbloc/logutil-go/pkg/log"
+	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -58,13 +60,20 @@ func New(config *Config) *Service {
 	}
 }
 
+var logger = log.New("verify-presentation")
+
 func (s *Service) VerifyPresentation(
 	presentation *verifiable.Presentation,
 	opts *Options,
 	profile *profileapi.Verifier) ([]PresentationVerificationCheckResult, error) {
+	startTime := time.Now().UTC()
+	defer func() {
+		logger.Debug("VerifyPresentation", log.WithDuration(time.Since(startTime)))
+	}()
 	var result []PresentationVerificationCheckResult
 
 	if profile.Checks.Presentation.Proof {
+		st := time.Now()
 		vpBytes := []byte(presentation.JWT)
 		var err error
 
@@ -82,9 +91,13 @@ func (s *Service) VerifyPresentation(
 				Error: err.Error(),
 			})
 		}
+
+		logger.Debug(fmt.Sprintf("Checks.Presentation.Proof took %v", time.Since(st)))
 	}
 
 	if profile.Checks.Credential.Proof {
+		st := time.Now()
+
 		err := s.validateCredentialsProof(presentation)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
@@ -92,9 +105,12 @@ func (s *Service) VerifyPresentation(
 				Error: err.Error(),
 			})
 		}
+
+		logger.Debug(fmt.Sprintf("Checks.Credential.Proof took %v", time.Since(st)))
 	}
 
 	if profile.Checks.Credential.Status {
+		st := time.Now()
 		err := s.validateCredentialsStatus(presentation)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
@@ -102,6 +118,7 @@ func (s *Service) VerifyPresentation(
 				Error: err.Error(),
 			})
 		}
+		logger.Debug(fmt.Sprintf("Checks.Credential.Status took %v", time.Since(st)))
 	}
 
 	return result, nil

@@ -281,6 +281,8 @@ func buildEchoHandler(
 	options startOpts,
 ) (*echo.Echo, error) {
 	e := createEcho()
+	e.Use(echomw.Gzip())
+
 	metrics, err := NewMetrics(conf.StartupParameters, e)
 	if err != nil {
 		return nil, err
