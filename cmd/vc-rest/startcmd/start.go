@@ -405,6 +405,7 @@ func buildEchoHandler(
 		KMSRegistry:    kmsRegistry,
 		Crypto:         vcCrypto,
 		CMD:            cmd,
+		ExternalURL:    conf.StartupParameters.hostURLExternal,
 	})
 	if err != nil {
 		return nil, err
@@ -612,6 +613,7 @@ func buildEchoHandler(
 		IssuerProfileService:   issuerProfileSvc,
 		Crypto:                 vcCrypto,
 		KmsRegistry:            kmsRegistry,
+		ExternalURL:            conf.StartupParameters.hostURLExternal,
 	})
 
 	if conf.StartupParameters.devMode {

@@ -47,8 +47,9 @@ import (
 )
 
 const (
-	profileID = "testProfileID"
-	credID    = "http://example.edu/credentials/1872"
+	profileID         = "testProfileID"
+	externalProfileID = "externalID"
+	credID            = "http://example.edu/credentials/1872"
 )
 
 func validateVCStatus(t *testing.T, s *Service, statusID *issuecredential.StatusListEntry, expectedListID credentialstatus.ListID) {
@@ -63,7 +64,7 @@ func validateVCStatus(t *testing.T, s *Service, statusID *issuecredential.Status
 	existingStatusVCListID := chunks[len(chunks)-1]
 	require.Equal(t, string(expectedListID), existingStatusVCListID)
 
-	statusListVC, err := s.GetStatusListVC(profileID, existingStatusVCListID)
+	statusListVC, err := s.GetStatusListVC(externalProfileID, existingStatusVCListID)
 	require.NoError(t, err)
 	require.Equal(t, existingStatusListVCID, statusListVC.ID)
 	require.Equal(t, "did:test:abc", statusListVC.Issuer.ID)
@@ -105,6 +106,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 			ListSize:       2,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
+			ExternalURL:    "https://localhost:8080",
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
@@ -255,7 +257,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 	t.Run("test error create CSL wrapper URL", func(t *testing.T) {
 		profile := getTestProfile()
-		profile.URL = " https://example.com"
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).Times(1).Return(profile, nil)
 
@@ -264,12 +265,16 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
-			CSLStore:       newMockCSLStore(),
-			KMSRegistry:    mockKMSRegistry,
+			CSLStore: newMockCSLStore(
+				func(store *mockCSLStore) {
+					store.getCSLErr = errors.New("some error")
+				}),
+			KMSRegistry: mockKMSRegistry,
+			ExternalURL: "https://example.com",
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(externalProfileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to create CSL wrapper URL")
@@ -317,7 +322,8 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		listID, err := cslStore.GetLatestListID()
 		require.NoError(t, err)
 
-		cslURL, err := cslStore.GetCSLURL(profile.URL, profile.ID, listID)
+		cslURL, err := cslStore.GetCSLURL("https://localhost:8080", profile.GroupID, listID)
+
 		require.NoError(t, err)
 
 		csl, err := statusProcessor.CreateVC(cslURL, 2, &vc.Signer{DID: profile.SigningDID.DID})
@@ -339,6 +345,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 			ListSize:       2,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
+			ExternalURL:    "https://localhost:8080",
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
@@ -435,33 +442,19 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 }
 
 func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
-	t.Run("test error get profile", func(t *testing.T) {
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
-
-		s, err := New(&Config{
-			ProfileService: mockProfileSrv,
-		})
-		require.NoError(t, err)
-
-		csl, err := s.GetStatusListVC(profileID, "1")
-		require.Error(t, err)
-		require.Nil(t, csl)
-		require.Contains(t, err.Error(), "failed to get profile")
-	})
 	t.Run("test error get status list vc url", func(t *testing.T) {
 		profile := getTestProfile()
-		profile.URL = " https://example.com"
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			CSLStore:       newMockCSLStore(),
+			ExternalURL:    " https://example.com",
 		})
 		require.NoError(t, err)
 
-		csl, err := s.GetStatusListVC(profileID, "1")
+		csl, err := s.GetStatusListVC(externalProfileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
 		require.Contains(t, err.Error(), "failed to get CSL wrapper URL")
@@ -485,7 +478,7 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		csl, err := s.GetStatusListVC(profileID, "1")
+		csl, err := s.GetStatusListVC(externalProfileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
 		require.Contains(t, err.Error(), "failed to get revocationListVC from store")
@@ -525,7 +518,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		listID, err := s.cslStore.GetLatestListID()
 		require.NoError(t, err)
 
-		statusListVC, err := s.GetStatusListVC(profileID, string(listID))
+		statusListVC, err := s.GetStatusListVC(externalProfileID, string(listID))
 		require.NoError(t, err)
 		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
@@ -762,7 +755,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		listID, err := s.cslStore.GetLatestListID()
 		require.NoError(t, err)
 
-		revocationListVC, err := s.GetStatusListVC(profileID, string(listID))
+		revocationListVC, err := s.GetStatusListVC(externalProfileID, string(listID))
 		require.NoError(t, err)
 		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
@@ -1027,9 +1020,9 @@ func getTestSigner() *vc.Signer {
 
 func getTestProfile() *profileapi.Issuer {
 	return &profileapi.Issuer{
-		ID:   profileID,
-		Name: "testprofile",
-		URL:  "https://localhost:8080",
+		ID:      profileID,
+		Name:    "testprofile",
+		GroupID: "externalID",
 		VCConfig: &profileapi.VCConfig{
 			Format:           vcsverifiable.Ldp,
 			SigningAlgorithm: "Ed25519Signature2018",
@@ -1046,6 +1039,7 @@ func getTestProfile() *profileapi.Issuer {
 
 type mockCSLStore struct {
 	createErr             error
+	getCSLErr             error
 	findErr               error
 	getLatestListIDErr    error
 	createLatestListIDErr error
@@ -1055,6 +1049,10 @@ type mockCSLStore struct {
 }
 
 func (m *mockCSLStore) GetCSLURL(issuerURL, issuerID string, listID credentialstatus.ListID) (string, error) {
+	if m.getCSLErr != nil {
+		return "", m.getCSLErr
+	}
+
 	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
 }
 
@@ -1075,6 +1073,7 @@ func (m *mockCSLStore) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	}
 
 	m.s[cslWrapper.VC.ID] = cslWrapper
+
 	return nil
 }
 

@@ -83,6 +83,7 @@ type Config struct {
 	KMSRegistry    kmsRegistry
 	DocumentLoader ld.DocumentLoader
 	CMD            *cobra.Command
+	ExternalURL    string
 }
 
 type Service struct {
@@ -97,6 +98,7 @@ type Service struct {
 	kmsRegistry    kmsRegistry
 	documentLoader ld.DocumentLoader
 	cmd            *cobra.Command
+	externalURL    string
 }
 
 // New returns new Credential Status service.
@@ -113,6 +115,7 @@ func New(config *Config) (*Service, error) {
 		kmsRegistry:    config.KMSRegistry,
 		documentLoader: config.DocumentLoader,
 		cmd:            config.CMD,
+		externalURL:    config.ExternalURL,
 	}, nil
 }
 
@@ -255,13 +258,8 @@ func (s *Service) getUnusedIndex(usedIndexes []int) (int, error) {
 
 // GetStatusListVC returns StatusListVC from underlying cslStore.
 // Used for handling public HTTP requests.
-func (s *Service) GetStatusListVC(profileID profileapi.ID, listID string) (*verifiable.Credential, error) {
-	profile, err := s.profileService.GetProfile(profileID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get profile: %w", err)
-	}
-
-	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, credentialstatus.ListID(listID))
+func (s *Service) GetStatusListVC(groupID profileapi.ID, listID string) (*verifiable.Credential, error) {
+	cslURL, err := s.cslStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
 	}
@@ -377,7 +375,7 @@ func (s *Service) getLatestCSLWrapper(signer *vc.Signer, profile *profileapi.Iss
 		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
 	}
 
-	cslURL, err := s.cslStore.GetCSLURL(profile.URL, profile.ID, latestListID)
+	cslURL, err := s.cslStore.GetCSLURL(s.externalURL, profile.GroupID, latestListID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
 	}
