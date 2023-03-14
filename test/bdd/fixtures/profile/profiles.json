@@ -3,6 +3,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_P256k1",
+        "groupID": "group_i_myprofile_ud_P256k1",
         "name": "i_myprofile_ud_P256k1",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -25,6 +26,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_es256_jwt",
+        "groupID": "group_i_myprofile_ud_es256_jwt",
         "name": "i_myprofile_ud_es256_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -47,6 +49,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_es256_sdjwt",
+        "groupID": "group_i_myprofile_ud_es256_sdjwt",
         "name": "i_myprofile_ud_es256_sdjwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -73,6 +76,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_es384_jwt",
+        "groupID": "group_i_myprofile_ud_es384_jwt",
         "name": "i_myprofile_ud_es384_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -95,6 +99,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_es384_sdjwt",
+        "groupID": "group_i_myprofile_ud_es384_sdjwt",
         "name": "i_myprofile_ud_es384_sdjwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -121,6 +126,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_es256k_jwt",
+        "groupID": "group_i_myprofile_ud_es256k_jwt",
         "name": "i_myprofile_ud_es256k_jwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -143,6 +149,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_es256k_sdjwt",
+        "groupID": "group_i_myprofile_ud_es256k_sdjwt",
         "name": "i_myprofile_ud_es256k_sdjwt",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -169,6 +176,7 @@
     {
       "issuer": {
         "id": "i_myprofile_ud_p256",
+        "groupID": "group_i_myprofile_ud_p256",
         "name": "i_myprofile_ud_p256",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -191,6 +199,7 @@
     {
       "issuer": {
         "id": "i_myprofile_prc_P256k1",
+        "groupID": "group_i_myprofile_prc_P256k1",
         "name": "i_myprofile_prc_P256k1",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -213,6 +222,7 @@
     {
       "issuer": {
         "id": "i_myprofile_prc_p256",
+        "groupID": "group_i_myprofile_prc_p256",
         "name": "i_myprofile_prc_p256",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -235,6 +245,7 @@
     {
       "issuer": {
         "id": "i_myprofile_cp_p384",
+        "groupID": "group_i_myprofile_cp_p384",
         "name": "i_myprofile_cp_p384",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -257,6 +268,7 @@
     {
       "issuer": {
         "id": "i_myprofile_cp_p256",
+        "groupID": "group_i_myprofile_cp_p256",
         "name": "i_myprofile_cp_p256",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -279,6 +291,7 @@
     {
       "issuer": {
         "id": "i_myprofile_cmtr_p384",
+        "groupID": "group_i_myprofile_cmtr_p384",
         "name": "i_myprofile_cmtr_p384",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -299,6 +312,7 @@
     {
       "issuer": {
         "id": "i_myprofile_cmtr_p256",
+        "groupID": "group_i_myprofile_cmtr_p256",
         "name": "i_myprofile_cmtr_p256",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -319,6 +333,7 @@
     {
       "issuer": {
         "id": "bank_issuer",
+        "groupID": "group_bank_issuer",
         "name": "Bank Issuer",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",
@@ -450,6 +465,7 @@
     {
       "issuer": {
         "id": "issuer_without_oidc",
+        "groupID": "group_issuer_without_oidc",
         "name": "Issuer Without OIDC",
         "organizationID": "f13d1va9lp403pb9lyj89vk55",
         "url": "http://vc-rest-echo.trustbloc.local:8075",

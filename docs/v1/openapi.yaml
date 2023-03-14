@@ -94,16 +94,16 @@ paths:
                 type: object
       operationId: post-issue-credentials
       description: Issuer credentials.
-  '/issuer/profiles/{profileID}/credentials/status/{statusID}':
+  '/issuer/profiles/{groupID}/credentials/status/{statusID}':
     get:
       summary: Retrieves the credential status.
       parameters:
         - schema:
             type: string
-          name: profileID
+          name: groupID
           in: path
           required: true
-          description: Issuer Profile ID.
+          description: Issuer Group ID.
         - schema:
             type: string
           name: statusID

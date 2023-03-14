@@ -133,11 +133,11 @@ func (p *Store) UpdateLatestListID() error {
 }
 
 // GetCSLURL returns the public URL of credentialstatus.CSL.
-func (p *Store) GetCSLURL(_, issuerProfileID string, listID credentialstatus.ListID) (string, error) {
+func (p *Store) GetCSLURL(_, groupID string, listID credentialstatus.ListID) (string, error) {
 	return url.JoinPath(
 		p.getAmazonPublicDomain(),
 		issuerProfiles,
-		issuerProfileID,
+		groupID,
 		credentialStatus,
 		fmt.Sprintf("%s.json", listID),
 	)

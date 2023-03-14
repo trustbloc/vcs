@@ -8,7 +8,7 @@ package credentialstatus
 
 type CSLStore interface {
 	// GetCSLURL returns the public URL to the CSL.
-	GetCSLURL(issuerProfileURL, issuerProfileID string, statusListID ListID) (string, error)
+	GetCSLURL(issuerProfileURL, externalIssuerProfileID string, statusListID ListID) (string, error)
 	// Upsert does C_U_ operations against cslWrapper.
 	Upsert(cslWrapper *CSLWrapper) error
 	// Get returns CSLWrapper based on URL to the CSL.

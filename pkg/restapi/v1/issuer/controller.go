@@ -341,9 +341,9 @@ func validateIssueCredOptions(
 }
 
 // GetCredentialsStatus retrieves the credentialstatus.CSL.
-// GET /issuer/profiles/{profileID}/credentials/status/{statusID}.
-func (c *Controller) GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error {
-	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(profileID, statusID))
+// GET /issuer/profiles/{groupID}/credentials/status/{statusID}.
+func (c *Controller) GetCredentialsStatus(ctx echo.Context, groupID string, statusID string) error {
+	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(groupID, statusID))
 }
 
 // PostCredentialsStatus updates credentialstatus.CSL.

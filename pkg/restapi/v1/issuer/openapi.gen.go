@@ -427,6 +427,9 @@ type ClientInterface interface {
 
 	ValidatePreAuthorizedCodeRequest(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetCredentialsStatus request
+	GetCredentialsStatus(ctx context.Context, groupID string, statusID string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -436,9 +439,6 @@ type ClientInterface interface {
 	PostCredentialsStatusWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PostCredentialsStatus(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// GetCredentialsStatus request
-	GetCredentialsStatus(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// InitiateCredentialIssuance request with any body
 	InitiateCredentialIssuanceWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -596,6 +596,18 @@ func (c *Client) ValidatePreAuthorizedCodeRequest(ctx context.Context, body Vali
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetCredentialsStatus(ctx context.Context, groupID string, statusID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetCredentialsStatusRequest(c.Server, groupID, statusID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PostIssueCredentialsWithBody(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostIssueCredentialsRequestWithBody(c.Server, profileID, contentType, body)
 	if err != nil {
@@ -634,18 +646,6 @@ func (c *Client) PostCredentialsStatusWithBody(ctx context.Context, profileID st
 
 func (c *Client) PostCredentialsStatus(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostCredentialsStatusRequest(c.Server, profileID, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) GetCredentialsStatus(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetCredentialsStatusRequest(c.Server, profileID, statusID)
 	if err != nil {
 		return nil, err
 	}
@@ -944,6 +944,47 @@ func NewValidatePreAuthorizedCodeRequestRequestWithBody(server string, contentTy
 	return req, nil
 }
 
+// NewGetCredentialsStatusRequest generates requests for GetCredentialsStatus
+func NewGetCredentialsStatusRequest(server string, groupID string, statusID string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "groupID", runtime.ParamLocationPath, groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "statusID", runtime.ParamLocationPath, statusID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/issuer/profiles/%s/credentials/status/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPostIssueCredentialsRequest calls the generic PostIssueCredentials builder with application/json body
 func NewPostIssueCredentialsRequest(server string, profileID string, body PostIssueCredentialsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -1034,47 +1075,6 @@ func NewPostCredentialsStatusRequestWithBody(server string, profileID string, co
 	}
 
 	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewGetCredentialsStatusRequest generates requests for GetCredentialsStatus
-func NewGetCredentialsStatusRequest(server string, profileID string, statusID string) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "profileID", runtime.ParamLocationPath, profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "statusID", runtime.ParamLocationPath, statusID)
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/issuer/profiles/%s/credentials/status/%s", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
 
 	return req, nil
 }
@@ -1267,6 +1267,9 @@ type ClientWithResponsesInterface interface {
 
 	ValidatePreAuthorizedCodeRequestWithResponse(ctx context.Context, body ValidatePreAuthorizedCodeRequestJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidatePreAuthorizedCodeRequestResponse, error)
 
+	// GetCredentialsStatus request
+	GetCredentialsStatusWithResponse(ctx context.Context, groupID string, statusID string, reqEditors ...RequestEditorFn) (*GetCredentialsStatusResponse, error)
+
 	// PostIssueCredentials request with any body
 	PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error)
 
@@ -1276,9 +1279,6 @@ type ClientWithResponsesInterface interface {
 	PostCredentialsStatusWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error)
 
 	PostCredentialsStatusWithResponse(ctx context.Context, profileID string, body PostCredentialsStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*PostCredentialsStatusResponse, error)
-
-	// GetCredentialsStatus request
-	GetCredentialsStatusWithResponse(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*GetCredentialsStatusResponse, error)
 
 	// InitiateCredentialIssuance request with any body
 	InitiateCredentialIssuanceWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InitiateCredentialIssuanceResponse, error)
@@ -1423,6 +1423,28 @@ func (r ValidatePreAuthorizedCodeRequestResponse) StatusCode() int {
 	return 0
 }
 
+type GetCredentialsStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]interface{}
+}
+
+// Status returns HTTPResponse.Status
+func (r GetCredentialsStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetCredentialsStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PostIssueCredentialsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -1461,28 +1483,6 @@ func (r PostCredentialsStatusResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PostCredentialsStatusResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type GetCredentialsStatusResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *map[string]interface{}
-}
-
-// Status returns HTTPResponse.Status
-func (r GetCredentialsStatusResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r GetCredentialsStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1657,6 +1657,15 @@ func (c *ClientWithResponses) ValidatePreAuthorizedCodeRequestWithResponse(ctx c
 	return ParseValidatePreAuthorizedCodeRequestResponse(rsp)
 }
 
+// GetCredentialsStatusWithResponse request returning *GetCredentialsStatusResponse
+func (c *ClientWithResponses) GetCredentialsStatusWithResponse(ctx context.Context, groupID string, statusID string, reqEditors ...RequestEditorFn) (*GetCredentialsStatusResponse, error) {
+	rsp, err := c.GetCredentialsStatus(ctx, groupID, statusID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetCredentialsStatusResponse(rsp)
+}
+
 // PostIssueCredentialsWithBodyWithResponse request with arbitrary body returning *PostIssueCredentialsResponse
 func (c *ClientWithResponses) PostIssueCredentialsWithBodyWithResponse(ctx context.Context, profileID string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostIssueCredentialsResponse, error) {
 	rsp, err := c.PostIssueCredentialsWithBody(ctx, profileID, contentType, body, reqEditors...)
@@ -1689,15 +1698,6 @@ func (c *ClientWithResponses) PostCredentialsStatusWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParsePostCredentialsStatusResponse(rsp)
-}
-
-// GetCredentialsStatusWithResponse request returning *GetCredentialsStatusResponse
-func (c *ClientWithResponses) GetCredentialsStatusWithResponse(ctx context.Context, profileID string, statusID string, reqEditors ...RequestEditorFn) (*GetCredentialsStatusResponse, error) {
-	rsp, err := c.GetCredentialsStatus(ctx, profileID, statusID, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseGetCredentialsStatusResponse(rsp)
 }
 
 // InitiateCredentialIssuanceWithBodyWithResponse request with arbitrary body returning *InitiateCredentialIssuanceResponse
@@ -1881,6 +1881,32 @@ func ParseValidatePreAuthorizedCodeRequestResponse(rsp *http.Response) (*Validat
 	return response, nil
 }
 
+// ParseGetCredentialsStatusResponse parses an HTTP response from a GetCredentialsStatusWithResponse call
+func ParseGetCredentialsStatusResponse(rsp *http.Response) (*GetCredentialsStatusResponse, error) {
+	bodyBytes, err := ioutil.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetCredentialsStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]interface{}
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePostIssueCredentialsResponse parses an HTTP response from a PostIssueCredentialsWithResponse call
 func ParsePostIssueCredentialsResponse(rsp *http.Response) (*PostIssueCredentialsResponse, error) {
 	bodyBytes, err := ioutil.ReadAll(rsp.Body)
@@ -1916,32 +1942,6 @@ func ParsePostCredentialsStatusResponse(rsp *http.Response) (*PostCredentialsSta
 	}
 
 	response := &PostCredentialsStatusResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest map[string]interface{}
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseGetCredentialsStatusResponse parses an HTTP response from a GetCredentialsStatusWithResponse call
-func ParseGetCredentialsStatusResponse(rsp *http.Response) (*GetCredentialsStatusResponse, error) {
-	bodyBytes, err := ioutil.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &GetCredentialsStatusResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2057,15 +2057,15 @@ type ServerInterface interface {
 	// Validates pre-authorized code and user pin
 	// (POST /issuer/interactions/validate-pre-authorized-code)
 	ValidatePreAuthorizedCodeRequest(ctx echo.Context) error
+	// Retrieves the credential status.
+	// (GET /issuer/profiles/{groupID}/credentials/status/{statusID})
+	GetCredentialsStatus(ctx echo.Context, groupID string, statusID string) error
 	// Issue credential
 	// (POST /issuer/profiles/{profileID}/credentials/issue)
 	PostIssueCredentials(ctx echo.Context, profileID string) error
 	// Updates credential status.
 	// (POST /issuer/profiles/{profileID}/credentials/status)
 	PostCredentialsStatus(ctx echo.Context, profileID string) error
-	// Retrieves the credential status.
-	// (GET /issuer/profiles/{profileID}/credentials/status/{statusID})
-	GetCredentialsStatus(ctx echo.Context, profileID string, statusID string) error
 	// Initiate OIDC Credential Issuance
 	// (POST /issuer/profiles/{profileID}/interactions/initiate-oidc)
 	InitiateCredentialIssuance(ctx echo.Context, profileID string) error
@@ -2136,6 +2136,30 @@ func (w *ServerInterfaceWrapper) ValidatePreAuthorizedCodeRequest(ctx echo.Conte
 	return err
 }
 
+// GetCredentialsStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) GetCredentialsStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "groupID" -------------
+	var groupID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "groupID", runtime.ParamLocationPath, ctx.Param("groupID"), &groupID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter groupID: %s", err))
+	}
+
+	// ------------- Path parameter "statusID" -------------
+	var statusID string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "statusID", runtime.ParamLocationPath, ctx.Param("statusID"), &statusID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter statusID: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetCredentialsStatus(ctx, groupID, statusID)
+	return err
+}
+
 // PostIssueCredentials converts echo context to params.
 func (w *ServerInterfaceWrapper) PostIssueCredentials(ctx echo.Context) error {
 	var err error
@@ -2165,30 +2189,6 @@ func (w *ServerInterfaceWrapper) PostCredentialsStatus(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.PostCredentialsStatus(ctx, profileID)
-	return err
-}
-
-// GetCredentialsStatus converts echo context to params.
-func (w *ServerInterfaceWrapper) GetCredentialsStatus(ctx echo.Context) error {
-	var err error
-	// ------------- Path parameter "profileID" -------------
-	var profileID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "profileID", runtime.ParamLocationPath, ctx.Param("profileID"), &profileID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
-	}
-
-	// ------------- Path parameter "statusID" -------------
-	var statusID string
-
-	err = runtime.BindStyledParameterWithLocation("simple", false, "statusID", runtime.ParamLocationPath, ctx.Param("statusID"), &statusID)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter statusID: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.GetCredentialsStatus(ctx, profileID, statusID)
 	return err
 }
 
@@ -2274,9 +2274,9 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	router.POST(baseURL+"/issuer/interactions/push-authorization-request", wrapper.PushAuthorizationDetails)
 	router.POST(baseURL+"/issuer/interactions/store-authorization-code", wrapper.StoreAuthorizationCodeRequest)
 	router.POST(baseURL+"/issuer/interactions/validate-pre-authorized-code", wrapper.ValidatePreAuthorizedCodeRequest)
+	router.GET(baseURL+"/issuer/profiles/:groupID/credentials/status/:statusID", wrapper.GetCredentialsStatus)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/issue", wrapper.PostIssueCredentials)
 	router.POST(baseURL+"/issuer/profiles/:profileID/credentials/status", wrapper.PostCredentialsStatus)
-	router.GET(baseURL+"/issuer/profiles/:profileID/credentials/status/:statusID", wrapper.GetCredentialsStatus)
 	router.POST(baseURL+"/issuer/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateCredentialIssuance)
 	router.GET(baseURL+"/issuer/:profileID/.well-known/openid-configuration", wrapper.OpenidConfig)
 	router.GET(baseURL+"/issuer/:profileID/.well-known/openid-credential-issuer", wrapper.OpenidCredentialIssuerConfig)

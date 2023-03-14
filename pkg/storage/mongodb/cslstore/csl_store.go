@@ -72,8 +72,9 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 }
 
 // GetCSLURL returns the URL of credentialstatus.CSL.
-func (p *Store) GetCSLURL(issuerProfileURL, issuerProfileID string, listID credentialstatus.ListID) (string, error) {
-	return url.JoinPath(issuerProfileURL, issuerProfiles, issuerProfileID, credentialStatus, string(listID))
+func (p *Store) GetCSLURL(issuerProfileURL, groupID string,
+	listID credentialstatus.ListID) (string, error) {
+	return url.JoinPath(issuerProfileURL, issuerProfiles, groupID, credentialStatus, string(listID))
 }
 
 // Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.

@@ -61,6 +61,7 @@ type Config struct {
 	IssuerProfileService   issuerProfileService
 	Crypto                 vcCrypto
 	KmsRegistry            kmsRegistry
+	ExternalURL            string
 }
 
 type Service struct {
@@ -68,6 +69,7 @@ type Service struct {
 	issuerProfileService   issuerProfileService
 	vcCrypto               vcCrypto
 	kmsRegistry            kmsRegistry
+	externalURL            string
 }
 
 type DidConfiguration struct {
@@ -83,6 +85,7 @@ func New(
 		issuerProfileService:   config.IssuerProfileService,
 		vcCrypto:               config.Crypto,
 		kmsRegistry:            config.KmsRegistry,
+		externalURL:            config.ExternalURL,
 	}
 }
 
@@ -151,7 +154,7 @@ func (s *Service) DidConfig(
 		}
 		cred.Subject = map[string]interface{}{
 			"id":     profile.SigningDID.DID,
-			"origin": profile.URL,
+			"origin": s.externalURL,
 		}
 		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 

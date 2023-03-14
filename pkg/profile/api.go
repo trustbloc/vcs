@@ -34,6 +34,7 @@ const (
 // Issuer profile.
 type Issuer struct {
 	ID                  ID                    `json:"id"`
+	GroupID             ID                    `json:"groupID"`
 	Name                string                `json:"name,omitempty"`
 	URL                 string                `json:"url,omitempty"`
 	Active              bool                  `json:"active"`
