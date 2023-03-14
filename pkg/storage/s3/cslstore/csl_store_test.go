@@ -323,13 +323,13 @@ func TestStore_GetCSLURL(t *testing.T) {
 		"https://example.com", "test_issuer", "1")
 	assert.NoError(t, err)
 	assert.Equal(t,
-		"https://test-bucket.s3.test-region.amazonaws.com/issuer/profiles/test_issuer/credentials/status/1.json",
+		"https://test-bucket.s3.test-region.amazonaws.com/issuer/groups/test_issuer/credentials/status/1.json",
 		cslURL)
 
 	// Convert to CSL S3 key.
 	cslS3Key := store.resolveCSLS3Key(cslURL)
 	assert.Equal(t,
-		"/issuer/profiles/test_issuer/credentials/status/1.json",
+		"/issuer/groups/test_issuer/credentials/status/1.json",
 		cslS3Key)
 }
 

@@ -26,7 +26,7 @@ const (
 	amazonPublicDomainFmt = "https://%s.s3.%s.amazonaws.com"
 
 	issuer           = "/issuer"
-	issuerProfiles   = issuer + "/profiles"
+	issuerProfiles   = issuer + "/groups"
 	credentialStatus = "/credentials/status"
 )
 

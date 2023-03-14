@@ -291,7 +291,7 @@ func TestStore_GetCSLURL(t *testing.T) {
 	cslURL, err := store.GetCSLURL(
 		"https://example.com", "test_issuer", "1-abcd")
 	assert.NoError(t, err)
-	assert.Equal(t, "https://example.com/issuer/profiles/test_issuer/credentials/status/1-abcd", cslURL)
+	assert.Equal(t, "https://example.com/issuer/groups/test_issuer/credentials/status/1-abcd", cslURL)
 
 	cslURL, err = store.GetCSLURL(
 		" https://example.com", "test_issuer", "1")
