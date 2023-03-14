@@ -94,7 +94,7 @@ paths:
                 type: object
       operationId: post-issue-credentials
       description: Issuer credentials.
-  '/issuer/profiles/{groupID}/credentials/status/{statusID}':
+  '/issuer/groups/{groupID}/credentials/status/{statusID}':
     get:
       summary: Retrieves the credential status.
       parameters:

@@ -27,7 +27,7 @@ const (
 	mongoDBDocumentIDFieldName = "_id"
 	idFieldName                = "id"
 
-	issuerProfiles   = "/issuer/profiles"
+	issuerProfiles   = "/issuer/groups"
 	credentialStatus = "/credentials/status"
 )
 
