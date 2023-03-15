@@ -401,6 +401,32 @@ func TestTLSSystemCertPoolInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
+func TestHTTPTimeoutInvalidArgsEnvVar(t *testing.T) {
+	startCmd := GetStartCmd()
+
+	setEnvVars(t, databaseTypeMongoDBOption, "")
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(httpTimeoutEnvKey, "wrongvalue"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "http-timeout: invalid value [wrongvalue]: time: invalid duration")
+}
+
+func TestHTTPDialTimeoutInvalidArgsEnvVar(t *testing.T) {
+	startCmd := GetStartCmd()
+
+	setEnvVars(t, databaseTypeMongoDBOption, "")
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(httpDialTimeoutEnvKey, "wrongvalue"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "http-dial-timeout: invalid value [wrongvalue]: time: invalid duration")
+}
+
 func TestValidateAuthorizationBearerToken(t *testing.T) {
 	t.Run("test invalid token", func(t *testing.T) {
 		header := make(map[string][]string)
@@ -501,8 +527,18 @@ func unsetEnvVars(t *testing.T) {
 	err = os.Unsetenv(profilePathEnv)
 	require.NoError(t, err)
 
+	err = os.Unsetenv(tlsSystemCertPoolEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(httpTimeoutEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(httpDialTimeoutEnvKey)
+	require.NoError(t, err)
+
 	err = os.Setenv(hostURLExternalEnvKey, "http://localhost:8080")
 	require.NoError(t, err)
+
 }
 
 func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {
