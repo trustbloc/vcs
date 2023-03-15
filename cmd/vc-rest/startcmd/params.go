@@ -153,6 +153,16 @@ const (
 	tlsCertificateFlagUsage = "TLS certificate for vcs server. " + commonEnvVarUsageText + tlsCertificateLEnvKey
 	tlsCertificateLEnvKey   = "VCS_REST_TLS_CERTIFICATE"
 
+	httpTimeoutFlagName  = "http-timeout"
+	httpTimeoutEnvKey    = "HTTP_TIMEOUT"
+	httpTimeoutFlagUsage = "The timeout for http requests. For example, '30s' for a 30 second timeout. " +
+		commonEnvVarUsageText + httpTimeoutEnvKey
+
+	httpDialTimeoutFlagName  = "http-dial-timeout"
+	httpDialTimeoutEnvKey    = "HTTP_DIAL_TIMEOUT"
+	httpDialTimeoutFlagUsage = "The timeout for http dial. For example, '30s' for a 30 second timeout. " +
+		commonEnvVarUsageText + httpDialTimeoutEnvKey
+
 	tlsKeyFlagName  = "tls-key"
 	tlsKeyFlagUsage = "TLS key for vcs server. " + commonEnvVarUsageText + tlsKeyEnvKey
 	tlsKeyEnvKey    = "VC_REST_TLS_KEY"
@@ -271,6 +281,9 @@ const (
 
 	defaultTracingServiceName    = "vcs"
 	defaultInternalServerAddress = "0.0.0.0:50321"
+
+	defaultHTTPDialTimeout = 2 * time.Second
+	defaultHTTPTimeout     = 20 * time.Second
 )
 
 const (
@@ -292,6 +305,7 @@ type startupParameters struct {
 	contextProviderURLs                 []string
 	contextEnableRemote                 bool
 	tlsParameters                       *tlsParameters
+	httpParameters                      *httpParameters
 	devMode                             bool
 	oAuthSecret                         string
 	oAuthClientsFilePath                string
@@ -337,6 +351,11 @@ type tlsParameters struct {
 	caCerts        []string
 	serveCertPath  string
 	serveKeyPath   string
+}
+
+type httpParameters struct {
+	timeout     time.Duration
+	dialTimeout time.Duration
 }
 
 type kmsParameters struct {
@@ -398,6 +417,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	tlsParameters, err := getTLS(cmd)
+	if err != nil {
+		return nil, err
+	}
+
+	httpParams, err := getHTTPParameters(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -545,6 +569,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		dbParameters:                        dbParams,
 		kmsParameters:                       kmsParams,
 		tlsParameters:                       tlsParameters,
+		httpParameters:                      httpParams,
 		token:                               token,
 		requestTokens:                       requestTokens,
 		logLevels:                           loggingLevel,
@@ -572,6 +597,23 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		claimDataTTL:                        int32(claimDataTTL.Seconds()),
 		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
 		tracingParams:                       tracingParams,
+	}, nil
+}
+
+func getHTTPParameters(cmd *cobra.Command) (*httpParameters, error) {
+	httpTimeout, err := getDuration(cmd, httpTimeoutFlagName, httpTimeoutEnvKey, defaultHTTPTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", httpTimeoutFlagName, err)
+	}
+
+	httpDialTimeout, err := getDuration(cmd, httpDialTimeoutFlagName, httpDialTimeoutEnvKey, defaultHTTPDialTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", httpDialTimeoutFlagName, err)
+	}
+
+	return &httpParameters{
+		timeout:     httpTimeout,
+		dialTimeout: httpDialTimeout,
 	}, nil
 }
 
@@ -859,6 +901,9 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tracingProviderFlagName, "", "", tracingProviderFlagUsage)
 	startCmd.Flags().StringP(tracingCollectorURLFlagName, "", "", tracingCollectorURLFlagUsage)
 	startCmd.Flags().StringP(tracingServiceNameFlagName, "", "", tracingServiceNameFlagUsage)
+
+	startCmd.Flags().StringP(httpTimeoutFlagName, "", "", httpTimeoutFlagUsage)
+	startCmd.Flags().StringP(httpDialTimeoutFlagName, "", "", httpDialTimeoutFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }

@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -717,6 +718,16 @@ func newHTTPClient(tlsConfig *tls.Config, params *startupParameters,
 	metrics metricsProvider.Metrics, id metricsProvider.ClientID) *http.Client {
 	var transport http.RoundTripper = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		DialContext: (&net.Dialer{
+			Timeout:   params.httpParameters.dialTimeout,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          2000,
+		MaxConnsPerHost:       100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
 	}
 
 	if params.tracingParams.provider != tracing.ProviderNone {
@@ -724,7 +735,7 @@ func newHTTPClient(tlsConfig *tls.Config, params *startupParameters,
 	}
 
 	return &http.Client{
-		Timeout:   time.Minute,
+		Timeout:   params.httpParameters.timeout,
 		Transport: metrics.InstrumentHTTPTransport(id, transport),
 	}
 }

@@ -10,6 +10,8 @@ services:
     container_name: vc-rest-echo.trustbloc.local
     image: ${VC_REST_IMAGE}:latest
     environment:
+      - HTTP_TIMEOUT=30s
+      - HTTP_DIAL_TIMEOUT=3s
       - LOG_LEVEL=debug
       - VC_REST_HOST_URL=0.0.0.0:8075
       - VC_REST_API_GATEWAY_URL=https://api-gateway.trustbloc.local:5566
