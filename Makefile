@@ -4,9 +4,11 @@
 
 GOBIN_PATH=$(abspath .)/.build/bin
 VC_REST_PATH=cmd/vc-rest
+VCS_STRESS_PATH=test/stress/cmd
 # Namespace for the agent images
 DOCKER_OUTPUT_NS                    ?= ghcr.io
 VC_REST_IMAGE_NAME                  ?= trustbloc/vc-server
+VCS_STRESS_IMAGE_NAME				?= trustbloc/vcs-stress
 WEBHOOK_IMAGE_NAME 					?= vcs/sample-webhook
 OPENAPIGEN_VERSION 					?=v1.11.0
 MOCK_VERSION 	?=v1.7.0-rc.1
@@ -69,6 +71,22 @@ vc-rest-docker: generate
 	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
+
+.PHONY: vcs-stress
+vcs-stress:
+	@echo "Building vcs-stress"
+	@mkdir -p ./.build/bin
+	@echo "Version is '$(VC_REST_VERSION)'"
+	@echo "${VCS_STRESS_PATH}"
+	@cd ${VCS_STRESS_PATH} && go build -o ../../../.build/bin/vcs-stress
+
+.PHONY: vcs-stress-docker
+vcs-stress-docker: generate
+	@echo "Building vcs-stress docker image"
+	@docker build -f ./images/vcs-stress/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VCS_STRESS_IMAGE_NAME):latest \
+	--build-arg GO_VER=$(GO_VER) \
+	--build-arg ALPINE_VER=$(ALPINE_VER) .
+
 
 .PHONY: sample-webhook
 sample-webhook:

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"net/http"
 	"os"
 	"time"
 
@@ -18,15 +19,30 @@ var results = gcache.New(100).LRU().Build()
 
 func main() {
 	e := echo.New()
+	hostName, _ := os.Hostname()
 
 	e.POST("/run", func(c echo.Context) error {
-		id := uuid.NewString()
-		var cfg stress.Config
+		var cfg request
+
+		c.Response().Header().Set("node", hostName)
 
 		err := json.NewDecoder(c.Request().Body).Decode(&cfg)
 		if err != nil {
 			return err
 		}
+
+		id := uuid.NewString()
+
+		if cfg.ID != "" {
+			v, _ := results.Get(cfg.ID)
+
+			if v != nil {
+				return c.String(http.StatusConflict, "job already running on this node")
+			}
+
+			id = cfg.ID
+		}
+
 		cfg.TLSConfig = &tls.Config{
 			InsecureSkipVerify: true,
 		}
@@ -35,11 +51,12 @@ func main() {
 			testRunResult := &runResult{
 				State:     "running",
 				StartedAt: time.Now().UTC(),
+				HostName:  hostName,
 			}
 
 			_ = results.Set(id, testRunResult)
 
-			res, err2 := stress.NewStressRun(&cfg).Run(context.Background())
+			res, err2 := stress.NewStressRun(&cfg.Config).Run(context.Background())
 
 			now := time.Now().UTC()
 			testRunResult.Error = err2

@@ -13,6 +13,7 @@ type runResult struct {
 	FinishedAt *time.Time     `json:"finished_at"`
 	Result     *stress.Result `json:"_raw_result"`
 	Metrics    []metric       `json:"__metrics"`
+	HostName   string         `json:"host_name"`
 }
 
 type metric struct {
@@ -20,4 +21,9 @@ type metric struct {
 	Avg  string
 	Max  string
 	Min  string
+}
+
+type request struct {
+	ID string `json:"id"`
+	stress.Config
 }
