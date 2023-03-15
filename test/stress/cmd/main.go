@@ -17,6 +17,7 @@ import (
 var results = gcache.New(100).LRU().Build()
 
 func main() {
+	// trigger build
 	e := echo.New()
 
 	e.POST("/run", func(c echo.Context) error {
