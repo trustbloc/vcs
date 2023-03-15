@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http/cookiejar"
-	"time"
 
 	"github.com/cucumber/godog"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -20,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	bddcontext "github.com/trustbloc/vcs/test/bdd/pkg/context"
+	"github.com/trustbloc/vcs/test/stress/pkg/stress"
 )
 
 var logger = log.New("oidc4vc-steps")
@@ -43,10 +43,9 @@ type Steps struct {
 	vpFlowExecutor          *walletrunner.VPFlowExecutor
 
 	// Stress testing
-	usersNum          int
-	concurrentReq     int
-	stressTestResults map[string][3]time.Duration // metric -> [avg, max, min]
-	networkLatency    []time.Duration
+	usersNum      int
+	concurrentReq int
+	stressResult  *stress.Result
 }
 
 // NewSteps returns new Steps context.
@@ -71,12 +70,11 @@ func NewSteps(ctx *bddcontext.BDDContext) (*Steps, error) {
 	}
 
 	return &Steps{
-		bddContext:        ctx,
-		cookie:            jar,
-		debug:             false, // set to true to get request/response dumps
-		tlsConfig:         tlsConf,
-		walletRunner:      walletRunner,
-		stressTestResults: map[string][3]time.Duration{},
+		bddContext:   ctx,
+		cookie:       jar,
+		debug:        false, // set to true to get request/response dumps
+		tlsConfig:    tlsConf,
+		walletRunner: walletRunner,
 	}, nil
 }
 
@@ -112,7 +110,6 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	// Stress test
 	sc.Step(`^number of users "([^"]*)" making "([^"]*)" concurrent requests$`, s.getUsersNum)
-	sc.Step(`^get average network latency$`, s.getNetworkLatency)
 	sc.Step(`^stress test is done$`, s.runStressTest)
 	sc.Step(`^metrics are collected and displayed$`, s.displayMetrics)
 }
