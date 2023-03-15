@@ -139,7 +139,7 @@ func (p *Store) GetCSLURL(_, groupID string, listID credentialstatus.ListID) (st
 		issuerProfiles,
 		groupID,
 		credentialStatus,
-		fmt.Sprintf("%s.json", listID),
+		string(listID),
 	)
 }
 
