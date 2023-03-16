@@ -260,7 +260,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		},
 	}, nil)
 
-	presentationVerifier.EXPECT().VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).
+	presentationVerifier.EXPECT().VerifyPresentation(context2.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil, nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -526,7 +526,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("verification failed", func(t *testing.T) {
 		errPresentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
-		errPresentationVerifier.EXPECT().VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+		errPresentationVerifier.EXPECT().VerifyPresentation(
+			context2.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 			Return(nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},

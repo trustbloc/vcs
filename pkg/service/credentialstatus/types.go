@@ -11,6 +11,9 @@ import (
 	"errors"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
 var (
@@ -31,4 +34,16 @@ type CSLWrapper struct {
 	UsedIndexes []int `json:"usedIndexes"`
 	// VC represents parsed CSL.
 	VC *verifiable.Credential `json:"-"`
+}
+
+type UpdateVCStatusParams struct {
+	// Issuer Profile ID.
+	ProfileID profileapi.ID
+	// ID of the verifiable.Credential, that supposed to get updated status to DesiredStatus.
+	CredentialID string
+	// Desired status of the verifiable.Credential referenced by CredentialID.
+	// Values are validated using strconv.ParseBool func.
+	DesiredStatus string
+	// vc.StatusType of verifiable.Credential referenced by CredentialID.
+	StatusType vc.StatusType
 }

@@ -62,7 +62,7 @@ type identityHubRequestMeta struct {
 	payload  []byte
 }
 
-func (s *Service) resolveDIDRelativeURL(didRelativeURL string) ([]byte, error) {
+func (s *Service) resolveDIDRelativeURL(ctx context.Context, didRelativeURL string) ([]byte, error) {
 	didDoc, err := s.resolveDID(didRelativeURL)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (s *Service) resolveDIDRelativeURL(didRelativeURL string) ([]byte, error) {
 	}
 
 	req, err := http.NewRequestWithContext(
-		context.Background(), http.MethodPost, serviceEndpoint, bytes.NewReader(requestMeta.payload))
+		ctx, http.MethodPost, serviceEndpoint, bytes.NewReader(requestMeta.payload))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request to identity hub: %w", err)
 	}

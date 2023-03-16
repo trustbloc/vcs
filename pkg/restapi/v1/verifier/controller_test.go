@@ -120,7 +120,7 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 	mockVerifyCredentialSvc := NewMockVerifyCredentialService(gomock.NewController(t))
 
 	mockVerifyCredentialSvc.EXPECT().
-		VerifyCredential(gomock.Any(), gomock.Any(), gomock.Any()).
+		VerifyCredential(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return([]verifycredential.CredentialsVerificationCheckResult{{}}, nil)
 
@@ -165,7 +165,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 	mockVerifyCredentialSvc := NewMockVerifyCredentialService(gomock.NewController(t))
 
 	mockVerifyCredentialSvc.EXPECT().
-		VerifyCredential(gomock.Any(), gomock.Any(), gomock.Any()).
+		VerifyCredential(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(verificationResult, nil)
 
@@ -268,7 +268,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 				getVerifyCredentialSvc: func() verifyCredentialSvc {
 					failedMockVerifyCredentialSvc := NewMockVerifyCredentialService(gomock.NewController(t))
 					failedMockVerifyCredentialSvc.EXPECT().
-						VerifyCredential(gomock.Any(), gomock.Any(), gomock.Any()).
+						VerifyCredential(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 						AnyTimes().
 						Return(nil, errors.New("some error"))
 					return failedMockVerifyCredentialSvc

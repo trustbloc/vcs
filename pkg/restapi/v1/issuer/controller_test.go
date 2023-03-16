@@ -65,7 +65,8 @@ var ariesSupportedKeyTypes = []kms.KeyType{
 func TestController_PostIssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
-	mockIssueCredentialSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+	mockIssueCredentialSvc.EXPECT().IssueCredential(
+		context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return(nil, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -384,7 +385,8 @@ func TestController_PostIssueCredentials(t *testing.T) {
 func TestController_IssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
-	mockIssueCredentialSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+	mockIssueCredentialSvc.EXPECT().IssueCredential(
+		context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return(&verifiable.Credential{}, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -554,6 +556,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				getIssueCredentialService: func() issueCredentialService {
 					mockFailedIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
 					mockFailedIssueCredentialSvc.EXPECT().IssueCredential(
+						context.Background(),
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any()).AnyTimes().
@@ -703,8 +706,7 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
 
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().UpdateVCStatus(
-		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	mockVCStatusManager.EXPECT().UpdateVCStatus(context.Background(), gomock.Any()).Return(nil)
 
 	t.Run("Success", func(t *testing.T) {
 		controller := NewController(&Config{
@@ -1238,7 +1240,8 @@ func TestController_PrepareCredential(t *testing.T) {
 			}, nil)
 
 		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
-		mockIssueCredentialSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil)
 
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -1313,7 +1316,8 @@ func TestController_PrepareCredential(t *testing.T) {
 			}, nil)
 
 		mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
-		mockIssueCredentialSvc.EXPECT().IssueCredential(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+		mockIssueCredentialSvc.EXPECT().IssueCredential(
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(

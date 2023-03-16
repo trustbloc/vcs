@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -34,7 +35,7 @@ type kmsRegistry interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusListEntry(profileID, credentialID string) (*StatusListEntry, error)
+	CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*StatusListEntry, error)
 }
 
 type StatusListEntry struct {
@@ -62,7 +63,9 @@ func New(config *Config) *Service {
 	}
 }
 
-func (s *Service) IssueCredential(credential *verifiable.Credential,
+func (s *Service) IssueCredential(
+	ctx context.Context,
+	credential *verifiable.Credential,
 	issuerSigningOpts []crypto.SigningOpts,
 	profile *profileapi.Issuer) (*verifiable.Credential, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
@@ -89,7 +92,7 @@ func (s *Service) IssueCredential(credential *verifiable.Credential,
 	vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
 
 	if !profile.VCConfig.Status.Disable {
-		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(profile.ID, credential.ID)
+		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(ctx, profile.ID, credential.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add credential status: %w", err)
 		}

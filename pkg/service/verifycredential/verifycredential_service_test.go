@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifycredential
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"testing"
@@ -61,19 +62,20 @@ func TestService_VerifyCredential(t *testing.T) {
 		t.Parallel()
 		loader := testutil.DocumentLoader(t)
 		mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-		mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-			Subject: []verifiable.Subject{{
-				ID: "",
-				CustomFields: map[string]interface{}{
-					"statusListIndex": "1",
-					"statusPurpose":   "2",
-					"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+		mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
+			&verifiable.Credential{
+				Subject: []verifiable.Subject{{
+					ID: "",
+					CustomFields: map[string]interface{}{
+						"statusListIndex": "1",
+						"statusPurpose":   "2",
+						"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+					},
+				}},
+				Issuer: verifiable.Issuer{
+					ID: "did:trustblock:abc",
 				},
-			}},
-			Issuer: verifiable.Issuer{
-				ID: "did:trustblock:abc",
-			},
-		}, nil)
+			}, nil)
 
 		tests := []struct {
 			name string
@@ -166,7 +168,7 @@ func TestService_VerifyCredential(t *testing.T) {
 											DocumentLoader:          loader,
 										})
 
-										res, err := op.VerifyCredential(vc, &Options{
+										res, err := op.VerifyCredential(context.Background(), vc, &Options{
 											Challenge: crypto.Challenge,
 											Domain:    crypto.Domain,
 										}, testProfile)
@@ -195,19 +197,21 @@ func TestService_VerifyCredential(t *testing.T) {
 
 			t.Run("Proof", func(t *testing.T) {
 				mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-				mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-					Subject: []verifiable.Subject{{
-						ID: "",
-						CustomFields: map[string]interface{}{
-							"statusListIndex": "1",
-							"statusPurpose":   "2",
-							"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+				mockStatusListVCGetter.EXPECT().Resolve(
+					context.Background(), gomock.Any()).AnyTimes().Return(
+					&verifiable.Credential{
+						Subject: []verifiable.Subject{{
+							ID: "",
+							CustomFields: map[string]interface{}{
+								"statusListIndex": "1",
+								"statusPurpose":   "2",
+								"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+							},
+						}},
+						Issuer: verifiable.Issuer{
+							ID: "did:trustblock:abc",
 						},
-					}},
-					Issuer: verifiable.Issuer{
-						ID: "did:trustblock:abc",
-					},
-				}, nil)
+					}, nil)
 
 				mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
 					StatusProcessor: &status.MockVCStatusProcessor{
@@ -224,7 +228,7 @@ func TestService_VerifyCredential(t *testing.T) {
 
 				var res []CredentialsVerificationCheckResult
 
-				res, err = service.VerifyCredential(vc, &Options{
+				res, err = service.VerifyCredential(context.Background(), vc, &Options{
 					Challenge: crypto.Challenge,
 					Domain:    crypto.Domain,
 				}, testProfile)
@@ -236,19 +240,21 @@ func TestService_VerifyCredential(t *testing.T) {
 			t.Run("Proof and Status", func(t *testing.T) {
 				require.NoError(t, err)
 				failedStatusListGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-				failedStatusListGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-					Subject: []verifiable.Subject{{
-						ID: "",
-						CustomFields: map[string]interface{}{
-							"statusListIndex": "1",
-							"statusPurpose":   "2",
-							"encodedList":     "H4sIAAAAAAAA_2ICBAAA__-hjgw8AQAAAA",
+				failedStatusListGetter.EXPECT().Resolve(
+					context.Background(), gomock.Any()).AnyTimes().Return(
+					&verifiable.Credential{
+						Subject: []verifiable.Subject{{
+							ID: "",
+							CustomFields: map[string]interface{}{
+								"statusListIndex": "1",
+								"statusPurpose":   "2",
+								"encodedList":     "H4sIAAAAAAAA_2ICBAAA__-hjgw8AQAAAA",
+							},
+						}},
+						Issuer: verifiable.Issuer{
+							ID: "did:trustblock:abc",
 						},
-					}},
-					Issuer: verifiable.Issuer{
-						ID: "did:trustblock:abc",
-					},
-				}, nil)
+					}, nil)
 
 				mockStatusProcessorGetter := &status.MockStatusProcessorGetter{
 					StatusProcessor: &status.MockVCStatusProcessor{
@@ -262,7 +268,7 @@ func TestService_VerifyCredential(t *testing.T) {
 					VDR:                     mockVDRRegistry,
 					DocumentLoader:          loader,
 				})
-				res, err := service.VerifyCredential(vc, &Options{
+				res, err := service.VerifyCredential(context.Background(), vc, &Options{
 					Challenge: crypto.Challenge,
 					Domain:    crypto.Domain,
 				}, testProfile)
@@ -304,7 +310,7 @@ func TestService_checkVCStatus(t *testing.T) {
 			fields: fields{
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-					mockStatusListVCGetter.EXPECT().Resolve(
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(),
 						"https://example.com/status/1").AnyTimes().Return(&verifiable.Credential{
 						Subject: []verifiable.Subject{{
 							ID: "",
@@ -437,7 +443,7 @@ func TestService_checkVCStatus(t *testing.T) {
 			fields: fields{
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
 						nil, errors.New("some error"))
 					return mockStatusListVCGetter
 				},
@@ -462,12 +468,14 @@ func TestService_checkVCStatus(t *testing.T) {
 			fields: fields{
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-						Subject: []verifiable.Subject{},
-						Issuer: verifiable.Issuer{
-							ID: "did:trustblock:123",
-						},
-					}, nil)
+					mockStatusListVCGetter.EXPECT().Resolve(
+						context.Background(), gomock.Any()).AnyTimes().Return(
+						&verifiable.Credential{
+							Subject: []verifiable.Subject{},
+							Issuer: verifiable.Issuer{
+								ID: "did:trustblock:123",
+							},
+						}, nil)
 
 					return mockStatusListVCGetter
 				},
@@ -492,12 +500,13 @@ func TestService_checkVCStatus(t *testing.T) {
 			fields: fields{
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-						Subject: verifiable.Subject{},
-						Issuer: verifiable.Issuer{
-							ID: "did:trustblock:abc",
-						},
-					}, nil)
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
+						&verifiable.Credential{
+							Subject: verifiable.Subject{},
+							Issuer: verifiable.Issuer{
+								ID: "did:trustblock:abc",
+							},
+						}, nil)
 
 					return mockStatusListVCGetter
 				},
@@ -522,19 +531,20 @@ func TestService_checkVCStatus(t *testing.T) {
 			fields: fields{
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-						Subject: []verifiable.Subject{{
-							ID: "",
-							CustomFields: map[string]interface{}{
-								"statusListIndex": "1",
-								"statusPurpose":   "2",
-								"encodedList":     "",
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
+						&verifiable.Credential{
+							Subject: []verifiable.Subject{{
+								ID: "",
+								CustomFields: map[string]interface{}{
+									"statusListIndex": "1",
+									"statusPurpose":   "2",
+									"encodedList":     "",
+								},
+							}},
+							Issuer: verifiable.Issuer{
+								ID: "did:trustblock:abc",
 							},
-						}},
-						Issuer: verifiable.Issuer{
-							ID: "did:trustblock:abc",
-						},
-					}, nil)
+						}, nil)
 
 					return mockStatusListVCGetter
 				},
@@ -559,19 +569,20 @@ func TestService_checkVCStatus(t *testing.T) {
 			fields: fields{
 				getStatusListVCGetter: func() statusListVCURIResolver {
 					mockStatusListVCGetter := NewMockStatusListVCResolver(gomock.NewController(t))
-					mockStatusListVCGetter.EXPECT().Resolve(gomock.Any()).AnyTimes().Return(&verifiable.Credential{
-						Subject: []verifiable.Subject{{
-							ID: "",
-							CustomFields: map[string]interface{}{
-								"statusListIndex": "1",
-								"statusPurpose":   "2",
-								"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+					mockStatusListVCGetter.EXPECT().Resolve(context.Background(), gomock.Any()).AnyTimes().Return(
+						&verifiable.Credential{
+							Subject: []verifiable.Subject{{
+								ID: "",
+								CustomFields: map[string]interface{}{
+									"statusListIndex": "1",
+									"statusPurpose":   "2",
+									"encodedList":     "H4sIAAAAAAAA_2IABAAA__-N7wLSAQAAAA",
+								},
+							}},
+							Issuer: verifiable.Issuer{
+								ID: "did:trustblock:abc",
 							},
-						}},
-						Issuer: verifiable.Issuer{
-							ID: "did:trustblock:abc",
-						},
-					}, nil)
+						}, nil)
 
 					return mockStatusListVCGetter
 				},
@@ -609,7 +620,7 @@ func TestService_checkVCStatus(t *testing.T) {
 				vcStatusProcessorGetter: tt.fields.getVCStatusProcessorGetter(),
 				statusListVCURIResolver: tt.fields.getStatusListVCGetter(),
 			}
-			err := s.ValidateVCStatus(tt.args.getVcStatus(), tt.args.issuer)
+			err := s.ValidateVCStatus(context.Background(), tt.args.getVcStatus(), tt.args.issuer)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateVCStatus() error = %v, wantErr %v", err, tt.wantErr)
 				return

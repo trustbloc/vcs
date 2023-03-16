@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package credentialstatus
 
 import (
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -32,6 +33,7 @@ import (
 	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/component/credentialstatus/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -64,7 +66,7 @@ func validateVCStatus(t *testing.T, s *Service, statusID *issuecredential.Status
 	existingStatusVCListID := chunks[len(chunks)-1]
 	require.Equal(t, string(expectedListID), existingStatusVCListID)
 
-	statusListVC, err := s.GetStatusListVC(externalProfileID, existingStatusVCListID)
+	statusListVC, err := s.GetStatusListVC(context.Background(), externalProfileID, existingStatusVCListID)
 	require.NoError(t, err)
 	require.Equal(t, existingStatusListVCID, statusListVC.ID)
 	require.Equal(t, "did:test:abc", statusListVC.Issuer.ID)
@@ -93,10 +95,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&mockKMS{}, nil)
+		ctx := context.Background()
 
 		cslStore := newMockCSLStore()
 
-		listID, err := cslStore.GetLatestListID()
+		listID, err := cslStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
 
 		s, err := New(&Config{
@@ -107,39 +110,40 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			ExternalURL:    "https://localhost:8080",
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateStatusListEntry(profileID, credID)
+		statusID, err := s.CreateStatusListEntry(ctx, profileID, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, listID)
 
-		statusID, err = s.CreateStatusListEntry(profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, listID)
 
 		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListID, err := cslStore.GetLatestListID()
+		updatedListID, err := cslStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, listID)
 
-		statusID, err = s.CreateStatusListEntry(profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListID)
 
-		statusID, err = s.CreateStatusListEntry(profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListID)
 
 		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListIDSecond, err := cslStore.GetLatestListID()
+		updatedListIDSecond, err := cslStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
 		require.NotEqual(t, listID, updatedListIDSecond)
 
-		statusID, err = s.CreateStatusListEntry(profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListIDSecond)
 	})
@@ -150,10 +154,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get profile")
@@ -167,15 +172,16 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
-		require.Contains(t, err.Error(), "failed to get kms")
+		require.Contains(t, err.Error(), "failed to get KMS")
 	})
 
 	t.Run("test error get status processor", func(t *testing.T) {
@@ -188,12 +194,13 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "unsupported VCStatusListType")
@@ -208,6 +215,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
 				store.getLatestListIDErr = errors.New("some error")
@@ -221,7 +229,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -235,6 +243,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -249,7 +258,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to get latestListID from store")
@@ -264,6 +273,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -274,7 +284,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(externalProfileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), externalProfileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to create CSL wrapper URL")
@@ -288,6 +298,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore: &mockVCStore{
@@ -301,7 +312,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
@@ -319,7 +330,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		statusProcessor, err := statustype.GetVCStatusProcessor(vc.StatusList2021VCStatus)
 		require.NoError(t, err)
 
-		listID, err := cslStore.GetLatestListID()
+		listID, err := cslStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
 
 		cslURL, err := cslStore.GetCSLURL("https://localhost:8080", profile.GroupID, listID)
@@ -332,13 +343,14 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		cslBytes, err := csl.MarshalJSON()
 		require.NoError(t, err)
 
-		require.NoError(t, cslStore.Upsert(&credentialstatus.CSLWrapper{
+		require.NoError(t, cslStore.Upsert(context.Background(), &credentialstatus.CSLWrapper{
 			VCByte:      cslBytes,
 			UsedIndexes: []int{0, 1},
 			VC:          csl,
 		}))
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       cslStore,
 			VCStatusStore:  newMockVCStatusStore(),
@@ -349,7 +361,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
@@ -364,6 +376,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -378,10 +391,10 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
-		require.Contains(t, err.Error(), "failed to store csl in store")
+		require.Contains(t, err.Error(), "failed to store CSL in store")
 	})
 
 	t.Run("test error update latest list id", func(t *testing.T) {
@@ -392,6 +405,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -406,7 +420,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store latest list ID in store")
@@ -420,6 +434,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore: &mockVCStore{
@@ -434,7 +449,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "failed to store credential status")
@@ -448,13 +463,14 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			CSLStore:       newMockCSLStore(),
 			ExternalURL:    " https://example.com",
 		})
 		require.NoError(t, err)
 
-		csl, err := s.GetStatusListVC(externalProfileID, "1")
+		csl, err := s.GetStatusListVC(context.Background(), externalProfileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
 		require.Contains(t, err.Error(), "failed to get CSL wrapper URL")
@@ -465,6 +481,7 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -478,10 +495,10 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		csl, err := s.GetStatusListVC(externalProfileID, "1")
+		csl, err := s.GetStatusListVC(context.Background(), externalProfileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
-		require.Contains(t, err.Error(), "failed to get revocationListVC from store")
+		require.Contains(t, err.Error(), "failed to get CSL from store")
 	})
 }
 
@@ -494,8 +511,10 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+		ctx := context.Background()
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			ProfileService: mockProfileSrv,
@@ -507,18 +526,25 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(profileID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(ctx, profileID, credID)
 		require.NoError(t, err)
 
-		err = vcStore.Put(profileID, credID, statusListEntry.TypedID)
+		err = vcStore.Put(ctx, profileID, credID, statusListEntry.TypedID)
 		require.NoError(t, err)
 
-		require.NoError(t, s.UpdateVCStatus(profileID, credID, "true", profile.VCConfig.Status.Type))
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "true",
+			StatusType:    profile.VCConfig.Status.Type,
+		}
 
-		listID, err := s.cslStore.GetLatestListID()
+		require.NoError(t, s.UpdateVCStatus(ctx, params))
+
+		listID, err := s.cslStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 
-		statusListVC, err := s.GetStatusListVC(externalProfileID, string(listID))
+		statusListVC, err := s.GetStatusListVC(ctx, externalProfileID, string(listID))
 		require.NoError(t, err)
 		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
@@ -536,11 +562,19 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(profileID, credID, "true", vc.StatusList2021VCStatus)
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "true",
+			StatusType:    vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to get profile")
 	})
@@ -548,11 +582,19 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(profileID, credID, "true", vc.RevocationList2020VCStatus)
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "true",
+			StatusType:    vc.RevocationList2020VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "not supported by current profile")
 	})
@@ -562,14 +604,22 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
 		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(profileID, credID, "true", vc.StatusList2021VCStatus)
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "true",
+			StatusType:    vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "failed to get kms")
+		require.ErrorContains(t, err, "failed to get KMS")
 	})
 	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -578,6 +628,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			CSLStore:       newMockCSLStore(),
@@ -586,7 +637,14 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(profileID, credID, "true", vc.StatusList2021VCStatus)
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "true",
+			StatusType:    vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "data not found")
 	})
@@ -599,6 +657,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			ProfileService: mockProfileSrv,
@@ -610,10 +669,18 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = vcStore.Put(profileID, credID, &verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
+		err = vcStore.Put(
+			context.Background(), profileID, credID, &verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
 		require.NoError(t, err)
 
-		err = s.UpdateVCStatus(profileID, credID, "undefined", vc.StatusList2021VCStatus)
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "undefined",
+			StatusType:    vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid syntax")
 	})
@@ -621,6 +688,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -630,7 +698,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(nil, getTestSigner(), true)
+		err = s.updateVCStatus(context.Background(), nil, getTestSigner(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status not exist")
 	})
@@ -646,13 +714,14 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(&verifiable.TypedID{Type: "noMatch"}, getTestSigner(), true)
+		err = s.updateVCStatus(context.Background(), &verifiable.TypedID{Type: "noMatch"}, getTestSigner(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status noMatch not supported")
 	})
 	t.Run("updateVCStatus statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -662,13 +731,18 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(&verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)}, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)},
+			getTestSigner(),
+			true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "statusListIndex field not exist in vc status")
 	})
 	t.Run("updateVCStatus statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -678,7 +752,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(&verifiable.TypedID{
+		err = s.updateVCStatus(context.Background(), &verifiable.TypedID{
 			Type:         string(vc.StatusList2021VCStatus),
 			CustomFields: map[string]interface{}{statustype.StatusListIndex: "1"},
 		}, getTestSigner(), true)
@@ -688,6 +762,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus statusListCredential wrong value type", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -697,19 +772,22 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(&verifiable.TypedID{
-			Type: string(vc.StatusList2021VCStatus),
-			CustomFields: map[string]interface{}{
-				statustype.StatusListIndex:      "1",
-				statustype.StatusListCredential: 1,
-				statustype.StatusPurpose:        "test",
-			}}, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{
+				Type: string(vc.StatusList2021VCStatus),
+				CustomFields: map[string]interface{}{
+					statustype.StatusListIndex:      "1",
+					statustype.StatusListCredential: 1,
+					statustype.StatusPurpose:        "test",
+				}}, getTestSigner(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to cast URI of statusListCredential")
 	})
 	t.Run("updateVCStatus not exist", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -719,12 +797,14 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(&verifiable.TypedID{
-			Type: string(vc.StatusList2021VCStatus),
-			CustomFields: map[string]interface{}{
-				statustype.StatusListIndex:      "1",
-				statustype.StatusListCredential: 1,
-			}}, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{
+				Type: string(vc.StatusList2021VCStatus),
+				CustomFields: map[string]interface{}{
+					statustype.StatusListIndex:      "1",
+					statustype.StatusListCredential: 1,
+				}}, getTestSigner(), true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "statusPurpose field not exist in vc status")
 	})
@@ -736,6 +816,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -747,15 +828,15 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(profileID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.NoError(t, err)
 
-		require.NoError(t, s.updateVCStatus(statusListEntry.TypedID, getTestSigner(), true))
+		require.NoError(t, s.updateVCStatus(context.Background(), statusListEntry.TypedID, getTestSigner(), true))
 
-		listID, err := s.cslStore.GetLatestListID()
+		listID, err := s.cslStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
 
-		revocationListVC, err := s.GetStatusListVC(externalProfileID, string(listID))
+		revocationListVC, err := s.GetStatusListVC(context.Background(), externalProfileID, string(listID))
 		require.NoError(t, err)
 		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
 		require.NoError(t, err)
@@ -772,6 +853,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
 				store.findErr = errors.New("some error")
@@ -783,17 +865,19 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(&verifiable.TypedID{
-			ID:   "test",
-			Type: string(vc.StatusList2021VCStatus),
-			CustomFields: map[string]interface{}{
-				statustype.StatusListCredential: "test",
-				statustype.StatusListIndex:      "1",
-				statustype.StatusPurpose:        "test",
-			},
-		}, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{
+				ID:   "test",
+				Type: string(vc.StatusList2021VCStatus),
+				CustomFields: map[string]interface{}{
+					statustype.StatusListCredential: "test",
+					statustype.StatusListIndex:      "1",
+					statustype.StatusPurpose:        "test",
+				},
+			}, getTestSigner(), true)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to get csl from store")
+		require.Contains(t, err.Error(), "failed to get CSL from store")
 	})
 	t.Run("updateVCStatus sign status credential", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
@@ -804,6 +888,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			&mockKMS{crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}}, nil)
 
 		s, err := New(&Config{
+			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -815,7 +900,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusListEntry(profileID, credID)
+		_, err = s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to sign vc")
 	})
@@ -988,6 +1073,7 @@ func TestService_Resolve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
+				tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 				vdr:            tt.fields.getVdr(),
 				httpClient:     tt.fields.httpClient,
 				documentLoader: tt.fields.documentLoader,
@@ -995,7 +1081,7 @@ func TestService_Resolve(t *testing.T) {
 					cslRequestTokenName: "abc",
 				},
 			}
-			got, err := s.Resolve(tt.args.statusURL)
+			got, err := s.Resolve(context.Background(), tt.args.statusURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetStatusListVC() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1067,7 +1153,7 @@ func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
 	return s
 }
 
-func (m *mockCSLStore) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
+func (m *mockCSLStore) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
@@ -1077,7 +1163,7 @@ func (m *mockCSLStore) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	return nil
 }
 
-func (m *mockCSLStore) Get(id string) (*credentialstatus.CSLWrapper, error) {
+func (m *mockCSLStore) Get(ctx context.Context, id string) (*credentialstatus.CSLWrapper, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
@@ -1099,14 +1185,14 @@ func (m *mockCSLStore) createLatestListID() error {
 	return nil
 }
 
-func (m *mockCSLStore) UpdateLatestListID() error {
+func (m *mockCSLStore) UpdateLatestListID(ctx context.Context) error {
 	if m.updateLatestListIDErr != nil {
 		return m.updateLatestListIDErr
 	}
 	return m.createLatestListID()
 }
 
-func (m *mockCSLStore) GetLatestListID() (credentialstatus.ListID, error) {
+func (m *mockCSLStore) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
 	if m.getLatestListIDErr != nil {
 		return "", m.getLatestListIDErr
 	}
@@ -1132,7 +1218,7 @@ func newMockVCStatusStore() *mockVCStore {
 	}
 }
 
-func (m *mockVCStore) Get(profileID, vcID string) (*verifiable.TypedID, error) {
+func (m *mockVCStore) Get(ctx context.Context, profileID, vcID string) (*verifiable.TypedID, error) {
 	v, ok := m.s[fmt.Sprintf("%s_%s", profileID, vcID)]
 	if !ok {
 		return nil, errors.New("data not found")
@@ -1141,7 +1227,7 @@ func (m *mockVCStore) Get(profileID, vcID string) (*verifiable.TypedID, error) {
 	return v, nil
 }
 
-func (m *mockVCStore) Put(profileID, vcID string, typedID *verifiable.TypedID) error {
+func (m *mockVCStore) Put(ctx context.Context, profileID, vcID string, typedID *verifiable.TypedID) error {
 	if m.putErr != nil {
 		return m.putErr
 	}

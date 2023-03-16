@@ -24,6 +24,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
@@ -53,8 +54,10 @@ func TestWrapperStore(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10000)
 	require.NoError(t, err)
 
-	store := NewStore(client)
+	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), client)
 	require.NotNil(t, store)
+
+	ctx := context.Background()
 
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -73,10 +76,10 @@ func TestWrapperStore(t *testing.T) {
 		}
 
 		// Create - Find
-		err = store.Upsert(wrapperCreated)
+		err = store.Upsert(ctx, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err := store.Get(vc.ID)
+		wrapperFound, err := store.Get(ctx, vc.ID)
 		assert.NoError(t, err)
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
@@ -87,10 +90,10 @@ func TestWrapperStore(t *testing.T) {
 		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 		wrapperCreated.VCByte = vcUpdateBytes
 
-		err = store.Upsert(wrapperCreated)
+		err = store.Upsert(ctx, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err = store.Get(vc.ID)
+		wrapperFound, err = store.Get(ctx, vc.ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperCreated, wrapperFound)
@@ -109,10 +112,10 @@ func TestWrapperStore(t *testing.T) {
 		}
 
 		// Create - Find
-		err = store.Upsert(wrapperCreated)
+		err = store.Upsert(ctx, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err := store.Get(vc.ID)
+		wrapperFound, err := store.Get(ctx, vc.ID)
 		assert.NoError(t, err)
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
@@ -128,17 +131,17 @@ func TestWrapperStore(t *testing.T) {
 
 		wrapperCreated.VCByte = []byte("\"" + jwt + "\"")
 
-		err = store.Upsert(wrapperCreated)
+		err = store.Upsert(ctx, wrapperCreated)
 		assert.NoError(t, err)
 
-		wrapperFound, err = store.Get(vc.ID)
+		wrapperFound, err = store.Get(ctx, vc.ID)
 		assert.NoError(t, err)
 
 		compareWrappers(t, wrapperCreated, wrapperFound)
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
-		resp, err := store.Get("63451f2358bde34a13b5d95b")
+		resp, err := store.Get(ctx, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err, credentialstatus.ErrDataNotFound)
@@ -155,15 +158,18 @@ func TestTimeouts(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb2", 5)
 	require.NoError(t, err)
 
-	store := NewStore(client)
+	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), client)
 	require.NotNil(t, store)
 
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
+	ctxWithTimeout, cancel := client.ContextWithTimeout()
+	defer cancel()
+
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Upsert(&credentialstatus.CSLWrapper{
+		err = store.Upsert(ctxWithTimeout, &credentialstatus.CSLWrapper{
 			VC: &verifiable.Credential{ID: "1"},
 		})
 
@@ -171,7 +177,7 @@ func TestTimeouts(t *testing.T) {
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
-		resp, err := store.Get("63451f2358bde34a13b5d95b")
+		resp, err := store.Get(ctxWithTimeout, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")
@@ -188,29 +194,31 @@ func TestLatestListID(t *testing.T) {
 	client, clientErr := mongodb.New(mongoDBConnString, "testdb2", time.Second*10)
 	require.NoError(t, clientErr)
 
-	store := NewStore(client)
+	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), client)
 	require.NotNil(t, store)
 
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
+	ctx := context.Background()
+
 	t.Run("Find non-existing ID", func(t *testing.T) {
-		listID, err := store.GetLatestListID()
+		listID, err := store.GetLatestListID(ctx)
 
 		assert.NotEmpty(t, listID)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Update - Get LatestListID", func(t *testing.T) {
-		receivedListID, err := store.GetLatestListID()
+		receivedListID, err := store.GetLatestListID(ctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, receivedListID)
 
-		err = store.UpdateLatestListID()
+		err = store.UpdateLatestListID(ctx)
 		require.NoError(t, err)
 
-		receivedListIDAfterUpdate, err := store.GetLatestListID()
+		receivedListIDAfterUpdate, err := store.GetLatestListID(ctx)
 		require.NoError(t, err)
 		require.NotEmpty(t, receivedListIDAfterUpdate)
 		require.NotEqual(t, receivedListID, receivedListIDAfterUpdate)
@@ -285,7 +293,7 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 }
 
 func TestStore_GetCSLURL(t *testing.T) {
-	store := NewStore(nil)
+	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), nil)
 	require.NotNil(t, store)
 
 	cslURL, err := store.GetCSLURL(

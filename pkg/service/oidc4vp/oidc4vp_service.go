@@ -70,6 +70,7 @@ type profileService interface {
 
 type presentationVerifier interface {
 	VerifyPresentation(
+		ctx context.Context,
 		presentation *verifiable.Presentation,
 		opts *verifypresentation.Options,
 		profile *profileapi.Verifier) ([]verifypresentation.PresentationVerificationCheckResult, error)
@@ -301,7 +302,7 @@ func (s *Service) verifyTokens(
 		go func() {
 			defer wg.Done()
 			// TODO: should domain and challenge be verified?
-			vr, innerErr := s.presentationVerifier.VerifyPresentation(token.Presentation, nil, profile)
+			vr, innerErr := s.presentationVerifier.VerifyPresentation(ctx, token.Presentation, nil, profile)
 			if innerErr != nil {
 				e := fmt.Errorf("presentation verification failed: %w", innerErr)
 				s.sendFailedEvent(ctx, tx, profile, e)

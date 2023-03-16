@@ -8,6 +8,7 @@ package credentialstatus
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	_ "embed"
@@ -453,7 +454,7 @@ func TestService_resolveDIDRelativeUrl(t *testing.T) {
 				vdr:        tt.fields.getVDR(),
 				httpClient: tt.fields.getHTTPClient(),
 			}
-			got, err := s.resolveDIDRelativeURL(tt.args.didRelativeURL)
+			got, err := s.resolveDIDRelativeURL(context.Background(), tt.args.didRelativeURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("resolveDIDRelativeURL() error = %v, wantErr %v", err, tt.wantErr)
 				return

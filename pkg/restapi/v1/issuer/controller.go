@@ -34,6 +34,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -58,7 +59,9 @@ type eventService interface {
 }
 
 type issueCredentialService interface {
-	IssueCredential(credential *verifiable.Credential,
+	IssueCredential(
+		ctx context.Context,
+		credential *verifiable.Credential,
 		issuerSigningOpts []crypto.SigningOpts,
 		profile *profileapi.Issuer) (*verifiable.Credential, error)
 }
@@ -105,8 +108,8 @@ type oidc4ciService interface {
 }
 
 type vcStatusManager interface {
-	GetStatusListVC(profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
-	UpdateVCStatus(profileID profileapi.ID, vcID, vcStatus string, vcStatusType vc.StatusType) error
+	GetStatusListVC(ctx context.Context, profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
+	UpdateVCStatus(ctx context.Context, params credentialstatus.UpdateVCStatusParams) error
 }
 
 type Config struct {
@@ -197,7 +200,7 @@ func (c *Controller) issueCredential(
 		return nil, fmt.Errorf("validate validateIssueCredOptions failed: %w", err)
 	}
 
-	return c.signCredential(credentialParsed, credOpts, profile)
+	return c.signCredential(ctx.Request().Context(), credentialParsed, credOpts, profile)
 }
 
 func (c *Controller) extractCredentialTemplate(
@@ -289,11 +292,12 @@ func (c *Controller) parseCredential(cred interface{},
 }
 
 func (c *Controller) signCredential(
+	ctx context.Context,
 	credential *verifiable.Credential,
 	opts []crypto.SigningOpts,
 	profile *profileapi.Issuer,
 ) (*verifiable.Credential, error) {
-	signedVC, err := c.issueCredentialService.IssueCredential(credential, opts, profile)
+	signedVC, err := c.issueCredentialService.IssueCredential(ctx, credential, opts, profile)
 	if err != nil {
 		return nil, resterr.NewSystemError("IssueCredentialService", "IssueCredential", err)
 	}
@@ -343,7 +347,7 @@ func validateIssueCredOptions(
 // GetCredentialsStatus retrieves the credentialstatus.CSL.
 // GET /issuer/groups/{groupID}/credentials/status/{statusID}.
 func (c *Controller) GetCredentialsStatus(ctx echo.Context, groupID string, statusID string) error {
-	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(groupID, statusID))
+	return util.WriteOutput(ctx)(c.vcStatusManager.GetStatusListVC(ctx.Request().Context(), groupID, statusID))
 }
 
 // PostCredentialsStatus updates credentialstatus.CSL.
@@ -356,9 +360,13 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 	}
 
 	if err := c.vcStatusManager.UpdateVCStatus(
-		profileID, body.CredentialID,
-		body.CredentialStatus.Status,
-		vc.StatusType(body.CredentialStatus.Type),
+		ctx.Request().Context(),
+		credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  body.CredentialID,
+			DesiredStatus: body.CredentialStatus.Status,
+			StatusType:    vc.StatusType(body.CredentialStatus.Type),
+		},
 	); err != nil {
 		return err
 	}
@@ -636,7 +644,7 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return err
 	}
 
-	signedCredential, err := c.signCredential(credentialParsed, nil, profile)
+	signedCredential, err := c.signCredential(ctx.Request().Context(), credentialParsed, nil, profile)
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package cslstore
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -16,6 +17,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
@@ -29,11 +32,18 @@ const (
 
 	issuerProfiles   = "/issuer/groups"
 	credentialStatus = "/credentials/status"
+
+	upsertCSLWrapperMongoSegmentTitle   = "Upsert CSL Wrapper Mongo"
+	getCSLWrapperMongoSegmentTitle      = "Get CSL Wrapper Mongo"
+	createLatestListIDMongoSegmentTitle = "Create LatestListID Mongo"
+	getLatestListIDMongoSegmentTitle    = "Get LatestListID Mongo"
+	updateLatestListIDMongoSegmentTitle = "Update LatestListID Mongo"
 )
 
 // Store manages profile in mongodb.
 type Store struct {
 	mongoClient *mongodb.Client
+	tracer      trace.Tracer
 }
 
 type latestListIDDocument struct {
@@ -42,14 +52,15 @@ type latestListIDDocument struct {
 }
 
 // NewStore creates Store.
-func NewStore(mongoClient *mongodb.Client) *Store {
-	return &Store{mongoClient: mongoClient}
+func NewStore(tracer trace.Tracer, mongoClient *mongodb.Client) *Store {
+	return &Store{tracer: tracer, mongoClient: mongoClient}
 }
 
 // Upsert does upsert operation of cslWrapper against underlying MongoDB.
-func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
+func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+	ctx, segment := p.tracer.Start(ctx, upsertCSLWrapperMongoSegmentTitle)
+	segment.SetAttributes(attribute.String("CSL ID", cslWrapper.VC.ID))
+	defer segment.End()
 
 	mongoDBDocument, err := mongodbext.PrepareDataForBSONStorage(cslWrapper)
 	if err != nil {
@@ -64,8 +75,8 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	}
 
 	collection := p.mongoClient.Database().Collection(cslStoreName)
-	_, err = collection.UpdateByID(
-		ctxWithTimeout, cslWrapper.VC.ID, bson.M{
+	_, err = collection.UpdateByID(ctx,
+		cslWrapper.VC.ID, bson.M{
 			"$set": mongoDBDocument,
 		}, options.Update().SetUpsert(true))
 	return err
@@ -78,15 +89,16 @@ func (p *Store) GetCSLURL(issuerProfileURL, groupID string,
 }
 
 // Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
-func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
+func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
+	ctx, segment := p.tracer.Start(ctx, getCSLWrapperMongoSegmentTitle)
+	segment.SetAttributes(attribute.String("CSL ID", cslURL))
+	defer segment.End()
 
 	collection := p.mongoClient.Database().Collection(cslStoreName)
 
 	mongoDBDocument := map[string]interface{}{}
 
-	err := collection.FindOne(ctxWithTimeout, bson.M{"_id": cslURL}).Decode(mongoDBDocument)
+	err := collection.FindOne(ctx, bson.M{"_id": cslURL}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, credentialstatus.ErrDataNotFound
 	}
@@ -110,12 +122,12 @@ func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	return cslWrapper, nil
 }
 
-func (p *Store) UpdateLatestListID() error {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
+func (p *Store) UpdateLatestListID(ctx context.Context) error {
+	ctx, segment := p.tracer.Start(ctx, updateLatestListIDMongoSegmentTitle)
+	defer segment.End()
 
 	collection := p.mongoClient.Database().Collection(cslStoreName)
-	_, err := collection.UpdateByID(ctxWithTimeout, latestListIDDBEntryKey, bson.M{
+	_, err := collection.UpdateByID(ctx, latestListIDDBEntryKey, bson.M{
 		"$set": latestListIDDocument{
 			ListID: uuid.NewString(),
 		},
@@ -124,18 +136,18 @@ func (p *Store) UpdateLatestListID() error {
 	return err
 }
 
-func (p *Store) GetLatestListID() (credentialstatus.ListID, error) {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
+func (p *Store) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
+	ctx, segment := p.tracer.Start(ctx, getLatestListIDMongoSegmentTitle)
+	defer segment.End()
 
 	collection := p.mongoClient.Database().Collection(cslStoreName)
 
 	mongoDBDocument := map[string]interface{}{}
 
-	err := collection.FindOne(ctxWithTimeout,
+	err := collection.FindOne(ctx,
 		bson.M{mongoDBDocumentIDFieldName: latestListIDDBEntryKey}).Decode(mongoDBDocument)
 	if errors.Is(err, mongo.ErrNoDocuments) {
-		return p.createFirstListID()
+		return p.createFirstListID(ctx)
 	}
 
 	if err != nil {
@@ -152,14 +164,14 @@ func (p *Store) GetLatestListID() (credentialstatus.ListID, error) {
 	return credentialstatus.ListID(latestListID.ListID), nil
 }
 
-func (p *Store) createFirstListID() (credentialstatus.ListID, error) {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
+func (p *Store) createFirstListID(ctx context.Context) (credentialstatus.ListID, error) {
+	ctx, segment := p.tracer.Start(ctx, createLatestListIDMongoSegmentTitle)
+	defer segment.End()
 
 	listID := uuid.NewString()
 
 	collection := p.mongoClient.Database().Collection(cslStoreName)
-	_, err := collection.InsertOne(ctxWithTimeout, latestListIDDocument{
+	_, err := collection.InsertOne(ctx, latestListIDDocument{
 		ID:     latestListIDDBEntryKey,
 		ListID: listID,
 	})
