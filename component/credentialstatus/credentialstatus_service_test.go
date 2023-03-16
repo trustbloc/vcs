@@ -33,7 +33,6 @@ import (
 	vdr2 "github.com/hyperledger/aries-framework-go/pkg/vdr"
 	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/component/credentialstatus/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -45,7 +44,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
-	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 const (
@@ -54,7 +52,7 @@ const (
 	credID            = "http://example.edu/credentials/1872"
 )
 
-func validateVCStatus(t *testing.T, s *Service, statusID *issuecredential.StatusListEntry, expectedListID credentialstatus.ListID) {
+func validateVCStatus(t *testing.T, s *Service, statusID *credentialstatus.StatusListEntry, expectedListID credentialstatus.ListID) {
 	t.Helper()
 
 	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.TypedID.Type)
@@ -110,7 +108,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			ExternalURL:    "https://localhost:8080",
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
@@ -154,7 +151,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 		})
 		require.NoError(t, err)
 
@@ -172,7 +168,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
@@ -194,7 +189,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
@@ -215,7 +209,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
 				store.getLatestListIDErr = errors.New("some error")
@@ -243,7 +236,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -273,7 +265,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(nil, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -298,7 +289,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore: &mockVCStore{
@@ -350,7 +340,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		}))
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       cslStore,
 			VCStatusStore:  newMockVCStatusStore(),
@@ -376,7 +365,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -405,7 +393,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -434,7 +421,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore: &mockVCStore{
@@ -463,7 +449,6 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			CSLStore:       newMockCSLStore(),
 			ExternalURL:    " https://example.com",
@@ -481,7 +466,6 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(
 				func(store *mockCSLStore) {
@@ -514,7 +498,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		ctx := context.Background()
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			ProfileService: mockProfileSrv,
@@ -562,7 +545,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
@@ -582,7 +564,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
@@ -604,7 +585,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 		})
@@ -628,7 +608,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			CSLStore:       newMockCSLStore(),
@@ -657,7 +636,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			ProfileService: mockProfileSrv,
@@ -688,7 +666,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -721,7 +698,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -742,7 +718,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -762,7 +737,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus statusListCredential wrong value type", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -787,7 +761,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus not exist", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -816,7 +789,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -853,7 +825,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
 				store.findErr = errors.New("some error")
@@ -888,7 +859,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			&mockKMS{crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}}, nil)
 
 		s, err := New(&Config{
-			Tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -1073,7 +1043,6 @@ func TestService_Resolve(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &Service{
-				tracer:         trace.NewNoopTracerProvider().Tracer("test"),
 				vdr:            tt.fields.getVdr(),
 				httpClient:     tt.fields.httpClient,
 				documentLoader: tt.fields.documentLoader,

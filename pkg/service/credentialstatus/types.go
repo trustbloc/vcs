@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package credentialstatus
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 
@@ -46,4 +47,16 @@ type UpdateVCStatusParams struct {
 	DesiredStatus string
 	// vc.StatusType of verifiable.Credential referenced by CredentialID.
 	StatusType vc.StatusType
+}
+
+type StatusListEntry struct {
+	Context string
+	TypedID *verifiable.TypedID
+}
+
+type ServiceInterface interface {
+	CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*StatusListEntry, error)
+	GetStatusListVC(ctx context.Context, profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
+	UpdateVCStatus(ctx context.Context, params UpdateVCStatusParams) error
+	Resolve(ctx context.Context, statusListVCURI string) (*verifiable.Credential, error)
 }

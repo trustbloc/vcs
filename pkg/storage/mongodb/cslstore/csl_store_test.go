@@ -24,7 +24,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
@@ -51,10 +50,10 @@ func TestWrapperStore(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10000)
+	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10000))
 	require.NoError(t, err)
 
-	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), client)
+	store := NewStore(client)
 	require.NotNil(t, store)
 
 	ctx := context.Background()
@@ -155,10 +154,10 @@ func TestTimeouts(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb2", 5)
+	client, err := mongodb.New(mongoDBConnString, "testdb2", mongodb.WithTimeout(5))
 	require.NoError(t, err)
 
-	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), client)
+	store := NewStore(client)
 	require.NotNil(t, store)
 
 	defer func() {
@@ -191,10 +190,10 @@ func TestLatestListID(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, clientErr := mongodb.New(mongoDBConnString, "testdb2", time.Second*10)
+	client, clientErr := mongodb.New(mongoDBConnString, "testdb2", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, clientErr)
 
-	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), client)
+	store := NewStore(client)
 	require.NotNil(t, store)
 
 	defer func() {
@@ -293,7 +292,7 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 }
 
 func TestStore_GetCSLURL(t *testing.T) {
-	store := NewStore(trace.NewNoopTracerProvider().Tracer("test"), nil)
+	store := NewStore(nil)
 	require.NotNil(t, store)
 
 	cslURL, err := store.GetCSLURL(

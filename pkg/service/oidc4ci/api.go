@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4ci
 
 import (
+	"context"
 	"time"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -182,4 +183,14 @@ type CredentialOfferResponse struct {
 	CredentialIssuer string               `json:"credential_issuer"`
 	Credentials      []CredentialOffer    `json:"credentials"`
 	Grants           CredentialOfferGrant `json:"grants"`
+}
+
+type ServiceInterface interface {
+	InitiateIssuance(ctx context.Context, req *InitiateIssuanceRequest, profile *profileapi.Issuer) (*InitiateIssuanceResponse, error) //nolint:lll
+	PushAuthorizationDetails(ctx context.Context, opState string, ad *AuthorizationDetails) error
+	PrepareClaimDataAuthorizationRequest(ctx context.Context, req *PrepareClaimDataAuthorizationRequest) (*PrepareClaimDataAuthorizationResponse, error) //nolint:lll
+	StoreAuthorizationCode(ctx context.Context, opState string, code string) (TxID, error)
+	ExchangeAuthorizationCode(ctx context.Context, opState string) (TxID, error)
+	ValidatePreAuthorizedCodeRequest(ctx context.Context, preAuthorizedCode string, pin string) (*Transaction, error)
+	PrepareCredential(ctx context.Context, req *PrepareCredential) (*PrepareCredentialResult, error)
 }

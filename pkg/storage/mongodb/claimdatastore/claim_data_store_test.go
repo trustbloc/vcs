@@ -42,7 +42,7 @@ func TestStore(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, createErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, createErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, createErr)
 
 	store, createErr := New(context.Background(), client, defaultClaimsTTL)
@@ -101,7 +101,7 @@ func TestMigrate(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", defaultClaimsTTL)
+	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(defaultClaimsTTL))
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())

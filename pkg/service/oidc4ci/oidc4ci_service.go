@@ -16,9 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/trustbloc/vcs/pkg/event/spi"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -26,8 +23,10 @@ import (
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 const (

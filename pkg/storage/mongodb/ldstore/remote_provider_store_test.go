@@ -30,7 +30,7 @@ func TestRemoteProviderStore(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	})
 
-	client, clientErr := mongodb.New(connectionString, "testdb", time.Second*10)
+	client, clientErr := mongodb.New(connectionString, "testdb", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, clientErr)
 
 	t.Cleanup(func() {

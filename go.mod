@@ -34,15 +34,16 @@ require (
 	github.com/piprate/json-gold v0.4.2
 	github.com/prometheus/client_golang v1.11.0
 	github.com/samber/lo v1.37.0
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/trustbloc/kms v1.0.0-rc1
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
-	go.mongodb.org/mongo-driver v1.10.0
-	go.opentelemetry.io/otel v1.12.0
+	go.mongodb.org/mongo-driver v1.11.2
+	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.40.0
+	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2
 	go.opentelemetry.io/otel/sdk v1.12.0
-	go.opentelemetry.io/otel/trace v1.12.0
+	go.opentelemetry.io/otel/trace v1.14.0
 	go.uber.org/zap v1.23.0
 	golang.org/x/net v0.1.0
 	golang.org/x/oauth2 v0.0.0-20221006150949-b44042a4b9c1

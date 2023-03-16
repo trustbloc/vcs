@@ -34,6 +34,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -53,7 +54,7 @@ const (
 
 func TestAuthorizeCodeGrantFlow(t *testing.T) {
 	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))
 
 	opState := "QIn85XAEHwlPyCVRhTww"
 
@@ -129,6 +130,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 		IssuerVCSPublicHost:     srv.URL,
 		OAuth2Client:            oauth2Client,
 		JWTVerifier:             verifier,
+		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)
@@ -200,7 +202,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 	e := echo.New()
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))
 
 	srv := httptest.NewServer(e)
 	defer srv.Close()
@@ -250,6 +252,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 		OAuth2Client:            oauth2client.NewOAuth2Client(),
 		PreAuthorizeClient:      preAuthClient,
 		DefaultHTTPClient:       http.DefaultClient,
+		Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 	})
 
 	oidc4ci.RegisterHandlers(e, controller)

@@ -19,8 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -32,11 +30,6 @@ const (
 	issuer           = "/issuer"
 	issuerProfiles   = issuer + "/groups"
 	credentialStatus = "/credentials/status"
-
-	upsertCSLWrapperS3SegmentTitle   = "Upsert CSL Wrapper S3"
-	getCSLWrapperS3SegmentTitle      = "Get CSL Wrapper S3"
-	getLatestListIDS3SegmentTitle    = "Get LatestListID S3"
-	updateLatestListIDS3SegmentTitle = "Update LatestListID S3"
 )
 
 type s3Uploader interface {
@@ -60,12 +53,10 @@ type Store struct {
 	bucket           string
 	region           string
 	hostName         string
-	tracer           trace.Tracer
 }
 
 // NewStore creates S3 Store.
 func NewStore(
-	tracer trace.Tracer,
 	s3Uploader s3Uploader,
 	cslLWrapperStore underlyingCSLWrapperStore,
 	bucket, region, hostName string) *Store {
@@ -75,16 +66,11 @@ func NewStore(
 		bucket:           bucket,
 		region:           region,
 		hostName:         hostName,
-		tracer:           tracer,
 	}
 }
 
 // Upsert does upsert operation of credentialstatus.CSLWrapper.
 func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
-	ctx, segment := p.tracer.Start(ctx, upsertCSLWrapperS3SegmentTitle)
-	segment.SetAttributes(attribute.String("CSL ID", cslWrapper.VC.ID))
-	defer segment.End()
-
 	// Put CSL.
 	_, err := p.s3Uploader.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader(unQuote(cslWrapper.VCByte)),
@@ -108,10 +94,6 @@ func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrap
 
 // Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
 func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
-	ctx, segment := p.tracer.Start(ctx, getCSLWrapperS3SegmentTitle)
-	segment.SetAttributes(attribute.String("CSL ID", cslURL))
-	defer segment.End()
-
 	// Get CSL.
 	cslRes, err := p.s3Uploader.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
@@ -147,16 +129,10 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWr
 }
 
 func (p *Store) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
-	ctx, segment := p.tracer.Start(ctx, getLatestListIDS3SegmentTitle)
-	defer segment.End()
-
 	return p.cslLWrapperStore.GetLatestListID(ctx)
 }
 
 func (p *Store) UpdateLatestListID(ctx context.Context) error {
-	ctx, segment := p.tracer.Start(ctx, updateLatestListIDS3SegmentTitle)
-	defer segment.End()
-
 	return p.cslLWrapperStore.UpdateLatestListID(ctx)
 }
 

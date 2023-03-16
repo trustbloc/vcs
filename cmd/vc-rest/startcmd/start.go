@@ -27,42 +27,40 @@ import (
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
+	echoPrometheus "github.com/globocom/echo-prometheus"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
+	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-
-	"github.com/trustbloc/vcs/component/otp"
-	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
-	"github.com/trustbloc/vcs/pkg/ld"
-	"github.com/trustbloc/vcs/pkg/observability/tracing"
-	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
-	"github.com/trustbloc/vcs/pkg/service/requestobject"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
-	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
-	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
-	"go.opentelemetry.io/otel/trace"
-
-	echoPrometheus "github.com/globocom/echo-prometheus"
+	"go.opentelemetry.io/otel"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
+	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	metricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	promMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/prometheus"
+	"github.com/trustbloc/vcs/pkg/observability/tracing"
+	credentialstatustracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/credentialstatus"
+	issuecredentialtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/issuecredential"
+	fositetracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oauth2provider"
+	oidc4citracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oidc4ci"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
@@ -72,15 +70,18 @@ import (
 	oidc4civ1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 	oidc4vpv1 "github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 	verifierv1 "github.com/trustbloc/vcs/pkg/restapi/v1/verifier"
+	"github.com/trustbloc/vcs/pkg/restapi/v1/version"
 	credentialstatustypes "github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/didconfiguration"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
+	"github.com/trustbloc/vcs/pkg/service/requestobject"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	cslstoremongodb "github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
@@ -89,7 +90,9 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
+	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslstore"
+	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 )
 
 const (
@@ -185,11 +188,12 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 
 			traceParams := params.tracingParams
 
-			stopTracingProvider, tracer, err := tracing.Initialize(traceParams.provider, traceParams.serviceName, traceParams.collectorURL)
+			shutdownTracer, tracer, err := tracing.Initialize(traceParams.provider, traceParams.serviceName,
+				traceParams.collectorURL)
 			if err != nil {
 				return fmt.Errorf("initialize tracing: %w", err)
 			}
-			defer stopTracingProvider()
+			defer shutdownTracer()
 
 			conf, err := prepareConfiguration(params, tracer)
 			if err != nil {
@@ -253,9 +257,7 @@ func createEcho() *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 
-	e.HTTPErrorHandler = resterr.HTTPErrorHandler
-
-	// Middlewares
+	// middlewares
 	e.Use(echomw.Logger())
 	e.Use(echomw.Recover())
 	e.Use(echomw.CORS())
@@ -284,6 +286,8 @@ func buildEchoHandler(
 ) (*echo.Echo, error) {
 	e := createEcho()
 	e.Use(echomw.Gzip())
+
+	e.HTTPErrorHandler = resterr.HTTPErrorHandler(conf.Tracer)
 
 	metrics, err := NewMetrics(conf.StartupParameters, e)
 	if err != nil {
@@ -323,7 +327,7 @@ func buildEchoHandler(
 		ServerVersion: options.serverVersion,
 	})
 
-	if conf.StartupParameters.tracingParams.provider != "" {
+	if conf.IsTraceEnabled {
 		e.Use(otelecho.Middleware(""))
 	}
 
@@ -346,11 +350,21 @@ func buildEchoHandler(
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
-	mongodbClient, err := mongodb.New(conf.StartupParameters.dbParameters.databaseURL,
+	mongodbClient, err := mongodb.New(
+		conf.StartupParameters.dbParameters.databaseURL,
 		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
-		15*time.Second)
+		mongodb.WithTraceProvider(otel.GetTracerProvider()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create mongodb client: %w", err)
+	}
+
+	mongodbClientNoTracing, err := mongodb.New(
+		conf.StartupParameters.dbParameters.databaseURL,
+		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mongodb client (no tracing): %w", err)
 	}
 
 	documentLoader, err := createJSONLDDocumentLoader(mongodbClient, tlsConfig,
@@ -386,7 +400,6 @@ func buildEchoHandler(
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
 	cslStore, err := createCredentialStatusListStore(
-		conf.Tracer,
 		conf.StartupParameters.cslStoreType,
 		conf.StartupParameters.cslStoreS3Region,
 		conf.StartupParameters.cslStoreS3Bucket,
@@ -396,7 +409,9 @@ func buildEchoHandler(
 		return nil, err
 	}
 
-	statusListVCSvc, err := credentialstatus.New(&credentialstatus.Config{
+	var statusListVCSvc credentialstatustypes.ServiceInterface
+
+	statusListVCSvc, err = credentialstatus.New(&credentialstatus.Config{
 		VDR:            conf.VDR,
 		HTTPClient:     getHTTPClient(metricsProvider.ClientCredentialStatus),
 		RequestTokens:  conf.StartupParameters.requestTokens,
@@ -409,24 +424,34 @@ func buildEchoHandler(
 		Crypto:         vcCrypto,
 		CMD:            cmd,
 		ExternalURL:    conf.StartupParameters.hostURLExternal,
-		Tracer:         conf.Tracer,
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	issueCredentialSvc := issuecredential.New(&issuecredential.Config{
+	if conf.IsTraceEnabled {
+		statusListVCSvc = credentialstatustracing.Wrap(statusListVCSvc, conf.Tracer)
+	}
+
+	var issueCredentialSvc issuecredential.ServiceInterface
+
+	issueCredentialSvc = issuecredential.New(&issuecredential.Config{
 		VCStatusManager: statusListVCSvc,
 		Crypto:          vcCrypto,
 		KMSRegistry:     kmsRegistry,
 	})
+
+	if conf.IsTraceEnabled {
+		issueCredentialSvc = issuecredentialtracing.Wrap(issueCredentialSvc, conf.Tracer)
+	}
 
 	oidc4ciStore, err := oidc4cistore.New(context.Background(), mongodbClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
 	}
 
-	claimDataStore, err := claimdatastore.New(context.Background(), mongodbClient, conf.StartupParameters.claimDataTTL)
+	claimDataStore, err := claimdatastore.New(context.Background(), mongodbClientNoTracing,
+		conf.StartupParameters.claimDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
@@ -440,7 +465,9 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to instantiate credentialOfferStore: %w", err)
 	}
 
-	oidc4ciService, err := oidc4ci.NewService(&oidc4ci.Config{
+	var oidc4ciService oidc4ci.ServiceInterface
+
+	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,
 		ClaimDataStore:                claimDataStore,
 		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
@@ -456,6 +483,10 @@ func buildEchoHandler(
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
+	}
+
+	if conf.IsTraceEnabled {
+		oidc4ciService = oidc4citracing.Wrap(oidc4ciService, conf.Tracer)
 	}
 
 	oidc4ciStateStore, err := oidc4cistatestore.New(context.Background(), mongodbClient)
@@ -489,7 +520,9 @@ func buildEchoHandler(
 		}
 	}
 
-	provider, err := bootstrapOAuthProvider(
+	var oauthProvider fosite.OAuth2Provider
+
+	oauthProvider, err = bootstrapOAuthProvider(
 		context.Background(),
 		conf.StartupParameters.oAuthSecret,
 		mongodbClient,
@@ -499,8 +532,12 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to instantiate new oauth provider: %w", err)
 	}
 
+	if conf.IsTraceEnabled {
+		oauthProvider = fositetracing.Wrap(oauthProvider, conf.Tracer)
+	}
+
 	oidc4civ1.RegisterHandlers(e, oidc4civ1.NewController(&oidc4civ1.Config{
-		OAuth2Provider:          provider,
+		OAuth2Provider:          oauthProvider,
 		StateStore:              oidc4ciStateStore,
 		IssuerInteractionClient: issuerInteractionClient,
 		IssuerVCSPublicHost:     conf.StartupParameters.apiGatewayURL, // use api gateway here, as this endpoint will be called by clients
@@ -515,6 +552,7 @@ func buildEchoHandler(
 			return client
 		}(),
 		JWTVerifier: jwt.NewVerifier(jwt.KeyResolverFunc(verifiable.NewVDRKeyResolver(conf.VDR).PublicKeyFetcher())),
+		Tracer:      conf.Tracer,
 	}))
 
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
@@ -531,6 +569,7 @@ func buildEchoHandler(
 		VcStatusManager:        statusListVCSvc,
 		OIDC4CIService:         oidc4ciService,
 		ExternalHostURL:        conf.StartupParameters.apiGatewayURL,
+		Tracer:                 conf.Tracer,
 	}))
 
 	// Verifier Profile Management API
@@ -558,7 +597,8 @@ func buildEchoHandler(
 	})
 	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
 
-	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClient, documentLoader, conf.StartupParameters.vpReceivedClaimsDataTTL)
+	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClientNoTracing, documentLoader,
+		conf.StartupParameters.vpReceivedClaimsDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
@@ -696,14 +736,13 @@ func createCredentialOfferStore(
 }
 
 func createCredentialStatusListStore(
-	tracer trace.Tracer,
 	repoType string,
 	s3Region string,
 	s3Bucket string,
 	hostName string,
 	mongoDbClient *mongodb.Client,
 ) (credentialstatustypes.CSLStore, error) {
-	cslStoreMongo := cslstoremongodb.NewStore(tracer, mongoDbClient)
+	cslStoreMongo := cslstoremongodb.NewStore(mongoDbClient)
 
 	switch strings.ToLower(repoType) {
 	case "s3":
@@ -712,7 +751,7 @@ func createCredentialStatusListStore(
 			return nil, err
 		}
 
-		return cslstores3.NewStore(tracer, s3.New(ses), cslStoreMongo, s3Bucket, s3Region, hostName), nil
+		return cslstores3.NewStore(s3.New(ses), cslStoreMongo, s3Bucket, s3Region, hostName), nil
 	default:
 		return cslStoreMongo, nil
 	}

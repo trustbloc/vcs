@@ -23,7 +23,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
@@ -79,7 +78,6 @@ func (m *mockS3Uploader) PutObjectWithContext(
 	assert.Equal(m.t, bucket, *input.Bucket)
 	assert.False(m.t, strings.HasPrefix(*input.Key,
 		NewStore(
-			trace.NewNoopTracerProvider().Tracer("test"),
 			nil,
 			nil,
 			bucket,
@@ -99,7 +97,6 @@ func (m *mockS3Uploader) GetObjectWithContext(
 	assert.Equal(m.t, bucket, *input.Bucket)
 	assert.False(m.t, strings.HasPrefix(*input.Key,
 		NewStore(
-			trace.NewNoopTracerProvider().Tracer("test"),
 			nil,
 			nil,
 			bucket,
@@ -196,8 +193,7 @@ func TestWrapperStore(t *testing.T) {
 		t.Run("Create, update, find wrapper VC "+tt.name, func(t *testing.T) {
 			client := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
 			mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{s: map[string]*credentialstatus.CSLWrapper{}, t: t}
-			tracer := trace.NewNoopTracerProvider().Tracer("test")
-			store := NewStore(tracer, client, mockUnderlyingStore, bucket, region, hostName)
+			store := NewStore(client, mockUnderlyingStore, bucket, region, hostName)
 			ctx := context.Background()
 
 			vc, err := verifiable.ParseCredential(tt.file,
@@ -241,8 +237,7 @@ func TestWrapperStore(t *testing.T) {
 		wrapperCreated := &credentialstatus.CSLWrapper{
 			VC: &verifiable.Credential{ID: ""},
 		}
-		tracer := trace.NewNoopTracerProvider().Tracer("test")
-		err := NewStore(tracer, errClient, nil, bucket, region, hostName).
+		err := NewStore(errClient, nil, bucket, region, hostName).
 			Upsert(context.Background(), wrapperCreated)
 
 		assert.Error(t, err)
@@ -260,8 +255,7 @@ func TestWrapperStore(t *testing.T) {
 			putErr: errors.New("some error"),
 		}
 
-		tracer := trace.NewNoopTracerProvider().Tracer("test")
-		err := NewStore(tracer, errClient, mockUnderlyingStore, bucket, region, hostName).
+		err := NewStore(errClient, mockUnderlyingStore, bucket, region, hostName).
 			Upsert(context.Background(), wrapperCreated)
 
 		assert.Error(t, err)
@@ -273,8 +267,8 @@ func TestWrapperStore(t *testing.T) {
 			m: map[string]*s3.PutObjectInput{},
 			t: t,
 		}
-		tracer := trace.NewNoopTracerProvider().Tracer("test")
-		resp, err := NewStore(tracer, errClient, nil, bucket, region, hostName).
+
+		resp, err := NewStore(errClient, nil, bucket, region, hostName).
 			Get(context.Background(), "http://example.gov/credentials/3732")
 
 		assert.Nil(t, resp)
@@ -293,8 +287,7 @@ func TestWrapperStore(t *testing.T) {
 			getErr: errors.New("some error"),
 		}
 
-		tracer := trace.NewNoopTracerProvider().Tracer("test")
-		resp, err := NewStore(tracer, errClient, mockUnderlyingStore, bucket, region, hostName).
+		resp, err := NewStore(errClient, mockUnderlyingStore, bucket, region, hostName).
 			Get(context.Background(), "http://example.gov/credentials/3732")
 
 		assert.Nil(t, resp)
@@ -303,8 +296,8 @@ func TestWrapperStore(t *testing.T) {
 
 	t.Run("Unexpected error from s3 client on get", func(t *testing.T) {
 		errClient := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, getErr: errors.New("some error")}
-		tracer := trace.NewNoopTracerProvider().Tracer("test")
-		resp, err := NewStore(tracer, errClient, nil, bucket, region, hostName).
+
+		resp, err := NewStore(errClient, nil, bucket, region, hostName).
 			Get(context.Background(), "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
@@ -318,8 +311,7 @@ func TestLatestListID(t *testing.T) {
 	mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{
 		t: t,
 	}
-	tracer := trace.NewNoopTracerProvider().Tracer("test")
-	store := NewStore(tracer, client, mockUnderlyingStore, bucket, region, hostName)
+	store := NewStore(client, mockUnderlyingStore, bucket, region, hostName)
 	require.NotNil(t, store)
 	ctx := context.Background()
 
@@ -345,8 +337,7 @@ func TestLatestListID(t *testing.T) {
 }
 
 func TestStore_GetCSLURL(t *testing.T) {
-	tracer := trace.NewNoopTracerProvider().Tracer("test")
-	store := NewStore(tracer, nil, nil, bucket, region, hostName)
+	store := NewStore(nil, nil, bucket, region, hostName)
 	require.NotNil(t, store)
 
 	cslURL, err := store.GetCSLURL(

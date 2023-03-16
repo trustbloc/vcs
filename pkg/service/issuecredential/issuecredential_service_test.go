@@ -39,6 +39,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
@@ -58,7 +59,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 	mockVCStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(
-		&issuecredential.StatusListEntry{
+		&credentialstatus.StatusListEntry{
 			Context: "https://w3id.org/vc-revocation-list-2020/v1",
 			TypedID: &verifiable.TypedID{
 				ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
@@ -255,7 +256,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(
-			&issuecredential.StatusListEntry{
+			&credentialstatus.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
 					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",
@@ -290,7 +291,7 @@ func TestService_IssueCredential(t *testing.T) {
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
 		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(
-			&issuecredential.StatusListEntry{
+			&credentialstatus.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
 					ID:   "https://www.w3.org/TR/vc-data-model/3.0/#types",

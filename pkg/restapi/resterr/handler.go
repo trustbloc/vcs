@@ -13,25 +13,43 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 )
 
 var logger = log.New("rest-err")
 
-func HTTPErrorHandler(err error, c echo.Context) {
-	var fositeError *FositeError
-	if errors.As(err, &fositeError) {
-		err = fositeError.Write()
-		if err == nil {
-			return
-		}
-	}
+func HTTPErrorHandler(tracer trace.Tracer) func(err error, c echo.Context) {
+	return func(err error, c echo.Context) {
+		ctx, span := tracer.Start(c.Request().Context(), "HTTPErrorHandler")
+		defer span.End()
 
-	code, message := processError(err)
-	logger.Error("HTTP Error Handler", log.WithURL(c.Request().RequestURI), log.WithHTTPStatus(code),
-		logfields.WithAdditionalMessage(fmt.Sprintf("%s", message)))
-	sendResponse(c, code, message)
+		var fositeError *FositeError
+		if errors.As(err, &fositeError) {
+			span.SetStatus(codes.Error, "fosite error")
+			span.RecordError(err)
+
+			err = fositeError.Write()
+			if err == nil {
+				return
+			}
+		}
+
+		code, message := processError(err)
+
+		span.SetStatus(codes.Error, fmt.Sprintf("%s", message))
+		span.RecordError(err)
+
+		logger.Errorc(ctx, "HTTP Error Handler",
+			log.WithURL(c.Request().RequestURI),
+			log.WithHTTPStatus(code),
+			logfields.WithAdditionalMessage(fmt.Sprintf("%s", message)),
+		)
+
+		sendResponse(c, code, message)
+	}
 }
 
 func sendResponse(c echo.Context, code int, message interface{}) {

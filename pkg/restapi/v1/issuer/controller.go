@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 */
 
 //go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
-//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager
+//go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package issuer -source=controller.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,issueCredentialService=MockIssueCredentialService,oidc4ciService=MockOIDC4CIService,vcStatusManager=MockVCStatusManager,eventService=MockEventService
 
 package issuer
 
@@ -24,17 +24,20 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms"
+	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -59,57 +62,15 @@ type eventService interface {
 }
 
 type issueCredentialService interface {
-	IssueCredential(
-		ctx context.Context,
-		credential *verifiable.Credential,
-		issuerSigningOpts []crypto.SigningOpts,
-		profile *profileapi.Issuer) (*verifiable.Credential, error)
+	issuecredential.ServiceInterface
 }
 
 type oidc4ciService interface {
-	InitiateIssuance(
-		ctx context.Context,
-		req *oidc4ci.InitiateIssuanceRequest,
-		profile *profileapi.Issuer,
-	) (*oidc4ci.InitiateIssuanceResponse, error)
-
-	PushAuthorizationDetails(
-		ctx context.Context,
-		opState string,
-		ad *oidc4ci.AuthorizationDetails,
-	) error
-
-	PrepareClaimDataAuthorizationRequest(
-		ctx context.Context,
-		req *oidc4ci.PrepareClaimDataAuthorizationRequest,
-	) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error)
-
-	StoreAuthorizationCode(
-		ctx context.Context,
-		opState string,
-		code string,
-	) (oidc4ci.TxID, error)
-
-	ExchangeAuthorizationCode(
-		ctx context.Context,
-		opState string,
-	) (oidc4ci.TxID, error)
-
-	ValidatePreAuthorizedCodeRequest(
-		ctx context.Context,
-		preAuthorizedCode string,
-		pin string,
-	) (*oidc4ci.Transaction, error)
-
-	PrepareCredential(
-		ctx context.Context,
-		req *oidc4ci.PrepareCredential,
-	) (*oidc4ci.PrepareCredentialResult, error)
+	oidc4ci.ServiceInterface
 }
 
 type vcStatusManager interface {
-	GetStatusListVC(ctx context.Context, profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
-	UpdateVCStatus(ctx context.Context, params credentialstatus.UpdateVCStatusParams) error
+	credentialstatus.ServiceInterface
 }
 
 type Config struct {
@@ -117,10 +78,11 @@ type Config struct {
 	ProfileSvc             profileService
 	KMSRegistry            kmsRegistry
 	DocumentLoader         ld.DocumentLoader
-	IssueCredentialService issueCredentialService
+	IssueCredentialService issuecredential.ServiceInterface
 	OIDC4CIService         oidc4ciService
 	VcStatusManager        vcStatusManager
 	ExternalHostURL        string
+	Tracer                 trace.Tracer
 }
 
 // Controller for Issuer Profile Management API.
@@ -128,10 +90,11 @@ type Controller struct {
 	profileSvc             profileService
 	kmsRegistry            kmsRegistry
 	documentLoader         ld.DocumentLoader
-	issueCredentialService issueCredentialService
+	issueCredentialService issuecredential.ServiceInterface
 	oidc4ciService         oidc4ciService
 	vcStatusManager        vcStatusManager
 	externalHostURL        string
+	tracer                 trace.Tracer
 }
 
 // NewController creates a new controller for Issuer Profile Management API.
@@ -144,31 +107,43 @@ func NewController(config *Config) *Controller {
 		oidc4ciService:         config.OIDC4CIService,
 		vcStatusManager:        config.VcStatusManager,
 		externalHostURL:        config.ExternalHostURL,
+		tracer:                 config.Tracer,
 	}
 }
 
 // PostIssueCredentials issues credentials.
 // POST /issuer/profiles/{profileID}/credentials/issue.
-func (c *Controller) PostIssueCredentials(ctx echo.Context, profileID string) error {
+func (c *Controller) PostIssueCredentials(e echo.Context, profileID string) error {
+	ctx, span := c.tracer.Start(e.Request().Context(), "PostIssueCredentials")
+	defer span.End()
+
 	var body IssueCredentialData
 
-	if err := util.ReadBody(ctx, &body); err != nil {
+	if err := util.ReadBody(e, &body); err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.issueCredential(ctx, &body, profileID))
+	span.SetAttributes(attributeutil.JSON("issue_credential_request", body))
+
+	tenantID, err := util.GetTenantIDFromRequest(e)
+	if err != nil {
+		return err
+	}
+
+	credential, err := c.issueCredential(ctx, tenantID, &body, profileID)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(credential, nil)
 }
 
 func (c *Controller) issueCredential(
-	ctx echo.Context,
+	ctx context.Context,
+	tenantID string,
 	body *IssueCredentialData,
 	profileID string,
 ) (*verifiable.Credential, error) {
-	tenantID, err := util.GetTenantIDFromRequest(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	profile, err := c.accessOIDCProfile(profileID, tenantID)
 	if err != nil {
 		return nil, err
@@ -200,7 +175,7 @@ func (c *Controller) issueCredential(
 		return nil, fmt.Errorf("validate validateIssueCredOptions failed: %w", err)
 	}
 
-	return c.signCredential(ctx.Request().Context(), credentialParsed, credOpts, profile)
+	return c.signCredential(ctx, credentialParsed, credOpts, profile)
 }
 
 func (c *Controller) extractCredentialTemplate(
@@ -376,8 +351,11 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 
 // InitiateCredentialIssuance initiates OIDC credential issuance flow.
 // POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
-func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID string) error {
-	tenantID, err := util.GetTenantIDFromRequest(ctx)
+func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID string) error {
+	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateCredentialIssuance")
+	defer span.End()
+
+	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		return err
 	}
@@ -389,11 +367,18 @@ func (c *Controller) InitiateCredentialIssuance(ctx echo.Context, profileID stri
 
 	var body InitiateOIDC4CIRequest
 
-	if err = util.ReadBody(ctx, &body); err != nil {
+	if err = util.ReadBody(e, &body); err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.initiateIssuance(ctx.Request().Context(), &body, profile))
+	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", body, attributeutil.WithRedacted("claim_data")))
+
+	resp, err := c.initiateIssuance(ctx, &body, profile)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(resp, nil)
 }
 
 func (c *Controller) initiateIssuance(
@@ -602,10 +587,10 @@ func (c *Controller) ValidatePreAuthorizedCodeRequest(ctx echo.Context) error {
 
 // PrepareCredential requests claim data and prepares VC for signing by issuer.
 // POST /issuer/interactions/prepare-credential.
-func (c *Controller) PrepareCredential(ctx echo.Context) error {
+func (c *Controller) PrepareCredential(e echo.Context) error {
 	var body PrepareCredential
 
-	if err := util.ReadBody(ctx, &body); err != nil {
+	if err := util.ReadBody(e, &body); err != nil {
 		return err
 	}
 
@@ -614,8 +599,10 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return resterr.NewValidationError(resterr.InvalidValue, "format", err)
 	}
 
+	ctx := e.Request().Context()
+
 	result, err := c.oidc4ciService.PrepareCredential(
-		ctx.Request().Context(),
+		ctx,
 		&oidc4ci.PrepareCredential{
 			TxID:             oidc4ci.TxID(body.TxId),
 			CredentialTypes:  body.Types,
@@ -644,12 +631,12 @@ func (c *Controller) PrepareCredential(ctx echo.Context) error {
 		return err
 	}
 
-	signedCredential, err := c.signCredential(ctx.Request().Context(), credentialParsed, nil, profile)
+	signedCredential, err := c.signCredential(ctx, credentialParsed, nil, profile)
 	if err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(PrepareCredentialResult{
+	return util.WriteOutput(e)(PrepareCredentialResult{
 		Credential: signedCredential,
 		Format:     string(result.Format),
 		OidcFormat: string(result.OidcFormat),

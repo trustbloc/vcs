@@ -16,6 +16,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func requireMessage(t *testing.T, resp interface{}, msg string) {
@@ -65,7 +66,7 @@ func TestHTTPErrorHandler(t *testing.T) {
 	t.Run("Get", func(t *testing.T) {
 		ctx, rec := createContext(http.MethodGet)
 
-		HTTPErrorHandler(NewUnauthorizedError(errors.New("unauthorized")), ctx)
+		HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))(NewUnauthorizedError(errors.New("unauthorized")), ctx)
 
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 		require.Equal(t, "{\"code\":\"unauthorized\",\"message\":\"unauthorized\"}\n",
@@ -75,7 +76,7 @@ func TestHTTPErrorHandler(t *testing.T) {
 	t.Run("Head", func(t *testing.T) {
 		ctx, rec := createContext(http.MethodHead)
 
-		HTTPErrorHandler(errors.New("test"), ctx)
+		HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))(errors.New("test"), ctx)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 
@@ -89,7 +90,7 @@ func TestHTTPErrorHandler(t *testing.T) {
 			})
 		err := NewFositeError(FositeIntrospectionError, ctx, mockFositeErrWriter, errors.New("some error"))
 
-		HTTPErrorHandler(err, ctx)
+		HTTPErrorHandler(trace.NewNoopTracerProvider().Tracer(""))(err, ctx)
 		require.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 }
