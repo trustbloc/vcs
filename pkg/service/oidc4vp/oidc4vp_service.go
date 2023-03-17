@@ -20,6 +20,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -118,9 +119,12 @@ type Config struct {
 }
 
 type CredentialMetadata struct {
-	Format      vcsverifiable.Format `json:"format"`
-	Type        []string             `json:"type"`
-	SubjectData interface{}          `json:"subjectData"`
+	Format         vcsverifiable.Format `json:"format"`
+	Type           []string             `json:"type"`
+	SubjectData    interface{}          `json:"subjectData"`
+	Issuer         verifiable.Issuer    `json:"issuer"`
+	IssuanceDate   *util.TimeWrapper    `json:"issuanceDate,omitempty"`
+	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
 }
 
 type ProcessedVPToken struct {
@@ -429,9 +433,12 @@ func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata 
 		}
 
 		result[cred.ID] = CredentialMetadata{
-			Format:      credType,
-			Type:        cred.Types,
-			SubjectData: cred.Subject,
+			Format:         credType,
+			Type:           cred.Types,
+			SubjectData:    cred.Subject,
+			Issuer:         cred.Issuer,
+			IssuanceDate:   cred.Issued,
+			ExpirationDate: cred.Expired,
 		}
 	}
 	logger.Debug("RetrieveClaims succeed")
