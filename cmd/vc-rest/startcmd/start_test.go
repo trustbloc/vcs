@@ -28,6 +28,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/cmd/common"
 	"github.com/trustbloc/vcs/pkg/observability/tracing"
@@ -343,7 +344,7 @@ func TestCreateVDRI(t *testing.T) {
 			tlsParameters: &tlsParameters{
 				systemCertPool: false,
 			},
-		})
+		}, trace.NewNoopTracerProvider().Tracer("test"))
 
 		require.Nil(t, cfg)
 		require.Error(t, err)

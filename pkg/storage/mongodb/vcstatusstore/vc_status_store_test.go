@@ -65,11 +65,13 @@ func TestVCStatusStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
+		ctx := context.Background()
+
 		// Create - Find
-		err = store.Put(testProfile, vcExpected.ID, vcExpected.Status)
+		err = store.Put(ctx, testProfile, vcExpected.ID, vcExpected.Status)
 		assert.NoError(t, err)
 
-		statusFound, err := store.Get(testProfile, vcExpected.ID)
+		statusFound, err := store.Get(ctx, testProfile, vcExpected.ID)
 		assert.NoError(t, err)
 
 		if !assert.Equal(t, vcExpected.Status, statusFound) {
@@ -79,7 +81,7 @@ func TestVCStatusStore(t *testing.T) {
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
-		resp, err := store.Get(testProfile, "63451f2358bde34a13b5d95b")
+		resp, err := store.Get(context.Background(), testProfile, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "failed to query MongoDB")
@@ -103,14 +105,17 @@ func TestTimeouts(t *testing.T) {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
 	}()
 
+	ctxWithTimeout, cancel := client.ContextWithTimeout()
+	defer cancel()
+
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Put(testProfile, testVCID, &verifiable.TypedID{ID: "1"})
+		err = store.Put(ctxWithTimeout, testProfile, testVCID, &verifiable.TypedID{ID: "1"})
 
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
-		resp, err := store.Get(testProfile, "63451f2358bde34a13b5d95b")
+		resp, err := store.Get(ctxWithTimeout, testProfile, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")

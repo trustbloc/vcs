@@ -48,6 +48,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
+	"go.opentelemetry.io/otel/trace"
 
 	echoPrometheus "github.com/globocom/echo-prometheus"
 
@@ -182,18 +183,18 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 				}
 			}
 
-			conf, err := prepareConfiguration(params)
-			if err != nil {
-				return fmt.Errorf("failed to prepare configuration: %w", err)
-			}
-
 			traceParams := params.tracingParams
 
-			stopTracingProvider, _, err := tracing.Initialize(traceParams.provider, traceParams.serviceName, traceParams.collectorURL)
+			stopTracingProvider, tracer, err := tracing.Initialize(traceParams.provider, traceParams.serviceName, traceParams.collectorURL)
 			if err != nil {
 				return fmt.Errorf("initialize tracing: %w", err)
 			}
 			defer stopTracingProvider()
+
+			conf, err := prepareConfiguration(params, tracer)
+			if err != nil {
+				return fmt.Errorf("failed to prepare configuration: %w", err)
+			}
 
 			internalEchoAddress := conf.StartupParameters.prometheusMetricsProviderParams.url
 			internalEcho, ready := buildInternalEcho()
@@ -385,6 +386,7 @@ func buildEchoHandler(
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
 	cslStore, err := createCredentialStatusListStore(
+		conf.Tracer,
 		conf.StartupParameters.cslStoreType,
 		conf.StartupParameters.cslStoreS3Region,
 		conf.StartupParameters.cslStoreS3Bucket,
@@ -407,6 +409,7 @@ func buildEchoHandler(
 		Crypto:         vcCrypto,
 		CMD:            cmd,
 		ExternalURL:    conf.StartupParameters.hostURLExternal,
+		Tracer:         conf.Tracer,
 	})
 	if err != nil {
 		return nil, err
@@ -693,13 +696,14 @@ func createCredentialOfferStore(
 }
 
 func createCredentialStatusListStore(
+	tracer trace.Tracer,
 	repoType string,
 	s3Region string,
 	s3Bucket string,
 	hostName string,
 	mongoDbClient *mongodb.Client,
 ) (credentialstatustypes.CSLStore, error) {
-	cslStoreMongo := cslstoremongodb.NewStore(mongoDbClient)
+	cslStoreMongo := cslstoremongodb.NewStore(tracer, mongoDbClient)
 
 	switch strings.ToLower(repoType) {
 	case "s3":
@@ -708,7 +712,7 @@ func createCredentialStatusListStore(
 			return nil, err
 		}
 
-		return cslstores3.NewStore(s3.New(ses), cslStoreMongo, s3Bucket, s3Region, hostName), nil
+		return cslstores3.NewStore(tracer, s3.New(ses), cslStoreMongo, s3Bucket, s3Region, hostName), nil
 	default:
 		return cslStoreMongo, nil
 	}

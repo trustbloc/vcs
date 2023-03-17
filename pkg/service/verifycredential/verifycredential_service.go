@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifycredential
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,7 +30,7 @@ const (
 )
 
 type statusListVCURIResolver interface {
-	Resolve(statusListVCURL string) (*verifiable.Credential, error)
+	Resolve(ctx context.Context, statusListVCURL string) (*verifiable.Credential, error)
 }
 
 // CredentialsVerificationCheckResult resp containing failure check details.
@@ -71,7 +72,7 @@ func New(config *Config) *Service {
 	}
 }
 
-func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Options,
+func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.Credential, opts *Options,
 	profile *profileapi.Verifier) ([]CredentialsVerificationCheckResult, error) {
 	checks := profile.Checks.Credential
 
@@ -96,7 +97,7 @@ func (s *Service) VerifyCredential(credential *verifiable.Credential, opts *Opti
 			return nil, fmt.Errorf("vc missing status list field")
 		}
 
-		err := s.ValidateVCStatus(credential.Status, credential.Issuer.ID)
+		err := s.ValidateVCStatus(ctx, credential.Status, credential.Issuer.ID)
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "credentialStatus",
@@ -183,7 +184,7 @@ func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDo
 	return nil
 }
 
-func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error {
+func (s *Service) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error {
 	vcStatusProcessor, err := s.vcStatusProcessorGetter(vc.StatusType(vcStatus.Type))
 	if err != nil {
 		return err
@@ -203,7 +204,7 @@ func (s *Service) ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) 
 		return err
 	}
 
-	statusListVC, err := s.statusListVCURIResolver.Resolve(statusVCURL)
+	statusListVC, err := s.statusListVCURIResolver.Resolve(ctx, statusVCURL)
 	if err != nil {
 		return err
 	}

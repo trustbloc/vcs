@@ -9,6 +9,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifypresentation
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -27,7 +28,7 @@ import (
 
 type vcVerifier interface {
 	ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error
-	ValidateVCStatus(vcStatus *verifiable.TypedID, issuer string) error
+	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
 }
 
 type Config struct {
@@ -64,6 +65,7 @@ func New(config *Config) *Service {
 var logger = log.New("verify-presentation")
 
 func (s *Service) VerifyPresentation(
+	ctx context.Context,
 	presentation *verifiable.Presentation,
 	opts *Options,
 	profile *profileapi.Verifier) ([]PresentationVerificationCheckResult, error) {
@@ -112,7 +114,7 @@ func (s *Service) VerifyPresentation(
 
 	if profile.Checks.Credential.Status {
 		st := time.Now()
-		err := s.validateCredentialsStatus(presentation)
+		err := s.validateCredentialsStatus(ctx, presentation)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -205,7 +207,7 @@ func (s *Service) validateCredentialsProof(vp *verifiable.Presentation) error {
 	return nil
 }
 
-func (s *Service) validateCredentialsStatus(vp *verifiable.Presentation) error {
+func (s *Service) validateCredentialsStatus(ctx context.Context, vp *verifiable.Presentation) error {
 	for _, cred := range vp.Credentials() {
 		vcBytes, err := json.Marshal(cred)
 		if err != nil {
@@ -220,7 +222,7 @@ func (s *Service) validateCredentialsStatus(vp *verifiable.Presentation) error {
 		}
 
 		if vc.Status != nil {
-			err = s.vcVerifier.ValidateVCStatus(vc.Status, vc.Issuer.ID)
+			err = s.vcVerifier.ValidateVCStatus(ctx, vc.Status, vc.Issuer.ID)
 			if err != nil {
 				return err
 			}

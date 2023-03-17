@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/web"
 	tlsutils "github.com/trustbloc/cmdutil-go/pkg/utils/tls"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // mode in which to run the vc-rest service
@@ -38,10 +39,11 @@ const (
 type Configuration struct {
 	RootCAs           *x509.CertPool
 	VDR               vdrapi.Registry
+	Tracer            trace.Tracer
 	StartupParameters *startupParameters
 }
 
-func prepareConfiguration(parameters *startupParameters) (*Configuration, error) {
+func prepareConfiguration(parameters *startupParameters, tracer trace.Tracer) (*Configuration, error) {
 	rootCAs, err := tlsutils.GetCertPool(parameters.tlsParameters.systemCertPool, parameters.tlsParameters.caCerts)
 	if err != nil {
 		return nil, err
@@ -56,6 +58,7 @@ func prepareConfiguration(parameters *startupParameters) (*Configuration, error)
 	return &Configuration{
 		RootCAs:           rootCAs,
 		VDR:               vdr,
+		Tracer:            tracer,
 		StartupParameters: parameters,
 	}, nil
 }

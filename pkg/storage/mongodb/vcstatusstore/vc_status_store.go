@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vcstatusstore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -38,10 +39,7 @@ func NewStore(mongoClient *mongodb.Client) *Store {
 	return &Store{mongoClient: mongoClient}
 }
 
-func (p *Store) Put(profileID, credentialID string, typedID *verifiable.TypedID) error {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
-
+func (p *Store) Put(ctx context.Context, profileID, credentialID string, typedID *verifiable.TypedID) error {
 	document := mongoDocument{
 		VcID:      credentialID,
 		ProfileID: profileID,
@@ -54,17 +52,14 @@ func (p *Store) Put(profileID, credentialID string, typedID *verifiable.TypedID)
 	}
 
 	collection := p.mongoClient.Database().Collection(vcStatusStoreName)
-	_, err = collection.InsertOne(ctxWithTimeout, mongoDBDocument)
+	_, err = collection.InsertOne(ctx, mongoDBDocument)
 	return err
 }
 
-func (p *Store) Get(profileID, vcID string) (*verifiable.TypedID, error) {
-	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
-	defer cancel()
-
+func (p *Store) Get(ctx context.Context, profileID, vcID string) (*verifiable.TypedID, error) {
 	collection := p.mongoClient.Database().Collection(vcStatusStoreName)
 
-	decodeBytes, err := collection.FindOne(ctxWithTimeout, bson.D{
+	decodeBytes, err := collection.FindOne(ctx, bson.D{
 		{Key: idFieldName, Value: vcID},
 		{Key: profileIDMongoDBFieldName, Value: profileID},
 	}).DecodeBytes()

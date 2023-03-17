@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package issuecredential_test
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
@@ -53,8 +54,10 @@ func TestService_IssueCredential(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
 		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
+	ctx := context.Background()
+
 	mockVCStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-	mockVCStatusManager.EXPECT().CreateStatusListEntry(gomock.Any(), gomock.Any()).AnyTimes().Return(
+	mockVCStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(
 		&issuecredential.StatusListEntry{
 			Context: "https://w3id.org/vc-revocation-list-2020/v1",
 			TypedID: &verifiable.TypedID{
@@ -120,6 +123,7 @@ func TestService_IssueCredential(t *testing.T) {
 						})
 
 						verifiableCredentials, err := service.IssueCredential(
+							ctx,
 							getVC(),
 							nil,
 							&profileapi.Issuer{
@@ -184,6 +188,7 @@ func TestService_IssueCredential(t *testing.T) {
 				})
 
 				verifiableCredentials, err := service.IssueCredential(
+					ctx,
 					getVC(),
 					nil,
 					&profileapi.Issuer{
@@ -213,6 +218,7 @@ func TestService_IssueCredential(t *testing.T) {
 		})
 
 		verifiableCredentials, err := service.IssueCredential(
+			ctx,
 			&verifiable.Credential{},
 			nil,
 			&profileapi.Issuer{})
@@ -224,7 +230,7 @@ func TestService_IssueCredential(t *testing.T) {
 		registry.EXPECT().GetKeyManager(gomock.Any()).Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusListEntry(gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).Return(nil, errors.New("some error"))
 
 		service := issuecredential.New(&issuecredential.Config{
 			KMSRegistry:     registry,
@@ -232,6 +238,7 @@ func TestService_IssueCredential(t *testing.T) {
 		})
 
 		verifiableCredentials, err := service.IssueCredential(
+			ctx,
 			&verifiable.Credential{},
 			nil,
 			&profileapi.Issuer{
@@ -247,7 +254,7 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusListEntry(gomock.Any(), gomock.Any()).AnyTimes().Return(
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(
 			&issuecredential.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
@@ -266,6 +273,7 @@ func TestService_IssueCredential(t *testing.T) {
 		})
 
 		verifiableCredentials, err := service.IssueCredential(
+			ctx,
 			&verifiable.Credential{},
 			nil,
 			&profileapi.Issuer{
@@ -281,7 +289,7 @@ func TestService_IssueCredential(t *testing.T) {
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 
 		vcStatusManager := NewMockVCStatusManager(gomock.NewController(t))
-		vcStatusManager.EXPECT().CreateStatusListEntry(gomock.Any(), gomock.Any()).AnyTimes().Return(
+		vcStatusManager.EXPECT().CreateStatusListEntry(ctx, gomock.Any(), gomock.Any()).AnyTimes().Return(
 			&issuecredential.StatusListEntry{
 				Context: vcutil.DefVCContext,
 				TypedID: &verifiable.TypedID{
@@ -304,6 +312,7 @@ func TestService_IssueCredential(t *testing.T) {
 		})
 
 		verifiableCredentials, err := service.IssueCredential(
+			ctx,
 			&verifiable.Credential{},
 			nil,
 			&profileapi.Issuer{

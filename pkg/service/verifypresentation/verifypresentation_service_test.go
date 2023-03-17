@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package verifypresentation
 
 import (
+	"context"
 	_ "embed"
 	"errors"
 	"reflect"
@@ -100,6 +101,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					mockVerifier.EXPECT().ValidateVCStatus(
+						context.Background(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
@@ -256,6 +258,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(errors.New("some error"))
 					mockVerifier.EXPECT().ValidateVCStatus(
+						context.Background(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(errors.New("some error"))
 					return mockVerifier
@@ -303,7 +306,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			got, err := s.VerifyPresentation(tt.args.getPresentation(), tt.args.opts, tt.args.profile)
+			got, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(), tt.args.opts, tt.args.profile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -741,6 +744,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateVCStatus(
+						context.Background(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
@@ -762,6 +766,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateVCStatus(
+						context.Background(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(errors.New("some error"))
 					return mockVerifier
@@ -782,7 +787,7 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			if err := s.validateCredentialsStatus(tt.args.getVp()); (err != nil) != tt.wantErr {
+			if err := s.validateCredentialsStatus(context.Background(), tt.args.getVp()); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

@@ -88,7 +88,7 @@ type profileService interface {
 }
 
 type verifyCredentialSvc interface {
-	VerifyCredential(credential *verifiable.Credential, opts *verifycredential.Options,
+	VerifyCredential(ctx context.Context, credential *verifiable.Credential, opts *verifycredential.Options,
 		profile *profileapi.Verifier) ([]verifycredential.CredentialsVerificationCheckResult, error)
 }
 
@@ -208,7 +208,8 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}
 
-	verRes, err := c.verifyCredentialSvc.VerifyCredential(credential, getVerifyCredentialOptions(body.Options), profile)
+	verRes, err := c.verifyCredentialSvc.VerifyCredential(
+		ctx.Request().Context(), credential, getVerifyCredentialOptions(body.Options), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}

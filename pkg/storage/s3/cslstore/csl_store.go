@@ -8,6 +8,7 @@ package cslstore
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +17,10 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -28,20 +32,25 @@ const (
 	issuer           = "/issuer"
 	issuerProfiles   = issuer + "/groups"
 	credentialStatus = "/credentials/status"
+
+	upsertCSLWrapperS3SegmentTitle   = "Upsert CSL Wrapper S3"
+	getCSLWrapperS3SegmentTitle      = "Get CSL Wrapper S3"
+	getLatestListIDS3SegmentTitle    = "Get LatestListID S3"
+	updateLatestListIDS3SegmentTitle = "Update LatestListID S3"
 )
 
 type s3Uploader interface {
-	PutObject(*s3.PutObjectInput) (*s3.PutObjectOutput, error)
-	GetObject(*s3.GetObjectInput) (*s3.GetObjectOutput, error)
+	PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error)
+	GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error)
 }
 
 // underlyingCSLWrapperStore is used for storing
 // credentialstatus.CSLWrapper and credentialstatus.ListID in a different place then public S3 bucket.
 type underlyingCSLWrapperStore interface {
-	Get(cslURL string) (*credentialstatus.CSLWrapper, error)
-	Upsert(cslWrapper *credentialstatus.CSLWrapper) error
-	GetLatestListID() (credentialstatus.ListID, error)
-	UpdateLatestListID() error
+	Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error)
+	Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error
+	GetLatestListID(ctx context.Context) (credentialstatus.ListID, error)
+	UpdateLatestListID(ctx context.Context) error
 }
 
 // Store manages profile in mongodb.
@@ -51,24 +60,33 @@ type Store struct {
 	bucket           string
 	region           string
 	hostName         string
+	tracer           trace.Tracer
 }
 
 // NewStore creates S3 Store.
 func NewStore(
-	s3Uploader s3Uploader, cslLWrapperStore underlyingCSLWrapperStore, bucket, region, hostName string) *Store {
+	tracer trace.Tracer,
+	s3Uploader s3Uploader,
+	cslLWrapperStore underlyingCSLWrapperStore,
+	bucket, region, hostName string) *Store {
 	return &Store{
 		s3Uploader:       s3Uploader,
 		cslLWrapperStore: cslLWrapperStore,
 		bucket:           bucket,
 		region:           region,
 		hostName:         hostName,
+		tracer:           tracer,
 	}
 }
 
 // Upsert does upsert operation of credentialstatus.CSLWrapper.
-func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
+func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+	ctx, segment := p.tracer.Start(ctx, upsertCSLWrapperS3SegmentTitle)
+	segment.SetAttributes(attribute.String("CSL ID", cslWrapper.VC.ID))
+	defer segment.End()
+
 	// Put CSL.
-	_, err := p.s3Uploader.PutObject(&s3.PutObjectInput{
+	_, err := p.s3Uploader.PutObjectWithContext(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader(unQuote(cslWrapper.VCByte)),
 		Key:         aws.String(p.resolveCSLS3Key(cslWrapper.VC.ID)),
 		Bucket:      aws.String(p.bucket),
@@ -81,7 +99,7 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 	// Put cslWrapper.
 	cslWrapper.VCByte = nil
 
-	if err = p.cslLWrapperStore.Upsert(cslWrapper); err != nil {
+	if err = p.cslLWrapperStore.Upsert(ctx, cslWrapper); err != nil {
 		return fmt.Errorf("failed to store cslWrapper: %w", err)
 	}
 
@@ -89,9 +107,13 @@ func (p *Store) Upsert(cslWrapper *credentialstatus.CSLWrapper) error {
 }
 
 // Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
-func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
+func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
+	ctx, segment := p.tracer.Start(ctx, getCSLWrapperS3SegmentTitle)
+	segment.SetAttributes(attribute.String("CSL ID", cslURL))
+	defer segment.End()
+
 	// Get CSL.
-	cslRes, err := p.s3Uploader.GetObject(&s3.GetObjectInput{
+	cslRes, err := p.s3Uploader.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
 		Key:    aws.String(p.resolveCSLS3Key(cslURL)),
 	})
@@ -114,7 +136,7 @@ func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	}
 
 	// Get CSLWrapper.
-	cslWrapper, err := p.cslLWrapperStore.Get(cslURL)
+	cslWrapper, err := p.cslLWrapperStore.Get(ctx, cslURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSLWrapper from underlying store: %w", err)
 	}
@@ -124,12 +146,18 @@ func (p *Store) Get(cslURL string) (*credentialstatus.CSLWrapper, error) {
 	return cslWrapper, nil
 }
 
-func (p *Store) GetLatestListID() (credentialstatus.ListID, error) {
-	return p.cslLWrapperStore.GetLatestListID()
+func (p *Store) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
+	ctx, segment := p.tracer.Start(ctx, getLatestListIDS3SegmentTitle)
+	defer segment.End()
+
+	return p.cslLWrapperStore.GetLatestListID(ctx)
 }
 
-func (p *Store) UpdateLatestListID() error {
-	return p.cslLWrapperStore.UpdateLatestListID()
+func (p *Store) UpdateLatestListID(ctx context.Context) error {
+	ctx, segment := p.tracer.Start(ctx, updateLatestListIDS3SegmentTitle)
+	defer segment.End()
+
+	return p.cslLWrapperStore.UpdateLatestListID(ctx)
 }
 
 // GetCSLURL returns the public URL of credentialstatus.CSL.
