@@ -11,6 +11,7 @@
   ],
   "id": "http://example.gov/credentials/3732",
   "issuanceDate": "2020-03-16T22:37:26.544Z",
+  "expirationDate": "2030-03-16T22:37:26.544Z",
   "issuer": {
     "id": "did:trustblock:abc",
     "name": "University"

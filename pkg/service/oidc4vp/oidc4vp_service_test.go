@@ -629,6 +629,10 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 		require.True(t, ok)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
+
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
+		require.Empty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
 	})
 
 	t.Run("Success JsonLD", func(t *testing.T) {
@@ -648,6 +652,10 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 		require.True(t, ok)
 		require.Equal(t, "did:example:ebfeb1f712ebc6f1c276e12ec21", subjects[0].ID)
+
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].Issuer)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].IssuanceDate)
+		require.NotEmpty(t, claims["http://example.gov/credentials/3732"].ExpirationDate)
 	})
 
 	t.Run("Error", func(t *testing.T) {
