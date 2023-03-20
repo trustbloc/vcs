@@ -134,6 +134,7 @@ type CredentialChecks struct {
 	Status           bool                   `json:"status,omitempty"`
 	CredentialExpiry bool                   `json:"credentialExpiry,omitempty"`
 	Strict           bool                   `json:"strict,omitempty"`
+	LinkedDomain     bool                   `json:"linkedDomain,omitempty"`
 }
 
 // SigningDID contains information about profile signing did.
