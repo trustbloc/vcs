@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package ld_test
+package mongodb_test
 
 import (
 	"context"
@@ -13,8 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cenkalti/backoff"
-	"github.com/golang/mock/gomock"
+	"github.com/cenkalti/backoff/v4"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/require"
@@ -22,43 +21,37 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/otel/trace"
 
-	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
 
 const (
+	mongoDBConnString  = "mongodb://localhost:27039"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
+	testDatabaseName   = "test_db"
+	testTimeout        = 5 * time.Second
 )
 
-func TestNewStoreProvider(t *testing.T) {
-	connectionString := "mongodb://localhost:27029"
-
-	pool, mongoDBResource := startMongoDBContainer(t, connectionString, "27029")
-
-	t.Cleanup(func() {
+func TestClient(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+	defer func() {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
-	})
+	}()
 
-	client, clientErr := mongodb.New(connectionString, "testdb", mongodb.WithTimeout(time.Second*10))
-	require.NoError(t, clientErr)
+	client, err := mongodb.New(mongoDBConnString, testDatabaseName,
+		mongodb.WithTimeout(testTimeout),
+		mongodb.WithTraceProvider(trace.NewNoopTracerProvider()),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, client)
 
-	t.Cleanup(func() {
-		require.NoError(t, client.Close())
-	})
-
-	t.Run("Success", func(t *testing.T) {
-		provider, err := ld.NewStoreProvider(client, NewMockCache(gomock.NewController(t)))
-
-		require.NotNil(t, provider)
-		require.NoError(t, err)
-		require.NotNil(t, provider.JSONLDContextStore())
-		require.NotNil(t, provider.JSONLDRemoteProviderStore())
-	})
+	require.Equal(t, testDatabaseName, client.Database().Name())
+	require.NoError(t, client.Close())
 }
 
-func startMongoDBContainer(t *testing.T, connectionString, port string) (*dctest.Pool, *dctest.Resource) {
+func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 	t.Helper()
 
 	pool, err := dctest.NewPool("")
@@ -68,28 +61,26 @@ func startMongoDBContainer(t *testing.T, connectionString, port string) (*dctest
 		Repository: dockerMongoDBImage,
 		Tag:        dockerMongoDBTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"27017/tcp": {{HostIP: "", HostPort: port}},
+			"27017/tcp": {{HostIP: "", HostPort: "27039"}},
 		},
 	})
 	require.NoError(t, err)
 
-	require.NoError(t, waitForMongoDBToBeUp(connectionString))
+	require.NoError(t, waitForMongoDBToBeUp())
 
 	return pool, mongoDBResource
 }
 
-func waitForMongoDBToBeUp(connectionString string) error {
-	return backoff.Retry(func() error {
-		return pingMongoDB(connectionString)
-	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
+func waitForMongoDBToBeUp() error {
+	return backoff.Retry(pingMongoDB, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
 }
 
-func pingMongoDB(connectionString string) error {
+func pingMongoDB() error {
 	var err error
 
 	tM := reflect.TypeOf(bson.M{})
 	reg := bson.NewRegistryBuilder().RegisterTypeMapEntry(bsontype.EmbeddedDocument, tM).Build()
-	clientOpts := options.Client().SetRegistry(reg).ApplyURI(connectionString)
+	clientOpts := options.Client().SetRegistry(reg).ApplyURI(mongoDBConnString)
 
 	mongoClient, err := mongo.NewClient(clientOpts)
 	if err != nil {
@@ -101,7 +92,7 @@ func pingMongoDB(connectionString string) error {
 		return fmt.Errorf("failed to connect to MongoDB: %w", err)
 	}
 
-	db := mongoClient.Database("test")
+	db := mongoClient.Database(testDatabaseName)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()

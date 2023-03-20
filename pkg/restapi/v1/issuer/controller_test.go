@@ -27,6 +27,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -66,7 +67,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
 	mockIssueCredentialSvc.EXPECT().IssueCredential(
-		context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return(nil, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -83,6 +84,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
@@ -105,6 +107,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJWT)))
@@ -140,6 +143,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -186,6 +190,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -236,6 +241,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -279,6 +285,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -314,6 +321,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -358,6 +366,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		req := &IssueCredentialData{
@@ -374,7 +383,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 	})
 
 	t.Run("Failed", func(t *testing.T) {
-		controller := NewController(&Config{})
+		controller := NewController(&Config{Tracer: trace.NewNoopTracerProvider().Tracer("")})
 		c := echoContext(withRequestBody([]byte("abc")))
 		err := controller.PostIssueCredentials(c, "testId")
 
@@ -386,7 +395,7 @@ func TestController_IssueCredentials(t *testing.T) {
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 	mockIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
 	mockIssueCredentialSvc.EXPECT().IssueCredential(
-		context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+		gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
 		Return(&verifiable.Credential{}, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -403,6 +412,7 @@ func TestController_IssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
@@ -412,7 +422,7 @@ func TestController_IssueCredentials(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		verifiableCredentials, err := controller.issueCredential(c, &body, "testId")
+		verifiableCredentials, err := controller.issueCredential(c.Request().Context(), orgID, &body, "testId")
 		require.NotNil(t, verifiableCredentials)
 		require.NoError(t, err)
 	})
@@ -431,6 +441,7 @@ func TestController_IssueCredentials(t *testing.T) {
 			ProfileSvc:             mockProfileSvc,
 			DocumentLoader:         testutil.DocumentLoader(t),
 			IssueCredentialService: mockIssueCredentialSvc,
+			Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		c := echoContext(withRequestBody([]byte(sampleVCJWT)))
@@ -440,7 +451,7 @@ func TestController_IssueCredentials(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		verifiableCredentials, err := controller.issueCredential(c, &body, "testId")
+		verifiableCredentials, err := controller.issueCredential(c.Request().Context(), orgID, &body, "testId")
 		require.NotNil(t, verifiableCredentials)
 		require.NoError(t, err)
 	})
@@ -452,20 +463,6 @@ func TestController_IssueCredentials(t *testing.T) {
 			getProfileSvc             func() profileService
 			getIssueCredentialService func() issueCredentialService
 		}{
-			{
-				name: "Missing authorization",
-				getCtx: func() echo.Context {
-					ctx := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
-					ctx.Request().Header.Set("X-Tenant-ID", "")
-					return ctx
-				},
-				getProfileSvc: func() profileService {
-					return nil
-				},
-				getIssueCredentialService: func() issueCredentialService {
-					return nil
-				},
-			},
 			{
 				name: "Profile service error",
 				getCtx: func() echo.Context {
@@ -556,7 +553,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				getIssueCredentialService: func() issueCredentialService {
 					mockFailedIssueCredentialSvc := NewMockIssueCredentialService(gomock.NewController(t))
 					mockFailedIssueCredentialSvc.EXPECT().IssueCredential(
-						context.Background(),
+						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any()).AnyTimes().
@@ -572,12 +569,13 @@ func TestController_IssueCredentials(t *testing.T) {
 					ProfileSvc:             testCase.getProfileSvc(),
 					DocumentLoader:         testutil.DocumentLoader(t),
 					IssueCredentialService: testCase.getIssueCredentialService(),
+					Tracer:                 trace.NewNoopTracerProvider().Tracer(""),
 				})
 				ctx := testCase.getCtx()
 				var body IssueCredentialData
 				err := util.ReadBody(ctx, &body)
 				require.NoError(t, err)
-				verifiableCredentials, err := controller.issueCredential(ctx, &body, "testId")
+				verifiableCredentials, err := controller.issueCredential(ctx.Request().Context(), orgID, &body, "testId")
 				require.Nil(t, verifiableCredentials)
 				require.Error(t, err)
 			})
@@ -599,7 +597,11 @@ func TestController_AuthFailed(t *testing.T) {
 	t.Run("No token", func(t *testing.T) {
 		c := echoContext(withTenantID(""), withRequestBody([]byte(sampleVCJWT)))
 
-		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
+		controller := NewController(&Config{
+			ProfileSvc:  mockProfileSvc,
+			KMSRegistry: kmsRegistry,
+			Tracer:      trace.NewNoopTracerProvider().Tracer(""),
+		})
 
 		err := controller.PostIssueCredentials(c, "testId")
 		requireAuthError(t, err)
@@ -608,7 +610,11 @@ func TestController_AuthFailed(t *testing.T) {
 	t.Run("Invalid org id", func(t *testing.T) {
 		c := echoContext(withTenantID("orgID2"), withRequestBody([]byte(sampleVCJWT)))
 
-		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
+		controller := NewController(&Config{
+			ProfileSvc:  mockProfileSvc,
+			KMSRegistry: kmsRegistry,
+			Tracer:      trace.NewNoopTracerProvider().Tracer(""),
+		})
 
 		err := controller.PostIssueCredentials(c, "testId")
 		requireValidationError(t, resterr.DoesntExist, "profile", err)
@@ -774,6 +780,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 		controller := NewController(&Config{
 			ProfileSvc:     mockProfileSvc,
 			OIDC4CIService: mockOIDC4CISvc,
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		c = echoContext(withRequestBody(req))
@@ -899,6 +906,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 				controller := NewController(&Config{
 					ProfileSvc:     mockProfileSvc,
 					OIDC4CIService: mockOIDC4CISvc,
+					Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 				})
 
 				err = controller.InitiateCredentialIssuance(c, "profileID")

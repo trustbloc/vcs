@@ -23,8 +23,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -36,21 +34,16 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
-	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
 const (
 	defaultRepresentation = "jws"
 
-	jsonKeyProofValue                  = "proofValue"
-	jsonKeyProofPurpose                = "proofPurpose"
-	jsonKeyVerificationMethod          = "verificationMethod"
-	jsonKeySignatureOfType             = "type"
-	cslRequestTokenName                = "csl"
-	updateVCStatusSegmentTitle         = "UpdateVCStatus"
-	createStatusListEntrySegmentTitle  = "CreateStatusListEntry"
-	getStatusListVCSegmentTitle        = "GetStatusListVC"
-	resolveStatusListVCURISegmentTitle = "ResolveStatusListVCURI"
+	jsonKeyProofValue         = "proofValue"
+	jsonKeyProofPurpose       = "proofPurpose"
+	jsonKeyVerificationMethod = "verificationMethod"
+	jsonKeySignatureOfType    = "type"
+	cslRequestTokenName       = "csl"
 )
 
 var logger = log.New("credentialstatus")
@@ -90,7 +83,6 @@ type Config struct {
 	DocumentLoader ld.DocumentLoader
 	CMD            *cobra.Command
 	ExternalURL    string
-	Tracer         trace.Tracer
 }
 
 type Service struct {
@@ -106,7 +98,6 @@ type Service struct {
 	documentLoader ld.DocumentLoader
 	cmd            *cobra.Command
 	externalURL    string
-	tracer         trace.Tracer
 }
 
 // New returns new Credential Status service.
@@ -124,21 +115,12 @@ func New(config *Config) (*Service, error) {
 		documentLoader: config.DocumentLoader,
 		cmd:            config.CMD,
 		externalURL:    config.ExternalURL,
-		tracer:         config.Tracer,
 	}, nil
 }
 
 // UpdateVCStatus fetches credential based on UpdateVCStatusParams.CredentialID
 // and updates associated credentialstatus.CSL to UpdateVCStatusParams.DesiredStatus.
 func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.UpdateVCStatusParams) error {
-	ctx, segment := s.tracer.Start(ctx, updateVCStatusSegmentTitle)
-	segment.SetAttributes(
-		attribute.String("profileID", params.ProfileID),
-		attribute.String("credentialID", params.CredentialID),
-		attribute.String("status", params.DesiredStatus))
-
-	defer segment.End()
-
 	logger.Debug("UpdateVCStatus begin",
 		logfields.WithProfileID(params.ProfileID),
 		logfields.WithCredentialID(params.CredentialID))
@@ -194,13 +176,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 
 // CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
 func (s *Service) CreateStatusListEntry(
-	ctx context.Context, profileID profileapi.ID, credentialID string) (*issuecredential.StatusListEntry, error) {
-	ctx, segment := s.tracer.Start(ctx, createStatusListEntrySegmentTitle)
-	segment.SetAttributes(
-		attribute.String("profileID", profileID),
-		attribute.String("credentialID", credentialID),
-	)
-	defer segment.End()
+	ctx context.Context, profileID profileapi.ID, credentialID string) (*credentialstatus.StatusListEntry, error) {
 
 	logger.Debug("CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
@@ -259,7 +235,7 @@ func (s *Service) CreateStatusListEntry(
 		}
 	}
 
-	statusListEntry := &issuecredential.StatusListEntry{
+	statusListEntry := &credentialstatus.StatusListEntry{
 		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(unusedStatusBitIndex), cslWrapper.VC.ID),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
@@ -302,13 +278,6 @@ func (s *Service) getUnusedIndex(usedIndexes []int) (int, error) {
 // GetStatusListVC returns StatusListVC (CSL) from underlying cslStore.
 // Used for handling public HTTP requests.
 func (s *Service) GetStatusListVC(ctx context.Context, groupID profileapi.ID, listID string) (*verifiable.Credential, error) {
-	ctx, segment := s.tracer.Start(ctx, getStatusListVCSegmentTitle)
-	segment.SetAttributes(
-		attribute.String("groupID", groupID),
-		attribute.String("listID", listID),
-	)
-	defer segment.End()
-
 	logger.Debug("GetStatusListVC begin", logfields.WithProfileID(groupID), log.WithID(listID))
 
 	cslURL, err := s.cslStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))
@@ -330,12 +299,6 @@ func (s *Service) GetStatusListVC(ctx context.Context, groupID profileapi.ID, li
 // Used for credential verification.
 // statusListVCURI might be either HTTP URL or DID URL.
 func (s *Service) Resolve(ctx context.Context, statusListVCURI string) (*verifiable.Credential, error) {
-	ctx, segment := s.tracer.Start(ctx, resolveStatusListVCURISegmentTitle)
-	segment.SetAttributes(
-		attribute.String("statusListVCURI", statusListVCURI),
-	)
-	defer segment.End()
-
 	logger.Debug("ResolveStatusListVCURI begin", log.WithURL(statusListVCURI))
 	var vcBytes []byte
 	var err error

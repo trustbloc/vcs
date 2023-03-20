@@ -18,8 +18,8 @@ const (
 	tenantIDHeader = "X-Tenant-ID"
 )
 
-func GetTenantIDFromRequest(ctx echo.Context) (string, error) {
-	tenantID := ctx.Request().Header.Get(tenantIDHeader)
+func GetTenantIDFromRequest(e echo.Context) (string, error) {
+	tenantID := e.Request().Header.Get(tenantIDHeader)
 	if tenantID == "" {
 		return "", resterr.NewUnauthorizedError(errors.New("missing authorization"))
 	}

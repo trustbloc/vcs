@@ -13,6 +13,12 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
+	"go.opentelemetry.io/otel/trace"
+)
+
+const (
+	defaultTimeout = 15 * time.Second
 )
 
 type Client struct {
@@ -21,13 +27,28 @@ type Client struct {
 	timeout      time.Duration
 }
 
-func New(connString string, databaseName string, timeout time.Duration) (*Client, error) {
-	client, err := mongo.NewClient(mongooptions.Client().ApplyURI(connString))
+func New(connString string, databaseName string, opts ...ClientOpt) (*Client, error) {
+	op := &clientOpts{
+		timeout: defaultTimeout,
+	}
+
+	for _, fn := range opts {
+		fn(op)
+	}
+
+	mongoOpts := mongooptions.Client()
+	mongoOpts.ApplyURI(connString)
+
+	if op.traceProvider != nil {
+		mongoOpts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(op.traceProvider))
+	}
+
+	client, err := mongo.NewClient(mongoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new MongoDB client: %w", err)
 	}
 
-	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), timeout)
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), op.timeout)
 	defer cancel()
 
 	err = client.Connect(ctxWithTimeout)
@@ -38,7 +59,7 @@ func New(connString string, databaseName string, timeout time.Duration) (*Client
 	return &Client{
 		client:       client,
 		databaseName: databaseName,
-		timeout:      timeout,
+		timeout:      op.timeout,
 	}, nil
 }
 
@@ -64,4 +85,23 @@ func (c *Client) Close() error {
 	}
 
 	return nil
+}
+
+type clientOpts struct {
+	timeout       time.Duration
+	traceProvider trace.TracerProvider
+}
+
+type ClientOpt func(opts *clientOpts)
+
+func WithTimeout(timeout time.Duration) ClientOpt {
+	return func(opts *clientOpts) {
+		opts.timeout = timeout
+	}
+}
+
+func WithTraceProvider(traceProvider trace.TracerProvider) ClientOpt {
+	return func(opts *clientOpts) {
+		opts.traceProvider = traceProvider
+	}
 }

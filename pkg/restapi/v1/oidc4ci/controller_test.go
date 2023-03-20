@@ -30,6 +30,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -172,6 +173,7 @@ func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				IssuerVCSPublicHost:     "https://issuer.example.com",
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(q.Encode()))
@@ -845,6 +847,7 @@ func TestController_OidcToken(t *testing.T) {
 			controller := oidc4ci.NewController(&oidc4ci.Config{
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", http.NoBody)
@@ -1361,6 +1364,7 @@ func TestController_OidcCredential(t *testing.T) {
 				OAuth2Provider:          mockOAuthProvider,
 				IssuerInteractionClient: mockInteractionClient,
 				JWTVerifier:             jwtVerifier,
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(requestBody))
@@ -1590,6 +1594,7 @@ func TestController_OidcPreAuthorize(t *testing.T) {
 				IssuerInteractionClient: mockInteractionClient,
 				OAuth2Client:            oauthClient,
 				PreAuthorizeClient:      preAuthorizeClient,
+				Tracer:                  trace.NewNoopTracerProvider().Tracer(""),
 			})
 
 			req := httptest.NewRequest(http.MethodPost, "/", tt.body)

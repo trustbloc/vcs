@@ -19,6 +19,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
 const (
@@ -35,12 +36,7 @@ type kmsRegistry interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*StatusListEntry, error)
-}
-
-type StatusListEntry struct {
-	Context string
-	TypedID *verifiable.TypedID
+	CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*credentialstatus.StatusListEntry, error)
 }
 
 type Config struct {
@@ -86,7 +82,7 @@ func (s *Service) IssueCredential(
 		SDJWT:                   profile.VCConfig.SDJWT,
 	}
 
-	var statusListEntry *StatusListEntry
+	var statusListEntry *credentialstatus.StatusListEntry
 
 	// update credential prefix.
 	vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)

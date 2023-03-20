@@ -45,7 +45,7 @@ func TestTxStore_Success(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, err)
 
 	store := NewTxStore(client, testutil.DocumentLoader(t))
@@ -97,7 +97,7 @@ func TestTxStore_Fails(t *testing.T) {
 		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, err := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, err)
 
 	store := NewTxStore(client, testutil.DocumentLoader(t))

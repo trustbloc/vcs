@@ -26,9 +26,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
@@ -103,6 +105,7 @@ type Config struct {
 	PreAuthorizeClient      HTTPClient
 	DefaultHTTPClient       *http.Client
 	JWTVerifier             jose.SignatureVerifier
+	Tracer                  trace.Tracer
 	ExternalHostURL         string
 }
 
@@ -116,6 +119,7 @@ type Controller struct {
 	preAuthorizeClient      HTTPClient
 	defaultHTTPClient       *http.Client
 	jwtVerifier             jose.SignatureVerifier
+	tracer                  trace.Tracer
 	internalHostURL         string
 }
 
@@ -130,6 +134,7 @@ func NewController(config *Config) *Controller {
 		preAuthorizeClient:      config.PreAuthorizeClient,
 		defaultHTTPClient:       config.DefaultHTTPClient,
 		jwtVerifier:             config.JWTVerifier,
+		tracer:                  config.Tracer,
 		internalHostURL:         config.ExternalHostURL,
 	}
 }
@@ -360,7 +365,12 @@ func (c *Controller) OidcRedirect(e echo.Context, params OidcRedirectParams) err
 // OidcToken handles OIDC token request (POST /oidc/token).
 func (c *Controller) OidcToken(e echo.Context) error {
 	req := e.Request()
-	ctx := req.Context()
+
+	ctx, span := c.tracer.Start(req.Context(), "OidcToken")
+	defer span.End()
+
+	params, _ := e.FormParams()
+	span.SetAttributes(attributeutil.FormParams("form_params", params))
 
 	ar, err := c.oauth2Provider.NewAccessRequest(ctx, req, new(fosite.DefaultSession))
 	if err != nil {
@@ -461,13 +471,17 @@ func mustGenerateNonce() string {
 // OidcCredential handles OIDC credential request (POST /oidc/credential).
 func (c *Controller) OidcCredential(e echo.Context) error {
 	req := e.Request()
-	ctx := req.Context()
+
+	ctx, span := c.tracer.Start(req.Context(), "OidcCredential")
+	defer span.End()
 
 	var credentialRequest CredentialRequest
 
 	if err := validateCredentialRequest(e, &credentialRequest); err != nil {
 		return err
 	}
+
+	span.SetAttributes(attributeutil.JSON("oidc_credential_request", credentialRequest))
 
 	token := fosite.AccessTokenFromRequest(req)
 	if token == "" {
@@ -482,16 +496,13 @@ func (c *Controller) OidcCredential(e echo.Context) error {
 	session := ar.GetSession().(*fosite.DefaultSession) //nolint:errcheck
 
 	did, err := validateProofClaims(credentialRequest.Proof.Jwt, session, c.jwtVerifier)
-
 	if err != nil {
 		return resterr.NewOIDCError("invalid_or_missing_proof", err)
 	}
 
-	txID := session.Extra[txIDKey].(string) //nolint:errcheck
-
 	resp, err := c.issuerInteractionClient.PrepareCredential(ctx,
 		issuer.PrepareCredentialJSONRequestBody{
-			TxId:   txID,
+			TxId:   session.Extra[txIDKey].(string), //nolint:errcheck
 			Did:    lo.ToPtr(did),
 			Types:  credentialRequest.Types,
 			Format: credentialRequest.Format,
