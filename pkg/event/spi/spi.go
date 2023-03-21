@@ -17,6 +17,8 @@ const (
 	VerifierEventTopic = "vcs-verifier"
 	// IssuerEventTopic issuer topic name.
 	IssuerEventTopic = "vcs-issuer"
+	// CredentialStatusEventTopic credential status topic name.
+	CredentialStatusEventTopic = "vcs-credentialstatus"
 )
 
 // EventType event type.
@@ -42,6 +44,8 @@ const (
 	IssuerOIDCInteractionAuthorizationCodeStored      = EventType("oidc_interaction_authorization_code_stored")      //nolint
 	IssuerOIDCInteractionAuthorizationCodeExchanged   = EventType("oidc_interaction_authorization_code_exchanged")   //nolint
 	IssuerOIDCInteractionFailed                       = EventType("oidc_interaction_failed")
+
+	CredentialStatusStatusUpdated = EventType("credentialstatus_status_updated")
 )
 
 type Payload []byte

@@ -243,6 +243,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + devModeFlagName, "true",
 		"--" + issuerTopicFlagName, "dev1-vcs-issuer",
 		"--" + verifierTopicFlagName, "dev1-vcs-verifier",
+		"--" + credentialstatusTopicFlagName, "dev1-vcs-credentialstatus",
 		"--" + tracingProviderFlagName, tracing.ProviderJaeger,
 		"--" + tracingCollectorURLFlagName, "http://yaeger.local.com",
 	}

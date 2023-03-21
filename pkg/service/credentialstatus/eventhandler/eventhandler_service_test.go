@@ -1,0 +1,905 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
+package eventhandler
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/json"
+	"errors"
+	"net/url"
+	"testing"
+	"time"
+
+	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
+	ariescrypto "github.com/hyperledger/aries-framework-go/pkg/crypto"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/did"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
+	cryptomock "github.com/hyperledger/aries-framework-go/pkg/mock/crypto"
+	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
+	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/piprate/json-gold/ld"
+	"github.com/stretchr/testify/require"
+
+	"github.com/trustbloc/vcs/pkg/doc/vc"
+	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
+	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
+	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/kms/signer"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+)
+
+const (
+	statusBytePositionIndex = 1
+	cslDefaultVersion       = 1
+	profileID               = "testProfileID"
+	listUUID                = "d715ce6b-0df5-4fe8-ab19-be9bc6dada9c"
+	cslURL                  = "https://localhost:8080/issuer/profiles/externalID/credentials/status/" + listUUID
+	cslWrapperBytes         = `{
+  "vc": {
+    "@context": [
+      "https://www.w3.org/2018/credentials/v1",
+      "https://w3id.org/vc/status-list/2021/v1"
+    ],
+    "credentialSubject": {
+      "encodedList": "H4sIAAAAAAAA_-zAgQAAAACAoP2pF6kAAAAAAAAAAAAAAAAAAACgOgAA__-N53xXgD4AAA",
+      "id": "` + cslURL + `#list",
+      "statusPurpose": "revocation",
+      "type": "StatusList2021"
+    },
+    "id": "` + cslURL + `",
+    "issuanceDate": "2023-03-22T11:34:05.091926539Z",
+    "issuer": "did:test:abc",
+    "type": [
+      "VerifiableCredential",
+      "StatusList2021Credential"
+    ]
+  },
+  "usedIndexes": [],
+  "version": 1
+}`
+)
+
+func TestService_HandleEvent(t *testing.T) {
+	profile := getTestProfile()
+	loader := testutil.DocumentLoader(t)
+	ctx := context.Background()
+	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+	mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+	crypto := vccrypto.New(
+		&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+
+	t.Run("OK", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		event := createStatusUpdatedEvent(
+			t, cslURL, profileID, statusBytePositionIndex, cslDefaultVersion+1, true)
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.HandleEvent(ctx, event)
+		require.NoError(t, err)
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion+1)
+		getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, true)
+	})
+
+	t.Run("OK invalid event type", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		event := createStatusUpdatedEvent(
+			t, cslURL, profileID, statusBytePositionIndex, cslDefaultVersion+1, true)
+
+		event.Type = spi.IssuerOIDCInteractionInitiated
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.HandleEvent(ctx, event)
+		require.NoError(t, err)
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+	})
+	t.Run("Error invalid event payload", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		event := createStatusUpdatedEvent(
+			t, cslURL, profileID, statusBytePositionIndex, cslDefaultVersion+1, true)
+
+		event.Data = []byte(`   123`)
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.HandleEvent(ctx, event)
+		require.Error(t, err)
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+	})
+}
+
+func TestService_handleEventPayload(t *testing.T) {
+	profile := getTestProfile()
+	loader := testutil.DocumentLoader(t)
+	ctx := context.Background()
+	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+	mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+	crypto := vccrypto.New(
+		&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+
+	t.Run("OK", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     statusBytePositionIndex,
+			Status:    true,
+			Version:   cslDefaultVersion + 1,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.NoError(t, err)
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion+1)
+		getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, true)
+	})
+
+	t.Run("Error getCSLWrapper", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     statusBytePositionIndex,
+			Status:    true,
+			Version:   cslDefaultVersion + 1,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "get CSL wrapper failed")
+	})
+
+	t.Run("Error invalid payload version", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     statusBytePositionIndex,
+			Status:    true,
+			Version:   cslDefaultVersion,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "invalid payload version")
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+	})
+
+	t.Run("Error bitstring.DecodeBits", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		cslWrapper.VC.Subject.([]verifiable.Subject)[0].CustomFields["encodedList"] = "  123"
+		cslBytes, err := cslWrapper.VC.MarshalJSON()
+		require.NoError(t, err)
+
+		cslWrapper.VCByte = cslBytes
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     statusBytePositionIndex,
+			Status:    true,
+			Version:   cslDefaultVersion + 1,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "get encodedList from CSL customFields failed")
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+	})
+
+	t.Run("Error bitString.Set failed", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     -1,
+			Status:    true,
+			Version:   cslDefaultVersion + 1,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "bitString.Set failed")
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+	})
+
+	t.Run("Error failed to sign CSL", func(t *testing.T) {
+		mockProfileSrvErr := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     statusBytePositionIndex,
+			Status:    true,
+			Version:   cslDefaultVersion + 1,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrvErr,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to sign CSL")
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+	})
+
+	t.Run("Error cslStore.Upsert failed", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
+			CSLURL:    cslURL,
+			ProfileID: profileID,
+			Index:     statusBytePositionIndex,
+			Status:    true,
+			Version:   cslDefaultVersion + 1,
+		}
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		cslStore.createErr = errors.New("some error")
+
+		err = s.handleEventPayload(ctx, eventPayload)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "cslStore.Upsert failed")
+
+		cslWrapper, err = cslStore.Get(ctx, cslURL)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+	})
+}
+
+func TestService_signCSL(t *testing.T) {
+	profile := getTestProfile()
+	loader := testutil.DocumentLoader(t)
+	ctx := context.Background()
+	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+	mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+	crypto := vccrypto.New(
+		&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
+
+	t.Run("OK", func(t *testing.T) {
+		cslStore := newMockCSLStore()
+
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		err = cslStore.Upsert(ctx, cslWrapper)
+		require.NoError(t, err)
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         crypto,
+		})
+
+		signedCSL, err := s.signCSL(profileID, cslWrapper.VC)
+		require.NoError(t, err)
+		require.NotEmpty(t, signedCSL)
+		cslWrapper.VC = getVerifiedCSL(t, signedCSL, loader, statusBytePositionIndex, false)
+		require.NotEmpty(t, cslWrapper.VC.Proofs)
+	})
+
+	t.Run("Error failed to get profile", func(t *testing.T) {
+		mockProfileSrvErr := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+		s := New(&Config{
+			ProfileService: mockProfileSrvErr,
+		})
+
+		signedCSL, err := s.signCSL(profileID, nil)
+		require.Empty(t, signedCSL)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to get profile")
+	})
+
+	t.Run("Error failed to get KMS", func(t *testing.T) {
+		mockKMSRegistryErr := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistryErr.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+		s := New(&Config{
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistryErr,
+		})
+
+		signedCSL, err := s.signCSL(profileID, nil)
+		require.Empty(t, signedCSL)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "failed to get KMS")
+	})
+
+	t.Run("Error prepareSigningOpts failed", func(t *testing.T) {
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+		cslWrapper.VC.Proofs = []verifiable.Proof{
+			{
+				"proofPurpose": 123,
+			},
+		}
+		s := New(&Config{
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+		})
+
+		signedCSL, err := s.signCSL(profileID, cslWrapper.VC)
+		require.Empty(t, signedCSL)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "prepareSigningOpts failed")
+	})
+
+	t.Run("Error sign CSL failed", func(t *testing.T) {
+		cryptoErr := vccrypto.New(
+			&vdrmock.MockVDRegistry{ResolveErr: errors.New("some error")}, loader)
+		var cslWrapper *credentialstatus.CSLWrapper
+		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
+		require.NoError(t, err)
+		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
+		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
+
+		s := New(&Config{
+			DocumentLoader: loader,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			Crypto:         cryptoErr,
+		})
+
+		signedCSL, err := s.signCSL(profileID, cslWrapper.VC)
+		require.Empty(t, signedCSL)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "sign CSL failed")
+	})
+}
+
+func TestPrepareSigningOpts(t *testing.T) {
+	t.Parallel()
+
+	t.Run("prepare signing opts", func(t *testing.T) {
+		profile := &vc.Signer{
+			Creator: "did:creator#key-1",
+		}
+
+		tests := []struct {
+			name   string
+			proof  string
+			result int
+			count  int
+			err    string
+		}{
+			{
+				name: "prepare proofvalue signing opts",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"proofPurpose": "assertionMethod",
+       				"proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:trustbloc:testnet.trustbloc.local#key-1"
+   				}`,
+			},
+			{
+				name: "prepare jws signing opts",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"proofPurpose": "assertionMethod",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:creator#key-1"
+   				}`,
+				count: 3,
+			},
+			{
+				name: "prepare signing opts from proof with 3 required properties",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
+			},
+			{
+				name: "prepare signing opts from proof with 2 required properties",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
+			},
+			{
+				name: "prepare signing opts from proof with 1 required property",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ"
+   				}`,
+			},
+			{
+				name: "prepare jws signing opts - invalid purpose",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"proofPurpose": {},
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": "Ed25519Signature2018",
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
+				err: "invalid 'proofPurpose' type",
+			},
+			{
+				name: "prepare jws signing opts - invalid signature type",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": {},
+       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
+   				}`,
+				err: "invalid 'type' type",
+			},
+			{
+				name: "prepare jws signing opts - invalid signature type",
+				proof: `{
+       				"created": "2020-04-17T04:17:48Z",
+       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
+       				"type": {},
+       				"verificationMethod": {}
+   				}`,
+				err: "invalid 'verificationMethod' type",
+			},
+		}
+
+		t.Parallel()
+
+		for _, test := range tests {
+			tc := test
+			t.Run(tc.name, func(t *testing.T) {
+				var proof map[string]interface{}
+				err := json.Unmarshal([]byte(tc.proof), &proof)
+				require.NoError(t, err)
+
+				opts, err := prepareSigningOpts(profile, []verifiable.Proof{proof})
+
+				if tc.err != "" {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tc.err)
+					return
+				}
+
+				if tc.count > 0 {
+					require.Len(t, opts, tc.count)
+				}
+
+				require.NoError(t, err)
+				require.NotEmpty(t, opts)
+			})
+		}
+	})
+}
+
+func checkCSLWrapper(
+	t *testing.T, cslWrapper *credentialstatus.CSLWrapper, expectedVersion int) {
+	t.Helper()
+	require.Equal(t, expectedVersion, cslWrapper.Version)
+	require.Empty(t, cslWrapper.UsedIndexes)
+}
+
+//nolint:unparam
+func getVerifiedCSL(
+	t *testing.T, cslBytes []byte, dl ld.DocumentLoader, index int, expectedStatus bool) *verifiable.Credential {
+	t.Helper()
+	csl, err := verifiable.ParseCredential(cslBytes,
+		verifiable.WithDisabledProofCheck(),
+		verifiable.WithJSONLDDocumentLoader(dl))
+	require.NoError(t, err)
+
+	credSubject, ok := csl.Subject.([]verifiable.Subject)
+	require.True(t, ok)
+	require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+	bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+	require.NoError(t, err)
+	bitSet, err := bitString.Get(index)
+	require.NoError(t, err)
+	require.Equal(t, expectedStatus, bitSet)
+
+	return csl
+}
+
+func createStatusUpdatedEvent(t *testing.T, cslURL, profileID string, index, version int, status bool) *spi.Event {
+	t.Helper()
+
+	ep := credentialstatus.UpdateCredentialStatusEventPayload{
+		CSLURL:    cslURL,
+		ProfileID: profileID,
+		Index:     index,
+		Status:    status,
+		Version:   version,
+	}
+
+	payload, err := json.Marshal(ep)
+	require.NoError(t, err)
+
+	return spi.NewEventWithPayload(
+		cslURL,
+		"test_source",
+		spi.CredentialStatusStatusUpdated,
+		payload)
+}
+
+type mockCSLStore struct {
+	createErr             error
+	getCSLErr             error
+	findErr               error
+	getLatestListIDErr    error
+	createLatestListIDErr error
+	updateLatestListIDErr error
+	latestListID          credentialstatus.ListID
+	s                     map[string]credentialstatus.CSLWrapper
+}
+
+func (m *mockCSLStore) GetCSLURL(issuerURL, issuerID string, listID credentialstatus.ListID) (string, error) {
+	if m.getCSLErr != nil {
+		return "", m.getCSLErr
+	}
+
+	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
+}
+
+func newMockCSLStore() *mockCSLStore {
+	return &mockCSLStore{
+		latestListID: "",
+		s:            map[string]credentialstatus.CSLWrapper{},
+	}
+}
+
+func (m *mockCSLStore) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+
+	m.s[cslWrapper.VC.ID] = *cslWrapper
+
+	return nil
+}
+
+func (m *mockCSLStore) Get(ctx context.Context, id string) (*credentialstatus.CSLWrapper, error) {
+	if m.findErr != nil {
+		return nil, m.findErr
+	}
+
+	w, ok := m.s[id]
+	if !ok {
+		return nil, credentialstatus.ErrDataNotFound
+	}
+
+	return &w, nil
+}
+func (m *mockCSLStore) createLatestListID() error {
+	if m.createLatestListIDErr != nil {
+		return m.createLatestListIDErr
+	}
+
+	m.latestListID = credentialstatus.ListID(uuid.NewString())
+
+	return nil
+}
+
+func (m *mockCSLStore) UpdateLatestListID(ctx context.Context) error {
+	if m.updateLatestListIDErr != nil {
+		return m.updateLatestListIDErr
+	}
+	return m.createLatestListID()
+}
+
+func (m *mockCSLStore) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
+	if m.getLatestListIDErr != nil {
+		return "", m.getLatestListIDErr
+	}
+
+	if m.latestListID == "" {
+		err := m.createLatestListID()
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return m.latestListID, nil
+}
+
+func getTestProfile() *profileapi.Issuer {
+	return &profileapi.Issuer{
+		ID:      profileID,
+		Name:    "testprofile",
+		GroupID: "externalID",
+		VCConfig: &profileapi.VCConfig{
+			Format:           vcsverifiable.Ldp,
+			SigningAlgorithm: "Ed25519Signature2018",
+			Status: profileapi.StatusConfig{
+				Type: vc.StatusList2021VCStatus,
+			},
+		},
+		SigningDID: &profileapi.SigningDID{
+			DID:     "did:test:abc",
+			Creator: "did:test:abc#key1",
+		},
+	}
+}
+
+func createDIDDoc(didID string) *did.Doc {
+	const (
+		didContext = "https://w3id.org/did/v1"
+		keyType    = "Ed25519VerificationKey2018"
+	)
+
+	pubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	creator := didID + "#key1"
+
+	service := did.Service{
+		ID:            "did:example:123456789abcdefghi#did-communication",
+		RecipientKeys: []string{creator},
+		Priority:      0,
+	}
+
+	signingKey := did.VerificationMethod{
+		ID:         creator,
+		Type:       keyType,
+		Controller: didID,
+		Value:      pubKey,
+	}
+
+	createdTime := time.Now()
+
+	return &did.Doc{
+		Context:              []string{didContext},
+		ID:                   didID,
+		VerificationMethod:   []did.VerificationMethod{signingKey},
+		Service:              []did.Service{service},
+		Created:              &createdTime,
+		AssertionMethod:      []did.Verification{{VerificationMethod: signingKey}},
+		Authentication:       []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityInvocation: []did.Verification{{VerificationMethod: signingKey}},
+		CapabilityDelegation: []did.Verification{{VerificationMethod: signingKey}},
+	}
+}
+
+type mockKMS struct {
+	crypto ariescrypto.Crypto
+}
+
+func (m *mockKMS) NewVCSigner(creator string, signatureType vcsverifiable.SignatureType) (vc.SignerAlgorithm, error) {
+	if m.crypto == nil {
+		m.crypto = &cryptomock.Crypto{}
+	}
+
+	return signer.NewKMSSigner(&mockkms.KeyManager{}, m.crypto, creator, signatureType, nil)
+}
+
+func (m *mockKMS) SupportedKeyTypes() []kms.KeyType {
+	return nil
+}
+
+func (m *mockKMS) CreateJWKKey(keyType kms.KeyType) (string, *jwk.JWK, error) {
+	return "", nil, nil
+}
+
+func (m *mockKMS) CreateCryptoKey(keyType kms.KeyType) (string, interface{}, error) {
+	return "", nil, nil
+}

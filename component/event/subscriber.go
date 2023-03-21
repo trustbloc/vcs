@@ -18,7 +18,8 @@ import (
 )
 
 type (
-	eventHandler func(event *spi.Event) error
+	eventHandler            func(event *spi.Event) error
+	eventHandlerWithContext func(ctx context.Context, event *spi.Event) error
 )
 
 type eventSubscriber interface {
