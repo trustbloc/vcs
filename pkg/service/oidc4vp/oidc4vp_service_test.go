@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp_test
 
 import (
-	context2 "context"
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/verifier"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
-	"github.com/hyperledger/aries-framework-go/pkg/framework/context"
+	ariescontext "github.com/hyperledger/aries-framework-go/pkg/framework/context"
 	"github.com/hyperledger/aries-framework-go/pkg/vdr/fingerprint"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -75,7 +75,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	}, "nonce1", nil)
 	requestObjectPublicStore := NewMockRequestObjectPublicStore(gomock.NewController(t))
 	requestObjectPublicStore.EXPECT().Publish(gomock.Any(), gomock.Any(), gomock.Any()).
-		AnyTimes().DoAndReturn(func(ctx context2.Context, token string, event *spi.Event) (string, error) {
+		AnyTimes().DoAndReturn(func(ctx context.Context, token string, event *spi.Event) (string, error) {
 		return "someurl/abc", nil
 	})
 
@@ -109,7 +109,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 	}
 
 	t.Run("Success", func(t *testing.T) {
-		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{
+		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{
 			ID: "test",
 		}, "test", correctProfile)
 
@@ -122,7 +122,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.SigningDID = nil
 
-		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
+		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -142,7 +142,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		})
 
 		info, err := withError.InitiateOidcInteraction(
-			context2.TODO(),
+			context.TODO(),
 			&presexch.PresentationDefinition{},
 			"test",
 			correctProfile,
@@ -167,7 +167,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		})
 
 		info, err := withError.InitiateOidcInteraction(
-			context2.TODO(),
+			context.TODO(),
 			&presexch.PresentationDefinition{},
 			"test",
 			correctProfile,
@@ -191,7 +191,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		})
 
 		info, err := withError.InitiateOidcInteraction(
-			context2.TODO(),
+			context.TODO(),
 			&presexch.PresentationDefinition{},
 			"test",
 			correctProfile,
@@ -206,7 +206,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.SigningDID.KMSKeyID = "invalid"
 
-		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
+		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -217,7 +217,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		require.NoError(t, copier.Copy(incorrectProfile, correctProfile))
 		incorrectProfile.OIDCConfig.KeyType = "invalid"
 
-		info, err := s.InitiateOidcInteraction(context2.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
+		info, err := s.InitiateOidcInteraction(context.TODO(), &presexch.PresentationDefinition{}, "test", incorrectProfile)
 
 		require.Error(t, err)
 		require.Nil(t, info)
@@ -260,11 +260,11 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		},
 	}, nil)
 
-	presentationVerifier.EXPECT().VerifyPresentation(context2.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
+	presentationVerifier.EXPECT().VerifyPresentation(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().Return(nil, nil)
 
 	t.Run("Success", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID1",
+		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -341,7 +341,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		txManager2.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
 
-		err = s2.VerifyOIDCVerifiablePresentation("txID1",
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{
 				{
 					Nonce:        "nonce1",
@@ -428,7 +428,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		vp1.ID = ""
 		vp2.ID = ""
 
-		err = s2.VerifyOIDCVerifiablePresentation("txID1",
+		err = s2.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{
 				{
 					Nonce:        "nonce1",
@@ -447,7 +447,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Must have at least one token", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID1",
+		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{})
 
 		require.Error(t, err)
@@ -455,7 +455,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("VC subject is not much with vp signer", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID1",
+		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -479,7 +479,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -490,7 +490,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Invalid Nonce 2", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID2",
+		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID2",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -514,7 +514,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			DocumentLoader:       loader,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -527,7 +527,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	t.Run("verification failed", func(t *testing.T) {
 		errPresentationVerifier := NewMockPresentationVerifier(gomock.NewController(t))
 		errPresentationVerifier.EXPECT().VerifyPresentation(
-			context2.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
+			context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1).
 			Return(nil, errors.New("verification failed"))
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:             &mockEvent{},
@@ -539,7 +539,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PublicKeyFetcher:     pubKeyFetcher,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -550,7 +550,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 	})
 
 	t.Run("Match failed", func(t *testing.T) {
-		err := s.VerifyOIDCVerifiablePresentation("txID1",
+		err := s.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: &verifiable.Presentation{},
@@ -579,7 +579,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 			PublicKeyFetcher:     pubKeyFetcher,
 		})
 
-		err := withError.VerifyOIDCVerifiablePresentation("txID1",
+		err := withError.VerifyOIDCVerifiablePresentation(context.Background(), "txID1",
 			[]*oidc4vp.ProcessedVPToken{{
 				Nonce:        "nonce1",
 				Presentation: vp,
@@ -601,7 +601,7 @@ func TestService_GetTx(t *testing.T) {
 	})
 
 	t.Run("Success", func(t *testing.T) {
-		tx, err := svc.GetTx("test")
+		tx, err := svc.GetTx(context.Background(), "test")
 		require.NoError(t, err)
 		require.NotNil(t, tx)
 		require.Equal(t, "testP1", tx.ProfileID)
@@ -619,7 +619,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 		require.NoError(t, err)
 
-		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
 				"id": jwtvc,
 			}}})
@@ -642,7 +642,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 
 		require.NoError(t, err)
 
-		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
 				"id": ldvc,
 			}}})
@@ -664,7 +664,7 @@ func TestService_RetrieveClaims(t *testing.T) {
 			SDJWTHashAlg: "sha-256",
 		}
 
-		claims := svc.RetrieveClaims(&oidc4vp.Transaction{
+		claims := svc.RetrieveClaims(context.Background(), &oidc4vp.Transaction{
 			ReceivedClaims: &oidc4vp.ReceivedClaims{Credentials: map[string]*verifiable.Credential{
 				"id": credential,
 			}}})
@@ -709,7 +709,7 @@ type mockEvent struct {
 	err error
 }
 
-func (m *mockEvent) Publish(ctx context2.Context, topic string, messages ...*spi.Event) error {
+func (m *mockEvent) Publish(ctx context.Context, topic string, messages ...*spi.Event) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -717,7 +717,7 @@ func (m *mockEvent) Publish(ctx context2.Context, topic string, messages ...*spi
 	return nil
 }
 
-func newVPWithPD(t *testing.T, agent *context.Provider) (
+func newVPWithPD(t *testing.T, agent *ariescontext.Provider) (
 	*verifiable.Presentation, *presexch.PresentationDefinition, string, verifiable.PublicKeyFetcher, *ld.DocumentLoader) {
 	uri := randomURI()
 
@@ -746,7 +746,7 @@ func newVPWithPD(t *testing.T, agent *context.Provider) (
 	), defs, issuer, pubKeyFetcher, docLoader
 }
 
-func newVPWithPS(t *testing.T, agent *context.Provider, ps *presexch.PresentationSubmission, value string) (
+func newVPWithPS(t *testing.T, agent *ariescontext.Provider, ps *presexch.PresentationSubmission, value string) (
 	*verifiable.Presentation, string, verifiable.PublicKeyFetcher) {
 	expected, issuer, pubKeyFetcher := newSignedJWTVC(t, agent, nil, "degree", value)
 
@@ -819,7 +819,7 @@ func newDegreeVC(issuer string, degreeType string, ctx []string) *verifiable.Cre
 }
 
 func newSignedJWTVC(t *testing.T,
-	agent *context.Provider, ctx []string,
+	agent *ariescontext.Provider, ctx []string,
 	vcType string, value string) (*verifiable.Credential, string, verifiable.PublicKeyFetcher) {
 	t.Helper()
 
@@ -891,7 +891,7 @@ func createTestDocumentLoader(t *testing.T, contextURL string, types ...string) 
 	return loader
 }
 
-func newAgent(t *testing.T) *context.Provider {
+func newAgent(t *testing.T) *ariescontext.Provider {
 	t.Helper()
 
 	a, err := aries.New(aries.WithStoreProvider(mem.NewProvider()))

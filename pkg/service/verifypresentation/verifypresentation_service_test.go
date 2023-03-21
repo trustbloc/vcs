@@ -99,6 +99,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
+						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					mockVerifier.EXPECT().ValidateVCStatus(
 						context.Background(),
@@ -252,6 +253,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				getVcVerifier: func() vcVerifier {
 					mockVerifier := NewMockVcVerifier(gomock.NewController(t))
 					mockVerifier.EXPECT().ValidateCredentialProof(
+						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
@@ -666,6 +668,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
+						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
@@ -690,6 +693,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 						gomock.Any(),
 						gomock.Any(),
 						gomock.Any(),
+						gomock.Any(),
 						gomock.Any()).Times(1).Return(errors.New("some error"))
 					return mockVerifier
 				},
@@ -709,7 +713,7 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			if err := s.validateCredentialsProof(tt.args.getVp()); (err != nil) != tt.wantErr {
+			if err := s.validateCredentialsProof(context.Background(), tt.args.getVp()); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

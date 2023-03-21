@@ -27,7 +27,7 @@ import (
 )
 
 type vcVerifier interface {
-	ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error
+	ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error //nolint:lll
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
 }
 
@@ -41,17 +41,6 @@ type Service struct {
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
 	vcVerifier     vcVerifier
-}
-
-type Options struct {
-	Domain    string
-	Challenge string
-}
-
-// PresentationVerificationCheckResult resp containing failure check details.
-type PresentationVerificationCheckResult struct {
-	Check string
-	Error string
 }
 
 func New(config *Config) *Service {
@@ -101,7 +90,7 @@ func (s *Service) VerifyPresentation(
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
-		err := s.validateCredentialsProof(presentation)
+		err := s.validateCredentialsProof(ctx, presentation)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -191,14 +180,14 @@ func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) 
 	return nil
 }
 
-func (s *Service) validateCredentialsProof(vp *verifiable.Presentation) error {
+func (s *Service) validateCredentialsProof(ctx context.Context, vp *verifiable.Presentation) error {
 	for _, cred := range vp.Credentials() {
 		vcBytes, err := json.Marshal(cred)
 		if err != nil {
 			return err
 		}
 
-		err = s.vcVerifier.ValidateCredentialProof(vcBytes, "", "", true, vp.JWT != "")
+		err = s.vcVerifier.ValidateCredentialProof(ctx, vcBytes, "", "", true, vp.JWT != "")
 		if err != nil {
 			return err
 		}

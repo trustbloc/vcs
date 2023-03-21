@@ -19,23 +19,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
-
-	"github.com/trustbloc/vcs/pkg/kms/mocks"
-	profileapi "github.com/trustbloc/vcs/pkg/profile"
-	"github.com/trustbloc/vcs/pkg/restapi/resterr"
-
-	"github.com/golang/mock/gomock"
 	vdrmock "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/kms/mocks"
+	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -120,7 +119,7 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 	mockVerifyCredentialSvc := NewMockVerifyCredentialService(gomock.NewController(t))
 
 	mockVerifyCredentialSvc.EXPECT().
-		VerifyCredential(context.Background(), gomock.Any(), gomock.Any(), gomock.Any()).
+		VerifyCredential(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return([]verifycredential.CredentialsVerificationCheckResult{{}}, nil)
 
@@ -136,6 +135,7 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 		ProfileSvc:          mockProfileSvc,
 		DocumentLoader:      testutil.DocumentLoader(t),
 		VDR:                 &vdrmock.MockVDRegistry{},
+		Tracer:              trace.NewNoopTracerProvider().Tracer(""),
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -191,7 +191,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		rsp, err := controller.verifyCredential(c, &body, "testId")
+		rsp, err := controller.verifyCredential(c.Request().Context(), &body, "testId", tenantID)
 		require.NoError(t, err)
 		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
@@ -203,7 +203,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
-		rsp, err := controller.verifyCredential(c, &body, "testId")
+		rsp, err := controller.verifyCredential(c.Request().Context(), &body, "testId", tenantID)
 
 		require.NoError(t, err)
 		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
@@ -216,20 +216,6 @@ func TestController_VerifyCredentials(t *testing.T) {
 			getProfileSvc          func() profileService
 			getVerifyCredentialSvc func() verifyCredentialSvc
 		}{
-			{
-				name: "Missing authorization",
-				getCtx: func() echo.Context {
-					ctx := createContextWithBody([]byte(sampleVCJsonLD))
-					ctx.Request().Header.Set(tenantIDHeader, "")
-					return ctx
-				},
-				getProfileSvc: func() profileService {
-					return nil
-				},
-				getVerifyCredentialSvc: func() verifyCredentialSvc {
-					return nil
-				},
-			},
 			{
 				name: "Profile service error",
 				getCtx: func() echo.Context {
@@ -287,10 +273,10 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 				var body VerifyCredentialData
 
-				ctx := testCase.getCtx()
-				err := util.ReadBody(ctx, &body)
+				e := testCase.getCtx()
+				err := util.ReadBody(e, &body)
 				require.NoError(t, err)
-				rsp, err := failedController.verifyCredential(ctx, &body, "testId")
+				rsp, err := failedController.verifyCredential(e.Request().Context(), &body, "testId", tenantID)
 				require.Error(t, err)
 				require.Nil(t, rsp)
 			})
@@ -303,7 +289,7 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 	mockVerifyPresSvc := NewMockverifyPresentationSvc(gomock.NewController(t))
 
 	mockVerifyPresSvc.EXPECT().
-		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).
+		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return([]verifypresentation.PresentationVerificationCheckResult{{}}, nil)
 
@@ -319,6 +305,7 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 		ProfileSvc:            mockProfileSvc,
 		DocumentLoader:        testutil.DocumentLoader(t),
 		VDR:                   &vdrmock.MockVDRegistry{},
+		Tracer:                trace.NewNoopTracerProvider().Tracer(""),
 	})
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
@@ -348,7 +335,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 	mockVerifyPresentationSvc := NewMockverifyPresentationSvc(gomock.NewController(t))
 
 	mockVerifyPresentationSvc.EXPECT().
-		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).
+		VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		AnyTimes().
 		Return(verificationResult, nil)
 
@@ -374,7 +361,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		rsp, err := controller.verifyPresentation(c, &body, "testId")
+		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, "testId", tenantID)
 		require.NoError(t, err)
 		require.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
 	})
@@ -387,7 +374,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		rsp, err := controller.verifyPresentation(c, &body, "testId")
+		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, "testId", tenantID)
 		require.NoError(t, err)
 		require.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
 	})
@@ -399,20 +386,6 @@ func TestController_VerifyPresentation(t *testing.T) {
 			getProfileSvc            func() profileService
 			getVerifyPresentationSvc func() verifyPresentationSvc
 		}{
-			{
-				name: "Missing authorization",
-				getCtx: func() echo.Context {
-					ctx := createContextWithBody([]byte(sampleVPJsonLD))
-					ctx.Request().Header.Set(tenantIDHeader, "")
-					return ctx
-				},
-				getProfileSvc: func() profileService {
-					return nil
-				},
-				getVerifyPresentationSvc: func() verifyPresentationSvc {
-					return nil
-				},
-			},
 			{
 				name: "Profile service error",
 				getCtx: func() echo.Context {
@@ -451,7 +424,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 				getVerifyPresentationSvc: func() verifyPresentationSvc {
 					failedMockVerifyPresSvc := NewMockverifyPresentationSvc(gomock.NewController(t))
 					failedMockVerifyPresSvc.EXPECT().
-						VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any()).
+						VerifyPresentation(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 						AnyTimes().
 						Return(nil, errors.New("some error"))
 					return failedMockVerifyPresSvc
@@ -470,10 +443,10 @@ func TestController_VerifyPresentation(t *testing.T) {
 
 				var body VerifyPresentationData
 
-				ctx := testCase.getCtx()
-				err := util.ReadBody(ctx, &body)
+				e := testCase.getCtx()
+				err := util.ReadBody(e, &body)
 				require.NoError(t, err)
-				rsp, err := failedController.verifyPresentation(ctx, &body, "testId")
+				rsp, err := failedController.verifyPresentation(e.Request().Context(), &body, "testId", tenantID)
 				require.Error(t, err)
 				require.Nil(t, rsp)
 			})
@@ -502,7 +475,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 	})
 
 	oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-	oidc4VPService.EXPECT().VerifyOIDCVerifiablePresentation(oidc4vp.TxID("txid"), gomock.Any()).
+	oidc4VPService.EXPECT().VerifyOIDCVerifiablePresentation(gomock.Any(), oidc4vp.TxID("txid"), gomock.Any()).
 		AnyTimes().Return(nil)
 
 	t.Run("Success", func(t *testing.T) {
@@ -538,6 +511,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			JWTVerifier:    sVerifier,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -604,6 +578,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -634,6 +609,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -664,6 +640,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -697,6 +674,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -727,6 +705,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -760,6 +739,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err = c.CheckAuthorizationResponse(ctx)
@@ -789,6 +769,7 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 		c := NewController(&Config{
 			OIDCVPService: oidc4VPService,
 			JWTVerifier:   sVerifier,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.CheckAuthorizationResponse(ctx)
@@ -800,14 +781,14 @@ func TestController_CheckAuthorizationResponse(t *testing.T) {
 func TestController_RetrieveInteractionsClaim(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID:        "p1",
 			ReceivedClaimsID: "claims-id",
 			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
 		}, nil)
 
-		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{})
+		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
@@ -822,6 +803,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -830,7 +812,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 	t.Run("Error - claims expired", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID:        "p1",
 			ReceivedClaimsID: "claims-id",
@@ -849,6 +831,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -858,7 +841,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 	t.Run("Error - claims were never received", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID: "p1",
 		}, nil)
@@ -876,6 +859,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -885,7 +869,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 	t.Run("Tx not found", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(nil, oidc4vp.ErrDataNotFound)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -894,6 +878,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -902,7 +887,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 	t.Run("Get Tx system error", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(nil, errors.New("system error"))
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
@@ -911,6 +896,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -919,7 +905,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 	t.Run("GetProfile failed", func(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
-		oidc4VPService.EXPECT().GetTx(oidc4vp.TxID("txid")).
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID: "p1",
 		}, nil)
@@ -933,6 +919,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 			OIDCVPService:  oidc4VPService,
 			ProfileSvc:     mockProfileSvc,
 			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 		})
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
@@ -1313,7 +1300,8 @@ func TestController_AuthFailed(t *testing.T) {
 	t.Run("No token", func(t *testing.T) {
 		c := createContext("")
 
-		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry,
+			Tracer: trace.NewNoopTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, "testId")
 		requireAuthError(t, err)
@@ -1325,7 +1313,8 @@ func TestController_AuthFailed(t *testing.T) {
 	t.Run("Invlaid org id", func(t *testing.T) {
 		c := createContext("orgID2")
 
-		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry})
+		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry,
+			Tracer: trace.NewNoopTracerProvider().Tracer("")})
 
 		err := controller.InitiateOidcInteraction(c, "testId")
 		requireValidationError(t, resterr.DoesntExist, "organizationID", err)
@@ -1360,6 +1349,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			ProfileSvc:    mockProfileSvc,
 			KMSRegistry:   kmsRegistry,
 			OIDCVPService: oidc4VPSvc,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, "testId")
@@ -1373,6 +1363,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			ProfileSvc:    mockProfileSvc,
 			KMSRegistry:   kmsRegistry,
 			OIDCVPService: oidc4VPSvc,
+			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 		c := createContext(tenantID)
 		err := controller.InitiateOidcInteraction(c, "testId")

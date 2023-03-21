@@ -14,11 +14,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
-
 	"github.com/golang/mock/gomock"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
+
+	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4vp"
 )
 
 func TestController_OidcPresent(t *testing.T) {
@@ -55,7 +56,10 @@ func TestController_OidcPresent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setup()
 
-			controller := oidc4vp.NewController(&oidc4vp.Config{DefaultHTTPClient: mockHTTPClient})
+			controller := oidc4vp.NewController(&oidc4vp.Config{
+				DefaultHTTPClient: mockHTTPClient,
+				Tracer:            trace.NewNoopTracerProvider().Tracer(""),
+			})
 
 			req := httptest.NewRequest(http.MethodGet, "/", http.NoBody)
 			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)

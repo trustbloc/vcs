@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
+////go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
 //go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService,kmsRegistry=MockKMSRegistry,oidc4VPService=MockOIDC4VPService
 
 package verifier
@@ -26,12 +26,15 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vp"
 	"github.com/trustbloc/vcs/pkg/kms"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
+	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/util"
@@ -88,28 +91,15 @@ type profileService interface {
 }
 
 type verifyCredentialSvc interface {
-	VerifyCredential(ctx context.Context, credential *verifiable.Credential, opts *verifycredential.Options,
-		profile *profileapi.Verifier) ([]verifycredential.CredentialsVerificationCheckResult, error)
+	verifycredential.ServiceInterface
 }
 
 type verifyPresentationSvc interface {
-	VerifyPresentation(presentation *verifiable.Presentation, opts *verifypresentation.Options,
-		profile *profileapi.Verifier) ([]verifypresentation.PresentationVerificationCheckResult, error)
+	verifypresentation.ServiceInterface
 }
 
 type oidc4VPService interface {
-	InitiateOidcInteraction(
-		ctx context.Context,
-		presentationDefinition *presexch.PresentationDefinition,
-		purpose string,
-		profile *profileapi.Verifier,
-	) (*oidc4vp.InteractionInfo, error)
-
-	VerifyOIDCVerifiablePresentation(txID oidc4vp.TxID, token []*oidc4vp.ProcessedVPToken) error
-
-	GetTx(id oidc4vp.TxID) (*oidc4vp.Transaction, error)
-
-	RetrieveClaims(tx *oidc4vp.Transaction) map[string]oidc4vp.CredentialMetadata
+	oidc4vp.ServiceInterface
 }
 
 type Config struct {
@@ -122,6 +112,7 @@ type Config struct {
 	OIDCVPService         oidc4VPService
 	JWTVerifier           jose.SignatureVerifier
 	Metrics               metricsProvider
+	Tracer                trace.Tracer
 }
 
 type metricsProvider interface {
@@ -139,6 +130,7 @@ type Controller struct {
 	oidc4VPService        oidc4VPService
 	jwtVerifier           jose.SignatureVerifier
 	metrics               metricsProvider
+	tracer                trace.Tracer
 }
 
 // NewController creates a new controller for Verifier Profile Management API.
@@ -164,29 +156,45 @@ func NewController(config *Config) *Controller {
 		oidc4VPService:        config.OIDCVPService,
 		jwtVerifier:           config.JWTVerifier,
 		metrics:               metrics,
+		tracer:                config.Tracer,
 	}
 }
 
 // PostVerifyCredentials Verify credential
 // (POST /verifier/profiles/{profileID}/credentials/verify).
-func (c *Controller) PostVerifyCredentials(ctx echo.Context, profileID string) error {
+func (c *Controller) PostVerifyCredentials(e echo.Context, profileID string) error {
 	logger.Debug("PostVerifyCredentials begin")
+
+	ctx, span := c.tracer.Start(e.Request().Context(), "PostVerifyCredentials")
+	defer span.End()
+
 	var body VerifyCredentialData
 
-	if err := util.ReadBody(ctx, &body); err != nil {
+	if err := util.ReadBody(e, &body); err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.verifyCredential(ctx, &body, profileID))
-}
+	span.SetAttributes(attributeutil.JSON("verify_credential_request", body))
 
-func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialData, //nolint:dupl
-	profileID string) (*VerifyCredentialResponse, error) {
-	tenantID, err := util.GetTenantIDFromRequest(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	resp, err := c.verifyCredential(ctx, &body, profileID, tenantID)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(resp, nil)
+}
+
+func (c *Controller) verifyCredential(
+	ctx context.Context,
+	body *VerifyCredentialData,
+	profileID string,
+	tenantID string,
+) (*VerifyCredentialResponse, error) {
 	profile, err := c.accessProfile(profileID, tenantID)
 	if err != nil {
 		return nil, err
@@ -208,8 +216,8 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential", err)
 	}
 
-	verRes, err := c.verifyCredentialSvc.VerifyCredential(
-		ctx.Request().Context(), credential, getVerifyCredentialOptions(body.Options), profile)
+	verRes, err := c.verifyCredentialSvc.VerifyCredential(ctx, credential,
+		getVerifyCredentialOptions(body.Options), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}
@@ -220,24 +228,35 @@ func (c *Controller) verifyCredential(ctx echo.Context, body *VerifyCredentialDa
 
 // PostVerifyPresentation Verify presentation.
 // (POST /verifier/profiles/{profileID}/presentations/verify).
-func (c *Controller) PostVerifyPresentation(ctx echo.Context, profileID string) error {
+func (c *Controller) PostVerifyPresentation(e echo.Context, profileID string) error {
 	logger.Debug("PostVerifyPresentation begin")
+
+	ctx, span := c.tracer.Start(e.Request().Context(), "PostVerifyPresentation")
+	defer span.End()
+
 	var body VerifyPresentationData
 
-	if err := util.ReadBody(ctx, &body); err != nil {
+	if err := util.ReadBody(e, &body); err != nil {
 		return err
 	}
 
-	return util.WriteOutput(ctx)(c.verifyPresentation(ctx, &body, profileID))
-}
+	span.SetAttributes(attributeutil.JSON("verify_presentation_request", body))
 
-func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentationData, //nolint:dupl
-	profileID string) (*VerifyPresentationResponse, error) {
-	tenantID, err := util.GetTenantIDFromRequest(ctx)
+	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
+	resp, err := c.verifyPresentation(ctx, &body, profileID, tenantID)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(resp, nil)
+}
+
+func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresentationData,
+	profileID, tenantID string) (*VerifyPresentationResponse, error) {
 	profile, err := c.accessProfile(profileID, tenantID)
 	if err != nil {
 		return nil, err
@@ -253,8 +272,8 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "presentation", err)
 	}
 
-	verRes, err := c.verifyPresentationSvc.VerifyPresentation(
-		presentation, getVerifyPresentationOptions(body.Options), profile)
+	verRes, err := c.verifyPresentationSvc.VerifyPresentation(ctx, presentation,
+		getVerifyPresentationOptions(body.Options), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError(verifyCredentialSvcComponent, "VerifyCredential", err)
 	}
@@ -263,10 +282,13 @@ func (c *Controller) verifyPresentation(ctx echo.Context, body *VerifyPresentati
 	return mapVerifyPresentationChecks(verRes), nil
 }
 
-func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string) error {
+func (c *Controller) InitiateOidcInteraction(e echo.Context, profileID string) error {
 	logger.Debug("InitiateOidcInteraction begin")
 
-	tenantID, err := util.GetTenantIDFromRequest(ctx)
+	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateOidcInteraction")
+	defer span.End()
+
+	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		return err
 	}
@@ -278,11 +300,18 @@ func (c *Controller) InitiateOidcInteraction(ctx echo.Context, profileID string)
 
 	var body InitiateOIDC4VPData
 
-	if err = ctx.Bind(&body); err != nil {
+	if err = e.Bind(&body); err != nil {
 		return resterr.NewValidationError(resterr.InvalidValue, "requestBody", err)
 	}
 
-	return util.WriteOutput(ctx)(c.initiateOidcInteraction(ctx.Request().Context(), &body, profile))
+	span.SetAttributes(attributeutil.JSON("initiate_oidc_request", body))
+
+	resp, err := c.initiateOidcInteraction(ctx, &body, profile)
+	if err != nil {
+		return err
+	}
+
+	return util.WriteOutput(e)(resp, nil)
 }
 
 func (c *Controller) initiateOidcInteraction(
@@ -319,16 +348,19 @@ func (c *Controller) initiateOidcInteraction(
 	}, err
 }
 
-func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
+func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 	logger.Debug("CheckAuthorizationResponse begin")
 	startTime := time.Now()
+
+	ctx, span := c.tracer.Start(e.Request().Context(), "CheckAuthorizationResponse")
+	defer span.End()
 
 	defer func() {
 		c.metrics.CheckAuthorizationResponseTime(time.Since(startTime))
 		logger.Debug("CheckAuthorizationResponse end", log.WithDuration(time.Since(startTime)))
 	}()
 
-	authResp, err := validateAuthorizationResponse(ctx)
+	authResp, err := validateAuthorizationResponse(e)
 	if err != nil {
 		return err
 	}
@@ -338,7 +370,7 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 		return err
 	}
 
-	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(oidc4vp.TxID(authResp.State), processedTokens)
+	err = c.oidc4VPService.VerifyOIDCVerifiablePresentation(ctx, oidc4vp.TxID(authResp.State), processedTokens)
 	if err != nil {
 		return err
 	}
@@ -348,15 +380,20 @@ func (c *Controller) CheckAuthorizationResponse(ctx echo.Context) error {
 	return nil
 }
 
-func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) error {
+func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) error {
 	logger.Debug("RetrieveInteractionsClaim begin")
 
-	tenantID, err := util.GetTenantIDFromRequest(ctx)
+	ctx, span := c.tracer.Start(e.Request().Context(), "RetrieveInteractionsClaim")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("tx_id", txID))
+
+	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
 		return err
 	}
 
-	tx, err := c.accessOIDC4VPTx(txID)
+	tx, err := c.accessOIDC4VPTx(ctx, txID)
 	if err != nil {
 		return err
 	}
@@ -374,15 +411,15 @@ func (c *Controller) RetrieveInteractionsClaim(ctx echo.Context, txID string) er
 		return fmt.Errorf("claims expired for transaction '%s'", txID)
 	}
 
-	claims := c.oidc4VPService.RetrieveClaims(tx)
+	claims := c.oidc4VPService.RetrieveClaims(ctx, tx)
 
 	logger.Debug("RetrieveInteractionsClaim succeed")
 
-	return util.WriteOutput(ctx)(claims, nil)
+	return util.WriteOutput(e)(claims, nil)
 }
 
-func (c *Controller) accessOIDC4VPTx(txID string) (*oidc4vp.Transaction, error) {
-	tx, err := c.oidc4VPService.GetTx(oidc4vp.TxID(txID))
+func (c *Controller) accessOIDC4VPTx(ctx context.Context, txID string) (*oidc4vp.Transaction, error) {
+	tx, err := c.oidc4VPService.GetTx(ctx, oidc4vp.TxID(txID))
 
 	if err != nil {
 		if errors.Is(err, oidc4vp.ErrDataNotFound) {
