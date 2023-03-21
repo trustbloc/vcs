@@ -10,13 +10,13 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var logger = log.New("oidc4vp")
@@ -33,12 +33,14 @@ type HTTPClient interface {
 type Config struct {
 	DefaultHTTPClient HTTPClient
 	ExternalHostURL   string
+	Tracer            trace.Tracer
 }
 
 // Controller for OIDC credential issuance API.
 type Controller struct {
 	defaultHTTPClient HTTPClient
 	internalHostURL   string
+	tracer            trace.Tracer
 }
 
 // NewController creates a new Controller instance.
@@ -46,6 +48,7 @@ func NewController(config *Config) *Controller {
 	return &Controller{
 		defaultHTTPClient: config.DefaultHTTPClient,
 		internalHostURL:   config.ExternalHostURL,
+		tracer:            config.Tracer,
 	}
 }
 
@@ -53,7 +56,10 @@ func NewController(config *Config) *Controller {
 func (c *Controller) PresentAuthorizationResponse(e echo.Context) error {
 	req := e.Request()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost,
+	ctx, span := c.tracer.Start(req.Context(), "PresentAuthorizationResponse")
+	defer span.End()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		c.internalHostURL+oidc4VPCheckEndpoint, req.Body)
 	if err != nil {
 		return err

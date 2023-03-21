@@ -61,6 +61,9 @@ import (
 	issuecredentialtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/issuecredential"
 	fositetracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oauth2provider"
 	oidc4citracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oidc4ci"
+	oidc4vptracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oidc4vp"
+	verifycredentialtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/verifycredential"
+	verifypresentationtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/verifypresentation"
 	profilereader "github.com/trustbloc/vcs/pkg/profile/reader"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/devapi"
@@ -558,6 +561,7 @@ func buildEchoHandler(
 	oidc4vpv1.RegisterHandlers(e, oidc4vpv1.NewController(&oidc4vpv1.Config{
 		DefaultHTTPClient: getHTTPClient(metricsProvider.ClientOIDC4PV1),
 		ExternalHostURL:   conf.StartupParameters.hostURLExternal, // use host external as this url will be called internally
+		Tracer:            conf.Tracer,
 	}))
 
 	issuerv1.RegisterHandlers(e, issuerv1.NewController(&issuerv1.Config{
@@ -584,17 +588,31 @@ func buildEchoHandler(
 		return nil, err
 	}
 
-	verifyCredentialSvc := verifycredential.New(&verifycredential.Config{
+	var verifyCredentialSvc verifycredential.ServiceInterface
+
+	verifyCredentialSvc = verifycredential.New(&verifycredential.Config{
 		VCStatusProcessorGetter: statustype.GetVCStatusProcessor,
 		StatusListVCResolver:    statusListVCSvc,
 		DocumentLoader:          documentLoader,
 		VDR:                     conf.VDR,
 	})
-	verifyPresentationSvc := verifypresentation.New(&verifypresentation.Config{
+
+	if conf.IsTraceEnabled {
+		verifyCredentialSvc = verifycredentialtracing.Wrap(verifyCredentialSvc, conf.Tracer)
+	}
+
+	var verifyPresentationSvc verifypresentation.ServiceInterface
+
+	verifyPresentationSvc = verifypresentation.New(&verifypresentation.Config{
 		VcVerifier:     verifyCredentialSvc,
 		DocumentLoader: documentLoader,
 		VDR:            conf.VDR,
 	})
+
+	if conf.IsTraceEnabled {
+		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
+	}
+
 	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
 
 	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClientNoTracing, documentLoader,
@@ -626,7 +644,9 @@ func buildEchoHandler(
 	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
 		requestObjStoreEndpoint, conf.StartupParameters.verifierEventTopic)
 
-	oidc4vpService := oidc4vp.NewService(&oidc4vp.Config{
+	var oidc4vpService oidc4vp.ServiceInterface
+
+	oidc4vpService = oidc4vp.NewService(&oidc4vp.Config{
 		EventSvc:                 eventSvc,
 		EventTopic:               conf.StartupParameters.verifierEventTopic,
 		TransactionManager:       oidc4vpTxManager,
@@ -640,6 +660,11 @@ func buildEchoHandler(
 		TokenLifetime:            15 * time.Minute,
 		Metrics:                  metrics,
 	})
+
+	if conf.IsTraceEnabled {
+		oidc4vpService = oidc4vptracing.Wrap(oidc4vpService, conf.Tracer)
+	}
+
 	verifierController := verifierv1.NewController(&verifierv1.Config{
 		VerifyCredentialSvc: verifyCredentialSvc,
 		ProfileSvc:          verifierProfileSvc,
@@ -648,6 +673,7 @@ func buildEchoHandler(
 		VDR:                 conf.VDR,
 		OIDCVPService:       oidc4vpService,
 		Metrics:             metrics,
+		Tracer:              conf.Tracer,
 	})
 
 	verifierv1.RegisterHandlers(e, verifierController)

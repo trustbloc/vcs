@@ -20,7 +20,6 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -40,11 +39,6 @@ var logger = log.New("oidc4vp-service")
 const vpSubmissionProperty = "presentation_submission"
 
 var ErrDataNotFound = errors.New("data not found")
-
-type InteractionInfo struct {
-	AuthorizationRequest string
-	TxID                 TxID
-}
 
 type eventService interface {
 	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
@@ -116,21 +110,6 @@ type Config struct {
 	RedirectURL   string
 	TokenLifetime time.Duration
 	Metrics       metricsProvider
-}
-
-type CredentialMetadata struct {
-	Format         vcsverifiable.Format `json:"format"`
-	Type           []string             `json:"type"`
-	SubjectData    interface{}          `json:"subjectData"`
-	Issuer         verifiable.Issuer    `json:"issuer"`
-	IssuanceDate   *util.TimeWrapper    `json:"issuanceDate,omitempty"`
-	ExpirationDate *util.TimeWrapper    `json:"expirationDate,omitempty"`
-}
-
-type ProcessedVPToken struct {
-	Nonce        string
-	Signer       string
-	Presentation *verifiable.Presentation
 }
 
 type metricsProvider interface {
@@ -350,7 +329,7 @@ func (s *Service) verifyTokens(
 	return verifiedPresentations, nil
 }
 
-func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*ProcessedVPToken) error {
+func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, tokens []*ProcessedVPToken) error {
 	logger.Debug("VerifyOIDCVerifiablePresentation begin")
 	startTime := time.Now()
 
@@ -382,8 +361,6 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*Processe
 
 	logger.Debug("VerifyOIDCVerifiablePresentation profile fetched", logfields.WithProfileID(profile.ID))
 
-	ctx := context.TODO() // TODO: Use OpenTelemetry context.
-
 	logger.Debug(fmt.Sprintf("VerifyOIDCVerifiablePresentation count of tokens is %v", len(tokens)))
 
 	verifiedPresentations, err := s.verifyTokens(ctx, tx, profile, tokens)
@@ -408,11 +385,11 @@ func (s *Service) VerifyOIDCVerifiablePresentation(txID TxID, tokens []*Processe
 	return nil
 }
 
-func (s *Service) GetTx(id TxID) (*Transaction, error) {
+func (s *Service) GetTx(ctx context.Context, id TxID) (*Transaction, error) {
 	return s.transactionManager.Get(id)
 }
 
-func (s *Service) RetrieveClaims(tx *Transaction) map[string]CredentialMetadata {
+func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[string]CredentialMetadata {
 	logger.Debug("RetrieveClaims begin")
 	result := map[string]CredentialMetadata{}
 

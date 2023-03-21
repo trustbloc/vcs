@@ -33,22 +33,6 @@ type statusListVCURIResolver interface {
 	Resolve(ctx context.Context, statusListVCURL string) (*verifiable.Credential, error)
 }
 
-// CredentialsVerificationCheckResult resp containing failure check details.
-type CredentialsVerificationCheckResult struct {
-	Check              string
-	Error              string
-	VerificationMethod string
-}
-
-// Options represents options for verify credential.
-type Options struct {
-	// Challenge is added to the proof.
-	Challenge string
-
-	// Domain is added to the proof.
-	Domain string
-}
-
 type Config struct {
 	VCStatusProcessorGetter vc.StatusProcessorGetter
 	StatusListVCResolver    statusListVCURIResolver
@@ -84,7 +68,7 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 			return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
 		}
 
-		err = s.ValidateCredentialProof(vcBytes, opts.Challenge, opts.Domain, false, credential.JWT != "")
+		err = s.ValidateCredentialProof(ctx, vcBytes, opts.Challenge, opts.Domain, false, credential.JWT != "")
 		if err != nil {
 			result = append(result, CredentialsVerificationCheckResult{
 				Check: "proof",
@@ -129,8 +113,8 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte, isJWT bool) (*verifiable.Cred
 }
 
 // ValidateCredentialProof validate credential proof.
-func (s *Service) ValidateCredentialProof(vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation,
-	isJWT bool) error { // nolint: lll,gocyclo
+func (s *Service) ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string,
+	vcInVPValidation, isJWT bool) error { // nolint: lll,gocyclo
 	credential, err := s.parseAndVerifyVC(vcByte, isJWT)
 	if err != nil {
 		return fmt.Errorf("verifiable credential proof validation error : %w", err)

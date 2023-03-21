@@ -681,6 +681,7 @@ func TestService_ValidateCredentialProof(t *testing.T) {
 				vdr:            vdr,
 			}
 			if err := s.ValidateCredentialProof(
+				context.Background(),
 				tt.args.getVcByte(),
 				tt.args.proofChallenge,
 				tt.args.proofDomain,
