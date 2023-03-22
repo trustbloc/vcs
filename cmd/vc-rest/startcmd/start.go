@@ -21,9 +21,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
 	"github.com/deepmap/oapi-codegen/pkg/securityprovider"
 	"github.com/dgraph-io/ristretto"
@@ -38,6 +38,7 @@ import (
 	jsonld "github.com/piprate/json-gold/ld"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -407,7 +408,8 @@ func buildEchoHandler(
 		conf.StartupParameters.cslStoreS3Region,
 		conf.StartupParameters.cslStoreS3Bucket,
 		conf.StartupParameters.cslStoreS3HostName,
-		mongodbClient)
+		mongodbClient,
+		conf.IsTraceEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -463,6 +465,7 @@ func buildEchoHandler(
 		conf.StartupParameters.credentialOfferRepositoryS3Region,
 		conf.StartupParameters.credentialOfferRepositoryS3Bucket,
 		conf.StartupParameters.credentialOfferRepositoryS3HostName,
+		conf.IsTraceEnabled,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate credentialOfferStore: %w", err)
@@ -632,6 +635,7 @@ func buildEchoHandler(
 		conf.StartupParameters.requestObjectRepositoryS3Bucket,
 		conf.StartupParameters.requestObjectRepositoryS3HostName,
 		mongodbClient,
+		conf.IsTraceEnabled,
 	)
 	if err != nil {
 		return nil, err
@@ -730,15 +734,21 @@ func createRequestObjectStore(
 	s3Bucket string,
 	s3HostName string,
 	mongoDbClient *mongodb.Client,
+	isTraceEnabled bool,
 ) (requestObjectStore, error) {
 	switch strings.ToLower(repoType) {
 	case "s3":
-		ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+		cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+			awsconfig.WithEndpointResolverWithOptions(prepareResolver(s3HostName, s3Region)))
 		if err != nil {
 			return nil, err
 		}
 
-		return requestobjectstore2.NewStore(s3.New(ses), s3Bucket, s3Region, s3HostName), nil
+		if isTraceEnabled {
+			otelaws.AppendMiddlewares(&cfg.APIOptions, otelaws.WithTracerProvider(otel.GetTracerProvider()))
+		}
+
+		return requestobjectstore2.NewStore(s3.NewFromConfig(cfg), s3Bucket, s3Region, s3HostName), nil
 	default:
 		return requestobjectstore.NewStore(mongoDbClient), nil
 	}
@@ -748,17 +758,23 @@ func createCredentialOfferStore(
 	s3Region string,
 	s3Bucket string,
 	s3HostName string,
+	isTraceEnabled bool,
 ) (credentialOfferReferenceStore, error) {
 	if s3Region == "" || s3Bucket == "" {
 		return nil, nil
 	}
 
-	ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+		awsconfig.WithEndpointResolverWithOptions(prepareResolver(s3HostName, s3Region)))
 	if err != nil {
 		return nil, err
 	}
 
-	return credentialoffer.NewStore(s3.New(ses), s3Bucket, s3Region, s3HostName), nil
+	if isTraceEnabled {
+		otelaws.AppendMiddlewares(&cfg.APIOptions, otelaws.WithTracerProvider(otel.GetTracerProvider()))
+	}
+
+	return credentialoffer.NewStore(s3.NewFromConfig(cfg), s3Bucket, s3Region, s3HostName), nil
 }
 
 func createCredentialStatusListStore(
@@ -767,19 +783,38 @@ func createCredentialStatusListStore(
 	s3Bucket string,
 	hostName string,
 	mongoDbClient *mongodb.Client,
+	isTraceEnabled bool,
 ) (credentialstatustypes.CSLStore, error) {
 	cslStoreMongo := cslstoremongodb.NewStore(mongoDbClient)
 
 	switch strings.ToLower(repoType) {
 	case "s3":
-		ses, err := session.NewSession(&aws.Config{Region: aws.String(s3Region)})
+		cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
+			awsconfig.WithEndpointResolverWithOptions(prepareResolver(hostName, s3Region)))
 		if err != nil {
 			return nil, err
 		}
 
-		return cslstores3.NewStore(s3.New(ses), cslStoreMongo, s3Bucket, s3Region, hostName), nil
+		if isTraceEnabled {
+			otelaws.AppendMiddlewares(&cfg.APIOptions, otelaws.WithTracerProvider(otel.GetTracerProvider()))
+		}
+
+		return cslstores3.NewStore(s3.NewFromConfig(cfg), cslStoreMongo, s3Bucket, s3Region, hostName), nil
 	default:
 		return cslStoreMongo, nil
+	}
+}
+
+func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOptionsFunc {
+	return func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if endpoint != "" && service == s3.ServiceID && region == reg {
+			return aws.Endpoint{
+				URL:           endpoint,
+				SigningRegion: reg,
+			}, nil
+		}
+
+		return aws.Endpoint{SigningRegion: reg}, &aws.EndpointNotFoundError{}
 	}
 }
 

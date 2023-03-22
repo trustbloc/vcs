@@ -15,10 +15,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -33,8 +32,8 @@ const (
 )
 
 type s3Uploader interface {
-	PutObjectWithContext(ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error)
-	GetObjectWithContext(ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error)
+	PutObject(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+	GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 
 // underlyingCSLWrapperStore is used for storing
@@ -72,7 +71,7 @@ func NewStore(
 // Upsert does upsert operation of credentialstatus.CSLWrapper.
 func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
 	// Put CSL.
-	_, err := p.s3Uploader.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	_, err := p.s3Uploader.PutObject(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader(unQuote(cslWrapper.VCByte)),
 		Key:         aws.String(p.resolveCSLS3Key(cslWrapper.VC.ID)),
 		Bucket:      aws.String(p.bucket),
@@ -95,13 +94,13 @@ func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrap
 // Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
 func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
 	// Get CSL.
-	cslRes, err := p.s3Uploader.GetObjectWithContext(ctx, &s3.GetObjectInput{
+	cslRes, err := p.s3Uploader.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
 		Key:    aws.String(p.resolveCSLS3Key(cslURL)),
 	})
 	if err != nil {
-		var awsError awserr.Error
-		if ok := errors.As(err, &awsError); ok && awsError.Code() == s3.ErrCodeNoSuchKey {
+		var awsError *types.NoSuchKey
+		if errors.As(err, &awsError) {
 			return nil, credentialstatus.ErrDataNotFound
 		}
 

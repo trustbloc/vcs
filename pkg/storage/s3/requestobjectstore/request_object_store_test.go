@@ -13,9 +13,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
@@ -32,11 +30,11 @@ func TestCreate(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
-		uploader.EXPECT().PutObjectWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		uploader.EXPECT().PutObject(gomock.Any(), gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx aws.Context,
+				ctx context.Context,
 				input *s3.PutObjectInput,
-				opts ...request.Option,
+				opts ...func(*s3.Options),
 			) (*s3.PutObjectOutput, error) {
 				assert.Equal(t, "application/json", *input.ContentType)
 				assert.NotEmpty(t, *input.Key)
@@ -58,7 +56,7 @@ func TestCreate(t *testing.T) {
 
 	t.Run("fail", func(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
-		uploader.EXPECT().PutObjectWithContext(gomock.Any(), gomock.Any(), gomock.Any()).
+		uploader.EXPECT().PutObject(gomock.Any(), gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("s3 error"))
 
 		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
@@ -72,11 +70,11 @@ func TestCreate(t *testing.T) {
 func TestFind(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
-		uploader.EXPECT().GetObjectWithContext(gomock.Any(), gomock.Any()).
+		uploader.EXPECT().GetObject(gomock.Any(), gomock.Any()).
 			DoAndReturn(func(
-				ctx aws.Context,
+				ctx context.Context,
 				input *s3.GetObjectInput,
-				opts ...request.Option,
+				opts ...func(*s3.Options),
 			) (*s3.GetObjectOutput, error) {
 				assert.Equal(t, "awesome-bucket", *input.Bucket)
 				assert.Equal(t, "1234", *input.Key)
@@ -95,7 +93,7 @@ func TestFind(t *testing.T) {
 
 	t.Run("error", func(t *testing.T) {
 		uploader := NewMockS3Uploader(gomock.NewController(t))
-		uploader.EXPECT().GetObjectWithContext(gomock.Any(), gomock.Any()).
+		uploader.EXPECT().GetObject(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("unexpected s3 error"))
 
 		repo := requestobjectstore.NewStore(uploader, "awesome-bucket", "us-west", "")
@@ -107,11 +105,11 @@ func TestFind(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	uploader := NewMockS3Uploader(gomock.NewController(t))
-	uploader.EXPECT().DeleteObjectWithContext(gomock.Any(), gomock.Any()).
+	uploader.EXPECT().DeleteObject(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(
-			ctx aws.Context,
+			ctx context.Context,
 			input *s3.DeleteObjectInput,
-			opts ...request.Option,
+			opts ...func(*s3.Options),
 		) (*s3.DeleteObjectOutput, error) {
 			assert.Equal(t, "awesome-bucket", *input.Bucket)
 			assert.Equal(t, "1234", *input.Key)
