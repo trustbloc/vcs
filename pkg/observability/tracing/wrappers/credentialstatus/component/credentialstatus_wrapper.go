@@ -4,10 +4,10 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination gomocks_test.go -package credentialstatus . Service
+//go:generate mockgen -destination gomocks_test.go -package component . Service
 
 //nolint:lll
-package credentialstatus
+package component
 
 import (
 	"context"

@@ -9,7 +9,6 @@ package credentialstatus
 import (
 	"context"
 	_ "embed"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -41,15 +40,18 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/doc/vc/vcutil"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/kms/signer"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
+	"github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
 )
 
 const (
 	profileID         = "testProfileID"
 	externalProfileID = "externalID"
 	credID            = "http://example.edu/credentials/1872"
+	eventTopic        = "testEventTopic"
 )
 
 func validateVCStatus(t *testing.T, s *Service, statusID *credentialstatus.StatusListEntry, expectedListID credentialstatus.ListID) {
@@ -495,17 +497,31 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+		cslStore := newMockCSLStore()
+		crypto := vccrypto.New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 		ctx := context.Background()
+
+		mockEventPublisher := &mockedEventPublisher{
+			eventHandler: eventhandler.New(&eventhandler.Config{
+				CSLStore:       cslStore,
+				ProfileService: mockProfileSrv,
+				KMSRegistry:    mockKMSRegistry,
+				Crypto:         crypto,
+				DocumentLoader: loader,
+			}),
+		}
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLStore:       cslStore,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStore,
 			ListSize:       2,
-			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+			EventTopic:     eventTopic,
+			EventPublisher: mockEventPublisher,
+			Crypto:         crypto,
 		})
 		require.NoError(t, err)
 
@@ -577,29 +593,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "not supported by current profile")
-	})
-	t.Run("UpdateVCStatus kmsRegistry.GetKeyManager error", func(t *testing.T) {
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
-		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
-		s, err := New(&Config{
-			ProfileService: mockProfileSrv,
-			KMSRegistry:    mockKMSRegistry,
-		})
-		require.NoError(t, err)
-
-		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "true",
-			StatusType:    vc.StatusList2021VCStatus,
-		}
-
-		err = s.UpdateVCStatus(context.Background(), params)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "failed to get KMS")
+		require.ErrorContains(t, err, "vc status list version \"RevocationList2020Status\" is not supported by current profile")
 	})
 	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -625,7 +619,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "data not found")
+		require.ErrorContains(t, err, "vcStatusStore.Get failed")
 	})
 	t.Run("UpdateVCStatus ParseBool error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
@@ -660,9 +654,44 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "invalid syntax")
+		require.ErrorContains(t, err, "strconv.ParseBool failed")
 	})
-	t.Run("updateVCStatus not exists", func(t *testing.T) {
+	t.Run("UpdateVCStatus updateVCStatus error", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		vcStore := newMockVCStatusStore()
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       newMockCSLStore(),
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			VCStatusStore:  vcStore,
+			ListSize:       2,
+			Crypto: vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+		})
+		require.NoError(t, err)
+
+		err = vcStore.Put(
+			context.Background(), profileID, credID, &verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
+		require.NoError(t, err)
+
+		params := credentialstatus.UpdateVCStatusParams{
+			ProfileID:     profileID,
+			CredentialID:  credID,
+			DesiredStatus: "true",
+			StatusType:    vc.StatusList2021VCStatus,
+		}
+
+		err = s.UpdateVCStatus(context.Background(), params)
+		require.Error(t, err)
+		require.ErrorContains(t, err, "updateVCStatus failed")
+	})
+	t.Run("updateVCStatus - ValidateStatus - not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 
 		s, err := New(&Config{
@@ -675,11 +704,36 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(context.Background(), nil, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			nil,
+			profileID, vc.StatusList2021VCStatus, true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status not exist")
 	})
-	t.Run("updateVCStatus type not supported", func(t *testing.T) {
+	t.Run("updateVCStatus - statustype.GetVCStatusProcessor error", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       newMockCSLStore(),
+			VCStatusStore:  newMockVCStatusStore(),
+			ListSize:       2,
+			Crypto: vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+		})
+		require.NoError(t, err)
+
+		err = s.updateVCStatus(
+			context.Background(),
+			nil,
+			profileID,
+			"unsupported",
+			true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "get VC status processor failed")
+	})
+	t.Run("updateVCStatus - ValidateStatus - type not supported", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -691,11 +745,14 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(context.Background(), &verifiable.TypedID{Type: "noMatch"}, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{Type: "noMatch"},
+			profileID, vc.StatusList2021VCStatus, true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status noMatch not supported")
 	})
-	t.Run("updateVCStatus statusListIndex not exists", func(t *testing.T) {
+	t.Run("updateVCStatus - ValidateStatus - statusListIndex not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -710,12 +767,13 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		err = s.updateVCStatus(
 			context.Background(),
 			&verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)},
-			getTestSigner(),
+			profileID,
+			vc.StatusList2021VCStatus,
 			true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "statusListIndex field not exist in vc status")
 	})
-	t.Run("updateVCStatus statusListCredential not exists", func(t *testing.T) {
+	t.Run("updateVCStatus - ValidateStatus - statusListCredential not exists", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -727,14 +785,45 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = s.updateVCStatus(context.Background(), &verifiable.TypedID{
-			Type:         string(vc.StatusList2021VCStatus),
-			CustomFields: map[string]interface{}{statustype.StatusListIndex: "1"},
-		}, getTestSigner(), true)
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{
+				Type:         string(vc.StatusList2021VCStatus),
+				CustomFields: map[string]interface{}{statustype.StatusListIndex: "1"},
+			},
+			profileID,
+			vc.StatusList2021VCStatus,
+			true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "statusListCredential field not exist in vc status")
 	})
-	t.Run("updateVCStatus statusListCredential wrong value type", func(t *testing.T) {
+	t.Run("updateVCStatus - ValidateStatus - statusPurpose field not exist", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       newMockCSLStore(),
+			VCStatusStore:  newMockVCStatusStore(),
+			ListSize:       2,
+			Crypto: vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+		})
+		require.NoError(t, err)
+
+		err = s.updateVCStatus(
+			context.Background(),
+			&verifiable.TypedID{
+				Type: string(vc.StatusList2021VCStatus),
+				CustomFields: map[string]interface{}{
+					statustype.StatusListIndex:      "1",
+					statustype.StatusListCredential: 1,
+				}},
+			profileID,
+			vc.StatusList2021VCStatus,
+			true)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "statusPurpose field not exist in vc status")
+	})
+	t.Run("updateVCStatus - GetStatusVCURI - wrong VC URI", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -754,75 +843,14 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 					statustype.StatusListIndex:      "1",
 					statustype.StatusListCredential: 1,
 					statustype.StatusPurpose:        "test",
-				}}, getTestSigner(), true)
+				}},
+			profileID,
+			vc.StatusList2021VCStatus,
+			true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to cast URI of statusListCredential")
 	})
-	t.Run("updateVCStatus not exist", func(t *testing.T) {
-		loader := testutil.DocumentLoader(t)
-		s, err := New(&Config{
-			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
-			VCStatusStore:  newMockVCStatusStore(),
-			ListSize:       2,
-			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
-		})
-		require.NoError(t, err)
-
-		err = s.updateVCStatus(
-			context.Background(),
-			&verifiable.TypedID{
-				Type: string(vc.StatusList2021VCStatus),
-				CustomFields: map[string]interface{}{
-					statustype.StatusListIndex:      "1",
-					statustype.StatusListCredential: 1,
-				}}, getTestSigner(), true)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "statusPurpose field not exist in vc status")
-	})
-	t.Run("updateVCStatus success", func(t *testing.T) {
-		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
-		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
-
-		loader := testutil.DocumentLoader(t)
-		s, err := New(&Config{
-			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
-			VCStatusStore:  newMockVCStatusStore(),
-			ProfileService: mockProfileSrv,
-			KMSRegistry:    mockKMSRegistry,
-			ListSize:       2,
-			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
-		})
-		require.NoError(t, err)
-
-		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
-		require.NoError(t, err)
-
-		require.NoError(t, s.updateVCStatus(context.Background(), statusListEntry.TypedID, getTestSigner(), true))
-
-		listID, err := s.cslStore.GetLatestListID(context.Background())
-		require.NoError(t, err)
-
-		revocationListVC, err := s.GetStatusListVC(context.Background(), externalProfileID, string(listID))
-		require.NoError(t, err)
-		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
-		require.NoError(t, err)
-
-		credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
-		require.True(t, ok)
-		require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
-		bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
-		require.NoError(t, err)
-		bitSet, err := bitString.Get(revocationListIndex)
-		require.NoError(t, err)
-		require.True(t, bitSet)
-	})
-	t.Run("updateVCStatus csl from store", func(t *testing.T) {
+	t.Run("updateVCStatus - get CSL from store error", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -846,18 +874,22 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 					statustype.StatusListIndex:      "1",
 					statustype.StatusPurpose:        "test",
 				},
-			}, getTestSigner(), true)
+			},
+			profileID,
+			vc.StatusList2021VCStatus,
+			true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to get CSL from store")
 	})
-	t.Run("updateVCStatus sign status credential", func(t *testing.T) {
-		loader := testutil.DocumentLoader(t)
+	t.Run("updateVCStatus unable to publish event", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
-		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(
-			&mockKMS{crypto: &cryptomock.Crypto{SignErr: fmt.Errorf("failed to sign")}}, nil)
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+		mockEventPublisher := NewMockEventPublisher(gomock.NewController(t))
+		mockEventPublisher.EXPECT().Publish(gomock.Any(), eventTopic, gomock.Any()).Times(1).Return(errors.New("some error"))
 
+		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLStore:       newMockCSLStore(),
@@ -865,135 +897,83 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			ListSize:       2,
+			EventPublisher: mockEventPublisher,
+			EventTopic:     eventTopic,
 			Crypto: vccrypto.New(
 				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 		})
 		require.NoError(t, err)
 
-		_, err = s.CreateStatusListEntry(context.Background(), profileID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
+		require.NoError(t, err)
+		err = s.updateVCStatus(
+			context.Background(),
+			statusListEntry.TypedID,
+			profileID,
+			vc.StatusList2021VCStatus,
+			true)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to sign vc")
+		require.Contains(t, err.Error(), "unable to publish event")
 	})
-}
+	t.Run("updateVCStatus success", func(t *testing.T) {
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+		cslStore := newMockCSLStore()
+		loader := testutil.DocumentLoader(t)
+		crypto := vccrypto.New(
+			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
-func TestPrepareSigningOpts(t *testing.T) {
-	t.Parallel()
-
-	t.Run("prepare signing opts", func(t *testing.T) {
-		profile := &vc.Signer{
-			Creator: "did:creator#key-1",
+		mockEventPublisher := &mockedEventPublisher{
+			eventHandler: eventhandler.New(&eventhandler.Config{
+				CSLStore:       cslStore,
+				ProfileService: mockProfileSrv,
+				KMSRegistry:    mockKMSRegistry,
+				Crypto:         crypto,
+				DocumentLoader: loader,
+			}),
 		}
 
-		tests := []struct {
-			name   string
-			proof  string
-			result int
-			count  int
-			err    string
-		}{
-			{
-				name: "prepare proofvalue signing opts",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"proofPurpose": "assertionMethod",
-       				"proofValue": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8AUdCJDRptPkBuqAQ",
-       				"type": "Ed25519Signature2018",
-       				"verificationMethod": "did:trustbloc:testnet.trustbloc.local#key-1"
-   				}`,
-			},
-			{
-				name: "prepare jws signing opts",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"proofPurpose": "assertionMethod",
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-       				"type": "Ed25519Signature2018",
-       				"verificationMethod": "did:creator#key-1"
-   				}`,
-				count: 3,
-			},
-			{
-				name: "prepare signing opts from proof with 3 required properties",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-       				"type": "Ed25519Signature2018",
-       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-   				}`,
-			},
-			{
-				name: "prepare signing opts from proof with 2 required properties",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-   				}`,
-			},
-			{
-				name: "prepare signing opts from proof with 1 required property",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ"
-   				}`,
-			},
-			{
-				name: "prepare jws signing opts - invalid purpose",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"proofPurpose": {},
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-       				"type": "Ed25519Signature2018",
-       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-   				}`,
-				err: "invalid 'proofPurpose' type",
-			},
-			{
-				name: "prepare jws signing opts - invalid signature type",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-       				"type": {},
-       				"verificationMethod": "did:example:EiABBmUZ7JjpKSTNGq9Q==#key-1"
-   				}`,
-				err: "invalid 'type' type",
-			},
-			{
-				name: "prepare jws signing opts - invalid signature type",
-				proof: `{
-       				"created": "2020-04-17T04:17:48Z",
-       				"jws": "CAQJKqd0MELydkNdPh7TIwgKhcMt_ypQd8ejsNbHZCJDRptPkBuqAQ",
-       				"type": {},
-       				"verificationMethod": {}
-   				}`,
-				err: "invalid 'verificationMethod' type",
-			},
-		}
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLStore:       cslStore,
+			VCStatusStore:  newMockVCStatusStore(),
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			ListSize:       2,
+			EventTopic:     eventTopic,
+			EventPublisher: mockEventPublisher,
+			Crypto:         crypto,
+		})
+		require.NoError(t, err)
 
-		t.Parallel()
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
+		require.NoError(t, err)
 
-		for _, test := range tests {
-			tc := test
-			t.Run(tc.name, func(t *testing.T) {
-				var proof map[string]interface{}
-				err := json.Unmarshal([]byte(tc.proof), &proof)
-				require.NoError(t, err)
+		require.NoError(t, s.updateVCStatus(
+			context.Background(),
+			statusListEntry.TypedID,
+			profileID,
+			vc.StatusList2021VCStatus,
+			true))
 
-				opts, err := prepareSigningOpts(profile, []verifiable.Proof{proof})
+		listID, err := s.cslStore.GetLatestListID(context.Background())
+		require.NoError(t, err)
 
-				if tc.err != "" {
-					require.Error(t, err)
-					require.Contains(t, err.Error(), tc.err)
-					return
-				}
+		revocationListVC, err := s.GetStatusListVC(context.Background(), externalProfileID, string(listID))
+		require.NoError(t, err)
+		revocationListIndex, err := strconv.Atoi(statusListEntry.TypedID.CustomFields[statustype.StatusListIndex].(string))
+		require.NoError(t, err)
 
-				if tc.count > 0 {
-					require.Len(t, opts, tc.count)
-				}
-
-				require.NoError(t, err)
-				require.NotEmpty(t, opts)
-			})
-		}
+		credSubject, ok := revocationListVC.Subject.([]verifiable.Subject)
+		require.True(t, ok)
+		require.NotEmpty(t, credSubject[0].CustomFields["encodedList"].(string))
+		bitString, err := bitstring.DecodeBits(credSubject[0].CustomFields["encodedList"].(string))
+		require.NoError(t, err)
+		bitSet, err := bitString.Get(revocationListIndex)
+		require.NoError(t, err)
+		require.True(t, bitSet)
 	})
 }
 
@@ -1060,6 +1040,27 @@ func TestService_Resolve(t *testing.T) {
 			}
 		})
 	}
+}
+
+type eventHandler interface {
+	HandleEvent(ctx context.Context, event *spi.Event) error
+}
+
+type mockedEventPublisher struct {
+	eventHandler eventHandler
+}
+
+func (ep *mockedEventPublisher) Publish(ctx context.Context, topic string, messages ...*spi.Event) error {
+	var err error
+
+	for _, event := range messages {
+		err = ep.eventHandler.HandleEvent(ctx, event)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
 }
 
 func getTestSigner() *vc.Signer {

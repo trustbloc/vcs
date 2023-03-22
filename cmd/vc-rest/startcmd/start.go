@@ -58,7 +58,7 @@ import (
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	promMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/prometheus"
 	"github.com/trustbloc/vcs/pkg/observability/tracing"
-	credentialstatustracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/credentialstatus"
+	credentialstatustracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/credentialstatus/component"
 	issuecredentialtracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/issuecredential"
 	fositetracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oauth2provider"
 	oidc4citracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/oidc4ci"
@@ -377,11 +377,13 @@ func buildEchoHandler(
 		return nil, err
 	}
 
-	// Create event service
-	eventSvc, err := event.Initialize(event.Config{
-		TLSConfig: tlsConfig,
-		CMD:       cmd,
-	})
+	cslStore, err := createCredentialStatusListStore(
+		conf.StartupParameters.cslStoreType,
+		conf.StartupParameters.cslStoreS3Region,
+		conf.StartupParameters.cslStoreS3Bucket,
+		conf.StartupParameters.cslStoreS3HostName,
+		mongodbClient,
+		conf.IsTraceEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -403,13 +405,18 @@ func buildEchoHandler(
 
 	vcCrypto := crypto.New(conf.VDR, documentLoader)
 
-	cslStore, err := createCredentialStatusListStore(
-		conf.StartupParameters.cslStoreType,
-		conf.StartupParameters.cslStoreS3Region,
-		conf.StartupParameters.cslStoreS3Bucket,
-		conf.StartupParameters.cslStoreS3HostName,
-		mongodbClient,
-		conf.IsTraceEnabled)
+	// Create event service
+	eventSvc, err := event.Initialize(event.Config{
+		TLSConfig:      tlsConfig,
+		CMD:            cmd,
+		CSLStore:       cslStore,
+		ProfileService: issuerProfileSvc,
+		KMSRegistry:    kmsRegistry,
+		Crypto:         vcCrypto,
+		Tracer:         conf.Tracer,
+		IsTraceEnabled: conf.IsTraceEnabled,
+		DocumentLoader: documentLoader,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -429,6 +436,8 @@ func buildEchoHandler(
 		Crypto:         vcCrypto,
 		CMD:            cmd,
 		ExternalURL:    conf.StartupParameters.hostURLExternal,
+		EventPublisher: eventSvc,
+		EventTopic:     conf.StartupParameters.credentialStatusEventTopic,
 	})
 	if err != nil {
 		return nil, err

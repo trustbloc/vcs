@@ -260,6 +260,10 @@ const (
 	verifierTopicEnvKey    = "VC_REST_VERIFIER_EVENT_TOPIC"
 	verifierTopicFlagUsage = "The name of the verifier event topic. " + commonEnvVarUsageText + verifierTopicEnvKey
 
+	credentialstatusTopicFlagName  = "credentialstatus-event-topic"
+	credentialstatusTopicEnvKey    = "VC_REST_CREDENTIALSTATUS_EVENT_TOPIC"
+	credentialstatusTopicFlagUsage = "The name of the credential status event topic. " + commonEnvVarUsageText + credentialstatusTopicEnvKey
+
 	tracingProviderFlagName  = "tracing-provider"
 	tracingProviderEnvKey    = "VC_REST_TRACING_PROVIDER"
 	tracingProviderFlagUsage = "The tracing provider (for example, JAEGER). " +
@@ -325,6 +329,7 @@ type startupParameters struct {
 	cslStoreS3HostName                  string
 	issuerEventTopic                    string
 	verifierEventTopic                  string
+	credentialStatusEventTopic          string
 	claimDataTTL                        int32
 	vpReceivedClaimsDataTTL             int32
 	tracingParams                       *tracingParams
@@ -528,6 +533,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		verifierTopic = spi.VerifierEventTopic
 	}
 
+	credentialStatusTopic := cmdutils.GetUserSetOptionalVarFromString(cmd, credentialstatusTopicFlagName, credentialstatusTopicEnvKey)
+	if credentialStatusTopic == "" {
+		credentialStatusTopic = spi.CredentialStatusEventTopic
+	}
+
 	claimDataTTL, err := getDuration(cmd, claimDataTTLFlagName, claimDataTTLEnvKey, defaultClaimDataTTL)
 	if err != nil {
 		return nil, err
@@ -594,6 +604,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		cslStoreS3HostName:                  cslStoreS3HostName,
 		issuerEventTopic:                    issuerTopic,
 		verifierEventTopic:                  verifierTopic,
+		credentialStatusEventTopic:          credentialStatusTopic,
 		claimDataTTL:                        int32(claimDataTTL.Seconds()),
 		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
 		tracingParams:                       tracingParams,
@@ -895,6 +906,7 @@ func createFlags(startCmd *cobra.Command) {
 
 	startCmd.Flags().StringP(issuerTopicFlagName, "", "", issuerTopicFlagUsage)
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
+	startCmd.Flags().StringP(credentialstatusTopicFlagName, "", "", credentialstatusTopicFlagUsage)
 	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
 	startCmd.Flags().StringP(vpReceivedClaimsDataTTLFlagName, "", "", vpReceivedClaimsDataTTLFlagUsage)
 

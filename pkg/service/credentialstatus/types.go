@@ -25,7 +25,7 @@ var (
 // revocation status of credentials issued by Issuer.
 //
 //	This type is created for the documentation purpose.
-type CSL string
+type CSL verifiable.Credential
 
 // CSLWrapper contains CSL and metadata.
 type CSLWrapper struct {
@@ -35,6 +35,8 @@ type CSLWrapper struct {
 	UsedIndexes []int `json:"usedIndexes"`
 	// VC represents parsed CSL.
 	VC *verifiable.Credential `json:"-"`
+	// Version represents the version of the CSLWrapper.
+	Version int `json:"version,omitempty"`
 }
 
 type UpdateVCStatusParams struct {
@@ -59,4 +61,14 @@ type ServiceInterface interface {
 	GetStatusListVC(ctx context.Context, profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
 	UpdateVCStatus(ctx context.Context, params UpdateVCStatusParams) error
 	Resolve(ctx context.Context, statusListVCURI string) (*verifiable.Credential, error)
+}
+
+// UpdateCredentialStatusEventPayload represents the event payload for credential status update.
+// Corresponding event type is spi.CredentialStatusStatusUpdated.
+type UpdateCredentialStatusEventPayload struct {
+	CSLURL    string `json:"cslurl"`
+	ProfileID string `json:"profileId"`
+	Index     int    `json:"index"`
+	Status    bool   `json:"status"`
+	Version   int    `json:"version"`
 }

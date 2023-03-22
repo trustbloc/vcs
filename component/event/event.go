@@ -8,6 +8,7 @@ package event
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/event/spi"
+	credentialstatustracing "github.com/trustbloc/vcs/pkg/observability/tracing/wrappers/credentialstatus/eventhandler"
+	credentialstatuseventhandler "github.com/trustbloc/vcs/pkg/service/credentialstatus/eventhandler"
 )
 
 const (
@@ -26,6 +29,9 @@ const (
 
 	verifierTopicFlagName = "verifier-event-topic"
 	verifierTopicEnvKey   = "VC_REST_VERIFIER_EVENT_TOPIC"
+
+	credentialstatusTopicFlagName = "credentialstatus-event-topic"
+	credentialstatusTopicEnvKey   = "VC_REST_CREDENTIALSTATUS_EVENT_TOPIC" //nolint:gosec
 )
 
 // Initialize event.
@@ -42,6 +48,12 @@ func Initialize(cfg Config) (*Bus, error) {
 		verifierTopic = spi.VerifierEventTopic
 	}
 
+	credentialStatusTopic := cmdutils.GetUserSetOptionalVarFromString(
+		cfg.CMD, credentialstatusTopicFlagName, credentialstatusTopicEnvKey)
+	if credentialStatusTopic == "" {
+		credentialStatusTopic = spi.CredentialStatusEventTopic
+	}
+
 	issuerSubscriber, err := NewEventSubscriber(eventBus, issuerTopic, eventBus.handleEvent)
 	if err != nil {
 		return nil, err
@@ -52,8 +64,28 @@ func Initialize(cfg Config) (*Bus, error) {
 		return nil, err
 	}
 
+	service := credentialstatuseventhandler.New(&credentialstatuseventhandler.Config{
+		CSLStore:       cfg.CSLStore,
+		ProfileService: cfg.ProfileService,
+		KMSRegistry:    cfg.KMSRegistry,
+		Crypto:         cfg.Crypto,
+		DocumentLoader: cfg.DocumentLoader,
+	})
+
+	var credentialStatusEventHandler eventHandlerWithContext = service.HandleEvent
+	if cfg.IsTraceEnabled {
+		credentialStatusEventHandler = credentialstatustracing.Wrap(service, cfg.Tracer).HandleEvent
+	}
+
+	credentialStatusSubscriber, err := NewEventSubscriber(eventBus, credentialStatusTopic,
+		func(event *spi.Event) error { return credentialStatusEventHandler(context.Background(), event) })
+	if err != nil {
+		return nil, err
+	}
+
 	issuerSubscriber.Start()
 	verifierSubscriber.Start()
+	credentialStatusSubscriber.Start()
 
 	return eventBus, nil
 }

@@ -4,12 +4,13 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination service_mocks_test.go -self_package github.com/trustbloc/vcs/component/credentialstatus -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry
+//go:generate mockgen -destination service_mocks_test.go -self_package github.com/trustbloc/vcs/component/credentialstatus -package credentialstatus -source=credentialstatus_service.go -mock_names profileService=MockProfileService,kmsRegistry=MockKMSRegistry,eventPublisher=MockEventPublisher
 
 package credentialstatus
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,10 +27,9 @@ import (
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
-	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	"github.com/trustbloc/vcs/pkg/event/spi"
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -37,13 +37,8 @@ import (
 )
 
 const (
-	defaultRepresentation = "jws"
-
-	jsonKeyProofValue         = "proofValue"
-	jsonKeyProofPurpose       = "proofPurpose"
-	jsonKeyVerificationMethod = "verificationMethod"
-	jsonKeySignatureOfType    = "type"
-	cslRequestTokenName       = "csl"
+	cslRequestTokenName         = "csl"
+	credentialStatusEventSource = "credentialstatus"
 )
 
 var logger = log.New("credentialstatus")
@@ -70,6 +65,10 @@ type kmsRegistry interface {
 	GetKeyManager(config *vcskms.Config) (vcskms.VCSKeyManager, error)
 }
 
+type eventPublisher interface {
+	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
+}
+
 type Config struct {
 	HTTPClient     httpClient
 	RequestTokens  map[string]string
@@ -80,6 +79,8 @@ type Config struct {
 	Crypto         vcCrypto
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
+	EventPublisher eventPublisher
+	EventTopic     string
 	DocumentLoader ld.DocumentLoader
 	CMD            *cobra.Command
 	ExternalURL    string
@@ -95,6 +96,8 @@ type Service struct {
 	crypto         vcCrypto
 	profileService profileService
 	kmsRegistry    kmsRegistry
+	eventPublisher eventPublisher
+	eventTopic     string
 	documentLoader ld.DocumentLoader
 	cmd            *cobra.Command
 	externalURL    string
@@ -112,6 +115,8 @@ func New(config *Config) (*Service, error) {
 		crypto:         config.Crypto,
 		profileService: config.ProfileService,
 		kmsRegistry:    config.KMSRegistry,
+		eventPublisher: config.EventPublisher,
+		eventTopic:     config.EventTopic,
 		documentLoader: config.DocumentLoader,
 		cmd:            config.CMD,
 		externalURL:    config.ExternalURL,
@@ -136,27 +141,9 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 				"vc status list version \"%s\" is not supported by current profile", params.StatusType))
 	}
 
-	keyManager, err := s.kmsRegistry.GetKeyManager(issuerProfile.KMSConfig)
-	if err != nil {
-		return fmt.Errorf("failed to get KMS: %w", err)
-	}
-
-	signer := &vc.Signer{
-		Format:                  issuerProfile.VCConfig.Format,
-		DID:                     issuerProfile.SigningDID.DID,
-		Creator:                 issuerProfile.SigningDID.Creator,
-		KMSKeyID:                issuerProfile.SigningDID.KMSKeyID,
-		SignatureType:           issuerProfile.VCConfig.SigningAlgorithm,
-		KeyType:                 issuerProfile.VCConfig.KeyType,
-		KMS:                     keyManager,
-		SignatureRepresentation: issuerProfile.VCConfig.SignatureRepresentation,
-		VCStatusListType:        issuerProfile.VCConfig.Status.Type,
-		SDJWT:                   vc.SDJWT{Enable: false},
-	}
-
 	typedID, err := s.vcStatusStore.Get(ctx, issuerProfile.ID, params.CredentialID)
 	if err != nil {
-		return fmt.Errorf("s.vcStatusStore.Get failed: %w", err)
+		return fmt.Errorf("vcStatusStore.Get failed: %w", err)
 	}
 
 	statusValue, err := strconv.ParseBool(params.DesiredStatus)
@@ -164,7 +151,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		return fmt.Errorf("strconv.ParseBool failed: %w", err)
 	}
 
-	err = s.updateVCStatus(ctx, typedID, signer, statusValue)
+	err = s.updateVCStatus(ctx, typedID, issuerProfile.ID, issuerProfile.VCConfig.Status.Type, statusValue)
 	if err != nil {
 		return fmt.Errorf("updateVCStatus failed: %w", err)
 	}
@@ -426,6 +413,7 @@ func (s *Service) getLatestCSLWrapper(ctx context.Context, signer *vc.Signer, pr
 				VCByte:      vcBytes,
 				UsedIndexes: nil,
 				VC:          credentials,
+				Version:     1,
 			}, nil
 		}
 
@@ -443,83 +431,13 @@ func (s *Service) createVC(vcID string,
 		return nil, err
 	}
 
-	signOpts, err := prepareSigningOpts(profile, credential.Proofs)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.crypto.SignCredential(profile, credential, signOpts...)
-}
-
-// prepareSigningOpts prepares signing opts from recently issued proof of given credential.
-func prepareSigningOpts(profile *vc.Signer, proofs []verifiable.Proof) ([]vccrypto.SigningOpts, error) {
-	var signingOpts []vccrypto.SigningOpts
-
-	if len(proofs) == 0 {
-		return signingOpts, nil
-	}
-
-	// pick latest proof if there are multiple
-	proof := proofs[len(proofs)-1]
-
-	representation := defaultRepresentation
-	if _, ok := proof[jsonKeyProofValue]; ok {
-		representation = jsonKeyProofValue
-	}
-
-	signingOpts = append(signingOpts, vccrypto.WithSigningRepresentation(representation))
-
-	purpose, err := getStringValue(jsonKeyProofPurpose, proof)
-	if err != nil {
-		return nil, err
-	}
-
-	signingOpts = append(signingOpts, vccrypto.WithPurpose(purpose))
-
-	vm, err := getStringValue(jsonKeyVerificationMethod, proof)
-	if err != nil {
-		return nil, err
-	}
-
-	// add verification method option only when it is not matching profile creator
-	if vm != profile.Creator {
-		signingOpts = append(signingOpts, vccrypto.WithVerificationMethod(vm))
-	}
-
-	signTypeName, err := getStringValue(jsonKeySignatureOfType, proof)
-	if err != nil {
-		return nil, err
-	}
-
-	if signTypeName != "" {
-		signType, err := vcsverifiable.GetSignatureTypeByName(signTypeName)
-		if err != nil {
-			return nil, err
-		}
-
-		signingOpts = append(signingOpts, vccrypto.WithSignatureType(signType))
-	}
-
-	return signingOpts, nil
-}
-
-func getStringValue(key string, vMap map[string]interface{}) (string, error) {
-	if val, ok := vMap[key]; ok {
-		if s, ok := val.(string); ok {
-			return s, nil
-		}
-
-		return "", fmt.Errorf("invalid '%s' type", key)
-	}
-
-	return "", nil
+	return s.crypto.SignCredential(profile, credential)
 }
 
 // updateVCStatus updates StatusListCredential associated with typedID.
-// nolint: gocyclo, funlen
-func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedID,
-	profile *vc.Signer, status bool) error {
-	vcStatusProcessor, err := statustype.GetVCStatusProcessor(profile.VCStatusListType)
+func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedID, profileID string,
+	vcStatusType vc.StatusType, status bool) error {
+	vcStatusProcessor, err := statustype.GetVCStatusProcessor(vcStatusType)
 	if err != nil {
 		return fmt.Errorf("get VC status processor failed: %w", err)
 	}
@@ -533,58 +451,47 @@ func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedI
 		return fmt.Errorf("get status VC URI failed: %w", err)
 	}
 
-	cslWrapper, err := s.getCSLWrapper(ctx, statusListVCID)
-	if err != nil {
-		return fmt.Errorf("get CSL wrapper failed: %w", err)
-	}
-
-	signOpts, err := prepareSigningOpts(profile, cslWrapper.VC.Proofs)
-	if err != nil {
-		return fmt.Errorf("prepareSigningOpts failed: %w", err)
-	}
-
-	cs, ok := cslWrapper.VC.Subject.([]verifiable.Subject)
-	if !ok {
-		return fmt.Errorf("failed to cast VC subject")
-	}
-
-	bitString, err := bitstring.DecodeBits(cs[0].CustomFields["encodedList"].(string))
-	if err != nil {
-		return fmt.Errorf("get encodedList from CSL customFields failed: %w", err)
-	}
-
 	revocationListIndex, err := vcStatusProcessor.GetStatusListIndex(typedID)
 	if err != nil {
 		return fmt.Errorf("GetStatusListIndex failed: %w", err)
 	}
 
-	if errSet := bitString.Set(revocationListIndex, status); errSet != nil {
-		return fmt.Errorf("bitString.Set failed: %w", errSet)
-	}
-
-	cs[0].CustomFields["encodedList"], err = bitString.EncodeBits()
+	// read latest CSLWrapper from Mongo
+	cslWrapper, err := s.getCSLWrapper(ctx, statusListVCID)
 	if err != nil {
-		return fmt.Errorf("bitString.EncodeBits failed: %w", err)
+		return fmt.Errorf("get CSL wrapper failed: %w", err)
 	}
 
-	// remove all proofs because we are updating VC
-	cslWrapper.VC.Proofs = nil
-
-	signedCredential, err := s.crypto.SignCredential(profile, cslWrapper.VC, signOpts...)
+	event, err := s.createStatusUpdatedEvent(statusListVCID, profileID, revocationListIndex, cslWrapper.Version+1, status)
 	if err != nil {
-		return fmt.Errorf("sign CSL failed: %w", err)
+		return fmt.Errorf("unable to createStatusUpdatedEvent: %w", err)
 	}
 
-	signedCredentialBytes, err := signedCredential.MarshalJSON()
+	err = s.eventPublisher.Publish(ctx, s.eventTopic, event)
 	if err != nil {
-		return fmt.Errorf("CSL marshal failed: %w", err)
-	}
-
-	cslWrapper.VCByte = signedCredentialBytes
-
-	if err = s.cslStore.Upsert(ctx, cslWrapper); err != nil {
-		return fmt.Errorf("cslStore.Upsert failed: %w", err)
+		return fmt.Errorf("unable to publish event %w", err)
 	}
 
 	return nil
+}
+
+func (s *Service) createStatusUpdatedEvent(cslURL, profileID string, index, version int, status bool) (*spi.Event, error) {
+	ep := credentialstatus.UpdateCredentialStatusEventPayload{
+		CSLURL:    cslURL,
+		ProfileID: profileID,
+		Index:     index,
+		Status:    status,
+		Version:   version,
+	}
+
+	payload, err := json.Marshal(ep)
+	if err != nil {
+		return nil, fmt.Errorf("unable to marshal UpdateCredentialStatusEventPayload: %w", err)
+	}
+
+	return spi.NewEventWithPayload(
+		cslURL,
+		credentialStatusEventSource,
+		spi.CredentialStatusStatusUpdated,
+		payload), nil
 }
