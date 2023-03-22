@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -11,11 +12,13 @@ import (
 	"github.com/bluele/gcache"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/test/stress/pkg/stress"
 )
 
 var results = gcache.New(100).LRU().Build()
+var logger = log.New("stress-test-cmd")
 
 func main() {
 	e := echo.New()
@@ -59,11 +62,14 @@ func main() {
 			res, err2 := stress.NewStressRun(&cfg.Config).Run(context.Background())
 
 			now := time.Now().UTC()
-			testRunResult.Error = err2
 			testRunResult.Result = res
 			testRunResult.FinishedAt = &now
 
-			if testRunResult.Error != nil {
+			if err2 != nil {
+				logger.Error(fmt.Sprintf("got error %v for run id %v",
+					err2, id))
+
+				testRunResult.Error = err2.Error()
 				testRunResult.State = "failed"
 			} else {
 				testRunResult.State = "complete"
