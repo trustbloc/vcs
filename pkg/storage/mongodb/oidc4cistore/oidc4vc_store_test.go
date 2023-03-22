@@ -95,6 +95,7 @@ func TestStore(t *testing.T) {
 			},
 			ProfileID:                          "profileID",
 			CredentialFormat:                   vcsverifiable.Ldp,
+			OIDCCredentialFormat:               vcsverifiable.JwtVCJsonLD,
 			AuthorizationEndpoint:              "authEndpoint",
 			PushedAuthorizationRequestEndpoint: "pushedAuth",
 			TokenEndpoint:                      "tokenEndpoint",

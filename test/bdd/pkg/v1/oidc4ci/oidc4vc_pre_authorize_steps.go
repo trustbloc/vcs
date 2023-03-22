@@ -171,7 +171,7 @@ func (s *PreAuthorizeStep) initiateIssuance(requirePin string) error {
 			"degreeSchool": "MIT school",
 		}),
 		CredentialTemplateId: "templateID",
-		GrantType:            "authorization_code",
+		GrantType:            "urn:ietf:params:oauth:grant-type:pre-authorized_code",
 		Scope:                []string{"openid", "profile"},
 	}
 	if strings.EqualFold(requirePin, "true") {

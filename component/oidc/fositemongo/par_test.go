@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package fositemongo
 
 import (
@@ -19,7 +25,7 @@ func TestPar(t *testing.T) {
 		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
 	testCases := []struct {
@@ -89,7 +95,7 @@ func TestRequestInvalidSession(t *testing.T) {
 		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
 	s, err := NewStore(context.Background(), client)
@@ -107,7 +113,7 @@ func TestRequestInvalidParSessionWithoutClient(t *testing.T) {
 		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
 	s, err := NewStore(context.Background(), client)

@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package fositemongo
 
 import (
@@ -18,7 +24,7 @@ func TestClientAsserting(t *testing.T) {
 		assert.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
 	}()
 
-	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+	client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, mongoErr)
 
 	s, err := NewStore(context.Background(), client)
@@ -60,7 +66,7 @@ func TestClientAssertingWithExpiration(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.jti, func(t *testing.T) {
-			client, mongoErr := mongodb.New(mongoDBConnString, "testdb", time.Second*10)
+			client, mongoErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 			assert.NoError(t, mongoErr)
 
 			s, err := NewStore(context.Background(), client)

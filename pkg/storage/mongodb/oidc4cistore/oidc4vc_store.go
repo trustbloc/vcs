@@ -36,7 +36,7 @@ type mongoDocument struct {
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
-	OidcFormat                         vcsverifiable.OIDCFormat
+	OIDCCredentialFormat               vcsverifiable.OIDCFormat
 	ClaimEndpoint                      string
 	GrantType                          string
 	ResponseType                       string
@@ -202,6 +202,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		OrgID:                              data.OrgID,
 		CredentialTemplate:                 data.CredentialTemplate,
 		CredentialFormat:                   data.CredentialFormat,
+		OIDCCredentialFormat:               data.OIDCCredentialFormat,
 		ClaimEndpoint:                      data.ClaimEndpoint,
 		GrantType:                          data.GrantType,
 		ResponseType:                       data.ResponseType,
@@ -225,7 +226,6 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		PreAuthCodeExpiresAt:               data.PreAuthCodeExpiresAt,
 		CredentialDescription:              data.CredentialDescription,
 		CredentialName:                     data.CredentialName,
-		OidcFormat:                         data.OidcFormat,
 	}
 }
 
@@ -237,6 +237,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			OrgID:                              doc.OrgID,
 			CredentialTemplate:                 doc.CredentialTemplate,
 			CredentialFormat:                   doc.CredentialFormat,
+			OIDCCredentialFormat:               doc.OIDCCredentialFormat,
 			AuthorizationEndpoint:              doc.AuthorizationEndpoint,
 			PushedAuthorizationRequestEndpoint: doc.PushedAuthorizationRequestEndpoint,
 			TokenEndpoint:                      doc.TokenEndpoint,
@@ -261,7 +262,6 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 			PreAuthCodeExpiresAt:               doc.PreAuthCodeExpiresAt,
 			CredentialDescription:              doc.CredentialDescription,
 			CredentialName:                     doc.CredentialName,
-			OidcFormat:                         doc.OidcFormat,
 		},
 	}
 }
