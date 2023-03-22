@@ -66,4 +66,24 @@ go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeou
 amend_coverage_file
 cd "$pwd"
 
+# Running oidc fositemongo unit tests
+echo "... done"
+echo "oidc fositemongo unit tests..."
+cd component/oidc/fositemongo
+PKGS=`go list github.com/trustbloc/vcs/component/oidc/fositemongo... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd "$pwd"
+
+# Running oidc vp unit tests
+echo "... done"
+echo "oidc vp unit tests..."
+cd component/oidc/vp
+PKGS=`go list github.com/trustbloc/vcs/component/oidc/vp... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd "$pwd"
+
 echo "... done all unit-tests"

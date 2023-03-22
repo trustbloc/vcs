@@ -70,7 +70,6 @@ type TransactionData struct {
 	CredentialExpiresAt                *time.Time
 	CredentialName                     string
 	CredentialDescription              string
-	OidcFormat                         vcsverifiable.OIDCFormat
 }
 
 // AuthorizationDetails are the VC-related details for VC issuance.
