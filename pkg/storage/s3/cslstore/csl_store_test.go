@@ -11,14 +11,12 @@ import (
 	"context"
 	_ "embed"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/stretchr/testify/assert"
@@ -48,28 +46,8 @@ type mockS3Uploader struct {
 	getErr error
 }
 
-type notFoundError struct{}
-
-func (s notFoundError) Code() string {
-	return "NoSuchKey"
-}
-
-// Message returns the exception's message.
-func (s notFoundError) Message() string {
-	return "NoSuchKey"
-}
-
-// OrigErr always returns nil, satisfies awserr.Error interface.
-func (s notFoundError) OrigErr() error {
-	return nil
-}
-
-func (s notFoundError) Error() string {
-	return fmt.Sprintf("%s: %s", s.Code(), s.Message())
-}
-
-func (m *mockS3Uploader) PutObjectWithContext(
-	ctx aws.Context, input *s3.PutObjectInput, opts ...request.Option) (*s3.PutObjectOutput, error) {
+func (m *mockS3Uploader) PutObject(
+	ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error) {
 	if m.putErr != nil {
 		return nil, m.putErr
 	}
@@ -88,8 +66,8 @@ func (m *mockS3Uploader) PutObjectWithContext(
 	return &s3.PutObjectOutput{}, nil
 }
 
-func (m *mockS3Uploader) GetObjectWithContext(
-	ctx aws.Context, input *s3.GetObjectInput, opts ...request.Option) (*s3.GetObjectOutput, error) {
+func (m *mockS3Uploader) GetObject(
+	ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -105,7 +83,7 @@ func (m *mockS3Uploader) GetObjectWithContext(
 
 	putData, ok := m.m[*input.Key]
 	if !ok {
-		return nil, &notFoundError{}
+		return nil, &types.NoSuchKey{}
 	}
 
 	b, err := io.ReadAll(putData.Body)

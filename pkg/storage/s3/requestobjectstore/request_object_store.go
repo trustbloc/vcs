@@ -15,9 +15,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
@@ -28,22 +27,22 @@ const (
 )
 
 type s3Uploader interface {
-	PutObjectWithContext(
-		ctx aws.Context,
+	PutObject(
+		ctx context.Context,
 		input *s3.PutObjectInput,
-		opts ...request.Option,
+		opts ...func(*s3.Options),
 	) (*s3.PutObjectOutput, error)
 
-	GetObjectWithContext(
-		ctx aws.Context,
+	GetObject(
+		ctx context.Context,
 		input *s3.GetObjectInput,
-		opts ...request.Option,
+		opts ...func(*s3.Options),
 	) (*s3.GetObjectOutput, error)
 
-	DeleteObjectWithContext(
-		ctx aws.Context,
+	DeleteObject(
+		ctx context.Context,
 		input *s3.DeleteObjectInput,
-		opts ...request.Option,
+		opts ...func(*s3.Options),
 	) (*s3.DeleteObjectOutput, error)
 }
 
@@ -76,7 +75,7 @@ func (p *Store) Create(
 ) (*requestobject.RequestObject, error) {
 	request.ID = uuid.NewString()
 
-	_, err := p.s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	_, err := p.s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader([]byte(request.Content)),
 		Key:         aws.String(request.ID),
 		Bucket:      aws.String(p.bucket),
@@ -94,7 +93,7 @@ func (p *Store) Find(
 	ctx context.Context,
 	id string,
 ) (*requestobject.RequestObject, error) {
-	res, err := p.s3Client.GetObjectWithContext(ctx, &s3.GetObjectInput{
+	res, err := p.s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
 		Key:    aws.String(id),
 	})
@@ -117,7 +116,7 @@ func (p *Store) Delete(
 	ctx context.Context,
 	id string,
 ) error {
-	_, err := p.s3Client.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
+	_, err := p.s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(p.bucket),
 		Key:    aws.String(id),
 	})

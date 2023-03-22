@@ -1,3 +1,9 @@
+/*
+Copyright SecureKey Technologies Inc. All Rights Reserved.
+
+SPDX-License-Identifier: Apache-2.0
+*/
+
 package credentialoffer
 
 import (
@@ -6,9 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
@@ -17,10 +22,10 @@ import (
 //go:generate mockgen -destination credential_offer_mocks_test.go -package credentialoffer_test -source=credential_offer_store.go -mock_names s3Uploader=MockS3Uploader
 
 type s3Uploader interface {
-	PutObjectWithContext(
-		ctx aws.Context,
+	PutObject(
+		ctx context.Context,
 		input *s3.PutObjectInput,
-		opts ...request.Option,
+		opts ...func(*s3.Options),
 	) (*s3.PutObjectOutput, error)
 }
 
@@ -58,7 +63,7 @@ func (p *Store) Create(
 
 	key := fmt.Sprintf("%v.jwt", uuid.NewString())
 
-	_, err = p.s3Client.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	_, err = p.s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader(data),
 		Key:         aws.String(key),
 		Bucket:      aws.String(p.bucket),
