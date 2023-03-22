@@ -7,7 +7,7 @@ import (
 )
 
 type runResult struct {
-	Error      error          `json:"error"`
+	Error      string         `json:"error"`
 	State      string         `json:"state"`
 	StartedAt  time.Time      `json:"started_at"`
 	FinishedAt *time.Time     `json:"finished_at"`
