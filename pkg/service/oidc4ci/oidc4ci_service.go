@@ -344,7 +344,7 @@ func (s *Service) PrepareCredential(
 	if tx.IsPreAuthFlow {
 		tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID)
 		if claimDataErr != nil {
-			return nil, fmt.Errorf("get claim data: %w", err)
+			return nil, fmt.Errorf("get claim data: %w", claimDataErr)
 		}
 
 		decryptedClaims, decryptErr := s.DecryptClaims(tempClaimData)

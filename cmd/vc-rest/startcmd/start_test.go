@@ -126,6 +126,7 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 			"--" + oAuthSecretFlagName, "secret",
 			"--" + oAuthClientsFilePathFlagName, "",
 			"--" + hostURLExternalFlagName, "secret",
+			"--" + dataEncryptionKeyIDFlagName, "12345",
 		}
 
 		startCmd.SetArgs(args)
@@ -246,6 +247,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + credentialstatusTopicFlagName, "dev1-vcs-credentialstatus",
 		"--" + tracingProviderFlagName, tracing.ProviderJaeger,
 		"--" + tracingCollectorURLFlagName, "http://yaeger.local.com",
+		"--" + dataEncryptionKeyIDFlagName, "12345",
 	}
 
 	startCmd.SetArgs(args)
@@ -281,6 +283,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + databasePrefixFlagName, "vc_rest_echo_",
 		"--" + kmsTypeFlagName, "web",
 		"--" + profilePathFlag, file.Name(),
+		"--" + dataEncryptionKeyIDFlagName, "12345",
 	}
 	startCmd.SetArgs(args)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -458,6 +461,20 @@ func TestContextEnableRemoteInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid syntax")
 }
 
+func TestNoEncryptionKey(t *testing.T) {
+	startCmd := GetStartCmd()
+
+	setEnvVars(t, databaseTypeMongoDBOption, "")
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Unsetenv(dataEncryptionKeyIDEnvKey))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "Neither data-encryption-key-id (command line flag) nor "+
+		"VC_REST_DATA_ENCRYPTION_KEY_ID (environment variable) have been set")
+}
+
 func TestInvalidVPReceivedClaimsDataTTLEnvVar(t *testing.T) {
 	startCmd := GetStartCmd()
 
@@ -512,6 +529,9 @@ func setEnvVars(t *testing.T, databaseType, filePath string) {
 
 	err = os.Setenv(hostURLExternalEnvKey, "http://localhost:8080")
 	require.NoError(t, err)
+
+	err = os.Setenv(dataEncryptionKeyIDEnvKey, "12345")
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -541,6 +561,8 @@ func unsetEnvVars(t *testing.T) {
 	err = os.Setenv(hostURLExternalEnvKey, "http://localhost:8080")
 	require.NoError(t, err)
 
+	err = os.Unsetenv(dataEncryptionKeyIDEnvKey)
+	require.NoError(t, err)
 }
 
 func checkFlagPropertiesCorrect(t *testing.T, cmd *cobra.Command, flagName, flagShorthand, flagUsage string) {

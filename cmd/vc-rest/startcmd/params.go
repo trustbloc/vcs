@@ -449,7 +449,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 
 	token := cmdutils.GetUserSetOptionalVarFromString(cmd, tokenFlagName, tokenEnvKey)
 
-	dataEncryptionKeyID, err := cmdutils.GetUserSetVarFromString(cmd, tokenFlagName, tokenEnvKey, false)
+	dataEncryptionKeyID, err := cmdutils.GetUserSetVarFromString(
+		cmd,
+		dataEncryptionKeyIDFlagName,
+		dataEncryptionKeyIDEnvKey,
+		false,
+	)
 	if err != nil {
 		return nil, err
 	}

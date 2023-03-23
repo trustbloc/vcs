@@ -50,8 +50,8 @@ func TestStore(t *testing.T) {
 
 	t.Run("test create and get", func(t *testing.T) {
 		claims := &oidc4ci.ClaimData{
-			"claim1": "value1",
-			"claim2": "value2",
+			Encrypted:      []byte{0x1},
+			EncryptedNonce: []byte{0x2},
 		}
 
 		id, err := store.Create(context.Background(), claims)
@@ -81,8 +81,8 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		claims := &oidc4ci.ClaimData{
-			"claim1": "value1",
-			"claim2": "value2",
+			Encrypted:      []byte{0x1},
+			EncryptedNonce: []byte{0x2},
 		}
 
 		id, err := storeExpired.Create(context.Background(), claims)
