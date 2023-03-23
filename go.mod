@@ -7,6 +7,7 @@ module github.com/trustbloc/vcs
 go 1.19
 
 require (
+	github.com/aws/aws-sdk-go v1.43.9
 	github.com/aws/aws-sdk-go-v2 v1.17.7
 	github.com/aws/aws-sdk-go-v2/config v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.20.0
@@ -35,7 +36,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/samber/lo v1.37.0
 	github.com/stretchr/testify v1.8.2
-	github.com/trustbloc/kms v1.0.0-rc1
+	github.com/trustbloc/kms v1.0.0-rc1.0.20230322142555-4d8c3c08e55f
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
 	go.mongodb.org/mongo-driver v1.11.2
@@ -112,6 +113,7 @@ require (
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect

@@ -9,6 +9,7 @@ package oidc4ci_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -781,6 +782,7 @@ func TestService_PrepareCredential(t *testing.T) {
 		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
 		eventMock            = NewMockEventService(gomock.NewController(t))
 		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
+		crypto               = NewMockCrypto(gomock.NewController(t))
 		req                  *oidc4ci.PrepareCredential
 	)
 
@@ -953,6 +955,7 @@ func TestService_PrepareCredential(t *testing.T) {
 		{
 			name: "Success pre-authorized flow",
 			setup: func() {
+				claimID := uuid.NewString()
 				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
 					ID: "txID",
 					TransactionData: oidc4ci.TransactionData{
@@ -961,7 +964,7 @@ func TestService_PrepareCredential(t *testing.T) {
 							Type: "VerifiedEmployee",
 						},
 						IsPreAuthFlow:    true,
-						ClaimDataID:      uuid.NewString(),
+						ClaimDataID:      claimID,
 						CredentialFormat: vcsverifiable.Jwt,
 					},
 				}, nil)
@@ -980,7 +983,20 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 
-				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+				clData := &oidc4ci.ClaimData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
+				}
+
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), claimID).Return(clData, nil)
+
+				crypto.EXPECT().Decrypt(nil, clData.Encrypted, clData.EncryptedNonce, cryptoKeyID).
+					DoAndReturn(func(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
+						assert.Equal(t, clData.Encrypted, aad)
+						assert.Equal(t, clData.EncryptedNonce, clData.EncryptedNonce)
+						b, _ := json.Marshal(map[string]interface{}{})
+						return b, nil
+					})
 
 				req = &oidc4ci.PrepareCredential{
 					TxID: "txID",
@@ -1042,8 +1058,20 @@ func TestService_PrepareCredential(t *testing.T) {
 						assert.Equal(t, oidc4ci.TransactionStateCredentialsIssued, tx.State)
 						return nil
 					})
+				clData := &oidc4ci.ClaimData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
+				}
 
-				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(clData, nil)
+
+				crypto.EXPECT().Decrypt(nil, clData.Encrypted, clData.EncryptedNonce, cryptoKeyID).
+					DoAndReturn(func(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
+						assert.Equal(t, clData.Encrypted, aad)
+						assert.Equal(t, clData.EncryptedNonce, clData.EncryptedNonce)
+						b, _ := json.Marshal(map[string]interface{}{})
+						return b, nil
+					})
 
 				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1092,7 +1120,20 @@ func TestService_PrepareCredential(t *testing.T) {
 						return errors.New("store err")
 					})
 
-				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(&oidc4ci.ClaimData{}, nil)
+				clData := &oidc4ci.ClaimData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
+				}
+
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(clData, nil)
+
+				crypto.EXPECT().Decrypt(nil, clData.Encrypted, clData.EncryptedNonce, cryptoKeyID).
+					DoAndReturn(func(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
+						assert.Equal(t, clData.Encrypted, aad)
+						assert.Equal(t, clData.EncryptedNonce, clData.EncryptedNonce)
+						b, _ := json.Marshal(map[string]interface{}{})
+						return b, nil
+					})
 
 				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1272,6 +1313,8 @@ func TestService_PrepareCredential(t *testing.T) {
 				HTTPClient:       mockHTTPClient,
 				EventService:     eventMock,
 				EventTopic:       spi.IssuerEventTopic,
+				Crypto:           crypto,
+				CryptoKeyID:      cryptoKeyID,
 			})
 			require.NoError(t, err)
 

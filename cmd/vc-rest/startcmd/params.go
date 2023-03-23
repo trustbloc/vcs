@@ -172,6 +172,11 @@ const (
 	tokenFlagUsage = "Check for bearer token in the authorization header (optional). " +
 		commonEnvVarUsageText + tokenEnvKey
 
+	dataEncryptionKeyIDFlagName  = "data-encryption-key-id"
+	dataEncryptionKeyIDEnvKey    = "VC_REST_DATA_ENCRYPTION_KEY_ID" //nolint: gosec
+	dataEncryptionKeyIDFlagUsage = "Data Encryption & Decryption KeyID. " +
+		commonEnvVarUsageText + dataEncryptionKeyIDEnvKey
+
 	requestTokensFlagName  = "request-tokens"
 	requestTokensEnvKey    = "VC_REST_REQUEST_TOKENS" //nolint: gosec
 	requestTokensFlagUsage = "Tokens used for http request " +
@@ -333,6 +338,7 @@ type startupParameters struct {
 	claimDataTTL                        int32
 	vpReceivedClaimsDataTTL             int32
 	tracingParams                       *tracingParams
+	dataEncryptionKeyID                 string
 }
 
 type prometheusMetricsProviderParams struct {
@@ -442,6 +448,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	token := cmdutils.GetUserSetOptionalVarFromString(cmd, tokenFlagName, tokenEnvKey)
+
+	dataEncryptionKeyID, err := cmdutils.GetUserSetVarFromString(cmd, tokenFlagName, tokenEnvKey, false)
+	if err != nil {
+		return nil, err
+	}
 
 	requestTokens := getRequestTokens(cmd)
 
@@ -608,6 +619,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		claimDataTTL:                        int32(claimDataTTL.Seconds()),
 		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
 		tracingParams:                       tracingParams,
+		dataEncryptionKeyID:                 dataEncryptionKeyID,
 	}, nil
 }
 
@@ -870,6 +882,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
+	startCmd.Flags().StringP(dataEncryptionKeyIDFlagName, "", "", dataEncryptionKeyIDFlagUsage)
 	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)

@@ -37,7 +37,10 @@ const (
 )
 
 // ClaimData represents user claims in pre-auth code flow.
-type ClaimData map[string]interface{}
+type ClaimData struct {
+	Encrypted      []byte `json:"encrypted"`
+	EncryptedNonce []byte `json:"encrypted_nonce"`
+}
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {

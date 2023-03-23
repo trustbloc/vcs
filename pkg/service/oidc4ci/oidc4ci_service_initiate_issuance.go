@@ -88,18 +88,21 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 	}
 
 	if isPreAuthorizeFlow {
-		claimData := ClaimData(req.ClaimData)
-
 		if logger.IsEnabled(log.DEBUG) {
 			claimKeys := make([]string, 0)
-			for k := range claimData {
+			for k := range req.ClaimData {
 				claimKeys = append(claimKeys, k)
 			}
 
 			logger.Debug("issuer claim keys", logfields.WithClaimKeys(claimKeys))
 		}
 
-		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, &claimData)
+		claimData, errEncrypt := s.EncryptClaims(req.ClaimData)
+		if errEncrypt != nil {
+			return nil, fmt.Errorf("can not encrypt claim data: %w", errEncrypt)
+		}
+
+		claimDataID, claimDataErr := s.claimDataStore.Create(ctx, claimData)
 		if claimDataErr != nil {
 			return nil, fmt.Errorf("store claim data: %w", claimDataErr)
 		}

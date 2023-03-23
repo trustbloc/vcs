@@ -484,16 +484,18 @@ func buildEchoHandler(
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,
 		ClaimDataStore:                claimDataStore,
-		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
 		WellKnownService:              wellknown.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
 		ProfileService:                issuerProfileSvc,
+		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
 		OAuth2Client:                  oauth2client.NewOAuth2Client(),
 		HTTPClient:                    getHTTPClient(metricsProvider.ClientOIDC4CI),
 		EventService:                  eventSvc,
 		PinGenerator:                  otp.NewPinGenerator(),
-		PreAuthCodeTTL:                conf.StartupParameters.claimDataTTL,
 		EventTopic:                    conf.StartupParameters.issuerEventTopic,
+		PreAuthCodeTTL:                conf.StartupParameters.claimDataTTL,
 		CredentialOfferReferenceStore: credentialOfferStore,
+		Crypto:                        defaultVCSKeyManager.Crypto(),
+		CryptoKeyID:                   conf.StartupParameters.dataEncryptionKeyID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)

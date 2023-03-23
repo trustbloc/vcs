@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,crypto=MockCrypto
 
 package oidc4ci
 
@@ -106,6 +106,11 @@ type credentialOfferReferenceStore interface {
 	) (string, error)
 }
 
+type crypto interface {
+	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
+	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
+}
+
 // Config holds configuration options and dependencies for Service.
 type Config struct {
 	TransactionStore              transactionStore
@@ -120,6 +125,8 @@ type Config struct {
 	EventTopic                    string
 	PreAuthCodeTTL                int32
 	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
+	Crypto                        crypto
+	CryptoKeyID                   string
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -136,6 +143,8 @@ type Service struct {
 	pinGenerator                  pinGenerator
 	preAuthCodeTTL                int32
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
+	crypto                        crypto
+	cryptoKeyId                   string
 }
 
 // NewService returns a new Service instance.
@@ -153,6 +162,8 @@ func NewService(config *Config) (*Service, error) {
 		pinGenerator:                  config.PinGenerator,
 		preAuthCodeTTL:                config.PreAuthCodeTTL,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
+		crypto:                        config.Crypto,
+		cryptoKeyId:                   config.CryptoKeyID,
 	}, nil
 }
 
@@ -328,12 +339,19 @@ func (s *Service) PrepareCredential(
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
-	var claimData *ClaimData
+	var claimData map[string]interface{}
 
 	if tx.IsPreAuthFlow {
-		if claimData, err = s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID); err != nil {
+		tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID)
+		if claimDataErr != nil {
 			return nil, fmt.Errorf("get claim data: %w", err)
 		}
+
+		decryptedClaims, decryptErr := s.DecryptClaims(tempClaimData)
+		if decryptErr != nil {
+			return nil, decryptErr
+		}
+		claimData = decryptedClaims
 	} else {
 		if claimData, err = s.requestClaims(ctx, tx); err != nil {
 			return nil, err
@@ -364,7 +382,7 @@ func (s *Service) PrepareCredential(
 	if claimData != nil {
 		vc.Subject = verifiable.Subject{
 			ID:           req.DID,
-			CustomFields: verifiable.CustomFields(*claimData),
+			CustomFields: claimData,
 		}
 	} else {
 		vc.Subject = verifiable.Subject{ID: req.DID}
@@ -413,7 +431,7 @@ func (s *Service) PrepareCredential(
 	}, nil
 }
 
-func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (*ClaimData, error) {
+func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[string]interface{}, error) {
 	r, err := http.NewRequestWithContext(ctx, http.MethodPost, tx.ClaimEndpoint, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
@@ -437,9 +455,7 @@ func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (*ClaimDat
 		return nil, fmt.Errorf("decode claim data: %w", err)
 	}
 
-	claimData := ClaimData(m)
-
-	return &claimData, nil
+	return m, nil
 }
 
 func (s *Service) createEvent(
