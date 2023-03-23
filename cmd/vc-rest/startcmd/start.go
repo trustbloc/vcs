@@ -21,7 +21,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -747,8 +746,7 @@ func createRequestObjectStore(
 ) (requestObjectStore, error) {
 	switch strings.ToLower(repoType) {
 	case "s3":
-		cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-			awsconfig.WithEndpointResolverWithOptions(prepareResolver(s3HostName, s3Region)))
+		cfg, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(s3Region))
 		if err != nil {
 			return nil, err
 		}
@@ -773,8 +771,7 @@ func createCredentialOfferStore(
 		return nil, nil
 	}
 
-	cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-		awsconfig.WithEndpointResolverWithOptions(prepareResolver(s3HostName, s3Region)))
+	cfg, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(s3Region))
 	if err != nil {
 		return nil, err
 	}
@@ -798,8 +795,7 @@ func createCredentialStatusListStore(
 
 	switch strings.ToLower(repoType) {
 	case "s3":
-		cfg, err := awsconfig.LoadDefaultConfig(context.Background(),
-			awsconfig.WithEndpointResolverWithOptions(prepareResolver(hostName, s3Region)))
+		cfg, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(s3Region))
 		if err != nil {
 			return nil, err
 		}
@@ -811,19 +807,6 @@ func createCredentialStatusListStore(
 		return cslstores3.NewStore(s3.NewFromConfig(cfg), cslStoreMongo, s3Bucket, s3Region, hostName), nil
 	default:
 		return cslStoreMongo, nil
-	}
-}
-
-func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOptionsFunc {
-	return func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if endpoint != "" && service == s3.ServiceID && region == reg {
-			return aws.Endpoint{
-				URL:           endpoint,
-				SigningRegion: reg,
-			}, nil
-		}
-
-		return aws.Endpoint{SigningRegion: reg}, &aws.EndpointNotFoundError{}
 	}
 }
 
