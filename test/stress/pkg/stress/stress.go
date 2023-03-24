@@ -26,16 +26,17 @@ type Run struct {
 }
 
 type Config struct {
-	TLSConfig            *tls.Config `json:"-"`
-	ApiURL               string      `json:"api_url"`
-	TokenClientID        string      `json:"token_client_id"`
-	TokenClientSecret    string      `json:"token_client_secret"`
-	UserCount            int         `json:"user_count"`
-	ConcurrentRequests   int         `json:"concurrent_requests"`
-	IssuerProfileID      string      `json:"issuer_profile_id"`
-	VerifierProfileID    string      `json:"verifier_profile_id"`
-	CredentialTemplateID string      `json:"credential_template_id"`
-	CredentialType       string      `json:"credential_type"`
+	TLSConfig            *tls.Config            `json:"-"`
+	ApiURL               string                 `json:"api_url"`
+	TokenClientID        string                 `json:"token_client_id"`
+	TokenClientSecret    string                 `json:"token_client_secret"`
+	UserCount            int                    `json:"user_count"`
+	ConcurrentRequests   int                    `json:"concurrent_requests"`
+	IssuerProfileID      string                 `json:"issuer_profile_id"`
+	VerifierProfileID    string                 `json:"verifier_profile_id"`
+	CredentialTemplateID string                 `json:"credential_template_id"`
+	CredentialType       string                 `json:"credential_type"`
+	ClaimData            map[string]interface{} `json:"claim_data"`
 }
 
 func NewStressRun(
@@ -120,6 +121,7 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			WithCredentialTemplateID(r.cfg.CredentialTemplateID),
 			WithHTTPClient(httpClient),
 			WithCredentialType(r.cfg.CredentialType),
+			WithClaimData(r.cfg.ClaimData),
 			WithToken(idToken),
 		)
 		if err != nil {
