@@ -653,7 +653,14 @@ func buildEchoHandler(
 
 	// TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.apiGatewayURL + "/request-object/"
-	oidc4vpTxManager := oidc4vp.NewTxManager(oidcNonceStore, oidc4vpTxStore, oidc4vpClaimsStore, 15*time.Minute)
+	oidc4vpTxManager := oidc4vp.NewTxManager(
+		oidcNonceStore,
+		oidc4vpTxStore,
+		oidc4vpClaimsStore,
+		15*time.Minute,
+		defaultVCSKeyManager.Crypto(),
+		conf.StartupParameters.dataEncryptionKeyID,
+	)
 
 	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
 		requestObjStoreEndpoint, conf.StartupParameters.verifierEventTopic)

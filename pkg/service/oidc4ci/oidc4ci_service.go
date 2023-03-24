@@ -144,7 +144,7 @@ type Service struct {
 	preAuthCodeTTL                int32
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
 	crypto                        crypto
-	cryptoKeyId                   string
+	cryptoKeyID                   string
 }
 
 // NewService returns a new Service instance.
@@ -163,7 +163,7 @@ func NewService(config *Config) (*Service, error) {
 		preAuthCodeTTL:                config.PreAuthCodeTTL,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
 		crypto:                        config.Crypto,
-		cryptoKeyId:                   config.CryptoKeyID,
+		cryptoKeyID:                   config.CryptoKeyID,
 	}, nil
 }
 
@@ -339,25 +339,10 @@ func (s *Service) PrepareCredential(
 		return nil, resterr.NewCustomError(resterr.OIDCCredentialTypeNotSupported, ErrCredentialTemplateNotConfigured)
 	}
 
-	var claimData map[string]interface{}
-
-	if tx.IsPreAuthFlow {
-		tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID)
-		if claimDataErr != nil {
-			return nil, fmt.Errorf("get claim data: %w", claimDataErr)
-		}
-
-		decryptedClaims, decryptErr := s.DecryptClaims(tempClaimData)
-		if decryptErr != nil {
-			return nil, decryptErr
-		}
-		claimData = decryptedClaims
-	} else {
-		if claimData, err = s.requestClaims(ctx, tx); err != nil {
-			return nil, err
-		}
+	claimData, err := s.getClaimsData(ctx, tx)
+	if err != nil {
+		return nil, err
 	}
-
 	// prepare credential for signing
 	vc := &verifiable.Credential{
 		Context:      tx.CredentialTemplate.Contexts,
@@ -429,6 +414,27 @@ func (s *Service) PrepareCredential(
 		Retry:                   false,
 		EnforceStrictValidation: tx.CredentialTemplate.Checks.Strict,
 	}, nil
+}
+
+func (s *Service) getClaimsData(
+	ctx context.Context,
+	tx *Transaction,
+) (map[string]interface{}, error) {
+	if !tx.IsPreAuthFlow {
+		return s.requestClaims(ctx, tx)
+	}
+
+	tempClaimData, claimDataErr := s.claimDataStore.GetAndDelete(ctx, tx.ClaimDataID)
+	if claimDataErr != nil {
+		return nil, fmt.Errorf("get claim data: %w", claimDataErr)
+	}
+
+	decryptedClaims, decryptErr := s.DecryptClaims(tempClaimData)
+	if decryptErr != nil {
+		return nil, decryptErr
+	}
+
+	return decryptedClaims, nil
 }
 
 func (s *Service) requestClaims(ctx context.Context, tx *Transaction) (map[string]interface{}, error) {

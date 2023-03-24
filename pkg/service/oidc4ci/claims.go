@@ -14,7 +14,7 @@ func (s *Service) EncryptClaims(data map[string]interface{}) (*ClaimData, error)
 		return nil, err
 	}
 
-	encrypted, nonce, err := s.crypto.Encrypt(bytesData, nil, s.cryptoKeyId)
+	encrypted, nonce, err := s.crypto.Encrypt(bytesData, nil, s.cryptoKeyID)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +26,7 @@ func (s *Service) EncryptClaims(data map[string]interface{}) (*ClaimData, error)
 }
 
 func (s *Service) DecryptClaims(data *ClaimData) (map[string]interface{}, error) {
-	resp, err := s.crypto.Decrypt(nil, data.Encrypted, data.EncryptedNonce, s.cryptoKeyId)
+	resp, err := s.crypto.Decrypt(nil, data.Encrypted, data.EncryptedNonce, s.cryptoKeyID)
 	if err != nil {
 		return nil, err
 	}

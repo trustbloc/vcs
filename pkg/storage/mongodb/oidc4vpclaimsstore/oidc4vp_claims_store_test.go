@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/stretchr/testify/assert"
@@ -61,13 +60,9 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, createErr)
 
 	t.Run("test create and get - JWT", func(t *testing.T) {
-		vc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
-		receivedClaims := &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{"credID": vc},
+		receivedClaims := &oidc4vp.ClaimData{
+			Encrypted:      []byte{0x1, 0x2},
+			EncryptedNonce: []byte{0x3},
 		}
 
 		id, err := store.Create(receivedClaims)
@@ -77,53 +72,7 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 		require.NotNil(t, claimsInDB)
 
-		require.NotNil(t, claimsInDB.Credentials["credID"])
-		require.Equal(t, "http://example.gov/credentials/3732", claimsInDB.Credentials["credID"].ID)
-		assert.Equal(t, receivedClaims, claimsInDB)
-	})
-
-	t.Run("test create and get - SD-JWT", func(t *testing.T) {
-		vc, err := verifiable.ParseCredential([]byte(sampleVCSDJWT),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
-		receivedClaims := &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{"credID": vc},
-		}
-
-		id, err := store.Create(receivedClaims)
-		require.NoError(t, err)
-
-		claimsInDB, err := store.Get(id)
-		assert.NoError(t, err)
-		assert.NotNil(t, claimsInDB)
-
-		require.NotNil(t, claimsInDB.Credentials["credID"])
-		require.Equal(t, "http://example.gov/credentials/3732", claimsInDB.Credentials["credID"].ID)
-		assert.Equal(t, receivedClaims, claimsInDB)
-	})
-
-	t.Run("test create and get - JSON LD", func(t *testing.T) {
-		vc, err := verifiable.ParseCredential([]byte(sampleVCJsonLD),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
-		receivedClaims := &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{"credID": vc},
-		}
-
-		id, err := store.Create(receivedClaims)
-		require.NoError(t, err)
-
-		claimsInDB, err := store.Get(id)
-		assert.NoError(t, err)
-		require.NotNil(t, claimsInDB)
-
-		require.NotNil(t, claimsInDB.Credentials["credID"])
-		require.Equal(t, "http://example.gov/credentials/3732", claimsInDB.Credentials["credID"].ID)
-		assert.Equal(t, receivedClaims, claimsInDB)
+		require.Equal(t, *receivedClaims, *claimsInDB)
 	})
 
 	t.Run("get non existing document", func(t *testing.T) {
@@ -140,28 +89,13 @@ func TestStore(t *testing.T) {
 		assert.ErrorContains(t, err, "parse id")
 	})
 
-	t.Run("invalid doc content", func(t *testing.T) {
-		_, err := receivedClaimsFromDocument(&mongoDocument{
-			ID: primitive.ObjectID{},
-			ReceivedClaims: map[string][]byte{
-				"credentials": []byte("invalid"),
-			},
-		}, testutil.DocumentLoader(t))
-
-		require.Error(t, err)
-	})
-
 	t.Run("test expiration", func(t *testing.T) {
 		storeExpired, err := New(context.Background(), client, testutil.DocumentLoader(t), 1)
 		assert.NoError(t, err)
 
-		jwtvc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
-			verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-			verifiable.WithDisabledProofCheck())
-		require.NoError(t, err)
-
-		receivedClaims := &oidc4vp.ReceivedClaims{
-			Credentials: map[string]*verifiable.Credential{"credID": jwtvc},
+		receivedClaims := &oidc4vp.ClaimData{
+			Encrypted:      []byte{0x1, 0x2},
+			EncryptedNonce: []byte{0x3},
 		}
 
 		id, err := storeExpired.Create(receivedClaims)

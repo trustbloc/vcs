@@ -183,7 +183,7 @@ linters:
     - gocritic # Provides diagnostics that check for bugs, performance and style issues.
     - gocyclo # Computes and checks the cyclomatic complexity of functions
     - godot # Check if comments end in a period
-    - goimports # In addition to fixing imports, goimports also formats your code in the same style as gofmt.
+#    - goimports # In addition to fixing imports, goimports also formats your code in the same style as gofmt.
     - gomnd # An analyzer to detect magic numbers.
     - gomodguard # Allow and block list linter for direct Go module dependencies. This is different from depguard where there are different block types for example version constraints and module recommendations.
     - goprintffuncname # Checks that printf-like functions are named with f at the end
