@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -782,7 +783,7 @@ func TestService_PrepareCredential(t *testing.T) {
 		mockClaimDataStore   = NewMockClaimDataStore(gomock.NewController(t))
 		eventMock            = NewMockEventService(gomock.NewController(t))
 		mockHTTPClient       = NewMockHTTPClient(gomock.NewController(t))
-		crypto               = NewMockCrypto(gomock.NewController(t))
+		crypto               = NewMockDataProtector(gomock.NewController(t))
 		req                  *oidc4ci.PrepareCredential
 	)
 
@@ -984,16 +985,18 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				clData := &oidc4ci.ClaimData{
-					Encrypted:      []byte{0x1, 0x2, 0x3},
-					EncryptedNonce: []byte{0x0, 0x2},
+					EncryptedChunks: []*dataprotect.EncryptedChunk{
+						{
+							Encrypted:      []byte{0x1, 0x2, 0x3},
+							EncryptedNonce: []byte{0x0, 0x2},
+						},
+					},
 				}
 
 				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), claimID).Return(clData, nil)
 
-				crypto.EXPECT().Decrypt(nil, clData.Encrypted, clData.EncryptedNonce, cryptoKeyID).
-					DoAndReturn(func(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
-						assert.Equal(t, clData.Encrypted, aad)
-						assert.Equal(t, clData.EncryptedNonce, clData.EncryptedNonce)
+				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedChunks).
+					DoAndReturn(func(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
 					})
@@ -1059,19 +1062,19 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 				clData := &oidc4ci.ClaimData{
-					Encrypted:      []byte{0x1, 0x2, 0x3},
-					EncryptedNonce: []byte{0x0, 0x2},
+					EncryptedChunks: []*dataprotect.EncryptedChunk{
+						{
+							Encrypted:      []byte{0x1, 0x2, 0x3},
+							EncryptedNonce: []byte{0x0, 0x2},
+						},
+					},
 				}
-
-				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(clData, nil)
-
-				crypto.EXPECT().Decrypt(nil, clData.Encrypted, clData.EncryptedNonce, cryptoKeyID).
-					DoAndReturn(func(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
-						assert.Equal(t, clData.Encrypted, aad)
-						assert.Equal(t, clData.EncryptedNonce, clData.EncryptedNonce)
+				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedChunks).
+					DoAndReturn(func(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
 					})
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(clData, nil)
 
 				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1121,19 +1124,19 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				clData := &oidc4ci.ClaimData{
-					Encrypted:      []byte{0x1, 0x2, 0x3},
-					EncryptedNonce: []byte{0x0, 0x2},
+					EncryptedChunks: []*dataprotect.EncryptedChunk{
+						{
+							Encrypted:      []byte{0x1, 0x2, 0x3},
+							EncryptedNonce: []byte{0x0, 0x2},
+						},
+					},
 				}
-
-				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(clData, nil)
-
-				crypto.EXPECT().Decrypt(nil, clData.Encrypted, clData.EncryptedNonce, cryptoKeyID).
-					DoAndReturn(func(cipher, aad, nonce []byte, kh interface{}) ([]byte, error) {
-						assert.Equal(t, clData.Encrypted, aad)
-						assert.Equal(t, clData.EncryptedNonce, clData.EncryptedNonce)
+				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedChunks).
+					DoAndReturn(func(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
 					})
+				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), gomock.Any()).Return(clData, nil)
 
 				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -1313,8 +1316,7 @@ func TestService_PrepareCredential(t *testing.T) {
 				HTTPClient:       mockHTTPClient,
 				EventService:     eventMock,
 				EventTopic:       spi.IssuerEventTopic,
-				Crypto:           crypto,
-				CryptoKeyID:      cryptoKeyID,
+				DataProtector:    crypto,
 			})
 			require.NoError(t, err)
 

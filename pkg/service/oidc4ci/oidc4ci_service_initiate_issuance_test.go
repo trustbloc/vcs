@@ -17,6 +17,7 @@ import (
 
 	"github.com/samber/lo"
 
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 
@@ -32,7 +33,6 @@ const (
 	issuerWellKnownURL  = "https://issuer.example.com/.well-known/openid-configuration"
 	walletWellKnownURL  = "https://wallet.example.com/.well-known/openid-configuration"
 	issuerVCSPublicHost = "https://vcs.pb.example.com/"
-	cryptoKeyID         = "123532523421"
 )
 
 //go:embed testdata/issuer_profile.json
@@ -45,7 +45,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 		mockWellKnownService = NewMockWellKnownService(gomock.NewController(t))
 		eventService         = NewMockEventService(gomock.NewController(t))
 		pinGenerator         = NewMockPinGenerator(gomock.NewController(t))
-		crypto               = NewMockCrypto(gomock.NewController(t))
+		crypto               = NewMockDataProtector(gomock.NewController(t))
 		issuanceReq          *oidc4ci.InitiateIssuanceRequest
 		profile              *profileapi.Issuer
 	)
@@ -122,12 +122,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				}
 
 				profile = &testProfile
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
 				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						ctx context.Context,
@@ -159,8 +162,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
-						assert.Equal(t, encrypted, data.Encrypted)
-						assert.Equal(t, nonce, data.EncryptedNonce)
+						assert.Equal(t, chunks, data.EncryptedChunks)
 
 						return "claimDataID", nil
 					})
@@ -240,12 +242,16 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
+
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -310,12 +316,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -382,13 +391,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
 
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
 				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
 						assert.Len(t, messages, 1)
@@ -454,12 +465,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
@@ -500,12 +514,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 				pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
 
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
 					ClientWellKnownURL:   walletWellKnownURL,
@@ -552,12 +569,15 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				encrypted := []byte{0x1, 0x2, 0x3}
-				nonce := []byte{0x0, 0x2}
-				crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-					DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-						return encrypted, nonce, nil
-					})
+				chunks := []*dataprotect.EncryptedChunk{
+					{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
+					},
+				}
+
+				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+					Return(chunks, nil)
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
 
 				eventService.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
@@ -843,8 +863,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				EventService:        eventService,
 				EventTopic:          spi.IssuerEventTopic,
 				PinGenerator:        pinGenerator,
-				Crypto:              crypto,
-				CryptoKeyID:         cryptoKeyID,
+				DataProtector:       crypto,
 			})
 			require.NoError(t, err)
 

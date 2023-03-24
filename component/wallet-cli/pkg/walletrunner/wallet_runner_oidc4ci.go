@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -407,7 +408,8 @@ func (s *Service) getCredential(
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, finalDuration, fmt.Errorf("get credential: status %s", resp.Status)
+		b, _ := io.ReadAll(resp.Body)
+		return nil, finalDuration, fmt.Errorf("get credential: status %s and body %s", resp.Status, string(b))
 	}
 
 	var credentialResp CredentialResponse

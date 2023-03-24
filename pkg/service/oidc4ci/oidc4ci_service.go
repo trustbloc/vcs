@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,crypto=MockCrypto
+//go:generate mockgen -destination oidc4ci_service_mocks_test.go -self_package mocks -package oidc4ci_test -source=oidc4ci_service.go -mock_names transactionStore=MockTransactionStore,wellKnownService=MockWellKnownService,oAuth2Client=MockOAuth2Client,httpClient=MockHTTPClient,eventService=MockEventService,pinGenerator=MockPinGenerator,credentialOfferReferenceStore=MockCredentialOfferReferenceStore,claimDataStore=MockClaimDataStore,profileService=MockProfileService,dataProtector=MockDataProtector
 
 package oidc4ci
 
@@ -22,6 +22,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"golang.org/x/oauth2"
 
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
@@ -106,9 +107,9 @@ type credentialOfferReferenceStore interface {
 	) (string, error)
 }
 
-type crypto interface {
-	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
-	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
+type dataProtector interface {
+	Encrypt(ctx context.Context, msg []byte) ([]*dataprotect.EncryptedChunk, error)
+	Decrypt(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error)
 }
 
 // Config holds configuration options and dependencies for Service.
@@ -125,8 +126,7 @@ type Config struct {
 	EventTopic                    string
 	PreAuthCodeTTL                int32
 	CredentialOfferReferenceStore credentialOfferReferenceStore // optional
-	Crypto                        crypto
-	CryptoKeyID                   string
+	DataProtector                 dataProtector
 }
 
 // Service implements VCS credential interaction API for OIDC credential issuance.
@@ -143,8 +143,7 @@ type Service struct {
 	pinGenerator                  pinGenerator
 	preAuthCodeTTL                int32
 	credentialOfferReferenceStore credentialOfferReferenceStore // optional
-	crypto                        crypto
-	cryptoKeyID                   string
+	dataProtector                 dataProtector
 }
 
 // NewService returns a new Service instance.
@@ -162,8 +161,7 @@ func NewService(config *Config) (*Service, error) {
 		pinGenerator:                  config.PinGenerator,
 		preAuthCodeTTL:                config.PreAuthCodeTTL,
 		credentialOfferReferenceStore: config.CredentialOfferReferenceStore,
-		crypto:                        config.Crypto,
-		cryptoKeyID:                   config.CryptoKeyID,
+		dataProtector:                 config.DataProtector,
 	}, nil
 }
 
@@ -429,7 +427,7 @@ func (s *Service) getClaimsData(
 		return nil, fmt.Errorf("get claim data: %w", claimDataErr)
 	}
 
-	decryptedClaims, decryptErr := s.DecryptClaims(tempClaimData)
+	decryptedClaims, decryptErr := s.DecryptClaims(ctx, tempClaimData)
 	if decryptErr != nil {
 		return nil, decryptErr
 	}

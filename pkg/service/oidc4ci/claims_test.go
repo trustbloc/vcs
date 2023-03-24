@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4ci_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
@@ -23,31 +25,33 @@ func TestEncrypt(t *testing.T) {
 			"foo": "bar",
 		}
 		claimsBytes, _ := json.Marshal(claims)
-		encrypted := []byte{0x1, 0x2, 0x3}
-		nonce := []byte{0x0, 0x2}
 
-		crypto := NewMockCrypto(gomock.NewController(t))
-		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any(), cryptoKeyID).
-			DoAndReturn(func(msg, aad []byte, kh interface{}) ([]byte, []byte, error) {
-				assert.Equal(t, claimsBytes, msg)
-				return encrypted, nonce, nil
+		chunks := []*dataprotect.EncryptedChunk{
+			{
+				Encrypted:      []byte{0x1, 0x2, 0x3},
+				EncryptedNonce: []byte{0x0, 0x2},
+			},
+		}
+		crypto := NewMockDataProtector(gomock.NewController(t))
+		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, bytes []byte) ([]*dataprotect.EncryptedChunk, error) {
+				assert.Equal(t, claimsBytes, bytes)
+				return chunks, nil
 			})
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{
-			Crypto:      crypto,
-			CryptoKeyID: cryptoKeyID,
+			DataProtector: crypto,
 		})
 
-		data, err := srv.EncryptClaims(map[string]interface{}{
+		data, err := srv.EncryptClaims(context.TODO(), map[string]interface{}{
 			"foo": "bar",
 		})
 		assert.NoError(t, err)
-		assert.Equal(t, encrypted, data.Encrypted)
-		assert.Equal(t, nonce, data.EncryptedNonce)
+		assert.Equal(t, data.EncryptedChunks, chunks)
 	})
 	t.Run("fail marshal", func(t *testing.T) {
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{})
 
-		data, err := srv.EncryptClaims(map[string]interface{}{
+		data, err := srv.EncryptClaims(context.TODO(), map[string]interface{}{
 			"foo": make(chan int),
 		})
 		assert.Nil(t, data)
@@ -55,14 +59,14 @@ func TestEncrypt(t *testing.T) {
 	})
 
 	t.Run("encrypt err", func(t *testing.T) {
-		crypto := NewMockCrypto(gomock.NewController(t))
-		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any(), gomock.Any()).
-			Return(nil, nil, errors.New("can not encrypt"))
+		crypto := NewMockDataProtector(gomock.NewController(t))
+		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("can not encrypt"))
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{
-			Crypto: crypto,
+			DataProtector: crypto,
 		})
 
-		data, err := srv.EncryptClaims(map[string]interface{}{
+		data, err := srv.EncryptClaims(context.TODO(), map[string]interface{}{
 			"foo": "bar",
 		})
 		assert.Nil(t, data)
@@ -76,66 +80,73 @@ func TestDecrypt(t *testing.T) {
 			"foo": "bar",
 		}
 		claimsBytes, _ := json.Marshal(claims)
-		encrypted := []byte{0x1, 0x2, 0x3}
-		nonce := []byte{0x0, 0x2}
 
-		crypto := NewMockCrypto(gomock.NewController(t))
-		crypto.EXPECT().Decrypt(nil, gomock.Any(), gomock.Any(), cryptoKeyID).
-			DoAndReturn(func(cipher, aad, nonce1 []byte, kh interface{}) ([]byte, error) {
-				assert.Equal(t, aad, encrypted)
-				assert.Equal(t, nonce, nonce1)
+		chunks := []*dataprotect.EncryptedChunk{
+			{
+				Encrypted:      []byte{0x1, 0x2, 0x3},
+				EncryptedNonce: []byte{0x0, 0x2},
+			},
+		}
+
+		crypto := NewMockDataProtector(gomock.NewController(t))
+		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, chunks2 []*dataprotect.EncryptedChunk) ([]byte, error) {
+				assert.Equal(t, chunks, chunks2)
+
 				return claimsBytes, nil
 			})
 
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{
-			Crypto:      crypto,
-			CryptoKeyID: cryptoKeyID,
+			DataProtector: crypto,
 		})
 
-		data, err := srv.DecryptClaims(&oidc4ci.ClaimData{
-			Encrypted:      encrypted,
-			EncryptedNonce: nonce,
+		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
+			EncryptedChunks: chunks,
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, claims, data)
 	})
 	t.Run("fail marshal", func(t *testing.T) {
-		encrypted := []byte{0x1, 0x2, 0x3}
-		nonce := []byte{0x0, 0x2}
+		chunks := []*dataprotect.EncryptedChunk{
+			{
+				Encrypted:      []byte{0x1, 0x2, 0x3},
+				EncryptedNonce: []byte{0x0, 0x2},
+			},
+		}
 
-		crypto := NewMockCrypto(gomock.NewController(t))
-		crypto.EXPECT().Decrypt(nil, gomock.Any(), gomock.Any(), cryptoKeyID).
+		crypto := NewMockDataProtector(gomock.NewController(t))
+		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
 			Return([]byte{0x1, 0x2}, nil)
 
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{
-			Crypto:      crypto,
-			CryptoKeyID: cryptoKeyID,
+			DataProtector: crypto,
 		})
 
-		data, err := srv.DecryptClaims(&oidc4ci.ClaimData{
-			Encrypted:      encrypted,
-			EncryptedNonce: nonce,
+		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
+			EncryptedChunks: chunks,
 		})
 		assert.ErrorContains(t, err, "looking for beginning of value")
 		assert.Nil(t, data)
 	})
 
 	t.Run("encrypt err", func(t *testing.T) {
-		encrypted := []byte{0x1, 0x2, 0x3}
-		nonce := []byte{0x0, 0x2}
+		chunks := []*dataprotect.EncryptedChunk{
+			{
+				Encrypted:      []byte{0x1, 0x2, 0x3},
+				EncryptedNonce: []byte{0x0, 0x2},
+			},
+		}
 
-		crypto := NewMockCrypto(gomock.NewController(t))
-		crypto.EXPECT().Decrypt(nil, gomock.Any(), gomock.Any(), cryptoKeyID).
+		crypto := NewMockDataProtector(gomock.NewController(t))
+		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("can not decrypt"))
 
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{
-			Crypto:      crypto,
-			CryptoKeyID: cryptoKeyID,
+			DataProtector: crypto,
 		})
 
-		data, err := srv.DecryptClaims(&oidc4ci.ClaimData{
-			Encrypted:      encrypted,
-			EncryptedNonce: nonce,
+		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
+			EncryptedChunks: chunks,
 		})
 		assert.ErrorContains(t, err, "can not decrypt")
 		assert.Nil(t, data)

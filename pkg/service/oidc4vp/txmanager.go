@@ -4,11 +4,12 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-//go:generate mockgen -destination txmanager_mocks_test.go -self_package mocks -package oidc4vp_test -source=txmanager.go -mock_names txStore=MockTxStore,txNonceStore=MockTxNonceStore,txClaimsStore=MockTxClaimsStore,crypto=MockCrypto
+//go:generate mockgen -destination txmanager_mocks_test.go -self_package mocks -package oidc4vp_test -source=txmanager.go -mock_names txStore=MockTxStore,txNonceStore=MockTxNonceStore,txClaimsStore=MockTxClaimsStore,dataProtector=MockDataProtector
 
 package oidc4vp
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -18,6 +19,8 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/piprate/json-gold/ld"
+
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 )
 
 const (
@@ -45,8 +48,7 @@ type ReceivedClaimsRaw struct {
 }
 
 type ClaimData struct {
-	Encrypted      []byte `json:"encrypted"`
-	EncryptedNonce []byte `json:"encrypted_nonce"`
+	EncryptedChunk []*dataprotect.EncryptedChunk `json:"encrypted_chunk"`
 }
 
 type TransactionUpdate struct {
@@ -70,9 +72,9 @@ type txNonceStore interface {
 	GetAndDelete(nonce string) (TxID, bool, error)
 }
 
-type crypto interface {
-	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
-	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
+type dataProtector interface {
+	Encrypt(ctx context.Context, msg []byte) ([]*dataprotect.EncryptedChunk, error)
+	Decrypt(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error)
 }
 
 // TxManager used to manage oidc transactions.
@@ -81,8 +83,7 @@ type TxManager struct {
 	txStore             txStore
 	txClaimsStore       txClaimsStore
 	interactionLiveTime time.Duration
-	crypto              crypto
-	cryptoKeyID         string
+	dataProtector       dataProtector
 	docLoader           ld.DocumentLoader
 }
 
@@ -92,8 +93,7 @@ func NewTxManager(
 	txStore txStore,
 	txClaimsStore txClaimsStore,
 	interactionLiveTime time.Duration,
-	crypto crypto,
-	cryptoKeyID string,
+	dataProtector dataProtector,
 	docLoader ld.DocumentLoader,
 ) *TxManager {
 	return &TxManager{
@@ -101,8 +101,7 @@ func NewTxManager(
 		txStore:             txStore,
 		txClaimsStore:       txClaimsStore,
 		interactionLiveTime: interactionLiveTime,
-		crypto:              crypto,
-		cryptoKeyID:         cryptoKeyID,
+		dataProtector:       dataProtector,
 		docLoader:           docLoader,
 	}
 }
@@ -123,7 +122,7 @@ func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID str
 }
 
 func (tm *TxManager) StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error {
-	encrypted, err := tm.EncryptClaims(claims)
+	encrypted, err := tm.EncryptClaims(context.TODO(), claims)
 	if err != nil {
 		return err
 	}
@@ -155,7 +154,7 @@ func (tm *TxManager) Get(txID TxID) (*Transaction, error) {
 	if err != nil && !errors.Is(err, ErrDataNotFound) {
 		return nil, fmt.Errorf("find received claims: %w", err)
 	}
-	decrypted, err := tm.DecryptClaims(receivedClaims)
+	decrypted, err := tm.DecryptClaims(context.TODO(), receivedClaims)
 	if err != nil {
 		return nil, err
 	}

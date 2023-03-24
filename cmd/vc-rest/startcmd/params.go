@@ -177,6 +177,12 @@ const (
 	dataEncryptionKeyIDFlagUsage = "Data Encryption & Decryption KeyID. " +
 		commonEnvVarUsageText + dataEncryptionKeyIDEnvKey
 
+	dataEncryptionDataChunkSizeFlagName  = "data-encryption-data-chuck-size"
+	dataEncryptionDataChunkSizeEnvKey    = "VC_REST_DATA_ENCRYPTION_DATA_CHUNK_SIZE" //nolint: gosec
+	dataEncryptionDataChunkSizeFlagUsage = "Data Encryption & Decryption chunk size. " +
+		"For aws refer to https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html  Default: 4096" +
+		commonEnvVarUsageText + dataEncryptionDataChunkSizeEnvKey
+
 	requestTokensFlagName  = "request-tokens"
 	requestTokensEnvKey    = "VC_REST_REQUEST_TOKENS" //nolint: gosec
 	requestTokensFlagUsage = "Tokens used for http request " +
@@ -298,6 +304,7 @@ const (
 const (
 	defaultClaimDataTTL            = 3600 * time.Second
 	defaultVPReceivedClaimsDataTTL = 3600 * time.Second
+	defaultDataEncryptionChunkSize = 4096
 )
 
 type startupParameters struct {
@@ -339,6 +346,7 @@ type startupParameters struct {
 	vpReceivedClaimsDataTTL             int32
 	tracingParams                       *tracingParams
 	dataEncryptionKeyID                 string
+	dataEncryptionDataChunkSizeLength   int
 }
 
 type prometheusMetricsProviderParams struct {
@@ -457,6 +465,21 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	dataEncryptionDataChunkSize := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		dataEncryptionDataChunkSizeFlagName,
+		dataEncryptionDataChunkSizeEnvKey,
+	)
+	dataEncryptionDataChunkSizeLength := defaultDataEncryptionChunkSize
+
+	if len(dataEncryptionDataChunkSize) > 0 {
+		if v, _ := strconv.Atoi(dataEncryptionDataChunkSize); v > 0 {
+			dataEncryptionDataChunkSizeLength = v
+		} else {
+			logger.Warn("can not parse dataEncryptionDataChunkSizeLength")
+		}
 	}
 
 	requestTokens := getRequestTokens(cmd)
@@ -625,6 +648,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
 		tracingParams:                       tracingParams,
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
+		dataEncryptionDataChunkSizeLength:   dataEncryptionDataChunkSizeLength,
 	}, nil
 }
 
@@ -888,6 +912,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionKeyIDFlagName, "", "", dataEncryptionKeyIDFlagUsage)
+	startCmd.Flags().StringP(dataEncryptionDataChunkSizeFlagName, "", "", dataEncryptionDataChunkSizeFlagUsage)
 	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)

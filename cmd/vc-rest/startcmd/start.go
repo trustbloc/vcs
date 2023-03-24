@@ -48,6 +48,7 @@ import (
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/component/otp"
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
 	"github.com/trustbloc/vcs/pkg/kms"
@@ -481,6 +482,11 @@ func buildEchoHandler(
 
 	var oidc4ciService oidc4ci.ServiceInterface
 
+	claimsDataProtector := dataprotect.NewDataProtector(
+		defaultVCSKeyManager.Crypto(),
+		conf.StartupParameters.dataEncryptionDataChunkSizeLength,
+		conf.StartupParameters.dataEncryptionKeyID,
+	)
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,
 		ClaimDataStore:                claimDataStore,
@@ -494,8 +500,7 @@ func buildEchoHandler(
 		EventTopic:                    conf.StartupParameters.issuerEventTopic,
 		PreAuthCodeTTL:                conf.StartupParameters.claimDataTTL,
 		CredentialOfferReferenceStore: credentialOfferStore,
-		Crypto:                        defaultVCSKeyManager.Crypto(),
-		CryptoKeyID:                   conf.StartupParameters.dataEncryptionKeyID,
+		DataProtector:                 claimsDataProtector,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new oidc4ci service: %w", err)
@@ -658,8 +663,7 @@ func buildEchoHandler(
 		oidc4vpTxStore,
 		oidc4vpClaimsStore,
 		15*time.Minute,
-		defaultVCSKeyManager.Crypto(),
-		conf.StartupParameters.dataEncryptionKeyID,
+		claimsDataProtector,
 		documentLoader,
 	)
 

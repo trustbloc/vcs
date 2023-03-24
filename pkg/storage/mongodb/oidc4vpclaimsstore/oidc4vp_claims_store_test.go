@@ -25,6 +25,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -34,15 +35,6 @@ const (
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
 	defaultClaimsTTL   = 3600
-)
-
-var (
-	//go:embed testdata/university_degree.jsonld
-	sampleVCJsonLD string
-	//go:embed testdata/university_degree.jwt
-	sampleVCJWT string
-	//go:embed testdata/university_degree.sdjwt
-	sampleVCSDJWT string
 )
 
 func TestStore(t *testing.T) {
@@ -60,12 +52,16 @@ func TestStore(t *testing.T) {
 
 	t.Run("test create and get - JWT", func(t *testing.T) {
 		receivedClaims := &oidc4vp.ClaimData{
-			Encrypted:      []byte{0x1, 0x2},
-			EncryptedNonce: []byte{0x3},
+			EncryptedChunk: []*dataprotect.EncryptedChunk{
+				{
+					Encrypted:      []byte{0x1, 0x2},
+					EncryptedNonce: []byte{0x3},
+				},
+			},
 		}
 
 		id, err := store.Create(receivedClaims)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 
 		claimsInDB, err := store.Get(id)
 		assert.NoError(t, err)
@@ -93,8 +89,12 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		receivedClaims := &oidc4vp.ClaimData{
-			Encrypted:      []byte{0x1, 0x2},
-			EncryptedNonce: []byte{0x3},
+			EncryptedChunk: []*dataprotect.EncryptedChunk{
+				{
+					Encrypted:      []byte{0x1, 0x2},
+					EncryptedNonce: []byte{0x3},
+				},
+			},
 		}
 
 		id, err := storeExpired.Create(receivedClaims)

@@ -248,6 +248,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + tracingProviderFlagName, tracing.ProviderJaeger,
 		"--" + tracingCollectorURLFlagName, "http://yaeger.local.com",
 		"--" + dataEncryptionKeyIDFlagName, "12345",
+		"--" + dataEncryptionDataChunkSizeFlagName, "2048",
 	}
 
 	startCmd.SetArgs(args)

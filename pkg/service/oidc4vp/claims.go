@@ -11,11 +11,12 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"golang.org/x/net/context"
 )
 
-func (tm *TxManager) EncryptClaims(data *ReceivedClaims) (*ClaimData, error) {
+func (tm *TxManager) EncryptClaims(ctx context.Context, data *ReceivedClaims) (*ClaimData, error) {
 	if data == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 	raw, err := tm.ClaimsToClaimsRaw(data)
 	if err != nil {
@@ -27,20 +28,19 @@ func (tm *TxManager) EncryptClaims(data *ReceivedClaims) (*ClaimData, error) {
 		return nil, err
 	}
 
-	encrypted, nonce, err := tm.crypto.Encrypt(bytesData, nil, tm.cryptoKeyID)
+	encrypted, err := tm.dataProtector.Encrypt(ctx, bytesData)
 	if err != nil {
 		return nil, err
 	}
 
 	return &ClaimData{
-		Encrypted:      encrypted,
-		EncryptedNonce: nonce,
+		EncryptedChunk: encrypted,
 	}, nil
 }
 
 func (tm *TxManager) ClaimsToClaimsRaw(data *ReceivedClaims) (*ReceivedClaimsRaw, error) {
 	if data == nil {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	raw := &ReceivedClaimsRaw{
@@ -58,11 +58,12 @@ func (tm *TxManager) ClaimsToClaimsRaw(data *ReceivedClaims) (*ReceivedClaimsRaw
 	return raw, nil
 }
 
-func (tm *TxManager) DecryptClaims(data *ClaimData) (*ReceivedClaims, error) {
+func (tm *TxManager) DecryptClaims(ctx context.Context, data *ClaimData) (*ReceivedClaims, error) {
 	if data == nil { // can happen for vp
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
-	resp, err := tm.crypto.Decrypt(nil, data.Encrypted, data.EncryptedNonce, tm.cryptoKeyID)
+
+	resp, err := tm.dataProtector.Decrypt(ctx, data.EncryptedChunk)
 	if err != nil {
 		return nil, err
 	}

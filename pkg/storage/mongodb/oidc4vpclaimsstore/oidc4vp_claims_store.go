@@ -29,7 +29,6 @@ type mongoDocument struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
 	ExpireAt time.Time          `bson:"expire_at"`
 	*oidc4vp.ClaimData
-	//ReceivedClaims map[string][]byte `bson:"receivedClaims"`
 }
 
 // Store stores claim data with expiration.

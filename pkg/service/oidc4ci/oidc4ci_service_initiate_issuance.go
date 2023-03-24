@@ -97,7 +97,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 			logger.Debug("issuer claim keys", logfields.WithClaimKeys(claimKeys))
 		}
 
-		claimData, errEncrypt := s.EncryptClaims(req.ClaimData)
+		claimData, errEncrypt := s.EncryptClaims(ctx, req.ClaimData)
 		if errEncrypt != nil {
 			return nil, fmt.Errorf("can not encrypt claim data: %w", errEncrypt)
 		}
