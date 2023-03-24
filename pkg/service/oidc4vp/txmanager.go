@@ -17,6 +17,7 @@ import (
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/piprate/json-gold/ld"
 )
 
 const (
@@ -38,8 +39,8 @@ type ReceivedClaims struct {
 	Credentials map[string]*verifiable.Credential `json:"credentials"`
 }
 
-// receivedClaimsRaw is temporary struct for parsing to ReceivedClaims, as we need to unmarshal credentials separately.
-type receivedClaimsRaw struct {
+// ReceivedClaimsRaw is temporary struct for parsing to ReceivedClaims, as we need to unmarshal credentials separately.
+type ReceivedClaimsRaw struct {
 	Credentials map[string][]byte `json:"credentials"`
 }
 
@@ -82,6 +83,7 @@ type TxManager struct {
 	interactionLiveTime time.Duration
 	crypto              crypto
 	cryptoKeyID         string
+	docLoader           ld.DocumentLoader
 }
 
 // NewTxManager creates TxManager.
@@ -92,6 +94,7 @@ func NewTxManager(
 	interactionLiveTime time.Duration,
 	crypto crypto,
 	cryptoKeyID string,
+	docLoader ld.DocumentLoader,
 ) *TxManager {
 	return &TxManager{
 		nonceStore:          store,
@@ -100,6 +103,7 @@ func NewTxManager(
 		interactionLiveTime: interactionLiveTime,
 		crypto:              crypto,
 		cryptoKeyID:         cryptoKeyID,
+		docLoader:           docLoader,
 	}
 }
 

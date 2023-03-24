@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"time"
 
-	jsonld "github.com/piprate/json-gold/ld"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -37,16 +36,17 @@ type mongoDocument struct {
 type Store struct {
 	mongoClient *mongodb.Client
 	ttl         int32
-
-	documentLoader jsonld.DocumentLoader
 }
 
 // New creates presentation claims store.
-func New(ctx context.Context, mongoClient *mongodb.Client, documentLoader jsonld.DocumentLoader, ttl int32) (*Store, error) { //nolint:lll
+func New(
+	ctx context.Context,
+	mongoClient *mongodb.Client,
+	ttl int32,
+) (*Store, error) {
 	s := &Store{
-		mongoClient:    mongoClient,
-		documentLoader: documentLoader,
-		ttl:            ttl,
+		mongoClient: mongoClient,
+		ttl:         ttl,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -72,17 +72,6 @@ func (s *Store) migrate(ctx context.Context) error {
 
 func (s *Store) Create(claims *oidc4vp.ClaimData) (string, error) {
 	var err error
-
-	//claimsMap := map[string][]byte{}
-
-	//if claims != nil {
-	//	for key, cred := range claims.Credentials {
-	//		claimsMap[key], err = json.Marshal(cred)
-	//		if err != nil {
-	//			return "", fmt.Errorf("serialize received claims %w", err)
-	//		}
-	//	}
-	//}
 
 	doc := &mongoDocument{
 		ExpireAt:  time.Now().Add(time.Duration(s.ttl) * time.Second),

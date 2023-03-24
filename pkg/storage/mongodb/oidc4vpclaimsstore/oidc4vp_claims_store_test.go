@@ -25,7 +25,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	"github.com/trustbloc/vcs/pkg/internal/testutil"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 )
@@ -56,7 +55,7 @@ func TestStore(t *testing.T) {
 	client, createErr := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, createErr)
 
-	store, createErr := New(context.Background(), client, testutil.DocumentLoader(t), defaultClaimsTTL)
+	store, createErr := New(context.Background(), client, defaultClaimsTTL)
 	assert.NoError(t, createErr)
 
 	t.Run("test create and get - JWT", func(t *testing.T) {
@@ -90,7 +89,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("test expiration", func(t *testing.T) {
-		storeExpired, err := New(context.Background(), client, testutil.DocumentLoader(t), 1)
+		storeExpired, err := New(context.Background(), client, 1)
 		assert.NoError(t, err)
 
 		receivedClaims := &oidc4vp.ClaimData{
@@ -121,7 +120,7 @@ func TestMigrate(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	store, err := New(ctx, client, testutil.DocumentLoader(t), 3600)
+	store, err := New(ctx, client, 3600)
 	assert.Nil(t, store)
 	assert.ErrorContains(t, err, "context canceled")
 

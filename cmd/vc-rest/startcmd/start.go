@@ -628,7 +628,7 @@ func buildEchoHandler(
 
 	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
 
-	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClientNoTracing, documentLoader,
+	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClientNoTracing,
 		conf.StartupParameters.vpReceivedClaimsDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
@@ -660,6 +660,7 @@ func buildEchoHandler(
 		15*time.Minute,
 		defaultVCSKeyManager.Crypto(),
 		conf.StartupParameters.dataEncryptionKeyID,
+		documentLoader,
 	)
 
 	requestObjectStoreService := vp.NewRequestObjectStore(requestObjStore, eventSvc,
