@@ -57,6 +57,19 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 		VerifierProfileID:    os.Getenv("VERIFIER_PROFILE_ID"),
 		CredentialTemplateID: os.Getenv("CREDENTIAL_TEMPLATE_ID"),
 		CredentialType:       "midyVerifiedDocument",
+		ClaimData: map[string]interface{}{
+			"type":              []string{"midyVerifiedPassport"},
+			"birthdate":         "1990-08-02",
+			"expiry_date":       "2029-05-06",
+			"doc_number":        "34234234123",
+			"doc_type":          "passport",
+			"given_name":        "Harry",
+			"issue_date":        "2019-05-06",
+			"nationality":       "CA",
+			"issuing_country":   "CA",
+			"issuing_authority": "CA",
+			"family_name":       "Tester",
+		},
 	})
 
 	result, err := run.Run(ctx)
