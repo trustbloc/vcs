@@ -7,11 +7,11 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"golang.org/x/net/context"
 )
 
 func (tm *TxManager) EncryptClaims(ctx context.Context, data *ReceivedClaims) (*ClaimData, error) {
