@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package cslstore
+package cslvcstore
 
 import (
 	"bytes"
@@ -36,13 +36,11 @@ type s3Uploader interface {
 	GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 
-// underlyingCSLWrapperStore is used for storing
-// credentialstatus.CSLWrapper and credentialstatus.ListID in a different place then public S3 bucket.
+// underlyingCSLWrapperStore is used for storing credentialstatus.CSLVCWrapper
+// in a different place then public S3 bucket.
 type underlyingCSLWrapperStore interface {
-	Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error)
-	Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error
-	GetLatestListID(ctx context.Context) (credentialstatus.ListID, error)
-	UpdateLatestListID(ctx context.Context) error
+	Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error)
+	Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error
 }
 
 // Store manages profile in mongodb.
@@ -68,12 +66,12 @@ func NewStore(
 	}
 }
 
-// Upsert does upsert operation of credentialstatus.CSLWrapper.
-func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+// Upsert does upsert operation of credentialstatus.CSLVCWrapper.
+func (p *Store) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
 	// Put CSL.
 	_, err := p.s3Uploader.PutObject(ctx, &s3.PutObjectInput{
 		Body:        bytes.NewReader(unQuote(cslWrapper.VCByte)),
-		Key:         aws.String(p.resolveCSLS3Key(cslWrapper.VC.ID)),
+		Key:         aws.String(p.resolveCSLS3Key(cslURL)),
 		Bucket:      aws.String(p.bucket),
 		ContentType: aws.String(contentType),
 	})
@@ -84,15 +82,15 @@ func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrap
 	// Put cslWrapper.
 	cslWrapper.VCByte = nil
 
-	if err = p.cslLWrapperStore.Upsert(ctx, cslWrapper); err != nil {
+	if err = p.cslLWrapperStore.Upsert(ctx, cslURL, cslWrapper); err != nil {
 		return fmt.Errorf("failed to store cslWrapper: %w", err)
 	}
 
 	return nil
 }
 
-// Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
-func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
+// Get returns credentialstatus.CSLVCWrapper based on credentialstatus.CSL URL.
+func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
 	// Get CSL.
 	cslRes, err := p.s3Uploader.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(p.bucket),
@@ -119,20 +117,21 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWr
 	// Get CSLWrapper.
 	cslWrapper, err := p.cslLWrapperStore.Get(ctx, cslURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CSLWrapper from underlying store: %w", err)
+		if errors.Is(err, credentialstatus.ErrDataNotFound) {
+			// this is old data (VC doesn't have matching wrapper)
+			// so we couldn't get version - return as version 1
+			return &credentialstatus.CSLVCWrapper{
+				VCByte:  cslBytes,
+				Version: 1,
+			}, nil
+		}
+
+		return nil, fmt.Errorf("failed to get CSL Wrapper from underlying store: %w", err)
 	}
 
 	cslWrapper.VCByte = cslBytes
 
 	return cslWrapper, nil
-}
-
-func (p *Store) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
-	return p.cslLWrapperStore.GetLatestListID(ctx)
-}
-
-func (p *Store) UpdateLatestListID(ctx context.Context) error {
-	return p.cslLWrapperStore.UpdateLatestListID(ctx)
 }
 
 // GetCSLURL returns the public URL of credentialstatus.CSL.

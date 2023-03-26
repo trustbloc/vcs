@@ -4,13 +4,12 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package cslstore
+package cslindexstore
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 
 	"github.com/google/uuid"
 	mongodbext "github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb"
@@ -23,13 +22,10 @@ import (
 )
 
 const (
-	cslStoreName               = "csl_store"
+	cslIndexStoreName          = "csl_store"
 	latestListIDDBEntryKey     = "LatestListID"
 	mongoDBDocumentIDFieldName = "_id"
 	idFieldName                = "id"
-
-	issuerProfiles   = "/issuer/groups"
-	credentialStatus = "/credentials/status"
 )
 
 // Store manages profile in mongodb.
@@ -48,36 +44,23 @@ func NewStore(mongoClient *mongodb.Client) *Store {
 }
 
 // Upsert does upsert operation of cslWrapper against underlying MongoDB.
-func (p *Store) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+func (p *Store) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLIndexWrapper) error {
 	mongoDBDocument, err := mongodbext.PrepareDataForBSONStorage(cslWrapper)
 	if err != nil {
 		return err
 	}
 
-	// Save space in the database by using the VC ID name as the MongoDB document _id field
-	// and removing the ID from the VC JSON-LD.
-	vcMap, ok := mongoDBDocument["vc"].(map[string]interface{})
-	if ok {
-		delete(vcMap, idFieldName)
-	}
-
-	collection := p.mongoClient.Database().Collection(cslStoreName)
+	collection := p.mongoClient.Database().Collection(cslIndexStoreName)
 	_, err = collection.UpdateByID(ctx,
-		cslWrapper.VC.ID, bson.M{
+		cslURL, bson.M{
 			"$set": mongoDBDocument,
 		}, options.Update().SetUpsert(true))
 	return err
 }
 
-// GetCSLURL returns the URL of credentialstatus.CSL.
-func (p *Store) GetCSLURL(issuerProfileURL, groupID string,
-	listID credentialstatus.ListID) (string, error) {
-	return url.JoinPath(issuerProfileURL, issuerProfiles, groupID, credentialStatus, string(listID))
-}
-
-// Get returns credentialstatus.CSLWrapper based on credentialstatus.CSL URL.
-func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
-	collection := p.mongoClient.Database().Collection(cslStoreName)
+// Get returns credentialstatus.CSLIndexWrapper based on credentialstatus.CSL URL.
+func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
+	collection := p.mongoClient.Database().Collection(cslIndexStoreName)
 
 	mongoDBDocument := map[string]interface{}{}
 
@@ -87,7 +70,7 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWr
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("CSLWrapper find failed: %w", err)
+		return nil, fmt.Errorf("CSLIndexWrapper find failed: %w", err)
 	}
 
 	vcMap, ok := mongoDBDocument["vc"].(map[string]interface{})
@@ -95,18 +78,18 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLWr
 		vcMap[idFieldName] = mongoDBDocument[mongoDBDocumentIDFieldName]
 	}
 
-	cslWrapper := &credentialstatus.CSLWrapper{}
+	cslWrapper := &credentialstatus.CSLIndexWrapper{}
 
 	err = mongodb.MapToStructure(mongoDBDocument, cslWrapper)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode to CSLWrapper: %w", err)
+		return nil, fmt.Errorf("failed to decode to CSLIndexWrapper: %w", err)
 	}
 
 	return cslWrapper, nil
 }
 
 func (p *Store) UpdateLatestListID(ctx context.Context) error {
-	collection := p.mongoClient.Database().Collection(cslStoreName)
+	collection := p.mongoClient.Database().Collection(cslIndexStoreName)
 	_, err := collection.UpdateByID(ctx, latestListIDDBEntryKey, bson.M{
 		"$set": latestListIDDocument{
 			ListID: uuid.NewString(),
@@ -117,7 +100,7 @@ func (p *Store) UpdateLatestListID(ctx context.Context) error {
 }
 
 func (p *Store) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
-	collection := p.mongoClient.Database().Collection(cslStoreName)
+	collection := p.mongoClient.Database().Collection(cslIndexStoreName)
 
 	mongoDBDocument := map[string]interface{}{}
 
@@ -144,7 +127,7 @@ func (p *Store) GetLatestListID(ctx context.Context) (credentialstatus.ListID, e
 func (p *Store) createFirstListID(ctx context.Context) (credentialstatus.ListID, error) {
 	listID := uuid.NewString()
 
-	collection := p.mongoClient.Database().Collection(cslStoreName)
+	collection := p.mongoClient.Database().Collection(cslIndexStoreName)
 	_, err := collection.InsertOne(ctx, latestListIDDocument{
 		ID:     latestListIDDBEntryKey,
 		ListID: listID,

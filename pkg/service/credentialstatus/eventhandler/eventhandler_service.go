@@ -53,7 +53,8 @@ type vcCrypto interface {
 }
 
 type Config struct {
-	CSLStore       credentialstatus.CSLStore
+	CSLVCStore     credentialstatus.CSLVCStore
+	CSLIndexStore  credentialstatus.CSLIndexStore
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
 	Crypto         vcCrypto
@@ -61,20 +62,22 @@ type Config struct {
 }
 
 type Service struct {
-	cslStore       credentialstatus.CSLStore
-	profileService profileService
-	kmsRegistry    kmsRegistry
-	crypto         vcCrypto
-	documentLoader ld.DocumentLoader
+	cslStore        credentialstatus.CSLVCStore
+	cslWrapperStore credentialstatus.CSLIndexStore
+	profileService  profileService
+	kmsRegistry     kmsRegistry
+	crypto          vcCrypto
+	documentLoader  ld.DocumentLoader
 }
 
 func New(conf *Config) *Service {
 	return &Service{
-		cslStore:       conf.CSLStore,
-		profileService: conf.ProfileService,
-		kmsRegistry:    conf.KMSRegistry,
-		crypto:         conf.Crypto,
-		documentLoader: conf.DocumentLoader,
+		cslStore:        conf.CSLVCStore,
+		cslWrapperStore: conf.CSLIndexStore,
+		profileService:  conf.ProfileService,
+		kmsRegistry:     conf.KMSRegistry,
+		crypto:          conf.Crypto,
+		documentLoader:  conf.DocumentLoader,
 	}
 }
 
@@ -97,16 +100,16 @@ func (s *Service) HandleEvent(ctx context.Context, event *spi.Event) error { //n
 
 func (s *Service) handleEventPayload(
 	ctx context.Context, payload credentialstatus.UpdateCredentialStatusEventPayload) error {
-	cslWrapper, err := s.getCSLWrapper(ctx, payload.CSLURL)
+	clsWrapper, err := s.getCSLVCWrapper(ctx, payload.CSLURL)
 	if err != nil {
-		return fmt.Errorf("get CSL wrapper failed: %w", err)
+		return fmt.Errorf("get CSL VC wrapper failed: %w", err)
 	}
 
-	if cslWrapper.Version != payload.Version-1 {
-		return fmt.Errorf("invalid payload version %d, expected %d", payload.Version, cslWrapper.Version+1)
+	if clsWrapper.Version != payload.Version-1 {
+		return fmt.Errorf("invalid payload version %d, expected %d", payload.Version, clsWrapper.Version+1)
 	}
 
-	cs, ok := cslWrapper.VC.Subject.([]verifiable.Subject)
+	cs, ok := clsWrapper.VC.Subject.([]verifiable.Subject)
 	if !ok {
 		return fmt.Errorf("failed to cast VC subject")
 	}
@@ -126,19 +129,19 @@ func (s *Service) handleEventPayload(
 	}
 
 	// remove all proofs because we are updating VC
-	cslWrapper.VC.Proofs = nil
+	clsWrapper.VC.Proofs = nil
 
-	signedCredentialBytes, err := s.signCSL(payload.ProfileID, cslWrapper.VC)
+	signedCredentialBytes, err := s.signCSL(payload.ProfileID, clsWrapper.VC)
 	if err != nil {
 		return fmt.Errorf("failed to sign CSL: %w", err)
 	}
 
-	// update latest version
-	cslWrapper.Version++
+	vcWrapper := &credentialstatus.CSLVCWrapper{
+		VCByte:  signedCredentialBytes,
+		Version: payload.Version,
+	}
 
-	cslWrapper.VCByte = signedCredentialBytes
-
-	if err = s.cslStore.Upsert(ctx, cslWrapper); err != nil {
+	if err = s.cslStore.Upsert(ctx, payload.CSLURL, vcWrapper); err != nil {
 		return fmt.Errorf("cslStore.Upsert failed: %w", err)
 	}
 
@@ -182,20 +185,22 @@ func (s *Service) signCSL(profileID string, csl *verifiable.Credential) ([]byte,
 	return signedCredential.MarshalJSON()
 }
 
-func (s *Service) getCSLWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
-	cslWrapper, err := s.cslStore.Get(ctx, cslURL)
+func (s *Service) getCSLVCWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
+	vcWrapper, err := s.cslStore.Get(ctx, cslURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL from store: %w", err)
 	}
 
-	cslWrapper.VC, err = verifiable.ParseCredential(cslWrapper.VCByte,
+	cslVC, err := verifiable.ParseCredential(vcWrapper.VCByte,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CSL: %w", err)
 	}
 
-	return cslWrapper, nil
+	vcWrapper.VC = cslVC
+
+	return vcWrapper, nil
 }
 
 // prepareSigningOpts prepares signing opts from recently issued proof of given credential.

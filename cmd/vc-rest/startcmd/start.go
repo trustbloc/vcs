@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+
 	"net"
 	"net/http"
 	"os"
@@ -31,7 +32,7 @@ import (
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/labstack/echo/v4"
+	echo "github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
@@ -85,7 +86,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
-	cslstoremongodb "github.com/trustbloc/vcs/pkg/storage/mongodb/cslstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslindexstore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslvcstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
@@ -94,7 +96,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
-	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslstore"
+	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslvcstore"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
 )
 
@@ -376,7 +378,7 @@ func buildEchoHandler(
 		return nil, err
 	}
 
-	cslStore, err := createCredentialStatusListStore(
+	cslVCStore, cslIndexStore, err := createCredentialStatusListStores(
 		conf.StartupParameters.cslStoreType,
 		conf.StartupParameters.cslStoreS3Region,
 		conf.StartupParameters.cslStoreS3Bucket,
@@ -408,7 +410,8 @@ func buildEchoHandler(
 	eventSvc, err := event.Initialize(event.Config{
 		TLSConfig:      tlsConfig,
 		CMD:            cmd,
-		CSLStore:       cslStore,
+		CSLVCStore:     cslVCStore,
+		CSLIndexStore:  cslIndexStore,
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,
 		Crypto:         vcCrypto,
@@ -427,7 +430,8 @@ func buildEchoHandler(
 		HTTPClient:     getHTTPClient(metricsProvider.ClientCredentialStatus),
 		RequestTokens:  conf.StartupParameters.requestTokens,
 		DocumentLoader: documentLoader,
-		CSLStore:       cslStore,
+		CSLVCStore:     cslVCStore,
+		CSLIndexStore:  cslIndexStore,
 		VCStatusStore:  vcstatusstore.NewStore(mongodbClient),
 		ListSize:       cslSize,
 		ProfileService: issuerProfileSvc,
@@ -783,30 +787,33 @@ func createCredentialOfferStore(
 	return credentialoffer.NewStore(s3.NewFromConfig(cfg), s3Bucket, s3Region, s3HostName), nil
 }
 
-func createCredentialStatusListStore(
+func createCredentialStatusListStores(
 	repoType string,
 	s3Region string,
 	s3Bucket string,
 	hostName string,
 	mongoDbClient *mongodb.Client,
 	isTraceEnabled bool,
-) (credentialstatustypes.CSLStore, error) {
-	cslStoreMongo := cslstoremongodb.NewStore(mongoDbClient)
+) (credentialstatustypes.CSLVCStore, credentialstatustypes.CSLIndexStore, error) {
+	cslIndexMongo := cslindexstore.NewStore(mongoDbClient)
+	cslVCMongo := cslvcstore.NewStore(mongoDbClient)
 
 	switch strings.ToLower(repoType) {
 	case "s3":
 		cfg, err := awsconfig.LoadDefaultConfig(context.Background(), awsconfig.WithRegion(s3Region))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if isTraceEnabled {
 			otelaws.AppendMiddlewares(&cfg.APIOptions, otelaws.WithTracerProvider(otel.GetTracerProvider()))
 		}
 
-		return cslstores3.NewStore(s3.NewFromConfig(cfg), cslStoreMongo, s3Bucket, s3Region, hostName), nil
+		cslS3Store := cslstores3.NewStore(s3.NewFromConfig(cfg), cslVCMongo, s3Bucket, s3Region, hostName)
+
+		return cslS3Store, cslIndexMongo, nil
 	default:
-		return cslStoreMongo, nil
+		return cslVCMongo, cslIndexMongo, nil
 	}
 }
 

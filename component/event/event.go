@@ -65,7 +65,8 @@ func Initialize(cfg Config) (*Bus, error) {
 	}
 
 	service := credentialstatuseventhandler.New(&credentialstatuseventhandler.Config{
-		CSLStore:       cfg.CSLStore,
+		CSLVCStore:     cfg.CSLVCStore,
+		CSLIndexStore:  cfg.CSLIndexStore,
 		ProfileService: cfg.ProfileService,
 		KMSRegistry:    cfg.KMSRegistry,
 		Crypto:         cfg.Crypto,

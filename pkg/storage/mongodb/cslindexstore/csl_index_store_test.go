@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package cslstore
+package cslindexstore
 
 import (
 	"context"
@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	mongoDBConnString  = "mongodb://localhost:27025"
+	mongoDBConnString  = "mongodb://localhost:27034"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
 )
@@ -68,14 +68,13 @@ func TestWrapperStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
-		wrapperCreated := &credentialstatus.CSLWrapper{
-			VCByte:      []byte(sampleVCJsonLD),
+		wrapperCreated := &credentialstatus.CSLIndexWrapper{
 			UsedIndexes: []int{1},
-			VC:          vc,
+			Version:     1,
 		}
 
 		// Create - Find
-		err = store.Upsert(ctx, wrapperCreated)
+		err = store.Upsert(ctx, vc.ID, wrapperCreated)
 		assert.NoError(t, err)
 
 		wrapperFound, err := store.Get(ctx, vc.ID)
@@ -83,13 +82,9 @@ func TestWrapperStore(t *testing.T) {
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
 		// Update - Find
-		wrapperCreated.VC.Issuer.ID += "_123"
-		vcUpdateBytes, err := wrapperCreated.VC.MarshalJSON()
-		assert.NoError(t, err)
 		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
-		wrapperCreated.VCByte = vcUpdateBytes
 
-		err = store.Upsert(ctx, wrapperCreated)
+		err = store.Upsert(ctx, vc.ID, wrapperCreated)
 		assert.NoError(t, err)
 
 		wrapperFound, err = store.Get(ctx, vc.ID)
@@ -104,14 +99,13 @@ func TestWrapperStore(t *testing.T) {
 			verifiable.WithDisabledProofCheck())
 		assert.NoError(t, err)
 
-		wrapperCreated := &credentialstatus.CSLWrapper{
-			VCByte:      []byte(sampleVCJWT),
+		wrapperCreated := &credentialstatus.CSLIndexWrapper{
 			UsedIndexes: []int{1},
-			VC:          vc,
+			Version:     1,
 		}
 
 		// Create - Find
-		err = store.Upsert(ctx, wrapperCreated)
+		err = store.Upsert(ctx, vc.ID, wrapperCreated)
 		assert.NoError(t, err)
 
 		wrapperFound, err := store.Get(ctx, vc.ID)
@@ -119,18 +113,9 @@ func TestWrapperStore(t *testing.T) {
 		compareWrappers(t, wrapperCreated, wrapperFound)
 
 		// Update - Find
-		wrapperCreated.VC.Issuer.ID += "_123"
-		claims, err := wrapperCreated.VC.JWTClaims(false)
-		assert.NoError(t, err)
-
-		jwt, err := claims.MarshalUnsecuredJWT()
-		assert.NoError(t, err)
-
 		wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
 
-		wrapperCreated.VCByte = []byte("\"" + jwt + "\"")
-
-		err = store.Upsert(ctx, wrapperCreated)
+		err = store.Upsert(ctx, vc.ID, wrapperCreated)
 		assert.NoError(t, err)
 
 		wrapperFound, err = store.Get(ctx, vc.ID)
@@ -168,9 +153,7 @@ func TestTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Upsert(ctxWithTimeout, &credentialstatus.CSLWrapper{
-			VC: &verifiable.Credential{ID: "1"},
-		})
+		err = store.Upsert(ctxWithTimeout, "1", &credentialstatus.CSLIndexWrapper{})
 
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
@@ -234,7 +217,7 @@ func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 		Repository: dockerMongoDBImage,
 		Tag:        dockerMongoDBTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"27017/tcp": {{HostIP: "", HostPort: "27025"}},
+			"27017/tcp": {{HostIP: "", HostPort: "27034"}},
 		},
 	})
 	require.NoError(t, err)
@@ -273,35 +256,16 @@ func pingMongoDB() error {
 	return db.Client().Ping(ctx, nil)
 }
 
-func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatus.CSLWrapper) {
+func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatus.CSLIndexWrapper) {
 	t.Helper()
 
-	vcFound, err := verifiable.ParseCredential(wrapperFound.VCByte,
-		verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
-		verifiable.WithDisabledProofCheck())
-	assert.NoError(t, err)
-
-	if !assert.Equal(t, wrapperCreated.VC, vcFound) {
-		t.Errorf("VC got = %v, want %v",
-			wrapperFound, wrapperCreated)
-	}
 	if !assert.Equal(t, wrapperCreated.UsedIndexes, wrapperFound.UsedIndexes) {
-		t.Errorf("RevocationListIndex got = %v, want %v",
+		t.Errorf("Used Indexes: got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
-}
 
-func TestStore_GetCSLURL(t *testing.T) {
-	store := NewStore(nil)
-	require.NotNil(t, store)
-
-	cslURL, err := store.GetCSLURL(
-		"https://example.com", "test_issuer", "1-abcd")
-	assert.NoError(t, err)
-	assert.Equal(t, "https://example.com/issuer/groups/test_issuer/credentials/status/1-abcd", cslURL)
-
-	cslURL, err = store.GetCSLURL(
-		" https://example.com", "test_issuer", "1")
-	assert.Error(t, err)
-	assert.Empty(t, cslURL)
+	if !assert.Equal(t, wrapperCreated.Version, wrapperFound.Version) {
+		t.Errorf("Version: got = %v, want %v",
+			wrapperFound, wrapperCreated)
+	}
 }

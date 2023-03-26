@@ -97,14 +97,16 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&mockKMS{}, nil)
 		ctx := context.Background()
 
-		cslStore := newMockCSLStore()
+		cslIndexStore := newMockCSLIndexStore()
+		cslVCStore := newMockCSLVCStore()
 
-		listID, err := cslStore.GetLatestListID(context.Background())
+		listID, err := cslIndexStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       cslStore,
+			CSLIndexStore:  cslIndexStore,
+			CSLVCStore:     cslVCStore,
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			ProfileService: mockProfileSrv,
@@ -124,7 +126,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		validateVCStatus(t, s, statusID, listID)
 
 		// List size equals 2, so after 2 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListID, err := cslStore.GetLatestListID(ctx)
+		updatedListID, err := cslIndexStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, listID)
 
@@ -137,7 +139,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		validateVCStatus(t, s, statusID, updatedListID)
 
 		// List size equals 2, so after 4 issuances CSL encodedBitString is full and listID must be updated.
-		updatedListIDSecond, err := cslStore.GetLatestListID(ctx)
+		updatedListIDSecond, err := cslIndexStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
 		require.NotEqual(t, listID, updatedListIDSecond)
@@ -212,9 +214,10 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
+			CSLIndexStore: newMockCSLIndexStore(func(store *mockCSLIndexStore) {
 				store.getLatestListIDErr = errors.New("some error")
 			}),
+			CSLVCStore:     newMockCSLVCStore(),
 			VCStatusStore:  nil,
 			ListSize:       1,
 			KMSRegistry:    mockKMSRegistry,
@@ -239,8 +242,9 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore: newMockCSLStore(
-				func(store *mockCSLStore) {
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore: newMockCSLIndexStore(
+				func(store *mockCSLIndexStore) {
 					store.createLatestListIDErr = errors.New("some error")
 				}),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -268,8 +272,9 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
-			CSLStore: newMockCSLStore(
-				func(store *mockCSLStore) {
+			CSLIndexStore:  newMockCSLIndexStore(),
+			CSLVCStore: newMockCSLVCStore(
+				func(store *mockCSLVCStore) {
 					store.getCSLErr = errors.New("some error")
 				}),
 			KMSRegistry: mockKMSRegistry,
@@ -283,6 +288,42 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.Contains(t, err.Error(), "failed to create CSL wrapper URL")
 	})
 
+	t.Run("test error from CSL VC store", func(t *testing.T) {
+		loader := testutil.DocumentLoader(t)
+		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
+		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
+		ctx := context.Background()
+
+		cslIndexStore := newMockCSLIndexStore()
+
+		_, err := cslIndexStore.GetLatestListID(context.Background())
+		require.NoError(t, err)
+
+		s, err := New(&Config{
+			DocumentLoader: loader,
+			CSLIndexStore:  cslIndexStore,
+			CSLVCStore: newMockCSLVCStore(
+				func(store *mockCSLVCStore) {
+					store.createErr = errors.New("some error")
+				}),
+			VCStatusStore:  newMockVCStatusStore(),
+			ListSize:       2,
+			ProfileService: mockProfileSrv,
+			KMSRegistry:    mockKMSRegistry,
+			ExternalURL:    "https://localhost:8080",
+			Crypto: vccrypto.New(
+				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+		})
+		require.NoError(t, err)
+
+		status, err := s.CreateStatusListEntry(ctx, profileID, credID)
+		require.Error(t, err)
+		require.Nil(t, status)
+		require.Contains(t, err.Error(), "failed to store CSL VC in store: some error")
+	})
+
 	t.Run("test error put typedID to store - list size too small", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -292,7 +333,8 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
+			CSLVCStore:     newMockCSLVCStore(),
 			VCStatusStore: &mockVCStore{
 				s: map[string]*verifiable.TypedID{},
 			},
@@ -317,15 +359,16 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(1).Return(&mockKMS{}, nil)
-		cslStore := newMockCSLStore()
+		cslIndexStore := newMockCSLIndexStore()
+		cslVCStore := newMockCSLVCStore()
 
 		statusProcessor, err := statustype.GetVCStatusProcessor(vc.StatusList2021VCStatus)
 		require.NoError(t, err)
 
-		listID, err := cslStore.GetLatestListID(context.Background())
+		listID, err := cslIndexStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
 
-		cslURL, err := cslStore.GetCSLURL("https://localhost:8080", profile.GroupID, listID)
+		cslURL, err := cslVCStore.GetCSLURL("https://localhost:8080", profile.GroupID, listID)
 
 		require.NoError(t, err)
 
@@ -335,15 +378,18 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		cslBytes, err := csl.MarshalJSON()
 		require.NoError(t, err)
 
-		require.NoError(t, cslStore.Upsert(context.Background(), &credentialstatus.CSLWrapper{
-			VCByte:      cslBytes,
+		require.NoError(t, cslIndexStore.Upsert(context.Background(), cslURL, &credentialstatus.CSLIndexWrapper{
 			UsedIndexes: []int{0, 1},
-			VC:          csl,
+		}))
+
+		require.NoError(t, cslVCStore.Upsert(context.Background(), cslURL, &credentialstatus.CSLVCWrapper{
+			VCByte: cslBytes,
 		}))
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       cslStore,
+			CSLVCStore:     cslVCStore,
+			CSLIndexStore:  cslIndexStore,
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			ProfileService: mockProfileSrv,
@@ -356,7 +402,6 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, status)
 		require.Contains(t, err.Error(), "getUnusedIndex failed")
-
 	})
 
 	t.Run("test error from store csl list in store", func(t *testing.T) {
@@ -368,8 +413,9 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore: newMockCSLStore(
-				func(store *mockCSLStore) {
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore: newMockCSLIndexStore(
+				func(store *mockCSLIndexStore) {
 					store.createErr = errors.New("some error")
 				}),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -384,7 +430,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
-		require.Contains(t, err.Error(), "failed to store CSL in store")
+		require.Contains(t, err.Error(), "failed to store CSL Wrapper: some error")
 	})
 
 	t.Run("test error update latest list id", func(t *testing.T) {
@@ -396,8 +442,9 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore: newMockCSLStore(
-				func(store *mockCSLStore) {
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore: newMockCSLIndexStore(
+				func(store *mockCSLIndexStore) {
 					store.updateLatestListIDErr = errors.New("some error")
 				}),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -424,7 +471,8 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
+			CSLVCStore:     newMockCSLVCStore(),
 			VCStatusStore: &mockVCStore{
 				putErr: errors.New("some error"),
 				s:      map[string]*verifiable.TypedID{},
@@ -452,7 +500,8 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			ExternalURL:    " https://example.com",
 		})
 		require.NoError(t, err)
@@ -469,8 +518,9 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore: newMockCSLStore(
-				func(store *mockCSLStore) {
+			CSLIndexStore:  newMockCSLIndexStore(),
+			CSLVCStore: newMockCSLVCStore(
+				func(store *mockCSLVCStore) {
 					store.findErr = errors.New("some error")
 				}),
 			VCStatusStore:  newMockVCStatusStore(),
@@ -497,14 +547,16 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
-		cslStore := newMockCSLStore()
+		cslVCStore := newMockCSLVCStore()
+		cslIndexStore := newMockCSLIndexStore()
 		crypto := vccrypto.New(
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 		ctx := context.Background()
 
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
-				CSLStore:       cslStore,
+				CSLVCStore:     cslVCStore,
+				CSLIndexStore:  cslIndexStore,
 				ProfileService: mockProfileSrv,
 				KMSRegistry:    mockKMSRegistry,
 				Crypto:         crypto,
@@ -514,7 +566,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       cslStore,
+			CSLVCStore:     cslVCStore,
+			CSLIndexStore:  cslIndexStore,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStore,
@@ -540,7 +593,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		require.NoError(t, s.UpdateVCStatus(ctx, params))
 
-		listID, err := s.cslStore.GetLatestListID(ctx)
+		listID, err := s.cslIndexStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 
 		statusListVC, err := s.GetStatusListVC(ctx, externalProfileID, string(listID))
@@ -604,7 +657,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 		})
@@ -631,7 +685,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStore,
@@ -666,7 +721,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStore,
@@ -696,7 +752,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -716,7 +773,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -737,7 +795,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -756,7 +815,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -777,7 +837,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -801,7 +862,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -827,7 +889,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ListSize:       2,
 			Crypto: vccrypto.New(
@@ -854,7 +917,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore: newMockCSLStore(func(store *mockCSLStore) {
+			CSLVCStore: newMockCSLVCStore(func(store *mockCSLVCStore) {
 				store.findErr = errors.New("some error")
 			}),
 			VCStatusStore: newMockVCStatusStore(),
@@ -892,7 +955,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       newMockCSLStore(),
+			CSLVCStore:     newMockCSLVCStore(),
+			CSLIndexStore:  newMockCSLIndexStore(),
 			VCStatusStore:  newMockVCStatusStore(),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
@@ -920,14 +984,16 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
-		cslStore := newMockCSLStore()
+		cslIndexStore := newMockCSLIndexStore()
+		cslVCStore := newMockCSLVCStore()
 		loader := testutil.DocumentLoader(t)
 		crypto := vccrypto.New(
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
-				CSLStore:       cslStore,
+				CSLVCStore:     cslVCStore,
+				CSLIndexStore:  cslIndexStore,
 				ProfileService: mockProfileSrv,
 				KMSRegistry:    mockKMSRegistry,
 				Crypto:         crypto,
@@ -937,7 +1003,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLStore:       cslStore,
+			CSLVCStore:     cslVCStore,
+			CSLIndexStore:  cslIndexStore,
 			VCStatusStore:  newMockVCStatusStore(),
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
@@ -958,7 +1025,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			vc.StatusList2021VCStatus,
 			true))
 
-		listID, err := s.cslStore.GetLatestListID(context.Background())
+		listID, err := s.cslIndexStore.GetLatestListID(context.Background())
 		require.NoError(t, err)
 
 		revocationListVC, err := s.GetStatusListVC(context.Background(), externalProfileID, string(listID))
@@ -1093,29 +1160,20 @@ func getTestProfile() *profileapi.Issuer {
 	}
 }
 
-type mockCSLStore struct {
+type mockCSLIndexStore struct {
 	createErr             error
-	getCSLErr             error
 	findErr               error
 	getLatestListIDErr    error
 	createLatestListIDErr error
 	updateLatestListIDErr error
 	latestListID          credentialstatus.ListID
-	s                     map[string]*credentialstatus.CSLWrapper
+	s                     map[string]*credentialstatus.CSLIndexWrapper
 }
 
-func (m *mockCSLStore) GetCSLURL(issuerURL, issuerID string, listID credentialstatus.ListID) (string, error) {
-	if m.getCSLErr != nil {
-		return "", m.getCSLErr
-	}
-
-	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
-}
-
-func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
-	s := &mockCSLStore{
+func newMockCSLIndexStore(opts ...func(*mockCSLIndexStore)) *mockCSLIndexStore {
+	s := &mockCSLIndexStore{
 		latestListID: "",
-		s:            map[string]*credentialstatus.CSLWrapper{},
+		s:            map[string]*credentialstatus.CSLIndexWrapper{},
 	}
 	for _, f := range opts {
 		f(s)
@@ -1123,29 +1181,29 @@ func newMockCSLStore(opts ...func(*mockCSLStore)) *mockCSLStore {
 	return s
 }
 
-func (m *mockCSLStore) Upsert(ctx context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+func (m *mockCSLIndexStore) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLIndexWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}
 
-	m.s[cslWrapper.VC.ID] = cslWrapper
+	m.s[cslURL] = cslWrapper
 
 	return nil
 }
 
-func (m *mockCSLStore) Get(ctx context.Context, id string) (*credentialstatus.CSLWrapper, error) {
+func (m *mockCSLIndexStore) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
 	if m.findErr != nil {
 		return nil, m.findErr
 	}
 
-	w, ok := m.s[id]
+	w, ok := m.s[cslURL]
 	if !ok {
 		return nil, credentialstatus.ErrDataNotFound
 	}
 
 	return w, nil
 }
-func (m *mockCSLStore) createLatestListID() error {
+func (m *mockCSLIndexStore) createLatestListID() error {
 	if m.createLatestListIDErr != nil {
 		return m.createLatestListIDErr
 	}
@@ -1155,14 +1213,14 @@ func (m *mockCSLStore) createLatestListID() error {
 	return nil
 }
 
-func (m *mockCSLStore) UpdateLatestListID(ctx context.Context) error {
+func (m *mockCSLIndexStore) UpdateLatestListID(ctx context.Context) error {
 	if m.updateLatestListIDErr != nil {
 		return m.updateLatestListIDErr
 	}
 	return m.createLatestListID()
 }
 
-func (m *mockCSLStore) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
+func (m *mockCSLIndexStore) GetLatestListID(ctx context.Context) (credentialstatus.ListID, error) {
 	if m.getLatestListIDErr != nil {
 		return "", m.getLatestListIDErr
 	}
@@ -1175,6 +1233,54 @@ func (m *mockCSLStore) GetLatestListID(ctx context.Context) (credentialstatus.Li
 	}
 
 	return m.latestListID, nil
+}
+
+type mockCSLVCStore struct {
+	createErr error
+	getCSLErr error
+	findErr   error
+	s         map[string]*credentialstatus.CSLVCWrapper
+}
+
+func newMockCSLVCStore(opts ...func(*mockCSLVCStore)) *mockCSLVCStore {
+	s := &mockCSLVCStore{
+		s: map[string]*credentialstatus.CSLVCWrapper{},
+	}
+	for _, f := range opts {
+		f(s)
+	}
+	return s
+}
+
+func (m *mockCSLVCStore) GetCSLURL(issuerURL, issuerID string, listID credentialstatus.ListID) (string, error) {
+	if m.getCSLErr != nil {
+		return "", m.getCSLErr
+	}
+
+	return url.JoinPath(issuerURL, "issuer/profiles", issuerID, "credentials/status", string(listID))
+}
+
+func (m *mockCSLVCStore) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+
+	m.s[cslURL] = cslWrapper
+
+	return nil
+}
+
+func (m *mockCSLVCStore) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
+	if m.findErr != nil {
+		return nil, m.findErr
+	}
+
+	w, ok := m.s[cslURL]
+	if !ok {
+		return nil, credentialstatus.ErrDataNotFound
+	}
+
+	return w, nil
 }
 
 type mockVCStore struct {
