@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package cslstore
+package cslvcstore
 
 import (
 	"bytes"
@@ -98,11 +98,11 @@ type mockUnderlyingCSLWrapperStore struct {
 	getErr          error
 	getListIDErr    error
 	updateListIDErr error
-	s               map[string]*credentialstatus.CSLWrapper
+	s               map[string]*credentialstatus.CSLVCWrapper
 	listID          credentialstatus.ListID
 }
 
-func (m *mockUnderlyingCSLWrapperStore) Get(_ context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
+func (m *mockUnderlyingCSLWrapperStore) Get(_ context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -117,16 +117,16 @@ func (m *mockUnderlyingCSLWrapperStore) Get(_ context.Context, cslURL string) (*
 	return val, nil
 }
 
-func (m *mockUnderlyingCSLWrapperStore) Upsert(_ context.Context, cslWrapper *credentialstatus.CSLWrapper) error {
+func (m *mockUnderlyingCSLWrapperStore) Upsert(_ context.Context, cslURL string,
+	cslWrapper *credentialstatus.CSLVCWrapper) error {
 	if m.putErr != nil {
 		return m.putErr
 	}
 
 	assert.Nil(m.t, cslWrapper.VCByte)
-	assert.NotNil(m.t, cslWrapper.VC)
-	assert.NotEmpty(m.t, cslWrapper.VC.ID)
+	assert.NotEmpty(m.t, cslURL)
 
-	m.s[cslWrapper.VC.ID] = cslWrapper
+	m.s[cslURL] = cslWrapper
 
 	return nil
 }
@@ -170,7 +170,7 @@ func TestWrapperStore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("Create, update, find wrapper VC "+tt.name, func(t *testing.T) {
 			client := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
-			mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{s: map[string]*credentialstatus.CSLWrapper{}, t: t}
+			mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{s: map[string]*credentialstatus.CSLVCWrapper{}, t: t}
 			store := NewStore(client, mockUnderlyingStore, bucket, region, hostName)
 			ctx := context.Background()
 
@@ -182,41 +182,44 @@ func TestWrapperStore(t *testing.T) {
 			vcBytes, err := vc.MarshalJSON()
 			assert.NoError(t, err)
 
-			wrapperCreated := &credentialstatus.CSLWrapper{
-				VCByte:      vcBytes,
-				UsedIndexes: []int{1},
-				VC:          vc,
+			wrapperCreated := &credentialstatus.CSLVCWrapper{
+				VCByte:  vcBytes,
+				VC:      vc,
+				Version: 1,
 			}
+
 			// Create - Find
-			err = store.Upsert(ctx, wrapperCreated)
+			err = store.Upsert(ctx, vc.ID, wrapperCreated)
 			assert.NoError(t, err)
 
-			var wrapperFound *credentialstatus.CSLWrapper
+			var wrapperFound *credentialstatus.CSLVCWrapper
 			wrapperFound, err = store.Get(ctx, vc.ID)
 			assert.NoError(t, err)
 			compareWrappers(t, wrapperCreated, wrapperFound)
 
 			// Update - Find
-			wrapperCreated.VCByte = vcBytes
-			wrapperCreated.UsedIndexes = append(wrapperCreated.UsedIndexes, 2)
+			wrapperUpdated := &credentialstatus.CSLVCWrapper{
+				VCByte:  vcBytes,
+				Version: 2,
+			}
 
-			err = store.Upsert(ctx, wrapperCreated)
+			err = store.Upsert(ctx, vc.ID, wrapperUpdated)
 			assert.NoError(t, err)
 
 			wrapperFound, err = store.Get(ctx, vc.ID)
 			assert.NoError(t, err)
 
-			compareWrappers(t, wrapperCreated, wrapperFound)
+			compareWrappers(t, wrapperUpdated, wrapperFound)
 		})
 	}
 
 	t.Run("Unexpected error from s3 client on upsert CSL", func(t *testing.T) {
 		errClient := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t, putErr: errors.New("some error")}
-		wrapperCreated := &credentialstatus.CSLWrapper{
+		wrapperCreated := &credentialstatus.CSLVCWrapper{
 			VC: &verifiable.Credential{ID: ""},
 		}
 		err := NewStore(errClient, nil, bucket, region, hostName).
-			Upsert(context.Background(), wrapperCreated)
+			Upsert(context.Background(), "", wrapperCreated)
 
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "failed to upload CSL")
@@ -224,7 +227,7 @@ func TestWrapperStore(t *testing.T) {
 
 	t.Run("Unexpected error from underlying CSL store on upsert CSLWrapper", func(t *testing.T) {
 		errClient := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
-		wrapperCreated := &credentialstatus.CSLWrapper{
+		wrapperCreated := &credentialstatus.CSLVCWrapper{
 			VC: &verifiable.Credential{ID: "test"},
 		}
 
@@ -234,7 +237,7 @@ func TestWrapperStore(t *testing.T) {
 		}
 
 		err := NewStore(errClient, mockUnderlyingStore, bucket, region, hostName).
-			Upsert(context.Background(), wrapperCreated)
+			Upsert(context.Background(), "test", wrapperCreated)
 
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "failed to store cslWrapper")
@@ -262,6 +265,26 @@ func TestWrapperStore(t *testing.T) {
 		}
 		mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{
 			t:      t,
+			getErr: credentialstatus.ErrDataNotFound,
+		}
+
+		resp, err := NewStore(errClient, mockUnderlyingStore, bucket, region, hostName).
+			Get(context.Background(), "http://example.gov/credentials/3732")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
+		assert.Equal(t, resp.Version, 1)
+	})
+
+	t.Run("Error from cslWrapper", func(t *testing.T) {
+		errClient := &mockS3Uploader{
+			m: map[string]*s3.PutObjectInput{
+				"http://example.gov/credentials/3732": {Body: bytes.NewReader([]byte(``))},
+			},
+			t: t,
+		}
+		mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{
+			t:      t,
 			getErr: errors.New("some error"),
 		}
 
@@ -269,7 +292,7 @@ func TestWrapperStore(t *testing.T) {
 			Get(context.Background(), "http://example.gov/credentials/3732")
 
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "failed to get CSLWrapper from underlying store")
+		assert.ErrorContains(t, err, "failed to get CSL Wrapper from underlying store")
 	})
 
 	t.Run("Unexpected error from s3 client on get", func(t *testing.T) {
@@ -281,36 +304,6 @@ func TestWrapperStore(t *testing.T) {
 		assert.Nil(t, resp)
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "failed to get CSL from S3")
-	})
-}
-
-func TestLatestListID(t *testing.T) {
-	client := &mockS3Uploader{m: map[string]*s3.PutObjectInput{}, t: t}
-	mockUnderlyingStore := &mockUnderlyingCSLWrapperStore{
-		t: t,
-	}
-	store := NewStore(client, mockUnderlyingStore, bucket, region, hostName)
-	require.NotNil(t, store)
-	ctx := context.Background()
-
-	t.Run("Find non-existing ID", func(t *testing.T) {
-		listID, err := store.GetLatestListID(ctx)
-
-		assert.NotEmpty(t, listID)
-		assert.NoError(t, err)
-	})
-
-	t.Run("Create - Update - Get LatestListID", func(t *testing.T) {
-		receivedID, err := store.GetLatestListID(ctx)
-		require.NoError(t, err)
-		require.NotEmpty(t, receivedID)
-		err = store.UpdateLatestListID(ctx)
-		require.NoError(t, err)
-
-		receivedAfterUpdateID, err := store.GetLatestListID(ctx)
-		require.NoError(t, err)
-		require.NotEmpty(t, receivedAfterUpdateID)
-		require.NotEqual(t, receivedID, receivedAfterUpdateID)
 	})
 }
 
@@ -332,21 +325,26 @@ func TestStore_GetCSLURL(t *testing.T) {
 		cslS3Key)
 }
 
-func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatus.CSLWrapper) {
+func compareWrappers(t *testing.T, wrapperExpected, wrapperFound *credentialstatus.CSLVCWrapper) {
 	t.Helper()
+
+	vcExpected, err := verifiable.ParseCredential(wrapperExpected.VCByte,
+		verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
+		verifiable.WithDisabledProofCheck())
+	assert.NoError(t, err)
 
 	vcFound, err := verifiable.ParseCredential(wrapperFound.VCByte,
 		verifiable.WithJSONLDDocumentLoader(testutil.DocumentLoader(t)),
 		verifiable.WithDisabledProofCheck())
 	assert.NoError(t, err)
 
-	if !assert.Equal(t, wrapperCreated.VC, vcFound) {
+	if !assert.Equal(t, vcExpected, vcFound) {
 		t.Errorf("VC got = %v, want %v",
-			wrapperFound, wrapperCreated)
+			vcFound, vcExpected)
 	}
-	if !assert.Equal(t, wrapperCreated.UsedIndexes, wrapperFound.UsedIndexes) {
-		t.Errorf("RevocationListIndex got = %v, want %v",
-			wrapperFound, wrapperCreated)
+	if !assert.Equal(t, wrapperExpected.Version, wrapperFound.Version) {
+		t.Errorf("VC Version got = %v, want %v",
+			wrapperFound, wrapperExpected)
 	}
 }
 

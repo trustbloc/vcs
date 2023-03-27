@@ -73,7 +73,8 @@ type Config struct {
 	HTTPClient     httpClient
 	RequestTokens  map[string]string
 	VDR            vdrapi.Registry
-	CSLStore       credentialstatus.CSLStore
+	CSLVCStore     credentialstatus.CSLVCStore
+	CSLIndexStore  credentialstatus.CSLIndexStore
 	VCStatusStore  vcStatusStore
 	ListSize       int
 	Crypto         vcCrypto
@@ -90,7 +91,8 @@ type Service struct {
 	httpClient     httpClient
 	requestTokens  map[string]string
 	vdr            vdrapi.Registry
-	cslStore       credentialstatus.CSLStore
+	cslVCStore     credentialstatus.CSLVCStore
+	cslIndexStore  credentialstatus.CSLIndexStore
 	vcStatusStore  vcStatusStore
 	listSize       int
 	crypto         vcCrypto
@@ -109,7 +111,8 @@ func New(config *Config) (*Service, error) {
 		httpClient:     config.HTTPClient,
 		requestTokens:  config.RequestTokens,
 		vdr:            config.VDR,
-		cslStore:       config.CSLStore,
+		cslVCStore:     config.CSLVCStore,
+		cslIndexStore:  config.CSLIndexStore,
 		vcStatusStore:  config.VCStatusStore,
 		listSize:       config.ListSize,
 		crypto:         config.Crypto,
@@ -197,9 +200,27 @@ func (s *Service) CreateStatusListEntry(
 		return nil, fmt.Errorf("failed to get VC status processor: %w", err)
 	}
 
-	cslWrapper, err := s.getLatestCSLWrapper(ctx, signer, profile, vcStatusProcessor)
+	// get latest ListID - global value among issuers.
+	latestListID, err := s.cslIndexStore.GetLatestListID(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get latest CSL wrapper: %w", err)
+		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
+	}
+
+	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, profile.GroupID, latestListID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
+	}
+
+	cslWrapper, err := s.getCSLIndexWrapper(ctx, cslURL)
+	if err != nil {
+		if errors.Is(err, credentialstatus.ErrDataNotFound) {
+			cslWrapper, err = s.storeNewVCWrapperAndCreateNewIndexWrapper(ctx, signer, vcStatusProcessor, cslURL)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("failed to get CSL Index from store: %w", err)
+		}
 	}
 
 	unusedStatusBitIndex, err := s.getUnusedIndex(cslWrapper.UsedIndexes)
@@ -210,20 +231,20 @@ func (s *Service) CreateStatusListEntry(
 	// Append unusedStatusBitIndex to the cslWrapper.UsedIndexes so marking it as "used".
 	cslWrapper.UsedIndexes = append(cslWrapper.UsedIndexes, unusedStatusBitIndex)
 
-	if err = s.cslStore.Upsert(ctx, cslWrapper); err != nil {
-		return nil, fmt.Errorf("failed to store CSL in store: %w", err)
+	if err = s.cslIndexStore.Upsert(ctx, cslURL, cslWrapper); err != nil {
+		return nil, fmt.Errorf("failed to store CSL Wrapper: %w", err)
 	}
 
 	// If amount of used indexes is the same as list size - update ListID,
-	// so it will lead to creating new CSLWrapper with empty UsedIndexes list.
+	// so it will lead to creating new CSLIndexWrapper with empty UsedIndexes list.
 	if len(cslWrapper.UsedIndexes) == s.listSize {
-		if err = s.cslStore.UpdateLatestListID(ctx); err != nil {
+		if err = s.cslIndexStore.UpdateLatestListID(ctx); err != nil {
 			return nil, fmt.Errorf("failed to store latest list ID in store: %w", err)
 		}
 	}
 
 	statusListEntry := &credentialstatus.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(unusedStatusBitIndex), cslWrapper.VC.ID),
+		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(unusedStatusBitIndex), cslURL),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
 	// Store VC status to DB
@@ -267,12 +288,12 @@ func (s *Service) getUnusedIndex(usedIndexes []int) (int, error) {
 func (s *Service) GetStatusListVC(ctx context.Context, groupID profileapi.ID, listID string) (*verifiable.Credential, error) {
 	logger.Debug("GetStatusListVC begin", logfields.WithProfileID(groupID), log.WithID(listID))
 
-	cslURL, err := s.cslStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))
+	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
 	}
 
-	cslWrapper, err := s.getCSLWrapper(ctx, cslURL)
+	cslWrapper, err := s.getCSLVCWrapper(ctx, cslURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL wrapper from store: %w", err)
 	}
@@ -336,20 +357,31 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, erro
 	)
 }
 
-func (s *Service) getCSLWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLWrapper, error) {
-	cslWrapper, err := s.cslStore.Get(ctx, cslURL)
+func (s *Service) getCSLIndexWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
+	indexWrapper, err := s.cslIndexStore.Get(ctx, cslURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CSLIndexWrapper from store: %w", err)
+	}
+
+	return indexWrapper, nil
+}
+
+func (s *Service) getCSLVCWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
+	vcWrapper, err := s.cslVCStore.Get(ctx, cslURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get CSL from store: %w", err)
 	}
 
-	cslWrapper.VC, err = verifiable.ParseCredential(cslWrapper.VCByte,
+	cslVC, err := verifiable.ParseCredential(vcWrapper.VCByte,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CSL: %w", err)
 	}
 
-	return cslWrapper, nil
+	vcWrapper.VC = cslVC
+
+	return vcWrapper, nil
 }
 
 func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) ([]byte, error) {
@@ -381,46 +413,32 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 	return body, nil
 }
 
-//nolint:gocognit
-func (s *Service) getLatestCSLWrapper(ctx context.Context, signer *vc.Signer, profile *profileapi.Issuer,
-	processor vc.StatusProcessor) (*credentialstatus.CSLWrapper, error) {
-	// get latest ListID - global value among issuers.
-	latestListID, err := s.cslStore.GetLatestListID(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
+func (s *Service) storeNewVCWrapperAndCreateNewIndexWrapper(ctx context.Context, signer *vc.Signer,
+	processor vc.StatusProcessor, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
+	credentials, errCreateVC := s.createVC(cslURL, signer, processor)
+	if errCreateVC != nil {
+		return nil, errCreateVC
 	}
 
-	cslURL, err := s.cslStore.GetCSLURL(s.externalURL, profile.GroupID, latestListID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
+	vcBytes, errMarshal := credentials.MarshalJSON()
+	if errMarshal != nil {
+		return nil, errMarshal
 	}
 
-	w, err := s.getCSLWrapper(ctx, cslURL)
-	if err != nil { //nolint: nestif
-		if errors.Is(err, credentialstatus.ErrDataNotFound) {
-			// create credentialstatus.CSL
-			credentials, errCreateVC := s.createVC(cslURL, signer, processor)
-			if errCreateVC != nil {
-				return nil, errCreateVC
-			}
-
-			vcBytes, errMarshal := credentials.MarshalJSON()
-			if errMarshal != nil {
-				return nil, errMarshal
-			}
-
-			return &credentialstatus.CSLWrapper{
-				VCByte:      vcBytes,
-				UsedIndexes: nil,
-				VC:          credentials,
-				Version:     1,
-			}, nil
-		}
-
-		return nil, fmt.Errorf("failed to get CSL from store: %w", err)
+	vcWrapper := &credentialstatus.CSLVCWrapper{
+		VCByte:  vcBytes,
+		VC:      credentials,
+		Version: 1,
 	}
 
-	return w, nil
+	if err := s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
+		return nil, fmt.Errorf("failed to store CSL VC in store: %w", err)
+	}
+
+	return &credentialstatus.CSLIndexWrapper{
+		UsedIndexes: nil,
+		Version:     1,
+	}, nil
 }
 
 // createVC signs the VC returned from VcStatusProcessor.CreateVC.
@@ -456,8 +474,7 @@ func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedI
 		return fmt.Errorf("GetStatusListIndex failed: %w", err)
 	}
 
-	// read latest CSLWrapper from Mongo
-	cslWrapper, err := s.getCSLWrapper(ctx, statusListVCID)
+	cslWrapper, err := s.getCSLVCWrapper(ctx, statusListVCID)
 	if err != nil {
 		return fmt.Errorf("get CSL wrapper failed: %w", err)
 	}

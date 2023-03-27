@@ -50,7 +50,8 @@ type vcCrypto interface {
 type Config struct {
 	TLSConfig      *tls.Config
 	CMD            *cobra.Command
-	CSLStore       credentialstatus.CSLStore
+	CSLVCStore     credentialstatus.CSLVCStore
+	CSLIndexStore  credentialstatus.CSLIndexStore
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
 	Crypto         vcCrypto

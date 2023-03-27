@@ -27,15 +27,22 @@ var (
 //	This type is created for the documentation purpose.
 type CSL verifiable.Credential
 
-// CSLWrapper contains CSL and metadata.
-type CSLWrapper struct {
-	// VCByte stores the CSL.
-	VCByte json.RawMessage `json:"vc,omitempty"`
+// CSLIndexWrapper contains CSL Indexes and Version.
+type CSLIndexWrapper struct {
 	// UsedIndexes stores the list of used bit indexes in the CSL encoded list.
 	UsedIndexes []int `json:"usedIndexes"`
-	// VC represents parsed CSL.
+
+	// Version represents the version of the CSLIndexWrapper.
+	Version int `json:"version,omitempty"`
+}
+
+// CSLVCWrapper contains CSL VC and version.
+type CSLVCWrapper struct {
+	// VCByte stores the CSL.
+	VCByte json.RawMessage `json:"vc,omitempty"`
+	// VC represents parsed CSL VC. Not stored.
 	VC *verifiable.Credential `json:"-"`
-	// Version represents the version of the CSLWrapper.
+	// Version represents the version of the CSLIndexWrapper.
 	Version int `json:"version,omitempty"`
 }
 

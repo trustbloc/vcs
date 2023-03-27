@@ -8,13 +8,20 @@ package credentialstatus
 
 import "context"
 
-type CSLStore interface {
+type CSLVCStore interface {
 	// GetCSLURL returns the public URL to the CSL.
 	GetCSLURL(issuerProfileURL, externalIssuerProfileID string, statusListID ListID) (string, error)
-	// Upsert does C_U_ operations against cslWrapper.
-	Upsert(ctx context.Context, cslWrapper *CSLWrapper) error
-	// Get returns CSLWrapper based on URL to the CSL.
-	Get(ctx context.Context, cslURL string) (*CSLWrapper, error)
+	// Upsert updates CSL VC wrapper.
+	Upsert(ctx context.Context, cslURL string, wrapper *CSLVCWrapper) error
+	// Get returns CSL VC wrapper based on URL to the CSL.
+	Get(ctx context.Context, cslURL string) (*CSLVCWrapper, error)
+}
+
+type CSLIndexStore interface {
+	// Upsert updates CSL Indexes.
+	Upsert(ctx context.Context, cslURL string, cslWrapper *CSLIndexWrapper) error
+	// Get returns CSLIndexWrapper based on URL to the CSL.
+	Get(ctx context.Context, cslURL string) (*CSLIndexWrapper, error)
 	// GetLatestListID returns latest ListID, that is topical on a moment given CSL is creating.
 	GetLatestListID(ctx context.Context) (ListID, error)
 	// UpdateLatestListID updates underlying ListID.
