@@ -10,6 +10,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -37,7 +38,9 @@ const (
 )
 
 // ClaimData represents user claims in pre-auth code flow.
-type ClaimData map[string]interface{}
+type ClaimData struct {
+	EncryptedChunks []*dataprotect.EncryptedChunk `json:"encrypted_chunks"`
+}
 
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {

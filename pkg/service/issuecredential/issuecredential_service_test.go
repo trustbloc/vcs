@@ -250,7 +250,7 @@ func TestService_IssueCredential(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, verifiableCredentials)
 	})
-	t.Run("Error Crypto", func(t *testing.T) {
+	t.Run("Error DataProtector", func(t *testing.T) {
 		kmRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		kmRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(nil, nil)
 

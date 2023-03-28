@@ -164,7 +164,7 @@ func (s *Service) createAgentServices(tlsConfig *tls.Config) (*ariesServices, er
 
 	cryptoImpl, err := tinkcrypto.New()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create local Crypto: %w", err)
+		return nil, fmt.Errorf("failed to create local DataProtector: %w", err)
 	}
 
 	provider.crypto = cryptoImpl

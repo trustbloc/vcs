@@ -1,0 +1,23 @@
+Keys:
+  Symmetric:
+    Aes:
+      - Metadata:
+          KeyId: bc436485-5092-42b8-92a3-0aa8b93536dc
+        BackingKeys:
+          - 5cdaead27fe7da2de47945d73cd6d79e36494e73802f3cd3869f1d2cb0b5d7a9
+  Asymmetric:
+    Ecc:
+      - Metadata:
+          KeyId: 800d5768-3fd7-4edd-a4b8-4c81c3e4c147
+          KeyUsage: SIGN_VERIFY
+          Description: ECC key with curve secp256r1
+        PrivateKeyPem: |
+          -----BEGIN EC PRIVATE KEY-----
+          MHcCAQEEIMnOrUrXr8rwne7d8f01cfwmpS/w+K7jcyWmmeLDgWKaoAoGCCqGSM49
+          AwEHoUQDQgAEYNMBBZ3h1ipuph1iO5k+yLvTs94UN71quXN3f0P/tprs2Fp2FEas
+          M7m7XZ2xlDK3wcEAs1QEIoQjjwnhcptQ6A==
+          -----END EC PRIVATE KEY-----
+
+Aliases:
+  - AliasName: alias/testing
+    TargetKeyId: bc436485-5092-42b8-92a3-0aa8b93536dc

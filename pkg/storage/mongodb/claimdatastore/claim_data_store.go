@@ -26,9 +26,9 @@ const (
 )
 
 type mongoDocument struct {
-	ID        primitive.ObjectID     `bson:"_id,omitempty"`
-	ExpireAt  time.Time              `bson:"expire_at"`
-	ClaimData map[string]interface{} `bson:"claim_data"`
+	ID        primitive.ObjectID `bson:"_id,omitempty"`
+	ExpireAt  time.Time          `bson:"expire_at"`
+	ClaimData oidc4ci.ClaimData  `bson:"claim_data"`
 }
 
 // Store stores claim data with expiration.
@@ -101,7 +101,7 @@ func (s *Store) GetAndDelete(ctx context.Context, claimDataID string) (*oidc4ci.
 		return nil, oidc4ci.ErrDataNotFound
 	}
 
-	claimData := oidc4ci.ClaimData(doc.ClaimData)
+	claimData := doc.ClaimData
 
 	return &claimData, nil
 }

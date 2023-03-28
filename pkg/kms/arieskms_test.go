@@ -144,6 +144,7 @@ func TestNewAWSKeyManager(t *testing.T) {
 			Endpoint:   "url",
 		}, nil)
 
+		require.NotNil(t, km.Crypto())
 		require.NotNil(t, km)
 		require.NoError(t, err)
 

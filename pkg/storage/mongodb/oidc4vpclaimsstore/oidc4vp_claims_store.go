@@ -8,13 +8,10 @@ package oidc4vpclaimsstore
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	jsonld "github.com/piprate/json-gold/ld"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,24 +28,24 @@ const (
 type mongoDocument struct {
 	ID       primitive.ObjectID `bson:"_id,omitempty"`
 	ExpireAt time.Time          `bson:"expire_at"`
-
-	ReceivedClaims map[string][]byte `bson:"receivedClaims"`
+	*oidc4vp.ClaimData
 }
 
 // Store stores claim data with expiration.
 type Store struct {
 	mongoClient *mongodb.Client
 	ttl         int32
-
-	documentLoader jsonld.DocumentLoader
 }
 
 // New creates presentation claims store.
-func New(ctx context.Context, mongoClient *mongodb.Client, documentLoader jsonld.DocumentLoader, ttl int32) (*Store, error) { //nolint:lll
+func New(
+	ctx context.Context,
+	mongoClient *mongodb.Client,
+	ttl int32,
+) (*Store, error) {
 	s := &Store{
-		mongoClient:    mongoClient,
-		documentLoader: documentLoader,
-		ttl:            ttl,
+		mongoClient: mongoClient,
+		ttl:         ttl,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -72,23 +69,12 @@ func (s *Store) migrate(ctx context.Context) error {
 	return nil
 }
 
-func (s *Store) Create(claims *oidc4vp.ReceivedClaims) (string, error) {
+func (s *Store) Create(claims *oidc4vp.ClaimData) (string, error) {
 	var err error
 
-	claimsMap := map[string][]byte{}
-
-	if claims != nil {
-		for key, cred := range claims.Credentials {
-			claimsMap[key], err = json.Marshal(cred)
-			if err != nil {
-				return "", fmt.Errorf("serialize received claims %w", err)
-			}
-		}
-	}
-
 	doc := &mongoDocument{
-		ExpireAt:       time.Now().Add(time.Duration(s.ttl) * time.Second),
-		ReceivedClaims: claimsMap,
+		ExpireAt:  time.Now().Add(time.Duration(s.ttl) * time.Second),
+		ClaimData: claims,
 	}
 
 	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
@@ -102,7 +88,7 @@ func (s *Store) Create(claims *oidc4vp.ReceivedClaims) (string, error) {
 	return result.InsertedID.(primitive.ObjectID).Hex(), nil
 }
 
-func (s *Store) Get(claimDataID string) (*oidc4vp.ReceivedClaims, error) {
+func (s *Store) Get(claimDataID string) (*oidc4vp.ClaimData, error) {
 	id, err := primitive.ObjectIDFromHex(claimDataID)
 	if err != nil {
 		return nil, fmt.Errorf("parse id %s: %w", claimDataID, err)
@@ -127,25 +113,5 @@ func (s *Store) Get(claimDataID string) (*oidc4vp.ReceivedClaims, error) {
 		return nil, oidc4vp.ErrDataNotFound
 	}
 
-	return receivedClaimsFromDocument(&doc, s.documentLoader)
-}
-
-func receivedClaimsFromDocument(doc *mongoDocument, docLoader jsonld.DocumentLoader) (*oidc4vp.ReceivedClaims, error) {
-	var err error
-
-	receivedClaims := &oidc4vp.ReceivedClaims{
-		Credentials: map[string]*verifiable.Credential{},
-	}
-
-	for key, cred := range doc.ReceivedClaims {
-		receivedClaims.Credentials[key], err = verifiable.ParseCredential(cred,
-			verifiable.WithJSONLDDocumentLoader(docLoader),
-			verifiable.WithDisabledProofCheck())
-
-		if err != nil {
-			return nil, fmt.Errorf("received claims deserialize failed: %w", err)
-		}
-	}
-
-	return receivedClaims, nil
+	return doc.ClaimData, nil
 }

@@ -42,6 +42,7 @@ services:
       - VC_REST_TRACING_COLLECTOR_URL=http://jaeger.example.com:14268/api/traces
       - VP_RECEIVED_CLAIMS_DATA_TTL=10s
       - VC_SYSTEM_VERSION=v1.0.0
+      - VC_REST_DATA_ENCRYPTION_KEY_ID=bc436485-5092-42b8-92a3-0aa8b93536dc
     ports:
       - "8075:8075"
       - "48127:48127"
@@ -80,7 +81,8 @@ services:
     entrypoint: "local-kms"
     networks:
       - bdd_net
-
+    volumes:
+      - ./aws-kms/:/init
   did-resolver.trustbloc.local:
     container_name: did-resolver.trustbloc.local
     image: ${DID_RESOLVER_IMAGE}:${DID_RESOLVER_IMAGE_TAG}

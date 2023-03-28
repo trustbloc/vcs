@@ -63,9 +63,11 @@ type keyManager interface {
 	CreateAndExportPubKeyBytes(kt arieskms.KeyType, opts ...arieskms.KeyOpts) (string, []byte, error)
 }
 
-type crypto interface {
+type Crypto interface {
 	Sign(msg []byte, kh interface{}) ([]byte, error)
 	SignMulti(messages [][]byte, kh interface{}) ([]byte, error)
+	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
+	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
 }
 
 type metricsProvider interface {
@@ -74,7 +76,7 @@ type metricsProvider interface {
 
 type KeyManager struct {
 	keyManager keyManager
-	crypto     crypto
+	crypto     Crypto
 	kmsType    Type
 	metrics    metricsProvider
 }
@@ -134,7 +136,7 @@ func prepareResolver(endpoint string, reg string) aws.EndpointResolverWithOption
 	}
 }
 
-func createLocalKMS(cfg *Config) (keyManager, crypto, error) {
+func createLocalKMS(cfg *Config) (keyManager, Crypto, error) {
 	secretLockService, err := createLocalSecretLock(cfg.SecretLockKeyPath)
 	if err != nil {
 		return nil, nil, err
@@ -174,6 +176,10 @@ func (km *KeyManager) SupportedKeyTypes() []arieskms.KeyType {
 	}
 
 	return ariesSupportedKeyTypes
+}
+
+func (km *KeyManager) Crypto() Crypto {
+	return km.crypto
 }
 
 func (km *KeyManager) CreateJWKKey(keyType arieskms.KeyType) (string, *jwk.JWK, error) {

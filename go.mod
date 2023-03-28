@@ -35,7 +35,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/samber/lo v1.37.0
 	github.com/stretchr/testify v1.8.2
-	github.com/trustbloc/kms v1.0.0-rc1
+	github.com/trustbloc/kms v1.0.0-rc1.0.20230322142555-4d8c3c08e55f
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a
 	go.mongodb.org/mongo-driver v1.11.2
