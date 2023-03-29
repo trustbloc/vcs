@@ -156,6 +156,8 @@ stress-test:
 	CREDENTIAL_TEMPLATE_ID= \
 	TOKEN_CLIENT_ID= \
 	TOKEN_CLIENT_SECRET= \
+	CREDENTIAL_TYPE= \
+	CLAIM_DATA='' \
 	USERS_NUM=3 \
 	CONCURRENT_REQ=2 \
 	go test -count=1 -v -cover . -p 1 -timeout=10m -race
