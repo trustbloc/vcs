@@ -69,11 +69,21 @@ func main() {
 				logger.Error(fmt.Sprintf("got error %v for run id %v",
 					err2, id))
 
-				testRunResult.Error = err2.Error()
+				testRunResult.Errors = []string{fmt.Sprintf("%+v", err2)}
 				testRunResult.State = "failed"
 			} else {
 				testRunResult.State = "complete"
 			}
+
+			if res != nil && len(res.Errors) > 0 {
+				testRunResult.State = "complete with errors"
+
+				for _, testErr := range res.Errors {
+					testRunResult.Errors = append(testRunResult.Errors, fmt.Sprintf("%+v", testErr))
+				}
+			}
+
+			testRunResult.ErrorsCount = len(testRunResult.Errors)
 
 			if testRunResult.Result != nil {
 				for _, v := range testRunResult.Result.Metrics {

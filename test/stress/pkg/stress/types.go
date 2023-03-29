@@ -7,6 +7,7 @@ type Result struct {
 	ConcurrentRequests int           `json:"concurrent_requests"`
 	Metrics            []*Metric     `json:"metrics"`
 	TotalDuration      time.Duration `json:"total_duration"`
+	Errors             []error       `json:"errors"`
 }
 
 type Metric struct {

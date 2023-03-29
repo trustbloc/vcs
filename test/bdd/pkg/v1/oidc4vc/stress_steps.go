@@ -8,6 +8,8 @@ package oidc4vc
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -46,6 +48,13 @@ func (s *Steps) getUsersNum(envVar, concurrentReqEnv string) error {
 }
 
 func (s *Steps) runStressTest(ctx context.Context) error {
+	targetClaimData := map[string]interface{}{}
+	if err := json.Unmarshal([]byte(os.Getenv("CLAIM_DATA")), &targetClaimData); err != nil {
+		return fmt.Errorf("can not unmarshal CLAIM_DATA. %w", err)
+	}
+	if len(targetClaimData) == 0 {
+		return errors.New("CLAIM_DATA should not be empty")
+	}
 	run := stress.NewStressRun(&stress.Config{
 		TLSConfig:            s.tlsConfig,
 		ApiURL:               os.Getenv("VCS_API_URL"),
@@ -56,25 +65,17 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 		IssuerProfileID:      os.Getenv("ISSUER_PROFILE_ID"),
 		VerifierProfileID:    os.Getenv("VERIFIER_PROFILE_ID"),
 		CredentialTemplateID: os.Getenv("CREDENTIAL_TEMPLATE_ID"),
-		CredentialType:       "midyVerifiedDocument",
-		ClaimData: map[string]interface{}{
-			"type":              []string{"midyVerifiedPassport"},
-			"birthdate":         "1990-08-02",
-			"expiry_date":       "2029-05-06",
-			"doc_number":        "34234234123",
-			"doc_type":          "passport",
-			"given_name":        "Harry",
-			"issue_date":        "2019-05-06",
-			"nationality":       "CA",
-			"issuing_country":   "CA",
-			"issuing_authority": "CA",
-			"family_name":       "Tester",
-		},
+		CredentialType:       os.Getenv("CREDENTIAL_TYPE"),
+		ClaimData:            targetClaimData,
 	})
 
 	result, err := run.Run(ctx)
 	if err != nil {
 		return err
+	}
+
+	if len(result.Errors) > 0 {
+		return result.Errors[0]
 	}
 
 	s.stressResult = result

@@ -134,10 +134,11 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 	workerPool.Stop()
 
 	perfData := map[string][]time.Duration{}
-
+	var errors []error
 	for _, resp := range workerPool.Responses() {
 		if resp.Err != nil {
-			return nil, resp.Err
+			errors = append(errors, resp.Err)
+			continue
 		}
 
 		perfInfo, ok := resp.Resp.(stressTestPerfInfo)
@@ -189,5 +190,6 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 		ConcurrentRequests: r.cfg.ConcurrentRequests,
 		Metrics:            metrics,
 		TotalDuration:      time.Since(st),
+		Errors:             errors,
 	}, nil
 }
