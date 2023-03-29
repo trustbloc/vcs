@@ -77,6 +77,10 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 		return err
 	}
 
+	if len(result.Errors) > 0 {
+		return result.Errors[0]
+	}
+
 	s.stressResult = result
 
 	return nil

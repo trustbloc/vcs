@@ -11,13 +11,17 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner"
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
+	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
+	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
 type TestCase struct {
@@ -160,12 +164,13 @@ func (c *TestCase) Invoke() (interface{}, error) {
 	}
 
 	// run pre-auth flow and save credential in the wallet
-	if err = c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
+	credentials, err := c.walletRunner.RunOIDC4CIPreAuth(&walletrunner.OIDC4CIConfig{
 		InitiateIssuanceURL: credentialOfferURL,
 		CredentialType:      c.credentialType,
 		CredentialFormat:    c.credentialFormat,
 		Pin:                 pin,
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, fmt.Errorf("run pre-auth issuance: %w", err)
 	}
 
@@ -197,7 +202,55 @@ func (c *TestCase) Invoke() (interface{}, error) {
 		return nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
 	}
 
+	if credentials.Status != nil && credentials.Status.Type != "" {
+		st := time.Now()
+		if err = c.revokeVC(credentials); err != nil {
+			return nil, fmt.Errorf("can not revokeVc; %w", err)
+		}
+
+		perfInfo["_vp_revoke_credentials"] = time.Since(st)
+	}
+
 	return perfInfo, nil
+}
+
+func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
+	req := &model.UpdateCredentialStatusRequest{
+		CredentialID: cred.ID,
+		CredentialStatus: model.CredentialStatus{
+			Status: "true",
+			Type:   cred.Status.Type,
+		},
+	}
+
+	requestBytes, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	endpointURL := fmt.Sprintf("%s/issuer/profiles/%v/credentials/status",
+		c.vcsAPIURL, c.issuerProfileID)
+
+	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", c.token, //nolint: bodyclose
+		bytes.NewBuffer(requestBytes), &tls.Config{
+			InsecureSkipVerify: true,
+		})
+	if err != nil {
+		return err
+	}
+
+	defer bddutil.CloseResponseBody(resp.Body)
+
+	respBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+	}
+
+	return nil
 }
 
 func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {

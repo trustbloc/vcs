@@ -1,7 +1,7 @@
 package handlers
 
-//go:generate mockgen -package handlers_test -destination preauthorize_mock_test.go github.com/ory/fosite AccessResponder
-//go:generate mockgen -package handlers_test -destination preauthorize_mock_handler_test.go github.com/ory/fosite/handler/oauth2 CoreStorage,AccessTokenStrategy,RefreshTokenStrategy
+//go:generate mockgen -package handlers_test -destination preauthorize_mocks_test.go github.com/ory/fosite AccessResponder
+//go:generate mockgen -package handlers_test -destination preauthorize_mocks_handler_test.go github.com/ory/fosite/handler/oauth2 CoreStorage,AccessTokenStrategy,RefreshTokenStrategy
 
 import (
 	"context"

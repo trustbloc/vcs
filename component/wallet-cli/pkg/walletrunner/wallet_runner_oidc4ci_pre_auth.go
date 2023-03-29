@@ -24,29 +24,30 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
 )
 
-func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
+func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credential, error) {
 	log.Println("Starting OIDC4VCI pre-authorized code flow")
 
 	log.Printf("Initiate issuance URL:\n\n\t%s\n\n", config.InitiateIssuanceURL)
 	offerResponse, err := credentialoffer.ParseInitiateIssuanceUrl(config.InitiateIssuanceURL, s.httpClient)
 	if err != nil {
-		return fmt.Errorf("parse initiate issuance url: %w", err)
+		return nil, fmt.Errorf("parse initiate issuance url: %w", err)
 	}
 
 	s.print("Getting issuer OIDC config")
 	startTime := time.Now()
 	oidcConfig, err := s.getIssuerOIDCConfig(offerResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
-
-	if err != nil {
-		return err
-	}
-	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
-	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerOIDCConfig = time.Since(startTime)
 
 	if err != nil {
-		return fmt.Errorf("get issuer oidc issuer config: %w", err)
+		return nil, err
+	}
+	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
+	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
+	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
+
+	if err != nil {
+		return nil, fmt.Errorf("get issuer oidc issuer config: %w", err)
 	}
 
 	tokenEndpoint := oidcConfig.TokenEndpoint
@@ -74,12 +75,12 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	s.perfInfo.GetAccessToken = time.Since(startTime)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime)
 	if tokenErr != nil {
-		return tokenErr
+		return nil, tokenErr
 	}
 
 	var token oidc4ci.AccessTokenResponse
 	if err = json.NewDecoder(tokenResp.Body).Decode(&token); err != nil {
-		return err
+		return nil, err
 	}
 	_ = tokenResp.Body.Close()
 
@@ -91,7 +92,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	startTime = time.Now()
 	err = s.CreateWallet()
 	if err != nil {
-		return fmt.Errorf("failed to create wallet: %w", err)
+		return nil, fmt.Errorf("failed to create wallet: %w", err)
 	}
 	s.perfInfo.CreateWallet = time.Since(startTime)
 
@@ -99,14 +100,14 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	startTime = time.Now()
 	vc, vcsDuration, err := s.getCredential(credentialsEndpoint, config.CredentialType, config.CredentialFormat)
 	if err != nil {
-		return fmt.Errorf("get credential: %w", err)
+		return nil, fmt.Errorf("get credential: %w", err)
 	}
 	s.perfInfo.VcsCIFlowDuration += vcsDuration
 	s.perfInfo.GetCredential = time.Since(startTime)
 
 	b, err := json.Marshal(vc)
 	if err != nil {
-		return fmt.Errorf("marshal vc: %w", err)
+		return nil, fmt.Errorf("marshal vc: %w", err)
 	}
 
 	log.Printf(string(b))
@@ -114,7 +115,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 	s.print("Adding credential to wallet")
 
 	if err = s.wallet.Add(s.vcProviderConf.WalletParams.Token, wallet.Credential, b); err != nil {
-		return fmt.Errorf("add credential to wallet: %w", err)
+		return nil, fmt.Errorf("add credential to wallet: %w", err)
 	}
 
 	vcParsed, err := verifiable.ParseCredential(b,
@@ -122,7 +123,7 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		verifiable.WithJSONLDDocumentLoader(
 			s.ariesServices.JSONLDDocumentLoader()))
 	if err != nil {
-		return fmt.Errorf("parse vc: %w", err)
+		return nil, fmt.Errorf("parse vc: %w", err)
 	}
 
 	log.Printf("Credential with ID [%s] and type [%v] added successfully", vcParsed.ID, config.CredentialType)
@@ -131,5 +132,5 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) error {
 		s.wallet.Close()
 	}
 
-	return nil
+	return vcParsed, nil
 }

@@ -112,17 +112,18 @@ func (s *Service) GetConfig() *vcprovider.Config {
 }
 
 type PerfInfo struct {
-	CreateWallet               time.Duration `json:"vci_create_wallet"`
-	GetIssuerOIDCConfig        time.Duration `json:"vci_get_issuer_oidc_config"`
-	GetAccessToken             time.Duration `json:"vci_get_access_token"`
-	GetCredential              time.Duration `json:"vci_get_credential"`
-	FetchRequestObject         time.Duration `json:"vp_fetch_request_object"`
-	VerifyAuthorizationRequest time.Duration `json:"vp_verify_authorization_request"`
-	QueryCredentialFromWallet  time.Duration `json:"vp_query_credential_from_wallet"`
-	CreateAuthorizedResponse   time.Duration `json:"vp_create_authorized_response"`
-	SendAuthorizedResponse     time.Duration `json:"vp_send_authorized_response"`
-	VcsCIFlowDuration          time.Duration `json:"_vcs_ci_flow_duration"`
-	VcsVPFlowDuration          time.Duration `json:"_vcs_vp_flow_duration"`
+	CreateWallet                   time.Duration `json:"vci_create_wallet"`
+	GetIssuerOIDCConfig            time.Duration `json:"vci_get_issuer_oidc_config"`
+	GetIssuerCredentialsOIDCConfig time.Duration `json:"vci_get_issuer_credentials_oidc_config"`
+	GetAccessToken                 time.Duration `json:"vci_get_access_token"`
+	GetCredential                  time.Duration `json:"vci_get_credential"`
+	FetchRequestObject             time.Duration `json:"vp_fetch_request_object"`
+	VerifyAuthorizationRequest     time.Duration `json:"vp_verify_authorization_request"`
+	QueryCredentialFromWallet      time.Duration `json:"vp_query_credential_from_wallet"`
+	CreateAuthorizedResponse       time.Duration `json:"vp_create_authorized_response"`
+	SendAuthorizedResponse         time.Duration `json:"vp_send_authorized_response"`
+	VcsCIFlowDuration              time.Duration `json:"_vcs_ci_flow_duration"`
+	VcsVPFlowDuration              time.Duration `json:"_vcs_vp_flow_duration"`
 }
 
 func (s *Service) GetPerfInfo() *PerfInfo {
