@@ -165,7 +165,9 @@ func NewOIDC4CICommand() *cobra.Command {
 			}
 
 			if isPreAuthorize {
-				return runner.RunOIDC4CIPreAuth(config)
+				_, err := runner.RunOIDC4CIPreAuth(config)
+
+				return err
 			}
 
 			return runner.RunOIDC4CI(config)
