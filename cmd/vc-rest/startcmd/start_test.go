@@ -31,7 +31,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/cmd/common"
-	"github.com/trustbloc/vcs/pkg/observability/tracing"
 )
 
 const (
@@ -245,8 +244,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + issuerTopicFlagName, "dev1-vcs-issuer",
 		"--" + verifierTopicFlagName, "dev1-vcs-verifier",
 		"--" + credentialstatusTopicFlagName, "dev1-vcs-credentialstatus",
-		"--" + tracingProviderFlagName, tracing.ProviderJaeger,
-		"--" + tracingCollectorURLFlagName, "http://yaeger.local.com",
+		"--" + otelExporterTypeFlagName, "STDOUT",
 		"--" + dataEncryptionKeyIDFlagName, "12345",
 		"--" + dataEncryptionDataChunkSizeFlagName, "2048",
 	}

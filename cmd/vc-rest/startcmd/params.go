@@ -275,20 +275,15 @@ const (
 	credentialstatusTopicEnvKey    = "VC_REST_CREDENTIALSTATUS_EVENT_TOPIC"
 	credentialstatusTopicFlagUsage = "The name of the credential status event topic. " + commonEnvVarUsageText + credentialstatusTopicEnvKey
 
-	tracingProviderFlagName  = "tracing-provider"
-	tracingProviderEnvKey    = "VC_REST_TRACING_PROVIDER"
-	tracingProviderFlagUsage = "The tracing provider (for example, JAEGER). " +
-		commonEnvVarUsageText + tracingProviderEnvKey
+	otelExporterTypeFlagName  = "otel-exporter-type"
+	otelExporterTypeEnvKey    = "OTEL_EXPORTER_TYPE"
+	otelExporterTypeFlagUsage = "The type of OpenTelemetry span exporter. Supported: JAEGER, STDOUT. " +
+		"If not specified noop is used. " + commonEnvVarUsageText + otelExporterTypeEnvKey
 
-	tracingCollectorURLFlagName  = "tracing-collector-url"
-	tracingCollectorURLEnvKey    = "VC_REST_TRACING_COLLECTOR_URL"
-	tracingCollectorURLFlagUsage = "The URL of the tracing collector. " +
-		commonEnvVarUsageText + tracingCollectorURLEnvKey
-
-	tracingServiceNameFlagName  = "tracing-service-name"
-	tracingServiceNameEnvKey    = "VC_REST_TRACING_SERVICE_NAME"
-	tracingServiceNameFlagUsage = "The name of the tracing service. Default: vcs. " +
-		commonEnvVarUsageText + tracingServiceNameEnvKey
+	otelServiceNameFlagName  = "otel-service-name"
+	otelServiceNameEnvKey    = "OTEL_SERVICE_NAME"
+	otelServiceNameFlagUsage = "Logical name of the service that is traced. MUST be the same for all instances of " +
+		"horizontally scaled services. Default: vcs. " + commonEnvVarUsageText + otelServiceNameEnvKey
 
 	didMethodION = "ion"
 
@@ -354,9 +349,8 @@ type prometheusMetricsProviderParams struct {
 }
 
 type tracingParams struct {
-	provider     tracing.ProviderType
-	collectorURL string
-	serviceName  string
+	exporter    tracing.SpanExporterType
+	serviceName string
 }
 
 type dbParameters struct {
@@ -868,28 +862,23 @@ func getRequestTokens(cmd *cobra.Command) map[string]string {
 }
 
 func getTracingParams(cmd *cobra.Command) (*tracingParams, error) {
-	serviceName := cmdutils.GetOptionalString(cmd, tracingServiceNameFlagName, tracingServiceNameEnvKey)
+	serviceName := cmdutils.GetOptionalString(cmd, otelServiceNameFlagName, otelServiceNameEnvKey)
 	if serviceName == "" {
 		serviceName = defaultTracingServiceName
 	}
 
 	params := &tracingParams{
-		provider:    cmdutils.GetOptionalString(cmd, tracingProviderFlagName, tracingProviderEnvKey),
+		exporter:    cmdutils.GetOptionalString(cmd, otelExporterTypeFlagName, otelExporterTypeEnvKey),
 		serviceName: serviceName,
 	}
 
-	switch params.provider {
-	case tracing.ProviderNone:
+	switch params.exporter {
+	case tracing.None:
+	case tracing.Jaeger:
+	case tracing.Stdout:
 		return params, nil
-	case tracing.ProviderJaeger:
-		var err error
-
-		params.collectorURL, err = cmdutils.GetString(cmd, tracingCollectorURLFlagName, tracingCollectorURLEnvKey, false)
-		if err != nil {
-			return nil, err
-		}
 	default:
-		return nil, fmt.Errorf("unsupported tracing provider: %s", params.provider)
+		return nil, fmt.Errorf("unsupported otel span exporter: %s", params.exporter)
 	}
 
 	return params, nil
@@ -953,9 +942,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
 	startCmd.Flags().StringP(vpReceivedClaimsDataTTLFlagName, "", "", vpReceivedClaimsDataTTLFlagUsage)
 
-	startCmd.Flags().StringP(tracingProviderFlagName, "", "", tracingProviderFlagUsage)
-	startCmd.Flags().StringP(tracingCollectorURLFlagName, "", "", tracingCollectorURLFlagUsage)
-	startCmd.Flags().StringP(tracingServiceNameFlagName, "", "", tracingServiceNameFlagUsage)
+	startCmd.Flags().StringP(otelServiceNameFlagName, "", "", otelServiceNameFlagUsage)
+	startCmd.Flags().StringP(otelExporterTypeFlagName, "", "", otelExporterTypeFlagUsage)
 
 	startCmd.Flags().StringP(httpTimeoutFlagName, "", "", httpTimeoutFlagUsage)
 	startCmd.Flags().StringP(httpDialTimeoutFlagName, "", "", httpDialTimeoutFlagUsage)

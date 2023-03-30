@@ -62,7 +62,7 @@ func prepareConfiguration(parameters *startupParameters, tracer trace.Tracer) (*
 		RootCAs:           rootCAs,
 		VDR:               vdr,
 		Tracer:            tracer,
-		IsTraceEnabled:    parameters.tracingParams.provider != tracing.ProviderNone,
+		IsTraceEnabled:    parameters.tracingParams.exporter != tracing.None,
 		StartupParameters: parameters,
 	}, nil
 }
