@@ -12,7 +12,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-
 	"net"
 	"net/http"
 	"os"
@@ -194,8 +193,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 
 			traceParams := params.tracingParams
 
-			shutdownTracer, tracer, err := tracing.Initialize(traceParams.provider, traceParams.serviceName,
-				traceParams.collectorURL)
+			shutdownTracer, tracer, err := tracing.Initialize(traceParams.exporter, traceParams.serviceName)
 			if err != nil {
 				return fmt.Errorf("initialize tracing: %w", err)
 			}
@@ -847,7 +845,7 @@ func newHTTPClient(tlsConfig *tls.Config, params *startupParameters,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
-	if params.tracingParams.provider != tracing.ProviderNone {
+	if params.tracingParams.exporter != tracing.None {
 		transport = otelhttp.NewTransport(transport)
 	}
 
