@@ -105,10 +105,6 @@ func (s *Service) handleEventPayload(
 		return fmt.Errorf("get CSL VC wrapper failed: %w", err)
 	}
 
-	if clsWrapper.Version != payload.Version-1 {
-		return fmt.Errorf("invalid payload version %d, expected %d", payload.Version, clsWrapper.Version+1)
-	}
-
 	cs, ok := clsWrapper.VC.Subject.([]verifiable.Subject)
 	if !ok {
 		return fmt.Errorf("failed to cast VC subject")
@@ -137,8 +133,7 @@ func (s *Service) handleEventPayload(
 	}
 
 	vcWrapper := &credentialstatus.CSLVCWrapper{
-		VCByte:  signedCredentialBytes,
-		Version: payload.Version,
+		VCByte: signedCredentialBytes,
 	}
 
 	if err = s.cslStore.Upsert(ctx, payload.CSLURL, vcWrapper); err != nil {

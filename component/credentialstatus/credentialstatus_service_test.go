@@ -913,37 +913,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to cast URI of statusListCredential")
 	})
-	t.Run("updateVCStatus - get CSL from store error", func(t *testing.T) {
-		loader := testutil.DocumentLoader(t)
-		s, err := New(&Config{
-			DocumentLoader: loader,
-			CSLVCStore: newMockCSLVCStore(func(store *mockCSLVCStore) {
-				store.findErr = errors.New("some error")
-			}),
-			VCStatusStore: newMockVCStatusStore(),
-			ListSize:      2,
-			Crypto: vccrypto.New(
-				&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
-		})
-		require.NoError(t, err)
-
-		err = s.updateVCStatus(
-			context.Background(),
-			&verifiable.TypedID{
-				ID:   "test",
-				Type: string(vc.StatusList2021VCStatus),
-				CustomFields: map[string]interface{}{
-					statustype.StatusListCredential: "test",
-					statustype.StatusListIndex:      "1",
-					statustype.StatusPurpose:        "test",
-				},
-			},
-			profileID,
-			vc.StatusList2021VCStatus,
-			true)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to get CSL from store")
-	})
 	t.Run("updateVCStatus unable to publish event", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
 		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)

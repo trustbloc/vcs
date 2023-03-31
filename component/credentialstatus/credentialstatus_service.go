@@ -426,9 +426,8 @@ func (s *Service) storeNewVCWrapperAndCreateNewIndexWrapper(ctx context.Context,
 	}
 
 	vcWrapper := &credentialstatus.CSLVCWrapper{
-		VCByte:  vcBytes,
-		VC:      credentials,
-		Version: 1,
+		VCByte: vcBytes,
+		VC:     credentials,
 	}
 
 	if err := s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
@@ -474,12 +473,7 @@ func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedI
 		return fmt.Errorf("GetStatusListIndex failed: %w", err)
 	}
 
-	cslWrapper, err := s.getCSLVCWrapper(ctx, statusListVCID)
-	if err != nil {
-		return fmt.Errorf("get CSL wrapper failed: %w", err)
-	}
-
-	event, err := s.createStatusUpdatedEvent(statusListVCID, profileID, revocationListIndex, cslWrapper.Version+1, status)
+	event, err := s.createStatusUpdatedEvent(statusListVCID, profileID, revocationListIndex, status)
 	if err != nil {
 		return fmt.Errorf("unable to createStatusUpdatedEvent: %w", err)
 	}
@@ -492,13 +486,12 @@ func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedI
 	return nil
 }
 
-func (s *Service) createStatusUpdatedEvent(cslURL, profileID string, index, version int, status bool) (*spi.Event, error) {
+func (s *Service) createStatusUpdatedEvent(cslURL, profileID string, index int, status bool) (*spi.Event, error) {
 	ep := credentialstatus.UpdateCredentialStatusEventPayload{
 		CSLURL:    cslURL,
 		ProfileID: profileID,
 		Index:     index,
 		Status:    status,
-		Version:   version,
 	}
 
 	payload, err := json.Marshal(ep)

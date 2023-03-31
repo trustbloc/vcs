@@ -121,8 +121,7 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVC
 			// this is old data (VC doesn't have matching wrapper)
 			// so we couldn't get version - return as version 1
 			return &credentialstatus.CSLVCWrapper{
-				VCByte:  cslBytes,
-				Version: 1,
+				VCByte: cslBytes,
 			}, nil
 		}
 

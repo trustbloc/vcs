@@ -183,9 +183,8 @@ func TestWrapperStore(t *testing.T) {
 			assert.NoError(t, err)
 
 			wrapperCreated := &credentialstatus.CSLVCWrapper{
-				VCByte:  vcBytes,
-				VC:      vc,
-				Version: 1,
+				VCByte: vcBytes,
+				VC:     vc,
 			}
 
 			// Create - Find
@@ -199,8 +198,7 @@ func TestWrapperStore(t *testing.T) {
 
 			// Update - Find
 			wrapperUpdated := &credentialstatus.CSLVCWrapper{
-				VCByte:  vcBytes,
-				Version: 2,
+				VCByte: vcBytes,
 			}
 
 			err = store.Upsert(ctx, vc.ID, wrapperUpdated)
@@ -273,7 +271,6 @@ func TestWrapperStore(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
-		assert.Equal(t, resp.Version, 1)
 	})
 
 	t.Run("Error from cslWrapper", func(t *testing.T) {
@@ -341,10 +338,6 @@ func compareWrappers(t *testing.T, wrapperExpected, wrapperFound *credentialstat
 	if !assert.Equal(t, vcExpected, vcFound) {
 		t.Errorf("VC got = %v, want %v",
 			vcFound, vcExpected)
-	}
-	if !assert.Equal(t, wrapperExpected.Version, wrapperFound.Version) {
-		t.Errorf("VC Version got = %v, want %v",
-			wrapperFound, wrapperExpected)
 	}
 }
 

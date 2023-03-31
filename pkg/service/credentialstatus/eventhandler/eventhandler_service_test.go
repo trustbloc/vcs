@@ -41,7 +41,6 @@ import (
 
 const (
 	statusBytePositionIndex = 1
-	cslDefaultVersion       = 1
 	profileID               = "testProfileID"
 	listUUID                = "d715ce6b-0df5-4fe8-ab19-be9bc6dada9c"
 	cslURL                  = "https://localhost:8080/issuer/profiles/externalID/credentials/status/" + listUUID
@@ -64,9 +63,7 @@ const (
       "VerifiableCredential",
       "StatusList2021Credential"
     ]
-  },
-  "usedIndexes": [],
-  "version": 1
+  }
 }`
 )
 
@@ -87,14 +84,13 @@ func TestService_HandleEvent(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
-			t, cslURL, profileID, statusBytePositionIndex, cslDefaultVersion+1, true)
+			t, cslURL, profileID, statusBytePositionIndex, true)
 
 		s := New(&Config{
 			DocumentLoader: loader,
@@ -109,7 +105,6 @@ func TestService_HandleEvent(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion+1)
 		getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, true)
 	})
 
@@ -119,14 +114,13 @@ func TestService_HandleEvent(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
-			t, cslURL, profileID, statusBytePositionIndex, cslDefaultVersion+1, true)
+			t, cslURL, profileID, statusBytePositionIndex, true)
 
 		event.Type = spi.IssuerOIDCInteractionInitiated
 
@@ -143,7 +137,6 @@ func TestService_HandleEvent(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 	})
 	t.Run("Error invalid event payload", func(t *testing.T) {
@@ -152,14 +145,13 @@ func TestService_HandleEvent(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
-			t, cslURL, profileID, statusBytePositionIndex, cslDefaultVersion+1, true)
+			t, cslURL, profileID, statusBytePositionIndex, true)
 
 		event.Data = []byte(`   123`)
 
@@ -176,7 +168,6 @@ func TestService_HandleEvent(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 	})
 }
@@ -198,7 +189,6 @@ func TestService_handleEventPayload(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
@@ -209,7 +199,6 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileID: profileID,
 			Index:     statusBytePositionIndex,
 			Status:    true,
-			Version:   cslDefaultVersion + 1,
 		}
 
 		s := New(&Config{
@@ -225,7 +214,6 @@ func TestService_handleEventPayload(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion+1)
 		getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, true)
 	})
 
@@ -235,7 +223,6 @@ func TestService_handleEventPayload(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -243,7 +230,6 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileID: profileID,
 			Index:     statusBytePositionIndex,
 			Status:    true,
-			Version:   cslDefaultVersion + 1,
 		}
 
 		s := New(&Config{
@@ -259,51 +245,12 @@ func TestService_handleEventPayload(t *testing.T) {
 		require.ErrorContains(t, err, "get CSL VC wrapper failed")
 	})
 
-	t.Run("Error invalid payload version", func(t *testing.T) {
-		cslStore := newMockCSLVCStore()
-
-		var cslWrapper *credentialstatus.CSLVCWrapper
-		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
-		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
-		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
-
-		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
-		require.NoError(t, err)
-
-		eventPayload := credentialstatus.UpdateCredentialStatusEventPayload{
-			CSLURL:    cslURL,
-			ProfileID: profileID,
-			Index:     statusBytePositionIndex,
-			Status:    true,
-			Version:   cslDefaultVersion,
-		}
-
-		s := New(&Config{
-			DocumentLoader: loader,
-			CSLVCStore:     cslStore,
-			ProfileService: mockProfileSrv,
-			KMSRegistry:    mockKMSRegistry,
-			Crypto:         crypto,
-		})
-
-		err = s.handleEventPayload(ctx, eventPayload)
-		require.Error(t, err)
-		require.ErrorContains(t, err, "invalid payload version")
-
-		cslWrapper, err = cslStore.Get(ctx, cslURL)
-		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
-		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
-	})
-
 	t.Run("Error bitstring.DecodeBits", func(t *testing.T) {
 		cslStore := newMockCSLVCStore()
 
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		cslWrapper.VC.Subject.([]verifiable.Subject)[0].CustomFields["encodedList"] = "  123"
@@ -320,7 +267,6 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileID: profileID,
 			Index:     statusBytePositionIndex,
 			Status:    true,
-			Version:   cslDefaultVersion + 1,
 		}
 
 		s := New(&Config{
@@ -337,7 +283,6 @@ func TestService_handleEventPayload(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 	})
 
 	t.Run("Error bitString.Set failed", func(t *testing.T) {
@@ -346,7 +291,6 @@ func TestService_handleEventPayload(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
@@ -357,7 +301,6 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileID: profileID,
 			Index:     -1,
 			Status:    true,
-			Version:   cslDefaultVersion + 1,
 		}
 
 		s := New(&Config{
@@ -374,7 +317,6 @@ func TestService_handleEventPayload(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 	})
 
@@ -386,7 +328,6 @@ func TestService_handleEventPayload(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
@@ -397,7 +338,6 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileID: profileID,
 			Index:     statusBytePositionIndex,
 			Status:    true,
-			Version:   cslDefaultVersion + 1,
 		}
 
 		s := New(&Config{
@@ -414,7 +354,6 @@ func TestService_handleEventPayload(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 	})
 
@@ -424,7 +363,6 @@ func TestService_handleEventPayload(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
@@ -435,7 +373,6 @@ func TestService_handleEventPayload(t *testing.T) {
 			ProfileID: profileID,
 			Index:     statusBytePositionIndex,
 			Status:    true,
-			Version:   cslDefaultVersion + 1,
 		}
 
 		s := New(&Config{
@@ -454,7 +391,6 @@ func TestService_handleEventPayload(t *testing.T) {
 
 		cslWrapper, err = cslStore.Get(ctx, cslURL)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 	})
 }
@@ -476,7 +412,6 @@ func TestService_signCSL(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		err = cslStore.Upsert(ctx, cslWrapper.VC.ID, cslWrapper)
@@ -528,7 +463,6 @@ func TestService_signCSL(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 		cslWrapper.VC.Proofs = []verifiable.Proof{
 			{
@@ -552,7 +486,6 @@ func TestService_signCSL(t *testing.T) {
 		var cslWrapper *credentialstatus.CSLVCWrapper
 		err := json.Unmarshal([]byte(cslWrapperBytes), &cslWrapper)
 		require.NoError(t, err)
-		checkCSLWrapper(t, cslWrapper, cslDefaultVersion)
 		cslWrapper.VC = getVerifiedCSL(t, cslWrapper.VCByte, loader, statusBytePositionIndex, false)
 
 		s := New(&Config{
@@ -690,12 +623,6 @@ func TestPrepareSigningOpts(t *testing.T) {
 	})
 }
 
-func checkCSLWrapper(
-	t *testing.T, cslWrapper *credentialstatus.CSLVCWrapper, expectedVersion int) {
-	t.Helper()
-	require.Equal(t, expectedVersion, cslWrapper.Version)
-}
-
 //nolint:unparam
 func getVerifiedCSL(
 	t *testing.T, cslBytes []byte, dl ld.DocumentLoader, index int, expectedStatus bool) *verifiable.Credential {
@@ -717,7 +644,7 @@ func getVerifiedCSL(
 	return csl
 }
 
-func createStatusUpdatedEvent(t *testing.T, cslURL, profileID string, index, version int, status bool) *spi.Event {
+func createStatusUpdatedEvent(t *testing.T, cslURL, profileID string, index int, status bool) *spi.Event {
 	t.Helper()
 
 	ep := credentialstatus.UpdateCredentialStatusEventPayload{
@@ -725,7 +652,6 @@ func createStatusUpdatedEvent(t *testing.T, cslURL, profileID string, index, ver
 		ProfileID: profileID,
 		Index:     index,
 		Status:    status,
-		Version:   version,
 	}
 
 	payload, err := json.Marshal(ep)
