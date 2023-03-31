@@ -11,10 +11,8 @@ package credentialstatus
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
@@ -26,6 +24,7 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
+	"github.com/trustbloc/vcs/pkg/cslmanager"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
@@ -69,6 +68,10 @@ type eventPublisher interface {
 	Publish(ctx context.Context, topic string, messages ...*spi.Event) error
 }
 
+type cslManager interface {
+	CreateCSLEntry(ctx context.Context, profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error)
+}
+
 type Config struct {
 	HTTPClient     httpClient
 	RequestTokens  map[string]string
@@ -92,9 +95,8 @@ type Service struct {
 	requestTokens  map[string]string
 	vdr            vdrapi.Registry
 	cslVCStore     credentialstatus.CSLVCStore
-	cslIndexStore  credentialstatus.CSLIndexStore
+	cslMgr         cslManager
 	vcStatusStore  vcStatusStore
-	listSize       int
 	crypto         vcCrypto
 	profileService profileService
 	kmsRegistry    kmsRegistry
@@ -107,14 +109,28 @@ type Service struct {
 
 // New returns new Credential Status service.
 func New(config *Config) (*Service, error) {
+	cslManager, err := cslmanager.New(
+		&cslmanager.Config{
+			CSLVCStore:    config.CSLVCStore,
+			CSLIndexStore: config.CSLIndexStore,
+			VCStatusStore: config.VCStatusStore,
+			ListSize:      config.ListSize,
+			KMSRegistry:   config.KMSRegistry,
+			Crypto:        config.Crypto,
+			ExternalURL:   config.ExternalURL,
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		httpClient:     config.HTTPClient,
 		requestTokens:  config.RequestTokens,
 		vdr:            config.VDR,
 		cslVCStore:     config.CSLVCStore,
-		cslIndexStore:  config.CSLIndexStore,
+		cslMgr:         cslManager,
 		vcStatusStore:  config.VCStatusStore,
-		listSize:       config.ListSize,
 		crypto:         config.Crypto,
 		profileService: config.ProfileService,
 		kmsRegistry:    config.KMSRegistry,
@@ -177,110 +193,12 @@ func (s *Service) CreateStatusListEntry(
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
+	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get KMS: %w", err)
+		return nil, fmt.Errorf("failed to create CSL entry: %w", err)
 	}
-
-	signer := &vc.Signer{
-		DID:                     profile.SigningDID.DID,
-		Creator:                 profile.SigningDID.Creator,
-		KMSKeyID:                profile.SigningDID.KMSKeyID,
-		SignatureType:           profile.VCConfig.SigningAlgorithm,
-		KeyType:                 profile.VCConfig.KeyType,
-		KMS:                     kms,
-		Format:                  profile.VCConfig.Format,
-		SignatureRepresentation: profile.VCConfig.SignatureRepresentation,
-		VCStatusListType:        profile.VCConfig.Status.Type,
-		SDJWT:                   vc.SDJWT{Enable: false},
-	}
-
-	vcStatusProcessor, err := statustype.GetVCStatusProcessor(signer.VCStatusListType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get VC status processor: %w", err)
-	}
-
-	// get latest ListID - global value among issuers.
-	latestListID, err := s.cslIndexStore.GetLatestListID(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latestListID from store: %w", err)
-	}
-
-	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, profile.GroupID, latestListID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CSL wrapper URL: %w", err)
-	}
-
-	cslWrapper, err := s.getCSLIndexWrapper(ctx, cslURL)
-	if err != nil {
-		if errors.Is(err, credentialstatus.ErrDataNotFound) {
-			cslWrapper, err = s.storeNewVCWrapperAndCreateNewIndexWrapper(ctx, signer, vcStatusProcessor, cslURL)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("failed to get CSL Index from store: %w", err)
-		}
-	}
-
-	unusedStatusBitIndex, err := s.getUnusedIndex(cslWrapper.UsedIndexes)
-	if err != nil {
-		return nil, fmt.Errorf("getUnusedIndex failed: %w", err)
-	}
-
-	// Append unusedStatusBitIndex to the cslWrapper.UsedIndexes so marking it as "used".
-	cslWrapper.UsedIndexes = append(cslWrapper.UsedIndexes, unusedStatusBitIndex)
-
-	if err = s.cslIndexStore.Upsert(ctx, cslURL, cslWrapper); err != nil {
-		return nil, fmt.Errorf("failed to store CSL Wrapper: %w", err)
-	}
-
-	// If amount of used indexes is the same as list size - update ListID,
-	// so it will lead to creating new CSLIndexWrapper with empty UsedIndexes list.
-	if len(cslWrapper.UsedIndexes) == s.listSize {
-		if err = s.cslIndexStore.UpdateLatestListID(ctx); err != nil {
-			return nil, fmt.Errorf("failed to store latest list ID in store: %w", err)
-		}
-	}
-
-	statusListEntry := &credentialstatus.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(unusedStatusBitIndex), cslURL),
-		Context: vcStatusProcessor.GetVCContext(),
-	}
-	// Store VC status to DB
-	err = s.vcStatusStore.Put(ctx, profile.ID, credentialID, statusListEntry.TypedID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to store credential status: %w", err)
-	}
-
-	logger.Debug("CreateStatusListEntry success")
 
 	return statusListEntry, nil
-}
-
-func (s *Service) getUnusedIndex(usedIndexes []int) (int, error) {
-	usedIndexesMap := make(map[int]struct{}, len(usedIndexes))
-
-	for _, i := range usedIndexes {
-		usedIndexesMap[i] = struct{}{}
-	}
-
-	unusedIndexes := make([]int, 0, s.listSize-len(usedIndexes))
-	for i := 0; i < s.listSize; i++ {
-		if _, ok := usedIndexesMap[i]; ok {
-			continue
-		}
-
-		unusedIndexes = append(unusedIndexes, i)
-	}
-
-	if len(unusedIndexes) == 0 {
-		return -1, errors.New("no possible unused indexes")
-	}
-
-	unusedIndexPosition := rand.Intn(len(unusedIndexes))
-
-	return unusedIndexes[unusedIndexPosition], nil
 }
 
 // GetStatusListVC returns StatusListVC (CSL) from underlying cslStore.
@@ -357,15 +275,6 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, erro
 	)
 }
 
-func (s *Service) getCSLIndexWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
-	indexWrapper, err := s.cslIndexStore.Get(ctx, cslURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get CSLIndexWrapper from store: %w", err)
-	}
-
-	return indexWrapper, nil
-}
-
 func (s *Service) getCSLVCWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
 	vcWrapper, err := s.cslVCStore.Get(ctx, cslURL)
 	if err != nil {
@@ -411,44 +320,6 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 	}
 
 	return body, nil
-}
-
-func (s *Service) storeNewVCWrapperAndCreateNewIndexWrapper(ctx context.Context, signer *vc.Signer,
-	processor vc.StatusProcessor, cslURL string) (*credentialstatus.CSLIndexWrapper, error) {
-	credentials, errCreateVC := s.createVC(cslURL, signer, processor)
-	if errCreateVC != nil {
-		return nil, errCreateVC
-	}
-
-	vcBytes, errMarshal := credentials.MarshalJSON()
-	if errMarshal != nil {
-		return nil, errMarshal
-	}
-
-	vcWrapper := &credentialstatus.CSLVCWrapper{
-		VCByte: vcBytes,
-		VC:     credentials,
-	}
-
-	if err := s.cslVCStore.Upsert(ctx, cslURL, vcWrapper); err != nil {
-		return nil, fmt.Errorf("failed to store CSL VC in store: %w", err)
-	}
-
-	return &credentialstatus.CSLIndexWrapper{
-		UsedIndexes: nil,
-		Version:     1,
-	}, nil
-}
-
-// createVC signs the VC returned from VcStatusProcessor.CreateVC.
-func (s *Service) createVC(vcID string,
-	profile *vc.Signer, processor vc.StatusProcessor) (*verifiable.Credential, error) {
-	credential, err := processor.CreateVC(vcID, s.listSize, profile)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.crypto.SignCredential(profile, credential)
 }
 
 // updateVCStatus updates StatusListCredential associated with typedID.

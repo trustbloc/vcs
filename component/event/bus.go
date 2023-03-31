@@ -51,7 +51,6 @@ type Config struct {
 	TLSConfig      *tls.Config
 	CMD            *cobra.Command
 	CSLVCStore     credentialstatus.CSLVCStore
-	CSLIndexStore  credentialstatus.CSLIndexStore
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
 	Crypto         vcCrypto

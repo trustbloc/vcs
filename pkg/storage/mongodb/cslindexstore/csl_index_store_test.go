@@ -70,7 +70,6 @@ func TestWrapperStore(t *testing.T) {
 
 		wrapperCreated := &credentialstatus.CSLIndexWrapper{
 			UsedIndexes: []int{1},
-			Version:     1,
 		}
 
 		// Create - Find
@@ -101,7 +100,6 @@ func TestWrapperStore(t *testing.T) {
 
 		wrapperCreated := &credentialstatus.CSLIndexWrapper{
 			UsedIndexes: []int{1},
-			Version:     1,
 		}
 
 		// Create - Find
@@ -197,7 +195,7 @@ func TestLatestListID(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, receivedListID)
 
-		err = store.UpdateLatestListID(ctx)
+		err = store.UpdateLatestListID(ctx, "1")
 		require.NoError(t, err)
 
 		receivedListIDAfterUpdate, err := store.GetLatestListID(ctx)
@@ -261,11 +259,6 @@ func compareWrappers(t *testing.T, wrapperCreated, wrapperFound *credentialstatu
 
 	if !assert.Equal(t, wrapperCreated.UsedIndexes, wrapperFound.UsedIndexes) {
 		t.Errorf("Used Indexes: got = %v, want %v",
-			wrapperFound, wrapperCreated)
-	}
-
-	if !assert.Equal(t, wrapperCreated.Version, wrapperFound.Version) {
-		t.Errorf("Version: got = %v, want %v",
 			wrapperFound, wrapperCreated)
 	}
 }

@@ -88,11 +88,11 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLIn
 	return cslWrapper, nil
 }
 
-func (p *Store) UpdateLatestListID(ctx context.Context) error {
+func (p *Store) UpdateLatestListID(ctx context.Context, id credentialstatus.ListID) error {
 	collection := p.mongoClient.Database().Collection(cslIndexStoreName)
 	_, err := collection.UpdateByID(ctx, latestListIDDBEntryKey, bson.M{
 		"$set": latestListIDDocument{
-			ListID: uuid.NewString(),
+			ListID: string(id),
 		},
 	})
 
