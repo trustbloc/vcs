@@ -42,8 +42,6 @@ type CSLVCWrapper struct {
 	VCByte json.RawMessage `json:"vc,omitempty"`
 	// VC represents parsed CSL VC. Not stored.
 	VC *verifiable.Credential `json:"-"`
-	// Version represents the version of the CSLIndexWrapper.
-	Version int `json:"version,omitempty"`
 }
 
 type UpdateVCStatusParams struct {
@@ -77,5 +75,4 @@ type UpdateCredentialStatusEventPayload struct {
 	ProfileID string `json:"profileId"`
 	Index     int    `json:"index"`
 	Status    bool   `json:"status"`
-	Version   int    `json:"version"`
 }

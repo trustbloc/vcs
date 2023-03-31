@@ -69,8 +69,7 @@ func TestCSLStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLVCWrapper{
-			VCByte:  []byte(sampleVCJsonLD),
-			Version: 1,
+			VCByte: []byte(sampleVCJsonLD),
 		}
 
 		// Create - Find
@@ -88,8 +87,7 @@ func TestCSLStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperUpdated := &credentialstatus.CSLVCWrapper{
-			VCByte:  vcUpdateBytes,
-			Version: 2,
+			VCByte: vcUpdateBytes,
 		}
 
 		err = store.Upsert(ctx, vc.ID, wrapperUpdated)
@@ -108,8 +106,7 @@ func TestCSLStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLVCWrapper{
-			VCByte:  []byte(sampleVCJWT),
-			Version: 1,
+			VCByte: []byte(sampleVCJWT),
 		}
 
 		// Create - Find
@@ -132,8 +129,7 @@ func TestCSLStore(t *testing.T) {
 		vcBytes := []byte("\"" + jwt + "\"")
 
 		wrapperUpdated := &credentialstatus.CSLVCWrapper{
-			VCByte:  vcBytes,
-			Version: 2,
+			VCByte: vcBytes,
 		}
 
 		err = store.Upsert(ctx, vc.ID, wrapperUpdated)
@@ -266,11 +262,6 @@ func compareWrappers(t *testing.T, wrapperExpected, wrapperFound *credentialstat
 
 	if !assert.Equal(t, vcExpected, vcFound) {
 		t.Errorf("VC got = %v, want %v",
-			wrapperFound, wrapperExpected)
-	}
-
-	if !assert.Equal(t, wrapperExpected.Version, wrapperFound.Version) {
-		t.Errorf("Version: got = %v, want %v",
 			wrapperFound, wrapperExpected)
 	}
 }
