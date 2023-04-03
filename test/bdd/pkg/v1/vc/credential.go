@@ -131,7 +131,7 @@ func (e *Steps) verifyVC(profileName, organizationName string) error {
 	}
 
 	if result.Checks != nil {
-		return fmt.Errorf("credential verification failed")
+		return fmt.Errorf("credential verification failed: %+v", result.Checks)
 	}
 
 	return nil

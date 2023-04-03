@@ -388,6 +388,10 @@ func buildEchoHandler(
 		return nil, err
 	}
 
+	vcCrypto := crypto.New(conf.VDR, documentLoader)
+
+	vcStatusStore := vcstatusstore.NewStore(mongodbClient)
+
 	getHTTPClient := func(id metricsProvider.ClientID) *http.Client {
 		return newHTTPClient(tlsConfig, conf.StartupParameters, metrics, id)
 	}
@@ -403,14 +407,11 @@ func buildEchoHandler(
 		return nil, err
 	}
 
-	vcCrypto := crypto.New(conf.VDR, documentLoader)
-
 	// Create event service
 	eventSvc, err := event.Initialize(event.Config{
 		TLSConfig:      tlsConfig,
 		CMD:            cmd,
 		CSLVCStore:     cslVCStore,
-		CSLIndexStore:  cslIndexStore,
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,
 		Crypto:         vcCrypto,
@@ -431,7 +432,7 @@ func buildEchoHandler(
 		DocumentLoader: documentLoader,
 		CSLVCStore:     cslVCStore,
 		CSLIndexStore:  cslIndexStore,
-		VCStatusStore:  vcstatusstore.NewStore(mongodbClient),
+		VCStatusStore:  vcStatusStore,
 		ListSize:       cslSize,
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,

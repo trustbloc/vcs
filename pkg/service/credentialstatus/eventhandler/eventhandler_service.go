@@ -54,7 +54,6 @@ type vcCrypto interface {
 
 type Config struct {
 	CSLVCStore     credentialstatus.CSLVCStore
-	CSLIndexStore  credentialstatus.CSLIndexStore
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
 	Crypto         vcCrypto
@@ -62,22 +61,20 @@ type Config struct {
 }
 
 type Service struct {
-	cslStore        credentialstatus.CSLVCStore
-	cslWrapperStore credentialstatus.CSLIndexStore
-	profileService  profileService
-	kmsRegistry     kmsRegistry
-	crypto          vcCrypto
-	documentLoader  ld.DocumentLoader
+	cslStore       credentialstatus.CSLVCStore
+	profileService profileService
+	kmsRegistry    kmsRegistry
+	crypto         vcCrypto
+	documentLoader ld.DocumentLoader
 }
 
 func New(conf *Config) *Service {
 	return &Service{
-		cslStore:        conf.CSLVCStore,
-		cslWrapperStore: conf.CSLIndexStore,
-		profileService:  conf.ProfileService,
-		kmsRegistry:     conf.KMSRegistry,
-		crypto:          conf.Crypto,
-		documentLoader:  conf.DocumentLoader,
+		cslStore:       conf.CSLVCStore,
+		profileService: conf.ProfileService,
+		kmsRegistry:    conf.KMSRegistry,
+		crypto:         conf.Crypto,
+		documentLoader: conf.DocumentLoader,
 	}
 }
 
