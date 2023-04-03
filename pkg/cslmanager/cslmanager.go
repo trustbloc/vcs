@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -69,6 +70,7 @@ type Manager struct {
 	crypto        vcCrypto
 	kmsRegistry   kmsRegistry
 	externalURL   string
+	mutex         sync.RWMutex
 }
 
 // New returns new CSL list manager.
@@ -90,24 +92,9 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 	logger.Debug("CSL Manager - CreateCSLEntry",
 		logfields.WithProfileID(profile.ID))
 
-	indexWrapper, err := s.getCSLIndexWrapper(ctx, profile)
+	cslURL, statusBitIndex, err := s.getProfileCSLAndAssignedIndex(ctx, profile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CSL Index Wrapper from store(s): %w", err)
-	}
-
-	unusedStatusBitIndex, err := s.getUnusedIndex(indexWrapper.UsedIndexes)
-	if err != nil {
-		return nil, fmt.Errorf("getUnusedIndex failed: %w", err)
-	}
-
-	// append unusedStatusBitIndex to the cslWrapper.UsedIndexes so marking it as "used".
-	indexWrapper.UsedIndexes = append(indexWrapper.UsedIndexes, unusedStatusBitIndex)
-
-	// TODO: Remove
-	logger.Debug(fmt.Sprintf("updating CSL Index Wrapper for URL: %s", indexWrapper.CSLURL))
-
-	if err = s.updateCSLIndexWrapper(ctx, indexWrapper, profile); err != nil {
-		return nil, fmt.Errorf("failed to store CSL Index Wrapper: %w", err)
+		return nil, err
 	}
 
 	vcStatusProcessor, err := statustype.GetVCStatusProcessor(profile.VCConfig.Status.Type)
@@ -116,7 +103,7 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 	}
 
 	statusListEntry := &credentialstatus.StatusListEntry{
-		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(unusedStatusBitIndex), indexWrapper.CSLURL),
+		TypedID: vcStatusProcessor.CreateVCStatus(strconv.Itoa(statusBitIndex), cslURL),
 		Context: vcStatusProcessor.GetVCContext(),
 	}
 
@@ -127,6 +114,37 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 	}
 
 	return statusListEntry, nil
+}
+
+func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
+	profile *profileapi.Issuer) (string, int, error) {
+	logger.Debug("CSL Manager - CreateCSLEntry",
+		logfields.WithProfileID(profile.ID))
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	indexWrapper, err := s.getCSLIndexWrapper(ctx, profile)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to get CSL Index Wrapper from store(s): %w", err)
+	}
+
+	unusedStatusBitIndex, err := s.getUnusedIndex(indexWrapper.UsedIndexes)
+	if err != nil {
+		return "", 0, fmt.Errorf("getUnusedIndex failed: %w", err)
+	}
+
+	// append unusedStatusBitIndex to the cslWrapper.UsedIndexes so marking it as "used".
+	indexWrapper.UsedIndexes = append(indexWrapper.UsedIndexes, unusedStatusBitIndex)
+
+	// TODO: Remove
+	logger.Debug(fmt.Sprintf("updating CSL Index Wrapper for URL: %s", indexWrapper.CSLURL))
+
+	if err = s.updateCSLIndexWrapper(ctx, indexWrapper, profile); err != nil {
+		return "", 0, fmt.Errorf("failed to store CSL Index Wrapper: %w", err)
+	}
+
+	return indexWrapper.CSLURL, unusedStatusBitIndex, nil
 }
 
 func (s *Manager) getCSLIndexWrapper(ctx context.Context,
