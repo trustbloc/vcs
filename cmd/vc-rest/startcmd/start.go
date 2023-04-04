@@ -31,7 +31,7 @@ import (
 	ariesld "github.com/hyperledger/aries-framework-go/pkg/doc/ld"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/ldcontext/remote"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	echo "github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4"
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
@@ -48,6 +48,7 @@ import (
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/component/otp"
+	"github.com/trustbloc/vcs/pkg/cslmanager"
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
@@ -392,6 +393,21 @@ func buildEchoHandler(
 
 	vcStatusStore := vcstatusstore.NewStore(mongodbClient)
 
+	cslManager, err := cslmanager.New(
+		&cslmanager.Config{
+			CSLVCStore:    cslVCStore,
+			CSLIndexStore: cslIndexStore,
+			VCStatusStore: vcStatusStore,
+			ListSize:      cslSize,
+			KMSRegistry:   kmsRegistry,
+			Crypto:        vcCrypto,
+			ExternalURL:   conf.StartupParameters.hostURLExternal,
+		})
+
+	if err != nil {
+		return nil, err
+	}
+
 	getHTTPClient := func(id metricsProvider.ClientID) *http.Client {
 		return newHTTPClient(tlsConfig, conf.StartupParameters, metrics, id)
 	}
@@ -431,9 +447,8 @@ func buildEchoHandler(
 		RequestTokens:  conf.StartupParameters.requestTokens,
 		DocumentLoader: documentLoader,
 		CSLVCStore:     cslVCStore,
-		CSLIndexStore:  cslIndexStore,
+		CSLManager:     cslManager,
 		VCStatusStore:  vcStatusStore,
-		ListSize:       cslSize,
 		ProfileService: issuerProfileSvc,
 		KMSRegistry:    kmsRegistry,
 		Crypto:         vcCrypto,
