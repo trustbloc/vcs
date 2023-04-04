@@ -36,33 +36,23 @@ type s3Uploader interface {
 	GetObject(ctx context.Context, input *s3.GetObjectInput, opts ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 
-// underlyingCSLWrapperStore is used for storing credentialstatus.CSLVCWrapper
-// in a different place then public S3 bucket.
-type underlyingCSLWrapperStore interface {
-	Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error)
-	Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLVCWrapper) error
-}
-
 // Store manages profile in mongodb.
 type Store struct {
-	s3Uploader       s3Uploader
-	cslLWrapperStore underlyingCSLWrapperStore
-	bucket           string
-	region           string
-	hostName         string
+	s3Uploader s3Uploader
+	bucket     string
+	region     string
+	hostName   string
 }
 
 // NewStore creates S3 Store.
 func NewStore(
 	s3Uploader s3Uploader,
-	cslLWrapperStore underlyingCSLWrapperStore,
 	bucket, region, hostName string) *Store {
 	return &Store{
-		s3Uploader:       s3Uploader,
-		cslLWrapperStore: cslLWrapperStore,
-		bucket:           bucket,
-		region:           region,
-		hostName:         hostName,
+		s3Uploader: s3Uploader,
+		bucket:     bucket,
+		region:     region,
+		hostName:   hostName,
 	}
 }
 
@@ -77,13 +67,6 @@ func (p *Store) Upsert(ctx context.Context, cslURL string, cslWrapper *credentia
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload CSL: %w", err)
-	}
-
-	// Put cslWrapper.
-	cslWrapper.VCByte = nil
-
-	if err = p.cslLWrapperStore.Upsert(ctx, cslURL, cslWrapper); err != nil {
-		return fmt.Errorf("failed to store cslWrapper: %w", err)
 	}
 
 	return nil
@@ -114,23 +97,9 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVC
 		return nil, fmt.Errorf("unable to read CSL body: %w", err)
 	}
 
-	// Get CSLWrapper.
-	cslWrapper, err := p.cslLWrapperStore.Get(ctx, cslURL)
-	if err != nil {
-		if errors.Is(err, credentialstatus.ErrDataNotFound) {
-			// this is old data (VC doesn't have matching wrapper)
-			// so we couldn't get version - return as version 1
-			return &credentialstatus.CSLVCWrapper{
-				VCByte: cslBytes,
-			}, nil
-		}
-
-		return nil, fmt.Errorf("failed to get CSL Wrapper from underlying store: %w", err)
-	}
-
-	cslWrapper.VCByte = cslBytes
-
-	return cslWrapper, nil
+	return &credentialstatus.CSLVCWrapper{
+		VCByte: cslBytes,
+	}, nil
 }
 
 // GetCSLURL returns the public URL of credentialstatus.CSL.

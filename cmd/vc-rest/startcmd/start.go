@@ -809,7 +809,6 @@ func createCredentialStatusListStores(
 	isTraceEnabled bool,
 ) (credentialstatustypes.CSLVCStore, credentialstatustypes.CSLIndexStore, error) {
 	cslIndexMongo := cslindexstore.NewStore(mongoDbClient)
-	cslVCMongo := cslvcstore.NewStore(mongoDbClient)
 
 	switch strings.ToLower(repoType) {
 	case "s3":
@@ -822,11 +821,11 @@ func createCredentialStatusListStores(
 			otelaws.AppendMiddlewares(&cfg.APIOptions, otelaws.WithTracerProvider(otel.GetTracerProvider()))
 		}
 
-		cslS3Store := cslstores3.NewStore(s3.NewFromConfig(cfg), cslVCMongo, s3Bucket, s3Region, hostName)
+		cslS3Store := cslstores3.NewStore(s3.NewFromConfig(cfg), s3Bucket, s3Region, hostName)
 
 		return cslS3Store, cslIndexMongo, nil
 	default:
-		return cslVCMongo, cslIndexMongo, nil
+		return cslvcstore.NewStore(mongoDbClient), cslIndexMongo, nil
 	}
 }
 
