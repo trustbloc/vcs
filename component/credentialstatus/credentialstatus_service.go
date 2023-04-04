@@ -24,7 +24,6 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
-	"github.com/trustbloc/vcs/pkg/cslmanager"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/doc/vc/statustype"
@@ -77,9 +76,8 @@ type Config struct {
 	RequestTokens  map[string]string
 	VDR            vdrapi.Registry
 	CSLVCStore     credentialstatus.CSLVCStore
-	CSLIndexStore  credentialstatus.CSLIndexStore
+	CSLManager     cslManager
 	VCStatusStore  vcStatusStore
-	ListSize       int
 	Crypto         vcCrypto
 	ProfileService profileService
 	KMSRegistry    kmsRegistry
@@ -109,27 +107,12 @@ type Service struct {
 
 // New returns new Credential Status service.
 func New(config *Config) (*Service, error) {
-	cslManager, err := cslmanager.New(
-		&cslmanager.Config{
-			CSLVCStore:    config.CSLVCStore,
-			CSLIndexStore: config.CSLIndexStore,
-			VCStatusStore: config.VCStatusStore,
-			ListSize:      config.ListSize,
-			KMSRegistry:   config.KMSRegistry,
-			Crypto:        config.Crypto,
-			ExternalURL:   config.ExternalURL,
-		})
-
-	if err != nil {
-		return nil, err
-	}
-
 	return &Service{
 		httpClient:     config.HTTPClient,
 		requestTokens:  config.RequestTokens,
 		vdr:            config.VDR,
 		cslVCStore:     config.CSLVCStore,
-		cslMgr:         cslManager,
+		cslMgr:         config.CSLManager,
 		vcStatusStore:  config.VCStatusStore,
 		crypto:         config.Crypto,
 		profileService: config.ProfileService,

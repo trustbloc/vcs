@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/vcs/component/credentialstatus/internal/testutil"
+	"github.com/trustbloc/vcs/pkg/cslmanager"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	vccrypto "github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -106,12 +107,23 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 
 		vcStatusStore := newMockVCStatusStore()
 
+		cslMgr, err := cslmanager.New(
+			&cslmanager.Config{
+				CSLVCStore:    cslVCStore,
+				CSLIndexStore: cslIndexStore,
+				VCStatusStore: vcStatusStore,
+				ListSize:      2,
+				KMSRegistry:   mockKMSRegistry,
+				ExternalURL:   "https://localhost:8080",
+				Crypto: vccrypto.New(
+					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+			})
+
 		s, err := New(&Config{
 			DocumentLoader: loader,
+			CSLManager:     cslMgr,
 			CSLVCStore:     cslVCStore,
-			CSLIndexStore:  cslIndexStore,
 			VCStatusStore:  vcStatusStore,
-			ListSize:       2,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			ExternalURL:    "https://localhost:8080",
@@ -230,6 +242,17 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		listID, err := cslIndexStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 
+		cslMgr, err := cslmanager.New(
+			&cslmanager.Config{
+				CSLVCStore:    cslVCStore,
+				CSLIndexStore: cslIndexStore,
+				VCStatusStore: vcStatusStore,
+				ListSize:      2,
+				KMSRegistry:   mockKMSRegistry,
+				Crypto: vccrypto.New(
+					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+			})
+
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
 				CSLVCStore:     cslVCStore,
@@ -243,11 +266,10 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		s, err := New(&Config{
 			DocumentLoader: loader,
 			CSLVCStore:     cslVCStore,
-			CSLIndexStore:  cslIndexStore,
+			CSLManager:     cslMgr,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			VCStatusStore:  vcStatusStore,
-			ListSize:       2,
 			EventTopic:     eventTopic,
 			EventPublisher: mockEventPublisher,
 			Crypto:         crypto,
@@ -588,12 +610,22 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		vcStatusStore := newMockVCStatusStore()
 		loader := testutil.DocumentLoader(t)
 
+		cslMgr, err := cslmanager.New(
+			&cslmanager.Config{
+				CSLVCStore:    cslVCStore,
+				CSLIndexStore: cslIndexStore,
+				VCStatusStore: vcStatusStore,
+				ListSize:      2,
+				KMSRegistry:   mockKMSRegistry,
+				Crypto: vccrypto.New(
+					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+			})
+
 		s, err := New(&Config{
 			DocumentLoader: loader,
-			CSLIndexStore:  cslIndexStore,
+			CSLManager:     cslMgr,
 			CSLVCStore:     cslVCStore,
 			VCStatusStore:  vcStatusStore,
-			ListSize:       2,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			EventPublisher: mockEventPublisher,
@@ -628,6 +660,17 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		vcStatusStore := newMockVCStatusStore()
 
+		cslMgr, err := cslmanager.New(
+			&cslmanager.Config{
+				CSLVCStore:    cslVCStore,
+				CSLIndexStore: cslIndexStore,
+				VCStatusStore: vcStatusStore,
+				ListSize:      2,
+				KMSRegistry:   mockKMSRegistry,
+				Crypto: vccrypto.New(
+					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
+			})
+
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
 				CSLVCStore:     cslVCStore,
@@ -640,10 +683,9 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
+			CSLManager:     cslMgr,
 			CSLVCStore:     cslVCStore,
-			CSLIndexStore:  cslIndexStore,
 			VCStatusStore:  vcStatusStore,
-			ListSize:       2,
 			ProfileService: mockProfileSrv,
 			KMSRegistry:    mockKMSRegistry,
 			EventTopic:     eventTopic,
