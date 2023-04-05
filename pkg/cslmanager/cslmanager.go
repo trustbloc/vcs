@@ -251,13 +251,12 @@ func (s *Manager) createNewVCAndCSLIndexWrapper(ctx context.Context,
 
 	indexWrapper := &credentialstatus.CSLIndexWrapper{
 		UsedIndexes: nil,
+		CSLURL:      cslURL,
 	}
 
 	if err = s.cslIndexStore.Upsert(ctx, cslURL, indexWrapper); err != nil {
 		return nil, fmt.Errorf("failed to store CSL Index Wrapper: %w", err)
 	}
-
-	indexWrapper.CSLURL = cslURL
 
 	return indexWrapper, nil
 }

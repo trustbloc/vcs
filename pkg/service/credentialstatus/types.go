@@ -29,7 +29,7 @@ type CSL verifiable.Credential
 
 // CSLIndexWrapper contains CSL Indexes and Version.
 type CSLIndexWrapper struct {
-	CSLURL string `json:"cslURL"`
+	CSLURL string `json:"_id" bson:"_id"`
 
 	ListID ListID `json:"listID"`
 
