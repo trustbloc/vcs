@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
@@ -30,6 +31,8 @@ const (
 	issuerProfiles   = issuer + "/groups"
 	credentialStatus = "/credentials/status"
 )
+
+var logger = log.New("csl-store-s3")
 
 type s3Uploader interface {
 	PutObject(ctx context.Context, input *s3.PutObjectInput, opts ...func(*s3.Options)) (*s3.PutObjectOutput, error)
@@ -80,6 +83,9 @@ func (p *Store) Get(ctx context.Context, cslURL string) (*credentialstatus.CSLVC
 		Key:    aws.String(p.resolveCSLS3Key(cslURL)),
 	})
 	if err != nil {
+		logger.Error("CSL S3 GET",
+			log.WithError(err), log.WithURL(cslURL), log.WithPath(p.resolveCSLS3Key(cslURL)))
+
 		var awsError *types.NoSuchKey
 		if errors.As(err, &awsError) {
 			return nil, credentialstatus.ErrDataNotFound
@@ -114,7 +120,7 @@ func (p *Store) GetCSLURL(_, groupID string, listID credentialstatus.ListID) (st
 }
 
 func (p *Store) resolveCSLS3Key(cslURL string) string {
-	return strings.TrimPrefix(cslURL, p.getAmazonPublicDomain())
+	return strings.TrimPrefix(strings.TrimPrefix(cslURL, p.getAmazonPublicDomain()), "/")
 }
 
 func (p *Store) getAmazonPublicDomain() string {
