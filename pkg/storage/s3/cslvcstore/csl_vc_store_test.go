@@ -212,7 +212,7 @@ func TestStore_GetCSLURL(t *testing.T) {
 	// Convert to CSL S3 key.
 	cslS3Key := store.resolveCSLS3Key(cslURL)
 	assert.Equal(t,
-		"/issuer/groups/test_issuer/credentials/status/1",
+		"issuer/groups/test_issuer/credentials/status/1",
 		cslS3Key)
 }
 
