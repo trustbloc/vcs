@@ -497,7 +497,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		err = s.updateVCStatus(
 			context.Background(),
 			&verifiable.TypedID{Type: "noMatch"},
-			profileID, vc.StatusList2021VCStatus, true)
+			profileID,
+			vc.StatusList2021VCStatus, true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status noMatch not supported")
 	})
@@ -648,8 +649,9 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.Contains(t, err.Error(), "unable to publish event")
 	})
 	t.Run("updateVCStatus success", func(t *testing.T) {
+		profile := getTestProfile()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 		cslIndexStore := newMockCSLIndexStore()
@@ -694,13 +696,13 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profile.ID, credID)
 		require.NoError(t, err)
 
 		require.NoError(t, s.updateVCStatus(
 			context.Background(),
 			statusListEntry.TypedID,
-			profileID,
+			profile.ID,
 			vc.StatusList2021VCStatus,
 			true))
 
