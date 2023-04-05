@@ -69,6 +69,7 @@ func TestWrapperStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLIndexWrapper{
+			CSLURL:      vc.ID,
 			UsedIndexes: []int{1},
 		}
 
@@ -99,6 +100,7 @@ func TestWrapperStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		wrapperCreated := &credentialstatus.CSLIndexWrapper{
+			CSLURL:      vc.ID,
 			UsedIndexes: []int{1},
 		}
 
