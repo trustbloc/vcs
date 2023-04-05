@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/pkg/walletrunner/vcprovider"
 	verifiable2 "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -153,6 +154,19 @@ func (e *Steps) verifyRevokedVC(profileName, organizationName string) error {
 
 	if checks[0] != expectedCheck {
 		return fmt.Errorf("vc is not revoked. Cheks: %+v", checks)
+	}
+
+	return nil
+}
+
+func (e *Steps) revokeVCWithError(profileName, organizationName string) error {
+	err := e.revokeVC(profileName, organizationName)
+	if err == nil {
+		return fmt.Errorf("error expected, but got nil")
+	}
+
+	if !strings.Contains(err.Error(), "no documents in result") {
+		return fmt.Errorf("unexpected error: %w", err)
 	}
 
 	return nil

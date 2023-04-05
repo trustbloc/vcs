@@ -61,7 +61,9 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.issueVC)
 	s.Step(`^V1 verifiable credential is verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyVC)
-	s.Step(`^V1 verifiable credential is revoked under "([^"]*)" profile for organization "([^"]*)"$`,
+	s.Step(`^V1 "([^"]*)" did unsuccessful attempt to revoke credential for organization "([^"]*)"$`,
+		e.revokeVCWithError)
+	s.Step(`^V1 verifiable credential is successfully revoked under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.revokeVC)
 	s.Step(`^V1 verifiable credential is unable to be verified under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.verifyRevokedVC)

@@ -132,18 +132,18 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		logfields.WithProfileID(params.ProfileID),
 		logfields.WithCredentialID(params.CredentialID))
 
-	issuerProfile, err := s.profileService.GetProfile(params.ProfileID)
+	profile, err := s.profileService.GetProfile(params.ProfileID)
 	if err != nil {
 		return fmt.Errorf("failed to get profile: %w", err)
 	}
 
-	if params.StatusType != issuerProfile.VCConfig.Status.Type {
+	if params.StatusType != profile.VCConfig.Status.Type {
 		return resterr.NewValidationError(resterr.InvalidValue, "CredentialStatus.Type",
 			fmt.Errorf(
 				"vc status list version \"%s\" is not supported by current profile", params.StatusType))
 	}
 
-	typedID, err := s.vcStatusStore.Get(ctx, issuerProfile.ID, params.CredentialID)
+	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, params.CredentialID)
 	if err != nil {
 		return fmt.Errorf("vcStatusStore.Get failed: %w", err)
 	}
@@ -153,7 +153,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		return fmt.Errorf("strconv.ParseBool failed: %w", err)
 	}
 
-	err = s.updateVCStatus(ctx, typedID, issuerProfile.ID, issuerProfile.VCConfig.Status.Type, statusValue)
+	err = s.updateVCStatus(ctx, typedID, profile.ID, profile.VCConfig.Status.Type, statusValue)
 	if err != nil {
 		return fmt.Errorf("updateVCStatus failed: %w", err)
 	}
