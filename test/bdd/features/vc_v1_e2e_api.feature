@@ -22,6 +22,7 @@ Feature: Using VC REST API
     Examples:
       | issuerProfile               | wrongIssuerProfile          | verifierProfile | organization | credential                      | vcFormat       | signatureHolder |
       | i_myprofile_ud_P256k1       | i_myprofile_ud_p256         | v_myprofile_ldp | test_org     | university_degree.json          | ldp_vc         | JWS             |
+      | i_myprofile_ud_P256k1       | i_myprofile_ud_p256         | v_myprofile_ldp | test_org     | university_degree.json          | ldp_vc         | JWS             |
       | i_myprofile_ud_p256         | i_myprofile_prc_P256k1      | v_myprofile_ldp | test_org     | university_degree.json          | ldp_vc         | JWS             |
       | i_myprofile_prc_P256k1      | i_myprofile_prc_p256        | v_myprofile_ldp | test_org     | permanent_resident_card.json    | ldp_vc         | JWS             |
       | i_myprofile_prc_p256        | i_myprofile_cp_p384         | v_myprofile_ldp | test_org     | permanent_resident_card.json    | ldp_vc         | JWS             |
