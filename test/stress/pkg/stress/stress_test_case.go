@@ -202,14 +202,14 @@ func (c *TestCase) Invoke() (interface{}, error) {
 		return nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
 	}
 
-	if credentials.Status != nil && credentials.Status.Type != "" {
-		st := time.Now()
-		if err = c.revokeVC(credentials); err != nil {
-			return nil, fmt.Errorf("can not revokeVc; %w", err)
-		}
-
-		perfInfo["_vp_revoke_credentials"] = time.Since(st)
-	}
+	//if credentials.Status != nil && credentials.Status.Type != "" {
+	//	st := time.Now()
+	//	if err = c.revokeVC(credentials); err != nil {
+	//		return nil, fmt.Errorf("can not revokeVc; %w", err)
+	//	}
+	//
+	//	perfInfo["_vp_revoke_credentials"] = time.Since(st)
+	//}
 
 	return perfInfo, nil
 }
