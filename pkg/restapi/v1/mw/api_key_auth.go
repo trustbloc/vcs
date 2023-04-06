@@ -32,6 +32,7 @@ const (
 	oidcCredentialWellKnown    = "/.well-known/openid-credential-issuer"
 	version                    = "/version"
 	versionSystem              = "/version/system"
+	profiler                   = "/debug/pprof"
 )
 
 // APIKeyAuth returns a middleware that authenticates requests using the API key from X-API-Key header.
@@ -51,6 +52,10 @@ func APIKeyAuth(apiKey string) echo.MiddlewareFunc { //nolint:gocognit
 			}
 
 			if strings.Contains(currentPath, statusCheckPath) {
+				return next(c)
+			}
+
+			if strings.Contains(currentPath, profiler) {
 				return next(c)
 			}
 

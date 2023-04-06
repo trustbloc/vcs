@@ -12,15 +12,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
-	"syscall"
-	"time"
-
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -35,12 +26,21 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/sevenNt/echo-pprof"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
 
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
@@ -109,6 +109,7 @@ const (
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
 	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
 	logLevelsEndpoint               = "/loglevels"
+	profilerEndpoints               = "/debug/pprof"
 	versionEndpoint                 = "/version/system"
 	versionSystemEndpoint           = "/version"
 )
@@ -221,6 +222,12 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
 
+			logger.Info("pprof")
+			if conf.StartupParameters.enableProfiler {
+				logger.Warn("pprof profiler enabled")
+				echopprof.Wrap(e)
+			}
+
 			opts = append(opts, WithHTTPHandler(e))
 
 			go func() {
@@ -320,6 +327,9 @@ func buildEchoHandler(
 			}
 
 			if c.Path() == logLevelsEndpoint {
+				return true
+			}
+			if strings.Contains(c.Path(), profilerEndpoints) {
 				return true
 			}
 

@@ -285,6 +285,10 @@ const (
 	otelServiceNameFlagUsage = "Logical name of the service that is traced. MUST be the same for all instances of " +
 		"horizontally scaled services. Default: vcs. " + commonEnvVarUsageText + otelServiceNameEnvKey
 
+	enableProfilerFlagName  = "enable-profiler"
+	enableProfilerEnvKey    = "VC_REST_ENABLE_PROFILER"
+	enableProfilerFlagUsage = "Enable pprof endpoints /debug/* " +
+		commonEnvVarUsageText + enableProfilerEnvKey
 	didMethodION = "ion"
 
 	splitRequestTokenLength = 2
@@ -342,6 +346,7 @@ type startupParameters struct {
 	tracingParams                       *tracingParams
 	dataEncryptionKeyID                 string
 	dataEncryptionDataChunkSizeLength   int
+	enableProfiler                      bool
 }
 
 type prometheusMetricsProviderParams struct {
@@ -603,6 +608,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		}
 	}
 
+	enableProfiler, _ := strconv.ParseBool(cmdutils.GetOptionalString(cmd, enableProfilerFlagName, enableProfilerEnvKey))
+
 	return &startupParameters{
 		hostURL:                             hostURL,
 		hostURLExternal:                     hostURLExternal,
@@ -643,6 +650,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		tracingParams:                       tracingParams,
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
 		dataEncryptionDataChunkSizeLength:   dataEncryptionDataChunkSizeLength,
+		enableProfiler:                      enableProfiler,
 	}, nil
 }
 
@@ -944,6 +952,7 @@ func createFlags(startCmd *cobra.Command) {
 
 	startCmd.Flags().StringP(otelServiceNameFlagName, "", "", otelServiceNameFlagUsage)
 	startCmd.Flags().StringP(otelExporterTypeFlagName, "", "", otelExporterTypeFlagUsage)
+	startCmd.Flags().StringP(enableProfilerFlagName, "", "", enableProfilerFlagUsage)
 
 	startCmd.Flags().StringP(httpTimeoutFlagName, "", "", httpTimeoutFlagUsage)
 	startCmd.Flags().StringP(httpDialTimeoutFlagName, "", "", httpDialTimeoutFlagUsage)
