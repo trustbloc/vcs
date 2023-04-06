@@ -37,6 +37,8 @@ type Config struct {
 	CredentialTemplateID string                 `json:"credential_template_id"`
 	CredentialType       string                 `json:"credential_type"`
 	ClaimData            map[string]interface{} `json:"claim_data"`
+	DisableRevokeTest    bool                   `json:"disable_revoke_test"`
+	Detailed             bool                   `json:"detailed"`
 }
 
 func NewStressRun(
@@ -123,6 +125,7 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			WithCredentialType(r.cfg.CredentialType),
 			WithClaimData(r.cfg.ClaimData),
 			WithToken(idToken),
+			WithDisableRevokeTestCase(r.cfg.DisableRevokeTest),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create test case: %w", err)
@@ -134,9 +137,14 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 	workerPool.Stop()
 
 	perfData := map[string][]time.Duration{}
+	perCredential := map[string]*PerCredentialData{}
+
 	var errors []error
 	for _, resp := range workerPool.Responses() {
+		perCredential[resp.CredentialID] = &PerCredentialData{}
+
 		if resp.Err != nil {
+			perCredential[resp.CredentialID].Error = resp.Err.Error()
 			errors = append(errors, resp.Err)
 			continue
 		}
@@ -146,7 +154,9 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			return nil, fmt.Errorf("invalid stressTestPerfInfo response")
 		}
 
+		perCredential[resp.CredentialID].Metrics = map[string]string{}
 		for k, v := range perfInfo {
+			perCredential[resp.CredentialID].Metrics[k] = v.String()
 			perfData[k] = append(perfData[k], v)
 		}
 	}
@@ -191,5 +201,6 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 		Metrics:            metrics,
 		TotalDuration:      time.Since(st),
 		Errors:             errors,
+		PerCredentialData:  perCredential,
 	}, nil
 }

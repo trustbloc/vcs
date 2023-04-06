@@ -23,7 +23,7 @@ import (
 )
 
 func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, signatureRepresentation string) error {
-	if err := e.createCredential(credentialServiceURL, credential, vcFormat, profileName, organizationName, 0); err != nil {
+	if _, err := e.createCredential(credentialServiceURL, credential, vcFormat, profileName, organizationName, 0); err != nil {
 		return err
 	}
 
@@ -55,30 +55,37 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 	return e.checkVC(credBytes, profileName, signatureRepresentation, checkProof)
 }
 
-func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profileName, organizationName string, didIndex int) error {
+func (e *Steps) createCredential(
+	issueCredentialURL,
+	credential,
+	vcFormat,
+	profileName,
+	organizationName string,
+	didIndex int,
+) (string, error) {
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	template, ok := e.bddContext.TestData[credential]
 	if !ok {
-		return fmt.Errorf("unable to find credential '%s' request template", credential)
+		return "", fmt.Errorf("unable to find credential '%s' request template", credential)
 	}
 
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
-		return fmt.Errorf("create document loader: %w", err)
+		return "", fmt.Errorf("create document loader: %w", err)
 	}
 
 	cred, err := verifiable.ParseCredential(template, verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(loader))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	cred.ID = uuid.New().URN()
 
 	subjs, ok := cred.Subject.([]verifiable.Subject)
 	if !ok {
-		return fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
+		return cred.ID, fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
 	}
 
 	if len(e.bddContext.CredentialSubject) > didIndex && e.bddContext.CredentialSubject[didIndex] != "" {
@@ -87,7 +94,7 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 
 	reqData, err := vcprovider.GetIssueCredentialRequestData(cred, vcFormat)
 	if err != nil {
-		return fmt.Errorf("unable to get issue credential request data: %w", err)
+		return cred.ID, fmt.Errorf("unable to get issue credential request data: %w", err)
 	}
 
 	req := &model.IssueCredentialData{
@@ -96,7 +103,7 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 
 	requestBytes, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return cred.ID, err
 	}
 
 	endpointURL := fmt.Sprintf(issueCredentialURLFormat, issueCredentialURL, profileName)
@@ -104,25 +111,25 @@ func (e *Steps) createCredential(issueCredentialURL, credential, vcFormat, profi
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), e.tlsConfig)
 	if err != nil {
-		return err
+		return cred.ID, err
 	}
 
 	defer bddutil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return cred.ID, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
+		return cred.ID, bddutil.ExpectedStatusCodeError(http.StatusOK, resp.StatusCode, respBytes)
 	}
 
 	e.Lock()
 	e.bddContext.CreatedCredential = respBytes
 	e.Unlock()
 
-	return nil
+	return cred.ID, nil
 }
 
 func (e *Steps) verifyVC(profileName, organizationName string) error {

@@ -3,11 +3,12 @@ package stress
 import "time"
 
 type Result struct {
-	UserCount          int           `json:"user_count"`
-	ConcurrentRequests int           `json:"concurrent_requests"`
-	Metrics            []*Metric     `json:"metrics"`
-	TotalDuration      time.Duration `json:"total_duration"`
-	Errors             []error       `json:"errors"`
+	UserCount          int                           `json:"user_count"`
+	ConcurrentRequests int                           `json:"concurrent_requests"`
+	Metrics            []*Metric                     `json:"metrics"`
+	TotalDuration      time.Duration                 `json:"total_duration"`
+	Errors             []error                       `json:"errors"`
+	PerCredentialData  map[string]*PerCredentialData `json:"per_credential_data"`
 }
 
 type Metric struct {
@@ -39,4 +40,9 @@ type initiateOIDC4CIResponse struct {
 type initiateOIDC4VPResponse struct {
 	AuthorizationRequest string `json:"authorizationRequest"`
 	TxID                 string `json:"txID"`
+}
+
+type PerCredentialData struct {
+	Metrics map[string]string `json:"metrics"`
+	Error   string            `json:"error"`
 }

@@ -183,15 +183,15 @@ type stressRequestPerfInfo struct {
 	verifyVCHTTPTime int64
 }
 
-func (r *stressRequest) Invoke() (interface{}, error) {
+func (r *stressRequest) Invoke() (string, interface{}, error) {
 	perfInfo := stressRequestPerfInfo{}
 
 	startTime := time.Now()
 
-	err := r.steps.createCredential(r.issuerUrl, r.credential, r.vcFormat, r.issuerProfileName,
+	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential, r.vcFormat, r.issuerProfileName,
 		r.organizationName, 0)
 	if err != nil {
-		return nil, fmt.Errorf("create vc %w", err)
+		return credentialID, nil, fmt.Errorf("create vc %w", err)
 	}
 
 	perfInfo.createVCHTTPTime = time.Since(startTime).Milliseconds()
@@ -200,16 +200,16 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 
 	res, err := r.steps.getVerificationResult(r.verifyUrl, r.verifyProfileName, r.organizationName)
 	if err != nil {
-		return nil, err
+		return credentialID, nil, err
 	}
 
 	if res.Checks != nil {
-		return nil, fmt.Errorf("credential verification failed")
+		return credentialID, nil, fmt.Errorf("credential verification failed")
 	}
 
 	perfInfo.verifyVCHTTPTime = time.Since(startTime).Milliseconds()
 
-	return perfInfo, nil
+	return credentialID, perfInfo, nil
 }
 
 func getEnv(env, defaultValue string) (string, error) {

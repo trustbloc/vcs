@@ -103,8 +103,7 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 	allCreds := make([][]byte, 0)
 
 	for _, p := range params.([]*createVCParams) {
-
-		err = e.createCredential(credentialServiceURL, p.Credential, p.VCFormat, p.IssuerProfile, p.Organization, p.DIDIndex)
+		_, err = e.createCredential(credentialServiceURL, p.Credential, p.VCFormat, p.IssuerProfile, p.Organization, p.DIDIndex)
 		if err != nil {
 			return err
 		}

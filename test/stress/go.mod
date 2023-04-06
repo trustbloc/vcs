@@ -177,6 +177,7 @@ require (
 )
 
 replace (
+	github.com/trustbloc/vcs/test/bdd => ../../test/bdd
 	github.com/trustbloc/vcs => ../..
 	github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
 )

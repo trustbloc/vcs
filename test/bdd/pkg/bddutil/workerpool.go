@@ -15,14 +15,15 @@ import (
 
 // Request is a request that's submitted to the worker pool for processing.
 type Request interface {
-	Invoke() (interface{}, error)
+	Invoke() (string, interface{}, error)
 }
 
 // Response is the response for an individual request.
 type Response struct {
 	Request
-	Resp interface{}
-	Err  error
+	Resp         interface{}
+	Err          error
+	CredentialID string
 }
 
 // WorkerPool manages a pool of workers that processes requests concurrently and, at the end, gathers the responses.
@@ -125,11 +126,12 @@ func newWorker(reqChan chan Request, respChan chan *Response, wg *sync.WaitGroup
 
 func (w *worker) start() {
 	for req := range w.reqChan {
-		data, err := req.Invoke()
+		credID, data, err := req.Invoke()
 		w.respChan <- &Response{
-			Request: req,
-			Resp:    data,
-			Err:     err,
+			Request:      req,
+			Resp:         data,
+			Err:          err,
+			CredentialID: credID,
 		}
 	}
 

@@ -169,7 +169,7 @@ type stressRequestPerfInfo struct {
 	retrieveInteractionsClaimHTTPTime int64
 }
 
-func (r *stressRequest) Invoke() (interface{}, error) {
+func (r *stressRequest) Invoke() (string, interface{}, error) {
 	perfInfo := stressRequestPerfInfo{}
 
 	println("initiateInteraction started")
@@ -177,7 +177,7 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 	startTime := time.Now()
 	err := r.vpFlowExecutor.initiateInteraction(r.profileName, r.authToken)
 	if err != nil {
-		return nil, fmt.Errorf("initiate interaction %w", err)
+		return "", nil, fmt.Errorf("initiate interaction %w", err)
 	}
 
 	perfInfo.initiateHTTPTime = time.Since(startTime).Milliseconds()
@@ -186,29 +186,29 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 
 	rawRequestObject, err := r.vpFlowExecutor.fetchRequestObject()
 	if err != nil {
-		return nil, fmt.Errorf("featch request object %w", err)
+		return "", nil, fmt.Errorf("featch request object %w", err)
 	}
 
 	err = r.vpFlowExecutor.verifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
 	if err != nil {
-		return nil, fmt.Errorf("verify authorization request %w", err)
+		return "", nil, fmt.Errorf("verify authorization request %w", err)
 	}
 
 	err = r.vpFlowExecutor.queryCredentialFromWallet()
 	if err != nil {
-		return nil, fmt.Errorf("query credential from wallet %w", err)
+		return "", nil, fmt.Errorf("query credential from wallet %w", err)
 	}
 
 	authorizedResponse, err := r.vpFlowExecutor.createAuthorizedResponse()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	startTime = time.Now()
 
 	err = r.vpFlowExecutor.sendAuthorizedResponse(authorizedResponse)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	perfInfo.checkAuthorizedResponseHTTPTime = time.Since(startTime).Milliseconds()
@@ -217,12 +217,12 @@ func (r *stressRequest) Invoke() (interface{}, error) {
 
 	err = r.vpFlowExecutor.retrieveInteractionsClaim(r.vpFlowExecutor.transactionID, r.authToken, http.StatusOK)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	perfInfo.retrieveInteractionsClaimHTTPTime = time.Since(startTime).Milliseconds()
 
-	return perfInfo, nil
+	return "", perfInfo, nil
 }
 
 func getEnv(env, defaultValue string) (string, error) {
