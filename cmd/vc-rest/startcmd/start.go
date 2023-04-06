@@ -35,6 +35,7 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/sevenNt/echo-pprof"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
@@ -109,6 +110,7 @@ const (
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
 	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
 	logLevelsEndpoint               = "/loglevels"
+	profilerEndpoints               = "/debug/pprof"
 	versionEndpoint                 = "/version/system"
 	versionSystemEndpoint           = "/version"
 )
@@ -221,6 +223,11 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
 
+			if conf.StartupParameters.enableProfiler {
+				logger.Warn("pprof profiler enabled")
+				echopprof.Wrap(e)
+			}
+
 			opts = append(opts, WithHTTPHandler(e))
 
 			go func() {
@@ -311,20 +318,7 @@ func buildEchoHandler(
 	swagger.Servers = nil // skip validating server names matching
 
 	e.Use(oapimw.OapiRequestValidatorWithOptions(swagger, &oapimw.Options{
-		Skipper: func(c echo.Context) bool {
-			if c.Path() == devApiRequestObjectEndpoint || c.Path() == devApiDidConfigEndpoint {
-				return true
-			}
-			if c.Path() == versionEndpoint || c.Path() == versionSystemEndpoint {
-				return true
-			}
-
-			if c.Path() == logLevelsEndpoint {
-				return true
-			}
-
-			return echomw.DefaultSkipper(c)
-		},
+		Skipper: OApiSkipper,
 	}))
 
 	version.NewController(e, version.Config{

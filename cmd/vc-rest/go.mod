@@ -20,6 +20,7 @@ require (
 	github.com/ory/dockertest/v3 v3.9.0
 	github.com/ory/fosite v0.43.0
 	github.com/piprate/json-gold v0.5.0
+	github.com/sevenNt/echo-pprof v0.1.1-0.20230131020615-4dd36891e14b
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.2
 	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
