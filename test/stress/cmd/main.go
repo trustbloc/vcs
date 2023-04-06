@@ -17,7 +17,7 @@ import (
 	"github.com/trustbloc/vcs/test/stress/pkg/stress"
 )
 
-var results = gcache.New(100).LRU().Build()
+var results = gcache.New(20).LRU().Build()
 var logger = log.New("stress-test-cmd")
 
 func main() {
@@ -64,6 +64,10 @@ func main() {
 			now := time.Now().UTC()
 			testRunResult.Result = res
 			testRunResult.FinishedAt = &now
+
+			if testRunResult.Result != nil && !cfg.Detailed {
+				testRunResult.PerCredentialData = nil
+			}
 
 			if err2 != nil {
 				logger.Error(fmt.Sprintf("got error %v for run id %v",

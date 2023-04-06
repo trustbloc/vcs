@@ -25,29 +25,31 @@ import (
 )
 
 type TestCase struct {
-	walletRunner         *walletrunner.Service
-	httpClient           *http.Client
-	vcsAPIURL            string
-	issuerProfileID      string
-	verifierProfileID    string
-	credentialTemplateID string
-	credentialType       string
-	credentialFormat     string
-	token                string
-	claimData            map[string]interface{}
+	walletRunner          *walletrunner.Service
+	httpClient            *http.Client
+	vcsAPIURL             string
+	issuerProfileID       string
+	verifierProfileID     string
+	credentialTemplateID  string
+	credentialType        string
+	credentialFormat      string
+	token                 string
+	claimData             map[string]interface{}
+	disableRevokeTestCase bool
 }
 
 type TestCaseOptions struct {
-	vcProviderOptions    []vcprovider.ConfigOption
-	httpClient           *http.Client
-	vcsAPIURL            string
-	issuerProfileID      string
-	verifierProfileID    string
-	credentialTemplateID string
-	credentialType       string
-	credentialFormat     string
-	token                string
-	claimData            map[string]interface{}
+	vcProviderOptions     []vcprovider.ConfigOption
+	httpClient            *http.Client
+	vcsAPIURL             string
+	issuerProfileID       string
+	verifierProfileID     string
+	credentialTemplateID  string
+	credentialType        string
+	credentialFormat      string
+	token                 string
+	claimData             map[string]interface{}
+	disableRevokeTestCase bool
 }
 
 type TestCaseOption func(opts *TestCaseOptions)
@@ -88,22 +90,29 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 	}
 
 	return &TestCase{
-		walletRunner:         runner,
-		httpClient:           opts.httpClient,
-		vcsAPIURL:            opts.vcsAPIURL,
-		issuerProfileID:      opts.issuerProfileID,
-		verifierProfileID:    opts.verifierProfileID,
-		credentialTemplateID: opts.credentialTemplateID,
-		credentialType:       opts.credentialType,
-		credentialFormat:     opts.credentialFormat,
-		token:                opts.token,
-		claimData:            opts.claimData,
+		walletRunner:          runner,
+		httpClient:            opts.httpClient,
+		vcsAPIURL:             opts.vcsAPIURL,
+		issuerProfileID:       opts.issuerProfileID,
+		verifierProfileID:     opts.verifierProfileID,
+		credentialTemplateID:  opts.credentialTemplateID,
+		credentialType:        opts.credentialType,
+		credentialFormat:      opts.credentialFormat,
+		token:                 opts.token,
+		claimData:             opts.claimData,
+		disableRevokeTestCase: opts.disableRevokeTestCase,
 	}, nil
 }
 
 func WithVCProviderOption(opt vcprovider.ConfigOption) TestCaseOption {
 	return func(opts *TestCaseOptions) {
 		opts.vcProviderOptions = append(opts.vcProviderOptions, opt)
+	}
+}
+
+func WithDisableRevokeTestCase(disableRevokeTestCase bool) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.disableRevokeTestCase = disableRevokeTestCase
 	}
 }
 
@@ -157,10 +166,10 @@ func WithToken(token string) TestCaseOption {
 
 type stressTestPerfInfo map[string]time.Duration
 
-func (c *TestCase) Invoke() (interface{}, error) {
+func (c *TestCase) Invoke() (string, interface{}, error) {
 	credentialOfferURL, pin, err := c.fetchCredentialOfferURL()
 	if err != nil {
-		return nil, fmt.Errorf("fetch credential offer url: %w", err)
+		return "", nil, fmt.Errorf("fetch credential offer url: %w", err)
 	}
 
 	// run pre-auth flow and save credential in the wallet
@@ -170,8 +179,13 @@ func (c *TestCase) Invoke() (interface{}, error) {
 		CredentialFormat:    c.credentialFormat,
 		Pin:                 pin,
 	})
+
+	credID := ""
+	if credentials != nil {
+		credID = credentials.ID
+	}
 	if err != nil {
-		return nil, fmt.Errorf("run pre-auth issuance: %w", err)
+		return credID, nil, fmt.Errorf("CredId [%v]. run pre-auth issuance: %w", credID, err)
 	}
 
 	providerConf := c.walletRunner.GetConfig()
@@ -183,35 +197,35 @@ func (c *TestCase) Invoke() (interface{}, error) {
 
 	authorizationRequest, err := c.fetchAuthorizationRequest()
 	if err != nil {
-		return nil, fmt.Errorf("fetch authorization request: %w", err)
+		return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
 	}
 
 	err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest)
 	if err != nil {
-		return nil, fmt.Errorf("run vp: %w", err)
+		return credID, nil, fmt.Errorf("CredId [%v]. run vp: %w", credID, err)
 	}
 
 	b, err := json.Marshal(c.walletRunner.GetPerfInfo())
 	if err != nil {
-		return nil, fmt.Errorf("marshal perf info: %w", err)
+		return credID, nil, fmt.Errorf("CredId [%v]. marshal perf info: %w", credID, err)
 	}
 
 	var perfInfo stressTestPerfInfo
 
 	if err = json.Unmarshal(b, &perfInfo); err != nil {
-		return nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
+		return credID, nil, fmt.Errorf("unmarshal perf info into stressTestPerfInfo: %w", err)
 	}
 
-	//if credentials.Status != nil && credentials.Status.Type != "" {
-	//	st := time.Now()
-	//	if err = c.revokeVC(credentials); err != nil {
-	//		return nil, fmt.Errorf("can not revokeVc; %w", err)
-	//	}
-	//
-	//	perfInfo["_vp_revoke_credentials"] = time.Since(st)
-	//}
+	if !c.disableRevokeTestCase && credentials.Status != nil && credentials.Status.Type != "" {
+		st := time.Now()
+		if err = c.revokeVC(credentials); err != nil {
+			return credID, nil, fmt.Errorf("CredId [%v]. can not revokeVc; %w", credID, err)
+		}
 
-	return perfInfo, nil
+		perfInfo["_vp_revoke_credentials"] = time.Since(st)
+	}
+
+	return credID, perfInfo, nil
 }
 
 func (c *TestCase) revokeVC(cred *verifiable.Credential) error {
