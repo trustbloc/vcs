@@ -223,7 +223,6 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 				return fmt.Errorf("failed to build echo handler: %w", err)
 			}
 
-			logger.Info("pprof")
 			if conf.StartupParameters.enableProfiler {
 				logger.Warn("pprof profiler enabled")
 				echopprof.Wrap(e)
