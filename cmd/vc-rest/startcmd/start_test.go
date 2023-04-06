@@ -283,6 +283,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + kmsTypeFlagName, "web",
 		"--" + profilePathFlag, file.Name(),
 		"--" + dataEncryptionKeyIDFlagName, "12345",
+		"--" + enableProfilerFlagName, "true",
 	}
 	startCmd.SetArgs(args)
 	ctx, cancel := context.WithCancel(context.TODO())
