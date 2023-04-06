@@ -20,6 +20,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 )
 
+const testDID = "did:key:abc"
+
 func TestWrapper_VerifyCredential(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
@@ -53,5 +55,17 @@ func TestWrapper_ValidateVCStatus(t *testing.T) {
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
 	err := w.ValidateVCStatus(context.Background(), &verifiable.TypedID{}, "issuer")
+	require.NoError(t, err)
+}
+
+func TestWrapper_ValidateLinkedDomain(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	svc := NewMockService(ctrl)
+	svc.EXPECT().ValidateLinkedDomain(gomock.Any(), testDID).Times(1)
+
+	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
+
+	err := w.ValidateLinkedDomain(context.Background(), testDID)
 	require.NoError(t, err)
 }

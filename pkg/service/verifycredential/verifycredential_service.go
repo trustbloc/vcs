@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
@@ -33,11 +34,16 @@ type statusListVCURIResolver interface {
 	Resolve(ctx context.Context, statusListVCURL string) (*verifiable.Credential, error)
 }
 
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type Config struct {
 	VCStatusProcessorGetter vc.StatusProcessorGetter
 	StatusListVCResolver    statusListVCURIResolver
 	DocumentLoader          ld.DocumentLoader
 	VDR                     vdrapi.Registry
+	HTTPClient              httpClient
 }
 
 type Service struct {
@@ -45,6 +51,7 @@ type Service struct {
 	statusListVCURIResolver statusListVCURIResolver
 	documentLoader          ld.DocumentLoader
 	vdr                     vdrapi.Registry
+	httpClient              httpClient
 }
 
 func New(config *Config) *Service {
@@ -53,6 +60,7 @@ func New(config *Config) *Service {
 		vcStatusProcessorGetter: config.VCStatusProcessorGetter,
 		documentLoader:          config.DocumentLoader,
 		vdr:                     config.VDR,
+		httpClient:              config.HTTPClient,
 	}
 }
 
@@ -62,6 +70,14 @@ func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.C
 
 	var result []CredentialsVerificationCheckResult
 
+	if checks.LinkedDomain {
+		if err := s.ValidateLinkedDomain(ctx, profile.SigningDID.DID); err != nil {
+			result = append(result, CredentialsVerificationCheckResult{
+				Check: "linkedDomain",
+				Error: err.Error(),
+			})
+		}
+	}
 	if checks.Proof {
 		vcBytes, err := json.Marshal(credential)
 		if err != nil {

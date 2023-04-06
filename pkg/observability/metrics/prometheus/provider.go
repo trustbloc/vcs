@@ -103,7 +103,7 @@ func NewMetrics() metrics.Metrics {
 		metrics.ClientIssuerProfile, metrics.ClientVerifierProfile,
 		metrics.ClientIssuerInteraction, metrics.ClientOIDC4PV1,
 		metrics.ClientOIDC4CI, metrics.ClientOIDC4CIV1,
-		metrics.ClientWellKnown,
+		metrics.ClientWellKnown, metrics.ClientCredentialVerifier,
 	}
 
 	pm := &PromMetrics{
