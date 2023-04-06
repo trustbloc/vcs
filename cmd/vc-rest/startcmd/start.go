@@ -318,23 +318,7 @@ func buildEchoHandler(
 	swagger.Servers = nil // skip validating server names matching
 
 	e.Use(oapimw.OapiRequestValidatorWithOptions(swagger, &oapimw.Options{
-		Skipper: func(c echo.Context) bool {
-			if c.Path() == devApiRequestObjectEndpoint || c.Path() == devApiDidConfigEndpoint {
-				return true
-			}
-			if c.Path() == versionEndpoint || c.Path() == versionSystemEndpoint {
-				return true
-			}
-
-			if c.Path() == logLevelsEndpoint {
-				return true
-			}
-			if strings.Contains(c.Path(), profilerEndpoints) {
-				return true
-			}
-
-			return echomw.DefaultSkipper(c)
-		},
+		Skipper: OApiSkipper,
 	}))
 
 	version.NewController(e, version.Config{
