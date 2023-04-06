@@ -6,6 +6,7 @@ require (
 	github.com/bluele/gcache v0.0.2
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
+	github.com/hyperledger/aries-framework-go v0.1.10-0.20230307184157-877172747719
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230314165048-d06b1132a27b
@@ -66,7 +67,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/henvic/httpretty v0.1.0 // indirect
-	github.com/hyperledger/aries-framework-go v0.1.10-0.20230307184157-877172747719 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49 // indirect
@@ -177,7 +177,7 @@ require (
 )
 
 replace (
-	github.com/trustbloc/vcs/test/bdd => ../../test/bdd
 	github.com/trustbloc/vcs => ../..
 	github.com/trustbloc/vcs/component/wallet-cli => ../../component/wallet-cli
+	github.com/trustbloc/vcs/test/bdd => ../../test/bdd
 )

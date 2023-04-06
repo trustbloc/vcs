@@ -21,6 +21,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alexliesenfeld/health"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	oapimw "github.com/deepmap/oapi-codegen/pkg/middleware"
@@ -35,7 +36,7 @@ import (
 	echomw "github.com/labstack/echo/v4/middleware"
 	"github.com/ory/fosite"
 	jsonld "github.com/piprate/json-gold/ld"
-	"github.com/sevenNt/echo-pprof"
+	echopprof "github.com/sevenNt/echo-pprof"
 	"github.com/spf13/cobra"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
@@ -46,6 +47,7 @@ import (
 	"github.com/trustbloc/vcs/api/spec"
 	"github.com/trustbloc/vcs/component/credentialstatus"
 	"github.com/trustbloc/vcs/component/event"
+	"github.com/trustbloc/vcs/component/healthchecks"
 	"github.com/trustbloc/vcs/component/oidc/fositemongo"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/component/otp"
@@ -56,6 +58,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
+	"github.com/trustbloc/vcs/pkg/observability/healthutil"
 	metricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	promMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/prometheus"
@@ -104,8 +107,10 @@ import (
 
 const (
 	healthCheckEndpoint             = "/healthcheck"
+	statusEndpoint                  = "/status"
 	oidc4VPCheckEndpoint            = "/oidc/present"
 	defaultGracefulShutdownDuration = 1 * time.Second
+	defaultHealthCheckTimeout       = 5 * time.Second
 	cslSize                         = 10000
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
 	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
@@ -208,7 +213,8 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			}
 
 			internalEchoAddress := conf.StartupParameters.prometheusMetricsProviderParams.url
-			internalEcho, ready := buildInternalEcho()
+			internalEcho, ready := buildInternalEcho(conf)
+
 			go func() {
 				if internalErr := internalEcho.Start(internalEchoAddress); internalErr != nil &&
 					internalErr != http.ErrServerClosed {
@@ -277,13 +283,46 @@ func createEcho() *echo.Echo {
 	return e
 }
 
-func buildInternalEcho() (*echo.Echo, *readiness) {
+func buildInternalEcho(conf *Configuration) (*echo.Echo, *readiness) {
 	e := echo.New()
 	e.HideBanner = true
+
 	e.Use(echomw.Recover())
+
 	e.GET(healthCheckEndpoint, func(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	})
+
+	checks := healthchecks.Get(&healthchecks.Config{
+		MongoDBURL: conf.StartupParameters.dbParameters.databaseURL,
+	})
+
+	if len(checks) > 0 {
+		opts := []health.CheckerOption{
+			health.WithTimeout(defaultHealthCheckTimeout),
+		}
+
+		for _, check := range checks {
+			opts = append(opts, health.WithCheck(check))
+		}
+
+		m := map[string]healthutil.ResponseTimeState{}
+
+		opts = append(opts, health.WithInterceptors(healthutil.ResponseTimeInterceptor(m)))
+
+		healthChecker := health.NewChecker(opts...)
+
+		e.GET(statusEndpoint,
+			echo.WrapHandler(
+				health.NewHandler(healthChecker,
+					health.WithResultWriter(healthutil.NewJSONResultWriter(m)),
+					health.WithStatusCodeUp(http.StatusOK),
+					health.WithStatusCodeDown(http.StatusServiceUnavailable),
+				),
+			),
+		)
+	}
+
 	ready := newReadinessController(e)
 
 	return e, ready
