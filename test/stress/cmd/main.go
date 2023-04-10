@@ -17,7 +17,7 @@ import (
 	"github.com/trustbloc/vcs/test/stress/pkg/stress"
 )
 
-var results = gcache.New(20).LRU().Build()
+var results = gcache.New(3).LRU().Build()
 var logger = log.New("stress-test-cmd")
 
 func main() {
