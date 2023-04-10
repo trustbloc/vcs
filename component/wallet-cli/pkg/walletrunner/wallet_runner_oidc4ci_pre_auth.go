@@ -44,6 +44,8 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	if err != nil {
 		return nil, err
 	}
+
+	startTime = time.Now()
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
