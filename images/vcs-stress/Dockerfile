@@ -5,9 +5,10 @@
 #
 
 ARG GO_VER
+ARG GO_ALPINE_VER
 ARG ALPINE_VER
 
-FROM golang:${GO_VER}-alpine${ALPINE_VER} as golang
+FROM golang:${GO_VER}-alpine${GO_ALPINE_VER} as golang
 RUN apk add --no-cache \
 	gcc \
 	musl-dev \
