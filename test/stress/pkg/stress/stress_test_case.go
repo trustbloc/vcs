@@ -204,7 +204,7 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID
 	providerConf.SkipSchemaValidation = true
 
-	if c.disableVPTestCase {
+	if !c.disableVPTestCase {
 		authorizationRequest, err := c.fetchAuthorizationRequest()
 		if err != nil {
 			return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
