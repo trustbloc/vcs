@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/samber/lo"
 	"go.mongodb.org/mongo-driver/mongo"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -38,6 +40,8 @@ func New(connString string, databaseName string, opts ...ClientOpt) (*Client, er
 
 	mongoOpts := mongooptions.Client()
 	mongoOpts.ApplyURI(connString)
+	mongoOpts.ReadPreference = readpref.SecondaryPreferred()
+	mongoOpts.MaxPoolSize = lo.ToPtr(uint64(200))
 
 	if op.traceProvider != nil {
 		mongoOpts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(op.traceProvider))
