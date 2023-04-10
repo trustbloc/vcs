@@ -76,6 +76,7 @@ func (s *Store) migrate(ctx context.Context) error {
 		pkceSessionCollection:     baseSessionIndexes,
 		refreshTokenCollection:    baseSessionIndexes,
 		blacklistedJTIsCollection: baseSessionIndexes,
+		accessTokenCollection:     baseSessionIndexes,
 	}
 
 	for collection, targetIndexes := range indexes {

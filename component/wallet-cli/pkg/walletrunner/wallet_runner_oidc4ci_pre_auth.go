@@ -10,7 +10,9 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -42,6 +44,8 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	if err != nil {
 		return nil, err
 	}
+
+	startTime = time.Now()
 	oidcIssuerCredentialConfig, err := s.getIssuerCredentialsOIDCConfig(offerResponse.CredentialIssuer)
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime) // oidc config
 	s.perfInfo.GetIssuerCredentialsOIDCConfig = time.Since(startTime)
@@ -76,6 +80,12 @@ func (s *Service) RunOIDC4CIPreAuth(config *OIDC4CIConfig) (*verifiable.Credenti
 	s.perfInfo.VcsCIFlowDuration += time.Since(startTime)
 	if tokenErr != nil {
 		return nil, tokenErr
+	}
+
+	if tokenResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(tokenResp.Body)
+		return nil, fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
+			http.StatusOK, tokenResp.StatusCode, string(b))
 	}
 
 	var token oidc4ci.AccessTokenResponse

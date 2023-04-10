@@ -39,6 +39,7 @@ type Config struct {
 	ClaimData            map[string]interface{} `json:"claim_data"`
 	DisableRevokeTest    bool                   `json:"disable_revoke_test"`
 	Detailed             bool                   `json:"detailed"`
+	DisableVPTest        bool                   `json:"disable_vp_test"`
 }
 
 func NewStressRun(
@@ -126,6 +127,7 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			WithClaimData(r.cfg.ClaimData),
 			WithToken(idToken),
 			WithDisableRevokeTestCase(r.cfg.DisableRevokeTest),
+			WithDisableVPTestCase(r.cfg.DisableVPTest),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("create test case: %w", err)
