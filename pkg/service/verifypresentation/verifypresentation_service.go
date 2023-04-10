@@ -29,6 +29,7 @@ import (
 type vcVerifier interface {
 	ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error //nolint:lll
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
+	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
 
 type Config struct {
@@ -111,6 +112,18 @@ func (s *Service) VerifyPresentation(
 			})
 		}
 		logger.Debug(fmt.Sprintf("Checks.Credential.Status took %v", time.Since(st)))
+	}
+
+	if profile.Checks.Credential.LinkedDomain {
+		st := time.Now()
+		err := s.vcVerifier.ValidateLinkedDomain(ctx, profile.SigningDID.DID)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "linkedDomain",
+				Error: err.Error(),
+			})
+		}
+		logger.Debug(fmt.Sprintf("Checks.Credential.LinkedDomain took %v", time.Since(st)))
 	}
 
 	return result, nil

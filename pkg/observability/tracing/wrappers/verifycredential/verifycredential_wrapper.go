@@ -77,3 +77,16 @@ func (w *Wrapper) ValidateVCStatus(ctx context.Context, vcStatus *verifiable.Typ
 
 	return nil
 }
+
+func (w *Wrapper) ValidateLinkedDomain(ctx context.Context, signingDID string) error {
+	ctx, span := w.tracer.Start(ctx, "verifycredential.ValidateLinkedDomain")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("signingDID", signingDID))
+
+	if err := w.svc.ValidateLinkedDomain(ctx, signingDID); err != nil {
+		return err
+	}
+
+	return nil
+}

@@ -105,6 +105,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 						context.Background(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(nil)
+					mockVerifier.EXPECT().ValidateLinkedDomain(
+						context.Background(),
+						gomock.Any()).Times(1).Return(nil)
 					return mockVerifier
 				},
 			},
@@ -113,15 +116,17 @@ func TestService_VerifyPresentation(t *testing.T) {
 					return signedVP
 				},
 				profile: &profileapi.Verifier{
+					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
 							Proof:  true,
 							Format: nil,
 						},
 						Credential: profileapi.CredentialChecks{
-							Proof:  true,
-							Status: true,
-							Format: nil,
+							Proof:        true,
+							Status:       true,
+							LinkedDomain: true,
+							Format:       nil,
 						},
 					},
 				},
@@ -263,6 +268,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 						context.Background(),
 						gomock.Any(),
 						gomock.Any()).Times(1).Return(errors.New("some error"))
+					mockVerifier.EXPECT().ValidateLinkedDomain(
+						context.Background(),
+						gomock.Any()).Times(1).Return(errors.New("some error"))
 					return mockVerifier
 				},
 			},
@@ -271,15 +279,17 @@ func TestService_VerifyPresentation(t *testing.T) {
 					return signedVP
 				},
 				profile: &profileapi.Verifier{
+					SigningDID: &profileapi.SigningDID{DID: "did:key:abc"},
 					Checks: &profileapi.VerificationChecks{
 						Presentation: &profileapi.PresentationChecks{
 							Proof:  false,
 							Format: nil,
 						},
 						Credential: profileapi.CredentialChecks{
-							Proof:  true,
-							Status: true,
-							Format: nil,
+							Proof:        true,
+							Status:       true,
+							LinkedDomain: true,
+							Format:       nil,
 						},
 					},
 				},
@@ -295,6 +305,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 				},
 				{
 					Check: "credentialStatus",
+					Error: "some error",
+				},
+				{
+					Check: "linkedDomain",
 					Error: "some error",
 				},
 			},

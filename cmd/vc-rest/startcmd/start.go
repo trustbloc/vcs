@@ -621,6 +621,7 @@ func buildEchoHandler(
 	var verifyCredentialSvc verifycredential.ServiceInterface
 
 	verifyCredentialSvc = verifycredential.New(&verifycredential.Config{
+		HTTPClient:              getHTTPClient(metricsProvider.ClientCredentialVerifier),
 		VCStatusProcessorGetter: statustype.GetVCStatusProcessor,
 		StatusListVCResolver:    statusListVCSvc,
 		DocumentLoader:          documentLoader,

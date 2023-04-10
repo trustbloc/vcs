@@ -46,4 +46,6 @@ type ServiceInterface interface {
 	) error
 
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
+
+	ValidateLinkedDomain(ctx context.Context, signingDID string) error
 }
