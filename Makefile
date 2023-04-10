@@ -28,7 +28,8 @@ ifneq (,$(findstring undefined,"$(VC_REST_VERSION)"))
 endif
 
 # Tool commands (overridable)
-ALPINE_VER ?= 3.16
+ALPINE_VER ?= 3.16.5
+GO_ALPINE_VER ?= 3.16
 GO_VER ?= 1.19
 
 OS := $(shell uname)
@@ -70,6 +71,7 @@ vc-rest-docker: generate
 	@echo "Building vc rest docker image"
 	@docker build -f ./images/vc-rest/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VC_REST_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
+	--build-arg GO_ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 .PHONY: vcs-stress
@@ -85,6 +87,7 @@ vcs-stress-docker: generate
 	@echo "Building vcs-stress docker image"
 	@docker build -f ./images/vcs-stress/Dockerfile --no-cache -t $(DOCKER_OUTPUT_NS)/$(VCS_STRESS_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
+	--build-arg GO_ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg ALPINE_VER=$(ALPINE_VER) .
 
 
@@ -99,7 +102,7 @@ sample-webhook-docker:
 	@echo "Building sample webhook server docker image"
 	@docker build -f ./images/mocks/webhook/Dockerfile --no-cache -t $(WEBHOOK_IMAGE_NAME):latest \
 	--build-arg GO_VER=$(GO_VER) \
-	--build-arg ALPINE_VER=$(ALPINE_VER) \
+	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) \
 	--build-arg ALPINE_IMAGE=$(ALPINE_IMAGE) .
 
@@ -108,7 +111,7 @@ mock-login-consent-docker:
 	@echo "Building mock login consent server"
 	@docker build -f ./images/mocks/loginconsent/Dockerfile --no-cache -t  vcs/mock-login-consent:latest \
 	--build-arg GO_VER=$(GO_VER) \
-	--build-arg ALPINE_VER=$(ALPINE_VER) \
+	--build-arg ALPINE_VER=$(GO_ALPINE_VER) \
 	--build-arg GO_IMAGE=$(GO_IMAGE) test/bdd/loginconsent
 
 .PHONY: bdd-test
