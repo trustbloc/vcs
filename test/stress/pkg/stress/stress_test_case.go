@@ -36,6 +36,7 @@ type TestCase struct {
 	token                 string
 	claimData             map[string]interface{}
 	disableRevokeTestCase bool
+	disableVPTestCase     bool
 }
 
 type TestCaseOptions struct {
@@ -50,6 +51,7 @@ type TestCaseOptions struct {
 	token                 string
 	claimData             map[string]interface{}
 	disableRevokeTestCase bool
+	disableVPTestCase     bool
 }
 
 type TestCaseOption func(opts *TestCaseOptions)
@@ -101,6 +103,7 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		token:                 opts.token,
 		claimData:             opts.claimData,
 		disableRevokeTestCase: opts.disableRevokeTestCase,
+		disableVPTestCase:     opts.disableVPTestCase,
 	}, nil
 }
 
@@ -113,6 +116,12 @@ func WithVCProviderOption(opt vcprovider.ConfigOption) TestCaseOption {
 func WithDisableRevokeTestCase(disableRevokeTestCase bool) TestCaseOption {
 	return func(opts *TestCaseOptions) {
 		opts.disableRevokeTestCase = disableRevokeTestCase
+	}
+}
+
+func WithDisableVPTestCase(disableVpTestCase bool) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.disableVPTestCase = disableVpTestCase
 	}
 }
 
@@ -195,14 +204,16 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID
 	providerConf.SkipSchemaValidation = true
 
-	authorizationRequest, err := c.fetchAuthorizationRequest()
-	if err != nil {
-		return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
-	}
+	if c.disableVPTestCase {
+		authorizationRequest, err := c.fetchAuthorizationRequest()
+		if err != nil {
+			return credID, nil, fmt.Errorf("CredId [%v]. fetch authorization request: %w", credID, err)
+		}
 
-	err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest)
-	if err != nil {
-		return credID, nil, fmt.Errorf("CredId [%v]. run vp: %w", credID, err)
+		err = c.walletRunner.RunOIDC4VPFlow(authorizationRequest)
+		if err != nil {
+			return credID, nil, fmt.Errorf("CredId [%v]. run vp: %w", credID, err)
+		}
 	}
 
 	b, err := json.Marshal(c.walletRunner.GetPerfInfo())
