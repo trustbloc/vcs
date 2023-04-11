@@ -20,3 +20,5 @@ ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/wo
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/profile/reader/file ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/event ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m
 ${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/healthchecks ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/credentialstatus ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m
+${DOCKER_CMD} run --rm -e GOPROXY=${GOPROXY} -v $(pwd):/opt/workspace -w /opt/workspace/component/oidc/fosite ${GOLANGCI_LINT_IMAGE} golangci-lint run --timeout 5m

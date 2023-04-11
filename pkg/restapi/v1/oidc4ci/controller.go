@@ -590,7 +590,11 @@ func validateProofClaims(
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("decode claims: %w", err))
 	}
 
-	if nonceExp := session.Extra[cNonceExpiresAtKey].(int64); nonceExp < time.Now().Unix() { //nolint:errcheck
+	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
+		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
+	}
+
+	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(float64); ok && int64(nonceExp) < time.Now().Unix() {
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
 	}
 
