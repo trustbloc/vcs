@@ -1003,8 +1003,6 @@ github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a h1:hTNcFcgr6cG
 github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a/go.mod h1:pC74Ix6y2ivSUYOPRa3G6LNVJ67x3H4iLKYZVwy37JQ=
 github.com/trustbloc/sidetree-core-go v1.0.0-rc4 h1:dkmNLKbHjr//JgJPLQgTNBgK40LAYXL9IV69gZCn2fo=
 github.com/trustbloc/sidetree-core-go v1.0.0-rc4/go.mod h1:SOuPJu8u7DSs2c494HPFAkkZ3KlfR/4swQ+YWqxZ2C8=
-github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b h1:CaNyisU4x9gP6bZ87geh/plIDrIZB9VvXYLxGQ2Q6Ek=
-github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b/go.mod h1:cZ4/QA0yELAiusxfVNBZ5Gt9bnE0U/2KdI2qHBQ2dTM=
 github.com/trustbloc/vct v1.0.0-rc4 h1:XYvbsyy2mxdeILiT6lQH1EGXSSD6C2zHSr670Vppn+g=
 github.com/trustbloc/vct v1.0.0-rc4/go.mod h1:2kzD3kdeD1LFVRpWo2/C8ktnsfJR3gtH3pf/AqfRqow=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
@@ -1083,7 +1081,7 @@ go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/ot
 go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.40.0/go.mod h1:nkEFz9FW/KZC65rsd8yrHm4aBKa5STMpe4/Xb5+LG64=
 go.opentelemetry.io/otel v1.14.0 h1:/79Huy8wbf5DnIPhemGB+zEPVwnN6fuQybr/SRXa6hM=
 go.opentelemetry.io/otel v1.14.0/go.mod h1:o4buv+dJzx8rohcUeRmWUZhqupFvzWis188WlggnNeU=
-go.opentelemetry.io/otel/sdk v1.12.0 h1:8npliVYV7qc0t1FKdpU08eMnOjgPFMnriPhn0HH4q3o=
+go.opentelemetry.io/otel/sdk v1.14.0 h1:PDCppFRDq8A1jL9v6KMI6dYesaq+DFcDZvjsoGvxGzY=
 go.opentelemetry.io/otel/trace v1.14.0 h1:wp2Mmvj41tDsyAJXiWDWpfNsOiIyd38fy85pyKcFq/M=
 go.opentelemetry.io/otel/trace v1.14.0/go.mod h1:8avnQLK+CG77yNLUae4ea2JDQ6iT+gozhnZjy/rw9G8=
 go.opentelemetry.io/proto/otlp v0.7.0/go.mod h1:PqfVotwruBrMGOCsRd/89rSnXhoiJIqeYNgFYFoEGnI=
