@@ -213,7 +213,7 @@ func createStartCmd(opts ...StartOpts) *cobra.Command {
 			}
 
 			internalEchoAddress := conf.StartupParameters.prometheusMetricsProviderParams.url
-			internalEcho, ready := buildInternalEcho(conf)
+			internalEcho, ready := buildInternalEcho(conf, cmd)
 
 			go func() {
 				if internalErr := internalEcho.Start(internalEchoAddress); internalErr != nil &&
@@ -283,7 +283,7 @@ func createEcho() *echo.Echo {
 	return e
 }
 
-func buildInternalEcho(conf *Configuration) (*echo.Echo, *readiness) {
+func buildInternalEcho(conf *Configuration, cmd *cobra.Command) (*echo.Echo, *readiness) {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -295,6 +295,12 @@ func buildInternalEcho(conf *Configuration) (*echo.Echo, *readiness) {
 
 	checks := healthchecks.Get(&healthchecks.Config{
 		MongoDBURL: conf.StartupParameters.dbParameters.databaseURL,
+		HTTPClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
+			},
+		},
+		Cmd: cmd,
 	})
 
 	if len(checks) > 0 {
