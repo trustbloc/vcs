@@ -146,7 +146,7 @@ require (
 	github.com/multiformats/go-varint v0.0.6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
-	github.com/opencontainers/runc v1.1.5 // indirect
+	github.com/opencontainers/runc v1.1.6 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/ory/go-acc v0.2.8 // indirect
 	github.com/ory/go-convenience v0.1.0 // indirect
@@ -179,7 +179,6 @@ require (
 	github.com/trustbloc/kms v1.0.0-rc1.0.20230328193147-41870299a8c5 // indirect
 	github.com/trustbloc/orb v1.0.0-rc4.0.20221129223433-07e05f2f6e0a // indirect
 	github.com/trustbloc/sidetree-core-go v1.0.0-rc4 // indirect
-	github.com/trustbloc/vcs/component/healthchecks/mongo v0.0.0-00010101000000-000000000000 // indirect
 	github.com/trustbloc/vct v1.0.0-rc4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
@@ -224,7 +223,6 @@ replace (
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/event => ../../component/event
 	github.com/trustbloc/vcs/component/healthchecks => ../../component/healthchecks
-	github.com/trustbloc/vcs/component/healthchecks/mongo => ../../component/healthchecks/mongo
 	github.com/trustbloc/vcs/component/oidc/fositemongo => ../../component/oidc/fositemongo
 	github.com/trustbloc/vcs/component/otp => ../../component/otp
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
