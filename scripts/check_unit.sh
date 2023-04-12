@@ -86,4 +86,14 @@ go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeou
 amend_coverage_file
 cd "$pwd"
 
+# Running healthchecks component unit tests
+echo "... done"
+echo "healthchecks unit tests..."
+cd component/healthchecks
+PKGS=`go list github.com/trustbloc/vcs/component/healthchecks/... 2> /dev/null | \
+                                                 grep -v /mocks`
+go test $PKGS -count=1 -race -coverprofile=profile.out -covermode=atomic -timeout=10m
+amend_coverage_file
+cd "$pwd"
+
 echo "... done all unit-tests"
