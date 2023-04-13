@@ -44,6 +44,8 @@ services:
       - VC_SYSTEM_VERSION=v1.0.0
       - VC_REST_DATA_ENCRYPTION_KEY_ID=bc436485-5092-42b8-92a3-0aa8b93536dc
       - VC_REST_ENABLE_PROFILER=true
+      - VC_OAUTH_STORE=redis
+      - REDIS_URL=redis.example.com:6379
     ports:
       - "8075:8075"
       - "48127:48127"
@@ -109,6 +111,16 @@ services:
     image: ${MONGODB_IMAGE}:${MONGODB_IMAGE_TAG}
     ports:
       - ${MONGODB_PORT}:${MONGODB_PORT}
+    networks:
+      - bdd_net
+
+  redis.example.com:
+    container_name: redis.example.com
+    image: redis:alpine3.17
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - "6379:6379/tcp"
     networks:
       - bdd_net
 

@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/redis/go-redis/v9"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -39,6 +40,9 @@ const (
 	dockerMongoDBTag   = "4.0.0"
 	profilePathFlag    = "profiles-file-path"
 	profilePathEnv     = "VC_REST_PROFILES_FILE_PATH"
+	redisConnString    = "localhost:6379"
+	dockerRedisImage   = "redis"
+	dockerRedisTag     = "alpine3.17"
 )
 
 func TestStartCmdContents(t *testing.T) {
@@ -627,4 +631,39 @@ func pingMongoDB() error {
 	defer cancel()
 
 	return db.Client().Ping(ctx, nil)
+}
+
+func waitForRedisToBeUp() error {
+	return backoff.Retry(pingRedis, backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Second), 30))
+}
+
+func pingRedis() error {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisConnString,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	return rdb.Ping(ctx).Err()
+}
+
+func startRedisContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
+	t.Helper()
+
+	pool, err := dctest.NewPool("")
+	require.NoError(t, err)
+
+	redisResource, err := pool.RunWithOptions(&dctest.RunOptions{
+		Repository: dockerRedisImage,
+		Tag:        dockerRedisTag,
+		PortBindings: map[dc.Port][]dc.PortBinding{
+			"6379/tcp": {{HostIP: "", HostPort: "6379"}},
+		},
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, waitForRedisToBeUp())
+
+	return pool, redisResource
 }

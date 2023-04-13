@@ -55,13 +55,15 @@ const (
 	eventTopic        = "testEventTopic"
 )
 
-func validateVCStatus(t *testing.T, s *Service, statusID *credentialstatus.StatusListEntry, expectedListID credentialstatus.ListID) {
+func validateVCStatus(
+	t *testing.T, s *Service, statusID *credentialstatus.StatusListEntry, expectedListID credentialstatus.ListID) {
 	t.Helper()
 
 	require.Equal(t, string(vc.StatusList2021VCStatus), statusID.TypedID.Type)
 	require.Equal(t, "revocation", statusID.TypedID.CustomFields[statustype.StatusPurpose].(string))
 
-	existingStatusListVCID := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
+	existingStatusListVCID, ok := statusID.TypedID.CustomFields[statustype.StatusListCredential].(string)
+	require.True(t, ok)
 
 	chunks := strings.Split(existingStatusListVCID, "/")
 	existingStatusVCListID := chunks[len(chunks)-1]
@@ -118,6 +120,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 				Crypto: vccrypto.New(
 					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
+		require.NoError(t, err)
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -239,9 +242,6 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 			&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader)
 		ctx := context.Background()
 
-		listID, err := cslIndexStore.GetLatestListID(ctx)
-		require.NoError(t, err)
-
 		cslMgr, err := cslmanager.New(
 			&cslmanager.Config{
 				CSLVCStore:    cslVCStore,
@@ -252,6 +252,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				Crypto: vccrypto.New(
 					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
+		require.NoError(t, err)
 
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
@@ -291,7 +292,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		require.NoError(t, s.UpdateVCStatus(ctx, params))
 
-		listID, err = cslIndexStore.GetLatestListID(ctx)
+		listID, err := cslIndexStore.GetLatestListID(ctx)
 		require.NoError(t, err)
 
 		statusListVC, err := s.GetStatusListVC(ctx, externalProfileID, string(listID))
@@ -344,7 +345,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "vc status list version \"RevocationList2020Status\" is not supported by current profile")
+		require.ErrorContains(t, err,
+			"vc status list version \"RevocationList2020Status\" is not supported by current profile")
 	})
 	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
@@ -621,6 +623,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				Crypto: vccrypto.New(
 					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
+		require.NoError(t, err)
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -672,6 +675,8 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				Crypto: vccrypto.New(
 					&vdrmock.MockVDRegistry{ResolveValue: createDIDDoc("did:test:abc")}, loader),
 			})
+
+		require.NoError(t, err)
 
 		mockEventPublisher := &mockedEventPublisher{
 			eventHandler: eventhandler.New(&eventhandler.Config{
@@ -811,17 +816,6 @@ func (ep *mockedEventPublisher) Publish(ctx context.Context, topic string, messa
 	return err
 }
 
-func getTestSigner() *vc.Signer {
-	return &vc.Signer{
-		Format:           vcsverifiable.Ldp,
-		DID:              "did:test:abc",
-		SignatureType:    "Ed25519Signature2018",
-		Creator:          "did:test:abc#key1",
-		KMS:              &mockKMS{},
-		VCStatusListType: vc.StatusList2021VCStatus,
-	}
-}
-
 func getTestProfile() *profileapi.Issuer {
 	return &profileapi.Issuer{
 		ID:      profileID,
@@ -851,18 +845,15 @@ type mockCSLIndexStore struct {
 	s                     map[string]*credentialstatus.CSLIndexWrapper
 }
 
-func newMockCSLIndexStore(opts ...func(*mockCSLIndexStore)) *mockCSLIndexStore {
-	s := &mockCSLIndexStore{
+func newMockCSLIndexStore() *mockCSLIndexStore {
+	return &mockCSLIndexStore{
 		latestListID: "",
 		s:            map[string]*credentialstatus.CSLIndexWrapper{},
 	}
-	for _, f := range opts {
-		f(s)
-	}
-	return s
 }
 
-func (m *mockCSLIndexStore) Upsert(ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLIndexWrapper) error {
+func (m *mockCSLIndexStore) Upsert(
+	ctx context.Context, cslURL string, cslWrapper *credentialstatus.CSLIndexWrapper) error {
 	if m.createErr != nil {
 		return m.createErr
 	}

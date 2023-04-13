@@ -127,6 +127,19 @@ const (
 	databasePrefixFlagUsage = "An optional prefix to be used when creating and retrieving underlying databases. " +
 		commonEnvVarUsageText + databasePrefixEnvKey
 
+	redisURLFlagName  = "redis-url"
+	redisURLEnvKey    = "REDIS_URL"
+	redisURLFlagUsage = "The list of comma-separated Redis URLs. " +
+		"The type of the returned client depends on the following conditions: " +
+		"1. If the " + redisSentinelMasterNameEnvKey + " is specified, a sentinel-backed FailoverClient is returned. " +
+		"2. if the number of Addrs is two or more, a ClusterClient is returned. " +
+		"3. Otherwise, a single-node Client is returned." + commonEnvVarUsageText + redisURLEnvKey
+
+	redisSentinelMasterNameFlagName  = "redis-sentinel-master-name"
+	redisSentinelMasterNameEnvKey    = "REDIS_SENTINEL_MASTER_NAME"
+	redisSentinelMasterNameFlagUsage = "The sentinel master name." +
+		commonEnvVarUsageText + redisSentinelMasterNameEnvKey
+
 	// remote JSON-LD context provider url flag.
 	contextProviderFlagName  = "context-provider-url"
 	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
@@ -192,6 +205,11 @@ const (
 	oAuthSecretFlagShorthand = "o"
 	oAuthSecretFlagUsage     = "oauth global secret, any string. Example: secret-for-signing-and-verifying-signatures"
 	oAuthSecretFlagEnvKey    = "VC_OAUTH_SECRET"
+
+	oAuthStoreFlagName  = "oauth-store"
+	oAuthStoreFlagUsage = "oauth store type. Possible values are \"redis\" or \"mongo\". Default is \"mongo\"" +
+		commonEnvVarUsageText + oAuthStoreFlagEnvKey
+	oAuthStoreFlagEnvKey = "VC_OAUTH_STORE"
 
 	oAuthClientsFilePathFlagName  = "oauth-client-file-path"
 	oAuthClientsFilePathEnvKey    = "VC_OAUTH_CLIENTS_FILE_PATH"
@@ -313,6 +331,7 @@ type startupParameters struct {
 	orbDomain                           string
 	mode                                string
 	dbParameters                        *dbParameters
+	redisParameters                     *redisParameters
 	kmsParameters                       *kmsParameters
 	token                               string
 	requestTokens                       map[string]string
@@ -322,6 +341,7 @@ type startupParameters struct {
 	tlsParameters                       *tlsParameters
 	httpParameters                      *httpParameters
 	devMode                             bool
+	oAuthStore                          string
 	oAuthSecret                         string
 	oAuthClientsFilePath                string
 	metricsProviderName                 string
@@ -362,6 +382,11 @@ type dbParameters struct {
 	databaseType   string
 	databaseURL    string
 	databasePrefix string
+}
+
+type redisParameters struct {
+	addrs      []string
+	masterName string
 }
 
 type tlsParameters struct {
@@ -411,6 +436,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	oAuthStore := cmdutils.GetUserSetOptionalVarFromString(cmd, oAuthStoreFlagName, oAuthStoreFlagEnvKey)
+
 	metricsProviderName, err := getMetricsProviderName(cmd)
 	if err != nil {
 		return nil, err
@@ -448,6 +475,8 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	redisParams := getRedisParameters(cmd)
 
 	kmsParams, err := getKMSParameters(cmd)
 	if err != nil {
@@ -617,6 +646,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		orbDomain:                           orbDomain,
 		mode:                                mode,
 		dbParameters:                        dbParams,
+		redisParameters:                     redisParams,
 		kmsParameters:                       kmsParams,
 		tlsParameters:                       tlsParameters,
 		httpParameters:                      httpParams,
@@ -626,6 +656,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		contextProviderURLs:                 contextProviderURLs,
 		contextEnableRemote:                 contextEnableRemote,
 		devMode:                             devMode,
+		oAuthStore:                          oAuthStore,
 		oAuthSecret:                         oAuthSecret,
 		oAuthClientsFilePath:                oAuthClientsFilePath,
 		metricsProviderName:                 metricsProviderName,
@@ -850,6 +881,17 @@ func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
 	}, nil
 }
 
+func getRedisParameters(cmd *cobra.Command) *redisParameters {
+	redisURLs := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, redisURLFlagName, redisURLEnvKey)
+	redisSentinelMasterName := cmdutils.GetUserSetOptionalVarFromString(cmd,
+		redisSentinelMasterNameFlagName, redisSentinelMasterNameEnvKey)
+
+	return &redisParameters{
+		addrs:      redisURLs,
+		masterName: redisSentinelMasterName,
+	}
+}
+
 func getRequestTokens(cmd *cobra.Command) map[string]string {
 	requestTokens := cmdutils.GetUserSetOptionalCSVVar(cmd, requestTokensFlagName,
 		requestTokensEnvKey)
@@ -896,6 +938,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(apiGatewayURLFlagName, apiGatewayURLFlagShorthand, "", apiGatewayURLFlagUsage)
 	startCmd.Flags().StringP(oAuthSecretFlagName, oAuthSecretFlagShorthand, "", oAuthSecretFlagUsage)
+	startCmd.Flags().StringP(oAuthStoreFlagName, "", "", oAuthStoreFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
@@ -905,6 +948,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
+	startCmd.Flags().StringP(redisURLFlagName, "", "", redisURLFlagUsage)
+	startCmd.Flags().StringP(redisSentinelMasterNameFlagName, "", "", redisSentinelMasterNameFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)

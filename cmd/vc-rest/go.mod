@@ -19,8 +19,9 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
 	github.com/labstack/echo/v4 v4.10.2
 	github.com/ory/dockertest/v3 v3.9.1
-	github.com/ory/fosite v0.43.0
+	github.com/ory/fosite v0.44.0
 	github.com/piprate/json-gold v0.5.0
+	github.com/redis/go-redis/v9 v9.0.3
 	github.com/sevenNt/echo-pprof v0.1.1-0.20230131020615-4dd36891e14b
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.2
@@ -30,13 +31,13 @@ require (
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000a
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/healthchecks v0.0.0-00010101000000-000000000000
-	github.com/trustbloc/vcs/component/oidc/fositemongo v0.0.0-00010101000000-000000000000
+	github.com/trustbloc/vcs/component/oidc/fosite v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/otp v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/pkg/profile/reader v0.0.0
 	go.mongodb.org/mongo-driver v1.11.4
 	go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws v0.40.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho v0.40.0
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.37.0
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.38.0
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/trace v1.14.0
 )
@@ -78,6 +79,7 @@ require (
 	github.com/cristalhq/jwt/v4 v4.0.2 // indirect
 	github.com/dave/jennifer v1.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/cli v23.0.3+incompatible // indirect
 	github.com/docker/docker v23.0.3+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
@@ -161,7 +163,9 @@ require (
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/samber/lo v1.37.0 // indirect
+	github.com/redis/go-redis/extra/rediscmd/v9 v9.0.2 // indirect
+	github.com/redis/go-redis/extra/redisotel/v9 v9.0.2 // indirect
+	github.com/samber/lo v1.38.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -193,7 +197,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.40.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.2 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.14.0 // indirect
-	go.opentelemetry.io/otel/metric v0.34.0 // indirect
+	go.opentelemetry.io/otel/metric v0.35.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.14.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
@@ -223,7 +227,7 @@ replace (
 	github.com/trustbloc/vcs/component/credentialstatus => ../../component/credentialstatus
 	github.com/trustbloc/vcs/component/event => ../../component/event
 	github.com/trustbloc/vcs/component/healthchecks => ../../component/healthchecks
-	github.com/trustbloc/vcs/component/oidc/fositemongo => ../../component/oidc/fositemongo
+	github.com/trustbloc/vcs/component/oidc/fosite => ../../component/oidc/fosite
 	github.com/trustbloc/vcs/component/otp => ../../component/otp
 	github.com/trustbloc/vcs/pkg/profile/reader => ../../component/profile/reader/file
 )

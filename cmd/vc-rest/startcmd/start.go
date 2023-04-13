@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"github.com/redis/go-redis/v9"
 	"net"
 	"net/http"
 	"os"
@@ -48,7 +49,7 @@ import (
 	"github.com/trustbloc/vcs/component/credentialstatus"
 	"github.com/trustbloc/vcs/component/event"
 	"github.com/trustbloc/vcs/component/healthchecks"
-	"github.com/trustbloc/vcs/component/oidc/fositemongo"
+	fositedto "github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/component/oidc/vp"
 	"github.com/trustbloc/vcs/component/otp"
 	"github.com/trustbloc/vcs/pkg/cslmanager"
@@ -100,6 +101,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
+	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslvcstore"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
@@ -394,6 +396,17 @@ func buildEchoHandler(
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
+	var redisClient redis.UniversalClient
+	if conf.StartupParameters.oAuthStore == redisOAuthStore {
+		redisClient, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
+			redisclient.WithTraceProvider(otel.GetTracerProvider()),
+			redisclient.WithMasterName(conf.StartupParameters.redisParameters.masterName),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create redis client: %w", err)
+		}
+	}
+
 	mongodbClient, err := mongodb.New(
 		conf.StartupParameters.dbParameters.databaseURL,
 		conf.StartupParameters.dbParameters.databasePrefix+"vcs_db",
@@ -590,7 +603,7 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to create issuer interaction client: %w", err)
 	}
 
-	var oauth2Clients []fositemongo.Client
+	var oauth2Clients []fositedto.Client
 
 	if conf.StartupParameters.oAuthClientsFilePath != "" {
 		if oauth2Clients, err = getOAuth2Clients(conf.StartupParameters.oAuthClientsFilePath); err != nil {
@@ -603,7 +616,9 @@ func buildEchoHandler(
 	oauthProvider, err = bootstrapOAuthProvider(
 		context.Background(),
 		conf.StartupParameters.oAuthSecret,
+		conf.StartupParameters.oAuthStore,
 		mongodbClient,
+		redisClient,
 		oauth2Clients,
 	)
 	if err != nil {
@@ -983,14 +998,14 @@ func validateAuthorizationBearerToken(w http.ResponseWriter, r *http.Request, to
 	return true
 }
 
-func getOAuth2Clients(path string) ([]fositemongo.Client, error) {
+func getOAuth2Clients(path string) ([]fositedto.Client, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	var clients []fositemongo.Client
+	var clients []fositedto.Client
 
 	if err = json.NewDecoder(f).Decode(&clients); err != nil {
 		return nil, err

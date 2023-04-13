@@ -68,7 +68,8 @@ type eventPublisher interface {
 }
 
 type cslManager interface {
-	CreateCSLEntry(ctx context.Context, profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error)
+	CreateCSLEntry(
+		ctx context.Context, profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error)
 }
 
 type Config struct {
@@ -166,7 +167,6 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 // CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
 func (s *Service) CreateStatusListEntry(
 	ctx context.Context, profileID profileapi.ID, credentialID string) (*credentialstatus.StatusListEntry, error) {
-
 	logger.Debug("CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
 		logfields.WithCredentialID(credentialID))
@@ -186,7 +186,8 @@ func (s *Service) CreateStatusListEntry(
 
 // GetStatusListVC returns StatusListVC (CSL) from underlying cslStore.
 // Used for handling public HTTP requests.
-func (s *Service) GetStatusListVC(ctx context.Context, groupID profileapi.ID, listID string) (*verifiable.Credential, error) {
+func (s *Service) GetStatusListVC(
+	ctx context.Context, groupID profileapi.ID, listID string) (*verifiable.Credential, error) {
 	logger.Debug("GetStatusListVC begin", logfields.WithProfileID(groupID), log.WithID(listID))
 
 	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))

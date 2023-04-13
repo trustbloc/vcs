@@ -50,6 +50,7 @@ generate:
 	@GOBIN=$(GOBIN_PATH) go install github.com/golang/mock/mockgen@$(MOCK_VERSION)
 	@GOBIN=$(GOBIN_PATH) go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@$(OPENAPIGEN_VERSION)
 	@go generate ./...
+	@cd component/credentialstatus && go generate
 
 .PHONY: lint
 lint: generate
