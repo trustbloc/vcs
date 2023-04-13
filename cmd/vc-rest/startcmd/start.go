@@ -58,7 +58,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/kms"
 	"github.com/trustbloc/vcs/pkg/ld"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
-	"github.com/trustbloc/vcs/pkg/observability/healthutil"
+	"github.com/trustbloc/vcs/pkg/observability/health/healthutil"
 	metricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics"
 	noopMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/noop"
 	promMetricsProvider "github.com/trustbloc/vcs/pkg/observability/metrics/prometheus"

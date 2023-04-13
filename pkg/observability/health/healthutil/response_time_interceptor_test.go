@@ -13,7 +13,7 @@ import (
 	"github.com/alexliesenfeld/health"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trustbloc/vcs/pkg/observability/healthutil"
+	"github.com/trustbloc/vcs/pkg/observability/health/healthutil"
 )
 
 func TestResponseTimeInterceptor(t *testing.T) {

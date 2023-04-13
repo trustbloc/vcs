@@ -22,7 +22,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 
-	mongocheck "github.com/trustbloc/vcs/component/healthchecks/mongo"
+	mongocheck "github.com/trustbloc/vcs/pkg/observability/health/mongo"
 )
 
 const (

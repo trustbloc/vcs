@@ -12,7 +12,7 @@ import (
 	"github.com/alexliesenfeld/health"
 	"github.com/spf13/cobra"
 
-	"github.com/trustbloc/vcs/component/healthchecks/mongo"
+	"github.com/trustbloc/vcs/pkg/observability/health/mongo"
 )
 
 type httpClient interface {
