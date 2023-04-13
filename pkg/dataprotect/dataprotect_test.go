@@ -26,7 +26,7 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 		crypto := NewMockcrypto(gomock.NewController(t))
 
 		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
+		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID, 1)
 		var data []byte
 		for i := 0; i < chunkSize*6; i++ {
 			data = append(data, byte(i))
@@ -49,14 +49,14 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 		crypto := NewMockcrypto(gomock.NewController(t))
 
 		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
+		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID, 1)
 		var data []byte
 		for i := 0; i < chunkSize*6; i++ {
 			data = append(data, byte(i))
 		}
 
 		crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-			Return(nil, nil, errors.New("encrypt err"))
+			Return(nil, nil, errors.New("encrypt err")).AnyTimes()
 
 		resp, err := p.Encrypt(context.TODO(), data)
 		assert.ErrorContains(t, err, "encrypt err")
@@ -69,7 +69,7 @@ func TestDecrypt(t *testing.T) {
 		crypto := NewMockcrypto(gomock.NewController(t))
 
 		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
+		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID, 0)
 
 		crypto.EXPECT().Decrypt(nil, []byte{0x5, 0x7}, []byte{0x1}, cryptoKeyID).
 			Return([]byte{0x50, 0x70}, nil)
@@ -101,10 +101,11 @@ func TestDecrypt(t *testing.T) {
 		crypto := NewMockcrypto(gomock.NewController(t))
 
 		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
+		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID, 10)
 		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any(), gomock.Any(), cryptoKeyID).
 			Return(nil, errors.New("decrypt err"))
 		resp, err := p.Decrypt(context.TODO(), []*dataprotect.EncryptedChunk{
+			{},
 			{},
 		})
 

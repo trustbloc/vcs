@@ -532,6 +532,9 @@ func setEnvVars(t *testing.T, databaseType, filePath string) {
 
 	err = os.Setenv(dataEncryptionKeyIDEnvKey, "12345")
 	require.NoError(t, err)
+
+	err = os.Setenv(dataEncryptionRoutinesPerRequestEnvKey, "15")
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -562,6 +565,9 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(dataEncryptionKeyIDEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(dataEncryptionRoutinesPerRequestEnvKey)
 	require.NoError(t, err)
 }
 

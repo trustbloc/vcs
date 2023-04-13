@@ -183,6 +183,12 @@ const (
 		"For aws refer to https://docs.aws.amazon.com/kms/latest/APIReference/API_Encrypt.html  Default: 4096" +
 		commonEnvVarUsageText + dataEncryptionDataChunkSizeEnvKey
 
+	dataEncryptionRoutinesPerRequestFlagName  = "data-encryption-routines-per-request"
+	dataEncryptionRoutinesPerRequestEnvKey    = "VC_REST_DATA_ENCRYPTION_ROUTINES_PER_REQUEST" //nolint: gosec
+	dataEncryptionRoutinesPerRequestFlagUsage = "Data Encryption & Decryption routines per each encrypt\\decrypt operation." +
+		" Default: 4096" +
+		commonEnvVarUsageText + dataEncryptionRoutinesPerRequestEnvKey
+
 	requestTokensFlagName  = "request-tokens"
 	requestTokensEnvKey    = "VC_REST_REQUEST_TOKENS" //nolint: gosec
 	requestTokensFlagUsage = "Tokens used for http request " +
@@ -301,9 +307,10 @@ const (
 )
 
 const (
-	defaultClaimDataTTL            = 3600 * time.Second
-	defaultVPReceivedClaimsDataTTL = 3600 * time.Second
-	defaultDataEncryptionChunkSize = 4096
+	defaultClaimDataTTL                     = 3600 * time.Second
+	defaultVPReceivedClaimsDataTTL          = 3600 * time.Second
+	defaultDataEncryptionChunkSize          = 4096
+	defaultDataEncryptionRoutinesPerRequest = 10
 )
 
 type startupParameters struct {
@@ -345,6 +352,7 @@ type startupParameters struct {
 	vpReceivedClaimsDataTTL             int32
 	tracingParams                       *tracingParams
 	dataEncryptionKeyID                 string
+	dataEncryptionRoutinesPerRequest    int
 	dataEncryptionDataChunkSizeLength   int
 	enableProfiler                      bool
 }
@@ -479,6 +487,18 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		} else {
 			logger.Warn("can not parse dataEncryptionDataChunkSizeLength")
 		}
+	}
+
+	dataEncryptionRoutinesPerRequest := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		dataEncryptionRoutinesPerRequestFlagName,
+		dataEncryptionRoutinesPerRequestEnvKey,
+	)
+	dataEncryptionRoutinesPerRequestCount := defaultDataEncryptionRoutinesPerRequest
+	if v, parseErr := strconv.Atoi(dataEncryptionRoutinesPerRequest); parseErr == nil {
+		dataEncryptionRoutinesPerRequestCount = v
+	} else {
+		logger.Warn("can not parse VC_REST_DATA_ENCRYPTION_ROUTINES_PER_REQUEST")
 	}
 
 	requestTokens := getRequestTokens(cmd)
@@ -651,6 +671,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
 		dataEncryptionDataChunkSizeLength:   dataEncryptionDataChunkSizeLength,
 		enableProfiler:                      enableProfiler,
+		dataEncryptionRoutinesPerRequest:    dataEncryptionRoutinesPerRequestCount,
 	}, nil
 }
 
@@ -910,6 +931,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionKeyIDFlagName, "", "", dataEncryptionKeyIDFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionDataChunkSizeFlagName, "", "", dataEncryptionDataChunkSizeFlagUsage)
+	startCmd.Flags().StringP(dataEncryptionRoutinesPerRequestFlagName, "", "", dataEncryptionRoutinesPerRequestFlagUsage)
 	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)
