@@ -26,15 +26,13 @@ func TestEncrypt(t *testing.T) {
 		}
 		claimsBytes, _ := json.Marshal(claims)
 
-		chunks := []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      []byte{0x1, 0x2, 0x3},
-				EncryptedNonce: []byte{0x0, 0x2},
-			},
+		chunks := &dataprotect.EncryptedData{
+			Encrypted:      []byte{0x1, 0x2, 0x3},
+			EncryptedNonce: []byte{0x0, 0x2},
 		}
 		crypto := NewMockDataProtector(gomock.NewController(t))
 		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, bytes []byte) ([]*dataprotect.EncryptedChunk, error) {
+			DoAndReturn(func(ctx context.Context, bytes []byte) (*dataprotect.EncryptedData, error) {
 				assert.Equal(t, claimsBytes, bytes)
 				return chunks, nil
 			})
@@ -46,7 +44,7 @@ func TestEncrypt(t *testing.T) {
 			"foo": "bar",
 		})
 		assert.NoError(t, err)
-		assert.Equal(t, data.EncryptedChunks, chunks)
+		assert.Equal(t, data.EncryptedData, chunks)
 	})
 	t.Run("fail marshal", func(t *testing.T) {
 		srv, _ := oidc4ci.NewService(&oidc4ci.Config{})
@@ -81,16 +79,14 @@ func TestDecrypt(t *testing.T) {
 		}
 		claimsBytes, _ := json.Marshal(claims)
 
-		chunks := []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      []byte{0x1, 0x2, 0x3},
-				EncryptedNonce: []byte{0x0, 0x2},
-			},
+		chunks := &dataprotect.EncryptedData{
+			Encrypted:      []byte{0x1, 0x2, 0x3},
+			EncryptedNonce: []byte{0x0, 0x2},
 		}
 
 		crypto := NewMockDataProtector(gomock.NewController(t))
 		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, chunks2 []*dataprotect.EncryptedChunk) ([]byte, error) {
+			DoAndReturn(func(ctx context.Context, chunks2 *dataprotect.EncryptedData) ([]byte, error) {
 				assert.Equal(t, chunks, chunks2)
 
 				return claimsBytes, nil
@@ -101,17 +97,15 @@ func TestDecrypt(t *testing.T) {
 		})
 
 		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
-			EncryptedChunks: chunks,
+			EncryptedData: chunks,
 		})
 		assert.NoError(t, err)
 		assert.Equal(t, claims, data)
 	})
 	t.Run("fail marshal", func(t *testing.T) {
-		chunks := []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      []byte{0x1, 0x2, 0x3},
-				EncryptedNonce: []byte{0x0, 0x2},
-			},
+		chunks := &dataprotect.EncryptedData{
+			Encrypted:      []byte{0x1, 0x2, 0x3},
+			EncryptedNonce: []byte{0x0, 0x2},
 		}
 
 		crypto := NewMockDataProtector(gomock.NewController(t))
@@ -123,18 +117,16 @@ func TestDecrypt(t *testing.T) {
 		})
 
 		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
-			EncryptedChunks: chunks,
+			EncryptedData: chunks,
 		})
 		assert.ErrorContains(t, err, "looking for beginning of value")
 		assert.Nil(t, data)
 	})
 
 	t.Run("encrypt err", func(t *testing.T) {
-		chunks := []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      []byte{0x1, 0x2, 0x3},
-				EncryptedNonce: []byte{0x0, 0x2},
-			},
+		chunks := &dataprotect.EncryptedData{
+			Encrypted:      []byte{0x1, 0x2, 0x3},
+			EncryptedNonce: []byte{0x0, 0x2},
 		}
 
 		crypto := NewMockDataProtector(gomock.NewController(t))
@@ -146,7 +138,7 @@ func TestDecrypt(t *testing.T) {
 		})
 
 		data, err := srv.DecryptClaims(context.TODO(), &oidc4ci.ClaimData{
-			EncryptedChunks: chunks,
+			EncryptedData: chunks,
 		})
 		assert.ErrorContains(t, err, "can not decrypt")
 		assert.Nil(t, data)

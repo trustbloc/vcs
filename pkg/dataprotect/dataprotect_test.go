@@ -23,42 +23,55 @@ const (
 
 func TestNewDataProtectorEncrypt(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		crypto := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockcrypto(gomock.NewController(t))
+		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 
-		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
-		var data []byte
-		for i := 0; i < chunkSize*6; i++ {
-			data = append(data, byte(i))
-		}
+		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt)
 
-		crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
-			Return([]byte{0x1}, []byte{0x2}, nil).Times(6)
+		data := []byte{0x1, 0x2, 0x66, 0x32}
+		encryptedData := []byte{0x99, 0x55, 0x66}
+		key := []byte{0x12}
+		encryptedKey := []byte{0x88, 0x77}
+		nonce := []byte{0x5}
 
-		resp, err := p.Encrypt(context.TODO(), data)
+		encrypt.EXPECT().Encrypt(data).
+			Return(encryptedData, key, nil)
+		keyProtector.EXPECT().
+			Encrypt(key, nil, cryptoKeyID).
+			Return(encryptedKey, nonce, nil)
+
+		enc, err := p.Encrypt(context.TODO(), data)
 		assert.NoError(t, err)
-		assert.NotEmpty(t, resp)
-		assert.Len(t, resp, 6)
-		for _, r := range resp {
-			assert.Equal(t, []byte{0x1}, r.Encrypted)
-			assert.Equal(t, []byte{0x2}, r.EncryptedNonce)
-		}
+
+		assert.Equal(t, encryptedData, enc.Encrypted)
+		assert.Equal(t, nonce, enc.EncryptedNonce)
+		assert.Equal(t, encryptedKey, enc.EncryptedKey)
+	})
+
+	t.Run("data encrypt err", func(t *testing.T) {
+		keyProtector := NewMockcrypto(gomock.NewController(t))
+		encrypt := NewMockdataEncryptor(gomock.NewController(t))
+
+		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt)
+		encrypt.EXPECT().Encrypt(gomock.Any()).
+			Return(nil, nil, errors.New("data encrypt err"))
+
+		resp, err := p.Encrypt(context.TODO(), []byte{0x0})
+		assert.ErrorContains(t, err, "data encrypt err")
+		assert.Empty(t, resp)
 	})
 
 	t.Run("encrypt err", func(t *testing.T) {
-		crypto := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockcrypto(gomock.NewController(t))
+		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 
-		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
-		var data []byte
-		for i := 0; i < chunkSize*6; i++ {
-			data = append(data, byte(i))
-		}
-
-		crypto.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
+		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, encrypt)
+		encrypt.EXPECT().Encrypt(gomock.Any()).
+			Return(nil, nil, nil)
+		keyProtector.EXPECT().Encrypt(gomock.Any(), nil, cryptoKeyID).
 			Return(nil, nil, errors.New("encrypt err"))
 
-		resp, err := p.Encrypt(context.TODO(), data)
+		resp, err := p.Encrypt(context.TODO(), []byte{0x0})
 		assert.ErrorContains(t, err, "encrypt err")
 		assert.Empty(t, resp)
 	})
@@ -66,49 +79,82 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 
 func TestDecrypt(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		crypto := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockcrypto(gomock.NewController(t))
+		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 
-		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
+		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector)
 
-		crypto.EXPECT().Decrypt(nil, []byte{0x5, 0x7}, []byte{0x1}, cryptoKeyID).
-			Return([]byte{0x50, 0x70}, nil)
-		crypto.EXPECT().Decrypt(nil, []byte{0x1, 0x2}, []byte{0x2}, cryptoKeyID).
-			Return([]byte{0x10, 0x20}, nil)
-		crypto.EXPECT().Decrypt(nil, []byte{0x10, 0x3}, []byte{0x3}, cryptoKeyID).
-			Return([]byte{0x10, 0x30}, nil)
+		data := []byte{0x1, 0x2, 0x66, 0x32}
+		encryptedData := []byte{0x99, 0x55, 0x66}
+		key := []byte{0x12}
+		encryptedKey := []byte{0x88, 0x77}
+		nonce := []byte{0x5}
 
-		resp, err := p.Decrypt(context.TODO(), []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      []byte{0x5, 0x7},
-				EncryptedNonce: []byte{0x1},
-			},
-			{
-				Encrypted:      []byte{0x1, 0x2},
-				EncryptedNonce: []byte{0x2},
-			},
-			{
-				Encrypted:      []byte{0x10, 0x3},
-				EncryptedNonce: []byte{0x3},
-			},
+		dataProtector.EXPECT().Decrypt(encryptedData, key).
+			Return(data, nil)
+
+		keyProtector.EXPECT().
+			Decrypt(nil, encryptedKey, nonce, cryptoKeyID).
+			Return(key, nil)
+
+		dec, err := p.Decrypt(context.TODO(), &dataprotect.EncryptedData{
+			Encrypted:      encryptedData,
+			EncryptedKey:   encryptedKey,
+			EncryptedNonce: nonce,
 		})
-
 		assert.NoError(t, err)
-		assert.Equal(t, []byte{0x50, 0x70, 0x10, 0x20, 0x10, 0x30}, resp)
+
+		assert.Equal(t, data, dec)
 	})
 
-	t.Run("err", func(t *testing.T) {
-		crypto := NewMockcrypto(gomock.NewController(t))
+	t.Run("fail decrypt key", func(t *testing.T) {
+		keyProtector := NewMockcrypto(gomock.NewController(t))
+		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 
-		chunkSize := 10
-		p := dataprotect.NewDataProtector(crypto, chunkSize, cryptoKeyID)
-		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any(), gomock.Any(), cryptoKeyID).
-			Return(nil, errors.New("decrypt err"))
-		resp, err := p.Decrypt(context.TODO(), []*dataprotect.EncryptedChunk{
-			{},
+		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector)
+
+		encryptedData := []byte{0x99, 0x55, 0x66}
+		encryptedKey := []byte{0x88, 0x77}
+		nonce := []byte{0x5}
+
+		keyProtector.EXPECT().
+			Decrypt(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("can not decrypt key"))
+
+		dec, err := p.Decrypt(context.TODO(), &dataprotect.EncryptedData{
+			Encrypted:      encryptedData,
+			EncryptedKey:   encryptedKey,
+			EncryptedNonce: nonce,
 		})
+		assert.Error(t, err, "can not decrypt key")
 
-		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "decrypt err")
+		assert.Nil(t, dec)
+	})
+
+	t.Run("fail decrypt key", func(t *testing.T) {
+		keyProtector := NewMockcrypto(gomock.NewController(t))
+		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
+
+		p := dataprotect.NewDataProtector(keyProtector, cryptoKeyID, dataProtector)
+
+		encryptedData := []byte{0x99, 0x55, 0x66}
+		encryptedKey := []byte{0x88, 0x77}
+		nonce := []byte{0x5}
+
+		dataProtector.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
+			Return(nil, errors.New("can not decrypt data"))
+
+		keyProtector.EXPECT().
+			Decrypt(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			Return(nil, nil)
+
+		dec, err := p.Decrypt(context.TODO(), &dataprotect.EncryptedData{
+			Encrypted:      encryptedData,
+			EncryptedKey:   encryptedKey,
+			EncryptedNonce: nonce,
+		})
+		assert.Error(t, err, "can not decrypt data")
+
+		assert.Nil(t, dec)
 	})
 }

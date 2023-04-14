@@ -39,7 +39,7 @@ const (
 
 // ClaimData represents user claims in pre-auth code flow.
 type ClaimData struct {
-	EncryptedChunks []*dataprotect.EncryptedChunk `json:"encrypted_chunks"`
+	EncryptedData *dataprotect.EncryptedData `json:"encrypted_data"`
 }
 
 // TransactionData is the transaction data stored in the underlying storage.

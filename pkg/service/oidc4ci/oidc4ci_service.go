@@ -108,8 +108,8 @@ type credentialOfferReferenceStore interface {
 }
 
 type dataProtector interface {
-	Encrypt(ctx context.Context, msg []byte) ([]*dataprotect.EncryptedChunk, error)
-	Decrypt(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error)
+	Encrypt(ctx context.Context, msg []byte) (*dataprotect.EncryptedData, error)
+	Decrypt(ctx context.Context, encryptedData *dataprotect.EncryptedData) ([]byte, error)
 }
 
 // Config holds configuration options and dependencies for Service.

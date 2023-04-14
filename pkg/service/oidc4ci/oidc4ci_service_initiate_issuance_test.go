@@ -122,11 +122,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 				}
 
 				profile = &testProfile
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
@@ -162,7 +160,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 
 				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, data *oidc4ci.ClaimData) (string, error) {
-						assert.Equal(t, chunks, data.EncryptedChunks)
+						assert.Equal(t, chunks, data.EncryptedData)
 
 						return "claimDataID", nil
 					})
@@ -242,11 +240,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
@@ -316,11 +312,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
@@ -391,11 +385,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
@@ -465,11 +457,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
@@ -514,11 +504,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 				pinGenerator.EXPECT().Generate(gomock.Any()).Times(0)
 				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
 
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
@@ -569,11 +557,9 @@ func TestService_InitiateIssuance(t *testing.T) {
 						}, nil
 					})
 
-				chunks := []*dataprotect.EncryptedChunk{
-					{
-						Encrypted:      []byte{0x1, 0x2, 0x3},
-						EncryptedNonce: []byte{0x0, 0x2},
-					},
+				chunks := &dataprotect.EncryptedData{
+					Encrypted:      []byte{0x1, 0x2, 0x3},
+					EncryptedNonce: []byte{0x0, 0x2},
 				}
 
 				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).

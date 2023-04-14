@@ -51,11 +51,9 @@ func TestStore(t *testing.T) {
 
 	t.Run("test create and get", func(t *testing.T) {
 		claims := &oidc4ci.ClaimData{
-			EncryptedChunks: []*dataprotect.EncryptedChunk{
-				{
-					Encrypted:      []byte{0x1},
-					EncryptedNonce: []byte{0x2},
-				},
+			EncryptedData: &dataprotect.EncryptedData{
+				Encrypted:      []byte{0x1},
+				EncryptedNonce: []byte{0x2},
 			},
 		}
 
@@ -86,11 +84,9 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		claims := &oidc4ci.ClaimData{
-			EncryptedChunks: []*dataprotect.EncryptedChunk{
-				{
-					Encrypted:      []byte{0x1},
-					EncryptedNonce: []byte{0x2},
-				},
+			EncryptedData: &dataprotect.EncryptedData{
+				Encrypted:      []byte{0x1},
+				EncryptedNonce: []byte{0x2},
 			},
 		}
 

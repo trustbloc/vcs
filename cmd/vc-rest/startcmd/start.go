@@ -554,8 +554,8 @@ func buildEchoHandler(
 
 	claimsDataProtector := dataprotect.NewDataProtector(
 		defaultVCSKeyManager.Crypto(),
-		conf.StartupParameters.dataEncryptionDataChunkSizeLength,
 		conf.StartupParameters.dataEncryptionKeyID,
+		dataprotect.NewAES(conf.StartupParameters.dataEncryptionKeyLength),
 	)
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,

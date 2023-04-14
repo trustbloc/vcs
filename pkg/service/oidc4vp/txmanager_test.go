@@ -185,14 +185,12 @@ func TestTxManager_Get(t *testing.T) {
 		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		chunks := []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      encryptedClaims,
-				EncryptedNonce: nonce,
-			},
+		chunks := &dataprotect.EncryptedData{
+			Encrypted:      encryptedClaims,
+			EncryptedNonce: nonce,
 		}
 		claimsStore.EXPECT().Get(gomock.Any()).Return(&oidc4vp.ClaimData{
-			EncryptedChunk: chunks,
+			EncryptedData: chunks,
 		}, nil)
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
@@ -201,7 +199,7 @@ func TestTxManager_Get(t *testing.T) {
 			testutil.DocumentLoader(t))
 
 		crypto.EXPECT().Decrypt(gomock.Any(), chunks).
-			DoAndReturn(func(ctx context.Context, chunks1 []*dataprotect.EncryptedChunk) ([]byte, error) {
+			DoAndReturn(func(ctx context.Context, chunks1 *dataprotect.EncryptedData) ([]byte, error) {
 				assert.Equal(t, chunks, chunks1)
 
 				vc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
@@ -339,15 +337,13 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		chunks := []*dataprotect.EncryptedChunk{
-			{
-				Encrypted:      []byte{0x0, 0x1, 0x2},
-				EncryptedNonce: []byte{0x3, 0x4},
-			},
+		chunks := &dataprotect.EncryptedData{
+			Encrypted:      []byte{0x0, 0x1, 0x2},
+			EncryptedNonce: []byte{0x3, 0x4},
 		}
 
 		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(ctx context.Context, bytes []byte) ([]*dataprotect.EncryptedChunk, error) {
+			DoAndReturn(func(ctx context.Context, bytes []byte) (*dataprotect.EncryptedData, error) {
 				assert.NotEmpty(t, bytes)
 				return chunks, nil
 			})
@@ -355,7 +351,7 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 		claimsStore.EXPECT().Create(gomock.Any()).
 			DoAndReturn(func(data *oidc4vp.ClaimData) (string, error) {
 				assert.Equal(t, oidc4vp.ClaimData{
-					EncryptedChunk: chunks,
+					EncryptedData: chunks,
 				}, *data)
 				return "claimsID", nil
 			})
