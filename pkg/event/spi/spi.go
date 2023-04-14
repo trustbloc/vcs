@@ -48,11 +48,13 @@ const (
 	CredentialStatusStatusUpdated = EventType("credentialstatus_status_updated")
 )
 
+// Payload defines payload.
 type Payload []byte
 
+// Event defines event.
 type Event struct {
 	// SpecVersion is spec version(required).
-	SpecVersion string `json:"specVersion"`
+	SpecVersion string `json:"specversion"`
 
 	// ID identifies the event(required).
 	ID string `json:"id"`
@@ -67,18 +69,18 @@ type Event struct {
 	Time *util.TimeWrapper `json:"time"`
 
 	// DataContentType is data content type(optional).
-	DataContentType string `json:"dataContentType,omitempty"`
+	DataContentType string `json:"datacontenttype,omitempty"`
 
 	// Data defines message(optional).
 	Data []byte `json:"data,omitempty"`
 
 	// TransactionID defines transaction ID(optional).
-	TransactionID string `json:"txnId,omitempty"`
+	TransactionID string `json:"txnid,omitempty"`
 
 	// Subject defines subject(optional).
 	Subject string `json:"subject,omitempty"`
 
-	// Tracing defines tracing(optional).
+	// Tracing defines tracing information(optional).
 	Tracing string `json:"tracing,omitempty"`
 }
 
