@@ -985,18 +985,16 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				clData := &oidc4ci.ClaimData{
-					EncryptedChunks: []*dataprotect.EncryptedChunk{
-						{
-							Encrypted:      []byte{0x1, 0x2, 0x3},
-							EncryptedNonce: []byte{0x0, 0x2},
-						},
+					EncryptedData: &dataprotect.EncryptedData{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
 					},
 				}
 
 				mockClaimDataStore.EXPECT().GetAndDelete(gomock.Any(), claimID).Return(clData, nil)
 
-				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedChunks).
-					DoAndReturn(func(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error) {
+				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedData).
+					DoAndReturn(func(ctx context.Context, chunks *dataprotect.EncryptedData) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
 					})
@@ -1062,15 +1060,13 @@ func TestService_PrepareCredential(t *testing.T) {
 						return nil
 					})
 				clData := &oidc4ci.ClaimData{
-					EncryptedChunks: []*dataprotect.EncryptedChunk{
-						{
-							Encrypted:      []byte{0x1, 0x2, 0x3},
-							EncryptedNonce: []byte{0x0, 0x2},
-						},
+					EncryptedData: &dataprotect.EncryptedData{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
 					},
 				}
-				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedChunks).
-					DoAndReturn(func(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error) {
+				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedData).
+					DoAndReturn(func(ctx context.Context, chunks *dataprotect.EncryptedData) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
 					})
@@ -1124,15 +1120,13 @@ func TestService_PrepareCredential(t *testing.T) {
 					})
 
 				clData := &oidc4ci.ClaimData{
-					EncryptedChunks: []*dataprotect.EncryptedChunk{
-						{
-							Encrypted:      []byte{0x1, 0x2, 0x3},
-							EncryptedNonce: []byte{0x0, 0x2},
-						},
+					EncryptedData: &dataprotect.EncryptedData{
+						Encrypted:      []byte{0x1, 0x2, 0x3},
+						EncryptedNonce: []byte{0x0, 0x2},
 					},
 				}
-				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedChunks).
-					DoAndReturn(func(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error) {
+				crypto.EXPECT().Decrypt(gomock.Any(), clData.EncryptedData).
+					DoAndReturn(func(ctx context.Context, chunks *dataprotect.EncryptedData) ([]byte, error) {
 						b, _ := json.Marshal(map[string]interface{}{})
 						return b, nil
 					})

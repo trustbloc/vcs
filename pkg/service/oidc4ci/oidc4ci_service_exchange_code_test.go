@@ -86,7 +86,7 @@ func TestExchangeCode(t *testing.T) {
 		},
 		RedirectURL: baseTx.RedirectURI,
 		Scopes:      baseTx.Scope,
-	}, authCode, gomock.Any(), gomock.Any()).Return(&oauth2.Token{
+	}, authCode, gomock.Any()).Return(&oauth2.Token{
 		AccessToken: "SlAV32hkKG",
 	}, nil)
 
@@ -180,7 +180,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 			},
 		}, nil)
 
-	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
+	oauth2Client.EXPECT().Exchange(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		nil,
 		errors.New("oauth2: server response missing access_token"),
 	)

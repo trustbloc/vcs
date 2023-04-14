@@ -48,7 +48,7 @@ type ReceivedClaimsRaw struct {
 }
 
 type ClaimData struct {
-	EncryptedChunk []*dataprotect.EncryptedChunk `json:"encrypted_chunk"`
+	EncryptedData *dataprotect.EncryptedData `json:"encrypted_data"`
 }
 
 type TransactionUpdate struct {
@@ -73,8 +73,8 @@ type txNonceStore interface {
 }
 
 type dataProtector interface {
-	Encrypt(ctx context.Context, msg []byte) ([]*dataprotect.EncryptedChunk, error)
-	Decrypt(ctx context.Context, chunks []*dataprotect.EncryptedChunk) ([]byte, error)
+	Encrypt(ctx context.Context, msg []byte) (*dataprotect.EncryptedData, error)
+	Decrypt(ctx context.Context, encryptedData *dataprotect.EncryptedData) ([]byte, error)
 }
 
 // TxManager used to manage oidc transactions.

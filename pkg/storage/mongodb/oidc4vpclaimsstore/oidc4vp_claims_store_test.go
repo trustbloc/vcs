@@ -52,11 +52,9 @@ func TestStore(t *testing.T) {
 
 	t.Run("test create and get - JWT", func(t *testing.T) {
 		receivedClaims := &oidc4vp.ClaimData{
-			EncryptedChunk: []*dataprotect.EncryptedChunk{
-				{
-					Encrypted:      []byte{0x1, 0x2},
-					EncryptedNonce: []byte{0x3},
-				},
+			EncryptedData: &dataprotect.EncryptedData{
+				Encrypted:      []byte{0x1, 0x2},
+				EncryptedNonce: []byte{0x3},
 			},
 		}
 
@@ -89,11 +87,9 @@ func TestStore(t *testing.T) {
 		assert.NoError(t, err)
 
 		receivedClaims := &oidc4vp.ClaimData{
-			EncryptedChunk: []*dataprotect.EncryptedChunk{
-				{
-					Encrypted:      []byte{0x1, 0x2},
-					EncryptedNonce: []byte{0x3},
-				},
+			EncryptedData: &dataprotect.EncryptedData{
+				Encrypted:      []byte{0x1, 0x2},
+				EncryptedNonce: []byte{0x3},
 			},
 		}
 

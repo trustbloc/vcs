@@ -34,7 +34,7 @@ func (tm *TxManager) EncryptClaims(ctx context.Context, data *ReceivedClaims) (*
 	}
 
 	return &ClaimData{
-		EncryptedChunk: encrypted,
+		EncryptedData: encrypted,
 	}, nil
 }
 
@@ -63,7 +63,7 @@ func (tm *TxManager) DecryptClaims(ctx context.Context, data *ClaimData) (*Recei
 		return nil, nil //nolint:nilnil
 	}
 
-	resp, err := tm.dataProtector.Decrypt(ctx, data.EncryptedChunk)
+	resp, err := tm.dataProtector.Decrypt(ctx, data.EncryptedData)
 	if err != nil {
 		return nil, err
 	}

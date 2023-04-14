@@ -23,12 +23,12 @@ func (s *Service) EncryptClaims(ctx context.Context, data map[string]interface{}
 	}
 
 	return &ClaimData{
-		EncryptedChunks: encrypted,
+		EncryptedData: encrypted,
 	}, nil
 }
 
 func (s *Service) DecryptClaims(ctx context.Context, data *ClaimData) (map[string]interface{}, error) {
-	resp, err := s.dataProtector.Decrypt(ctx, data.EncryptedChunks)
+	resp, err := s.dataProtector.Decrypt(ctx, data.EncryptedData)
 	if err != nil {
 		return nil, err
 	}
