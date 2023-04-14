@@ -12,7 +12,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"net"
 	"net/http"
 	"os"
@@ -91,17 +90,21 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
+	claimdatastoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslindexstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslvcstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
+	oidc4vpclaimsstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
+	oidcnoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
+	claimdatastoreredis "github.com/trustbloc/vcs/pkg/storage/redis/claimdatastore"
+	oidc4vpclaimsstoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vpclaimsstore"
+	oidcnoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslvcstore"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
@@ -396,14 +399,21 @@ func buildEchoHandler(
 
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
-	var redisClient redis.UniversalClient
-	if conf.StartupParameters.oAuthStore == redisOAuthStore {
+	var redisClient, redisClientNoTracing *redisclient.Client
+	if conf.StartupParameters.transientDataStoreType == redisStore {
 		redisClient, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
 			redisclient.WithTraceProvider(otel.GetTracerProvider()),
 			redisclient.WithMasterName(conf.StartupParameters.redisParameters.masterName),
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create redis client: %w", err)
+		}
+
+		redisClientNoTracing, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
+			redisclient.WithMasterName(conf.StartupParameters.redisParameters.masterName),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create redis client no tracing: %w", err)
 		}
 	}
 
@@ -534,7 +544,10 @@ func buildEchoHandler(
 		return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
 	}
 
-	claimDataStore, err := claimdatastore.New(context.Background(), mongodbClientNoTracing,
+	oidc4ciClaimDataStore, err := getOidc4ciClaimDataStore(
+		conf.StartupParameters.transientDataStoreType,
+		redisClientNoTracing,
+		mongodbClientNoTracing,
 		conf.StartupParameters.claimDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
@@ -559,7 +572,7 @@ func buildEchoHandler(
 	)
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,
-		ClaimDataStore:                claimDataStore,
+		ClaimDataStore:                oidc4ciClaimDataStore,
 		WellKnownService:              wellknown.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
 		ProfileService:                issuerProfileSvc,
 		IssuerVCSPublicHost:           conf.StartupParameters.apiGatewayURL,
@@ -616,7 +629,7 @@ func buildEchoHandler(
 	oauthProvider, err = bootstrapOAuthProvider(
 		context.Background(),
 		conf.StartupParameters.oAuthSecret,
-		conf.StartupParameters.oAuthStore,
+		conf.StartupParameters.transientDataStoreType,
 		mongodbClient,
 		redisClient,
 		oauth2Clients,
@@ -706,13 +719,19 @@ func buildEchoHandler(
 
 	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
 
-	oidc4vpClaimsStore, err := oidc4vpclaimsstore.New(context.Background(), mongodbClientNoTracing,
+	oidc4vpClaimsStore, err := getOIDC4VPClaimsStore(
+		conf.StartupParameters.transientDataStoreType,
+		redisClientNoTracing,
+		mongodbClientNoTracing,
 		conf.StartupParameters.vpReceivedClaimsDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
 
-	oidcNonceStore, err := oidcnoncestore.New(mongodbClient)
+	oidcNonceStore, err := getOIDCNonceStore(
+		conf.StartupParameters.transientDataStoreType,
+		redisClient,
+		mongodbClient)
 	if err != nil {
 		return nil, err
 	}
@@ -821,6 +840,76 @@ type credentialOfferReferenceStore interface {
 		ctx context.Context,
 		request *oidc4ci.CredentialOfferResponse,
 	) (string, error)
+}
+
+func getOIDC4VPClaimsStore(
+	transientDataStoreType string,
+	redisClientNoTracing *redis.Client,
+	mongoClientNoTracing *mongodb.Client,
+	vpReceivedClaimsDataTTL int32) (oidc4vp.TxClaimsStore, error) {
+	var store oidc4vp.TxClaimsStore
+	var err error
+
+	switch transientDataStoreType {
+	case redisStore:
+		store = oidc4vpclaimsstoreredis.New(redisClientNoTracing, vpReceivedClaimsDataTTL)
+		logger.Info("OIDC4VP claim data store Redis is used")
+	default:
+		store, err = oidc4vpclaimsstoremongo.New(
+			context.Background(), mongoClientNoTracing, vpReceivedClaimsDataTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate Mongo store: %w", err)
+		}
+
+		logger.Info("OIDC4VP claim data store Mongo is used")
+	}
+
+	return store, nil
+}
+
+func getOIDCNonceStore(
+	transientDataStoreType string,
+	redisClient *redis.Client,
+	mongoClient *mongodb.Client) (oidc4vp.TxNonceStore, error) {
+	var store oidc4vp.TxNonceStore
+	var err error
+	switch transientDataStoreType {
+	case redisStore:
+		store = oidcnoncestoreredis.New(redisClient)
+		logger.Info("OIDC nonce store Redis is used")
+	default:
+		store, err = oidcnoncestoremongo.New(mongoClient)
+		if err != nil {
+			return nil, err
+		}
+
+		logger.Info("OIDC nonce store Mongo is used")
+	}
+
+	return store, nil
+}
+
+func getOidc4ciClaimDataStore(
+	transientDataStoreType string,
+	redisClient *redis.Client,
+	mongoClient *mongodb.Client,
+	claimDataTTL int32) (oidc4ci.ClaimDataStore, error) {
+	var store oidc4ci.ClaimDataStore
+	var err error
+	switch transientDataStoreType {
+	case redisStore:
+		store = claimdatastoreredis.New(redisClient, claimDataTTL)
+		logger.Info("claim data store Redis is used")
+	default:
+		store, err = claimdatastoremongo.New(context.Background(), mongoClient, claimDataTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
+		}
+
+		logger.Info("claim data store Mongo is used")
+	}
+
+	return store, nil
 }
 
 func createRequestObjectStore(

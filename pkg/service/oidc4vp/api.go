@@ -48,3 +48,7 @@ type ServiceInterface interface {
 	GetTx(ctx context.Context, id TxID) (*Transaction, error)
 	RetrieveClaims(ctx context.Context, tx *Transaction) map[string]CredentialMetadata
 }
+
+type TxNonceStore txNonceStore
+
+type TxClaimsStore txClaimsStore

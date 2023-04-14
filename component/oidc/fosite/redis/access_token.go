@@ -31,7 +31,7 @@ func (s *Store) GetAccessTokenSession(
 func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) error {
 	signatureBasedKey := resolveRedisKey(dto.AccessTokenSegment, signature)
 
-	intermediateKey, err := s.redisClient.Get(ctx, signatureBasedKey).Result()
+	intermediateKey, err := s.redisClient.API().Get(ctx, signatureBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			// If intermediateKey is not accessible - consider that the session is already deleted.
@@ -41,13 +41,13 @@ func (s *Store) DeleteAccessTokenSession(ctx context.Context, signature string) 
 		return err
 	}
 
-	return s.redisClient.Del(ctx, intermediateKey, signatureBasedKey).Err()
+	return s.redisClient.API().Del(ctx, intermediateKey, signatureBasedKey).Err()
 }
 
 func (s *Store) RevokeAccessToken(ctx context.Context, requestID string) error {
 	requestIDBasedKey := resolveRedisKey(dto.AccessTokenSegment, requestID)
 
-	intermediateKey, err := s.redisClient.Get(ctx, requestIDBasedKey).Result()
+	intermediateKey, err := s.redisClient.API().Get(ctx, requestIDBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			// If intermediateKey is not accessible - consider that the session is already deleted.
@@ -57,5 +57,5 @@ func (s *Store) RevokeAccessToken(ctx context.Context, requestID string) error {
 		return err
 	}
 
-	return s.redisClient.Del(ctx, intermediateKey, requestIDBasedKey).Err()
+	return s.redisClient.API().Del(ctx, intermediateKey, requestIDBasedKey).Err()
 }

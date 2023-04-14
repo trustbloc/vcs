@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/ory/fosite"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestClientAsserting(t *testing.T) {
@@ -23,14 +24,12 @@ func TestClientAsserting(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
-	err := s.ClientAssertionJWTValid(context.Background(), "total_random")
+	err = s.ClientAssertionJWTValid(context.Background(), "total_random")
 	assert.NoError(t, err)
 }
 
@@ -47,10 +46,8 @@ func TestClientAssertingWithExpiration(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 

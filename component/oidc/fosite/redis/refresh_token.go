@@ -31,7 +31,7 @@ func (s *Store) GetRefreshTokenSession(
 func (s *Store) DeleteRefreshTokenSession(ctx context.Context, signature string) error {
 	lookupIDBasedKey := resolveRedisKey(dto.RefreshTokenSegment, signature)
 
-	intermediateKey, err := s.redisClient.Get(ctx, lookupIDBasedKey).Result()
+	intermediateKey, err := s.redisClient.API().Get(ctx, lookupIDBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			// If intermediateKey is not accessible - consider that the session is already deleted.
@@ -41,13 +41,13 @@ func (s *Store) DeleteRefreshTokenSession(ctx context.Context, signature string)
 		return err
 	}
 
-	return s.redisClient.Del(ctx, intermediateKey, lookupIDBasedKey).Err()
+	return s.redisClient.API().Del(ctx, intermediateKey, lookupIDBasedKey).Err()
 }
 
 func (s *Store) RevokeRefreshToken(ctx context.Context, requestID string) error {
 	requestIDBasedKey := resolveRedisKey(dto.RefreshTokenSegment, requestID)
 
-	intermediateKey, err := s.redisClient.Get(ctx, requestIDBasedKey).Result()
+	intermediateKey, err := s.redisClient.API().Get(ctx, requestIDBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			// If intermediateKey is not accessible - consider that the session is already deleted.
@@ -57,7 +57,7 @@ func (s *Store) RevokeRefreshToken(ctx context.Context, requestID string) error 
 		return err
 	}
 
-	return s.redisClient.Del(ctx, intermediateKey, requestIDBasedKey).Err()
+	return s.redisClient.API().Del(ctx, intermediateKey, requestIDBasedKey).Err()
 }
 
 func (s *Store) RevokeRefreshTokenMaybeGracePeriod(ctx context.Context, requestID string, signature string) error {

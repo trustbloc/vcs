@@ -117,6 +117,31 @@ func TestStartCmdWithBlankArg(t *testing.T) {
 		require.Contains(t, err.Error(), "Neither oauth-secret (command line flag) nor VC_OAUTH_SECRET")
 	})
 
+	t.Run("test missed redis url", func(t *testing.T) {
+		startCmd := GetStartCmd()
+
+		args := []string{
+			"--" + hostURLFlagName, "localhost:8080",
+			"--" + kmsTypeFlagName, "web",
+			"--" + databaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + databaseURLFlagName, mongoDBConnString,
+			"--" + kmsSecretsDatabaseTypeFlagName, databaseTypeMongoDBOption,
+			"--" + contextEnableRemoteFlagName, "true",
+			"--" + oAuthSecretFlagName, "secret",
+			"--" + oAuthClientsFilePathFlagName, "/some/path",
+			"--" + hostURLExternalFlagName, "secret",
+			"--" + dataEncryptionKeyIDFlagName, "12345",
+			"--" + transientDataStoreTypeFlagName, redisStore,
+		}
+
+		startCmd.SetArgs(args)
+
+		err := startCmd.Execute()
+		require.Error(t, err)
+		require.Contains(t, err.Error(),
+			"Neither redis-url (command line flag) nor VC_REDIS_URL (environment variable) have been set")
+	})
+
 	t.Run("test blank oauth clients file path", func(t *testing.T) {
 		startCmd := GetStartCmd()
 
@@ -210,9 +235,14 @@ func (s *mockServer) ListenAndServeTLS(certFile, keyFile string) error {
 }
 
 func TestStartCmdValidArgs(t *testing.T) {
-	pool, mongoDBResource := startMongoDBContainer(t)
+	mongoPool, mongoDBResource := startMongoDBContainer(t)
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		require.NoError(t, mongoPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	redisPool, redisResource := startRedisContainer(t)
+	defer func() {
+		assert.NoError(t, redisPool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
 	file, err := os.CreateTemp("", "prefix")
@@ -264,9 +294,14 @@ func TestStartCmdValidArgs(t *testing.T) {
 }
 
 func TestStartCmdWithEchoHandler(t *testing.T) {
-	pool, mongoDBResource := startMongoDBContainer(t)
+	mongoPool, mongoDBResource := startMongoDBContainer(t)
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		require.NoError(t, mongoPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	redisPool, redisResource := startRedisContainer(t)
+	defer func() {
+		assert.NoError(t, redisPool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
 	file, err := os.CreateTemp("", "prefix")
@@ -289,6 +324,8 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + profilePathFlag, file.Name(),
 		"--" + dataEncryptionKeyIDFlagName, "12345",
 		"--" + enableProfilerFlagName, "true",
+		"--" + transientDataStoreTypeFlagName, redisStore,
+		"--" + redisURLFlagName, "localhost:6379",
 	}
 	startCmd.SetArgs(args)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -303,9 +340,14 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 }
 
 func TestStartCmdValidArgsEnvVar(t *testing.T) {
-	pool, mongoDBResource := startMongoDBContainer(t)
+	mongoPool, mongoDBResource := startMongoDBContainer(t)
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+		require.NoError(t, mongoPool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	redisPool, redisResource := startRedisContainer(t)
+	defer func() {
+		assert.NoError(t, redisPool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
 	file, err := os.CreateTemp("", "prefix")
@@ -537,6 +579,12 @@ func setEnvVars(t *testing.T, databaseType, filePath string) {
 
 	err = os.Setenv(dataEncryptionKeyIDEnvKey, "12345")
 	require.NoError(t, err)
+
+	err = os.Setenv(transientDataStoreTypeFlagEnvKey, redisStore)
+	require.NoError(t, err)
+
+	err = os.Setenv(redisURLEnvKey, "localhost:6379")
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -567,6 +615,12 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(dataEncryptionKeyIDEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(redisURLEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(transientDataStoreTypeFlagEnvKey)
 	require.NoError(t, err)
 }
 

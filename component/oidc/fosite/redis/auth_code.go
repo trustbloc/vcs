@@ -29,5 +29,5 @@ func (s *Store) GetAuthorizeCodeSession(
 func (s *Store) InvalidateAuthorizeCodeSession(ctx context.Context, code string) error {
 	key := resolveRedisKey(dto.AuthCodeSegment, code)
 
-	return s.redisClient.Del(ctx, key).Err()
+	return s.redisClient.API().Del(ctx, key).Err()
 }

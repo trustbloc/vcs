@@ -12,10 +12,10 @@ import (
 
 	"github.com/ory/fosite"
 	"github.com/pborman/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestPar(t *testing.T) {
@@ -25,10 +25,8 @@ func TestPar(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -96,10 +94,8 @@ func TestRequestInvalidSession(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -115,10 +111,8 @@ func TestRequestInvalidParSessionWithoutClient(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 

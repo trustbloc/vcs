@@ -16,7 +16,6 @@ import (
 	dc "github.com/ory/dockertest/v3/docker"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -31,11 +30,21 @@ func TestClient(t *testing.T) {
 		require.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client, err := New([]string{redisConnString}, WithTraceProvider(trace.NewNoopTracerProvider()))
-	require.NoError(t, err)
-	require.NotNil(t, client)
+	t.Run("OK", func(t *testing.T) {
+		client, err := New([]string{redisConnString})
+		require.NoError(t, err)
+		require.NotNil(t, client)
 
-	require.NoError(t, client.Close())
+		require.NoError(t, client.API().Close())
+	})
+
+	t.Run("Timeout", func(t *testing.T) {
+		client, err := New([]string{redisConnString}, WithTimeout(0))
+
+		require.Nil(t, client)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "context deadline exceeded")
+	})
 }
 
 func waitForRedisToBeUp() error {

@@ -42,6 +42,8 @@ type ClaimData struct {
 	EncryptedData *dataprotect.EncryptedData `json:"encrypted_data"`
 }
 
+type ClaimDataStore claimDataStore
+
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID

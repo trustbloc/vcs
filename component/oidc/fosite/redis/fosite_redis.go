@@ -9,16 +9,16 @@ package redis
 import (
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 const defaultTTL = 24 * time.Hour
 
 type Store struct {
-	redisClient redis.UniversalClient
+	redisClient *redis.Client
 }
 
-func NewStore(client redis.UniversalClient) *Store {
+func NewStore(client *redis.Client) *Store {
 	return &Store{
 		redisClient: client,
 	}

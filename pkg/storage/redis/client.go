@@ -22,6 +22,7 @@ const (
 
 type clientOpts struct {
 	masterName    string
+	timeout       time.Duration
 	traceProvider trace.TracerProvider
 }
 
@@ -39,6 +40,17 @@ func WithMasterName(masterName string) ClientOpt {
 	}
 }
 
+func WithTimeout(timeout time.Duration) ClientOpt {
+	return func(opts *clientOpts) {
+		opts.timeout = timeout
+	}
+}
+
+type Client struct {
+	client  redis.UniversalClient
+	timeout time.Duration
+}
+
 // New returns new redis.UniversalClient.
 // The type of the returned client depends
 // on the following conditions:
@@ -46,8 +58,11 @@ func WithMasterName(masterName string) ClientOpt {
 // 1. If the MasterName option is specified, a sentinel-backed FailoverClient is returned.
 // 2. if the number of Addrs is two or more, a ClusterClient is returned.
 // 3. Otherwise, a single-node Client is returned.
-func New(addrs []string, opts ...ClientOpt) (redis.UniversalClient, error) {
-	opt := &clientOpts{}
+func New(addrs []string, opts ...ClientOpt) (*Client, error) {
+	opt := &clientOpts{
+		timeout: defaultTimeout,
+	}
+
 	for _, f := range opts {
 		f(opt)
 	}
@@ -65,7 +80,7 @@ func New(addrs []string, opts ...ClientOpt) (redis.UniversalClient, error) {
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), opt.timeout)
 	defer cancel()
 
 	err := client.Ping(ctx).Err()
@@ -73,5 +88,16 @@ func New(addrs []string, opts ...ClientOpt) (redis.UniversalClient, error) {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	return client, nil
+	return &Client{
+		client:  client,
+		timeout: opt.timeout,
+	}, nil
+}
+
+func (c *Client) ContextWithTimeout() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), c.timeout)
+}
+
+func (c *Client) API() redis.UniversalClient {
+	return c.client
 }

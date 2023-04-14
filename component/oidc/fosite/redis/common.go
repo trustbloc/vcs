@@ -16,10 +16,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/ory/fosite"
-	"github.com/redis/go-redis/v9"
+	redisapi "github.com/redis/go-redis/v9"
 	"golang.org/x/text/language"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 const intermediateKeyPrefix = "intermediate"
@@ -63,12 +64,13 @@ func (s *Store) createSession(
 	intermediateKey := resolveRedisKey(intermediateKeyPrefix, uuid.NewString())
 
 	var err error
+	clientAPI := s.redisClient.API()
 	// Set lookupIDBasedKey that points to intermediateKey
-	if err = s.redisClient.Set(ctx, lookupIDBasedKey, intermediateKey, ttl).Err(); err == nil {
+	if err = clientAPI.Set(ctx, lookupIDBasedKey, intermediateKey, ttl).Err(); err == nil {
 		// Set requesterIDBasedKey that points to intermediateKey
-		if err = s.redisClient.Set(ctx, requesterIDBasedKey, intermediateKey, ttl).Err(); err == nil {
+		if err = clientAPI.Set(ctx, requesterIDBasedKey, intermediateKey, ttl).Err(); err == nil {
 			// Set intermediateKey that points to genericDocument
-			err = s.redisClient.Set(ctx, intermediateKey, obj, ttl).Err()
+			err = clientAPI.Set(ctx, intermediateKey, obj, ttl).Err()
 		}
 	}
 
@@ -120,15 +122,15 @@ func (s *Store) getSession(
 
 func getInternalIntermediateKey[T any](
 	ctx context.Context,
-	redisClient redis.Cmdable,
+	redisClient *redis.Client,
 	dbCollection string,
 	lookupID string,
 ) (*T, error) {
 	lookupIDBasedKey := resolveRedisKey(dbCollection, lookupID)
 
-	intermediateKey, err := redisClient.Get(ctx, lookupIDBasedKey).Result()
+	intermediateKey, err := redisClient.API().Get(ctx, lookupIDBasedKey).Result()
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
+		if errors.Is(err, redisapi.Nil) {
 			return nil, dto.ErrDataNotFound
 		}
 
@@ -140,7 +142,7 @@ func getInternalIntermediateKey[T any](
 
 func getInternal[T any](
 	ctx context.Context,
-	redisClient redis.Cmdable,
+	redisClient *redis.Client,
 	dbCollection string,
 	lookupID string,
 ) (*T, error) {
@@ -151,12 +153,12 @@ func getInternal[T any](
 
 func get[T any](
 	ctx context.Context,
-	redisClient redis.Cmdable,
+	redisClient *redis.Client,
 	key string,
 ) (*T, error) {
-	docBytes, err := redisClient.Get(ctx, key).Bytes()
+	docBytes, err := redisClient.API().Get(ctx, key).Bytes()
 	if err != nil {
-		if errors.Is(err, redis.Nil) {
+		if errors.Is(err, redisapi.Nil) {
 			return nil, dto.ErrDataNotFound
 		}
 
