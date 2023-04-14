@@ -15,7 +15,6 @@ import (
 	"github.com/ory/fosite/compose"
 	fositeoauth2 "github.com/ory/fosite/handler/oauth2"
 	"github.com/ory/fosite/token/hmac"
-	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/mongo"
 
 	fositedto "github.com/trustbloc/vcs/component/oidc/fosite/dto"
@@ -23,16 +22,15 @@ import (
 	fositeredis "github.com/trustbloc/vcs/component/oidc/fosite/redis"
 	fosite_ext "github.com/trustbloc/vcs/pkg/restapi/handlers"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
-
-const redisOAuthStore = "redis"
 
 func bootstrapOAuthProvider(
 	ctx context.Context,
 	secret string,
-	oauthStore string,
+	transientDataStoreType string,
 	mongoClient *mongodb.Client,
-	redisClient redis.UniversalClient,
+	redisClient *redis.Client,
 	oauth2Clients []fositedto.Client,
 ) (fosite.OAuth2Provider, error) {
 	if len(secret) == 0 {
@@ -52,7 +50,7 @@ func bootstrapOAuthProvider(
 		Config: config,
 	}
 
-	store, err := bootstrapOAuthStorage(ctx, oauthStore, mongoClient, redisClient, oauth2Clients)
+	store, err := bootstrapOAuthStorage(ctx, transientDataStoreType, mongoClient, redisClient, oauth2Clients)
 	if err != nil {
 		return nil, err
 	}
@@ -68,14 +66,14 @@ func bootstrapOAuthProvider(
 
 func bootstrapOAuthStorage(
 	ctx context.Context,
-	oauthStore string,
+	transientDataStoreType string,
 	mongoClient *mongodb.Client,
-	redisClient redis.UniversalClient,
+	redisClient *redis.Client,
 	oauth2Clients []fositedto.Client) (interface{}, error) {
 	var store interface{}
 	var err error
-	switch oauthStore {
-	case redisOAuthStore:
+	switch transientDataStoreType {
+	case redisStore:
 		logger.Info("Redis oAuth store is used")
 		store = fositeredis.NewStore(redisClient)
 	default:

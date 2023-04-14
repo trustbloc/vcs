@@ -44,8 +44,8 @@ services:
       - VC_SYSTEM_VERSION=v1.0.0
       - VC_REST_DATA_ENCRYPTION_KEY_ID=bc436485-5092-42b8-92a3-0aa8b93536dc
       - VC_REST_ENABLE_PROFILER=true
-      - VC_OAUTH_STORE=redis
-      - REDIS_URL=redis.example.com:6379
+      - VC_TRANSIENT_DATA_STORE_TYPE=redis
+      - VC_REDIS_URL=redis.example.com:6379
     ports:
       - "8075:8075"
       - "48127:48127"

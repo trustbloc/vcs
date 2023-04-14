@@ -11,10 +11,10 @@ import (
 	"testing"
 
 	"github.com/pborman/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestStoreFail(t *testing.T) {
@@ -24,17 +24,15 @@ func TestStoreFail(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	cancel()
 
-	_, err := s.InsertClient(ctx, dto.Client{
+	_, err = s.InsertClient(ctx, dto.Client{
 		ID:     uuid.New(),
 		Scopes: []string{"awesome"},
 	})

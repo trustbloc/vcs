@@ -20,5 +20,5 @@ func (s *Store) InsertClient(ctx context.Context, client dto.Client) (string, er
 		Record: client,
 	}
 
-	return key, s.redisClient.Set(ctx, key, obj, defaultTTL).Err()
+	return key, s.redisClient.API().Set(ctx, key, obj, defaultTTL).Err()
 }

@@ -128,7 +128,7 @@ const (
 		commonEnvVarUsageText + databasePrefixEnvKey
 
 	redisURLFlagName  = "redis-url"
-	redisURLEnvKey    = "REDIS_URL"
+	redisURLEnvKey    = "VC_REDIS_URL"
 	redisURLFlagUsage = "The list of comma-separated Redis URLs. " +
 		"The type of the returned client depends on the following conditions: " +
 		"1. If the " + redisSentinelMasterNameEnvKey + " is specified, a sentinel-backed FailoverClient is returned. " +
@@ -206,10 +206,15 @@ const (
 	oAuthSecretFlagUsage     = "oauth global secret, any string. Example: secret-for-signing-and-verifying-signatures"
 	oAuthSecretFlagEnvKey    = "VC_OAUTH_SECRET"
 
-	oAuthStoreFlagName  = "oauth-store"
-	oAuthStoreFlagUsage = "oauth store type. Possible values are \"redis\" or \"mongo\". Default is \"mongo\"" +
-		commonEnvVarUsageText + oAuthStoreFlagEnvKey
-	oAuthStoreFlagEnvKey = "VC_OAUTH_STORE"
+	transientDataStoreTypeFlagName  = "transient-data-store-type"
+	transientDataStoreTypeFlagUsage = "Transient data store type. " +
+		"For now includes Fosite oAuth data, " +
+		"encrypted claim data submitted by issuer during OIDC4CI issuance, " +
+		"OIDC4VP nonce store, " +
+		"encrypted claim data of OIDC4VP presentation transaction. " +
+		"Possible values are \"redis\" or \"mongo\". Default is \"mongo\". " +
+		commonEnvVarUsageText + transientDataStoreTypeFlagEnvKey
+	transientDataStoreTypeFlagEnvKey = "VC_TRANSIENT_DATA_STORE_TYPE"
 
 	oAuthClientsFilePathFlagName  = "oauth-client-file-path"
 	oAuthClientsFilePathEnvKey    = "VC_OAUTH_CLIENTS_FILE_PATH"
@@ -316,6 +321,8 @@ const (
 
 	defaultHTTPDialTimeout = 2 * time.Second
 	defaultHTTPTimeout     = 20 * time.Second
+
+	redisStore = "redis"
 )
 
 const (
@@ -341,7 +348,6 @@ type startupParameters struct {
 	tlsParameters                       *tlsParameters
 	httpParameters                      *httpParameters
 	devMode                             bool
-	oAuthStore                          string
 	oAuthSecret                         string
 	oAuthClientsFilePath                string
 	metricsProviderName                 string
@@ -362,6 +368,7 @@ type startupParameters struct {
 	verifierEventTopic                  string
 	credentialStatusEventTopic          string
 	claimDataTTL                        int32
+	transientDataStoreType              string
 	vpReceivedClaimsDataTTL             int32
 	tracingParams                       *tracingParams
 	dataEncryptionKeyID                 string
@@ -436,8 +443,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	oAuthStore := cmdutils.GetUserSetOptionalVarFromString(cmd, oAuthStoreFlagName, oAuthStoreFlagEnvKey)
-
 	metricsProviderName, err := getMetricsProviderName(cmd)
 	if err != nil {
 		return nil, err
@@ -476,7 +481,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	redisParams := getRedisParameters(cmd)
+	transientDataStoreType := cmdutils.GetUserSetOptionalVarFromString(cmd, transientDataStoreTypeFlagName, transientDataStoreTypeFlagEnvKey)
+
+	redisParams, err := getRedisParameters(cmd, transientDataStoreType)
+	if err != nil {
+		return nil, err
+	}
 
 	kmsParams, err := getKMSParameters(cmd)
 	if err != nil {
@@ -656,7 +666,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		contextProviderURLs:                 contextProviderURLs,
 		contextEnableRemote:                 contextEnableRemote,
 		devMode:                             devMode,
-		oAuthStore:                          oAuthStore,
 		oAuthSecret:                         oAuthSecret,
 		oAuthClientsFilePath:                oAuthClientsFilePath,
 		metricsProviderName:                 metricsProviderName,
@@ -678,6 +687,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		credentialStatusEventTopic:          credentialStatusTopic,
 		claimDataTTL:                        int32(claimDataTTL.Seconds()),
 		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
+		transientDataStoreType:              transientDataStoreType,
 		tracingParams:                       tracingParams,
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
 		dataEncryptionKeyLength:             dataEncryptionKeyLength,
@@ -881,15 +891,20 @@ func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
 	}, nil
 }
 
-func getRedisParameters(cmd *cobra.Command) *redisParameters {
-	redisURLs := cmdutils.GetUserSetOptionalVarFromArrayString(cmd, redisURLFlagName, redisURLEnvKey)
+func getRedisParameters(cmd *cobra.Command, transientDataStoreType string) (*redisParameters, error) {
+	redisURLs, err := cmdutils.GetStringArray(
+		cmd, redisURLFlagName, redisURLEnvKey, transientDataStoreType != redisStore)
+	if err != nil {
+		return nil, err
+	}
+
 	redisSentinelMasterName := cmdutils.GetUserSetOptionalVarFromString(cmd,
 		redisSentinelMasterNameFlagName, redisSentinelMasterNameEnvKey)
 
 	return &redisParameters{
 		addrs:      redisURLs,
 		masterName: redisSentinelMasterName,
-	}
+	}, nil
 }
 
 func getRequestTokens(cmd *cobra.Command) map[string]string {
@@ -938,7 +953,6 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(hostURLFlagName, hostURLFlagShorthand, "", hostURLFlagUsage)
 	startCmd.Flags().StringP(apiGatewayURLFlagName, apiGatewayURLFlagShorthand, "", apiGatewayURLFlagUsage)
 	startCmd.Flags().StringP(oAuthSecretFlagName, oAuthSecretFlagShorthand, "", oAuthSecretFlagUsage)
-	startCmd.Flags().StringP(oAuthStoreFlagName, "", "", oAuthStoreFlagUsage)
 	startCmd.Flags().StringP(hostURLExternalFlagName, hostURLExternalFlagShorthand, "", hostURLExternalFlagUsage)
 	startCmd.Flags().StringP(universalResolverURLFlagName, universalResolverURLFlagShorthand, "",
 		universalResolverURLFlagUsage)
@@ -948,7 +962,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(databaseTypeFlagName, databaseTypeFlagShorthand, "", databaseTypeFlagUsage)
 	startCmd.Flags().StringP(databaseURLFlagName, databaseURLFlagShorthand, "", databaseURLFlagUsage)
 	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
-	startCmd.Flags().StringP(redisURLFlagName, "", "", redisURLFlagUsage)
+	startCmd.Flags().StringArrayP(redisURLFlagName, "", nil, redisURLFlagUsage)
 	startCmd.Flags().StringP(redisSentinelMasterNameFlagName, "", "", redisSentinelMasterNameFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
@@ -1001,6 +1015,7 @@ func createFlags(startCmd *cobra.Command) {
 
 	startCmd.Flags().StringP(httpTimeoutFlagName, "", "", httpTimeoutFlagUsage)
 	startCmd.Flags().StringP(httpDialTimeoutFlagName, "", "", httpDialTimeoutFlagUsage)
+	startCmd.Flags().String(transientDataStoreTypeFlagName, "", transientDataStoreTypeFlagUsage)
 
 	profilereader.AddFlags(startCmd)
 }

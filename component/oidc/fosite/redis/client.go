@@ -50,5 +50,5 @@ func (s *Store) SetClientAssertionJWT(ctx context.Context, jti string, exp time.
 
 	key := resolveRedisKey(dto.BlacklistedJTIsSegment, jti)
 
-	return s.redisClient.Set(ctx, key, obj, exp.Sub(time.Now().UTC())).Err()
+	return s.redisClient.API().Set(ctx, key, obj, exp.Sub(time.Now().UTC())).Err()
 }

@@ -40,7 +40,7 @@ func (s *Store) CreatePARSession(ctx context.Context, requestURI string, request
 
 	key := resolveRedisKey(dto.ParSegment, requestURI)
 
-	return s.redisClient.Set(ctx, key, obj, defaultTTL).Err()
+	return s.redisClient.API().Set(ctx, key, obj, defaultTTL).Err()
 }
 
 func (s *Store) GetPARSession(ctx context.Context, requestURI string) (fosite.AuthorizeRequester, error) {
@@ -72,5 +72,5 @@ func (s *Store) GetPARSession(ctx context.Context, requestURI string) (fosite.Au
 func (s *Store) DeletePARSession(ctx context.Context, requestURI string) error {
 	key := resolveRedisKey(dto.ParSegment, requestURI)
 
-	return s.redisClient.Del(ctx, key).Err()
+	return s.redisClient.API().Del(ctx, key).Err()
 }

@@ -12,11 +12,11 @@ import (
 
 	"github.com/ory/fosite"
 	"github.com/pborman/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/language"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestCreateSessionWithoutClient(t *testing.T) {
@@ -26,10 +26,8 @@ func TestCreateSessionWithoutClient(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -58,10 +56,8 @@ func TestCreateSessionWithAccessRequest(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -92,10 +88,8 @@ func TestCreateSessionWithoutRedisErr(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -114,10 +108,8 @@ func TestCreateExpiredSession(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -125,7 +117,7 @@ func TestCreateExpiredSession(t *testing.T) {
 		ID: uuid.New(),
 	}
 
-	_, err := s.InsertClient(context.Background(), *dbClient)
+	_, err = s.InsertClient(context.Background(), *dbClient)
 	assert.NoError(t, err)
 
 	assert.NoError(t, s.createSession(context.TODO(), dto.ClientsSegment, "123", &fosite.Request{

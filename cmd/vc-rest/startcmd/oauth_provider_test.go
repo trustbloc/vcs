@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	fositedto "github.com/trustbloc/vcs/component/oidc/fosite/dto"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestBoostrapOidc(t *testing.T) {
@@ -68,14 +68,12 @@ func TestBoostrapOidc(t *testing.T) {
 			assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 		}()
 
-		redisClient := redis.NewClient(&redis.Options{
-			Addr:                  redisConnString,
-			ContextTimeoutEnabled: true,
-		})
+		redisClient, err := redis.New([]string{redisConnString})
+		assert.NoError(t, err)
 
 		t.Run("success", func(t *testing.T) {
 			provider, err := bootstrapOAuthProvider(
-				context.TODO(), secret, redisOAuthStore, nil, redisClient, []fositedto.Client{oauthClient})
+				context.TODO(), secret, redisStore, nil, redisClient, []fositedto.Client{oauthClient})
 			assert.NoError(t, err)
 			assert.NotNil(t, provider)
 		})
@@ -87,7 +85,7 @@ func TestBoostrapOidc(t *testing.T) {
 			}
 
 			provider, err := bootstrapOAuthProvider(
-				context.TODO(), secret, redisOAuthStore, nil, redisClient, oauthClients)
+				context.TODO(), secret, redisStore, nil, redisClient, oauthClients)
 			assert.NoError(t, err)
 			assert.NotNil(t, provider)
 		})

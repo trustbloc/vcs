@@ -23,7 +23,7 @@ func (s *Store) CreatePKCERequestSession(ctx context.Context, signature string, 
 func (s *Store) DeletePKCERequestSession(ctx context.Context, signature string) error {
 	signatureBasedKey := resolveRedisKey(dto.PkceSessionSegment, signature)
 
-	intermediateKey, err := s.redisClient.Get(ctx, signatureBasedKey).Result()
+	intermediateKey, err := s.redisClient.API().Get(ctx, signatureBasedKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			// If intermediateKey is not accessible - consider that the session is already deleted.
@@ -33,7 +33,7 @@ func (s *Store) DeletePKCERequestSession(ctx context.Context, signature string) 
 		return err
 	}
 
-	return s.redisClient.Del(ctx, intermediateKey, signatureBasedKey).Err()
+	return s.redisClient.API().Del(ctx, intermediateKey, signatureBasedKey).Err()
 }
 
 func (s *Store) GetPKCERequestSession(

@@ -12,11 +12,11 @@ import (
 
 	"github.com/ory/fosite"
 	"github.com/pborman/uuid"
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/language"
 
 	"github.com/trustbloc/vcs/component/oidc/fosite/dto"
+	"github.com/trustbloc/vcs/pkg/storage/redis"
 )
 
 func TestRefreshTokenFlow(t *testing.T) {
@@ -26,10 +26,8 @@ func TestRefreshTokenFlow(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
@@ -122,10 +120,8 @@ func TestFailGracePeriod(t *testing.T) {
 		assert.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
-	client := redis.NewClient(&redis.Options{
-		Addr:                  redisConnString,
-		ContextTimeoutEnabled: true,
-	})
+	client, err := redis.New([]string{redisConnString})
+	assert.NoError(t, err)
 
 	s := NewStore(client)
 
