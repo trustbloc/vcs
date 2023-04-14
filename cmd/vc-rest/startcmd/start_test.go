@@ -10,13 +10,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/cenkalti/backoff/v4"
 	dctest "github.com/ory/dockertest/v3"
@@ -250,7 +251,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + credentialstatusTopicFlagName, "dev1-vcs-credentialstatus",
 		"--" + otelExporterTypeFlagName, "STDOUT",
 		"--" + dataEncryptionKeyIDFlagName, "12345",
-		"--" + dataEncryptionDataChunkSizeFlagName, "2048",
+		"--" + dataEncryptionKeyLengthFlagName, "256",
 	}
 
 	startCmd.SetArgs(args)
