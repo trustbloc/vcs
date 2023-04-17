@@ -425,6 +425,39 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 	})
 }
 
+func TestTxManagerDeleteReceivedClaims(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		store := NewMockTxStore(gomock.NewController(t))
+		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
+		claimsStore.EXPECT().Delete(gomock.Any()).Return(nil)
+
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+		crypto := NewMockDataProtector(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+			testutil.DocumentLoader(t))
+
+		err := manager.DeleteReceivedClaims("claimsID")
+		require.NoError(t, err)
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		store := NewMockTxStore(gomock.NewController(t))
+		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
+		claimsStore.EXPECT().Delete(gomock.Any()).Return(fmt.Errorf("delete error"))
+
+		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
+		crypto := NewMockDataProtector(gomock.NewController(t))
+
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+			testutil.DocumentLoader(t))
+
+		err := manager.DeleteReceivedClaims("claimsID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "delete error")
+	})
+}
+
 func TestClaimsToRaw(t *testing.T) {
 	t.Run("data nil", func(t *testing.T) {
 		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, nil,

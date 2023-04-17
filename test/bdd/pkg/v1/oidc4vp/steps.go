@@ -62,8 +62,12 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 		e.initiateInteraction)
 	s.Step(`^Verifier form organization "([^"]*)" requests interactions claims$`,
 		e.retrieveInteractionsClaim)
+	s.Step(`^Verifier form organization "([^"]*)" waits for interaction succeeded event$`,
+		e.waitForOIDCInteractionSucceededEvent)
 	s.Step(`^Verifier form organization "([^"]*)" requests expired interactions claims$`,
-		e.retrieveExpiredInteractionsClaim)
+		e.retrieveExpiredOrDeletedInteractionsClaim)
+	s.Step(`^Verifier form organization "([^"]*)" requests deleted interactions claims$`,
+		e.retrieveExpiredOrDeletedInteractionsClaim)
 
 	s.Step(`^Wallet verify authorization request and decode claims$`, e.verifyAuthorizationRequestAndDecodeClaims)
 	s.Step("^Wallet looks for credential that match authorization$", e.queryCredentialFromWallet)

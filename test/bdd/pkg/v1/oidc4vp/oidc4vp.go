@@ -165,7 +165,18 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 	return e.vpFlowExecutor.retrieveInteractionsClaim(txID, token, http.StatusOK)
 }
 
-func (e *Steps) retrieveExpiredInteractionsClaim(organizationName string) error {
+func (e *Steps) waitForOIDCInteractionSucceededEvent(organizationName string) error {
+	txID, err := e.waitForEvent("oidc_interaction_succeeded")
+	if err != nil {
+		return err
+	}
+
+	e.vpFlowExecutor.claimsTransactionID = txID
+
+	return nil
+}
+
+func (e *Steps) retrieveExpiredOrDeletedInteractionsClaim(organizationName string) error {
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 
 	txID := e.vpFlowExecutor.claimsTransactionID

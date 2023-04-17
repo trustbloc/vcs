@@ -408,10 +408,16 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 	}
 
 	if tx.ReceivedClaims == nil {
-		return fmt.Errorf("claims expired for transaction '%s'", txID)
+		return fmt.Errorf("claims are either retrieved or expired for transaction '%s'", txID)
 	}
 
 	claims := c.oidc4VPService.RetrieveClaims(ctx, tx)
+
+	err = c.oidc4VPService.DeleteClaims(ctx, tx.ReceivedClaimsID)
+	if err != nil {
+		logger.Info(fmt.Sprintf("RetrieveInteractionsClaim failed to delete claims for txn ID[%s] - "+
+			"the claims will be expired", txID))
+	}
 
 	logger.Debug("RetrieveInteractionsClaim succeed")
 

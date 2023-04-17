@@ -115,3 +115,31 @@ func (s *Store) Get(claimDataID string) (*oidc4vp.ClaimData, error) {
 
 	return doc.ClaimData, nil
 }
+
+// Delete deletes claims by id.
+func (s *Store) Delete(claimDataID string) error {
+	id, err := primitive.ObjectIDFromHex(claimDataID)
+	if err != nil {
+		return fmt.Errorf("parse id %s: %w", claimDataID, err)
+	}
+
+	collection := s.mongoClient.Database().Collection(collectionName)
+
+	ctxWithTimeout, cancel := s.mongoClient.ContextWithTimeout()
+	defer cancel()
+
+	_, err = collection.DeleteOne(ctxWithTimeout,
+		bson.D{
+			{
+				Key:   "_id",
+				Value: id,
+			},
+		},
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to delete received claims with id[%s]: %w", id, err)
+	}
+
+	return nil
+}

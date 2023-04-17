@@ -43,7 +43,7 @@ func TestStore(t *testing.T) {
 
 	store := New(client, defaultClaimsTTL)
 
-	t.Run("test create and get - JWT", func(t *testing.T) {
+	t.Run("test create and get, followed by delete - JWT", func(t *testing.T) {
 		receivedClaims := &oidc4vp.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1, 0x2},
@@ -59,6 +59,13 @@ func TestStore(t *testing.T) {
 		require.NotNil(t, claimsInDB)
 
 		require.Equal(t, *receivedClaims, *claimsInDB)
+
+		err = store.Delete(id)
+		require.NoError(t, err)
+
+		claimsInDB, err = store.Get(id)
+		assert.Nil(t, claimsInDB)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 
 	t.Run("get non existing document", func(t *testing.T) {

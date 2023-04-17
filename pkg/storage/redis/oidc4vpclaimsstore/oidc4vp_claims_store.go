@@ -80,6 +80,18 @@ func (s *Store) Get(claimDataID string) (*oidc4vp.ClaimData, error) {
 	return doc.ClaimData, nil
 }
 
+func (s *Store) Delete(claimDataID string) error {
+	ctxWithTimeout, cancel := s.redisClient.ContextWithTimeout()
+	defer cancel()
+
+	err := s.redisClient.API().Del(ctxWithTimeout, claimDataID).Err()
+	if err != nil {
+		return fmt.Errorf("failed to delete received claims with id[%s]: %w", claimDataID, err)
+	}
+
+	return nil
+}
+
 func resolveRedisKey(id string) string {
 	return fmt.Sprintf("%s-%s", keyPrefix, id)
 }

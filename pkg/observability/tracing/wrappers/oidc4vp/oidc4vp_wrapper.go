@@ -77,7 +77,7 @@ func (w *Wrapper) GetTx(ctx context.Context, id oidc4vp.TxID) (*oidc4vp.Transact
 }
 
 func (w *Wrapper) RetrieveClaims(ctx context.Context, tx *oidc4vp.Transaction) map[string]oidc4vp.CredentialMetadata {
-	ctx, span := w.tracer.Start(ctx, "oidc4vp.GetTx")
+	ctx, span := w.tracer.Start(ctx, "oidc4vp.RetrieveClaims")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(tx.ID)))
@@ -86,4 +86,13 @@ func (w *Wrapper) RetrieveClaims(ctx context.Context, tx *oidc4vp.Transaction) m
 	cm := w.svc.RetrieveClaims(ctx, tx)
 
 	return cm
+}
+
+func (w *Wrapper) DeleteClaims(ctx context.Context, claimsID string) error {
+	ctx, span := w.tracer.Start(ctx, "oidc4vp.DeleteClaims")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("claims_id", claimsID))
+
+	return w.svc.DeleteClaims(ctx, claimsID)
 }

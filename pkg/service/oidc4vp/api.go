@@ -47,6 +47,7 @@ type ServiceInterface interface {
 	VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxID, token []*ProcessedVPToken) error
 	GetTx(ctx context.Context, id TxID) (*Transaction, error)
 	RetrieveClaims(ctx context.Context, tx *Transaction) map[string]CredentialMetadata
+	DeleteClaims(ctx context.Context, receivedClaimsID string) error
 }
 
 type TxNonceStore txNonceStore

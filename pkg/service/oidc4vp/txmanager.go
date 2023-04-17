@@ -65,6 +65,7 @@ type txStore interface {
 type txClaimsStore interface {
 	Create(claims *ClaimData) (string, error)
 	Get(claimsID string) (*ClaimData, error)
+	Delete(claimsID string) error
 }
 
 type txNonceStore interface {
@@ -119,6 +120,10 @@ func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID str
 	}
 
 	return tx, nonce, nil
+}
+
+func (tm *TxManager) DeleteReceivedClaims(claimsID string) error {
+	return tm.txClaimsStore.Delete(claimsID)
 }
 
 func (tm *TxManager) StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error {
