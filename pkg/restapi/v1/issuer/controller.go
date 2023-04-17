@@ -625,13 +625,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return err
 	}
 
-	credentialParsed, err := c.parseCredential(
-		result.Credential, result.EnforceStrictValidation, profile.VCConfig.Format)
-	if err != nil {
-		return err
-	}
-
-	signedCredential, err := c.signCredential(ctx, credentialParsed, nil, profile)
+	signedCredential, err := c.signCredential(ctx, result.Credential, nil, profile)
 	if err != nil {
 		return err
 	}

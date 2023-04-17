@@ -23,7 +23,6 @@ import (
 	"golang.org/x/oauth2"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
 	"github.com/trustbloc/vcs/pkg/oauth2client"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -371,28 +370,6 @@ func (s *Service) PrepareCredential(
 		vc.Subject = verifiable.Subject{ID: req.DID}
 	}
 
-	var credential interface{}
-
-	switch tx.CredentialFormat {
-	case vcsverifiable.Jwt:
-		claims, jwtClaimsErr := vc.JWTClaims(false)
-		if jwtClaimsErr != nil {
-			s.sendFailedEvent(ctx, tx, jwtClaimsErr)
-			return nil, fmt.Errorf("create jwt claims: %w", jwtClaimsErr)
-		}
-
-		credential, err = claims.MarshalUnsecuredJWT()
-		if err != nil {
-			s.sendFailedEvent(ctx, tx, err)
-			return nil, fmt.Errorf("marshal unsecured jwt: %w", err)
-		}
-	case vcsverifiable.Ldp:
-		credential = vc
-	default:
-		s.sendFailedEvent(ctx, tx, ErrCredentialFormatNotSupported)
-		return nil, resterr.NewCustomError(resterr.OIDCCredentialFormatNotSupported, ErrCredentialFormatNotSupported)
-	}
-
 	tx.State = TransactionStateCredentialsIssued
 	if err = s.store.Update(ctx, tx); err != nil {
 		s.sendFailedEvent(ctx, tx, err)
@@ -406,7 +383,7 @@ func (s *Service) PrepareCredential(
 
 	return &PrepareCredentialResult{
 		ProfileID:               tx.ProfileID,
-		Credential:              credential,
+		Credential:              vc,
 		Format:                  tx.CredentialFormat,
 		OidcFormat:              tx.OIDCCredentialFormat,
 		Retry:                   false,
