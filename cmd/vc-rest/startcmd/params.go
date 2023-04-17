@@ -190,6 +190,11 @@ const (
 	dataEncryptionKeyIDFlagUsage = "Data Encryption & Decryption KeyID. " +
 		commonEnvVarUsageText + dataEncryptionKeyIDEnvKey
 
+	dataEncryptionCompressionAlgorithmFlagName  = "data-encryption-compression-algorithm"
+	dataEncryptionCompressionAlgorithmEnvKey    = "VC_REST_DATA_ENCRYPTION_COMPRESSION_ALGORITHM" //nolint: gosec
+	dataEncryptionCompressionAlgorithmFlagUsage = "Data Encryption & Decryption Compression algorithm. Supported: none,gzip,zstd. Default: none. " +
+		commonEnvVarUsageText + dataEncryptionCompressionAlgorithmEnvKey
+
 	dataEncryptionKeyLengthFlagName  = "data-encryption-key-length"
 	dataEncryptionKeyLengthEnvKey    = "VC_REST_DATA_ENCRYPTION_KEY_LENGTH" //nolint: gosec
 	dataEncryptionKeyLengthFlagUsage = "Data Encryption & Decryption key length. " +
@@ -373,6 +378,7 @@ type startupParameters struct {
 	tracingParams                       *tracingParams
 	dataEncryptionKeyID                 string
 	dataEncryptionKeyLength             int
+	dataEncryptionCompressorAlgo        string
 	enableProfiler                      bool
 }
 
@@ -494,6 +500,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 	}
 
 	token := cmdutils.GetUserSetOptionalVarFromString(cmd, tokenFlagName, tokenEnvKey)
+
+	dataEncryptionCompressionAlgo := cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		dataEncryptionCompressionAlgorithmFlagName,
+		dataEncryptionCompressionAlgorithmEnvKey,
+	)
 
 	dataEncryptionKeyID, err := cmdutils.GetUserSetVarFromString(
 		cmd,
@@ -692,6 +704,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
 		dataEncryptionKeyLength:             dataEncryptionKeyLength,
 		enableProfiler:                      enableProfiler,
+		dataEncryptionCompressorAlgo:        dataEncryptionCompressionAlgo,
 	}, nil
 }
 
@@ -968,6 +981,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionKeyIDFlagName, "", "", dataEncryptionKeyIDFlagUsage)
+	startCmd.Flags().StringP(dataEncryptionCompressionAlgorithmFlagName, "", "", dataEncryptionCompressionAlgorithmFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionKeyLengthFlagName, "", "", dataEncryptionKeyLengthFlagUsage)
 	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
