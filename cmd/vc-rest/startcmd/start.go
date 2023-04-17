@@ -569,6 +569,7 @@ func buildEchoHandler(
 		defaultVCSKeyManager.Crypto(),
 		conf.StartupParameters.dataEncryptionKeyID,
 		dataprotect.NewAES(conf.StartupParameters.dataEncryptionKeyLength),
+		dataprotect.NewGzip(),
 	)
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,

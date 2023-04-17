@@ -22,21 +22,29 @@ type dataEncryptor interface {
 	Encrypt(data []byte) ([]byte, []byte, error)
 }
 
+type dataCompressor interface {
+	Decompress(input []byte) ([]byte, error)
+	Compress(input []byte) ([]byte, error)
+}
+
 type DataProtector struct {
-	keyProtector  crypto
-	cryptoKeyID   string
-	dataProtector dataEncryptor
+	keyProtector   crypto
+	cryptoKeyID    string
+	dataProtector  dataEncryptor
+	dataCompressor dataCompressor
 }
 
 func NewDataProtector(
 	crypto crypto,
 	cryptoKeyID string,
 	dataEncryptor dataEncryptor,
+	dataCompressor dataCompressor,
 ) *DataProtector {
 	return &DataProtector{
-		keyProtector:  crypto,
-		cryptoKeyID:   cryptoKeyID,
-		dataProtector: dataEncryptor,
+		keyProtector:   crypto,
+		cryptoKeyID:    cryptoKeyID,
+		dataProtector:  dataEncryptor,
+		dataCompressor: dataCompressor,
 	}
 }
 
@@ -47,6 +55,11 @@ type EncryptedData struct {
 }
 
 func (d *DataProtector) Encrypt(_ context.Context, msg []byte) (*EncryptedData, error) {
+	msg, err := d.dataCompressor.Compress(msg)
+	if err != nil {
+		return nil, err
+	}
+
 	encrypted, key, err := d.dataProtector.Encrypt(msg)
 	if err != nil {
 		return nil, err
@@ -71,6 +84,11 @@ func (d *DataProtector) Decrypt(_ context.Context, data *EncryptedData) ([]byte,
 	}
 
 	plaintext, err := d.dataProtector.Decrypt(data.Encrypted, decryptedKey)
+	if err != nil {
+		return nil, err
+	}
+
+	plaintext, err = d.dataCompressor.Decompress(plaintext)
 	if err != nil {
 		return nil, err
 	}
