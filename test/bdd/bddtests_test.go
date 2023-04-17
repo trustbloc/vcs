@@ -40,7 +40,7 @@ var logger = log.New("vcs-bdd")
 
 func TestMain(m *testing.M) {
 	// default is to run all tests with tag @all but excluding those marked with @wip
-	tags := "@oidc4ci_rest && ~@wip"
+	tags := "@all && ~@wip"
 
 	if os.Getenv("TAGS") != "" {
 		tags = os.Getenv("TAGS")
