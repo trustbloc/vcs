@@ -18,7 +18,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -888,7 +887,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
-					resp.Credential.(*verifiable.Credential).Expired.Time.Truncate(time.Hour*24))
+					resp.Credential.Expired.Time.Truncate(time.Hour*24))
 
 				require.NoError(t, err)
 				require.NotNil(t, resp)
@@ -943,11 +942,11 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
-					resp.Credential.(*verifiable.Credential).Expired.Time.Truncate(time.Hour*24))
+					resp.Credential.Expired.Time.Truncate(time.Hour*24))
 
-				require.Equal(t, resp.Credential.(*verifiable.Credential).CustomFields["description"],
+				require.Equal(t, resp.Credential.CustomFields["description"],
 					"awesome-description")
-				require.Equal(t, resp.Credential.(*verifiable.Credential).CustomFields["name"],
+				require.Equal(t, resp.Credential.CustomFields["name"],
 					"awesome-credential")
 				require.NoError(t, err)
 				require.NotNil(t, resp)
@@ -1256,46 +1255,6 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				require.ErrorContains(t, err, "decode claim data")
-				require.Nil(t, resp)
-			},
-		},
-		{
-			name: "Credential format not supported",
-			setup: func() {
-				mockTransactionStore.EXPECT().Get(gomock.Any(), oidc4ci.TxID("txID")).Return(&oidc4ci.Transaction{
-					TransactionData: oidc4ci.TransactionData{
-						IssuerToken:        "issuer-access-token",
-						CredentialTemplate: &profileapi.CredentialTemplate{},
-					},
-				}, nil)
-
-				eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
-						assert.Len(t, messages, 1)
-						assert.Equal(t, messages[0].Type, spi.IssuerOIDCInteractionFailed)
-
-						return nil
-					})
-
-				claimData := `{"surname":"Smith","givenName":"Pat","jobTitle":"Worker"}`
-
-				mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(
-					req *http.Request,
-				) (*http.Response, error) {
-					assert.Contains(t, req.Header.Get("Authorization"), "Bearer issuer-access-token")
-					return &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewBuffer([]byte(claimData))),
-					}, nil
-				})
-
-				req = &oidc4ci.PrepareCredential{
-					TxID: "txID",
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
-				require.ErrorContains(t, err,
-					"oidc-credential-format-not-supported[]: credential format not supported")
 				require.Nil(t, resp)
 			},
 		},

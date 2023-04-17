@@ -625,6 +625,11 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return err
 	}
 
+	if result.Credential == nil {
+		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential",
+			errors.New("credentials should not be nil"))
+	}
+
 	signedCredential, err := c.signCredential(ctx, result.Credential, nil, profile)
 	if err != nil {
 		return err

@@ -1337,7 +1337,7 @@ func TestController_PrepareCredential(t *testing.T) {
 
 				return &oidc4ci.PrepareCredentialResult{
 					ProfileID:  "profileID",
-					Credential: "invalid",
+					Credential: nil,
 					Format:     vcsverifiable.Ldp,
 					Retry:      false,
 				}, nil
