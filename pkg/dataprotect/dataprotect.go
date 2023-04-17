@@ -22,7 +22,7 @@ type dataEncryptor interface {
 	Encrypt(data []byte) ([]byte, []byte, error)
 }
 
-type dataCompressor interface {
+type DataCompressor interface {
 	Decompress(input []byte) ([]byte, error)
 	Compress(input []byte) ([]byte, error)
 }
@@ -31,14 +31,14 @@ type DataProtector struct {
 	keyProtector   crypto
 	cryptoKeyID    string
 	dataProtector  dataEncryptor
-	dataCompressor dataCompressor
+	dataCompressor DataCompressor
 }
 
 func NewDataProtector(
 	crypto crypto,
 	cryptoKeyID string,
 	dataEncryptor dataEncryptor,
-	dataCompressor dataCompressor,
+	dataCompressor DataCompressor,
 ) *DataProtector {
 	return &DataProtector{
 		keyProtector:   crypto,
