@@ -10,6 +10,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -146,7 +148,7 @@ type PrepareCredential struct {
 
 type PrepareCredentialResult struct {
 	ProfileID               profileapi.ID
-	Credential              interface{}
+	Credential              *verifiable.Credential
 	Format                  vcsverifiable.Format
 	Retry                   bool
 	EnforceStrictValidation bool
