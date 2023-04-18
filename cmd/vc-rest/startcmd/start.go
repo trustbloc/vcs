@@ -347,7 +347,6 @@ func buildEchoHandler(
 	options startOpts,
 ) (*echo.Echo, error) {
 	e := createEcho()
-	e.Use(echomw.Gzip())
 
 	e.HTTPErrorHandler = resterr.HTTPErrorHandler(conf.Tracer)
 
@@ -565,12 +564,18 @@ func buildEchoHandler(
 
 	var oidc4ciService oidc4ci.ServiceInterface
 
+	var dataKeyEncryptor dataprotect.Crypto
+	dataKeyEncryptor = defaultVCSKeyManager.Crypto()
+	if conf.StartupParameters.dataEncryptionDisabled {
+		dataKeyEncryptor = dataprotect.NewNilCrypto()
+	}
 	claimsDataProtector := dataprotect.NewDataProtector(
-		defaultVCSKeyManager.Crypto(),
+		dataKeyEncryptor,
 		conf.StartupParameters.dataEncryptionKeyID,
 		dataprotect.NewAES(conf.StartupParameters.dataEncryptionKeyLength),
 		dataprotect.NewCompressor(conf.StartupParameters.dataEncryptionCompressorAlgo),
 	)
+
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
 		TransactionStore:              oidc4ciStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
