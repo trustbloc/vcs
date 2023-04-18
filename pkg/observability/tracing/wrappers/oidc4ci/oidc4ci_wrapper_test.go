@@ -23,7 +23,8 @@ func TestWrapper_InitiateIssuance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().InitiateIssuance(gomock.Any(), &oidc4ci.InitiateIssuanceRequest{}, &profile.Issuer{}).Times(1)
+	svc.EXPECT().InitiateIssuance(gomock.Any(), &oidc4ci.InitiateIssuanceRequest{}, &profile.Issuer{}).
+		Return(&oidc4ci.InitiateIssuanceResponse{}, nil).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
