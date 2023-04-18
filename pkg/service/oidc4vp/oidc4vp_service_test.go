@@ -608,6 +608,33 @@ func TestService_GetTx(t *testing.T) {
 	})
 }
 
+func TestService_DeleteClaims(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		txManager := NewMockTransactionManager(gomock.NewController(t))
+		txManager.EXPECT().DeleteReceivedClaims("claimsID").Times(1).Return(nil)
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{
+			TransactionManager: txManager,
+		})
+
+		err := svc.DeleteClaims(context.Background(), "claimsID")
+		require.NoError(t, err)
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		txManager := NewMockTransactionManager(gomock.NewController(t))
+		txManager.EXPECT().DeleteReceivedClaims("claimsID").Times(1).Return(fmt.Errorf("delete error"))
+
+		svc := oidc4vp.NewService(&oidc4vp.Config{
+			TransactionManager: txManager,
+		})
+
+		err := svc.DeleteClaims(context.Background(), "claimsID")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "delete error")
+	})
+}
+
 func TestService_RetrieveClaims(t *testing.T) {
 	svc := oidc4vp.NewService(&oidc4vp.Config{})
 	loader := testutil.DocumentLoader(t)

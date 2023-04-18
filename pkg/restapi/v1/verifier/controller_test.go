@@ -13,6 +13,7 @@ import (
 	"crypto/rand"
 	_ "embed"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -789,6 +790,39 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		}, nil)
 
 		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
+		oidc4VPService.EXPECT().DeleteClaims(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+
+		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
+
+		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+			Return(&profileapi.Verifier{
+				ID:             "p1",
+				OrganizationID: "orgID1",
+				Checks:         verificationChecks,
+			}, nil)
+
+		c := NewController(&Config{
+			OIDCVPService:  oidc4VPService,
+			ProfileSvc:     mockProfileSvc,
+			DocumentLoader: testutil.DocumentLoader(t),
+			Tracer:         trace.NewNoopTracerProvider().Tracer(""),
+		})
+
+		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
+		require.NoError(t, err)
+	})
+
+	t.Run("Success - delete claims error", func(t *testing.T) {
+		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
+		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
+			Times(1).Return(&oidc4vp.Transaction{
+			ProfileID:        "p1",
+			ReceivedClaimsID: "claims-id",
+			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
+		}, nil)
+
+		oidc4VPService.EXPECT().RetrieveClaims(gomock.Any(), gomock.Any()).Times(1).Return(map[string]oidc4vp.CredentialMetadata{}) //nolint:lll
+		oidc4VPService.EXPECT().DeleteClaims(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("delete claims error"))         //nolint:lll
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
@@ -836,7 +870,8 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 		err := c.RetrieveInteractionsClaim(createContext("orgID1"), "txid")
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "claims expired for transaction 'txid'")
+		require.Contains(t, err.Error(),
+			"claims are either retrieved or expired for transaction 'txid'")
 	})
 
 	t.Run("Error - claims were never received", func(t *testing.T) {

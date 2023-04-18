@@ -47,6 +47,7 @@ type eventService interface {
 type transactionManager interface {
 	CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
+	DeleteReceivedClaims(claimsID string) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
 	Get(txID TxID) (*Transaction, error)
 }
@@ -421,6 +422,10 @@ func (s *Service) RetrieveClaims(ctx context.Context, tx *Transaction) map[strin
 	logger.Debug("RetrieveClaims succeed")
 
 	return result
+}
+
+func (s *Service) DeleteClaims(ctx context.Context, claimsID string) error {
+	return s.transactionManager.DeleteReceivedClaims(claimsID)
 }
 
 func (s *Service) extractClaimData(tx *Transaction, tokens []*ProcessedVPToken,

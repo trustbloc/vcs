@@ -50,7 +50,7 @@ func TestStore(t *testing.T) {
 	store, createErr := New(context.Background(), client, defaultClaimsTTL)
 	assert.NoError(t, createErr)
 
-	t.Run("test create and get - JWT", func(t *testing.T) {
+	t.Run("test create and get, followed by delete - JWT", func(t *testing.T) {
 		receivedClaims := &oidc4vp.ClaimData{
 			EncryptedData: &dataprotect.EncryptedData{
 				Encrypted:      []byte{0x1, 0x2},
@@ -66,6 +66,13 @@ func TestStore(t *testing.T) {
 		require.NotNil(t, claimsInDB)
 
 		require.Equal(t, *receivedClaims, *claimsInDB)
+
+		err = store.Delete(id)
+		require.NoError(t, err)
+
+		claimsInDB, err = store.Get(id)
+		assert.Nil(t, claimsInDB)
+		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 
 	t.Run("get non existing document", func(t *testing.T) {
@@ -76,9 +83,15 @@ func TestStore(t *testing.T) {
 		assert.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
 	})
 
-	t.Run("get invalid document id", func(t *testing.T) {
+	t.Run("get invalid document id - get", func(t *testing.T) {
 		resp, err := store.Get("invalid id")
 		assert.Nil(t, resp)
+		assert.ErrorContains(t, err, "parse id")
+	})
+
+	t.Run("get invalid document id - delete", func(t *testing.T) {
+		err := store.Delete("invalid id")
+		assert.Error(t, err)
 		assert.ErrorContains(t, err, "parse id")
 	})
 
