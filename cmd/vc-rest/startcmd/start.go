@@ -406,7 +406,7 @@ func buildEchoHandler(
 
 		if !conf.StartupParameters.redisParameters.disableTLS {
 			defaultOpts = append(defaultOpts, redisclient.WithTLSConfig(
-				&tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12, InsecureSkipVerify: true}))
+				&tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}))
 		}
 
 		redisClient, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
