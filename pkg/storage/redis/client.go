@@ -8,6 +8,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"time"
 
@@ -22,6 +23,8 @@ const (
 
 type clientOpts struct {
 	masterName    string
+	password      string
+	tlsConfig     *tls.Config
 	timeout       time.Duration
 	traceProvider trace.TracerProvider
 }
@@ -37,6 +40,18 @@ func WithTraceProvider(traceProvider trace.TracerProvider) ClientOpt {
 func WithMasterName(masterName string) ClientOpt {
 	return func(opts *clientOpts) {
 		opts.masterName = masterName
+	}
+}
+
+func WithPassword(password string) ClientOpt {
+	return func(opts *clientOpts) {
+		opts.password = password
+	}
+}
+
+func WithTLSConfig(tlsConfig *tls.Config) ClientOpt {
+	return func(opts *clientOpts) {
+		opts.tlsConfig = tlsConfig
 	}
 }
 
@@ -71,6 +86,8 @@ func New(addrs []string, opts ...ClientOpt) (*Client, error) {
 		Addrs:                 addrs,
 		ContextTimeoutEnabled: true,
 		MasterName:            opt.masterName,
+		Password:              opt.password,
+		TLSConfig:             opt.tlsConfig,
 	})
 
 	if opt.traceProvider != nil {

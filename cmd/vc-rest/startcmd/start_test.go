@@ -327,6 +327,7 @@ func TestStartCmdWithEchoHandler(t *testing.T) {
 		"--" + enableProfilerFlagName, "true",
 		"--" + transientDataStoreTypeFlagName, redisStore,
 		"--" + redisURLFlagName, "localhost:6379",
+		"--" + redisDisableTLSFlagName, "true",
 	}
 	startCmd.SetArgs(args)
 	ctx, cancel := context.WithCancel(context.TODO())
@@ -586,6 +587,9 @@ func setEnvVars(t *testing.T, databaseType, filePath string) {
 
 	err = os.Setenv(redisURLEnvKey, "localhost:6379")
 	require.NoError(t, err)
+
+	err = os.Setenv(redisDisableTLSEnvKey, "true")
+	require.NoError(t, err)
 }
 
 func unsetEnvVars(t *testing.T) {
@@ -619,6 +623,9 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(redisURLEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(redisDisableTLSEnvKey)
 	require.NoError(t, err)
 
 	err = os.Unsetenv(transientDataStoreTypeFlagEnvKey)
