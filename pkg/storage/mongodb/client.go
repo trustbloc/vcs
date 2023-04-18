@@ -13,6 +13,8 @@ import (
 
 	"go.mongodb.org/mongo-driver/mongo"
 	mongooptions "go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"go.mongodb.org/mongo-driver/mongo/writeconcern"
 	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"go.opentelemetry.io/otel/trace"
 )
@@ -38,6 +40,8 @@ func New(connString string, databaseName string, opts ...ClientOpt) (*Client, er
 
 	mongoOpts := mongooptions.Client()
 	mongoOpts.ApplyURI(connString)
+	mongoOpts.SetWriteConcern(writeconcern.New(writeconcern.WMajority(), writeconcern.WTimeout(op.timeout)))
+	mongoOpts.ReadPreference = readpref.Nearest()
 
 	if op.traceProvider != nil {
 		mongoOpts.Monitor = otelmongo.NewMonitor(otelmongo.WithTracerProvider(op.traceProvider))

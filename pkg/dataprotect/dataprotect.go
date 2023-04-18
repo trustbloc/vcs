@@ -12,7 +12,7 @@ import (
 
 //go:generate mockgen -source dataprotect.go -destination dataprotect_mocks_test.go -package dataprotect_test
 
-type crypto interface {
+type Crypto interface {
 	Decrypt(cipher, aad, nonce []byte, kh interface{}) ([]byte, error)
 	Encrypt(msg, aad []byte, kh interface{}) ([]byte, []byte, error)
 }
@@ -28,14 +28,14 @@ type DataCompressor interface {
 }
 
 type DataProtector struct {
-	keyProtector   crypto
+	keyProtector   Crypto
 	cryptoKeyID    string
 	dataProtector  dataEncryptor
 	dataCompressor DataCompressor
 }
 
 func NewDataProtector(
-	crypto crypto,
+	crypto Crypto,
 	cryptoKeyID string,
 	dataEncryptor dataEncryptor,
 	dataCompressor DataCompressor,

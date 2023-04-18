@@ -39,5 +39,5 @@ func TestTooLongKey(t *testing.T) {
 	ciphertext, key, err := aes.Encrypt([]byte("This is a secret message"))
 	assert.Empty(t, ciphertext)
 	assert.Empty(t, key)
-	assert.ErrorContains(t, err, "crypto/aes: invalid key size 64")
+	assert.ErrorContains(t, err, "invalid key size 64")
 }

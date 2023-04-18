@@ -282,6 +282,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + otelExporterTypeFlagName, "STDOUT",
 		"--" + dataEncryptionKeyIDFlagName, "12345",
 		"--" + dataEncryptionKeyLengthFlagName, "256",
+		"--" + dataEncryptionDisabledFlagName, "true",
 	}
 
 	startCmd.SetArgs(args)

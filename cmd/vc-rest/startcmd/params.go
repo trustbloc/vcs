@@ -201,6 +201,11 @@ const (
 		"For AES - Default: 256" +
 		commonEnvVarUsageText + dataEncryptionKeyLengthEnvKey
 
+	dataEncryptionDisabledFlagName  = "data-encryption-disabled"
+	dataEncryptionDisabledEnvKey    = "VC_REST_DATA_ENCRYPTION_DISABLED" //nolint: gosec
+	dataEncryptionDisabledFlagUsage = "Data Encryption disable\\enable flag. Options: true\\false. Default: false. " +
+		commonEnvVarUsageText + dataEncryptionDisabledEnvKey
+
 	requestTokensFlagName  = "request-tokens"
 	requestTokensEnvKey    = "VC_REST_REQUEST_TOKENS" //nolint: gosec
 	requestTokensFlagUsage = "Tokens used for http request " +
@@ -380,6 +385,7 @@ type startupParameters struct {
 	dataEncryptionKeyLength             int
 	dataEncryptionCompressorAlgo        string
 	enableProfiler                      bool
+	dataEncryptionDisabled              bool
 }
 
 type prometheusMetricsProviderParams struct {
@@ -531,6 +537,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 			logger.Warn("can not parse VC_REST_DATA_ENCRYPTION_KEY_LENGTH")
 		}
 	}
+
+	dataEncryptionDisabled, _ := strconv.ParseBool(cmdutils.GetUserSetOptionalVarFromString(
+		cmd,
+		dataEncryptionDisabledFlagName,
+		dataEncryptionDisabledEnvKey,
+	))
 
 	requestTokens := getRequestTokens(cmd)
 
@@ -705,6 +717,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		dataEncryptionKeyLength:             dataEncryptionKeyLength,
 		enableProfiler:                      enableProfiler,
 		dataEncryptionCompressorAlgo:        dataEncryptionCompressionAlgo,
+		dataEncryptionDisabled:              dataEncryptionDisabled,
 	}, nil
 }
 
@@ -983,6 +996,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(dataEncryptionKeyIDFlagName, "", "", dataEncryptionKeyIDFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionCompressionAlgorithmFlagName, "", "", dataEncryptionCompressionAlgorithmFlagUsage)
 	startCmd.Flags().StringP(dataEncryptionKeyLengthFlagName, "", "", dataEncryptionKeyLengthFlagUsage)
+	startCmd.Flags().StringP(dataEncryptionDisabledFlagName, "", "", dataEncryptionDisabledFlagUsage)
 	startCmd.Flags().StringSliceP(requestTokensFlagName, "", []string{}, requestTokensFlagUsage)
 	startCmd.Flags().StringP(common.LogLevelFlagName, common.LogLevelFlagShorthand, "", common.LogLevelPrefixFlagUsage)
 	startCmd.Flags().StringSliceP(contextProviderFlagName, "", []string{}, contextProviderFlagUsage)

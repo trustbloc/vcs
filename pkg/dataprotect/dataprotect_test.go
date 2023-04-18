@@ -23,7 +23,7 @@ const (
 
 func TestNewDataProtectorEncrypt(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
@@ -52,7 +52,7 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 	})
 
 	t.Run("data encrypt err", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
@@ -67,7 +67,7 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 	})
 
 	t.Run("encrypt err", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 		compress.EXPECT().Compress(gomock.Any()).Return(nil, nil)
@@ -84,7 +84,7 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 	})
 
 	t.Run("compress err", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		encrypt := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 		compress.EXPECT().Compress(gomock.Any()).Return(nil, errors.New("can not compress"))
@@ -99,7 +99,7 @@ func TestNewDataProtectorEncrypt(t *testing.T) {
 
 func TestDecrypt(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
@@ -131,7 +131,7 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("fail decrypt key", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
@@ -156,7 +156,7 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("fail decrypt key", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
@@ -184,7 +184,7 @@ func TestDecrypt(t *testing.T) {
 	})
 
 	t.Run("fail decompress", func(t *testing.T) {
-		keyProtector := NewMockcrypto(gomock.NewController(t))
+		keyProtector := NewMockCrypto(gomock.NewController(t))
 		dataProtector := NewMockdataEncryptor(gomock.NewController(t))
 		compress := NewMockDataCompressor(gomock.NewController(t))
 
