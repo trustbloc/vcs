@@ -140,6 +140,15 @@ const (
 	redisSentinelMasterNameFlagUsage = "The sentinel master name." +
 		commonEnvVarUsageText + redisSentinelMasterNameEnvKey
 
+	redisAuthPasswordFlagName  = "vc-redis-password"
+	redisAuthPasswordEnvKey    = "VC_REDIS_PASSWORD"
+	redisAuthPasswordFlagUsage = "Redis auth password." +
+		commonEnvVarUsageText + redisAuthPasswordEnvKey
+
+	redisDisableTLSFlagName  = "vc-redis-disable-tls"
+	redisDisableTLSEnvKey    = "VC_REDIS_DISABLE_TLS"
+	redisDisableTLSFlagUsage = "Disable Redis TLS." + commonEnvVarUsageText + redisDisableTLSEnvKey
+
 	// remote JSON-LD context provider url flag.
 	contextProviderFlagName  = "context-provider-url"
 	contextProviderEnvKey    = "VC_REST_CONTEXT_PROVIDER_URL"
@@ -400,6 +409,8 @@ type dbParameters struct {
 type redisParameters struct {
 	addrs      []string
 	masterName string
+	password   string
+	disableTLS bool
 }
 
 type tlsParameters struct {
@@ -914,9 +925,17 @@ func getRedisParameters(cmd *cobra.Command, transientDataStoreType string) (*red
 	redisSentinelMasterName := cmdutils.GetUserSetOptionalVarFromString(cmd,
 		redisSentinelMasterNameFlagName, redisSentinelMasterNameEnvKey)
 
+	redisAuthPassword := cmdutils.GetUserSetOptionalVarFromString(cmd,
+		redisAuthPasswordFlagName, redisAuthPasswordEnvKey)
+
+	disableTLS, _ := strconv.ParseBool(
+		cmdutils.GetOptionalString(cmd, redisDisableTLSFlagName, redisDisableTLSEnvKey))
+
 	return &redisParameters{
 		addrs:      redisURLs,
 		masterName: redisSentinelMasterName,
+		password:   redisAuthPassword,
+		disableTLS: disableTLS,
 	}, nil
 }
 
@@ -977,6 +996,8 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(databasePrefixFlagName, "", "", databasePrefixFlagUsage)
 	startCmd.Flags().StringArrayP(redisURLFlagName, "", nil, redisURLFlagUsage)
 	startCmd.Flags().StringP(redisSentinelMasterNameFlagName, "", "", redisSentinelMasterNameFlagUsage)
+	startCmd.Flags().String(redisAuthPasswordFlagName, "", redisAuthPasswordFlagUsage)
+	startCmd.Flags().String(redisDisableTLSFlagName, "", redisDisableTLSFlagUsage)
 	startCmd.Flags().StringP(tlsSystemCertPoolFlagName, "", "", tlsSystemCertPoolFlagUsage)
 	startCmd.Flags().StringSliceP(tlsCACertsFlagName, "", []string{}, tlsCACertsFlagUsage)
 	startCmd.Flags().StringP(tokenFlagName, "", "", tokenFlagUsage)

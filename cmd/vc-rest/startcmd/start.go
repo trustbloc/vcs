@@ -401,17 +401,22 @@ func buildEchoHandler(
 
 	var redisClient, redisClientNoTracing *redisclient.Client
 	if conf.StartupParameters.transientDataStoreType == redisStore {
-		redisClient, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
-			redisclient.WithTraceProvider(otel.GetTracerProvider()),
+		defaultOpts := []redisclient.ClientOpt{
 			redisclient.WithMasterName(conf.StartupParameters.redisParameters.masterName),
-		)
+			redisclient.WithPassword(conf.StartupParameters.redisParameters.password)}
+
+		if !conf.StartupParameters.redisParameters.disableTLS {
+			defaultOpts = append(defaultOpts, redisclient.WithTLSConfig(
+				&tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12, InsecureSkipVerify: true}))
+		}
+
+		redisClient, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
+			append(defaultOpts, redisclient.WithTraceProvider(otel.GetTracerProvider()))...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create redis client: %w", err)
 		}
 
-		redisClientNoTracing, err = redisclient.New(conf.StartupParameters.redisParameters.addrs,
-			redisclient.WithMasterName(conf.StartupParameters.redisParameters.masterName),
-		)
+		redisClientNoTracing, err = redisclient.New(conf.StartupParameters.redisParameters.addrs, defaultOpts...)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create redis client no tracing: %w", err)
 		}
