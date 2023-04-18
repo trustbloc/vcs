@@ -47,6 +47,8 @@ func (w *Wrapper) InitiateIssuance(
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.String("tx_id", string(resp.TxID)))
+
 	return resp, nil
 }
 
