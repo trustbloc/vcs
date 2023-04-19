@@ -9,6 +9,7 @@ package oidc4cistatestore
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -30,7 +31,7 @@ type mongoDocument struct {
 	ExpireAt time.Time          `bson:"expireAt"`
 
 	OpState string `bson:"opState,omitempty"`
-	State   *AuthorizeState
+	State   *oidc4ci.AuthorizeState
 }
 
 // Store stores OIDC4CI authorize request/response state in mongo.
@@ -76,7 +77,7 @@ func (s *Store) migrate(ctx context.Context) error {
 func (s *Store) SaveAuthorizeState(
 	ctx context.Context,
 	opState string,
-	data *AuthorizeState,
+	data *oidc4ci.AuthorizeState,
 	params ...func(insertOptions *oidc4ci.InsertOptions),
 ) error {
 	insertCfg := &oidc4ci.InsertOptions{}
@@ -93,10 +94,14 @@ func (s *Store) SaveAuthorizeState(
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	_, err := collection.InsertOne(ctx, obj)
+	if err != nil && strings.Contains(err.Error(), "duplicate key error collection") {
+		return oidc4ci.ErrOpStateKeyDuplication
+	}
+
 	return err
 }
 
-func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*AuthorizeState, error) {
+func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*oidc4ci.AuthorizeState, error) {
 	collection := s.mongoClient.Database().Collection(collectionName)
 
 	var doc mongoDocument
@@ -122,7 +127,7 @@ func (s *Store) GetAuthorizeState(ctx context.Context, opState string) (*Authori
 
 func (s *Store) mapTransactionDataToMongoDocument(
 	opState string,
-	data *AuthorizeState,
+	data *oidc4ci.AuthorizeState,
 ) *mongoDocument {
 	return &mongoDocument{
 		ExpireAt: time.Now().UTC().Add(defaultExpiration),

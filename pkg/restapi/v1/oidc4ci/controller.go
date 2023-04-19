@@ -36,7 +36,6 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	apiUtil "github.com/trustbloc/vcs/pkg/restapi/v1/util"
 	"github.com/trustbloc/vcs/pkg/service/oidc4ci"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 )
 
 const (
@@ -55,14 +54,14 @@ type StateStore interface {
 	SaveAuthorizeState(
 		ctx context.Context,
 		opState string,
-		state *oidc4cistatestore.AuthorizeState,
+		state *oidc4ci.AuthorizeState,
 		params ...func(insertOptions *oidc4ci.InsertOptions),
 	) error
 
 	GetAuthorizeState(
 		ctx context.Context,
 		opState string,
-	) (*oidc4cistatestore.AuthorizeState, error)
+	) (*oidc4ci.AuthorizeState, error)
 }
 
 type HTTPClient interface {
@@ -292,7 +291,7 @@ func (c *Controller) OidcAuthorize(e echo.Context, params OidcAuthorizeParams) e
 	if err = c.stateStore.SaveAuthorizeState(
 		ctx,
 		params.IssuerState,
-		&oidc4cistatestore.AuthorizeState{
+		&oidc4ci.AuthorizeState{
 			RedirectURI: ar.GetRedirectURI(),
 			RespondMode: string(ar.GetResponseMode()),
 			Header:      resp.GetHeader(),

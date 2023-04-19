@@ -36,6 +36,7 @@ const (
 	dockerMongoDBTag   = "4.0.0"
 
 	receivedClaimsID = "xyz"
+	defaultClaimsTTL = 3600
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -48,7 +49,8 @@ func TestTxStore_Success(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, err)
 
-	store := NewTxStore(client, testutil.DocumentLoader(t))
+	store, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), defaultClaimsTTL)
+	require.NoError(t, err)
 	require.NotNil(t, store)
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -100,7 +102,8 @@ func TestTxStore_Fails(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, err)
 
-	store := NewTxStore(client, testutil.DocumentLoader(t))
+	store, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), defaultClaimsTTL)
+	require.NoError(t, err)
 	require.NotNil(t, store)
 	defer func() {
 		require.NoError(t, client.Close(), "failed to close mongodb client")
@@ -152,6 +155,42 @@ func TestTxStore_Fails(t *testing.T) {
 
 		require.Error(t, err)
 	})
+
+	t.Run("test expiration", func(t *testing.T) {
+		storeExpired, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), 1)
+		require.NoError(t, err)
+
+		id, _, err := storeExpired.Create(&presexch.PresentationDefinition{}, "test")
+		require.NoError(t, err)
+		require.NotNil(t, id)
+
+		time.Sleep(2 * time.Second)
+
+		tx, err := storeExpired.Get(id)
+		require.Nil(t, tx)
+		require.ErrorIs(t, err, oidc4vp.ErrDataNotFound)
+	})
+}
+
+func TestMigrate(t *testing.T) {
+	pool, mongoDBResource := startMongoDBContainer(t)
+
+	defer func() {
+		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge MongoDB resource")
+	}()
+
+	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(defaultClaimsTTL))
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	store, err := NewTxStore(ctx, client, testutil.DocumentLoader(t), defaultClaimsTTL)
+	require.Nil(t, store)
+	require.ErrorContains(t, err, "context canceled")
+
+	defer func() {
+		require.NoError(t, client.Close(), "failed to close mongodb client")
+	}()
 }
 
 func startMongoDBContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {

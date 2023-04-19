@@ -8,6 +8,7 @@ package oidc4ci
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -157,6 +158,13 @@ type PrepareCredentialResult struct {
 
 type InsertOptions struct {
 	TTL time.Duration
+}
+
+type AuthorizeState struct {
+	RedirectURI *url.URL            `json:"redirect_uri"`
+	RespondMode string              `json:"respond_mode"`
+	Header      map[string][]string `json:"header"`
+	Parameters  map[string][]string `json:"parameters"`
 }
 
 type eventPayload struct {

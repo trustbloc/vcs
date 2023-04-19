@@ -250,6 +250,11 @@ const (
 	vpReceivedClaimsDataTTLFlagUsage = "VP Received Claims data TTL in OIDC4VP pre-auth code flow. Defaults to 3600s. " +
 		commonEnvVarUsageText + hostURLExternalEnvKey
 
+	vpTransactionDataTTLFlagName  = "vp-transaction-data-ttl"
+	vpTransactionDataTTLEnvKey    = "VP_TRANSACTION_DATA_TTL"
+	vpTransactionDataTTLFlagUsage = "VP Transaction data TTL in OIDC4VP pre-auth code flow. Defaults to 1h. " +
+		commonEnvVarUsageText + vpTransactionDataTTLEnvKey
+
 	metricsProviderFlagName         = "metrics-provider-name"
 	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
 	allowedMetricsProviderFlagUsage = "The metrics provider name (for example: 'prometheus' etc.). " +
@@ -347,6 +352,7 @@ const (
 const (
 	defaultClaimDataTTL            = 3600 * time.Second
 	defaultVPReceivedClaimsDataTTL = 3600 * time.Second
+	defaultVPTransactionDataTTL    = time.Hour
 	defaultDataEncryptionKeyLength = 256
 )
 
@@ -389,6 +395,7 @@ type startupParameters struct {
 	claimDataTTL                        int32
 	transientDataStoreType              string
 	vpReceivedClaimsDataTTL             int32
+	vpTransactionDataTTL                int32
 	tracingParams                       *tracingParams
 	dataEncryptionKeyID                 string
 	dataEncryptionKeyLength             int
@@ -660,6 +667,11 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
+	vpTransactionDataTTL, err := getDuration(cmd, vpTransactionDataTTLFlagName, vpTransactionDataTTLEnvKey, defaultVPTransactionDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
 	tracingParams, err := getTracingParams(cmd)
 	if err != nil {
 		return nil, err
@@ -722,6 +734,7 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		credentialStatusEventTopic:          credentialStatusTopic,
 		claimDataTTL:                        int32(claimDataTTL.Seconds()),
 		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
+		vpTransactionDataTTL:                int32(vpTransactionDataTTL.Seconds()),
 		transientDataStoreType:              transientDataStoreType,
 		tracingParams:                       tracingParams,
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
@@ -1057,6 +1070,7 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(credentialstatusTopicFlagName, "", "", credentialstatusTopicFlagUsage)
 	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
 	startCmd.Flags().StringP(vpReceivedClaimsDataTTLFlagName, "", "", vpReceivedClaimsDataTTLFlagUsage)
+	startCmd.Flags().StringP(vpTransactionDataTTLFlagName, "", "", vpTransactionDataTTLFlagUsage)
 
 	startCmd.Flags().StringP(otelServiceNameFlagName, "", "", otelServiceNameFlagUsage)
 	startCmd.Flags().StringP(otelExporterTypeFlagName, "", "", otelExporterTypeFlagUsage)

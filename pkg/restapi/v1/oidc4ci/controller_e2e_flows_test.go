@@ -44,8 +44,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
-	oidc4cisvc "github.com/trustbloc/vcs/pkg/service/oidc4ci"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
+	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 const (
@@ -125,7 +124,7 @@ func TestAuthorizeCodeGrantFlow(t *testing.T) {
 
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
-		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cistatestore.AuthorizeState)},
+		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cisrv.AuthorizeState)},
 		IssuerInteractionClient: mockIssuerInteractionClient(t, srv.URL, opState),
 		IssuerVCSPublicHost:     srv.URL,
 		OAuth2Client:            oauth2Client,
@@ -245,7 +244,7 @@ func TestPreAuthorizeCodeGrantFlow(t *testing.T) {
 
 	controller := oidc4ci.NewController(&oidc4ci.Config{
 		OAuth2Provider:          oauth2Provider,
-		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cistatestore.AuthorizeState)},
+		StateStore:              &memoryStateStore{kv: make(map[string]*oidc4cisrv.AuthorizeState)},
 		IssuerInteractionClient: interaction,
 		IssuerVCSPublicHost:     srv.URL,
 		ExternalHostURL:         srv.URL,
@@ -404,14 +403,14 @@ func registerClientCallback(t *testing.T, e *echo.Echo) {
 }
 
 type memoryStateStore struct {
-	kv map[string]*oidc4cistatestore.AuthorizeState
+	kv map[string]*oidc4cisrv.AuthorizeState
 	mu sync.RWMutex
 }
 
 func (s *memoryStateStore) GetAuthorizeState(
 	_ context.Context,
 	opState string,
-) (*oidc4cistatestore.AuthorizeState, error) {
+) (*oidc4cisrv.AuthorizeState, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -426,8 +425,8 @@ func (s *memoryStateStore) GetAuthorizeState(
 func (s *memoryStateStore) SaveAuthorizeState(
 	_ context.Context,
 	opState string,
-	state *oidc4cistatestore.AuthorizeState,
-	_ ...func(insertOptions *oidc4cisvc.InsertOptions),
+	state *oidc4cisrv.AuthorizeState,
+	_ ...func(insertOptions *oidc4cisrv.InsertOptions),
 ) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
