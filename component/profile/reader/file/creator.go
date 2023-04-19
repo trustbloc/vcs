@@ -31,7 +31,7 @@ var signatureTypeToDidVerificationMethod = map[vcsverifiable.SignatureType]strin
 	vcsverifiable.Ed25519Signature2018:        crypto.Ed25519VerificationKey2018,
 	vcsverifiable.JSONWebSignature2020:        crypto.JSONWebKey2020,
 	vcsverifiable.EcdsaSecp256k1Signature2019: crypto.EcdsaSecp256k1VerificationKey2019,
-	vcsverifiable.BbsBlsSignature2020:         crypto.Bls12381G1Key2020,
+	vcsverifiable.BbsBlsSignature2020:         crypto.Bls12381G2Key2020,
 	// JWT
 	vcsverifiable.EdDSA:  crypto.JSONWebKey2020,
 	vcsverifiable.ES256K: crypto.JSONWebKey2020,
