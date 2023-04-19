@@ -15,5 +15,9 @@ import (
 )
 
 func TestGet(t *testing.T) {
-	require.Len(t, healthchecks.Get(&healthchecks.Config{}), 1)
+	require.Len(t, healthchecks.Get(&healthchecks.Config{
+		RedisParameters: &healthchecks.RedisParameters{
+			Addrs: []string{"redis.example.com"},
+		},
+	}), 2)
 }
