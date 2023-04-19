@@ -298,15 +298,29 @@ func buildInternalEcho(conf *Configuration, cmd *cobra.Command) (*echo.Echo, *re
 		return c.NoContent(http.StatusOK)
 	})
 
-	checks := healthchecks.Get(&healthchecks.Config{
+	tlsConfig := &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12}
+
+	checksConfig := &healthchecks.Config{
 		MongoDBURL: conf.StartupParameters.dbParameters.databaseURL,
 		HTTPClient: &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{RootCAs: conf.RootCAs, MinVersion: tls.VersionTLS12},
+				TLSClientConfig: tlsConfig,
 			},
 		},
-		Cmd: cmd,
-	})
+		Cmd:       cmd,
+		TLSConfig: tlsConfig,
+	}
+
+	if conf.StartupParameters.transientDataStoreType == redisStore {
+		checksConfig.RedisParameters = &healthchecks.RedisParameters{
+			Addrs:      conf.StartupParameters.redisParameters.addrs,
+			MasterName: conf.StartupParameters.redisParameters.masterName,
+			Password:   conf.StartupParameters.redisParameters.password,
+			DisableTLS: conf.StartupParameters.redisParameters.disableTLS,
+		}
+	}
+
+	checks := healthchecks.Get(checksConfig)
 
 	if len(checks) > 0 {
 		opts := []health.CheckerOption{
