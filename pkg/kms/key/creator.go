@@ -17,6 +17,7 @@ import (
 
 	"github.com/btcsuite/btcd/btcec"
 	jose2 "github.com/go-jose/go-jose/v3"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jose/jwk/jwksupport"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util/jwkkid"
@@ -56,18 +57,25 @@ func JWKKeyCreator(kt kms.KeyType) func(keyManager) (string, *jwk.JWK, error) {
 			}
 		case kms.ECDSASecp256k1DER:
 			var pki publicKeyInfo
-			if rest, err := asn1.Unmarshal(keyBytes, &pki); err != nil {
+			var rest []byte
+			if rest, err = asn1.Unmarshal(keyBytes, &pki); err != nil {
 				return "", nil, err
 			} else if len(rest) != 0 {
 				return "", nil, fmt.Errorf("x509: trailing data after ASN.1 of public-key")
 			}
 
-			pubKey, err := btcec.ParsePubKey(pki.PublicKey.RightAlign(), btcec.S256())
+			var pubKey *btcec.PublicKey
+			pubKey, err = btcec.ParsePubKey(pki.PublicKey.RightAlign(), btcec.S256())
 			if err != nil {
 				return "", nil, err
 			}
 
 			j, err = jwksupport.JWKFromKey(pubKey.ToECDSA())
+			if err != nil {
+				return "", nil, err
+			}
+		case kms.BLS12381G2Type:
+			j, err = jwksupport.PubKeyBytesToJWK(keyBytes, kt)
 			if err != nil {
 				return "", nil, err
 			}
@@ -118,18 +126,25 @@ func CryptoKeyCreator(kt kms.KeyType) func(keyManager) (string, interface{}, err
 			pubKey = ed25519.PublicKey(keyBytes)
 		case kms.ECDSASecp256k1DER:
 			var pki publicKeyInfo
-			if rest, err := asn1.Unmarshal(keyBytes, &pki); err != nil {
+			var rest []byte
+			if rest, err = asn1.Unmarshal(keyBytes, &pki); err != nil {
 				return "", nil, err
 			} else if len(rest) != 0 {
 				return "", nil, fmt.Errorf("x509: trailing data after ASN.1 of public-key")
 			}
 
-			btPK, err := btcec.ParsePubKey(pki.PublicKey.RightAlign(), btcec.S256())
+			var btPK *btcec.PublicKey
+			btPK, err = btcec.ParsePubKey(pki.PublicKey.RightAlign(), btcec.S256())
 			if err != nil {
 				return "", nil, err
 			}
 
 			pubKey = btPK.ToECDSA()
+		case kms.BLS12381G2Type:
+			pubKey, err = bbs12381g2pub.UnmarshalPublicKey(keyBytes)
+			if err != nil {
+				return "", nil, err
+			}
 		default:
 			return "", nil, fmt.Errorf("unsupported key type: %s", kt)
 		}

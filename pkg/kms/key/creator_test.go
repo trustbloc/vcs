@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/aries-framework-go/component/storageutil/mem"
+	"github.com/hyperledger/aries-framework-go/pkg/crypto/primitive/bbs12381g2pub"
 	"github.com/hyperledger/aries-framework-go/pkg/framework/aries"
 	"github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockkms "github.com/hyperledger/aries-framework-go/pkg/mock/kms"
@@ -28,6 +29,7 @@ func TestJWKKeyCreator(t *testing.T) {
 			kms.ECDSAP256TypeIEEEP1363: "P-256",
 			kms.ECDSAP384TypeIEEEP1363: "P-384",
 			kms.ECDSAP521TypeIEEEP1363: "P-521",
+			kms.BLS12381G2Type:         "BLS12381_G2",
 		}
 		k := newKMS(t)
 
@@ -56,6 +58,11 @@ func TestJWKKeyCreator(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to convert key to JWK")
 	})
+	t.Run("error parse BLS12381_G2", func(t *testing.T) {
+		k := &mockkms.KeyManager{}
+		_, _, err := key.JWKKeyCreator(kms.BLS12381G2Type)(k)
+		require.Error(t, err)
+	})
 	t.Run("error parse p256k1", func(t *testing.T) {
 		_, _, err := key.JWKKeyCreator(kms.ECDSASecp256k1DER)(&kmsMock{})
 		require.Error(t, err)
@@ -73,6 +80,7 @@ func TestCryptoKeyCreator(t *testing.T) {
 			kms.ECDSAP384TypeDER:       &ecdsa.PublicKey{},
 			kms.ECDSAP521TypeIEEEP1363: &ecdsa.PublicKey{},
 			kms.ECDSAP521TypeDER:       &ecdsa.PublicKey{},
+			kms.BLS12381G2Type:         &bbs12381g2pub.PublicKey{},
 		}
 		k := newKMS(t)
 
@@ -111,6 +119,12 @@ func TestCryptoKeyCreator(t *testing.T) {
 		_, _, err := key.CryptoKeyCreator(kms.ECDSASecp256k1DER)(&kmsMock{})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "asn1: syntax error")
+	})
+
+	t.Run("error parse BLS12381G2", func(t *testing.T) {
+		_, _, err := key.CryptoKeyCreator(kms.BLS12381G2Type)(&kmsMock{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "invalid size of public key")
 	})
 }
 

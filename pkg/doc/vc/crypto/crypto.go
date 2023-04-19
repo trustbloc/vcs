@@ -40,8 +40,8 @@ const (
 	JSONWebKey2020 = "JsonWebKey2020"
 	// EcdsaSecp256k1VerificationKey2019 verification type.
 	EcdsaSecp256k1VerificationKey2019 = "EcdsaSecp256k1VerificationKey2019"
-	// Bls12381G1Key2020 verification type.
-	Bls12381G1Key2020 = "Bls12381G1Key2020"
+	// Bls12381G2Key2020 verification type.
+	Bls12381G2Key2020 = "Bls12381G2Key2020"
 )
 
 const (
