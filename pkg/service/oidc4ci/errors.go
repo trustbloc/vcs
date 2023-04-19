@@ -10,6 +10,7 @@ import "errors"
 
 var (
 	ErrDataNotFound                    = errors.New("data not found")
+	ErrOpStateKeyDuplication           = errors.New("op state key duplication")
 	ErrProfileNotActive                = errors.New("profile not active")
 	ErrCredentialTemplateNotFound      = errors.New("credential template not found")
 	ErrCredentialTemplateNotConfigured = errors.New("credential template not configured")

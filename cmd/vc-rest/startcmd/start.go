@@ -93,17 +93,19 @@ import (
 	claimdatastoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslindexstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslvcstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
+	oidc4cistatestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
 	oidc4vpclaimsstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
+	oidc4vptxstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
 	oidcnoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
 	claimdatastoreredis "github.com/trustbloc/vcs/pkg/storage/redis/claimdatastore"
+	oidc4cistatestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cistatestore"
 	oidc4vpclaimsstoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vpclaimsstore"
+	oidc4vptxstoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vptxstore"
 	oidcnoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslvcstore"
@@ -618,9 +620,12 @@ func buildEchoHandler(
 		oidc4ciService = oidc4citracing.Wrap(oidc4ciService, conf.Tracer)
 	}
 
-	oidc4ciStateStore, err := oidc4cistatestore.New(context.Background(), mongodbClient)
+	oidc4ciStateStore, err := getOIDC4CIStateStore(
+		conf.StartupParameters.transientDataStoreType,
+		redisClient,
+		mongodbClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate new oidc4ci state store: %w", err)
+		return nil, fmt.Errorf("failed to instantiate new OIDC4CI state store: %w", err)
 	}
 
 	apiKeySecurityProvider, err := securityprovider.NewSecurityProviderApiKey(
@@ -742,7 +747,15 @@ func buildEchoHandler(
 		verifyPresentationSvc = verifypresentationtracing.Wrap(verifyPresentationSvc, conf.Tracer)
 	}
 
-	oidc4vpTxStore := oidc4vptxstore.NewTxStore(mongodbClient, documentLoader)
+	oidc4vpTxStore, err := getOIDC4VPTxStore(
+		conf.StartupParameters.transientDataStoreType,
+		redisClient,
+		mongodbClient,
+		documentLoader,
+		conf.StartupParameters.vpTransactionDataTTL)
+	if err != nil {
+		return nil, fmt.Errorf("initiate OIDC4VPTxStore: %w", err)
+	}
 
 	oidc4vpClaimsStore, err := getOIDC4VPClaimsStore(
 		conf.StartupParameters.transientDataStoreType,
@@ -887,6 +900,59 @@ func getOIDC4VPClaimsStore(
 		}
 
 		logger.Info("OIDC4VP claim data store Mongo is used")
+	}
+
+	return store, nil
+}
+
+func getOIDC4VPTxStore(
+	transientDataStoreType string,
+	redisClient *redis.Client,
+	mongodbClient *mongodb.Client,
+	documentLoader jsonld.DocumentLoader,
+	vpTransactionDataTTLSec int32) (oidc4vp.TxStoreStore, error) {
+	var store oidc4vp.TxStoreStore
+	var err error
+
+	switch transientDataStoreType {
+	case redisStore:
+		store = oidc4vptxstoreredis.NewTxStore(
+			redisClient, documentLoader, vpTransactionDataTTLSec)
+		logger.Info("OIDC4VP tx store Redis is used")
+	default:
+		store, err = oidc4vptxstoremongo.NewTxStore(
+			context.Background(),
+			mongodbClient,
+			documentLoader,
+			vpTransactionDataTTLSec)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate Mongo store: %w", err)
+		}
+
+		logger.Info("OIDC4VP tx store Mongo is used")
+	}
+
+	return store, nil
+}
+
+func getOIDC4CIStateStore(
+	transientDataStoreType string,
+	redisClient *redis.Client,
+	mongodbClient *mongodb.Client) (oidc4civ1.StateStore, error) {
+	var store oidc4civ1.StateStore
+	var err error
+
+	switch transientDataStoreType {
+	case redisStore:
+		store = oidc4cistatestoreredis.New(redisClient)
+		logger.Info("OIDC4CI state store Redis is used")
+	default:
+		store, err = oidc4cistatestoremongo.New(context.Background(), mongodbClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate new OIDC4CI Mongo state store: %w", err)
+		}
+
+		logger.Info("OIDC4CI state store Mongo is used")
 	}
 
 	return store, nil

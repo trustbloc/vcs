@@ -53,3 +53,5 @@ type ServiceInterface interface {
 type TxNonceStore txNonceStore
 
 type TxClaimsStore txClaimsStore
+
+type TxStoreStore txStore

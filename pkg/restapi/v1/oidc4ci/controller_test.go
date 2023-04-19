@@ -38,7 +38,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 	"github.com/trustbloc/vcs/pkg/restapi/v1/oidc4ci"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
+	oidc4cisrv "github.com/trustbloc/vcs/pkg/service/oidc4ci"
 )
 
 func TestController_OidcPushedAuthorizationRequest(t *testing.T) {
@@ -647,7 +647,7 @@ func TestController_OidcRedirect(t *testing.T) {
 
 				redirectURI := &url.URL{Scheme: "https", Host: "example.com", Path: "redirect"}
 
-				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4cistatestore.AuthorizeState{
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4cisrv.AuthorizeState{
 					RedirectURI: redirectURI,
 				}, nil)
 				mockInteractionClient.EXPECT().StoreAuthorizationCodeRequest(
@@ -683,7 +683,7 @@ func TestController_OidcRedirect(t *testing.T) {
 
 				redirectURI := &url.URL{Scheme: "https", Host: "example.com", Path: "redirect"}
 
-				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4cistatestore.AuthorizeState{
+				mockStateStore.EXPECT().GetAuthorizeState(gomock.Any(), params.State).Return(&oidc4cisrv.AuthorizeState{
 					RedirectURI: redirectURI,
 				}, nil)
 				mockInteractionClient.EXPECT().StoreAuthorizationCodeRequest(
