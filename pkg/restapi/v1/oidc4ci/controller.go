@@ -583,12 +583,6 @@ func validateProofClaims(
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("parse jwt: %w", err))
 	}
 
-	var claims JWTProofClaims
-
-	if err = jws.DecodeClaims(&claims); err != nil {
-		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("decode claims: %w", err))
-	}
-
 	if nonceExp, ok := session.Extra[cNonceExpiresAtKey].(int64); ok && nonceExp < time.Now().Unix() {
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
 	}
@@ -597,7 +591,7 @@ func validateProofClaims(
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
 	}
 
-	if nonce := session.Extra[cNonceKey].(string); claims.Nonce != nonce { //nolint:errcheck
+	if nonce := session.Extra[cNonceKey].(string); jws.Payload["nonce"] != nonce { //nolint:errcheck
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("invalid nonce"))
 	}
 

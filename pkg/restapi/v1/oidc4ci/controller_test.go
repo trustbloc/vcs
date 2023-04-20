@@ -1058,43 +1058,6 @@ func TestController_OidcCredential(t *testing.T) {
 			},
 		},
 		{
-			name: "fail to decode proof jwt claims",
-			setup: func() {
-				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).
-					Return(
-						fosite.AccessToken,
-						fosite.NewAccessRequest(
-							&fosite.DefaultSession{
-								Extra: map[string]interface{}{
-									"txID":            "tx_id",
-									"cNonce":          "c_nonce",
-									"cNonceExpiresAt": time.Now().Add(time.Minute).Unix(),
-								},
-							},
-						), nil)
-
-				mockInteractionClient.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).Times(0)
-
-				accessToken = "access-token"
-
-				invalidClaimsJWT, jwtErr := jwt.NewSigned(`{"iat":"invalid"}`, nil, jwtSigner)
-				require.NoError(t, jwtErr)
-
-				invalidJWS, marshalErr := invalidClaimsJWT.Serialize(false)
-				require.NoError(t, marshalErr)
-
-				requestBody, err = json.Marshal(oidc4ci.CredentialRequest{
-					Format: lo.ToPtr(string(common.JwtVcJsonLd)),
-					Proof:  &oidc4ci.JWTProof{ProofType: "jwt", Jwt: invalidJWS},
-					Types:  []string{"VerifiableCredential", "UniversityDegreeCredential"},
-				})
-				require.NoError(t, err)
-			},
-			check: func(t *testing.T, rec *httptest.ResponseRecorder, err error) {
-				require.ErrorContains(t, err, "decode claims")
-			},
-		},
-		{
 			name: "nonce expired",
 			setup: func() {
 				mockOAuthProvider.EXPECT().IntrospectToken(gomock.Any(), gomock.Any(), fosite.AccessToken, gomock.Any()).

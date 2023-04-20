@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -502,12 +503,26 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 }
 
 func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
-	idTokenClaims := &IDTokenClaims{}
-
-	_, err := verifyTokenSignature(rawJwt, idTokenClaims, verifier)
+	token, _, err := verifyTokenSignature(rawJwt, verifier)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
 	}
+
+	idTokenClaims := &IDTokenClaims{
+		VPToken: IDTokenVPToken{
+			PresentationSubmission: nil,
+		},
+		Nonce: fmt.Sprint(token.Payload["nonce"]),
+		Exp:   0,
+	}
+
+	if vpToken, ok := token.Payload["_vp_token"].(map[string]interface{}); ok {
+		if v, ok := vpToken["presentation_submission"].(map[string]interface{}); ok {
+			idTokenClaims.VPToken.PresentationSubmission = v
+		}
+	}
+	exp, _ := strconv.ParseInt(fmt.Sprint(token.Payload["exp"]), 10, 64)
+	idTokenClaims.Exp = exp
 
 	if idTokenClaims.Exp < time.Now().Unix() {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token.exp", fmt.Errorf(
@@ -525,9 +540,12 @@ func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenCl
 func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenClaims, string, error) {
 	vpTokenClaims := &VPTokenClaims{}
 
-	signer, err := verifyTokenSignature(rawJwt, vpTokenClaims, verifier)
+	token, signer, err := verifyTokenSignature(rawJwt, verifier)
 	if err != nil {
 		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
+	}
+	if err = token.DecodeClaims(vpTokenClaims); err != nil {
+		return nil, "", fmt.Errorf("decode claims: %w", err)
 	}
 
 	if vpTokenClaims.Exp < time.Now().Unix() {
@@ -543,20 +561,15 @@ func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenCl
 	return vpTokenClaims, signer, nil
 }
 
-func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) (string, error) {
+func verifyTokenSignature(rawJwt string, verifier jose.SignatureVerifier) (*jwt.JSONWebToken, string, error) {
 	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
-		return "", fmt.Errorf("parse JWT: %w", err)
-	}
-
-	err = jsonWebToken.DecodeClaims(claims)
-	if err != nil {
-		return "", fmt.Errorf("decode claims: %w", err)
+		return nil, "", fmt.Errorf("parse JWT: %w", err)
 	}
 
 	kid, _ := jsonWebToken.Headers.KeyID()
 
-	return strings.Split(kid, "#")[0], nil
+	return jsonWebToken, strings.Split(kid, "#")[0], nil
 }
 
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {

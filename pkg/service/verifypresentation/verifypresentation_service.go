@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -65,6 +66,13 @@ func (s *Service) VerifyPresentation(
 	}()
 	var result []PresentationVerificationCheckResult
 
+	var lazyCredentials []*LazyCredential
+	if presentation != nil {
+		for _, c := range presentation.Credentials() {
+			lazyCredentials = append(lazyCredentials, NewLazyCredential(c))
+		}
+	}
+
 	if profile.Checks.Presentation.Proof {
 		st := time.Now()
 		vpBytes := []byte(presentation.JWT)
@@ -91,7 +99,7 @@ func (s *Service) VerifyPresentation(
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
-		err := s.validateCredentialsProof(ctx, presentation)
+		err := s.validateCredentialsProof(ctx, presentation.JWT, lazyCredentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialProof",
@@ -104,7 +112,7 @@ func (s *Service) VerifyPresentation(
 
 	if profile.Checks.Credential.Status {
 		st := time.Now()
-		err := s.validateCredentialsStatus(ctx, presentation)
+		err := s.validateCredentialsStatus(ctx, lazyCredentials)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStatus",
@@ -193,14 +201,18 @@ func (s *Service) validateProofData(vp *verifiable.Presentation, opts *Options) 
 	return nil
 }
 
-func (s *Service) validateCredentialsProof(ctx context.Context, vp *verifiable.Presentation) error {
-	for _, cred := range vp.Credentials() {
-		vcBytes, err := json.Marshal(cred)
+func (s *Service) validateCredentialsProof(
+	ctx context.Context,
+	vpJWT string,
+	credentials []*LazyCredential,
+) error {
+	for _, cred := range credentials {
+		vcBytes, err := cred.Serialized()
 		if err != nil {
 			return err
 		}
 
-		err = s.vcVerifier.ValidateCredentialProof(ctx, vcBytes, "", "", true, vp.JWT != "")
+		err = s.vcVerifier.ValidateCredentialProof(ctx, vcBytes, "", "", true, vpJWT != "")
 		if err != nil {
 			return err
 		}
@@ -209,27 +221,70 @@ func (s *Service) validateCredentialsProof(ctx context.Context, vp *verifiable.P
 	return nil
 }
 
-func (s *Service) validateCredentialsStatus(ctx context.Context, vp *verifiable.Presentation) error {
-	for _, cred := range vp.Credentials() {
-		vcBytes, err := json.Marshal(cred)
+func (s *Service) validateCredentialsStatus(
+	ctx context.Context,
+	credentials []*LazyCredential,
+) error {
+	for _, cred := range credentials {
+		extractedType, issuer, err := s.extractCredentialStatus(cred)
 		if err != nil {
 			return err
 		}
 
-		vc, err := verifiable.ParseCredential(vcBytes,
-			verifiable.WithDisabledProofCheck(),
-			verifiable.WithJSONLDDocumentLoader(s.documentLoader))
+		err = s.vcVerifier.ValidateVCStatus(ctx, extractedType, issuer)
 		if err != nil {
 			return err
-		}
-
-		if vc.Status != nil {
-			err = s.vcVerifier.ValidateVCStatus(ctx, vc.Status, vc.Issuer.ID)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
 	return nil
+}
+
+func (s *Service) extractCredentialStatus(cred *LazyCredential) (*verifiable.TypedID, string, error) {
+	if cred == nil {
+		return nil, "", nil
+	}
+
+	if v, ok := cred.Raw().(*verifiable.Credential); ok {
+		return v.Status, v.Issuer.ID, nil
+	}
+
+	v, ok := cred.Raw().(map[string]interface{})
+	if !ok {
+		return nil, "", fmt.Errorf("unsupported credential type %v", reflect.TypeOf(cred.Raw()).String())
+	}
+
+	var issuerID string
+	switch issuerData := v["issuer"].(type) {
+	case map[string]interface{}:
+		issuerID = fmt.Sprint(issuerData["id"])
+	case string:
+		issuerID = issuerData
+	}
+
+	status, ok := v["credentialStatus"]
+	if !ok {
+		return nil, "", nil
+	}
+
+	statusMap, ok := status.(map[string]interface{})
+	if !ok {
+		return nil, "", fmt.Errorf("unsupported status list type type %v", reflect.TypeOf(status).String())
+	}
+
+	finalObj := &verifiable.TypedID{
+		CustomFields: map[string]interface{}{},
+	}
+	for k, val := range statusMap {
+		switch k {
+		case "id":
+			finalObj.ID = fmt.Sprint(val)
+		case "type":
+			finalObj.Type = fmt.Sprint(val)
+		default:
+			finalObj.CustomFields[k] = val
+		}
+	}
+
+	return finalObj, issuerID, nil
 }
