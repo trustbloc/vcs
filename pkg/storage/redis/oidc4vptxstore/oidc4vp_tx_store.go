@@ -26,7 +26,7 @@ const (
 	keyPrefix = "oidc4vp_tx"
 )
 
-// TxStore manages profile in mongodb.
+// TxStore manages profile in redis.
 type TxStore struct {
 	ttl            time.Duration
 	redisClient    *redis.Client
@@ -101,7 +101,6 @@ func (p *TxStore) getTxDocument(ctx context.Context, strID oidc4vp.TxID) (*txDoc
 	}
 
 	if txDoc.ExpireAt.Before(time.Now().UTC()) {
-		// due to nature of mongodb ttlIndex works every minute, so it can be a situation when we receive expired doc
 		return nil, oidc4vp.ErrDataNotFound
 	}
 

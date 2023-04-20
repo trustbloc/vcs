@@ -34,7 +34,7 @@ type mongoDocument struct {
 // Store stores claim data with expiration.
 type Store struct {
 	mongoClient *mongodb.Client
-	ttl         int32
+	ttl         time.Duration
 }
 
 // New creates presentation claims store.
@@ -45,7 +45,7 @@ func New(
 ) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
-		ttl:         ttl,
+		ttl:         time.Duration(ttl) * time.Second,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -73,7 +73,7 @@ func (s *Store) Create(claims *oidc4vp.ClaimData) (string, error) {
 	var err error
 
 	doc := &mongoDocument{
-		ExpireAt:  time.Now().Add(time.Duration(s.ttl) * time.Second),
+		ExpireAt:  time.Now().Add(s.ttl),
 		ClaimData: claims,
 	}
 

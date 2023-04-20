@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidcnoncestore
+package oidc4vpnoncestore
 
 import (
 	"errors"
@@ -32,12 +32,14 @@ type nonceDocument struct {
 // TxNonceStore stores oidc transactions in mongo.
 type TxNonceStore struct {
 	mongoClient *mongodb.Client
+	ttl         time.Duration
 }
 
 // New creates TxNonceStore.
-func New(mongoClient *mongodb.Client) (*TxNonceStore, error) {
+func New(mongoClient *mongodb.Client, ttlSec int32) (*TxNonceStore, error) {
 	s := &TxNonceStore{
 		mongoClient: mongoClient,
+		ttl:         time.Duration(ttlSec) * time.Second,
 	}
 
 	if err := s.migrate(); err != nil {
@@ -89,7 +91,7 @@ func (ts *TxNonceStore) GetAndDelete(nonce string) (oidc4vp.TxID, bool, error) {
 }
 
 // SetIfNotExist stores transaction if key not exists et.
-func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiration time.Duration) (bool, error) {
+func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID) (bool, error) {
 	ctxWithTimeout, cancel := ts.mongoClient.ContextWithTimeout()
 	defer cancel()
 
@@ -98,7 +100,7 @@ func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiratio
 	doc := &nonceDocument{
 		ID:       nonce,
 		TxID:     txID,
-		ExpireAt: time.Now().Add(expiration),
+		ExpireAt: time.Now().Add(ts.ttl),
 	}
 
 	_, err := collection.InsertOne(ctxWithTimeout, doc)

@@ -22,8 +22,7 @@ import (
 )
 
 const (
-	collectionName    = "oidc4authstate"
-	defaultExpiration = 24 * time.Hour
+	collectionName = "oidc4authstate"
 )
 
 type mongoDocument struct {
@@ -36,13 +35,15 @@ type mongoDocument struct {
 
 // Store stores OIDC4CI authorize request/response state in mongo.
 type Store struct {
+	ttl         time.Duration
 	mongoClient *mongodb.Client
 }
 
 // New creates a new instance of Store.
-func New(ctx context.Context, mongoClient *mongodb.Client) (*Store, error) {
+func New(ctx context.Context, mongoClient *mongodb.Client, ttlSec int32) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
+		ttl:         time.Duration(ttlSec) * time.Second,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -130,7 +131,7 @@ func (s *Store) mapTransactionDataToMongoDocument(
 	data *oidc4ci.AuthorizeState,
 ) *mongoDocument {
 	return &mongoDocument{
-		ExpireAt: time.Now().UTC().Add(defaultExpiration),
+		ExpireAt: time.Now().UTC().Add(s.ttl),
 		OpState:  opState,
 		State:    data,
 	}

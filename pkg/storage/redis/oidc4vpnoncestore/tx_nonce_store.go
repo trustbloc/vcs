@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidcnoncestore
+package oidc4vpnoncestore
 
 import (
 	"encoding/json"
@@ -22,15 +22,17 @@ const (
 	keyPrefix = "oidc4vpnonce"
 )
 
-// TxNonceStore stores oidc transactions in mongo.
+// TxNonceStore stores oidc transactions in redis.
 type TxNonceStore struct {
 	redisClient *redis.Client
+	ttl         time.Duration
 }
 
 // New creates TxNonceStore.
-func New(redisClient *redis.Client) *TxNonceStore {
+func New(redisClient *redis.Client, ttlSec int32) *TxNonceStore {
 	return &TxNonceStore{
 		redisClient: redisClient,
+		ttl:         time.Duration(ttlSec) * time.Second,
 	}
 }
 
@@ -68,7 +70,7 @@ func (ts *TxNonceStore) GetAndDelete(nonce string) (oidc4vp.TxID, bool, error) {
 }
 
 // SetIfNotExist stores transaction if key not exists et.
-func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiration time.Duration) (bool, error) {
+func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID) (bool, error) {
 	ctxWithTimeout, cancel := ts.redisClient.ContextWithTimeout()
 	defer cancel()
 
@@ -76,7 +78,7 @@ func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiratio
 
 	doc := &nonceDocument{
 		TxID:     txID,
-		ExpireAt: time.Now().Add(expiration),
+		ExpireAt: time.Now().Add(ts.ttl),
 	}
 
 	key := resolveRedisKey(nonce)
@@ -90,7 +92,7 @@ func (ts *TxNonceStore) SetIfNotExist(nonce string, txID oidc4vp.TxID, expiratio
 		return false, nil
 	}
 
-	if err = clientAPI.Set(ctxWithTimeout, key, doc, expiration).Err(); err != nil {
+	if err = clientAPI.Set(ctxWithTimeout, key, doc, ts.ttl).Err(); err != nil {
 		return false, fmt.Errorf("tx set: %w", err)
 	}
 

@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
@@ -34,12 +33,12 @@ func TestTxManager_CreateTx(t *testing.T) {
 		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
-		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID"), 100*time.Second).
+		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID")).
 			Times(1).Return(true, nil)
 
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		tx, nonce, err := manager.CreateTx(&presexch.PresentationDefinition{}, "org_id")
@@ -59,7 +58,7 @@ func TestTxManager_CreateTx(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, "org_id")
@@ -74,11 +73,11 @@ func TestTxManager_CreateTx(t *testing.T) {
 		claimsStore := NewMockTxClaimsStore(gomock.NewController(t))
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
-		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID"), 100*time.Second).
+		nonceStore.EXPECT().SetIfNotExist(gomock.Any(), oidc4vp.TxID("txID")).
 			Times(1).Return(false, errors.New("test error"))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		_, _, err := manager.CreateTx(&presexch.PresentationDefinition{}, "org_id")
@@ -98,7 +97,7 @@ func TestTxManager_GetByOneTimeToken(t *testing.T) {
 		nonceStore.EXPECT().GetAndDelete("nonce").Times(1).Return(oidc4vp.TxID("txID"), true, nil)
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		tx, exists, err := manager.GetByOneTimeToken("nonce")
@@ -119,7 +118,7 @@ func TestTxManager_GetByOneTimeToken(t *testing.T) {
 			errors.New("test error 123"))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		_, exists, err := manager.GetByOneTimeToken("nonce")
@@ -138,7 +137,7 @@ func TestTxManager_GetByOneTimeToken(t *testing.T) {
 		nonceStore.EXPECT().GetAndDelete("nonce").Times(1).Return(oidc4vp.TxID("txID"), true, nil)
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		_, exists, err := manager.GetByOneTimeToken("nonce")
@@ -158,7 +157,7 @@ func TestTxManager_Get(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		tx, err := manager.Get("txID")
@@ -195,7 +194,7 @@ func TestTxManager_Get(t *testing.T) {
 
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		crypto.EXPECT().Decrypt(gomock.Any(), chunks).
@@ -255,7 +254,7 @@ func TestTxManager_Get(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		tx, err := manager.Get("txID")
@@ -282,7 +281,7 @@ func TestTxManager_Get(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		tx, err := manager.Get("txID")
@@ -301,7 +300,7 @@ func TestTxManager_Get(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		_, err := manager.Get("txID")
@@ -318,7 +317,7 @@ func TestTxManager_Get(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		_, err := manager.Get("txID")
@@ -356,7 +355,7 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 				return "claimsID", nil
 			})
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		vc, err := verifiable.ParseCredential([]byte(sampleVCJWT),
@@ -393,7 +392,7 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("can not encrypt"))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		err := manager.StoreReceivedClaims("txID", &oidc4vp.ReceivedClaims{
@@ -414,7 +413,7 @@ func TestTxManagerStoreReceivedClaims(t *testing.T) {
 			Return(nil, nil)
 		claimsStore.EXPECT().Create(gomock.Any()).Return("", errors.New("can not store claims"))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		err := manager.StoreReceivedClaims("txID", &oidc4vp.ReceivedClaims{
@@ -434,7 +433,7 @@ func TestTxManagerDeleteReceivedClaims(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		err := manager.DeleteReceivedClaims("claimsID")
@@ -449,7 +448,7 @@ func TestTxManagerDeleteReceivedClaims(t *testing.T) {
 		nonceStore := NewMockTxNonceStore(gomock.NewController(t))
 		crypto := NewMockDataProtector(gomock.NewController(t))
 
-		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nonceStore, store, claimsStore, crypto,
 			testutil.DocumentLoader(t))
 
 		err := manager.DeleteReceivedClaims("claimsID")
@@ -460,7 +459,7 @@ func TestTxManagerDeleteReceivedClaims(t *testing.T) {
 
 func TestClaimsToRaw(t *testing.T) {
 	t.Run("data nil", func(t *testing.T) {
-		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, nil,
+		manager := oidc4vp.NewTxManager(nil, nil, nil, nil,
 			testutil.DocumentLoader(t))
 
 		resp, err := manager.ClaimsToClaimsRaw(nil)
@@ -471,7 +470,7 @@ func TestClaimsToRaw(t *testing.T) {
 
 func TestEncrypt(t *testing.T) {
 	t.Run("data nil", func(t *testing.T) {
-		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, nil,
+		manager := oidc4vp.NewTxManager(nil, nil, nil, nil,
 			testutil.DocumentLoader(t))
 
 		resp, err := manager.EncryptClaims(context.TODO(), nil)
@@ -483,7 +482,7 @@ func TestEncrypt(t *testing.T) {
 		crypto := NewMockDataProtector(gomock.NewController(t))
 		crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("encrypt err"))
-		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nil, nil, nil, crypto,
 			testutil.DocumentLoader(t))
 
 		resp, err := manager.EncryptClaims(context.TODO(), &oidc4vp.ReceivedClaims{})
@@ -497,7 +496,7 @@ func TestDecrypt(t *testing.T) {
 		crypto := NewMockDataProtector(gomock.NewController(t))
 		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
 			Return(nil, errors.New("decrypt err"))
-		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nil, nil, nil, crypto,
 			testutil.DocumentLoader(t))
 
 		resp, err := manager.DecryptClaims(context.TODO(), &oidc4vp.ClaimData{})
@@ -509,7 +508,7 @@ func TestDecrypt(t *testing.T) {
 		crypto := NewMockDataProtector(gomock.NewController(t))
 		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
 			Return([]byte("{"), nil)
-		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nil, nil, nil, crypto,
 			testutil.DocumentLoader(t))
 
 		resp, err := manager.DecryptClaims(context.TODO(), &oidc4vp.ClaimData{})
@@ -529,7 +528,7 @@ func TestDecrypt(t *testing.T) {
 
 		crypto.EXPECT().Decrypt(gomock.Any(), gomock.Any()).
 			Return(dec, nil)
-		manager := oidc4vp.NewTxManager(nil, nil, nil, 100*time.Second, crypto,
+		manager := oidc4vp.NewTxManager(nil, nil, nil, crypto,
 			testutil.DocumentLoader(t))
 
 		resp, err := manager.DecryptClaims(context.TODO(), &oidc4vp.ClaimData{})

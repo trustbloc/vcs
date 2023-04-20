@@ -33,6 +33,7 @@ const (
 	mongoDBConnString  = "mongodb://localhost:27027"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
+	defaultExpiration  = 3600
 )
 
 func TestStore(t *testing.T) {
@@ -45,7 +46,7 @@ func TestStore(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	assert.NoError(t, err)
 
-	store, err := New(context.Background(), client)
+	store, err := New(context.Background(), client, defaultExpiration)
 
 	assert.NoError(t, err)
 
@@ -98,7 +99,7 @@ func TestStore(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
-				srv, err2 := New(context.Background(), client)
+				srv, err2 := New(context.Background(), client, defaultExpiration)
 				assert.NoError(t, err2)
 				assert.NotNil(t, srv)
 			}()
@@ -126,7 +127,7 @@ func TestWithTimeouts(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb2", mongodb.WithTimeout(time.Second*1))
 	assert.NoError(t, err)
 
-	store, err := New(context.Background(), client)
+	store, err := New(context.Background(), client, defaultExpiration)
 
 	assert.NoError(t, err)
 

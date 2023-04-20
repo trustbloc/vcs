@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package claimdatastore
+package oidc4ciclaimdatastore
 
 import (
 	"context"

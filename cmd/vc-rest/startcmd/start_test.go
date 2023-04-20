@@ -530,11 +530,11 @@ func TestInvalidVPReceivedClaimsDataTTLEnvVar(t *testing.T) {
 	setEnvVars(t, databaseTypeMongoDBOption, "")
 
 	defer unsetEnvVars(t)
-	require.NoError(t, os.Setenv(vpReceivedClaimsDataTTLEnvKey, "not int"))
+	require.NoError(t, os.Setenv(oidc4vpReceivedClaimsDataTTLEnvKey, "not int"))
 
 	err := startCmd.Execute()
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "invalid syntax")
+	require.Contains(t, err.Error(), "invalid duration")
 }
 
 func TestDidWeb(t *testing.T) {

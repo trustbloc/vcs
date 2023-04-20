@@ -228,9 +228,12 @@ const (
 	transientDataStoreTypeFlagName  = "transient-data-store-type"
 	transientDataStoreTypeFlagUsage = "Transient data store type. " +
 		"For now includes Fosite oAuth data, " +
-		"encrypted claim data submitted by issuer during OIDC4CI issuance, " +
-		"OIDC4VP nonce store, " +
-		"encrypted claim data of OIDC4VP presentation transaction. " +
+		"encrypted claim data submitted by issuer during OIDC4CI issuance " + "(TTL configurable via " + claimDataTTLEnvKey + "), " +
+		"OIDC4CI issuance transaction data " + "(TTL configurable via " + oidc4ciTransactionDataTTLEnvKey + "), " +
+		"OIDC4CI issuance auth state store " + "(TTL configurable via " + oidc4ciAuthStateTTLEnvKey + "), " +
+		"OIDC4VP transaction mapping " + "(TTL configurable via " + oidc4vpNonceTTLEnvKey + "), " +
+		"OIDC4VP transaction data " + "(TTL configurable via " + oidc4vpTransactionDataTTLEnvKey + "), " +
+		"encrypted claim data of OIDC4VP presentation transaction. " + "(TTL configurable via " + oidc4vpReceivedClaimsDataTTLEnvKey + "). " +
 		"Possible values are \"redis\" or \"mongo\". Default is \"mongo\". " +
 		commonEnvVarUsageText + transientDataStoreTypeFlagEnvKey
 	transientDataStoreTypeFlagEnvKey = "VC_TRANSIENT_DATA_STORE_TYPE"
@@ -245,15 +248,30 @@ const (
 	claimDataTTLFlagUsage = "Claim data TTL in OIDC4VC pre-auth code flow. Defaults to 3600s. " +
 		commonEnvVarUsageText + hostURLExternalEnvKey
 
-	vpReceivedClaimsDataTTLFlagName  = "vp-received-claims-data-ttl"
-	vpReceivedClaimsDataTTLEnvKey    = "VP_RECEIVED_CLAIMS_DATA_TTL"
-	vpReceivedClaimsDataTTLFlagUsage = "VP Received Claims data TTL in OIDC4VP pre-auth code flow. Defaults to 3600s. " +
+	oidc4vpReceivedClaimsDataTTLFlagName  = "vc-oidc4vp-received-claims-data-ttl"
+	oidc4vpReceivedClaimsDataTTLEnvKey    = "VC_OIDC4VP_RECEIVED_CLAIMS_DATA_TTL"
+	oidc4vpReceivedClaimsDataTTLFlagUsage = "VP Received Claims data TTL in OIDC4VP pre-auth code flow. Defaults to 3600s. " +
 		commonEnvVarUsageText + hostURLExternalEnvKey
 
-	vpTransactionDataTTLFlagName  = "vp-transaction-data-ttl"
-	vpTransactionDataTTLEnvKey    = "VP_TRANSACTION_DATA_TTL"
-	vpTransactionDataTTLFlagUsage = "VP Transaction data TTL in OIDC4VP pre-auth code flow. Defaults to 1h. " +
-		commonEnvVarUsageText + vpTransactionDataTTLEnvKey
+	oidc4vpTransactionDataTTLFlagName  = "vc-oidc4vp-transaction-data-ttl"
+	oidc4vpTransactionDataTTLEnvKey    = "VC_OIDC4VP_TRANSACTION_DATA_TTL"
+	oidc4vpTransactionDataTTLFlagUsage = "VP Transaction data TTL in OIDC4VP pre-auth code flow. Defaults to 1h. " +
+		commonEnvVarUsageText + oidc4vpTransactionDataTTLEnvKey
+
+	oidc4ciTransactionDataTTLFlagName  = "vc-oidc4ci-transaction-data-ttl"
+	oidc4ciTransactionDataTTLEnvKey    = "VC_OIDC4CI_TRANSACTION_DATA_TTL"
+	oidc4ciTransactionDataTTLFlagUsage = "OIDC4CI transaction data TTL. Defaults to 15m. " +
+		commonEnvVarUsageText + oidc4ciTransactionDataTTLEnvKey
+
+	oidc4ciAuthStateTTLFlagName  = "vc-oidc4ci-auth-state-ttl"
+	oidc4ciAuthStateTTLEnvKey    = "VC_OIDC4CI_AUTH_STATE_TTL"
+	oidc4ciAuthStateTTLFlagUsage = "OIDC4CI auth state data TTL. Defaults to 15m. " +
+		commonEnvVarUsageText + oidc4ciAuthStateTTLEnvKey
+
+	oidc4vpNonceTTLFlagName  = "vc-oidc4vp-nonce-data-ttl"
+	oidc4vpNonceTTLEnvKey    = "VC_OIDC4VP_NONCE_DATA_TTL"
+	oidc4vpNonceTTLFlagUsage = "VP nonce data TTL in OIDC4VP pre-auth code flow. Defaults to 15m. " +
+		commonEnvVarUsageText + oidc4vpNonceTTLEnvKey
 
 	metricsProviderFlagName         = "metrics-provider-name"
 	metricsProviderEnvKey           = "VC_METRICS_PROVIDER_NAME"
@@ -350,10 +368,13 @@ const (
 )
 
 const (
-	defaultClaimDataTTL            = 3600 * time.Second
-	defaultVPReceivedClaimsDataTTL = 3600 * time.Second
-	defaultVPTransactionDataTTL    = time.Hour
-	defaultDataEncryptionKeyLength = 256
+	defaultClaimDataTTL                 = time.Hour
+	defaultOIDC4VPReceivedClaimsDataTTL = time.Hour
+	defaultOIDC4VPTransactionDataTTL    = time.Hour
+	defaultOIDC4VPNonceDataTTL          = 15 * time.Minute
+	defaultOIDC4CITransactionDataTTL    = 15 * time.Minute
+	defaultOIDC4CIAuthStateTTL          = 15 * time.Minute
+	defaultDataEncryptionKeyLength      = 256
 )
 
 type startupParameters struct {
@@ -392,16 +413,23 @@ type startupParameters struct {
 	issuerEventTopic                    string
 	verifierEventTopic                  string
 	credentialStatusEventTopic          string
-	claimDataTTL                        int32
-	transientDataStoreType              string
-	vpReceivedClaimsDataTTL             int32
-	vpTransactionDataTTL                int32
 	tracingParams                       *tracingParams
+	transientDataParams                 *transientDataParams
 	dataEncryptionKeyID                 string
 	dataEncryptionKeyLength             int
 	dataEncryptionCompressorAlgo        string
 	enableProfiler                      bool
 	dataEncryptionDisabled              bool
+}
+
+type transientDataParams struct {
+	storeType                    string
+	claimDataTTL                 int32
+	oidc4ciTransactionDataTTL    int32
+	oidc4ciAuthStateTTL          int32
+	oidc4vpNonceStoreDataTTL     int32
+	oidc4vpTransactionDataTTL    int32
+	oidc4vpReceivedClaimsDataTTL int32
 }
 
 type prometheusMetricsProviderParams struct {
@@ -511,9 +539,12 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		return nil, err
 	}
 
-	transientDataStoreType := cmdutils.GetUserSetOptionalVarFromString(cmd, transientDataStoreTypeFlagName, transientDataStoreTypeFlagEnvKey)
+	transientDataParameters, err := getTransientDataParams(cmd)
+	if err != nil {
+		return nil, err
+	}
 
-	redisParams, err := getRedisParameters(cmd, transientDataStoreType)
+	redisParams, err := getRedisParameters(cmd, transientDataParameters.storeType)
 	if err != nil {
 		return nil, err
 	}
@@ -657,21 +688,6 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		credentialStatusTopic = spi.CredentialStatusEventTopic
 	}
 
-	claimDataTTL, err := getDuration(cmd, claimDataTTLFlagName, claimDataTTLEnvKey, defaultClaimDataTTL)
-	if err != nil {
-		return nil, err
-	}
-
-	vpReceivedClaimsDataTTL, err := getDuration(cmd, vpReceivedClaimsDataTTLFlagName, vpReceivedClaimsDataTTLEnvKey, defaultVPReceivedClaimsDataTTL)
-	if err != nil {
-		return nil, err
-	}
-
-	vpTransactionDataTTL, err := getDuration(cmd, vpTransactionDataTTLFlagName, vpTransactionDataTTLEnvKey, defaultVPTransactionDataTTL)
-	if err != nil {
-		return nil, err
-	}
-
 	tracingParams, err := getTracingParams(cmd)
 	if err != nil {
 		return nil, err
@@ -732,16 +748,58 @@ func getStartupParameters(cmd *cobra.Command) (*startupParameters, error) {
 		issuerEventTopic:                    issuerTopic,
 		verifierEventTopic:                  verifierTopic,
 		credentialStatusEventTopic:          credentialStatusTopic,
-		claimDataTTL:                        int32(claimDataTTL.Seconds()),
-		vpReceivedClaimsDataTTL:             int32(vpReceivedClaimsDataTTL.Seconds()),
-		vpTransactionDataTTL:                int32(vpTransactionDataTTL.Seconds()),
-		transientDataStoreType:              transientDataStoreType,
 		tracingParams:                       tracingParams,
 		dataEncryptionKeyID:                 dataEncryptionKeyID,
 		dataEncryptionKeyLength:             dataEncryptionKeyLength,
 		enableProfiler:                      enableProfiler,
 		dataEncryptionCompressorAlgo:        dataEncryptionCompressionAlgo,
 		dataEncryptionDisabled:              dataEncryptionDisabled,
+		transientDataParams:                 transientDataParameters,
+	}, nil
+}
+
+func getTransientDataParams(cmd *cobra.Command) (*transientDataParams, error) {
+	transientDataStoreType := cmdutils.GetUserSetOptionalVarFromString(cmd, transientDataStoreTypeFlagName, transientDataStoreTypeFlagEnvKey)
+
+	claimDataTTL, err := getDuration(cmd, claimDataTTLFlagName, claimDataTTLEnvKey, defaultClaimDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	oidc4vpReceivedClaimsDataTTL, err := getDuration(cmd, oidc4vpReceivedClaimsDataTTLFlagName, oidc4vpReceivedClaimsDataTTLEnvKey, defaultOIDC4VPReceivedClaimsDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	oidc4vpTransactionDataTTL, err := getDuration(cmd, oidc4vpTransactionDataTTLFlagName, oidc4vpTransactionDataTTLEnvKey, defaultOIDC4VPTransactionDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	oidc4vpNonceStoreDataTTL, err := getDuration(cmd, oidc4vpNonceTTLFlagName, oidc4vpNonceTTLEnvKey, defaultOIDC4VPNonceDataTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	oidc4ciTransactionDataTTL, err := getDuration(
+		cmd, oidc4ciTransactionDataTTLFlagName, oidc4ciTransactionDataTTLEnvKey, defaultOIDC4CITransactionDataTTL)
+	if err != nil {
+		return nil, err
+	}
+	oidc4ciAuthStateTTL, err := getDuration(
+		cmd, oidc4ciAuthStateTTLFlagName, oidc4ciAuthStateTTLEnvKey, defaultOIDC4CIAuthStateTTL)
+	if err != nil {
+		return nil, err
+	}
+
+	return &transientDataParams{
+		storeType:                    transientDataStoreType,
+		claimDataTTL:                 int32(claimDataTTL.Seconds()),
+		oidc4ciTransactionDataTTL:    int32(oidc4ciTransactionDataTTL.Seconds()),
+		oidc4ciAuthStateTTL:          int32(oidc4ciAuthStateTTL.Seconds()),
+		oidc4vpReceivedClaimsDataTTL: int32(oidc4vpReceivedClaimsDataTTL.Seconds()),
+		oidc4vpNonceStoreDataTTL:     int32(oidc4vpNonceStoreDataTTL.Seconds()),
+		oidc4vpTransactionDataTTL:    int32(oidc4vpTransactionDataTTL.Seconds()),
 	}, nil
 }
 
@@ -1069,8 +1127,11 @@ func createFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(verifierTopicFlagName, "", "", verifierTopicFlagUsage)
 	startCmd.Flags().StringP(credentialstatusTopicFlagName, "", "", credentialstatusTopicFlagUsage)
 	startCmd.Flags().StringP(claimDataTTLFlagName, "", "", claimDataTTLFlagUsage)
-	startCmd.Flags().StringP(vpReceivedClaimsDataTTLFlagName, "", "", vpReceivedClaimsDataTTLFlagUsage)
-	startCmd.Flags().StringP(vpTransactionDataTTLFlagName, "", "", vpTransactionDataTTLFlagUsage)
+	startCmd.Flags().StringP(oidc4vpReceivedClaimsDataTTLFlagName, "", "", oidc4vpReceivedClaimsDataTTLFlagUsage)
+	startCmd.Flags().StringP(oidc4vpTransactionDataTTLFlagName, "", "", oidc4vpTransactionDataTTLFlagUsage)
+	startCmd.Flags().StringP(oidc4vpNonceTTLFlagName, "", "", oidc4vpNonceTTLFlagUsage)
+	startCmd.Flags().StringP(oidc4ciTransactionDataTTLFlagName, "", "", oidc4ciTransactionDataTTLFlagUsage)
+	startCmd.Flags().StringP(oidc4ciAuthStateTTLFlagName, "", "", oidc4ciAuthStateTTLFlagUsage)
 
 	startCmd.Flags().StringP(otelServiceNameFlagName, "", "", otelServiceNameFlagUsage)
 	startCmd.Flags().StringP(otelExporterTypeFlagName, "", "", otelExporterTypeFlagUsage)

@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	redisConnString  = "localhost:6383"
-	dockerRedisImage = "redis"
-	dockerRedisTag   = "alpine3.17"
+	redisConnString   = "localhost:6383"
+	dockerRedisImage  = "redis"
+	dockerRedisTag    = "alpine3.17"
+	defaultExpiration = 3600
 )
 
 func TestStore(t *testing.T) {
@@ -38,7 +39,7 @@ func TestStore(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	store := New(client)
+	store := New(client, defaultExpiration)
 
 	t.Run("try insert duplicate op_state", func(t *testing.T) {
 		id := uuid.New().String()
@@ -99,7 +100,7 @@ func TestWithTimeouts(t *testing.T) {
 	client, err := redis.New([]string{redisConnString})
 	assert.NoError(t, err)
 
-	store := New(client)
+	store := New(client, defaultExpiration)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 0)
 	defer cancel()
