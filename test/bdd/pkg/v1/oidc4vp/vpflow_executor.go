@@ -244,14 +244,7 @@ func (e *VPFlowExecutor) getSubjectID(creds []interface{}) (string, error) {
 				return "", fmt.Errorf("fail to parse credential as jwt: %w", credErr)
 			}
 
-			claims := &jwtVCClaims{}
-
-			credErr = credToken.DecodeClaims(claims)
-			if credErr != nil {
-				return "", fmt.Errorf("fail to decode credential claims: %w", credErr)
-			}
-
-			subjectID = claims.Sub
+			subjectID = fmt.Sprint(credToken.Payload["sub"])
 		}
 
 		subjectIDMap[subjectID] = true

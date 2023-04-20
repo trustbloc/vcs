@@ -18,6 +18,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcs "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -727,7 +728,15 @@ func TestService_validateCredentialsProof(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			if err := s.validateCredentialsProof(context.Background(), tt.args.getVp()); (err != nil) != tt.wantErr {
+			var lazy []*LazyCredential
+			for _, c := range tt.args.getVp().Credentials() {
+				lazy = append(lazy, NewLazyCredential(c))
+			}
+			if err := s.validateCredentialsProof(
+				context.Background(),
+				tt.args.getVp().JWT,
+				lazy,
+			); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsProof() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -805,9 +814,47 @@ func TestService_validateCredentialsStatus(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
-			if err := s.validateCredentialsStatus(context.Background(), tt.args.getVp()); (err != nil) != tt.wantErr {
+			var lazy []*LazyCredential
+			for _, c := range tt.args.getVp().Credentials() {
+				lazy = append(lazy, NewLazyCredential(c))
+			}
+			if err := s.validateCredentialsStatus(context.Background(), lazy); (err != nil) != tt.wantErr {
 				t.Errorf("validateCredentialsStatus() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
+}
+
+func TestExtractCredentialStatus(t *testing.T) {
+	s := &Service{}
+
+	t.Run("nil", func(t *testing.T) {
+		v, issuer, err := s.extractCredentialStatus(nil)
+		assert.Nil(t, v)
+		assert.NoError(t, err)
+		assert.Empty(t, issuer)
+	})
+
+	t.Run("invalid type", func(t *testing.T) {
+		v, issuer, err := s.extractCredentialStatus(NewLazyCredential(555))
+		assert.Nil(t, v)
+		assert.ErrorContains(t, err, "unsupported credential type int")
+		assert.Empty(t, issuer)
+	})
+
+	t.Run("no status list", func(t *testing.T) {
+		v, issuer, err := s.extractCredentialStatus(NewLazyCredential(map[string]interface{}{}))
+		assert.Nil(t, v)
+		assert.NoError(t, err)
+		assert.Empty(t, issuer)
+	})
+
+	t.Run("wrong type of status list", func(t *testing.T) {
+		v, issuer, err := s.extractCredentialStatus(NewLazyCredential(map[string]interface{}{
+			"credentialStatus": "aaabcd",
+		}))
+		assert.Nil(t, v)
+		assert.ErrorContains(t, err, "unsupported status list type type string")
+		assert.Empty(t, issuer)
+	})
 }

@@ -148,10 +148,6 @@ type eventPayload struct {
 	Error     string `json:"error,omitempty"`
 }
 
-type jwtVCClaims struct {
-	Sub string `json:"sub"`
-}
-
 func NewService(cfg *Config) *Service {
 	metrics := cfg.Metrics
 
@@ -497,14 +493,7 @@ func checkVCSubject(cred *verifiable.Credential, token *ProcessedVPToken) error 
 			return fmt.Errorf("fail to parse credential as jwt: %w", credErr)
 		}
 
-		claims := &jwtVCClaims{}
-
-		credErr = credToken.DecodeClaims(claims)
-		if credErr != nil {
-			return fmt.Errorf("fail to decode credential claims: %w", credErr)
-		}
-
-		subjectID = claims.Sub
+		subjectID = fmt.Sprint(credToken.Payload["sub"])
 	}
 
 	if token.Signer != subjectID {
