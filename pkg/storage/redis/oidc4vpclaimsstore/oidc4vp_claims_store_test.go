@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/google/uuid"
 	dctest "github.com/ory/dockertest/v3"
 	dc "github.com/ory/dockertest/v3/docker"
 	redisapi "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
@@ -33,9 +33,9 @@ const (
 )
 
 func TestStore(t *testing.T) {
-	pool, mongoDBResource := startRedisContainer(t)
+	pool, redisResource := startRedisContainer(t)
 	defer func() {
-		require.NoError(t, pool.Purge(mongoDBResource), "failed to purge Redis resource")
+		require.NoError(t, pool.Purge(redisResource), "failed to purge Redis resource")
 	}()
 
 	client, err := redis.New([]string{redisConnString})
@@ -69,7 +69,7 @@ func TestStore(t *testing.T) {
 	})
 
 	t.Run("get non existing document", func(t *testing.T) {
-		id := primitive.NewObjectID().Hex()
+		id := uuid.NewString()
 
 		resp, err := store.Get(id)
 		assert.Nil(t, resp)

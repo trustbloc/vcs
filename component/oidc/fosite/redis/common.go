@@ -65,14 +65,15 @@ func (s *Store) createSession(
 
 	var err error
 	clientAPI := s.redisClient.API()
+	pipeline := clientAPI.TxPipeline()
 	// Set lookupIDBasedKey that points to intermediateKey
-	if err = clientAPI.Set(ctx, lookupIDBasedKey, intermediateKey, ttl).Err(); err == nil {
-		// Set requesterIDBasedKey that points to intermediateKey
-		if err = clientAPI.Set(ctx, requesterIDBasedKey, intermediateKey, ttl).Err(); err == nil {
-			// Set intermediateKey that points to genericDocument
-			err = clientAPI.Set(ctx, intermediateKey, obj, ttl).Err()
-		}
-	}
+	pipeline.Set(ctx, lookupIDBasedKey, intermediateKey, ttl)
+	// Set requesterIDBasedKey that points to intermediateKey
+	pipeline.Set(ctx, requesterIDBasedKey, intermediateKey, ttl)
+	// Set intermediateKey that points to genericDocument
+	pipeline.Set(ctx, intermediateKey, obj, ttl)
+
+	_, err = pipeline.Exec(ctx)
 
 	return err
 }

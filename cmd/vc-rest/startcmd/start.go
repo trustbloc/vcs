@@ -90,23 +90,24 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 	"github.com/trustbloc/vcs/pkg/service/wellknown"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	claimdatastoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/claimdatastore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslindexstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/cslvcstore"
+	claimdatastoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4ciclaimdatastore"
+	oidc4cinoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cinoncestore"
 	oidc4cistatestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistatestore"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4cistore"
 	oidc4vpclaimsstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpclaimsstore"
+	oidc4vpnoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpnoncestore"
 	oidc4vptxstoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vptxstore"
-	oidcnoncestoremongo "github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/requestobjectstore"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb/vcstatusstore"
 	"github.com/trustbloc/vcs/pkg/storage/redis"
 	redisclient "github.com/trustbloc/vcs/pkg/storage/redis"
-	claimdatastoreredis "github.com/trustbloc/vcs/pkg/storage/redis/claimdatastore"
+	oidc4ciclaimdatastoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4ciclaimdatastore"
+	oidc4cinoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cinoncestore"
 	oidc4cistatestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4cistatestore"
 	oidc4vpclaimsstoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vpclaimsstore"
+	oidc4vpnoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vpnoncestore"
 	oidc4vptxstoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidc4vptxstore"
-	oidcnoncestoreredis "github.com/trustbloc/vcs/pkg/storage/redis/oidcnoncestore"
 	"github.com/trustbloc/vcs/pkg/storage/s3/credentialoffer"
 	cslstores3 "github.com/trustbloc/vcs/pkg/storage/s3/cslvcstore"
 	requestobjectstore2 "github.com/trustbloc/vcs/pkg/storage/s3/requestobjectstore"
@@ -313,7 +314,7 @@ func buildInternalEcho(conf *Configuration, cmd *cobra.Command) (*echo.Echo, *re
 		TLSConfig: tlsConfig,
 	}
 
-	if conf.StartupParameters.transientDataStoreType == redisStore {
+	if conf.StartupParameters.transientDataParams.storeType == redisStore {
 		checksConfig.RedisParameters = &healthchecks.RedisParameters{
 			Addrs:      conf.StartupParameters.redisParameters.addrs,
 			MasterName: conf.StartupParameters.redisParameters.masterName,
@@ -415,7 +416,7 @@ func buildEchoHandler(
 	kmsRegistry := kms.NewRegistry(defaultVCSKeyManager)
 
 	var redisClient, redisClientNoTracing *redisclient.Client
-	if conf.StartupParameters.transientDataStoreType == redisStore {
+	if conf.StartupParameters.transientDataParams.storeType == redisStore {
 		defaultOpts := []redisclient.ClientOpt{
 			redisclient.WithMasterName(conf.StartupParameters.redisParameters.masterName),
 			redisclient.WithPassword(conf.StartupParameters.redisParameters.password)}
@@ -559,16 +560,21 @@ func buildEchoHandler(
 		issueCredentialSvc = issuecredentialtracing.Wrap(issueCredentialSvc, conf.Tracer)
 	}
 
-	oidc4ciStore, err := oidc4cistore.New(context.Background(), mongodbClient)
+	oidc4ciTransactionStore, err := getOIDC4CITransactionStore(
+		conf.StartupParameters.transientDataParams.storeType,
+		redisClient,
+		mongodbClient,
+		conf.StartupParameters.transientDataParams.oidc4ciTransactionDataTTL,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
+		return nil, fmt.Errorf("failed to instantiate oidc4ci transaction store: %w", err)
 	}
 
-	oidc4ciClaimDataStore, err := getOidc4ciClaimDataStore(
-		conf.StartupParameters.transientDataStoreType,
+	oidc4ciClaimDataStore, err := getOIDC4CIClaimDataStore(
+		conf.StartupParameters.transientDataParams.storeType,
 		redisClientNoTracing,
 		mongodbClientNoTracing,
-		conf.StartupParameters.claimDataTTL)
+		conf.StartupParameters.transientDataParams.claimDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
@@ -598,7 +604,7 @@ func buildEchoHandler(
 	)
 
 	oidc4ciService, err = oidc4ci.NewService(&oidc4ci.Config{
-		TransactionStore:              oidc4ciStore,
+		TransactionStore:              oidc4ciTransactionStore,
 		ClaimDataStore:                oidc4ciClaimDataStore,
 		WellKnownService:              wellknown.NewService(getHTTPClient(metricsProvider.ClientWellKnown)),
 		ProfileService:                issuerProfileSvc,
@@ -608,7 +614,7 @@ func buildEchoHandler(
 		EventService:                  eventSvc,
 		PinGenerator:                  otp.NewPinGenerator(),
 		EventTopic:                    conf.StartupParameters.issuerEventTopic,
-		PreAuthCodeTTL:                conf.StartupParameters.claimDataTTL,
+		PreAuthCodeTTL:                conf.StartupParameters.transientDataParams.claimDataTTL,
 		CredentialOfferReferenceStore: credentialOfferStore,
 		DataProtector:                 claimsDataProtector,
 	})
@@ -620,10 +626,11 @@ func buildEchoHandler(
 		oidc4ciService = oidc4citracing.Wrap(oidc4ciService, conf.Tracer)
 	}
 
-	oidc4ciStateStore, err := getOIDC4CIStateStore(
-		conf.StartupParameters.transientDataStoreType,
+	oidc4ciStateStore, err := getOIDC4CIAuthStateStore(
+		conf.StartupParameters.transientDataParams.storeType,
 		redisClient,
-		mongodbClient)
+		mongodbClient,
+		conf.StartupParameters.transientDataParams.oidc4ciAuthStateTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate new OIDC4CI state store: %w", err)
 	}
@@ -659,7 +666,7 @@ func buildEchoHandler(
 	oauthProvider, err = bootstrapOAuthProvider(
 		context.Background(),
 		conf.StartupParameters.oAuthSecret,
-		conf.StartupParameters.transientDataStoreType,
+		conf.StartupParameters.transientDataParams.storeType,
 		mongodbClient,
 		redisClient,
 		oauth2Clients,
@@ -748,28 +755,29 @@ func buildEchoHandler(
 	}
 
 	oidc4vpTxStore, err := getOIDC4VPTxStore(
-		conf.StartupParameters.transientDataStoreType,
+		conf.StartupParameters.transientDataParams.storeType,
 		redisClient,
 		mongodbClient,
 		documentLoader,
-		conf.StartupParameters.vpTransactionDataTTL)
+		conf.StartupParameters.transientDataParams.oidc4vpTransactionDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("initiate OIDC4VPTxStore: %w", err)
 	}
 
 	oidc4vpClaimsStore, err := getOIDC4VPClaimsStore(
-		conf.StartupParameters.transientDataStoreType,
+		conf.StartupParameters.transientDataParams.storeType,
 		redisClientNoTracing,
 		mongodbClientNoTracing,
-		conf.StartupParameters.vpReceivedClaimsDataTTL)
+		conf.StartupParameters.transientDataParams.oidc4vpReceivedClaimsDataTTL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate claim data store: %w", err)
 	}
 
-	oidcNonceStore, err := getOIDCNonceStore(
-		conf.StartupParameters.transientDataStoreType,
+	oidc4vpNonceStore, err := getOIDC4VPNonceStore(
+		conf.StartupParameters.transientDataParams.storeType,
 		redisClient,
-		mongodbClient)
+		mongodbClient,
+		conf.StartupParameters.transientDataParams.oidc4vpNonceStoreDataTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -789,10 +797,9 @@ func buildEchoHandler(
 	// TODO: add parameter to specify live time of interaction request object
 	requestObjStoreEndpoint := conf.StartupParameters.apiGatewayURL + "/request-object/"
 	oidc4vpTxManager := oidc4vp.NewTxManager(
-		oidcNonceStore,
+		oidc4vpNonceStore,
 		oidc4vpTxStore,
 		oidc4vpClaimsStore,
-		15*time.Minute,
 		claimsDataProtector,
 		documentLoader,
 	)
@@ -884,17 +891,17 @@ func getOIDC4VPClaimsStore(
 	transientDataStoreType string,
 	redisClientNoTracing *redis.Client,
 	mongoClientNoTracing *mongodb.Client,
-	vpReceivedClaimsDataTTL int32) (oidc4vp.TxClaimsStore, error) {
+	oidc4vpReceivedClaimsDataTTL int32) (oidc4vp.TxClaimsStore, error) {
 	var store oidc4vp.TxClaimsStore
 	var err error
 
 	switch transientDataStoreType {
 	case redisStore:
-		store = oidc4vpclaimsstoreredis.New(redisClientNoTracing, vpReceivedClaimsDataTTL)
+		store = oidc4vpclaimsstoreredis.New(redisClientNoTracing, oidc4vpReceivedClaimsDataTTL)
 		logger.Info("OIDC4VP claim data store Redis is used")
 	default:
 		store, err = oidc4vpclaimsstoremongo.New(
-			context.Background(), mongoClientNoTracing, vpReceivedClaimsDataTTL)
+			context.Background(), mongoClientNoTracing, oidc4vpReceivedClaimsDataTTL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate Mongo store: %w", err)
 		}
@@ -910,21 +917,21 @@ func getOIDC4VPTxStore(
 	redisClient *redis.Client,
 	mongodbClient *mongodb.Client,
 	documentLoader jsonld.DocumentLoader,
-	vpTransactionDataTTLSec int32) (oidc4vp.TxStoreStore, error) {
+	oidc4vpTransactionDataTTLSec int32) (oidc4vp.TxStoreStore, error) {
 	var store oidc4vp.TxStoreStore
 	var err error
 
 	switch transientDataStoreType {
 	case redisStore:
 		store = oidc4vptxstoreredis.NewTxStore(
-			redisClient, documentLoader, vpTransactionDataTTLSec)
+			redisClient, documentLoader, oidc4vpTransactionDataTTLSec)
 		logger.Info("OIDC4VP tx store Redis is used")
 	default:
 		store, err = oidc4vptxstoremongo.NewTxStore(
 			context.Background(),
 			mongodbClient,
 			documentLoader,
-			vpTransactionDataTTLSec)
+			oidc4vpTransactionDataTTLSec)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate Mongo store: %w", err)
 		}
@@ -935,41 +942,43 @@ func getOIDC4VPTxStore(
 	return store, nil
 }
 
-func getOIDC4CIStateStore(
+func getOIDC4CIAuthStateStore(
 	transientDataStoreType string,
 	redisClient *redis.Client,
-	mongodbClient *mongodb.Client) (oidc4civ1.StateStore, error) {
+	mongodbClient *mongodb.Client,
+	oidc4ciAuthStateTTL int32) (oidc4civ1.StateStore, error) {
 	var store oidc4civ1.StateStore
 	var err error
 
 	switch transientDataStoreType {
 	case redisStore:
-		store = oidc4cistatestoreredis.New(redisClient)
-		logger.Info("OIDC4CI state store Redis is used")
+		store = oidc4cistatestoreredis.New(redisClient, oidc4ciAuthStateTTL)
+		logger.Info("OIDC4CI auth state store Redis is used")
 	default:
-		store, err = oidc4cistatestoremongo.New(context.Background(), mongodbClient)
+		store, err = oidc4cistatestoremongo.New(context.Background(), mongodbClient, oidc4ciAuthStateTTL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate new OIDC4CI Mongo state store: %w", err)
 		}
 
-		logger.Info("OIDC4CI state store Mongo is used")
+		logger.Info("OIDC4CI auth state store Mongo is used")
 	}
 
 	return store, nil
 }
 
-func getOIDCNonceStore(
+func getOIDC4VPNonceStore(
 	transientDataStoreType string,
 	redisClient *redis.Client,
-	mongoClient *mongodb.Client) (oidc4vp.TxNonceStore, error) {
+	mongoClient *mongodb.Client,
+	oidc4vpNonceStoreTTL int32) (oidc4vp.TxNonceStore, error) {
 	var store oidc4vp.TxNonceStore
 	var err error
 	switch transientDataStoreType {
 	case redisStore:
-		store = oidcnoncestoreredis.New(redisClient)
+		store = oidc4vpnoncestoreredis.New(redisClient, oidc4vpNonceStoreTTL)
 		logger.Info("OIDC nonce store Redis is used")
 	default:
-		store, err = oidcnoncestoremongo.New(mongoClient)
+		store, err = oidc4vpnoncestoremongo.New(mongoClient, oidc4vpNonceStoreTTL)
 		if err != nil {
 			return nil, err
 		}
@@ -980,7 +989,7 @@ func getOIDCNonceStore(
 	return store, nil
 }
 
-func getOidc4ciClaimDataStore(
+func getOIDC4CIClaimDataStore(
 	transientDataStoreType string,
 	redisClient *redis.Client,
 	mongoClient *mongodb.Client,
@@ -989,7 +998,7 @@ func getOidc4ciClaimDataStore(
 	var err error
 	switch transientDataStoreType {
 	case redisStore:
-		store = claimdatastoreredis.New(redisClient, claimDataTTL)
+		store = oidc4ciclaimdatastoreredis.New(redisClient, claimDataTTL)
 		logger.Info("claim data store Redis is used")
 	default:
 		store, err = claimdatastoremongo.New(context.Background(), mongoClient, claimDataTTL)
@@ -998,6 +1007,29 @@ func getOidc4ciClaimDataStore(
 		}
 
 		logger.Info("claim data store Mongo is used")
+	}
+
+	return store, nil
+}
+
+func getOIDC4CITransactionStore(
+	transientDataStoreType string,
+	redisClient *redis.Client,
+	mongoClient *mongodb.Client,
+	oidc4ciTransactionDataTTL int32) (oidc4ci.TransactionStore, error) {
+	var store oidc4ci.TransactionStore
+	var err error
+	switch transientDataStoreType {
+	case redisStore:
+		store = oidc4cinoncestoreredis.New(redisClient, oidc4ciTransactionDataTTL)
+		logger.Info("OIDC4CI transaction store Redis is used")
+	default:
+		store, err = oidc4cinoncestoremongo.New(context.Background(), mongoClient, oidc4ciTransactionDataTTL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate oidc4ci store: %w", err)
+		}
+
+		logger.Info("OIDC4CI transaction store Mongo is used")
 	}
 
 	return store, nil

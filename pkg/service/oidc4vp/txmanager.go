@@ -14,7 +14,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/presexch"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -69,7 +68,7 @@ type txClaimsStore interface {
 }
 
 type txNonceStore interface {
-	SetIfNotExist(nonce string, txID TxID, expiration time.Duration) (bool, error)
+	SetIfNotExist(nonce string, txID TxID) (bool, error)
 	GetAndDelete(nonce string) (TxID, bool, error)
 }
 
@@ -80,12 +79,11 @@ type dataProtector interface {
 
 // TxManager used to manage oidc transactions.
 type TxManager struct {
-	nonceStore          txNonceStore
-	txStore             txStore
-	txClaimsStore       txClaimsStore
-	interactionLiveTime time.Duration
-	dataProtector       dataProtector
-	docLoader           ld.DocumentLoader
+	nonceStore    txNonceStore
+	txStore       txStore
+	txClaimsStore txClaimsStore
+	dataProtector dataProtector
+	docLoader     ld.DocumentLoader
 }
 
 // NewTxManager creates TxManager.
@@ -93,17 +91,15 @@ func NewTxManager(
 	store txNonceStore,
 	txStore txStore,
 	txClaimsStore txClaimsStore,
-	interactionLiveTime time.Duration,
 	dataProtector dataProtector,
 	docLoader ld.DocumentLoader,
 ) *TxManager {
 	return &TxManager{
-		nonceStore:          store,
-		txStore:             txStore,
-		txClaimsStore:       txClaimsStore,
-		interactionLiveTime: interactionLiveTime,
-		dataProtector:       dataProtector,
-		docLoader:           docLoader,
+		nonceStore:    store,
+		txStore:       txStore,
+		txClaimsStore: txClaimsStore,
+		dataProtector: dataProtector,
+		docLoader:     docLoader,
 	}
 }
 
@@ -194,7 +190,7 @@ func (tm *TxManager) tryCreateTxNonce(txID TxID) (string, error) {
 			return "", err
 		}
 
-		isSet, err := tm.nonceStore.SetIfNotExist(nonce, txID, tm.interactionLiveTime)
+		isSet, err := tm.nonceStore.SetIfNotExist(nonce, txID)
 		if err != nil {
 			return "", fmt.Errorf("oidc tx nonceStore set failed: %w", err)
 		}

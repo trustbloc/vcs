@@ -4,7 +4,7 @@ Copyright Avast Software. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidc4cistore
+package oidc4cinoncestore
 
 import (
 	"context"
@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	collectionName    = "oidc4vcnoncestore"
-	defaultExpiration = 24 * time.Hour
+	collectionName = "oidc4vcnoncestore"
 )
 
 type mongoDocument struct {
@@ -64,13 +63,15 @@ type mongoDocument struct {
 
 // Store stores oidc transactions in mongo.
 type Store struct {
+	ttl         time.Duration
 	mongoClient *mongodb.Client
 }
 
 // New creates TxNonceStore.
-func New(ctx context.Context, mongoClient *mongodb.Client) (*Store, error) {
+func New(ctx context.Context, mongoClient *mongodb.Client, ttlSec int32) (*Store, error) {
 	s := &Store{
 		mongoClient: mongoClient,
+		ttl:         time.Duration(ttlSec) * time.Second,
 	}
 
 	if err := s.migrate(ctx); err != nil {
@@ -196,7 +197,7 @@ func (s *Store) Update(ctx context.Context, tx *oidc4ci.Transaction) error {
 func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData) *mongoDocument {
 	return &mongoDocument{
 		ID:                                 primitive.ObjectID{},
-		ExpireAt:                           time.Now().UTC().Add(defaultExpiration),
+		ExpireAt:                           time.Now().UTC().Add(s.ttl),
 		OpState:                            data.OpState,
 		ProfileID:                          data.ProfileID,
 		OrgID:                              data.OrgID,

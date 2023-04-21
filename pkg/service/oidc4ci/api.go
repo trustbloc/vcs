@@ -47,6 +47,8 @@ type ClaimData struct {
 
 type ClaimDataStore claimDataStore
 
+type TransactionStore transactionStore
+
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID

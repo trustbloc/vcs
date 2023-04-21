@@ -20,19 +20,20 @@ import (
 )
 
 const (
-	keyPrefix         = "oidc4authstate"
-	defaultExpiration = 24 * time.Hour
+	keyPrefix = "oidc4authstate"
 )
 
-// Store stores OIDC4CI authorize request/response state in mongo.
+// Store stores OIDC4CI authorize request/response state in redis.
 type Store struct {
+	ttl         time.Duration
 	redisClient *redis.Client
 }
 
 // New creates a new instance of Store.
-func New(redisClient *redis.Client) *Store {
+func New(redisClient *redis.Client, ttlSec int32) *Store {
 	return &Store{
 		redisClient: redisClient,
+		ttl:         time.Duration(ttlSec) * time.Second,
 	}
 }
 
@@ -47,7 +48,7 @@ func (s *Store) SaveAuthorizeState(
 		p(insertCfg)
 	}
 
-	ttl := defaultExpiration
+	ttl := s.ttl
 	if insertCfg.TTL != 0 {
 		ttl = insertCfg.TTL
 	}

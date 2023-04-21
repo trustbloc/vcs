@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package oidcnoncestore_test
+package oidc4vpnoncestore_test
 
 import (
 	"context"
@@ -25,13 +25,14 @@ import (
 
 	"github.com/trustbloc/vcs/pkg/service/oidc4vp"
 	"github.com/trustbloc/vcs/pkg/storage/mongodb"
-	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidcnoncestore"
+	"github.com/trustbloc/vcs/pkg/storage/mongodb/oidc4vpnoncestore"
 )
 
 const (
 	mongoDBConnString  = "mongodb://localhost:27023"
 	dockerMongoDBImage = "mongo"
 	dockerMongoDBTag   = "4.0.0"
+	defaultTTL         = 3600
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -43,21 +44,21 @@ func TestTxStore_Success(t *testing.T) {
 	client, err := mongodb.New(mongoDBConnString, "testdb", mongodb.WithTimeout(time.Second*10))
 	require.NoError(t, err)
 
-	store, err := oidcnoncestore.New(client)
+	store, err := oidc4vpnoncestore.New(client, defaultTTL)
 	assert.NoError(t, err)
 
 	t.Run("Set not exist", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key", "value", 10*time.Second)
+		isSet, err := store.SetIfNotExist("key", "value")
 		require.NoError(t, err)
 		require.True(t, isSet)
 	})
 
 	t.Run("Set exist", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key2", "value", 10*time.Second)
+		isSet, err := store.SetIfNotExist("key2", "value")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
-		isSet, err = store.SetIfNotExist("key2", "txID", 10*time.Second)
+		isSet, err = store.SetIfNotExist("key2", "txID")
 		require.False(t, isSet)
 		require.NoError(t, err)
 	})
@@ -70,7 +71,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Get exist", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key3", "txID", 10*time.Second)
+		isSet, err := store.SetIfNotExist("key3", "txID")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
@@ -82,7 +83,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Get exist and check if deleted", func(t *testing.T) {
-		isSet, err := store.SetIfNotExist("key3", "txID", 10*time.Second)
+		isSet, err := store.SetIfNotExist("key3", "txID")
 		require.True(t, isSet)
 		require.NoError(t, err)
 
@@ -97,6 +98,23 @@ func TestTxStore_Success(t *testing.T) {
 		require.False(t, exists)
 		require.NoError(t, err)
 	})
+
+	t.Run("Get expired", func(t *testing.T) {
+		storeExpired, err := oidc4vpnoncestore.New(client, 1)
+		require.NoError(t, err)
+
+		isSet, err := storeExpired.SetIfNotExist("key4", "txID")
+		require.True(t, isSet)
+		require.NoError(t, err)
+
+		time.Sleep(time.Second * 2)
+
+		data, exists, err := storeExpired.GetAndDelete("key4")
+
+		require.False(t, exists)
+		require.NoError(t, err)
+		require.Empty(t, data)
+	})
 }
 
 func TestTxStore_ConnectoinFail(t *testing.T) {
@@ -104,7 +122,7 @@ func TestTxStore_ConnectoinFail(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("Set fail", func(t *testing.T) {
-		_, err = oidcnoncestore.New(client)
+		_, err = oidc4vpnoncestore.New(client, defaultTTL)
 		require.Contains(t, err.Error(), "context deadline exceeded")
 	})
 }
