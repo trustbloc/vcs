@@ -395,18 +395,18 @@ func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) (time.Duration, error) {
 	log.Printf("auth req: %s\n", responseBody)
 
-	st := time.Now()
 	req, err := http.NewRequest(http.MethodPost, e.requestObject.RedirectURI, bytes.NewBuffer([]byte(responseBody)))
-	dur := time.Since(st)
 	if err != nil {
-		return dur, err
+		return 0, err
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	c := &http.Client{Transport: &http.Transport{TLSClientConfig: e.tlsConfig}}
 
+	st := time.Now()
 	resp, err := c.Do(req)
+	dur := time.Since(st)
 
 	if err != nil {
 		return dur, err

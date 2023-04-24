@@ -10,7 +10,6 @@ package verifypresentation
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -73,19 +72,17 @@ func (s *Service) VerifyPresentation(
 		}
 	}
 
+	var targetPresentation interface{}
+	targetPresentation = presentation
+
 	if profile.Checks.Presentation.Proof {
 		st := time.Now()
-		vpBytes := []byte(presentation.JWT)
-		var err error
 
-		if presentation.JWT == "" {
-			vpBytes, err = json.Marshal(presentation)
-			if err != nil {
-				return nil, fmt.Errorf("unexpected error on credential marshal: %w", err)
-			}
+		if presentation.JWT != "" {
+			targetPresentation = []byte(presentation.JWT)
 		}
 
-		err = s.validatePresentationProof(vpBytes, opts)
+		err := s.validatePresentationProof(targetPresentation, opts)
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "proof",
@@ -137,19 +134,26 @@ func (s *Service) VerifyPresentation(
 	return result, nil
 }
 
-func (s *Service) validatePresentationProof(vpBytes []byte, opts *Options) error {
-	vp, err := verifiable.ParsePresentation(
-		vpBytes,
-		verifiable.WithPresPublicKeyFetcher(
-			verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
-		),
-		verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
-	)
-	if err != nil {
-		return fmt.Errorf("verifiable presentation proof validation error : %w", err)
+func (s *Service) validatePresentationProof(targetPresentation interface{}, opts *Options) error {
+	var final *verifiable.Presentation
+	switch pres := targetPresentation.(type) {
+	case *verifiable.Presentation:
+		final = pres
+	case []byte:
+		vp, err := verifiable.ParsePresentation(
+			pres,
+			verifiable.WithPresPublicKeyFetcher(
+				verifiable.NewVDRKeyResolver(s.vdr).PublicKeyFetcher(),
+			),
+			verifiable.WithPresJSONLDDocumentLoader(s.documentLoader),
+		)
+		if err != nil {
+			return fmt.Errorf("verifiable presentation proof validation error : %w", err)
+		}
+		final = vp
 	}
-	if vp.JWT == "" {
-		return s.validateProofData(vp, opts)
+	if final.JWT == "" {
+		return s.validateProofData(final, opts)
 	}
 	return nil
 }
