@@ -63,7 +63,7 @@ func (s *Steps) verifyAuthorizationRequest() error {
 }
 
 func (s *Steps) fetchRequestObjectAndDecodeClaims() error {
-	rawRequestObject, err := s.vpFlowExecutor.FetchRequestObject(s.initiateOIDC4VPResponse.AuthorizationRequest)
+	rawRequestObject, _, err := s.vpFlowExecutor.FetchRequestObject(s.initiateOIDC4VPResponse.AuthorizationRequest)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,8 @@ func (s *Steps) sendAuthorizedResponse() error {
 		return err
 	}
 
-	return s.vpFlowExecutor.SendAuthorizedResponse(body)
+	_, err = s.vpFlowExecutor.SendAuthorizedResponse(body)
+	return err
 }
 
 func (s *Steps) retrieveInteractionsClaim(organizationName string) error {

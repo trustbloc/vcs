@@ -547,6 +547,9 @@ func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenCl
 		jwt.WithSignatureVerifier(verifier),
 		jwt.WithIgnoreClaimsMapDecoding(true),
 	)
+	if err != nil {
+		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
+	}
 
 	var fastParser fastjson.Parser
 	v, err := fastParser.ParseBytes(rawClaims)
@@ -554,17 +557,19 @@ func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenCl
 		return nil, "", fmt.Errorf("decode claims: %w", err)
 	}
 
-	vpData, err := v.Get("vp").Object()
-	if err != nil {
-		return nil, "", fmt.Errorf("decode claims2: %w", err)
-	}
-
 	vpTokenClaims := &VPTokenClaims{
-		VP:    []byte(vpData.String()),
 		Nonce: string(v.GetStringBytes("nonce")),
 		Exp:   v.GetInt64("exp"),
 	}
 
+	vpData := v.Get("vp")
+	vpDataRaw, err := vpData.Object()
+	if vpData.Type() != fastjson.TypeNull && err != nil {
+		return nil, "", fmt.Errorf("decode claims2: %w", err)
+	}
+	if vpDataRaw != nil {
+		vpTokenClaims.VP = []byte(vpDataRaw.String())
+	}
 	if vpTokenClaims.Exp < time.Now().Unix() {
 		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
 			"token expired"))
