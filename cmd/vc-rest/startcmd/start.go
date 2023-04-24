@@ -323,6 +323,46 @@ func buildInternalEcho(conf *Configuration, cmd *cobra.Command) (*echo.Echo, *re
 		}
 	}
 
+	var awsKeys []healthchecks.AWSKMSKey
+
+	if !conf.StartupParameters.dataEncryptionDisabled {
+		awsKeys = append(awsKeys, healthchecks.AWSKMSKey{
+			Region: conf.StartupParameters.kmsParameters.kmsRegion,
+			ID:     conf.StartupParameters.dataEncryptionKeyID,
+		})
+	}
+
+	if len(awsKeys) > 0 {
+		checksConfig.AWSKMSKeys = awsKeys
+	}
+
+	var s3Buckets []healthchecks.S3Bucket
+
+	if strings.ToLower(conf.StartupParameters.requestObjectRepositoryType) == "s3" {
+		s3Buckets = append(s3Buckets, healthchecks.S3Bucket{
+			Region: conf.StartupParameters.requestObjectRepositoryS3Region,
+			Name:   conf.StartupParameters.requestObjectRepositoryS3Bucket,
+		})
+	}
+
+	if strings.ToLower(conf.StartupParameters.cslStoreType) == "s3" {
+		s3Buckets = append(s3Buckets, healthchecks.S3Bucket{
+			Region: conf.StartupParameters.cslStoreS3Region,
+			Name:   conf.StartupParameters.cslStoreS3Bucket,
+		})
+	}
+
+	if conf.StartupParameters.credentialOfferRepositoryS3Bucket != "" {
+		s3Buckets = append(s3Buckets, healthchecks.S3Bucket{
+			Region: conf.StartupParameters.credentialOfferRepositoryS3Region,
+			Name:   conf.StartupParameters.credentialOfferRepositoryS3Bucket,
+		})
+	}
+
+	if len(s3Buckets) > 0 {
+		checksConfig.S3Buckets = s3Buckets
+	}
+
 	checks := healthchecks.Get(checksConfig)
 
 	if len(checks) > 0 {

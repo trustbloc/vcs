@@ -555,6 +555,23 @@ func TestGracefulSleep(t *testing.T) {
 	})
 }
 
+func TestHealthChecks(t *testing.T) {
+	e, _ := buildInternalEcho(
+		&Configuration{
+			StartupParameters: &startupParameters{
+				dbParameters:                      &dbParameters{databaseURL: "mongodb://example.com"},
+				kmsParameters:                     &kmsParameters{},
+				transientDataParams:               &transientDataParams{storeType: redisStore},
+				redisParameters:                   &redisParameters{},
+				requestObjectRepositoryType:       "s3",
+				cslStoreType:                      "s3",
+				credentialOfferRepositoryS3Bucket: "bucket",
+			},
+		}, &cobra.Command{})
+
+	require.NotNil(t, e)
+}
+
 func setEnvVars(t *testing.T, databaseType, filePath string) {
 	t.Helper()
 
