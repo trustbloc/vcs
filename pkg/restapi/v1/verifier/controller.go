@@ -27,6 +27,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/valyala/fastjson"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -503,7 +504,10 @@ func (c *Controller) verifyAuthorizationResponseTokens(authResp *authorizationRe
 }
 
 func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenClaims, error) {
-	token, _, err := verifyTokenSignature(rawJwt, verifier)
+	token, _, _, err := verifyTokenSignature( // todo
+		rawJwt,
+		jwt.WithSignatureVerifier(verifier),
+	)
 	if err != nil {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "id_token", err)
 	}
@@ -538,16 +542,34 @@ func validateIDToken(rawJwt string, verifier jose.SignatureVerifier) (*IDTokenCl
 	return idTokenClaims, nil
 }
 func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenClaims, string, error) {
-	vpTokenClaims := &VPTokenClaims{}
-
-	token, signer, err := verifyTokenSignature(rawJwt, verifier)
+	_, signer, rawClaims, err := verifyTokenSignature(
+		rawJwt,
+		jwt.WithSignatureVerifier(verifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
 	if err != nil {
 		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token", err)
 	}
-	if err = token.DecodeClaims(vpTokenClaims); err != nil {
+
+	var fastParser fastjson.Parser
+	v, err := fastParser.ParseBytes(rawClaims)
+	if err != nil {
 		return nil, "", fmt.Errorf("decode claims: %w", err)
 	}
 
+	vpTokenClaims := &VPTokenClaims{
+		Nonce: string(v.GetStringBytes("nonce")),
+		Exp:   v.GetInt64("exp"),
+	}
+
+	vpData := v.Get("vp")
+	vpDataRaw, err := vpData.Object()
+	if vpData.Type() != fastjson.TypeNull && err != nil {
+		return nil, "", fmt.Errorf("decode claims2: %w", err)
+	}
+	if vpDataRaw != nil {
+		vpTokenClaims.VP = []byte(vpDataRaw.String())
+	}
 	if vpTokenClaims.Exp < time.Now().Unix() {
 		return nil, "", resterr.NewValidationError(resterr.InvalidValue, "vp_token.exp", fmt.Errorf(
 			"token expired"))
@@ -561,15 +583,15 @@ func validateVPToken(rawJwt string, verifier jose.SignatureVerifier) (*VPTokenCl
 	return vpTokenClaims, signer, nil
 }
 
-func verifyTokenSignature(rawJwt string, verifier jose.SignatureVerifier) (*jwt.JSONWebToken, string, error) {
-	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+func verifyTokenSignature(rawJwt string, parseOps ...jwt.ParseOpt) (*jwt.JSONWebToken, string, []byte, error) {
+	jsonWebToken, rawClaims, err := jwt.Parse(rawJwt, parseOps...)
 	if err != nil {
-		return nil, "", fmt.Errorf("parse JWT: %w", err)
+		return nil, "", nil, fmt.Errorf("parse JWT: %w", err)
 	}
 
 	kid, _ := jsonWebToken.Headers.KeyID()
 
-	return jsonWebToken, strings.Split(kid, "#")[0], nil
+	return jsonWebToken, strings.Split(kid, "#")[0], rawClaims, nil
 }
 
 func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, error) {

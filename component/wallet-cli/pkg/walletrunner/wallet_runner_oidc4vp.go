@@ -67,9 +67,9 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 
 	log.Println("Fetching request object")
 	startTime := time.Now()
-	rawRequestObject, err := s.vpFlowExecutor.FetchRequestObject(authorizationRequest)
-	s.perfInfo.FetchRequestObject = time.Since(startTime)
-	s.perfInfo.VcsVPFlowDuration += time.Since(startTime)
+	rawRequestObject, dur, err := s.vpFlowExecutor.FetchRequestObject(authorizationRequest)
+	s.perfInfo.FetchRequestObject = dur
+	s.perfInfo.VcsVPFlowDuration += dur
 	if err != nil {
 		return err
 	}
@@ -108,9 +108,9 @@ func (s *Service) RunOIDC4VPFlow(authorizationRequest string) error {
 
 	log.Println("Sending authorized response")
 	startTime = time.Now()
-	err = s.vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
-	s.perfInfo.SendAuthorizedResponse = time.Since(startTime)
-	s.perfInfo.VcsVPFlowDuration += time.Since(startTime)
+	dur, err = s.vpFlowExecutor.SendAuthorizedResponse(authorizedResponse)
+	s.perfInfo.SendAuthorizedResponse = dur
+	s.perfInfo.VcsVPFlowDuration += dur
 	if err != nil {
 		return err
 	}
@@ -173,26 +173,28 @@ func (e *VPFlowExecutor) InitiateInteraction(url, authToken string) (*InitiateOI
 	return result, json.Unmarshal(respBytes, result)
 }
 
-func (e *VPFlowExecutor) FetchRequestObject(authorizationRequest string) (string, error) {
+func (e *VPFlowExecutor) FetchRequestObject(authorizationRequest string) (string, time.Duration, error) {
 	endpointURL := strings.TrimPrefix(authorizationRequest, "openid-vc://?request_uri=")
 
+	st := time.Now()
 	resp, err := httputil.HTTPSDo(http.MethodGet, endpointURL, "", "", nil, e.tlsConfig)
+	dur := time.Since(st)
 	if err != nil {
-		return "", err
+		return "", dur, err
 	}
 	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", dur, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
+		return "", dur, fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
 			http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	return string(respBytes), nil
+	return string(respBytes), dur, nil
 }
 
 func (e *VPFlowExecutor) RequestPresentation() *verifiable.Presentation {
@@ -226,9 +228,14 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 
 	requestObject := &RequestObject{}
 
-	err := verifyTokenSignature(rawRequestObject, requestObject, jwtVerifier)
+	rawData, err := verifyTokenSignature(rawRequestObject, jwtVerifier)
 	if err != nil {
 		return err
+	}
+
+	err = json.Unmarshal(rawData, requestObject)
+	if err != nil {
+		return fmt.Errorf("decode claims: %w", err)
 	}
 
 	e.requestObject = requestObject
@@ -236,18 +243,17 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 	return nil
 }
 
-func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) error {
-	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+func verifyTokenSignature(rawJwt string, verifier jose.SignatureVerifier) ([]byte, error) {
+	_, rawData, err := jwt.Parse(
+		rawJwt,
+		jwt.WithSignatureVerifier(verifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
 	if err != nil {
-		return fmt.Errorf("parse JWT: %w", err)
+		return nil, fmt.Errorf("parse JWT: %w", err)
 	}
 
-	err = jsonWebToken.DecodeClaims(claims)
-	if err != nil {
-		return fmt.Errorf("decode claims: %w", err)
-	}
-
-	return nil
+	return rawData, nil
 }
 
 func (e *VPFlowExecutor) QueryCredentialFromWallet() error {
@@ -386,12 +392,14 @@ func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,
 	return tokenBytes, nil
 }
 
-func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) error {
+func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) (time.Duration, error) {
 	log.Printf("auth req: %s\n", responseBody)
 
+	st := time.Now()
 	req, err := http.NewRequest(http.MethodPost, e.requestObject.RedirectURI, bytes.NewBuffer([]byte(responseBody)))
+	dur := time.Since(st)
 	if err != nil {
-		return err
+		return dur, err
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -401,22 +409,22 @@ func (e *VPFlowExecutor) SendAuthorizedResponse(responseBody string) error {
 	resp, err := c.Do(req)
 
 	if err != nil {
-		return err
+		return dur, err
 	}
 
 	defer httputil.CloseResponseBody(resp.Body)
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return dur, err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
+		return dur, fmt.Errorf("expected status code %d but got status code %d with response body %s instead",
 			http.StatusOK, resp.StatusCode, respBytes)
 	}
 
-	return nil
+	return dur, nil
 }
 
 type JWSSigner struct {

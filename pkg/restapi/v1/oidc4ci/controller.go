@@ -26,6 +26,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/ory/fosite"
 	"github.com/samber/lo"
+	"github.com/valyala/fastjson"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/oauth2"
 
@@ -578,7 +579,10 @@ func validateProofClaims(
 	session *fosite.DefaultSession,
 	verifier jose.SignatureVerifier,
 ) (string, error) {
-	jws, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+	jws, rawClaims, err := jwt.Parse(rawJwt,
+		jwt.WithSignatureVerifier(verifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
 	if err != nil {
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", fmt.Errorf("parse jwt: %w", err))
 	}
@@ -591,7 +595,7 @@ func validateProofClaims(
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("nonce expired"))
 	}
 
-	if nonce := session.Extra[cNonceKey].(string); jws.Payload["nonce"] != nonce { //nolint:errcheck
+	if nonce := session.Extra[cNonceKey].(string); fastjson.GetString(rawClaims, "nonce") != nonce { //nolint:errcheck
 		return "", resterr.NewOIDCError("invalid_or_missing_proof", errors.New("invalid nonce"))
 	}
 
