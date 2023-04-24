@@ -28,12 +28,24 @@ type RedisParameters struct {
 	DisableTLS bool
 }
 
+type S3Bucket struct {
+	Region string
+	Name   string
+}
+
+type AWSKMSKey struct {
+	Region string
+	ID     string
+}
+
 type Config struct {
 	MongoDBURL      string
 	HTTPClient      httpClient
 	Cmd             *cobra.Command
 	TLSConfig       *tls.Config
 	RedisParameters *RedisParameters
+	AWSKMSKeys      []AWSKMSKey
+	S3Buckets       []S3Bucket
 }
 
 func Get(config *Config) []health.Check {
