@@ -37,6 +37,9 @@ const (
 
 	receivedClaimsID = "xyz"
 	defaultClaimsTTL = 3600
+
+	profileID      = "testProfileID"
+	profileVersion = "v1.0"
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -57,13 +60,13 @@ func TestTxStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create tx", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 	})
 
 	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -74,7 +77,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -160,7 +163,7 @@ func TestTxStore_Fails(t *testing.T) {
 		storeExpired, err := NewTxStore(context.Background(), client, testutil.DocumentLoader(t), 1)
 		require.NoError(t, err)
 
-		id, _, err := storeExpired.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := storeExpired.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 

@@ -6,6 +6,7 @@ module github.com/trustbloc/vcs/component/profile/reader/file
 go 1.19
 
 require (
+	github.com/hashicorp/go-version v1.2.0
 	github.com/hyperledger/aries-framework-go v0.2.1-0.20230425184546-a8b546e29100
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c

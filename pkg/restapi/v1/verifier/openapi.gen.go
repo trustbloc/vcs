@@ -123,14 +123,14 @@ type ServerInterface interface {
 	// (GET /verifier/interactions/{txID}/claim)
 	RetrieveInteractionsClaim(ctx echo.Context, txID string) error
 	// Verify credential
-	// (POST /verifier/profiles/{profileID}/credentials/verify)
-	PostVerifyCredentials(ctx echo.Context, profileID string) error
+	// (POST /verifier/profiles/{profileID}/{profileVersion}/credentials/verify)
+	PostVerifyCredentials(ctx echo.Context, profileID string, profileVersion string) error
 	// Used by verifier applications to initiate OpenID presentation flow through VCS
-	// (POST /verifier/profiles/{profileID}/interactions/initiate-oidc)
-	InitiateOidcInteraction(ctx echo.Context, profileID string) error
+	// (POST /verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc)
+	InitiateOidcInteraction(ctx echo.Context, profileID string, profileVersion string) error
 	// Verify presentation
-	// (POST /verifier/profiles/{profileID}/presentations/verify)
-	PostVerifyPresentation(ctx echo.Context, profileID string) error
+	// (POST /verifier/profiles/{profileID}/{profileVersion}/presentations/verify)
+	PostVerifyPresentation(ctx echo.Context, profileID string, profileVersion string) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
@@ -174,8 +174,16 @@ func (w *ServerInterfaceWrapper) PostVerifyCredentials(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
 	}
 
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostVerifyCredentials(ctx, profileID)
+	err = w.Handler.PostVerifyCredentials(ctx, profileID, profileVersion)
 	return err
 }
 
@@ -190,8 +198,16 @@ func (w *ServerInterfaceWrapper) InitiateOidcInteraction(ctx echo.Context) error
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
 	}
 
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.InitiateOidcInteraction(ctx, profileID)
+	err = w.Handler.InitiateOidcInteraction(ctx, profileID, profileVersion)
 	return err
 }
 
@@ -206,8 +222,16 @@ func (w *ServerInterfaceWrapper) PostVerifyPresentation(ctx echo.Context) error 
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileID: %s", err))
 	}
 
+	// ------------- Path parameter "profileVersion" -------------
+	var profileVersion string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "profileVersion", runtime.ParamLocationPath, ctx.Param("profileVersion"), &profileVersion)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter profileVersion: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.PostVerifyPresentation(ctx, profileID)
+	err = w.Handler.PostVerifyPresentation(ctx, profileID, profileVersion)
 	return err
 }
 
@@ -241,8 +265,8 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 	router.POST(baseURL+"/verifier/interactions/authorization-response", wrapper.CheckAuthorizationResponse)
 	router.GET(baseURL+"/verifier/interactions/:txID/claim", wrapper.RetrieveInteractionsClaim)
-	router.POST(baseURL+"/verifier/profiles/:profileID/credentials/verify", wrapper.PostVerifyCredentials)
-	router.POST(baseURL+"/verifier/profiles/:profileID/interactions/initiate-oidc", wrapper.InitiateOidcInteraction)
-	router.POST(baseURL+"/verifier/profiles/:profileID/presentations/verify", wrapper.PostVerifyPresentation)
+	router.POST(baseURL+"/verifier/profiles/:profileID/:profileVersion/credentials/verify", wrapper.PostVerifyCredentials)
+	router.POST(baseURL+"/verifier/profiles/:profileID/:profileVersion/interactions/initiate-oidc", wrapper.InitiateOidcInteraction)
+	router.POST(baseURL+"/verifier/profiles/:profileID/:profileVersion/presentations/verify", wrapper.PostVerifyPresentation)
 
 }

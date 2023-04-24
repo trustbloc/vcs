@@ -63,6 +63,7 @@ func (s *Steps) runStressTest(ctx context.Context) error {
 		UserCount:            s.usersNum,
 		ConcurrentRequests:   s.concurrentReq,
 		IssuerProfileID:      os.Getenv("ISSUER_PROFILE_ID"),
+		IssuerProfileVersion: os.Getenv("ISSUER_PROFILE_VERSION"),
 		VerifierProfileID:    os.Getenv("VERIFIER_PROFILE_ID"),
 		CredentialTemplateID: os.Getenv("CREDENTIAL_TEMPLATE_ID"),
 		CredentialType:       os.Getenv("CREDENTIAL_TYPE"),

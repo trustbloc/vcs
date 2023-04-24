@@ -130,10 +130,10 @@ func (s *PreAuthorizeStep) receiveToken() error {
 	return nil
 }
 
-func (s *PreAuthorizeStep) prepareIssuer(id string) error {
-	issuer, ok := s.bddContext.IssuerProfiles[id]
+func (s *PreAuthorizeStep) prepareIssuer(profileVersionedID string) error {
+	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
-		return fmt.Errorf("issuer profile '%s' not found", id)
+		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
@@ -160,7 +160,7 @@ func (s *PreAuthorizeStep) prepareIssuer(id string) error {
 }
 
 func (s *PreAuthorizeStep) initiateIssuance(requirePin string) error {
-	issuanceURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuer.ID)
+	issuanceURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuer.ID, s.issuer.Version)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuer.OrganizationID)]
 
 	req := &initiateOIDC4CIRequest{

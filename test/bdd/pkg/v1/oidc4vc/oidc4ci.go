@@ -26,21 +26,21 @@ import (
 
 const (
 	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
-	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/interactions/initiate-oidc"
+	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	oidcProviderURL                     = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
 	loginPageURL                        = "https://localhost:8099/login"
 )
 
-func (s *Steps) authorizeIssuer(id string) error {
-	issuer, ok := s.bddContext.IssuerProfiles[id]
+func (s *Steps) authorizeIssuer(profileVersionedID string) error {
+	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
-		return fmt.Errorf("issuer profile '%s' not found", id)
+		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
 
 	if issuer.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", id)
+		return fmt.Errorf("oidc config not set for issuer profile '%s'", profileVersionedID)
 	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
@@ -73,7 +73,7 @@ func (s *Steps) registerPublicClient() error {
 }
 
 func (s *Steps) initiateCredentialIssuance() error {
-	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID)
+	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID, s.issuerProfile.Version)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.OrganizationID)]
 
 	reqBody, err := json.Marshal(&initiateOIDC4CIRequest{

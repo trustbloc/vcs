@@ -48,8 +48,7 @@ type cslVCStore interface {
 }
 
 type vcStatusStore interface {
-	Get(ctx context.Context, profileID, vcID string) (*verifiable.TypedID, error)
-	Put(ctx context.Context, profileID, credentialID string, typedID *verifiable.TypedID) error
+	Put(ctx context.Context, profileID, profileVersion, credentialID string, typedID *verifiable.TypedID) error
 }
 
 type Config struct {
@@ -90,7 +89,7 @@ func New(config *Config) (*Manager, error) {
 func (s *Manager) CreateCSLEntry(ctx context.Context,
 	profile *profileapi.Issuer, credentialID string) (*credentialstatus.StatusListEntry, error) {
 	logger.Debug("CSL Manager - CreateCSLEntry",
-		logfields.WithProfileID(profile.ID))
+		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
 
 	cslURL, statusBitIndex, err := s.getProfileCSLAndAssignedIndex(ctx, profile)
 	if err != nil {
@@ -108,7 +107,7 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 	}
 
 	// Store VC status to DB
-	err = s.vcStatusStore.Put(ctx, profile.ID, credentialID, statusListEntry.TypedID)
+	err = s.vcStatusStore.Put(ctx, profile.ID, profile.Version, credentialID, statusListEntry.TypedID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to store credential status: %w", err)
 	}
@@ -119,7 +118,7 @@ func (s *Manager) CreateCSLEntry(ctx context.Context,
 func (s *Manager) getProfileCSLAndAssignedIndex(ctx context.Context,
 	profile *profileapi.Issuer) (string, int, error) {
 	logger.Debug("CSL Manager - CreateCSLEntry",
-		logfields.WithProfileID(profile.ID))
+		logfields.WithProfileID(profile.ID), logfields.WithProfileVersion(profile.Version))
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

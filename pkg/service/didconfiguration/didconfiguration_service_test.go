@@ -23,6 +23,10 @@ import (
 	"github.com/trustbloc/vcs/pkg/profile"
 )
 
+const (
+	testProfileVersion = "v1.0"
+)
+
 func TestDidConfiguration(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -129,12 +133,14 @@ func TestDidConfiguration(t *testing.T) {
 
 			verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
 			if testCase.verifierProfile != nil {
-				verifierProfileSvc.EXPECT().GetProfile(testCase.profileID).Return(testCase.verifierProfile, nil)
+				verifierProfileSvc.EXPECT().
+					GetProfile(testCase.profileID, testProfileVersion).Return(testCase.verifierProfile, nil)
 			}
 
 			issuerProfilerSvc := NewMockIssuerProfileService(gomock.NewController(t))
 			if testCase.issuerProfile != nil {
-				issuerProfilerSvc.EXPECT().GetProfile(testCase.profileID).Return(testCase.issuerProfile, nil)
+				issuerProfilerSvc.EXPECT().
+					GetProfile(testCase.profileID, testProfileVersion).Return(testCase.issuerProfile, nil)
 			}
 
 			cryptoSvc := NewMockVCCrypto(gomock.NewController(t))
@@ -177,7 +183,7 @@ func TestDidConfiguration(t *testing.T) {
 			})
 
 			resp, err := didConfigurationService.DidConfig(context.TODO(),
-				testCase.profileType, testCase.profileID)
+				testCase.profileType, testCase.profileID, testProfileVersion)
 
 			assert.Nil(t, err)
 
@@ -236,9 +242,9 @@ func TestDidConfigWithInvalidArgs(t *testing.T) {
 
 			switch testCase.profileType {
 			case ProfileTypeVerifier:
-				verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("not found"))
+				verifierProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found"))
 			case ProfileTypeIssuer:
-				issuerProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("not found"))
+				issuerProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(nil, errors.New("not found"))
 			}
 
 			configService := New(&Config{
@@ -249,6 +255,7 @@ func TestDidConfigWithInvalidArgs(t *testing.T) {
 			resp, err := configService.DidConfig(context.TODO(),
 				testCase.profileType,
 				"123",
+				testProfileVersion,
 			)
 
 			assert.Nil(t, resp)
@@ -259,7 +266,7 @@ func TestDidConfigWithInvalidArgs(t *testing.T) {
 
 func TestValidateOIDCConfigForVerifier(t *testing.T) {
 	verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
-	verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Verifier{}, nil)
+	verifierProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profile.Verifier{}, nil)
 
 	configService := New(&Config{
 		VerifierProfileService: verifierProfileSvc,
@@ -268,6 +275,7 @@ func TestValidateOIDCConfigForVerifier(t *testing.T) {
 	resp, err := configService.DidConfig(context.TODO(),
 		ProfileTypeVerifier,
 		"123",
+		testProfileVersion,
 	)
 
 	assert.Nil(t, resp)
@@ -295,13 +303,13 @@ func TestKmsError(t *testing.T) {
 			issuerProfileSvc := NewMockIssuerProfileService(gomock.NewController(t))
 
 			if testCase.profileType == ProfileTypeVerifier {
-				verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Verifier{
+				verifierProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profile.Verifier{
 					SigningDID: &profile.SigningDID{},
 					OIDCConfig: &profile.OIDC4VPConfig{},
 					Checks:     &profile.VerificationChecks{},
 				}, nil)
 			} else {
-				issuerProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Issuer{
+				issuerProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profile.Issuer{
 					SigningDID: &profile.SigningDID{},
 					VCConfig:   &profile.VCConfig{},
 				}, nil)
@@ -320,6 +328,7 @@ func TestKmsError(t *testing.T) {
 				context.TODO(),
 				testCase.profileType,
 				"123",
+				testProfileVersion,
 			)
 
 			assert.Nil(t, conf)
@@ -340,7 +349,7 @@ func TestWithSignError(t *testing.T) {
 
 	verifierProfileSvc := NewMockVerifierProfileService(gomock.NewController(t))
 
-	verifierProfileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profile.Verifier{
+	verifierProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(&profile.Verifier{
 		SigningDID: &profile.SigningDID{},
 		OIDCConfig: &profile.OIDC4VPConfig{},
 		Checks:     &profile.VerificationChecks{},
@@ -361,6 +370,7 @@ func TestWithSignError(t *testing.T) {
 		context.TODO(),
 		ProfileTypeVerifier,
 		"123",
+		testProfileVersion,
 	)
 
 	assert.Nil(t, cred)

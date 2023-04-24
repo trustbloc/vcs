@@ -21,6 +21,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
 )
 
+var _ Service = (*Wrapper)(nil) // make sure Wrapper implements verifycredential.ServiceInterface
+
 type Service verifycredential.ServiceInterface
 
 type Wrapper struct {

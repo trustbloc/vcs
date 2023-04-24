@@ -49,8 +49,8 @@ type VPFlowExecutor struct {
 	jSONLDDocumentLoader          jsonld.DocumentLoader
 }
 
-func (e *VPFlowExecutor) initiateInteraction(profileName, authToken string, body io.Reader) error {
-	endpointURL := fmt.Sprintf(e.URLs.InitiateOidcInteractionURLFormat, profileName)
+func (e *VPFlowExecutor) initiateInteraction(profileID, profileVersion, authToken string, body io.Reader) error {
+	endpointURL := fmt.Sprintf(e.URLs.InitiateOidcInteractionURLFormat, profileID, profileVersion)
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", authToken, //nolint: bodyclose
 		body, e.tlsConfig)

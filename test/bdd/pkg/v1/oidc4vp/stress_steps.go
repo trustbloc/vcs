@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/greenpau/go-calculator"
@@ -56,9 +57,14 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 		return err
 	}
 
-	verifyProfileID, err := getEnv(verifyProfileIDEnv, "v_myprofile_jwt")
+	verifyProfile, err := getEnv(verifyProfileIDEnv, "v_myprofile_jwt/v1.0")
 	if err != nil {
 		return err
+	}
+
+	chunks := strings.Split(verifyProfile, "/")
+	if len(chunks) != 2 {
+		return fmt.Errorf("invalid verifyProfileIDEnv")
 	}
 
 	orgID, err := getEnv(orgIDEnv, "test_org")
@@ -88,8 +94,9 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 					RetrieveInteractionsClaimURLFormat: retrieveClaimURLFormat,
 				},
 			},
-			authToken:   authToken,
-			profileName: verifyProfileID,
+			authToken:      authToken,
+			profileID:      chunks[0],
+			profileVersion: chunks[1],
 		}
 
 		createPool.Submit(r)
@@ -159,8 +166,9 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, initiateInteractionURLFormat
 type stressRequest struct {
 	vpFlowExecutor *VPFlowExecutor
 
-	authToken   string
-	profileName string
+	authToken      string
+	profileID      string
+	profileVersion string
 }
 
 type stressRequestPerfInfo struct {
@@ -175,7 +183,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	println("initiateInteraction started")
 
 	startTime := time.Now()
-	err := r.vpFlowExecutor.initiateInteraction(r.profileName, r.authToken, nil)
+	err := r.vpFlowExecutor.initiateInteraction(r.profileID, r.profileVersion, r.authToken, nil)
 	if err != nil {
 		return "", nil, fmt.Errorf("initiate interaction %w", err)
 	}

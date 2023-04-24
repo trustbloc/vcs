@@ -10,7 +10,7 @@ Feature: OIDC4VC REST API
 
   Background:
     Given Organization "test_org" has been authorized with client id "f13d1va9lp403pb9lyj89vk55" and secret "ejqxi9jb1vew2jbdnogpjcgrz"
-    And   Issuer with id "bank_issuer" is authorized as a Profile user
+    And   Issuer with id "bank_issuer/v1.0" is authorized as a Profile user
     And   Issuer registers Client for vcs oidc interactions
     And   User creates the wallet
 
@@ -25,12 +25,12 @@ Feature: OIDC4VC REST API
 #    Then Wallet receives a valid credential
 
     And   New verifiable credentials is created from table:
-      | IssuerProfile              | Organization | Credential             | VCFormat           |
-      | i_myprofile_ud_es256_sdjwt | test_org     | university_degree.json | jwt_vc_json-ld    |
-      | i_myprofile_ud_es256k_jwt  | test_org     | university_degree.json | jwt_vc_json-ld    |
+      | IssuerProfile                   | Organization | Credential             | VCFormat       |
+      | i_myprofile_ud_es256_sdjwt/v1.0 | test_org     | university_degree.json | jwt_vc_json-ld |
+      | i_myprofile_ud_es256k_jwt/v1.0  | test_org     | university_degree.json | jwt_vc_json-ld |
     And User saves credentials into the wallet
 
-    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt" profile for organization "test_org"
+    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile for organization "test_org"
     Then User receives authorization request
 
     When User invokes authorization request using Wallet

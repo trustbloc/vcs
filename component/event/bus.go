@@ -34,7 +34,7 @@ const (
 )
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
 type kmsRegistry interface {

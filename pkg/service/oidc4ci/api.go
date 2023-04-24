@@ -52,6 +52,7 @@ type TransactionStore transactionStore
 // TransactionData is the transaction data stored in the underlying storage.
 type TransactionData struct {
 	ProfileID                          profileapi.ID
+	ProfileVersion                     profileapi.Version
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
@@ -135,6 +136,7 @@ type PrepareClaimDataAuthorizationRequest struct {
 
 type PrepareClaimDataAuthorizationResponse struct {
 	ProfileID                          profileapi.ID
+	ProfileVersion                     profileapi.Version
 	TxID                               TxID
 	ResponseType                       string
 	Scope                              []string
@@ -151,6 +153,7 @@ type PrepareCredential struct {
 
 type PrepareCredentialResult struct {
 	ProfileID               profileapi.ID
+	ProfileVersion          profileapi.Version
 	Credential              *verifiable.Credential
 	Format                  vcsverifiable.Format
 	Retry                   bool
@@ -170,10 +173,11 @@ type AuthorizeState struct {
 }
 
 type eventPayload struct {
-	WebHook   string `json:"webHook,omitempty"`
-	ProfileID string `json:"profileID,omitempty"`
-	OrgID     string `json:"orgID,omitempty"`
-	Error     string `json:"error,omitempty"`
+	WebHook        string `json:"webHook,omitempty"`
+	ProfileID      string `json:"profileID,omitempty"`
+	ProfileVersion string `json:"profileVersion,omitempty"`
+	OrgID          string `json:"orgID,omitempty"`
+	Error          string `json:"error,omitempty"`
 }
 
 type AuthorizationCodeGrant struct {

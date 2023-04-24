@@ -78,7 +78,7 @@ type wellKnownService interface {
 }
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
 type oAuth2Client interface {
@@ -242,6 +242,7 @@ func (s *Service) PrepareClaimDataAuthorizationRequest(
 
 	return &PrepareClaimDataAuthorizationResponse{
 		ProfileID:                          tx.ProfileID,
+		ProfileVersion:                     tx.ProfileVersion,
 		TxID:                               tx.ID,
 		ResponseType:                       tx.ResponseType,
 		Scope:                              tx.ClientScope,
@@ -383,6 +384,7 @@ func (s *Service) PrepareCredential(
 
 	return &PrepareCredentialResult{
 		ProfileID:               tx.ProfileID,
+		ProfileVersion:          tx.ProfileVersion,
 		Credential:              vc,
 		Format:                  tx.CredentialFormat,
 		OidcFormat:              tx.OIDCCredentialFormat,
@@ -445,9 +447,10 @@ func (s *Service) createEvent(
 	e error,
 ) (*spi.Event, error) {
 	ep := eventPayload{
-		WebHook:   tx.WebHookURL,
-		ProfileID: tx.ProfileID,
-		OrgID:     tx.OrgID,
+		WebHook:        tx.WebHookURL,
+		ProfileID:      tx.ProfileID,
+		ProfileVersion: tx.ProfileVersion,
+		OrgID:          tx.OrgID,
 	}
 
 	if e != nil {

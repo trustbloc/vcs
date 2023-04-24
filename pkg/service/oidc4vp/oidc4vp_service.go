@@ -46,7 +46,7 @@ type eventService interface {
 }
 
 type transactionManager interface {
-	CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error)
+	CreateTx(pd *presexch.PresentationDefinition, profileID, profileVersion string) (*Transaction, string, error)
 	StoreReceivedClaims(txID TxID, claims *ReceivedClaims) error
 	DeleteReceivedClaims(claimsID string) error
 	GetByOneTimeToken(nonce string) (*Transaction, bool, error)
@@ -62,7 +62,7 @@ type kmsRegistry interface {
 }
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Verifier, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error)
 }
 
 type presentationVerifier interface {
@@ -143,10 +143,11 @@ type RequestObjectRegistration struct {
 }
 
 type eventPayload struct {
-	WebHook   string `json:"webHook,omitempty"`
-	ProfileID string `json:"profileID,omitempty"`
-	OrgID     string `json:"orgID,omitempty"`
-	Error     string `json:"error,omitempty"`
+	WebHook        string `json:"webHook,omitempty"`
+	ProfileID      string `json:"profileID,omitempty"`
+	ProfileVersion string `json:"profileVersion,omitempty"`
+	OrgID          string `json:"orgID,omitempty"`
+	Error          string `json:"error,omitempty"`
 }
 
 func NewService(cfg *Config) *Service {
@@ -175,9 +176,10 @@ func NewService(cfg *Config) *Service {
 func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 	eventType spi.EventType, e error) (*spi.Event, error) {
 	ep := eventPayload{
-		WebHook:   profile.WebHook,
-		ProfileID: profile.ID,
-		OrgID:     profile.OrganizationID,
+		WebHook:        profile.WebHook,
+		ProfileID:      profile.ID,
+		ProfileVersion: profile.Version,
+		OrgID:          profile.OrganizationID,
 	}
 
 	if e != nil {
@@ -227,7 +229,7 @@ func (s *Service) InitiateOidcInteraction(
 		return nil, errors.New("profile signing did can't be nil")
 	}
 
-	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID)
+	tx, nonce, err := s.transactionManager.CreateTx(presentationDefinition, profile.ID, profile.Version)
 	if err != nil {
 		return nil, fmt.Errorf("fail to create oidc tx: %w", err)
 	}
@@ -352,7 +354,7 @@ func (s *Service) VerifyOIDCVerifiablePresentation(ctx context.Context, txID TxI
 
 	logger.Debug("VerifyOIDCVerifiablePresentation nonce verified")
 
-	profile, err := s.profileService.GetProfile(tx.ProfileID)
+	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		return fmt.Errorf("inconsistent transaction state %w", err)
 	}

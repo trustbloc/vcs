@@ -30,6 +30,7 @@ type didConfigService interface {
 		ctx context.Context,
 		profileType didconfiguration.ProfileType,
 		profileID string,
+		profileVersion string,
 	) (*didconfiguration.DidConfiguration, error)
 }
 
@@ -60,9 +61,11 @@ func NewController(
 		requestObjectStoreService: config.RequestObjectStoreService,
 	}
 
-	router.GET("/:profileType/profiles/:profileID/well-known/did-config", func(ctx echo.Context) error {
-		return c.DidConfig(ctx, ctx.Param("profileType"), ctx.Param("profileID"))
-	})
+	router.GET("/:profileType/profiles/:profileID/:profileVersion/well-known/did-config",
+		func(ctx echo.Context) error {
+			return c.DidConfig(ctx,
+				ctx.Param("profileType"), ctx.Param("profileID"), ctx.Param("profileVersion"))
+		})
 
 	router.GET("/request-object/:uuid", func(ctx echo.Context) error {
 		return c.RequestObjectByUuid(ctx, ctx.Param("uuid"))
@@ -72,11 +75,11 @@ func NewController(
 }
 
 // DidConfig requests well-known DID config.
-// GET /{profileType}/profiles/{profileID}/well-known/did-config.
-func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID string) error {
+// GET /{profileType}/profiles/{profileID}/{profileVersion}/well-known/did-config.
+func (c *Controller) DidConfig(ctx echo.Context, profileType string, profileID, profileVersion string) error {
 	return apiUtil.WriteOutput(ctx)(c.didConfigService.DidConfig(ctx.Request().Context(),
 		didconfiguration.ProfileType(strings.ToLower(profileType)),
-		profileID))
+		profileID, profileVersion))
 }
 
 // RequestObjectByUuid Receive request object by uuid.

@@ -21,6 +21,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
+var _ Service = (*Wrapper)(nil) // make sure Wrapper implements credentialstatus.ServiceInterface
+
 type Service credentialstatus.ServiceInterface
 
 type Wrapper struct {
@@ -32,14 +34,16 @@ func Wrap(svc Service, tracer trace.Tracer) *Wrapper {
 	return &Wrapper{svc: svc, tracer: tracer}
 }
 
-func (w *Wrapper) CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*credentialstatus.StatusListEntry, error) {
+func (w *Wrapper) CreateStatusListEntry(
+	ctx context.Context, profileID, profileVersion, credentialID string) (*credentialstatus.StatusListEntry, error) {
 	ctx, span := w.tracer.Start(ctx, "credentialstatus.CreateStatusListEntry")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profileID))
+	span.SetAttributes(attribute.String("profile_version", profileVersion))
 	span.SetAttributes(attribute.String("credential_id", credentialID))
 
-	entry, err := w.svc.CreateStatusListEntry(ctx, profileID, credentialID)
+	entry, err := w.svc.CreateStatusListEntry(ctx, profileID, profileVersion, credentialID)
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +51,17 @@ func (w *Wrapper) CreateStatusListEntry(ctx context.Context, profileID, credenti
 	return entry, nil
 }
 
-func (w *Wrapper) GetStatusListVC(ctx context.Context, profileID profileapi.ID, statusID string) (*verifiable.Credential, error) {
+func (w *Wrapper) GetStatusListVC(
+	ctx context.Context,
+	profileGroupID profileapi.ID,
+	statusID string) (*credentialstatus.CSL, error) {
 	ctx, span := w.tracer.Start(ctx, "credentialstatus.GetStatusListVC")
 	defer span.End()
 
-	span.SetAttributes(attribute.String("profile_id", profileID))
+	span.SetAttributes(attribute.String("profile_group_id", profileGroupID))
 	span.SetAttributes(attribute.String("status_id", statusID))
 
-	vc, err := w.svc.GetStatusListVC(ctx, profileID, statusID)
+	vc, err := w.svc.GetStatusListVC(ctx, profileGroupID, statusID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +74,7 @@ func (w *Wrapper) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", params.ProfileID))
+	span.SetAttributes(attribute.String("profile_version", params.ProfileVersion))
 	span.SetAttributes(attributeutil.JSON("params", params))
 
 	err := w.svc.UpdateVCStatus(ctx, params)

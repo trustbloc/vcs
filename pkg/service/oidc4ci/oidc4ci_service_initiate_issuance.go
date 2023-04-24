@@ -54,6 +54,7 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 
 	data := &TransactionData{
 		ProfileID:             profile.ID,
+		ProfileVersion:        profile.Version,
 		OrgID:                 profile.OrganizationID,
 		CredentialTemplate:    template,
 		CredentialFormat:      profile.VCConfig.Format,
@@ -251,7 +252,7 @@ func (s *Service) prepareCredentialOffer(
 	template *profileapi.CredentialTemplate,
 	tx *Transaction,
 ) *CredentialOfferResponse {
-	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID)
+	issuerURL, _ := url.JoinPath(s.issuerVCSPublicHost, "issuer", tx.ProfileID, tx.ProfileVersion)
 
 	resp := &CredentialOfferResponse{
 		CredentialIssuer: issuerURL,

@@ -45,6 +45,8 @@ import (
 
 const (
 	tenantID       = "orgID1"
+	profileID      = "testProfileID"
+	profileVersion = "v1.0"
 	tenantIDHeader = "X-Tenant-ID"
 )
 
@@ -125,9 +127,10 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 		AnyTimes().
 		Return([]verifycredential.CredentialsVerificationCheckResult{{}}, nil)
 
-	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
-			ID:             "testId",
+			ID:             profileID,
+			Version:        profileVersion,
 			OrganizationID: "orgID1",
 			Checks:         verificationChecks,
 		}, nil)
@@ -142,20 +145,20 @@ func TestController_PostVerifyCredentials(t *testing.T) {
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVCJsonLD))
-		err := controller.PostVerifyCredentials(c, "testId")
+		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVCJWT))
-		err := controller.PostVerifyCredentials(c, "testId")
+		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 
 		require.NoError(t, err)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
 		c := createContextWithBody([]byte("abc"))
-		err := controller.PostVerifyCredentials(c, "testId")
+		err := controller.PostVerifyCredentials(c, profileID, profileVersion)
 
 		require.Error(t, err)
 	})
@@ -171,9 +174,10 @@ func TestController_VerifyCredentials(t *testing.T) {
 		AnyTimes().
 		Return(verificationResult, nil)
 
-	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
-			ID:             "testId",
+			ID:             profileID,
+			Version:        profileVersion,
 			OrganizationID: "orgID1",
 			Checks:         verificationChecks,
 		}, nil)
@@ -193,7 +197,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		rsp, err := controller.verifyCredential(c.Request().Context(), &body, "testId", tenantID)
+		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 		require.NoError(t, err)
 		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
 	})
@@ -205,7 +209,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
-		rsp, err := controller.verifyCredential(c.Request().Context(), &body, "testId", tenantID)
+		rsp, err := controller.verifyCredential(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 
 		require.NoError(t, err)
 		require.Equal(t, &VerifyCredentialResponse{Checks: &[]VerifyCredentialCheckResult{{}}}, rsp)
@@ -225,7 +229,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 				},
 				getProfileSvc: func() profileService {
 					failedMockProfileSvc := NewMockProfileService(gomock.NewController(t))
-					failedMockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+					failedMockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 						Return(nil, errors.New("some error"))
 					return failedMockProfileSvc
 				},
@@ -278,7 +282,7 @@ func TestController_VerifyCredentials(t *testing.T) {
 				e := testCase.getCtx()
 				err := util.ReadBody(e, &body)
 				require.NoError(t, err)
-				rsp, err := failedController.verifyCredential(e.Request().Context(), &body, "testId", tenantID)
+				rsp, err := failedController.verifyCredential(e.Request().Context(), &body, profileID, profileVersion, tenantID)
 				require.Error(t, err)
 				require.Nil(t, rsp)
 			})
@@ -295,9 +299,10 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 		AnyTimes().
 		Return([]verifypresentation.PresentationVerificationCheckResult{{}}, nil)
 
-	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
-			ID:             "testId",
+			ID:             profileID,
+			Version:        profileVersion,
 			OrganizationID: "orgID1",
 			Checks:         verificationChecks,
 		}, nil)
@@ -312,20 +317,20 @@ func TestController_PostVerifyPresentation(t *testing.T) {
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVPJsonLD))
-		err := controller.PostVerifyPresentation(c, "testId")
+		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
 		c := createContextWithBody([]byte(sampleVPJWT))
-		err := controller.PostVerifyPresentation(c, "testId")
+		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
 
 		require.NoError(t, err)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
 		c := createContextWithBody([]byte("abc"))
-		err := controller.PostVerifyPresentation(c, "testId")
+		err := controller.PostVerifyPresentation(c, profileID, profileVersion)
 
 		require.Error(t, err)
 	})
@@ -341,9 +346,10 @@ func TestController_VerifyPresentation(t *testing.T) {
 		AnyTimes().
 		Return(verificationResult, nil)
 
-	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{
-			ID:             "testId",
+			ID:             profileID,
+			Version:        profileVersion,
 			OrganizationID: "orgID1",
 			Checks:         verificationChecks,
 		}, nil)
@@ -363,7 +369,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, "testId", tenantID)
+		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 		require.NoError(t, err)
 		require.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
 	})
@@ -376,7 +382,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, "testId", tenantID)
+		rsp, err := controller.verifyPresentation(c.Request().Context(), &body, profileID, profileVersion, tenantID)
 		require.NoError(t, err)
 		require.Equal(t, &VerifyPresentationResponse{Checks: &[]VerifyPresentationCheckResult{{}}}, rsp)
 	})
@@ -395,7 +401,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 				},
 				getProfileSvc: func() profileService {
 					failedMockProfileSvc := NewMockProfileService(gomock.NewController(t))
-					failedMockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+					failedMockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 						Return(nil, errors.New("some error"))
 					return failedMockProfileSvc
 				},
@@ -448,7 +454,7 @@ func TestController_VerifyPresentation(t *testing.T) {
 				e := testCase.getCtx()
 				err := util.ReadBody(e, &body)
 				require.NoError(t, err)
-				rsp, err := failedController.verifyPresentation(e.Request().Context(), &body, "testId", tenantID)
+				rsp, err := failedController.verifyPresentation(e.Request().Context(), &body, profileID, profileVersion, tenantID)
 				require.Error(t, err)
 				require.Nil(t, rsp)
 			})
@@ -786,6 +792,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID:        "p1",
+			ProfileVersion:   "v1.0",
 			ReceivedClaimsID: "claims-id",
 			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
 		}, nil)
@@ -795,9 +802,10 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+		mockProfileSvc.EXPECT().GetProfile("p1", "v1.0").AnyTimes().
 			Return(&profileapi.Verifier{
 				ID:             "p1",
+				Version:        "v1.0",
 				OrganizationID: "orgID1",
 				Checks:         verificationChecks,
 			}, nil)
@@ -818,6 +826,7 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID:        "p1",
+			ProfileVersion:   "v1.0",
 			ReceivedClaimsID: "claims-id",
 			ReceivedClaims:   &oidc4vp.ReceivedClaims{},
 		}, nil)
@@ -827,9 +836,10 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+		mockProfileSvc.EXPECT().GetProfile("p1", "v1.0").AnyTimes().
 			Return(&profileapi.Verifier{
 				ID:             "p1",
+				Version:        "v1.0",
 				OrganizationID: "orgID1",
 				Checks:         verificationChecks,
 			}, nil)
@@ -850,14 +860,16 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
 			ProfileID:        "p1",
+			ProfileVersion:   "v1.0",
 			ReceivedClaimsID: "claims-id",
 		}, nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+		mockProfileSvc.EXPECT().GetProfile("p1", "v1.0").AnyTimes().
 			Return(&profileapi.Verifier{
 				ID:             "p1",
+				Version:        "v1.0",
 				OrganizationID: "orgID1",
 				Checks:         verificationChecks,
 			}, nil)
@@ -879,14 +891,16 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
-			ProfileID: "p1",
+			ProfileID:      "p1",
+			ProfileVersion: "v1.0",
 		}, nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+		mockProfileSvc.EXPECT().GetProfile("p1", "v1.0").AnyTimes().
 			Return(&profileapi.Verifier{
 				ID:             "p1",
+				Version:        "v1.0",
 				OrganizationID: "orgID1",
 				Checks:         verificationChecks,
 			}, nil)
@@ -943,12 +957,13 @@ func TestController_RetrieveInteractionsClaim(t *testing.T) {
 		oidc4VPService := NewMockOIDC4VPService(gomock.NewController(t))
 		oidc4VPService.EXPECT().GetTx(gomock.Any(), oidc4vp.TxID("txid")).
 			Times(1).Return(&oidc4vp.Transaction{
-			ProfileID: "p1",
+			ProfileID:      "p1",
+			ProfileVersion: "v1.0",
 		}, nil)
 
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
 
-		mockProfileSvc.EXPECT().GetProfile("p1").AnyTimes().
+		mockProfileSvc.EXPECT().GetProfile("p1", "v1.0").AnyTimes().
 			Return(nil, errors.New("data not found"))
 
 		c := NewController(&Config{
@@ -1330,7 +1345,7 @@ func TestController_AuthFailed(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
 
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Verifier{OrganizationID: tenantID, SigningDID: &profileapi.SigningDID{}}, nil)
 
 	t.Run("No token", func(t *testing.T) {
@@ -1339,10 +1354,10 @@ func TestController_AuthFailed(t *testing.T) {
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry,
 			Tracer: trace.NewNoopTracerProvider().Tracer("")})
 
-		err := controller.InitiateOidcInteraction(c, "testId")
+		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
 		requireAuthError(t, err)
 
-		err = controller.RetrieveInteractionsClaim(c, "testId")
+		err = controller.RetrieveInteractionsClaim(c, "txid")
 		requireAuthError(t, err)
 	})
 
@@ -1352,7 +1367,7 @@ func TestController_AuthFailed(t *testing.T) {
 		controller := NewController(&Config{ProfileSvc: mockProfileSvc, KMSRegistry: kmsRegistry,
 			Tracer: trace.NewNoopTracerProvider().Tracer("")})
 
-		err := controller.InitiateOidcInteraction(c, "testId")
+		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
 		requireValidationError(t, resterr.DoesntExist, "organizationID", err)
 	})
 }
@@ -1371,7 +1386,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 		AnyTimes().Return(&oidc4vp.InteractionInfo{}, nil)
 
 	t.Run("Success", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(&profileapi.Verifier{
+		mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Times(1).Return(&profileapi.Verifier{
 			OrganizationID: tenantID,
 			Active:         true,
 			OIDCConfig:     &profileapi.OIDC4VPConfig{},
@@ -1388,12 +1403,12 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 		c := createContext(tenantID)
-		err := controller.InitiateOidcInteraction(c, "testId")
+		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Profile not found", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, nil)
+		mockProfileSvc.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Times(1).Return(nil, nil)
 
 		controller := NewController(&Config{
 			ProfileSvc:    mockProfileSvc,
@@ -1402,7 +1417,7 @@ func TestController_InitiateOidcInteraction(t *testing.T) {
 			Tracer:        trace.NewNoopTracerProvider().Tracer(""),
 		})
 		c := createContext(tenantID)
-		err := controller.InitiateOidcInteraction(c, "testId")
+		err := controller.InitiateOidcInteraction(c, profileID, profileVersion)
 		requireValidationError(t, resterr.DoesntExist, "profile", err)
 	})
 }

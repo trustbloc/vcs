@@ -25,7 +25,7 @@ var (
 // revocation status of credentials issued by Issuer.
 //
 //	This type is created for the documentation purpose.
-type CSL verifiable.Credential
+type CSL = verifiable.Credential
 
 // CSLIndexWrapper contains CSL Indexes and Version.
 type CSLIndexWrapper struct {
@@ -54,6 +54,8 @@ type CSLVCWrapper struct {
 type UpdateVCStatusParams struct {
 	// Issuer Profile ID.
 	ProfileID profileapi.ID
+	// Issuer Profile Version.
+	ProfileVersion profileapi.Version
 	// ID of the verifiable.Credential, that supposed to get updated status to DesiredStatus.
 	CredentialID string
 	// Desired status of the verifiable.Credential referenced by CredentialID.
@@ -69,17 +71,22 @@ type StatusListEntry struct {
 }
 
 type ServiceInterface interface {
-	CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*StatusListEntry, error)
-	GetStatusListVC(ctx context.Context, profileID profileapi.ID, statusID string) (*verifiable.Credential, error)
+	CreateStatusListEntry(
+		ctx context.Context,
+		profileID profileapi.ID,
+		profileVersion profileapi.Version,
+		credentialID string) (*StatusListEntry, error)
+	GetStatusListVC(ctx context.Context, profileGroupID profileapi.ID, statusID string) (*CSL, error)
 	UpdateVCStatus(ctx context.Context, params UpdateVCStatusParams) error
-	Resolve(ctx context.Context, statusListVCURI string) (*verifiable.Credential, error)
+	Resolve(ctx context.Context, statusListVCURI string) (*CSL, error)
 }
 
 // UpdateCredentialStatusEventPayload represents the event payload for credential status update.
 // Corresponding event type is spi.CredentialStatusStatusUpdated.
 type UpdateCredentialStatusEventPayload struct {
-	CSLURL    string `json:"cslurl"`
-	ProfileID string `json:"profileId"`
-	Index     int    `json:"index"`
-	Status    bool   `json:"status"`
+	CSLURL         string `json:"cslurl"`
+	ProfileID      string `json:"profileId"`
+	ProfileVersion string `json:"profileVersion"`
+	Index          int    `json:"index"`
+	Status         bool   `json:"status"`
 }

@@ -21,9 +21,11 @@ import (
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 )
 
-type ID = string
-
-type Method string
+type (
+	ID      = string // ID of the Profile.
+	Version = string // Profile version.
+	Method  string   // DID method of the Profile.
+)
 
 const (
 	WebDIDMethod Method = "web"
@@ -34,6 +36,7 @@ const (
 // Issuer profile.
 type Issuer struct {
 	ID                  ID                    `json:"id"`
+	Version             Version               `json:"version"`
 	GroupID             ID                    `json:"groupID"`
 	Name                string                `json:"name,omitempty"`
 	URL                 string                `json:"url,omitempty"`
@@ -95,6 +98,7 @@ type StatusConfig struct {
 // Verifier profile.
 type Verifier struct {
 	ID                      ID                                 `json:"id,omitempty"`
+	Version                 Version                            `json:"version,omitempty"`
 	Name                    string                             `json:"name,omitempty"`
 	URL                     string                             `json:"url,omitempty"`
 	Active                  bool                               `json:"active,omitempty"`

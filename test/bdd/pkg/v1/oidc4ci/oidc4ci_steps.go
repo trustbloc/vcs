@@ -30,7 +30,7 @@ import (
 
 const (
 	vcsAPIGateway                       = "https://api-gateway.trustbloc.local:5566"
-	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/interactions/initiate-oidc"
+	initiateCredentialIssuanceURLFormat = vcsAPIGateway + "/issuer/profiles/%s/%s/interactions/initiate-oidc"
 	vcsAuthorizeEndpoint                = vcsAPIGateway + "/oidc/authorize"
 	vcsTokenEndpoint                    = vcsAPIGateway + "/oidc/token"
 	vcsCredentialEndpoint               = vcsAPIGateway + "/oidc/credential"
@@ -83,14 +83,14 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^client receives a valid credential$`, s.checkCredential)
 }
 
-func (s *Steps) authorizeIssuer(id string) error {
-	issuer, ok := s.bddContext.IssuerProfiles[id]
+func (s *Steps) authorizeIssuer(profileVersionedID string) error {
+	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
-		return fmt.Errorf("issuer profile '%s' not found", id)
+		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
 	}
 
 	if issuer.OIDCConfig == nil {
-		return fmt.Errorf("oidc config not set for issuer profile '%s'", id)
+		return fmt.Errorf("oidc config not set for issuer profile '%s'", profileVersionedID)
 	}
 
 	accessToken, err := bddutil.IssueAccessToken(context.Background(), oidcProviderURL,
@@ -123,7 +123,7 @@ func (s *Steps) registerPublicClient() error {
 }
 
 func (s *Steps) initiateCredentialIssuance() error {
-	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID)
+	endpointURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuerProfile.ID, s.issuerProfile.Version)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuerProfile.OrganizationID)]
 
 	reqBody, err := json.Marshal(&initiateOIDC4CIRequest{

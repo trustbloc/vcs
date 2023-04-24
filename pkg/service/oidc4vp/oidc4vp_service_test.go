@@ -57,6 +57,11 @@ var (
 	sampleVCJWT string
 )
 
+const (
+	profileID      = "testProfileID"
+	profileVersion = "v1.0"
+)
+
 func TestService_InitiateOidcInteraction(t *testing.T) {
 	customKMS := createKMS(t)
 
@@ -68,7 +73,7 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 		&mockVCSKeyManager{crypto: customCrypto, kms: customKMS}, nil)
 
 	txManager := NewMockTransactionManager(gomock.NewController(t))
-	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any()).AnyTimes().Return(&oidc4vp.Transaction{
+	txManager.EXPECT().CreateTx(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(&oidc4vp.Transaction{
 		ID:                     "TxID1",
 		ProfileID:              "test4",
 		PresentationDefinition: &presexch.PresentationDefinition{},
@@ -130,7 +135,8 @@ func TestService_InitiateOidcInteraction(t *testing.T) {
 
 	t.Run("Tx create failed", func(t *testing.T) {
 		txManagerErr := NewMockTransactionManager(gomock.NewController(t))
-		txManagerErr.EXPECT().CreateTx(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, "", errors.New("fail"))
+		txManagerErr.EXPECT().CreateTx(
+			gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(nil, "", errors.New("fail"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
 			EventSvc:                 &mockEvent{},
@@ -244,15 +250,17 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	txManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
 		ID:                     "txID1",
-		ProfileID:              "testP1",
+		ProfileID:              profileID,
+		ProfileVersion:         profileVersion,
 		PresentationDefinition: pd,
 	}, true, nil)
 
 	txManager.EXPECT().StoreReceivedClaims(oidc4vp.TxID("txID1"), gomock.Any()).AnyTimes().Return(nil)
 
-	profileService.EXPECT().GetProfile("testP1").AnyTimes().Return(&profileapi.Verifier{
-		ID:     "testP1",
-		Active: true,
+	profileService.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(&profileapi.Verifier{
+		ID:      profileID,
+		Version: profileVersion,
+		Active:  true,
 		Checks: &profileapi.VerificationChecks{
 			Presentation: &profileapi.PresentationChecks{
 				VCSubject: true,
@@ -335,7 +343,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
 			ID:                     "txID1",
-			ProfileID:              "testP1",
+			ProfileID:              profileID,
+			ProfileVersion:         profileVersion,
 			PresentationDefinition: defs,
 		}, true, nil)
 
@@ -419,7 +428,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 		txManager2.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
 			ID:                     "txID1",
-			ProfileID:              "testP1",
+			ProfileID:              profileID,
+			ProfileVersion:         profileVersion,
 			PresentationDefinition: defs,
 		}, true, nil)
 
@@ -502,7 +512,7 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 
 	t.Run("Invalid Nonce", func(t *testing.T) {
 		errProfileService := NewMockProfileService(gomock.NewController(t))
-		errProfileService.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil,
+		errProfileService.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil,
 			errors.New("get profile error"))
 
 		withError := oidc4vp.NewService(&oidc4vp.Config{
@@ -562,7 +572,8 @@ func TestService_VerifyOIDCVerifiablePresentation(t *testing.T) {
 		errTxManager := NewMockTransactionManager(gomock.NewController(t))
 		errTxManager.EXPECT().GetByOneTimeToken("nonce1").AnyTimes().Return(&oidc4vp.Transaction{
 			ID:                     "txID1",
-			ProfileID:              "testP1",
+			ProfileID:              profileID,
+			ProfileVersion:         profileVersion,
 			PresentationDefinition: pd,
 		}, true, nil)
 

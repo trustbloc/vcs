@@ -93,7 +93,7 @@ func NewBDDContext(caCertPath, testDataPath, profilesDataPath string) (*BDDConte
 	issuerProfiles := make(map[string]*profile.Issuer)
 
 	for _, issuer := range profilesData.Issuers {
-		issuerProfiles[issuer.Issuer.ID] = issuer.Issuer
+		issuerProfiles[fmt.Sprintf("%s/%s", issuer.Issuer.ID, issuer.Issuer.Version)] = issuer.Issuer
 	}
 
 	instance := BDDContext{

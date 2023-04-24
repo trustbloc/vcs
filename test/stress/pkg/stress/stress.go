@@ -33,6 +33,7 @@ type Config struct {
 	UserCount            int                    `json:"user_count"`
 	ConcurrentRequests   int                    `json:"concurrent_requests"`
 	IssuerProfileID      string                 `json:"issuer_profile_id"`
+	IssuerProfileVersion string                 `json:"issuer_profile_version"`
 	VerifierProfileID    string                 `json:"verifier_profile_id"`
 	CredentialTemplateID string                 `json:"credential_template_id"`
 	CredentialType       string                 `json:"credential_type"`
@@ -120,6 +121,7 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			}),
 			WithVCSAPIURL(vcsAPIURL),
 			WithIssuerProfileID(r.cfg.IssuerProfileID),
+			WithIssuerProfileVersion(r.cfg.IssuerProfileVersion),
 			WithVerifierProfileID(r.cfg.VerifierProfileID),
 			WithCredentialTemplateID(r.cfg.CredentialTemplateID),
 			WithHTTPClient(httpClient),

@@ -7,9 +7,11 @@ package vc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/greenpau/go-calculator"
@@ -80,9 +82,14 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 		return err
 	}
 
-	issuerProfileID, err := getEnv(issuerProfileIDEnv, "i_myprofile_ud_P256k1")
+	versionedIssuerProfileID, err := getEnv(issuerProfileIDEnv, "i_myprofile_ud_P256k1/v1.0")
 	if err != nil {
 		return err
+	}
+
+	chunks := strings.Split(versionedIssuerProfileID, "/")
+	if len(chunks) != 2 {
+		return errors.New("invalid issuerProfileID format")
 	}
 
 	verifyProfileID, err := getEnv(verifyProfileIDEnv, "v_myprofile_ldp")
@@ -104,14 +111,15 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 
 	for i := 0; i < totalRequests; i++ {
 		r := &stressRequest{
-			issuerUrl:         vcURL,
-			verifyUrl:         vcURL,
-			issuerProfileName: issuerProfileID,
-			verifyProfileName: verifyProfileID,
-			organizationName:  orgID,
-			credential:        "university_degree.json",
-			vcFormat:          "ldp_vc",
-			steps:             e,
+			issuerUrl:            vcURL,
+			verifyUrl:            vcURL,
+			issuerProfileName:    chunks[0],
+			issuerProfileVersion: chunks[1],
+			verifyProfileName:    verifyProfileID,
+			organizationName:     orgID,
+			credential:           "university_degree.json",
+			vcFormat:             "ldp_vc",
+			steps:                e,
 		}
 
 		createPool.Submit(r)
@@ -168,14 +176,15 @@ func (e *Steps) stressTestForMultipleUsers(userEnv, vcURLEnv, issuerProfileIDEnv
 }
 
 type stressRequest struct {
-	issuerUrl         string
-	verifyUrl         string
-	credential        string
-	vcFormat          string
-	issuerProfileName string
-	verifyProfileName string
-	organizationName  string
-	steps             *Steps
+	issuerUrl            string
+	verifyUrl            string
+	credential           string
+	vcFormat             string
+	issuerProfileName    string
+	issuerProfileVersion string
+	verifyProfileName    string
+	organizationName     string
+	steps                *Steps
 }
 
 type stressRequestPerfInfo struct {
@@ -188,8 +197,8 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 
 	startTime := time.Now()
 
-	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential, r.vcFormat, r.issuerProfileName,
-		r.organizationName, 0)
+	credentialID, err := r.steps.createCredential(r.issuerUrl, r.credential, r.vcFormat,
+		r.issuerProfileName, r.issuerProfileVersion, r.organizationName, 0)
 	if err != nil {
 		return credentialID, nil, fmt.Errorf("create vc %w", err)
 	}
@@ -198,7 +207,8 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 
 	startTime = time.Now()
 
-	res, err := r.steps.getVerificationResult(r.verifyUrl, r.verifyProfileName, r.organizationName)
+	res, err := r.steps.getVerificationResult(
+		r.verifyUrl, r.verifyProfileName, r.issuerProfileVersion, r.organizationName)
 	if err != nil {
 		return credentialID, nil, err
 	}

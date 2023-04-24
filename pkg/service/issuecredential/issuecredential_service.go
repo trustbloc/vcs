@@ -36,7 +36,8 @@ type kmsRegistry interface {
 }
 
 type vcStatusManager interface {
-	CreateStatusListEntry(ctx context.Context, profileID, credentialID string) (*credentialstatus.StatusListEntry, error)
+	CreateStatusListEntry(
+		ctx context.Context, profileID, profileVersion, credentialID string) (*credentialstatus.StatusListEntry, error)
 }
 
 type Config struct {
@@ -66,7 +67,7 @@ func (s *Service) IssueCredential(
 	profile *profileapi.Issuer) (*verifiable.Credential, error) {
 	kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kms: %w", err)
+		return nil, fmt.Errorf("get kms: %w", err)
 	}
 
 	signer := &vc.Signer{
@@ -88,9 +89,9 @@ func (s *Service) IssueCredential(
 	vcutil.PrependCredentialPrefix(credential, defaultCredentialPrefix)
 
 	if !profile.VCConfig.Status.Disable {
-		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(ctx, profile.ID, credential.ID)
+		statusListEntry, err = s.vcStatusManager.CreateStatusListEntry(ctx, profile.ID, profile.Version, credential.ID)
 		if err != nil {
-			return nil, fmt.Errorf("failed to add credential status: %w", err)
+			return nil, fmt.Errorf("add credential status: %w", err)
 		}
 
 		credential.Context = append(credential.Context, statusListEntry.Context)
@@ -106,7 +107,7 @@ func (s *Service) IssueCredential(
 	// sign the credential
 	signedVC, err := s.crypto.SignCredential(signer, credential, issuerSigningOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to sign credential: %w", err)
+		return nil, fmt.Errorf("sign credential: %w", err)
 	}
 
 	return signedVC, nil

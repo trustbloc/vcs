@@ -20,6 +20,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/verifypresentation"
 )
 
+var _ Service = (*Wrapper)(nil) // make sure Wrapper implements verifypresentation.ServiceInterface
+
 type Service verifypresentation.ServiceInterface
 
 type Wrapper struct {

@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	redisConnString  = "localhost:6380"
+	redisConnString  = "localhost:6384"
 	dockerRedisImage = "redis"
 	dockerRedisTag   = "alpine3.17"
 	defaultClaimsTTL = 3600
@@ -115,7 +115,7 @@ func startRedisContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 		Repository: dockerRedisImage,
 		Tag:        dockerRedisTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"6379/tcp": {{HostIP: "", HostPort: "6380"}},
+			"6379/tcp": {{HostIP: "", HostPort: "6384"}},
 		},
 	})
 	require.NoError(t, err)

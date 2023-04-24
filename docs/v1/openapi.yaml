@@ -26,14 +26,20 @@ tags:
   - name: healthcheck
     description: server health check
 paths:
-  '/issuer/{profileID}/.well-known/openid-credential-issuer':
+  '/issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer':
     parameters:
       - schema:
           type: string
         name: profileID
         in: path
         required: true
-        description: Profile Id
+        description: Profile ID
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Profile Version
     get:
       summary: Request openid-credential-issuer
       responses:
@@ -47,7 +53,7 @@ paths:
       description: Returns openid-config.
       tags:
         - issuer
-  '/issuer/{profileID}/.well-known/openid-configuration':
+  '/issuer/{profileID}/{profileVersion}/.well-known/openid-configuration':
     parameters:
       - schema:
           type: string
@@ -55,6 +61,12 @@ paths:
         in: path
         required: true
         description: Profile Id
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Profile Version
     get:
       summary: Request openid-config
       responses:
@@ -68,7 +80,7 @@ paths:
       description: Returns openid-config.
       tags:
         - issuer
-  '/issuer/profiles/{profileID}/credentials/issue':
+  '/issuer/profiles/{profileID}/{profileVersion}/credentials/issue':
     parameters:
       - schema:
           type: string
@@ -76,6 +88,12 @@ paths:
         in: path
         required: true
         description: Issuer Profile ID.
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Issuer Profile ID Version.
     post:
       summary: Issue credential
       tags:
@@ -121,14 +139,7 @@ paths:
       description: Retrieves the credential status.
       tags:
         - issuer
-  '/issuer/profiles/{profileID}/credentials/status':
-    parameters:
-      - schema:
-          type: string
-        name: profileID
-        in: path
-        required: true
-        description: Issuer Profile ID.
+  '/issuer/credentials/status':
     post:
       summary: Updates credential status.
       tags:
@@ -147,7 +158,7 @@ paths:
                 type: object
       operationId: post-credentials-status
       description: Updates credential status.
-  '/issuer/profiles/{profileID}/interactions/initiate-oidc':
+  '/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc':
     parameters:
       - schema:
           type: string
@@ -155,6 +166,12 @@ paths:
         in: path
         required: true
         description: Issuer Profile ID.
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Issuer Profile Version.
     post:
       summary: Initiate OIDC Credential Issuance
       responses:
@@ -283,14 +300,20 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PrepareCredential'
-  '/verifier/profiles/{profileID}/credentials/verify':
+  '/verifier/profiles/{profileID}/{profileVersion}/credentials/verify':
     parameters:
       - schema:
           type: string
         name: profileID
         in: path
         required: true
-        description: ID of profile
+        description: ID of the verifier profile.
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Verifier profile version.
     post:
       summary: Verify credential
       operationId: post-verify-credentials
@@ -308,14 +331,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyCredentialResponse'
-  '/verifier/profiles/{profileID}/presentations/verify':
+  '/verifier/profiles/{profileID}/{profileVersion}/presentations/verify':
     parameters:
       - schema:
           type: string
         name: profileID
         in: path
         required: true
-        description: ID of profile
+        description: ID of the verifier profile
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Verifier profile version
     post:
       summary: Verify presentation
       operationId: post-verify-presentation
@@ -333,14 +362,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyPresentationResponse'
-  '/verifier/profiles/{profileID}/interactions/initiate-oidc':
+  '/verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc':
     parameters:
       - schema:
           type: string
         name: profileID
         in: path
         required: true
-        description: ID of profile
+        description: ID of the verifier profile.
+      - schema:
+          type: string
+        name: profileVersion
+        in: path
+        required: true
+        description: Verifier profile version.
     post:
       summary: Used by verifier applications to initiate OpenID presentation flow through VCS
       operationId: initiate-oidc-interaction
@@ -913,11 +948,17 @@ components:
         - issuer
       description: UpdateCredentialStatusRequest request struct for updating VC status.
       properties:
+        profileID:
+          type: string
+        profileVersion:
+          type: string
         credentialID:
           type: string
         credentialStatus:
           $ref: '#/components/schemas/CredentialStatus'
       required:
+        - profileID
+        - profileVersion
         - credentialID
         - credentialStatus
       type: object

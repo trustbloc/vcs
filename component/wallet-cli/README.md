@@ -135,7 +135,7 @@ Note:
 ./wallet-cli oidc4vp \
 --qrcode-path "/mnt/qrcode.png" \
 --vc-provider vcs \
---vc-issuer-url https://api-gateway.stg.trustbloc.dev/issuer/profiles/bank_issuer/credentials/issue \
+--vc-issuer-url https://api-gateway.stg.trustbloc.dev/issuer/profiles/bank_issuer/latest/credentials/issue \
 --vc-format jwt_vc_json-ld \
 --context-provider-url https://static-file-server.stg.trustbloc.dev/ld-contexts.json \
 --did-domain https://orb-1.stg.trustbloc.dev \

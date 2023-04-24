@@ -40,7 +40,7 @@ const (
 var logger = log.New("credentialstatus-eventhandler")
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
 type kmsRegistry interface {
@@ -124,7 +124,7 @@ func (s *Service) handleEventPayload(
 	// remove all proofs because we are updating VC
 	clsWrapper.VC.Proofs = nil
 
-	signedCredentialBytes, err := s.signCSL(payload.ProfileID, clsWrapper.VC)
+	signedCredentialBytes, err := s.signCSL(payload.ProfileID, payload.ProfileVersion, clsWrapper.VC)
 	if err != nil {
 		return fmt.Errorf("failed to sign CSL: %w", err)
 	}
@@ -140,8 +140,8 @@ func (s *Service) handleEventPayload(
 	return nil
 }
 
-func (s *Service) signCSL(profileID string, csl *verifiable.Credential) ([]byte, error) {
-	issuerProfile, err := s.profileService.GetProfile(profileID)
+func (s *Service) signCSL(profileID, profileVersion string, csl *verifiable.Credential) ([]byte, error) {
+	issuerProfile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get profile: %w", err)
 	}

@@ -54,7 +54,7 @@ type kmsRegistry interface {
 }
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
 type eventService interface {
@@ -112,8 +112,8 @@ func NewController(config *Config) *Controller {
 }
 
 // PostIssueCredentials issues credentials.
-// POST /issuer/profiles/{profileID}/credentials/issue.
-func (c *Controller) PostIssueCredentials(e echo.Context, profileID string) error {
+// POST /issuer/profiles/{profileID}/{profileVersion}/credentials/issue.
+func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVersion string) error {
 	ctx, span := c.tracer.Start(e.Request().Context(), "PostIssueCredentials")
 	defer span.End()
 
@@ -130,7 +130,7 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID string) erro
 		return err
 	}
 
-	credential, err := c.issueCredential(ctx, tenantID, &body, profileID)
+	credential, err := c.issueCredential(ctx, tenantID, &body, profileID, profileVersion)
 	if err != nil {
 		return err
 	}
@@ -143,8 +143,9 @@ func (c *Controller) issueCredential(
 	tenantID string,
 	body *IssueCredentialData,
 	profileID string,
+	profileVersion string,
 ) (*verifiable.Credential, error) {
-	profile, err := c.accessOIDCProfile(profileID, tenantID)
+	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +327,8 @@ func (c *Controller) GetCredentialsStatus(ctx echo.Context, groupID string, stat
 }
 
 // PostCredentialsStatus updates credentialstatus.CSL.
-// POST /issuer/profiles/{profileID}/credentials/status.
-func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) error {
+// POST /issuer/credentials/status.
+func (c *Controller) PostCredentialsStatus(ctx echo.Context) error {
 	var body UpdateCredentialStatusRequest
 
 	if err := util.ReadBody(ctx, &body); err != nil {
@@ -337,10 +338,11 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 	if err := c.vcStatusManager.UpdateVCStatus(
 		ctx.Request().Context(),
 		credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  body.CredentialID,
-			DesiredStatus: body.CredentialStatus.Status,
-			StatusType:    vc.StatusType(body.CredentialStatus.Type),
+			ProfileID:      body.ProfileID,
+			ProfileVersion: body.ProfileVersion,
+			CredentialID:   body.CredentialID,
+			DesiredStatus:  body.CredentialStatus.Status,
+			StatusType:     vc.StatusType(body.CredentialStatus.Type),
 		},
 	); err != nil {
 		return err
@@ -350,8 +352,8 @@ func (c *Controller) PostCredentialsStatus(ctx echo.Context, profileID string) e
 }
 
 // InitiateCredentialIssuance initiates OIDC credential issuance flow.
-// POST /issuer/profiles/{profileID}/interactions/initiate-oidc.
-func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID string) error {
+// POST /issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc.
+func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID, profileVersion string) error {
 	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateCredentialIssuance")
 	defer span.End()
 
@@ -360,7 +362,7 @@ func (c *Controller) InitiateCredentialIssuance(e echo.Context, profileID string
 		return err
 	}
 
-	profile, err := c.accessOIDCProfile(profileID, tenantID)
+	profile, err := c.accessOIDCProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return err
 	}
@@ -481,7 +483,7 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
 
-	profile, err := c.profileSvc.GetProfile(resp.ProfileID)
+	profile, err := c.profileSvc.GetProfile(resp.ProfileID, resp.ProfileVersion)
 	if err != nil {
 		return nil, resterr.NewSystemError("OIDC4CIService", "PrepareClaimDataAuthorizationRequest", err)
 	}
@@ -499,12 +501,12 @@ func (c *Controller) prepareClaimDataAuthorizationRequest(
 	}, nil
 }
 
-func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error) {
-	profile, err := c.profileSvc.GetProfile(profileID)
+func (c *Controller) accessProfile(profileID, profileVersion string) (*profileapi.Issuer, error) {
+	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-				fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+				fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 		}
 
 		return nil, resterr.NewSystemError(issuerProfileSvcComponent, "GetProfile", err)
@@ -512,14 +514,14 @@ func (c *Controller) accessProfile(profileID string) (*profileapi.Issuer, error)
 
 	if profile == nil {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 	}
 
 	return profile, nil
 }
 
-func (c *Controller) accessOIDCProfile(profileID string, tenantID string) (*profileapi.Issuer, error) {
-	profile, err := c.accessProfile(profileID)
+func (c *Controller) accessOIDCProfile(profileID, profileVersion, tenantID string) (*profileapi.Issuer, error) {
+	profile, err := c.accessProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -527,7 +529,7 @@ func (c *Controller) accessOIDCProfile(profileID string, tenantID string) (*prof
 	// Profiles of other organization is not visible.
 	if profile.OrganizationID != tenantID {
 		return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",
-			fmt.Errorf("profile with given id %s, doesn't exist", profileID))
+			fmt.Errorf("profile with given id %s_%s, doesn't exist", profileID, profileVersion))
 	}
 
 	return profile, nil
@@ -620,7 +622,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential", err)
 	}
 
-	profile, err := c.accessProfile(result.ProfileID)
+	profile, err := c.accessProfile(result.ProfileID, result.ProfileVersion)
 	if err != nil {
 		return err
 	}
@@ -644,24 +646,25 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 }
 
 // OpenidConfig request openid configuration for issuer.
-// GET /issuer/{profileID}/.well-known/openid-configuration.
-func (c *Controller) OpenidConfig(ctx echo.Context, profileID string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID))
+// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration.
+func (c *Controller) OpenidConfig(ctx echo.Context, profileID, profileVersion string) error {
+	return util.WriteOutput(ctx)(c.getOpenIDConfig(profileID, profileVersion))
 }
 
 // OpenidCredentialIssuerConfig request openid credentials configuration for issuer.
-// GET /issuer/{profileID}/.well-known/openid-credential-issuer.
-func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID string) error {
-	return util.WriteOutput(ctx)(c.getOpenIDIssuerConfig(profileID))
+// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer.
+func (c *Controller) OpenidCredentialIssuerConfig(ctx echo.Context, profileID, profileVersion string) error {
+	return util.WriteOutput(ctx)(c.getOpenIDIssuerConfig(profileID, profileVersion))
 }
 
-func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIssuerConfiguration, error) {
+func (c *Controller) getOpenIDIssuerConfig(
+	profileID, profileVersion string) (*WellKnownOpenIDIssuerConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
 	}
 
-	issuer, err := c.profileSvc.GetProfile(profileID)
+	issuer, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -675,7 +678,7 @@ func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIs
 		finalCredentials = append(finalCredentials, t)
 	}
 
-	issuerURL, _ := url.JoinPath(c.externalHostURL, "issuer", profileID)
+	issuerURL, _ := url.JoinPath(c.externalHostURL, "issuer", profileID, profileVersion)
 
 	final := &WellKnownOpenIDIssuerConfiguration{
 		AuthorizationServer:     fmt.Sprintf("%soidc/authorize", host), // todo check
@@ -694,13 +697,13 @@ func (c *Controller) getOpenIDIssuerConfig(profileID string) (*WellKnownOpenIDIs
 	return final, nil
 }
 
-func (c *Controller) getOpenIDConfig(profileID string) (*WellKnownOpenIDConfiguration, error) {
+func (c *Controller) getOpenIDConfig(profileID, profileVersion string) (*WellKnownOpenIDConfiguration, error) {
 	host := c.externalHostURL
 	if !strings.HasSuffix(host, "/") {
 		host += "/"
 	}
 
-	_, err := c.profileSvc.GetProfile(profileID) // no need currently
+	_, err := c.profileSvc.GetProfile(profileID, profileVersion) // no need currently
 	if err != nil {
 		return nil, err
 	}

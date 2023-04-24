@@ -30,11 +30,13 @@ import (
 )
 
 const (
-	mongoDBConnString  = "mongodb://localhost:27026"
-	dockerMongoDBImage = "mongo"
-	dockerMongoDBTag   = "4.0.0"
-	testProfile        = "test_profile"
-	testVCID           = "test_vc_id"
+	mongoDBConnString    = "mongodb://localhost:27026"
+	dockerMongoDBImage   = "mongo"
+	dockerMongoDBTag     = "4.0.0"
+	testProfile          = "test_profile"
+	testProfileVersion10 = "v1.0"
+	testProfileVersion11 = "v1.1"
+	testVCID             = "test_vc_id"
 )
 
 var (
@@ -67,24 +69,31 @@ func TestVCStatusStore(t *testing.T) {
 
 		ctx := context.Background()
 
-		// Create - Find
-		err = store.Put(ctx, testProfile, vcExpected.ID, vcExpected.Status)
+		// Create.
+		err = store.Put(ctx, testProfile, testProfileVersion10, vcExpected.ID, vcExpected.Status)
 		assert.NoError(t, err)
 
-		statusFound, err := store.Get(ctx, testProfile, vcExpected.ID)
+		// Find by same profile version.
+		statusFound, err := store.Get(ctx, testProfile, testProfileVersion10, vcExpected.ID)
 		assert.NoError(t, err)
 
 		if !assert.Equal(t, vcExpected.Status, statusFound) {
 			t.Errorf("VC Status got = %v, want %v",
 				vcExpected.Status, statusFound)
 		}
+
+		// Find by different profile version.
+		statusFound, err = store.Get(ctx, testProfile, testProfileVersion11, vcExpected.ID)
+		assert.Error(t, err)
+		assert.Empty(t, statusFound)
 	})
 
 	t.Run("Find non-existing document", func(t *testing.T) {
-		resp, err := store.Get(context.Background(), testProfile, "63451f2358bde34a13b5d95b")
+		resp, err := store.Get(
+			context.Background(), testProfile, testProfileVersion10, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
-		assert.ErrorContains(t, err, "failed to query MongoDB")
+		assert.ErrorContains(t, err, "find and decode MongoDB")
 	})
 }
 
@@ -109,13 +118,13 @@ func TestTimeouts(t *testing.T) {
 	defer cancel()
 
 	t.Run("Create timeout", func(t *testing.T) {
-		err = store.Put(ctxWithTimeout, testProfile, testVCID, &verifiable.TypedID{ID: "1"})
+		err = store.Put(ctxWithTimeout, testProfile, testProfileVersion10, testVCID, &verifiable.TypedID{ID: "1"})
 
 		assert.ErrorContains(t, err, "context deadline exceeded")
 	})
 
 	t.Run("Find Timeout", func(t *testing.T) {
-		resp, err := store.Get(ctxWithTimeout, testProfile, "63451f2358bde34a13b5d95b")
+		resp, err := store.Get(ctxWithTimeout, testProfile, testProfileVersion10, "63451f2358bde34a13b5d95b")
 
 		assert.Nil(t, resp)
 		assert.ErrorContains(t, err, "context deadline exceeded")

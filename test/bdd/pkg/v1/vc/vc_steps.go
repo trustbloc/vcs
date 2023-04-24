@@ -9,6 +9,7 @@ package vc
 import (
 	"context"
 	"crypto/tls"
+	"strings"
 	"sync"
 
 	"github.com/cucumber/godog"
@@ -21,13 +22,13 @@ import (
 const (
 	credentialServiceURL            = "https://api-gateway.trustbloc.local:5566"
 	verifierProfileURL              = "%s/verifier/profiles"
-	verifierProfileURLFormat        = verifierProfileURL + "/%s"
+	verifierProfileURLFormat        = verifierProfileURL + "/%s/%s"
 	verifyCredentialURLFormat       = verifierProfileURLFormat + "/credentials/verify"
 	issuerProfileURL                = "%s/issuer/profiles"
-	issuerProfileURLFormat          = issuerProfileURL + "/%s"
+	issuerProfileURLFormat          = issuerProfileURL + "/%s/%s"
 	issueCredentialURLFormat        = issuerProfileURLFormat + "/credentials/issue"
 	OidcProviderURL                 = "http://cognito-mock.trustbloc.local:9229/local_5a9GzRvB"
-	updateCredentialStatusURLFormat = issuerProfileURLFormat + "/credentials/status"
+	updateCredentialStatusURLFormat = "%s/issuer/credentials/status"
 )
 
 func getOrgAuthTokenKey(org string) string {
@@ -103,7 +104,12 @@ func (e *Steps) createCredentialsFromTable(table *godog.Table) error {
 	allCreds := make([][]byte, 0)
 
 	for _, p := range params.([]*createVCParams) {
-		_, err = e.createCredential(credentialServiceURL, p.Credential, p.VCFormat, p.IssuerProfile, p.Organization, p.DIDIndex)
+
+		chunks := strings.Split(p.IssuerProfile, "/")
+		profileID, profileVersion := chunks[0], chunks[1]
+		_, err = e.createCredential(
+			credentialServiceURL,
+			p.Credential, p.VCFormat, profileID, profileVersion, p.Organization, p.DIDIndex)
 		if err != nil {
 			return err
 		}

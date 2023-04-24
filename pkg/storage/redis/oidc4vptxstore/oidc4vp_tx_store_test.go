@@ -26,11 +26,14 @@ import (
 )
 
 const (
-	redisConnString  = "localhost:6380"
+	redisConnString  = "localhost:6385"
 	dockerRedisImage = "redis"
 	dockerRedisTag   = "alpine3.17"
 	defaultClaimsTTL = 3600
 	receivedClaimsID = "xyz"
+
+	profileID      = "testProfileID"
+	profileVersion = "v1.0"
 )
 
 func TestTxStore_Success(t *testing.T) {
@@ -50,13 +53,13 @@ func TestTxStore_Success(t *testing.T) {
 	}()
 
 	t.Run("Create tx", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 	})
 
 	t.Run("Create tx then Get by id", func(t *testing.T) {
-		id, _, err := store.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := store.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -67,7 +70,7 @@ func TestTxStore_Success(t *testing.T) {
 	})
 
 	t.Run("Create tx then update with received claims ID", func(t *testing.T) {
-		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, "test")
+		id, txCreate, err := store.Create(&presexch.PresentationDefinition{ID: "test"}, profileID, profileVersion)
 
 		require.NoError(t, err)
 		require.NotNil(t, id)
@@ -119,7 +122,7 @@ func TestTxStore_Fails(t *testing.T) {
 	t.Run("test expiration", func(t *testing.T) {
 		storeExpired := NewTxStore(client, testutil.DocumentLoader(t), 1)
 
-		id, _, err := storeExpired.Create(&presexch.PresentationDefinition{}, "test")
+		id, _, err := storeExpired.Create(&presexch.PresentationDefinition{}, profileID, profileVersion)
 		require.NoError(t, err)
 		require.NotNil(t, id)
 
@@ -156,7 +159,7 @@ func startRedisContainer(t *testing.T) (*dctest.Pool, *dctest.Resource) {
 		Repository: dockerRedisImage,
 		Tag:        dockerRedisTag,
 		PortBindings: map[dc.Port][]dc.PortBinding{
-			"6379/tcp": {{HostIP: "", HostPort: "6380"}},
+			"6379/tcp": {{HostIP: "", HostPort: "6385"}},
 		},
 	})
 	require.NoError(t, err)

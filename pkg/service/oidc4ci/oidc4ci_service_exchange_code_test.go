@@ -68,7 +68,7 @@ func TestExchangeCode(t *testing.T) {
 			return nil
 		})
 
-	profileService.EXPECT().GetProfile(gomock.Any()).
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
 			OIDCConfig: &profile.OIDC4CIConfig{
 				ClientID:           "clientID",
@@ -126,7 +126,7 @@ func TestExchangeCodeProfileGetError(t *testing.T) {
 		},
 	}, nil)
 
-	profileService.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("get profile error"))
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).Return(nil, errors.New("get profile error"))
 
 	eventMock.EXPECT().Publish(gomock.Any(), spi.IssuerEventTopic, gomock.Any()).
 		DoAndReturn(func(ctx context.Context, topic string, messages ...*spi.Event) error {
@@ -172,7 +172,7 @@ func TestExchangeCodeIssuerError(t *testing.T) {
 			return nil
 		})
 
-	profileService.EXPECT().GetProfile(gomock.Any()).
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
 			OIDCConfig: &profile.OIDC4CIConfig{
 				ClientID:           "clientID",
@@ -233,7 +233,7 @@ func TestExchangeCodeStoreUpdateErr(t *testing.T) {
 		nil,
 	)
 
-	profileService.EXPECT().GetProfile(gomock.Any()).
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
 			OIDCConfig: &profile.OIDC4CIConfig{
 				ClientID:           "clientID",
@@ -326,7 +326,7 @@ func TestExchangeCodePublishError(t *testing.T) {
 			return nil
 		})
 
-	profileService.EXPECT().GetProfile(gomock.Any()).
+	profileService.EXPECT().GetProfile(gomock.Any(), gomock.Any()).
 		Return(&profile.Issuer{
 			OIDCConfig: &profile.OIDC4CIConfig{
 				ClientID:           "clientID",

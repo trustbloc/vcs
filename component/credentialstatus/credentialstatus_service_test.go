@@ -50,6 +50,7 @@ import (
 
 const (
 	profileID         = "testProfileID"
+	profileVersion    = "testProfileVersion"
 	externalProfileID = "externalID"
 	credID            = "http://example.edu/credentials/1872"
 	eventTopic        = "testEventTopic"
@@ -95,7 +96,7 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 	t.Run("test success", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).Times(5).Return(&mockKMS{}, nil)
 		ctx := context.Background()
@@ -135,11 +136,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusID, err := s.CreateStatusListEntry(ctx, profileID, credID)
+		statusID, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, listID)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, listID)
 
@@ -148,11 +149,11 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, updatedListID, listID)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListID)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListID)
 
@@ -162,24 +163,24 @@ func TestCredentialStatusList_CreateStatusListEntry(t *testing.T) {
 		require.NotEqual(t, updatedListID, updatedListIDSecond)
 		require.NotEqual(t, listID, updatedListIDSecond)
 
-		statusID, err = s.CreateStatusListEntry(ctx, profileID, credID)
+		statusID, err = s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 		validateVCStatus(t, s, statusID, updatedListIDSecond)
 	})
 
 	t.Run("test error get profile service", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("some error"))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("some error"))
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
 
-		status, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
+		status, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, credID)
 		require.Error(t, err)
 		require.Nil(t, status)
-		require.Contains(t, err.Error(), "failed to get profile")
+		require.Contains(t, err.Error(), "get profile")
 	})
 }
 
@@ -187,7 +188,7 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 	t.Run("test error get status list vc url", func(t *testing.T) {
 		profile := getTestProfile()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(profile, nil)
 
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
@@ -199,12 +200,12 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		csl, err := s.GetStatusListVC(context.Background(), externalProfileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
-		require.Contains(t, err.Error(), "failed to get CSL wrapper URL")
+		require.Contains(t, err.Error(), "get CSL wrapper URL")
 	})
 	t.Run("test error getting csl from store", func(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 
 		s, err := New(&Config{
 			DocumentLoader: loader,
@@ -223,7 +224,7 @@ func TestCredentialStatusList_GetStatusListVC(t *testing.T) {
 		csl, err := s.GetStatusListVC(context.Background(), externalProfileID, "1")
 		require.Error(t, err)
 		require.Nil(t, csl)
-		require.Contains(t, err.Error(), "failed to get CSL from store")
+		require.Contains(t, err.Error(), "get CSL from store")
 	})
 }
 
@@ -233,7 +234,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		vcStatusStore := newMockVCStatusStore()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 		cslVCStore := newMockCSLVCStore()
@@ -277,17 +278,18 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(ctx, profileID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(ctx, profileID, profileVersion, credID)
 		require.NoError(t, err)
 
-		err = vcStatusStore.Put(ctx, profileID, credID, statusListEntry.TypedID)
+		err = vcStatusStore.Put(ctx, profileID, profileVersion, credID, statusListEntry.TypedID)
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "true",
-			StatusType:    profile.VCConfig.Status.Type,
+			ProfileID:      profileID,
+			ProfileVersion: profileVersion,
+			CredentialID:   credID,
+			DesiredStatus:  "true",
+			StatusType:     profile.VCConfig.Status.Type,
 		}
 
 		require.NoError(t, s.UpdateVCStatus(ctx, params))
@@ -311,36 +313,38 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	})
 	t.Run("UpdateVCStatus profileService.GetProfile error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(nil, errors.New("some error"))
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "true",
-			StatusType:    vc.StatusList2021VCStatus,
+			ProfileID:      profileID,
+			ProfileVersion: profileVersion,
+			CredentialID:   credID,
+			DesiredStatus:  "true",
+			StatusType:     vc.StatusList2021VCStatus,
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
 		require.Error(t, err)
-		require.ErrorContains(t, err, "failed to get profile")
+		require.ErrorContains(t, err, "get profile")
 	})
 	t.Run("UpdateVCStatus invalid vc status type error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		s, err := New(&Config{
 			ProfileService: mockProfileSrv,
 		})
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "true",
-			StatusType:    vc.RevocationList2020VCStatus,
+			ProfileID:      profileID,
+			ProfileVersion: profileVersion,
+			CredentialID:   credID,
+			DesiredStatus:  "true",
+			StatusType:     vc.RevocationList2020VCStatus,
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
@@ -350,7 +354,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	})
 	t.Run("UpdateVCStatus store.Get error", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
@@ -363,10 +367,11 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "true",
-			StatusType:    vc.StatusList2021VCStatus,
+			ProfileID:      profileID,
+			ProfileVersion: profileVersion,
+			CredentialID:   credID,
+			DesiredStatus:  "true",
+			StatusType:     vc.StatusList2021VCStatus,
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
@@ -377,7 +382,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		vcStore := newMockVCStatusStore()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
@@ -394,14 +399,16 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		err = vcStore.Put(
-			context.Background(), profileID, credID, &verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
+			context.Background(), profileID, profileVersion, credID, &verifiable.TypedID{
+				Type: string(vc.StatusList2021VCStatus)})
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "undefined",
-			StatusType:    vc.StatusList2021VCStatus,
+			ProfileID:      profileID,
+			ProfileVersion: profileVersion,
+			CredentialID:   credID,
+			DesiredStatus:  "undefined",
+			StatusType:     vc.StatusList2021VCStatus,
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
@@ -412,7 +419,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		loader := testutil.DocumentLoader(t)
 		vcStore := newMockVCStatusStore()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 
@@ -428,14 +435,16 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		require.NoError(t, err)
 
 		err = vcStore.Put(
-			context.Background(), profileID, credID, &verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
+			context.Background(), profileID, profileVersion, credID,
+			&verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)})
 		require.NoError(t, err)
 
 		params := credentialstatus.UpdateVCStatusParams{
-			ProfileID:     profileID,
-			CredentialID:  credID,
-			DesiredStatus: "true",
-			StatusType:    vc.StatusList2021VCStatus,
+			ProfileID:      profileID,
+			ProfileVersion: profileVersion,
+			CredentialID:   credID,
+			DesiredStatus:  "true",
+			StatusType:     vc.StatusList2021VCStatus,
 		}
 
 		err = s.UpdateVCStatus(context.Background(), params)
@@ -458,7 +467,9 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		err = s.updateVCStatus(
 			context.Background(),
 			nil,
-			profileID, vc.StatusList2021VCStatus, true)
+			profileID, profileVersion,
+			vc.StatusList2021VCStatus,
+			true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status not exist")
 	})
@@ -478,7 +489,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		err = s.updateVCStatus(
 			context.Background(),
 			nil,
-			profileID,
+			profileID, profileVersion,
 			"unsupported",
 			true)
 		require.Error(t, err)
@@ -499,7 +510,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		err = s.updateVCStatus(
 			context.Background(),
 			&verifiable.TypedID{Type: "noMatch"},
-			profileID,
+			profileID, profileVersion,
 			vc.StatusList2021VCStatus, true)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc status noMatch not supported")
@@ -519,7 +530,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		err = s.updateVCStatus(
 			context.Background(),
 			&verifiable.TypedID{Type: string(vc.StatusList2021VCStatus)},
-			profileID,
+			profileID, profileVersion,
 			vc.StatusList2021VCStatus,
 			true)
 		require.Error(t, err)
@@ -543,7 +554,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 				Type:         string(vc.StatusList2021VCStatus),
 				CustomFields: map[string]interface{}{statustype.StatusListIndex: "1"},
 			},
-			profileID,
+			profileID, profileVersion,
 			vc.StatusList2021VCStatus,
 			true)
 		require.Error(t, err)
@@ -568,7 +579,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 					statustype.StatusListIndex:      "1",
 					statustype.StatusListCredential: 1,
 				}},
-			profileID,
+			profileID, profileVersion,
 			vc.StatusList2021VCStatus,
 			true)
 		require.Error(t, err)
@@ -594,7 +605,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 					statustype.StatusListCredential: 1,
 					statustype.StatusPurpose:        "test",
 				}},
-			profileID,
+			profileID, profileVersion,
 			vc.StatusList2021VCStatus,
 			true)
 		require.Error(t, err)
@@ -602,7 +613,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	})
 	t.Run("updateVCStatus unable to publish event", func(t *testing.T) {
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(getTestProfile(), nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(getTestProfile(), nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 		mockEventPublisher := NewMockEventPublisher(gomock.NewController(t))
@@ -639,13 +650,13 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profileID, profileVersion, credID)
 		require.NoError(t, err)
 
 		err = s.updateVCStatus(
 			context.Background(),
 			statusListEntry.TypedID,
-			profileID,
+			profileID, profileVersion,
 			vc.StatusList2021VCStatus,
 			true)
 		require.Error(t, err)
@@ -654,7 +665,7 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 	t.Run("updateVCStatus success", func(t *testing.T) {
 		profile := getTestProfile()
 		mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+		mockProfileSrv.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().Return(profile, nil)
 		mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 		mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 		cslIndexStore := newMockCSLIndexStore()
@@ -701,13 +712,14 @@ func TestCredentialStatusList_UpdateVCStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profile.ID, credID)
+		statusListEntry, err := s.CreateStatusListEntry(context.Background(), profile.ID, profile.Version, credID)
 		require.NoError(t, err)
 
 		require.NoError(t, s.updateVCStatus(
 			context.Background(),
 			statusListEntry.TypedID,
 			profile.ID,
+			profile.Version,
 			vc.StatusList2021VCStatus,
 			true))
 
@@ -819,6 +831,7 @@ func (ep *mockedEventPublisher) Publish(ctx context.Context, topic string, messa
 func getTestProfile() *profileapi.Issuer {
 	return &profileapi.Issuer{
 		ID:      profileID,
+		Version: profileVersion,
 		Name:    "testprofile",
 		GroupID: "externalID",
 		VCConfig: &profileapi.VCConfig{
@@ -966,8 +979,8 @@ func newMockVCStatusStore() *mockVCStore {
 	}
 }
 
-func (m *mockVCStore) Get(ctx context.Context, profileID, vcID string) (*verifiable.TypedID, error) {
-	v, ok := m.s[fmt.Sprintf("%s_%s", profileID, vcID)]
+func (m *mockVCStore) Get(ctx context.Context, profileID, profileVersion, vcID string) (*verifiable.TypedID, error) {
+	v, ok := m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, vcID)]
 	if !ok {
 		return nil, errors.New("data not found")
 	}
@@ -975,12 +988,13 @@ func (m *mockVCStore) Get(ctx context.Context, profileID, vcID string) (*verifia
 	return v, nil
 }
 
-func (m *mockVCStore) Put(ctx context.Context, profileID, vcID string, typedID *verifiable.TypedID) error {
+func (m *mockVCStore) Put(
+	_ context.Context, profileID, profileVersion, vcID string, typedID *verifiable.TypedID) error {
 	if m.putErr != nil {
 		return m.putErr
 	}
 
-	m.s[fmt.Sprintf("%s_%s", profileID, vcID)] = typedID
+	m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, vcID)] = typedID
 	return nil
 }
 

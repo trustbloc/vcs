@@ -20,6 +20,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/issuecredential"
 )
 
+var _ Service = (*Wrapper)(nil) // make sure Wrapper implements issuecredential.ServiceInterface
+
 type Service issuecredential.ServiceInterface
 
 type Wrapper struct {

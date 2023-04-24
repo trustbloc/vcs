@@ -54,11 +54,11 @@ func (s *Steps) checkResponseStatus(status string) error {
 	return nil
 }
 
-func (s *Steps) requestDidConfig(profileType string, id string, credType string) error {
+func (s *Steps) requestDidConfig(profileType string, profileVersionedID string, credType string) error {
 	s.credType = credType
 
 	url := fmt.Sprintf("http://localhost:8075/%s/profiles/%s/well-known/did-config",
-		profileType, id)
+		profileType, profileVersionedID)
 
 	return s.httpGet(url, true)
 }
