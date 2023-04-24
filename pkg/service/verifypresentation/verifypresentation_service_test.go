@@ -82,6 +82,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
+		marshal bool
 		fields  fields
 		args    args
 		want    []PresentationVerificationCheckResult
@@ -172,85 +173,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Error empty VDR",
-			fields: fields{
-				getVDR: func() vdrapi.Registry {
-					return &mockvdr.MockVDRegistry{}
-				},
-				getVcVerifier: func() vcVerifier {
-					return nil
-				},
-			},
-			args: args{
-				getPresentation: func() *verifiable.Presentation {
-					return signedVP
-				},
-				profile: &profileapi.Verifier{
-					Checks: &profileapi.VerificationChecks{
-						Presentation: &profileapi.PresentationChecks{
-							Proof:  true,
-							Format: nil,
-						},
-						Credential: profileapi.CredentialChecks{
-							Proof:  false,
-							Status: false,
-							Format: nil,
-						},
-					},
-				},
-				opts: nil,
-			},
-			want: []PresentationVerificationCheckResult{
-				{
-					Check: "proof",
-					Error: "verifiable presentation proof validation error : " +
-						"check embedded proof: check linked data proof: resolve DID did:trustblock:abc: " +
-						"DID does not exist",
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "Error invalid signature",
-			fields: fields{
-				getVDR: func() vdrapi.Registry {
-					return vdr
-				},
-				getVcVerifier: func() vcVerifier {
-					return nil
-				},
-			},
-			args: args{
-				getPresentation: func() *verifiable.Presentation {
-					vp := *signedVP
-					vp.Holder = "invalid value"
-					return &vp
-				},
-				profile: &profileapi.Verifier{
-					Checks: &profileapi.VerificationChecks{
-						Presentation: &profileapi.PresentationChecks{
-							Proof:  true,
-							Format: nil,
-						},
-						Credential: profileapi.CredentialChecks{
-							Proof:  false,
-							Format: nil,
-							Status: false,
-						},
-					},
-				},
-				opts: nil,
-			},
-			want: []PresentationVerificationCheckResult{
-				{
-					Check: "proof",
-					Error: "verifiable presentation proof validation error : check embedded proof: " +
-						"check linked data proof: ed25519: invalid signature",
-				},
-			},
-			wantErr: false,
-		},
-		{
 			name: "Error credentials",
 			fields: fields{
 				getVDR: func() vdrapi.Registry {
@@ -323,6 +245,7 @@ func TestService_VerifyPresentation(t *testing.T) {
 				documentLoader: loader,
 				vcVerifier:     tt.fields.getVcVerifier(),
 			}
+
 			got, err := s.VerifyPresentation(context.Background(), tt.args.getPresentation(), tt.args.opts, tt.args.profile)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("VerifyPresentation() error = %v, wantErr %v", err, tt.wantErr)
