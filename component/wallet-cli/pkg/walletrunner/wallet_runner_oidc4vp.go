@@ -226,9 +226,14 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 
 	requestObject := &RequestObject{}
 
-	err := verifyTokenSignature(rawRequestObject, requestObject, jwtVerifier)
+	rawData, err := verifyTokenSignature(rawRequestObject, jwtVerifier)
 	if err != nil {
 		return err
+	}
+
+	err = json.Unmarshal(rawData, requestObject)
+	if err != nil {
+		return fmt.Errorf("decode claims: %w", err)
 	}
 
 	e.requestObject = requestObject
@@ -236,18 +241,17 @@ func (e *VPFlowExecutor) VerifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 	return nil
 }
 
-func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) error {
-	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+func verifyTokenSignature(rawJwt string, verifier jose.SignatureVerifier) ([]byte, error) {
+	_, rawData, err := jwt.Parse(
+		rawJwt,
+		jwt.WithSignatureVerifier(verifier),
+		jwt.WithIgnoreClaimsMapDecoding(true),
+	)
 	if err != nil {
-		return fmt.Errorf("parse JWT: %w", err)
+		return nil, fmt.Errorf("parse JWT: %w", err)
 	}
 
-	err = jsonWebToken.DecodeClaims(claims)
-	if err != nil {
-		return fmt.Errorf("decode claims: %w", err)
-	}
-
-	return nil
+	return rawData, nil
 }
 
 func (e *VPFlowExecutor) QueryCredentialFromWallet() error {

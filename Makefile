@@ -123,6 +123,10 @@ bdd-test: clean vc-rest-docker sample-webhook-docker mock-login-consent-docker g
 unit-test: generate
 	@scripts/check_unit.sh
 
+.PHONY: bdd-test-dev
+bdd-test-dev: vc-rest-docker
+	@cd test/bdd && go test -count=1 -v -cover . -p 1 -timeout=10m -race
+
 # TODO (#264): frapsoft/openssl only has an amd64 version. While this does work under amd64 and arm64 Mac OS currently,
 #               we should add an arm64 version for systems that can only run arm64 code.
 .PHONY: generate-test-keys

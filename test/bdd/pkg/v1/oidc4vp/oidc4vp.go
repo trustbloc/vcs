@@ -220,18 +220,13 @@ func (e *Steps) waitForEvent(eventType string) (string, error) {
 	return "", errors.New("webhook waiting timeout exited")
 }
 
-func verifyTokenSignature(rawJwt string, claims interface{}, verifier jose.SignatureVerifier) error {
-	jsonWebToken, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
+func verifyTokenSignature(rawJwt string, verifier jose.SignatureVerifier) (*jwt.JSONWebToken, []byte, error) {
+	jsonWebToken, raw, err := jwt.Parse(rawJwt, jwt.WithSignatureVerifier(verifier))
 	if err != nil {
-		return fmt.Errorf("parse JWT: %w", err)
+		return nil, nil, fmt.Errorf("parse JWT: %w", err)
 	}
 
-	err = jsonWebToken.DecodeClaims(claims)
-	if err != nil {
-		return fmt.Errorf("decode claims: %w", err)
-	}
-
-	return nil
+	return jsonWebToken, raw, nil
 }
 
 func signToken(claims interface{}, didKeyID string, crpt crypto.Crypto,

@@ -22,6 +22,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/hyperledger/aries-framework-go/pkg/wallet"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/valyala/fastjson"
 
 	"github.com/trustbloc/vcs/test/bdd/pkg/bddutil"
 )
@@ -107,9 +108,14 @@ func (e *VPFlowExecutor) verifyAuthorizationRequestAndDecodeClaims(rawRequestObj
 
 	requestObject := &RequestObject{}
 
-	err := verifyTokenSignature(rawRequestObject, requestObject, jwtVerifier)
+	_, raw, err := verifyTokenSignature(rawRequestObject, jwtVerifier)
 	if err != nil {
 		return err
+	}
+
+	err = json.Unmarshal(raw, requestObject)
+	if err != nil {
+		return fmt.Errorf("decode claims: %w", err)
 	}
 
 	e.requestObject = requestObject
@@ -239,12 +245,16 @@ func (e *VPFlowExecutor) getSubjectID(creds []interface{}) (string, error) {
 
 		if vc.JWT != "" {
 			// We use this strange code, because cred.JWTClaims(false) not take to account "sub" claim from jwt
-			credToken, credErr := jwt.Parse(vc.JWT, jwt.WithSignatureVerifier(&noVerifier{}))
+			_, rawClaims, credErr := jwt.Parse(
+				vc.JWT,
+				jwt.WithSignatureVerifier(&noVerifier{}),
+				jwt.WithIgnoreClaimsMapDecoding(true),
+			)
 			if credErr != nil {
 				return "", fmt.Errorf("fail to parse credential as jwt: %w", credErr)
 			}
 
-			subjectID = fmt.Sprint(credToken.Payload["sub"])
+			subjectID = fmt.Sprint(fastjson.GetString(rawClaims, "sub"))
 		}
 
 		subjectIDMap[subjectID] = true
