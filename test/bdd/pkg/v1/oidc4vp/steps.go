@@ -60,6 +60,8 @@ func (e *Steps) RegisterSteps(s *godog.ScenarioContext) {
 	s.Step(`^User saves credentials into wallet$`, e.saveCredentialsInWallet)
 	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)"$`,
 		e.initiateInteraction)
+	s.Step(`^OIDC4VP interaction initiated under "([^"]*)" profile for organization "([^"]*)" with fields "([^"]*)"$`,
+		e.initiateInteractionWithFields)
 	s.Step(`^Verifier form organization "([^"]*)" requests interactions claims$`,
 		e.retrieveInteractionsClaim)
 	s.Step(`^Verifier form organization "([^"]*)" waits for interaction succeeded event$`,

@@ -12,6 +12,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -1441,6 +1442,40 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		require.NotNil(t, result)
 	})
 
+	t.Run("Success - With Presentation Definition and PD filters", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		fields := []string{""}
+
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		result, err := controller.initiateOidcInteraction(context.TODO(),
+			&InitiateOIDC4VPData{
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{
+					Fields: &fields,
+				},
+			},
+			&profileapi.Verifier{
+				OrganizationID: tenantID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+				PresentationDefinitions: []*presexch.PresentationDefinition{
+					&pd,
+				},
+			})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
 	t.Run("Should be active", func(t *testing.T) {
 		controller := NewController(&Config{
 			ProfileSvc:    mockProfileSvc,
@@ -1457,6 +1492,43 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 			})
 
 		requireValidationError(t, resterr.ConditionNotMet, "profile.Active", err)
+	})
+
+	t.Run("Error - With Presentation Definition and PD filters", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		const invalidRegex = "^(#[=+[.rst:)$*"
+
+		fields := []string{invalidRegex}
+
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
+		require.NoError(t, err)
+
+		result, err := controller.initiateOidcInteraction(context.TODO(),
+			&InitiateOIDC4VPData{
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{
+					Fields: &fields,
+				},
+			},
+			&profileapi.Verifier{
+				OrganizationID: tenantID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+				PresentationDefinitions: []*presexch.PresentationDefinition{
+					&pd,
+				},
+			})
+
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.Contains(t, err.Error(), "invalid-value[presentationDefinitionFilters]: failed to compile regex")
 	})
 
 	t.Run("Should have oidc config", func(t *testing.T) {
@@ -1523,6 +1595,156 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 	})
 }
 
+func TestMatchField(t *testing.T) {
+	t.Run("Success", func(t *testing.T) {
+		matched, err := matchField(nil, "id")
+		require.NoError(t, err)
+		require.False(t, matched)
+	})
+}
+
+func TestApplyFieldsFilter(t *testing.T) {
+	t.Run("Success - supply fields filter", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
+		require.NoError(t, err)
+
+		result, err := applyFieldsFilter(&pd, []string{"degree_type_id"})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - empty string filter(accept fields with empty ID)", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		result, err := applyFieldsFilter(&pd, []string{""})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - supply fields filter", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
+		require.NoError(t, err)
+
+		result, err := applyFieldsFilter(&pd, []string{"degree_type_id"})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - test prefix filter", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		const testPrefix = "*_test_prefix"
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = testPrefix + "_first"
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = testPrefix + "_second"
+
+		result, err := applyFieldsFilter(&pd, []string{testPrefix})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - test suffix filter", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		const testSuffix = "test_suffix_*"
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = "first" + testSuffix
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = "second" + testSuffix
+
+		result, err := applyFieldsFilter(&pd, []string{testSuffix})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - test wildcard", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = "first_group_id"
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = "second_group_addon_id"
+
+		result, err := applyFieldsFilter(&pd, []string{"*group*"})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - test wildcard", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = "first_group_id"
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = "second_group_addon_id"
+
+		result, err := applyFieldsFilter(&pd, []string{"*group*"})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Success - test wildcard", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = "prefix_first_group_a_suffix"
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = "prefix_second_group_b_suffix"
+
+		result, err := applyFieldsFilter(&pd, []string{"prefix*group*suffix"})
+		require.NoError(t, err)
+
+		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
+		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Error - test wildcard", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = "prefix_id"
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = "suffix_id"
+
+		const invalidRegex = "^(#[=+[.rst:)$*"
+
+		result, err := applyFieldsFilter(&pd, []string{invalidRegex})
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.Contains(t, err.Error(), "failed to compile regex")
+	})
+}
+
 type vpTokenClaims struct {
 	VP    *verifiable.Presentation `json:"vp"`
 	Nonce string                   `json:"nonce"`
@@ -1540,3 +1762,127 @@ var ariesSupportedKeyTypes = []kms.KeyType{
 	kms.RSAPS256Type,
 	kms.BLS12381G2Type,
 }
+
+const testPD = `
+{
+  "id": "32f54163-7166-48f1-93d8-ff217bdb0654",
+  "input_descriptors": [
+    {
+      "id": "type",
+      "name": "type",
+      "purpose": "We can only interact with specific status information for Verifiable Credentials",
+      "schema": [
+        {
+          "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+        }
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialStatus.type",
+              "$.vc.credentialStatus.type"
+            ],
+            "purpose": "We can only interact with specific status information for Verifiable Credentials",
+            "filter": {
+              "type": "string",
+              "enum": [
+                "StatusList2021Entry",
+                "RevocationList2021Status",
+                "RevocationList2020Status"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "degree",
+      "name": "degree",
+      "purpose": "We can only hire with bachelor degree.",
+      "schema": [
+        {
+          "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+        }
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialSubject.degree.type",
+              "$.vc.credentialSubject.degree.type"
+            ],
+            "purpose": "We can only hire with bachelor degree.",
+            "filter": {
+              "type": "string",
+              "const": "BachelorDegree"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}`
+
+const testPDWithFieldIDs = `
+{
+  "id": "32f54163-7166-48f1-93d8-ff217bdb0654",
+  "input_descriptors": [
+    {
+      "id": "type",
+      "name": "type",
+      "purpose": "We can only interact with specific status information for Verifiable Credentials",
+      "schema": [
+        {
+          "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+        }
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialStatus.type",
+              "$.vc.credentialStatus.type"
+            ],
+			"id": "credential_status_type_id",
+            "purpose": "We can only interact with specific status information for Verifiable Credentials",
+            "filter": {
+              "type": "string",
+              "enum": [
+                "StatusList2021Entry",
+                "RevocationList2021Status",
+                "RevocationList2020Status"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "degree",
+      "name": "degree",
+      "purpose": "We can only hire with bachelor degree.",
+      "schema": [
+        {
+          "uri": "https://www.w3.org/2018/credentials#VerifiableCredential"
+        }
+      ],
+      "constraints": {
+        "fields": [
+          {
+            "path": [
+              "$.credentialSubject.degree.type",
+              "$.vc.credentialSubject.degree.type"
+            ],
+			"id": "degree_type_id",
+            "purpose": "We can only hire with bachelor degree.",
+            "filter": {
+              "type": "string",
+              "const": "BachelorDegree"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}`

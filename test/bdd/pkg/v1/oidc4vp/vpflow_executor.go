@@ -49,11 +49,11 @@ type VPFlowExecutor struct {
 	jSONLDDocumentLoader          jsonld.DocumentLoader
 }
 
-func (e *VPFlowExecutor) initiateInteraction(profileName, authToken string) error {
+func (e *VPFlowExecutor) initiateInteraction(profileName, authToken string, body io.Reader) error {
 	endpointURL := fmt.Sprintf(e.URLs.InitiateOidcInteractionURLFormat, profileName)
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", authToken, //nolint: bodyclose
-		nil, e.tlsConfig)
+		body, e.tlsConfig)
 	if err != nil {
 		return err
 	}
@@ -350,4 +350,12 @@ type noVerifier struct{}
 
 func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 	return nil
+}
+
+type initiateOIDC4VPData struct {
+	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
+}
+
+type presentationDefinitionFilters struct {
+	Fields *[]string `json:"fields,omitempty"`
 }

@@ -658,6 +658,7 @@
                         "$.credentialSubject.degree.type",
                         "$.vc.credentialSubject.degree.type"
                       ],
+                      "id": "degree_type_id",
                       "purpose": "We can only hire with bachelor degree.",
                       "filter": {
                         "type": "string",

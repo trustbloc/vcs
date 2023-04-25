@@ -4,7 +4,7 @@ Copyright SecureKey Technologies Inc. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-////go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
+//go:generate oapi-codegen --config=openapi.cfg.yaml ../../../../docs/v1/openapi.yaml
 //go:generate mockgen -destination controller_mocks_test.go -self_package mocks -package verifier -source=controller.go -mock_names profileService=MockProfileService,verifyCredentialSvc=MockVerifyCredentialService,kmsRegistry=MockKMSRegistry,oidc4VPService=MockOIDC4VPService
 
 package verifier
@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,7 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
+	"github.com/samber/lo"
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"github.com/valyala/fastjson"
 	"go.opentelemetry.io/otel/attribute"
@@ -338,6 +340,15 @@ func (c *Controller) initiateOidcInteraction(
 
 	logger.Debug("InitiateOidcInteraction pd find", logfields.WithPresDefID(pd.ID))
 
+	if data.PresentationDefinitionFilters != nil {
+		pd, err = applyPresentationDefinitionFilters(pd, data.PresentationDefinitionFilters)
+		if err != nil {
+			return nil, resterr.NewValidationError(resterr.InvalidValue, "presentationDefinitionFilters", err)
+		}
+
+		logger.Debug("InitiateOidcInteraction applied filters to pd", logfields.WithPresDefID(pd.ID))
+	}
+
 	result, err := c.oidc4VPService.InitiateOidcInteraction(ctx, pd, strPtrToStr(data.Purpose), profile)
 	if err != nil {
 		return nil, resterr.NewSystemError("oidc4VPService", "InitiateOidcInteraction", err)
@@ -348,6 +359,57 @@ func (c *Controller) initiateOidcInteraction(
 		AuthorizationRequest: result.AuthorizationRequest,
 		TxID:                 string(result.TxID),
 	}, err
+}
+
+func applyPresentationDefinitionFilters(pd *presexch.PresentationDefinition,
+	filters *PresentationDefinitionFilters) (*presexch.PresentationDefinition, error) {
+	return applyFieldsFilter(pd, lo.FromPtr(filters.Fields))
+}
+
+func applyFieldsFilter(pd *presexch.PresentationDefinition, fields []string) (*presexch.PresentationDefinition, error) {
+	for _, desc := range pd.InputDescriptors {
+		var filteredFields []*presexch.Field
+
+		for _, field := range desc.Constraints.Fields {
+			matched, err := matchField(fields, field.ID)
+			if err != nil {
+				return nil, err
+			}
+
+			if matched {
+				filteredFields = append(filteredFields, field)
+			}
+		}
+
+		desc.Constraints.Fields = filteredFields
+	}
+
+	return pd, nil
+}
+
+func matchField(ids []string, target string) (bool, error) {
+	const wildcard = "*"
+
+	for _, id := range ids {
+		// this case covers both exact id and empty string rule
+		if id == target {
+			return true, nil
+		}
+
+		if strings.Contains(id, wildcard) {
+			exp := strings.ReplaceAll(id, wildcard, "."+wildcard)
+			r, err := regexp.Compile(exp)
+			if err != nil {
+				return false, fmt.Errorf("failed to compile regex=%s. %w", exp, err)
+			}
+
+			if r.MatchString(target) {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {

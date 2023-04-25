@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vp
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,6 +92,25 @@ type VPTokenClaims struct {
 }
 
 func (e *Steps) initiateInteraction(profileName, organizationName string) error {
+	return e.initiateInteractionHelper(profileName, organizationName, nil)
+}
+
+func (e *Steps) initiateInteractionWithFields(profileName, organizationName, fields string) error {
+	fieldsArr := strings.Split(fields, ",")
+
+	reqBody, err := json.Marshal(&initiateOIDC4VPData{
+		PresentationDefinitionFilters: &presentationDefinitionFilters{
+			Fields: &fieldsArr,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return e.initiateInteractionHelper(profileName, organizationName, bytes.NewReader(reqBody))
+}
+
+func (e *Steps) initiateInteractionHelper(profileName, organizationName string, body io.Reader) error {
 	e.vpFlowExecutor = &VPFlowExecutor{
 		tlsConfig:      e.tlsConfig,
 		ariesServices:  e.ariesServices,
@@ -122,7 +142,7 @@ func (e *Steps) initiateInteraction(profileName, organizationName string) error 
 	e.vpFlowExecutor.jSONLDDocumentLoader = loader
 
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	return e.vpFlowExecutor.initiateInteraction(profileName, token)
+	return e.vpFlowExecutor.initiateInteraction(profileName, token, body)
 }
 
 func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
