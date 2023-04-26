@@ -9,7 +9,7 @@ go 1.19
 require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.2.1-0.20230424164053-dbfff0c0e511
+	github.com/hyperledger/aries-framework-go v0.2.1-0.20230425184546-a8b546e29100
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49
 	github.com/piprate/json-gold v0.5.0
 	github.com/spf13/cobra v1.6.1
