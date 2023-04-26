@@ -25,7 +25,6 @@ import (
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
-
 	vcskms "github.com/trustbloc/vcs/pkg/kms"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -97,43 +96,16 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 	}
 
 	var p profile
-	if err := json.Unmarshal(jsonBytes, &p); err != nil {
+	if err = json.Unmarshal(jsonBytes, &p); err != nil {
 		return nil, err
 	}
 
 	for _, v := range p.IssuersData {
 		if v.CreateDID {
-			vdr, err := orb.New(nil, orb.WithDomain(v.DidDomain), orb.WithTLSConfig(config.TLSConfig),
-				orb.WithAuthToken(v.DidServiceAuthToken))
+			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
+				config, nil, v.Data.VCConfig)
 			if err != nil {
-				return nil, err
-			}
-
-			lf, err := longform.New()
-			if err != nil {
-				return nil, err
-			}
-
-			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr),
-				vdrpkg.WithVDR(lf), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))})
-
-			keyCreator, err := config.KMSRegistry.GetKeyManager(v.Data.KMSConfig)
-			if err != nil {
-				return nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
-			}
-
-			createResult, err := didCreator.publicDID(v.Data.VCConfig.DIDMethod,
-				v.Data.VCConfig.SigningAlgorithm, v.Data.VCConfig.KeyType, keyCreator, v.DidDomain, "")
-			if err != nil {
-				return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
-			}
-
-			v.Data.SigningDID = &profileapi.SigningDID{
-				DID:            createResult.didID,
-				Creator:        createResult.creator,
-				KMSKeyID:       createResult.kmsKeyID,
-				UpdateKeyURL:   createResult.updateKeyURL,
-				RecoveryKeyURL: createResult.recoveryKeyURL,
+				return nil, fmt.Errorf("issuer profile service: create profile failed: %w", err)
 			}
 		}
 
@@ -156,8 +128,6 @@ func (p *IssuerReader) GetAllProfiles(orgID string) ([]*profileapi.Issuer, error
 }
 
 // NewVerifierReader creates verifier Reader.
-//
-//nolint:gocognit
 func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	profileJSONFile, err := cmdutils.GetUserSetVarFromString(config.CMD, profilesFilePathFlagName,
 		profilesFilePathEnvKey, false)
@@ -175,57 +145,16 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 	}
 
 	var p profile
-	if err := json.Unmarshal(jsonBytes, &p); err != nil {
+	if err = json.Unmarshal(jsonBytes, &p); err != nil {
 		return nil, err
 	}
 
 	for _, v := range p.VerifiersData {
-		//nolint:nestif
 		if v.Data.OIDCConfig != nil && v.CreateDID {
-			vdr, err := orb.New(nil, orb.WithDomain(v.DidDomain), orb.WithTLSConfig(config.TLSConfig),
-				orb.WithAuthToken(v.DidServiceAuthToken))
+			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
+				config, v.Data.OIDCConfig, nil)
 			if err != nil {
-				return nil, err
-			}
-
-			lf, err := longform.New()
-			if err != nil {
-				return nil, err
-			}
-
-			didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr),
-				vdrpkg.WithVDR(lf), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))})
-
-			keyCreator, err := config.KMSRegistry.GetKeyManager(v.Data.KMSConfig)
-			if err != nil {
-				return nil, fmt.Errorf("issuer profile service: create profile failed: get keyCreator %w", err)
-			}
-
-			difDIDOrigin := ""
-			if v.Data.WebHook != "" {
-				var u *url.URL
-
-				u, err = url.Parse(v.Data.WebHook)
-				if err != nil {
-					return nil, err
-				}
-
-				difDIDOrigin = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
-			}
-
-			createResult, err := didCreator.publicDID(v.Data.OIDCConfig.DIDMethod,
-				v.Data.OIDCConfig.ROSigningAlgorithm, v.Data.OIDCConfig.KeyType, keyCreator, v.DidDomain,
-				difDIDOrigin)
-			if err != nil {
-				return nil, fmt.Errorf("issuer profile service: create profile failed: create did %w", err)
-			}
-
-			v.Data.SigningDID = &profileapi.SigningDID{
-				DID:            createResult.didID,
-				Creator:        createResult.creator,
-				KMSKeyID:       createResult.kmsKeyID,
-				UpdateKeyURL:   createResult.updateKeyURL,
-				RecoveryKeyURL: createResult.recoveryKeyURL,
+				return nil, fmt.Errorf("verifier profile service: create profile failed: %w", err)
 			}
 		}
 
@@ -250,4 +179,72 @@ func (p *verifierProfile) GetAllProfiles(orgID string) ([]*profileapi.Verifier, 
 // AddFlags add flags in cmd.
 func AddFlags(startCmd *cobra.Command) {
 	startCmd.Flags().StringP(profilesFilePathFlagName, "", "", profilesFilePathFlagUsage)
+}
+
+func getDifDIDOrigin(webHook string) (string, error) {
+	difDIDOrigin := ""
+	if webHook != "" {
+		var u *url.URL
+
+		u, err := url.Parse(webHook)
+		if err != nil {
+			return "", err
+		}
+
+		difDIDOrigin = fmt.Sprintf("%s://%s", u.Scheme, u.Host)
+	}
+	return difDIDOrigin, nil
+}
+
+func createDid(didDomain string, didServiceAuthToken string, kmsConfig *vcskms.Config, webHook string, config *Config,
+	oidcConfig *profileapi.OIDC4VPConfig, vcConfig *profileapi.VCConfig) (*profileapi.SigningDID, error) {
+	if oidcConfig == nil && vcConfig == nil {
+		return nil, fmt.Errorf("create did: either oidcConfig or vcConfig must be provided")
+	}
+	vdr, err := orb.New(nil, orb.WithDomain(didDomain), orb.WithTLSConfig(config.TLSConfig),
+		orb.WithAuthToken(didServiceAuthToken))
+	if err != nil {
+		return nil, err
+	}
+
+	lf, err := longform.New()
+	if err != nil {
+		return nil, err
+	}
+
+	didCreator := newCreator(&creatorConfig{vdr: vdrpkg.New(vdrpkg.WithVDR(vdr),
+		vdrpkg.WithVDR(lf), vdrpkg.WithVDR(jwk.New()), vdrpkg.WithVDR(key.New()))})
+
+	keyCreator, err := config.KMSRegistry.GetKeyManager(kmsConfig)
+	if err != nil {
+		return nil, fmt.Errorf("get keyCreator %w", err)
+	}
+
+	difDIDOrigin, err := getDifDIDOrigin(webHook)
+	if err != nil {
+		return nil, fmt.Errorf("get difDidOrigin %w", err)
+	}
+
+	var createResult *createResult
+	if oidcConfig != nil {
+		createResult, err = didCreator.publicDID(oidcConfig.DIDMethod, oidcConfig.ROSigningAlgorithm,
+			oidcConfig.KeyType, keyCreator, didDomain, difDIDOrigin)
+		if err != nil {
+			return nil, fmt.Errorf("create did %w", err)
+		}
+	} else {
+		createResult, err = didCreator.publicDID(vcConfig.DIDMethod, vcConfig.SigningAlgorithm, vcConfig.KeyType,
+			keyCreator, didDomain, difDIDOrigin)
+		if err != nil {
+			return nil, fmt.Errorf("create did %w", err)
+		}
+	}
+
+	return &profileapi.SigningDID{
+		DID:            createResult.didID,
+		Creator:        createResult.creator,
+		KMSKeyID:       createResult.kmsKeyID,
+		UpdateKeyURL:   createResult.updateKeyURL,
+		RecoveryKeyURL: createResult.recoveryKeyURL,
+	}, nil
 }
