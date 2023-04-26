@@ -969,12 +969,26 @@ components:
         - type
     InitiateOIDC4VPData:
       title: InitiateOIDC4VPData
+      x-tags:
+        - verifier
       type: object
       properties:
         presentationDefinitionId:
           type: string
         purpose:
           type: string
+        presentationDefinitionFilters:
+          $ref: '#/components/schemas/PresentationDefinitionFilters'
+    PresentationDefinitionFilters:
+      title: PresentationDefinitionFilters
+      x-tags:
+        - verifier
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
     InitiateOIDC4VPResponse:
       title: InitiateOIDC4VPResponse
       type: object

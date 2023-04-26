@@ -175,7 +175,7 @@ func (r *stressRequest) Invoke() (string, interface{}, error) {
 	println("initiateInteraction started")
 
 	startTime := time.Now()
-	err := r.vpFlowExecutor.initiateInteraction(r.profileName, r.authToken)
+	err := r.vpFlowExecutor.initiateInteraction(r.profileName, r.authToken, nil)
 	if err != nil {
 		return "", nil, fmt.Errorf("initiate interaction %w", err)
 	}

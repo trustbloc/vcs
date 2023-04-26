@@ -32,6 +32,13 @@ Feature: Using OIDC4VP REST API
     Then we wait 2 seconds
     And Verifier form organization "test_org" requests deleted interactions claims
 
+  Scenario: Initiate, check authorization response for ldp verifier with specific fields
+    Given OIDC4VP interaction initiated under "v_myprofile_ldp" profile for organization "test_org" with fields "degree_type_id"
+    And Wallet verify authorization request and decode claims
+    And Wallet looks for credential that match authorization
+    And Wallet send authorization response
+    And Verifier form organization "test_org" requests interactions claims
+
   Scenario: Initiate, check received claims expiry for ldp verifier
     Given OIDC4VP interaction initiated under "v_myprofile_ldp" profile for organization "test_org"
     And Wallet verify authorization request and decode claims
