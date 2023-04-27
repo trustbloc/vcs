@@ -1491,6 +1491,96 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 		require.NotNil(t, result)
 	})
 
+	t.Run("Success - With Multiple Presentation Definitions, "+
+		"Not Empty Presentation Definition ID and PD filters", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		fields := []string{""}
+
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		var pd2 presexch.PresentationDefinition
+
+		err = json.Unmarshal([]byte(testPD), &pd2)
+		require.NoError(t, err)
+
+		pd2.ID = "some-id"
+
+		pdID := "some-id"
+
+		result, err := controller.initiateOidcInteraction(context.TODO(),
+			&InitiateOIDC4VPData{
+				PresentationDefinitionId: &pdID,
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{
+					Fields: &fields,
+				},
+			},
+			&profileapi.Verifier{
+				OrganizationID: tenantID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+				PresentationDefinitions: []*presexch.PresentationDefinition{
+					&pd, &pd2,
+				},
+			})
+
+		require.NoError(t, err)
+		require.NotNil(t, result)
+	})
+
+	t.Run("Error - With Multiple Presentation Definitions, "+
+		"Empty Presentation Definition ID, PD filters", func(t *testing.T) {
+		controller := NewController(&Config{
+			ProfileSvc:    mockProfileSvc,
+			KMSRegistry:   kmsRegistry,
+			OIDCVPService: oidc4VPSvc,
+		})
+
+		fields := []string{""}
+
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		var pd2 presexch.PresentationDefinition
+
+		err = json.Unmarshal([]byte(testPD), &pd2)
+		require.NoError(t, err)
+
+		pd2.ID = "some-other-id"
+
+		result, err := controller.initiateOidcInteraction(context.TODO(),
+			&InitiateOIDC4VPData{
+				PresentationDefinitionFilters: &PresentationDefinitionFilters{
+					Fields: &fields,
+				},
+			},
+			&profileapi.Verifier{
+				ID:             "profile-id",
+				OrganizationID: tenantID,
+				Active:         true,
+				OIDCConfig:     &profileapi.OIDC4VPConfig{},
+				SigningDID:     &profileapi.SigningDID{},
+				PresentationDefinitions: []*presexch.PresentationDefinition{
+					&pd, &pd2,
+				},
+			})
+
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.Contains(t, err.Error(),
+			"invalid-value[presentationDefinitionID]: presentation definition id= not found for profile with id=profile-id")
+	})
+
 	t.Run("Should be active", func(t *testing.T) {
 		controller := NewController(&Config{
 			ProfileSvc:    mockProfileSvc,
