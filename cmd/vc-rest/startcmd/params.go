@@ -185,6 +185,11 @@ const (
 	httpDialTimeoutFlagUsage = "The timeout for http dial. For example, '30s' for a 30 second timeout. " +
 		commonEnvVarUsageText + httpDialTimeoutEnvKey
 
+	httpForceAttemptHTTP2FlagName  = "http-force-attempt-http2"
+	httpForceAttemptHTTP2EnvKey    = "HTTP_FORCE_ATTEMPT_HTTP2"
+	httpForceAttemptHTTP2FlagUsage = "The force attempt HTTP2 flag for http dial. Default value is true" +
+		commonEnvVarUsageText + httpForceAttemptHTTP2EnvKey
+
 	tlsKeyFlagName  = "tls-key"
 	tlsKeyFlagUsage = "TLS key for vcs server. " + commonEnvVarUsageText + tlsKeyEnvKey
 	tlsKeyEnvKey    = "VC_REST_TLS_KEY"
@@ -361,8 +366,9 @@ const (
 	defaultTracingServiceName    = "vcs"
 	defaultInternalServerAddress = "0.0.0.0:50321"
 
-	defaultHTTPDialTimeout = 2 * time.Second
-	defaultHTTPTimeout     = 20 * time.Second
+	defaultHTTPDialTimeout   = 2 * time.Second
+	defaultHTTPTimeout       = 20 * time.Second
+	defaultForceAttemptHTTP2 = true
 
 	redisStore = "redis"
 )
@@ -462,8 +468,9 @@ type tlsParameters struct {
 }
 
 type httpParameters struct {
-	timeout     time.Duration
-	dialTimeout time.Duration
+	timeout           time.Duration
+	dialTimeout       time.Duration
+	forceAttemptHTTP2 bool
 }
 
 type kmsParameters struct {
@@ -814,9 +821,15 @@ func getHTTPParameters(cmd *cobra.Command) (*httpParameters, error) {
 		return nil, fmt.Errorf("%s: %w", httpDialTimeoutFlagName, err)
 	}
 
+	forceAttemptHTTP2, err := getBoolean(cmd, httpForceAttemptHTTP2FlagName, httpForceAttemptHTTP2EnvKey, defaultForceAttemptHTTP2)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", httpForceAttemptHTTP2FlagName, err)
+	}
+
 	return &httpParameters{
-		timeout:     httpTimeout,
-		dialTimeout: httpDialTimeout,
+		timeout:           httpTimeout,
+		dialTimeout:       httpDialTimeout,
+		forceAttemptHTTP2: forceAttemptHTTP2,
 	}, nil
 }
 
@@ -971,6 +984,25 @@ func getDuration(cmd *cobra.Command, flagName, envKey string,
 	}
 
 	return timeout, nil
+}
+
+func getBoolean(cmd *cobra.Command, flagName, envKey string,
+	defaultFlag bool) (bool, error) {
+	flagStr, err := cmdutils.GetUserSetVarFromString(cmd, flagName, envKey, true)
+	if err != nil {
+		return defaultFlag, err
+	}
+
+	if flagStr == "" {
+		return defaultFlag, nil
+	}
+
+	flag, err := strconv.ParseBool(flagStr)
+	if err != nil {
+		return defaultFlag, fmt.Errorf("invalid value [%s]: %w", flagStr, err)
+	}
+
+	return flag, nil
 }
 
 func getDBParameters(cmd *cobra.Command) (*dbParameters, error) {
@@ -1139,6 +1171,7 @@ func createFlags(startCmd *cobra.Command) {
 
 	startCmd.Flags().StringP(httpTimeoutFlagName, "", "", httpTimeoutFlagUsage)
 	startCmd.Flags().StringP(httpDialTimeoutFlagName, "", "", httpDialTimeoutFlagUsage)
+	startCmd.Flags().StringP(httpForceAttemptHTTP2FlagName, "", "", httpForceAttemptHTTP2FlagUsage)
 	startCmd.Flags().String(transientDataStoreTypeFlagName, "", transientDataStoreTypeFlagUsage)
 
 	profilereader.AddFlags(startCmd)

@@ -283,6 +283,7 @@ func TestStartCmdValidArgs(t *testing.T) {
 		"--" + dataEncryptionKeyIDFlagName, "12345",
 		"--" + dataEncryptionKeyLengthFlagName, "256",
 		"--" + dataEncryptionDisabledFlagName, "true",
+		"--" + httpForceAttemptHTTP2FlagName, "false",
 	}
 
 	startCmd.SetArgs(args)
@@ -468,6 +469,20 @@ func TestHTTPTimeoutInvalidArgsEnvVar(t *testing.T) {
 	require.Contains(t, err.Error(), "http-timeout: invalid value [wrongvalue]: time: invalid duration")
 }
 
+func TestHTTPForceAttemptHTTP2InvalidArgsEnvVar(t *testing.T) {
+	startCmd := GetStartCmd()
+
+	setEnvVars(t, databaseTypeMongoDBOption, "")
+
+	defer unsetEnvVars(t)
+	require.NoError(t, os.Setenv(httpForceAttemptHTTP2EnvKey, "wrongvalue"))
+
+	err := startCmd.Execute()
+	require.Error(t, err)
+	require.Contains(t, err.Error(),
+		"failed to get startup parameters: http-force-attempt-http2: invalid value [wrongvalue]")
+}
+
 func TestHTTPDialTimeoutInvalidArgsEnvVar(t *testing.T) {
 	startCmd := GetStartCmd()
 
@@ -631,6 +646,9 @@ func unsetEnvVars(t *testing.T) {
 	require.NoError(t, err)
 
 	err = os.Unsetenv(httpDialTimeoutEnvKey)
+	require.NoError(t, err)
+
+	err = os.Unsetenv(httpForceAttemptHTTP2EnvKey)
 	require.NoError(t, err)
 
 	err = os.Setenv(hostURLExternalEnvKey, "http://localhost:8080")
