@@ -33,11 +33,11 @@ const (
 )
 
 type verifierProfileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Verifier, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error)
 }
 
 type issuerProfileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
 type kmsRegistry interface {
@@ -94,6 +94,7 @@ func (s *Service) DidConfig(
 	ctx context.Context,
 	profileType ProfileType,
 	profileID string,
+	profileVersion string,
 ) (*DidConfiguration, error) {
 	cred := s.getBaseCredentials()
 
@@ -102,7 +103,7 @@ func (s *Service) DidConfig(
 
 	switch profileType {
 	case ProfileTypeVerifier:
-		profile, err := s.verifierProfileService.GetProfile(profileID)
+		profile, err := s.verifierProfileService.GetProfile(profileID, profileVersion)
 		if err != nil {
 			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
 				err)
@@ -141,11 +142,9 @@ func (s *Service) DidConfig(
 			KMS:           kms,
 		}
 	case ProfileTypeIssuer:
-		profile, err := s.issuerProfileService.GetProfile(profileID)
-
+		profile, err := s.issuerProfileService.GetProfile(profileID, profileVersion)
 		if err != nil {
-			return nil, resterr.NewValidationError(resterr.SystemError, "profileID",
-				err)
+			return nil, resterr.NewValidationError(resterr.SystemError, "profileID", err)
 		}
 
 		format = profile.VCConfig.Format

@@ -32,6 +32,7 @@ type TxID string
 type Transaction struct {
 	ID                     TxID
 	ProfileID              string
+	ProfileVersion         string
 	PresentationDefinition *presexch.PresentationDefinition
 	ReceivedClaims         *ReceivedClaims
 	ReceivedClaimsID       string
@@ -56,7 +57,7 @@ type TransactionUpdate struct {
 }
 
 type txStore interface {
-	Create(pd *presexch.PresentationDefinition, profileID string) (TxID, *Transaction, error)
+	Create(pd *presexch.PresentationDefinition, profileID, profileVersion string) (TxID, *Transaction, error)
 	Update(update TransactionUpdate) error
 	Get(txID TxID) (*Transaction, error)
 }
@@ -104,8 +105,9 @@ func NewTxManager(
 }
 
 // CreateTx creates transaction and generate one time access token.
-func (tm *TxManager) CreateTx(pd *presexch.PresentationDefinition, profileID string) (*Transaction, string, error) {
-	txID, tx, err := tm.txStore.Create(pd, profileID)
+func (tm *TxManager) CreateTx(
+	pd *presexch.PresentationDefinition, profileID, profileVersion string) (*Transaction, string, error) {
+	txID, tx, err := tm.txStore.Create(pd, profileID, profileVersion)
 	if err != nil {
 		return nil, "", fmt.Errorf("oidc tx create failed: %w", err)
 	}

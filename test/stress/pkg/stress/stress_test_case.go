@@ -29,6 +29,7 @@ type TestCase struct {
 	httpClient            *http.Client
 	vcsAPIURL             string
 	issuerProfileID       string
+	issuerProfileVersion  string
 	verifierProfileID     string
 	credentialTemplateID  string
 	credentialType        string
@@ -44,6 +45,7 @@ type TestCaseOptions struct {
 	httpClient            *http.Client
 	vcsAPIURL             string
 	issuerProfileID       string
+	issuerProfileVersion  string
 	verifierProfileID     string
 	credentialTemplateID  string
 	credentialType        string
@@ -96,6 +98,7 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 		httpClient:            opts.httpClient,
 		vcsAPIURL:             opts.vcsAPIURL,
 		issuerProfileID:       opts.issuerProfileID,
+		issuerProfileVersion:  opts.issuerProfileVersion,
 		verifierProfileID:     opts.verifierProfileID,
 		credentialTemplateID:  opts.credentialTemplateID,
 		credentialType:        opts.credentialType,
@@ -140,6 +143,12 @@ func WithVCSAPIURL(apiURL string) TestCaseOption {
 func WithIssuerProfileID(issuerProfileID string) TestCaseOption {
 	return func(opts *TestCaseOptions) {
 		opts.issuerProfileID = issuerProfileID
+	}
+}
+
+func WithIssuerProfileVersion(issuerProfileVersion string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.issuerProfileVersion = issuerProfileVersion
 	}
 }
 
@@ -290,9 +299,10 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 
 	req, err := http.NewRequest(http.MethodPost,
 		fmt.Sprintf(
-			"%v/issuer/profiles/%v/interactions/initiate-oidc",
+			"%v/issuer/profiles/%s/%s/interactions/initiate-oidc",
 			c.vcsAPIURL,
 			c.issuerProfileID,
+			c.issuerProfileVersion,
 		),
 		bytes.NewBuffer(b))
 	if err != nil {
@@ -337,7 +347,7 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 func (c *TestCase) fetchAuthorizationRequest() (string, error) {
 	req, err := http.NewRequest(http.MethodPost,
 		fmt.Sprintf(
-			"%s/verifier/profiles/%s/interactions/initiate-oidc",
+			"%s/verifier/profiles/%s/%s/interactions/initiate-oidc",
 			c.vcsAPIURL,
 			c.verifierProfileID,
 		),

@@ -17,6 +17,8 @@ import (
 	"github.com/trustbloc/vcs/pkg/event/spi"
 )
 
+var _ service = (*Wrapper)(nil) // make sure Wrapper implements service
+
 type service interface {
 	HandleEvent(ctx context.Context, event *spi.Event) error
 }

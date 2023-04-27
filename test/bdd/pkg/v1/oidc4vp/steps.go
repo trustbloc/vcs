@@ -19,7 +19,7 @@ const (
 	credentialServiceURL               = "https://api-gateway.trustbloc.local:5566"
 	oidc4vpWebhookURL                  = "http://localhost:8180/checktopics"
 	verifierProfileURL                 = credentialServiceURL + "/verifier/profiles"
-	verifierProfileURLFormat           = verifierProfileURL + "/%s"
+	verifierProfileURLFormat           = verifierProfileURL + "/%s/%s"
 	initiateOidcInteractionURLFormat   = verifierProfileURLFormat + "/interactions/initiate-oidc"
 	retrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -30,16 +31,21 @@ const (
 
 	credentialServiceURL               = "https://api-gateway.trustbloc.local:5566"
 	verifierProfileURL                 = credentialServiceURL + "/verifier/profiles"
-	verifierProfileURLFormat           = verifierProfileURL + "/%s"
+	verifierProfileURLFormat           = verifierProfileURL + "/%s/%s"
 	InitiateOidcInteractionURLFormat   = verifierProfileURLFormat + "/interactions/initiate-oidc"
 	RetrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
 
-func (s *Steps) initiateInteraction(profileName, organizationName string) error {
+func (s *Steps) initiateInteraction(profileVersionedID, organizationName string) error {
+	chunks := strings.Split(profileVersionedID, "/")
+	if len(chunks) != 2 {
+		return errors.New("invalid profileVersionedID format")
+	}
+
 	s.vpFlowExecutor = s.walletRunner.NewVPFlowExecutor(false)
 
 	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, profileName)
+	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, chunks[0], chunks[1])
 	initiateInteractionResult, err := s.vpFlowExecutor.InitiateInteraction(endpointURL, token)
 	if err != nil {
 		return err

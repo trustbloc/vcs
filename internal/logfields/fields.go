@@ -25,6 +25,7 @@ const (
 	FieldJSONResolution      = "JSONResolution"
 	FieldPresDefID           = "presDefID"
 	FieldProfileID           = "profileID"
+	FieldProfileVersion      = "profileVersion"
 	FieldCredentialID        = "credentialID" //nolint:gosec
 	FieldResponses           = "responses"
 	FieldSleep               = "sleep"
@@ -84,6 +85,11 @@ func WithPresDefID(presDefID string) zap.Field {
 // WithProfileID sets the ProfileID field.
 func WithProfileID(profileID string) zap.Field {
 	return zap.String(FieldProfileID, profileID)
+}
+
+// WithProfileVersion sets the ProfileVersion field.
+func WithProfileVersion(profileVersion string) zap.Field {
+	return zap.String(FieldProfileVersion, profileVersion)
 }
 
 // WithCredentialID sets the CredentialID field.

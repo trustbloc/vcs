@@ -220,7 +220,9 @@ type PresentationChecks struct {
 
 // UpdateCredentialStatusRequest request struct for updating VC status.
 type UpdateCredentialStatusRequest struct {
-	CredentialID string `json:"credentialID"`
+	ProfileID      string `json:"profileID"`
+	ProfileVersion string `json:"profileVersion"`
+	CredentialID   string `json:"credentialID"`
 
 	// Credential status.
 	CredentialStatus CredentialStatus `json:"credentialStatus"`

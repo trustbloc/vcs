@@ -34,7 +34,7 @@ const (
 	didDomain           = "https://testnet.orb.local"
 	didServiceAuthToken = "tk1"
 	oidcProviderURL     = "https://localhost:4444"
-	issueCredentialURL  = "https://api-gateway.trustbloc.local:5566/issuer/profiles/i_myprofile_ud_es256_jwt/credentials/issue"
+	issueCredentialURL  = "https://api-gateway.trustbloc.local:5566/issuer/profiles/i_myprofile_ud_es256_jwt/latest/credentials/issue"
 	testDataPath        = "testdata/vcs"
 )
 

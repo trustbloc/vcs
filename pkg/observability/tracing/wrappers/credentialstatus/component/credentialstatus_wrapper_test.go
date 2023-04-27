@@ -17,15 +17,21 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/credentialstatus"
 )
 
+const (
+	profileID      = "profileID"
+	profileVersion = "profileVersion"
+	credentialID   = "credentialID"
+)
+
 func TestWrapper_CreateStatusListEntry(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().CreateStatusListEntry(gomock.Any(), "profileID", "credentialID").Times(1)
+	svc.EXPECT().CreateStatusListEntry(gomock.Any(), profileID, profileVersion, credentialID).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.CreateStatusListEntry(context.Background(), "profileID", "credentialID")
+	_, err := w.CreateStatusListEntry(context.Background(), profileID, profileVersion, credentialID)
 	require.NoError(t, err)
 }
 
@@ -33,11 +39,11 @@ func TestWrapper_GetStatusListVC(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().GetStatusListVC(gomock.Any(), "profileID", "statusID").Times(1)
+	svc.EXPECT().GetStatusListVC(gomock.Any(), profileID, "statusID").Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.GetStatusListVC(context.Background(), "profileID", "statusID")
+	_, err := w.GetStatusListVC(context.Background(), profileID, "statusID")
 	require.NoError(t, err)
 }
 

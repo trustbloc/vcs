@@ -15,13 +15,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
-
+	"github.com/hashicorp/go-version"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk"
-
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/longform"
 	"github.com/hyperledger/aries-framework-go-ext/component/vdr/orb"
 	vdrpkg "github.com/hyperledger/aries-framework-go/pkg/vdr"
+	"github.com/hyperledger/aries-framework-go/pkg/vdr/key"
 	"github.com/spf13/cobra"
 	cmdutils "github.com/trustbloc/cmdutil-go/pkg/utils/cmd" //nolint:typecheck
 	"github.com/trustbloc/logutil-go/pkg/log"                //nolint:typecheck
@@ -100,6 +99,9 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 		return nil, err
 	}
 
+	issuerProfiles := map[profileVersionKey]*profileapi.Issuer{}
+	issuerProfileVersions := map[string]version.Collection{}
+
 	for _, v := range p.IssuersData {
 		if v.CreateDID {
 			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
@@ -111,15 +113,24 @@ func NewIssuerReader(config *Config) (*IssuerReader, error) {
 
 		logger.Info("create issuer profile successfully", log.WithID(v.Data.ID))
 
-		r.issuers[v.Data.ID] = v.Data
+		// Set version as it come.
+		r.issuers[fmt.Sprintf("%s_%s", v.Data.ID, v.Data.Version)] = v.Data
+
+		issuerVersion := version.Must(version.NewVersion(v.Data.Version))
+
+		issuerProfileVersions[v.Data.ID] = append(issuerProfileVersions[v.Data.ID], issuerVersion)
+		issuerProfiles[getProfileVersionKey(v.Data.ID, issuerVersion)] = v.Data
 	}
+
+	populateLatestTag(issuerProfileVersions, issuerProfiles, r.issuers)
 
 	return &r, nil
 }
 
 // GetProfile returns profile with given id.
-func (p *IssuerReader) GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error) {
-	return p.issuers[profileID], nil
+func (p *IssuerReader) GetProfile(
+	profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error) {
+	return p.issuers[fmt.Sprintf("%s_%s", profileID, profileVersion)], nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.
@@ -149,6 +160,9 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 		return nil, err
 	}
 
+	verifierProfiles := map[profileVersionKey]*profileapi.Verifier{}
+	verifierProfileVersions := map[string]version.Collection{}
+
 	for _, v := range p.VerifiersData {
 		if v.Data.OIDCConfig != nil && v.CreateDID {
 			v.Data.SigningDID, err = createDid(v.DidDomain, v.DidServiceAuthToken, v.Data.KMSConfig, v.Data.WebHook,
@@ -160,15 +174,24 @@ func NewVerifierReader(config *Config) (*VerifierReader, error) {
 
 		logger.Info("create verifier profile successfully", log.WithID(v.Data.ID))
 
-		r.verifiers[v.Data.ID] = v.Data
+		// Set version as it come.
+		r.verifiers[fmt.Sprintf("%s_%s", v.Data.ID, v.Data.Version)] = v.Data
+
+		verifierVersion := version.Must(version.NewVersion(v.Data.Version))
+
+		verifierProfileVersions[v.Data.ID] = append(verifierProfileVersions[v.Data.ID], verifierVersion)
+		verifierProfiles[getProfileVersionKey(v.Data.ID, verifierVersion)] = v.Data
 	}
+
+	populateLatestTag(verifierProfileVersions, verifierProfiles, r.verifiers)
 
 	return &r, nil
 }
 
 // GetProfile returns profile with given id.
-func (p *VerifierReader) GetProfile(profileID profileapi.ID) (*profileapi.Verifier, error) {
-	return p.verifiers[profileID], nil
+func (p *VerifierReader) GetProfile(
+	profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error) {
+	return p.verifiers[fmt.Sprintf("%s_%s", profileID, profileVersion)], nil
 }
 
 // GetAllProfiles returns all profiles with given organization id.

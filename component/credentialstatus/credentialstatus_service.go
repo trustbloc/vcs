@@ -51,12 +51,11 @@ type vcCrypto interface {
 }
 
 type vcStatusStore interface {
-	Get(ctx context.Context, profileID, vcID string) (*verifiable.TypedID, error)
-	Put(ctx context.Context, profileID, credentialID string, typedID *verifiable.TypedID) error
+	Get(ctx context.Context, profileID, profileVersion, vcID string) (*verifiable.TypedID, error)
 }
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Issuer, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Issuer, error)
 }
 
 type kmsRegistry interface {
@@ -131,11 +130,12 @@ func New(config *Config) (*Service, error) {
 func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.UpdateVCStatusParams) error {
 	logger.Debug("UpdateVCStatus begin",
 		logfields.WithProfileID(params.ProfileID),
+		logfields.WithProfileVersion(params.ProfileVersion),
 		logfields.WithCredentialID(params.CredentialID))
 
-	profile, err := s.profileService.GetProfile(params.ProfileID)
+	profile, err := s.profileService.GetProfile(params.ProfileID, params.ProfileVersion)
 	if err != nil {
-		return fmt.Errorf("failed to get profile: %w", err)
+		return fmt.Errorf("get profile: %w", err)
 	}
 
 	if params.StatusType != profile.VCConfig.Status.Type {
@@ -144,7 +144,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 				"vc status list version \"%s\" is not supported by current profile", params.StatusType))
 	}
 
-	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, params.CredentialID)
+	typedID, err := s.vcStatusStore.Get(ctx, profile.ID, profile.Version, params.CredentialID)
 	if err != nil {
 		return fmt.Errorf("vcStatusStore.Get failed: %w", err)
 	}
@@ -154,7 +154,7 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 		return fmt.Errorf("strconv.ParseBool failed: %w", err)
 	}
 
-	err = s.updateVCStatus(ctx, typedID, profile.ID, profile.VCConfig.Status.Type, statusValue)
+	err = s.updateVCStatus(ctx, typedID, profile.ID, profile.Version, profile.VCConfig.Status.Type, statusValue)
 	if err != nil {
 		return fmt.Errorf("updateVCStatus failed: %w", err)
 	}
@@ -164,40 +164,44 @@ func (s *Service) UpdateVCStatus(ctx context.Context, params credentialstatus.Up
 	return nil
 }
 
-// CreateStatusListEntry creates issuecredential.StatusListEntry for profileID.
+// CreateStatusListEntry creates credentialstatus.StatusListEntry for profileID.
 func (s *Service) CreateStatusListEntry(
-	ctx context.Context, profileID profileapi.ID, credentialID string) (*credentialstatus.StatusListEntry, error) {
+	ctx context.Context,
+	profileID profileapi.ID,
+	profileVersion profileapi.Version,
+	credentialID string) (*credentialstatus.StatusListEntry, error) {
 	logger.Debug("CreateStatusListEntry begin",
 		logfields.WithProfileID(profileID),
+		logfields.WithProfileVersion(profileVersion),
 		logfields.WithCredentialID(credentialID))
 
-	profile, err := s.profileService.GetProfile(profileID)
+	profile, err := s.profileService.GetProfile(profileID, profileVersion)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get profile: %w", err)
+		return nil, fmt.Errorf("get profile: %w", err)
 	}
 
 	statusListEntry, err := s.cslMgr.CreateCSLEntry(ctx, profile, credentialID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CSL entry: %w", err)
+		return nil, fmt.Errorf("create CSL entry: %w", err)
 	}
 
 	return statusListEntry, nil
 }
 
-// GetStatusListVC returns StatusListVC (CSL) from underlying cslStore.
+// GetStatusListVC returns StatusListVC (credentialstatus.CSL) from underlying cslVCStore.
 // Used for handling public HTTP requests.
 func (s *Service) GetStatusListVC(
-	ctx context.Context, groupID profileapi.ID, listID string) (*verifiable.Credential, error) {
+	ctx context.Context, groupID profileapi.ID, listID string) (*credentialstatus.CSL, error) {
 	logger.Debug("GetStatusListVC begin", logfields.WithProfileID(groupID), log.WithID(listID))
 
 	cslURL, err := s.cslVCStore.GetCSLURL(s.externalURL, groupID, credentialstatus.ListID(listID))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CSL wrapper URL: %w", err)
+		return nil, fmt.Errorf("get CSL wrapper URL: %w", err)
 	}
 
 	cslWrapper, err := s.getCSLVCWrapper(ctx, cslURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CSL wrapper from store: %w", err)
+		return nil, fmt.Errorf("get CSL wrapper: %w", err)
 	}
 
 	logger.Debug("GetStatusListVC success")
@@ -205,10 +209,10 @@ func (s *Service) GetStatusListVC(
 	return cslWrapper.VC, nil
 }
 
-// Resolve resolves statusListVCURI and returns StatusListVC (CSL).
+// Resolve resolves statusListVCURI and returns StatusListVC (credentialstatus.CSL).
 // Used for credential verification.
 // statusListVCURI might be either HTTP URL or DID URL.
-func (s *Service) Resolve(ctx context.Context, statusListVCURI string) (*verifiable.Credential, error) {
+func (s *Service) Resolve(ctx context.Context, statusListVCURI string) (*credentialstatus.CSL, error) {
 	logger.Debug("ResolveStatusListVCURI begin", log.WithURL(statusListVCURI))
 	var vcBytes []byte
 	var err error
@@ -227,7 +231,7 @@ func (s *Service) Resolve(ctx context.Context, statusListVCURI string) (*verifia
 
 	csl, err := s.parseAndVerifyVC(vcBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse and verify status vc: %w", err)
+		return nil, fmt.Errorf("parse and verify status vc: %w", err)
 	}
 
 	logger.Debug("ResolveStatusListVCURI successful", log.WithURL(statusListVCURI))
@@ -262,14 +266,14 @@ func (s *Service) parseAndVerifyVC(vcBytes []byte) (*verifiable.Credential, erro
 func (s *Service) getCSLVCWrapper(ctx context.Context, cslURL string) (*credentialstatus.CSLVCWrapper, error) {
 	vcWrapper, err := s.cslVCStore.Get(ctx, cslURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get CSL from store: %w", err)
+		return nil, fmt.Errorf("get CSL from store: %w", err)
 	}
 
 	cslVC, err := verifiable.ParseCredential(vcWrapper.VCByte,
 		verifiable.WithDisabledProofCheck(),
 		verifiable.WithJSONLDDocumentLoader(s.documentLoader))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse CSL: %w", err)
+		return nil, fmt.Errorf("parse CSL: %w", err)
 	}
 
 	vcWrapper.VC = cslVC
@@ -300,14 +304,14 @@ func (s *Service) sendHTTPRequest(req *http.Request, status int, token string) (
 	}
 
 	if resp.StatusCode != status {
-		return nil, fmt.Errorf("failed to read response body for status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("read response body for status %d: %s", resp.StatusCode, string(body))
 	}
 
 	return body, nil
 }
 
 // updateVCStatus updates StatusListCredential associated with typedID.
-func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedID, profileID string,
+func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedID, profileID, profileVersion string,
 	vcStatusType vc.StatusType, status bool) error {
 	vcStatusProcessor, err := statustype.GetVCStatusProcessor(vcStatusType)
 	if err != nil {
@@ -328,7 +332,7 @@ func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedI
 		return fmt.Errorf("GetStatusListIndex failed: %w", err)
 	}
 
-	event, err := s.createStatusUpdatedEvent(statusListVCID, profileID, revocationListIndex, status)
+	event, err := s.createStatusUpdatedEvent(statusListVCID, profileID, profileVersion, revocationListIndex, status)
 	if err != nil {
 		return fmt.Errorf("unable to createStatusUpdatedEvent: %w", err)
 	}
@@ -341,12 +345,14 @@ func (s *Service) updateVCStatus(ctx context.Context, typedID *verifiable.TypedI
 	return nil
 }
 
-func (s *Service) createStatusUpdatedEvent(cslURL, profileID string, index int, status bool) (*spi.Event, error) {
+func (s *Service) createStatusUpdatedEvent(
+	cslURL, profileID, profileVersion string, index int, status bool) (*spi.Event, error) {
 	ep := credentialstatus.UpdateCredentialStatusEventPayload{
-		CSLURL:    cslURL,
-		ProfileID: profileID,
-		Index:     index,
-		Status:    status,
+		CSLURL:         cslURL,
+		ProfileID:      profileID,
+		ProfileVersion: profileVersion,
+		Index:          index,
+		Status:         status,
 	}
 
 	payload, err := json.Marshal(ep)

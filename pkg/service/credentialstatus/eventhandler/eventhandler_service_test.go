@@ -42,6 +42,7 @@ import (
 const (
 	statusBytePositionIndex = 1
 	profileID               = "testProfileID"
+	profileVersion          = "v1.0"
 	listUUID                = "d715ce6b-0df5-4fe8-ab19-be9bc6dada9c"
 	cslURL                  = "https://localhost:8080/issuer/profiles/externalID/credentials/status/" + listUUID
 	cslWrapperBytes         = `{
@@ -72,7 +73,7 @@ func TestService_HandleEvent(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	ctx := context.Background()
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-	mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 	crypto := vccrypto.New(
@@ -90,7 +91,7 @@ func TestService_HandleEvent(t *testing.T) {
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
-			t, cslURL, profileID, statusBytePositionIndex, true)
+			t, cslURL, profileID, profileVersion, statusBytePositionIndex, true)
 
 		s := New(&Config{
 			DocumentLoader: loader,
@@ -120,7 +121,7 @@ func TestService_HandleEvent(t *testing.T) {
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
-			t, cslURL, profileID, statusBytePositionIndex, true)
+			t, cslURL, profileID, profileVersion, statusBytePositionIndex, true)
 
 		event.Type = spi.IssuerOIDCInteractionInitiated
 
@@ -151,7 +152,7 @@ func TestService_HandleEvent(t *testing.T) {
 		require.NoError(t, err)
 
 		event := createStatusUpdatedEvent(
-			t, cslURL, profileID, statusBytePositionIndex, true)
+			t, cslURL, profileID, profileVersion, statusBytePositionIndex, true)
 
 		event.Data = []byte(`   123`)
 
@@ -177,7 +178,7 @@ func TestService_handleEventPayload(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	ctx := context.Background()
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-	mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 	crypto := vccrypto.New(
@@ -322,7 +323,7 @@ func TestService_handleEventPayload(t *testing.T) {
 
 	t.Run("Error failed to sign CSL", func(t *testing.T) {
 		mockProfileSrvErr := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		cslStore := newMockCSLVCStore()
 
 		var cslWrapper *credentialstatus.CSLVCWrapper
@@ -400,7 +401,7 @@ func TestService_signCSL(t *testing.T) {
 	loader := testutil.DocumentLoader(t)
 	ctx := context.Background()
 	mockProfileSrv := NewMockProfileService(gomock.NewController(t))
-	mockProfileSrv.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(profile, nil)
+	mockProfileSrv.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(profile, nil)
 	mockKMSRegistry := NewMockKMSRegistry(gomock.NewController(t))
 	mockKMSRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(&mockKMS{}, nil)
 	crypto := vccrypto.New(
@@ -425,7 +426,7 @@ func TestService_signCSL(t *testing.T) {
 			Crypto:         crypto,
 		})
 
-		signedCSL, err := s.signCSL(profileID, cslWrapper.VC)
+		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)
 		require.NoError(t, err)
 		require.NotEmpty(t, signedCSL)
 		cslWrapper.VC = getVerifiedCSL(t, signedCSL, loader, statusBytePositionIndex, false)
@@ -434,12 +435,12 @@ func TestService_signCSL(t *testing.T) {
 
 	t.Run("Error failed to get profile", func(t *testing.T) {
 		mockProfileSrvErr := NewMockProfileService(gomock.NewController(t))
-		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
+		mockProfileSrvErr.EXPECT().GetProfile(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.New("some error"))
 		s := New(&Config{
 			ProfileService: mockProfileSrvErr,
 		})
 
-		signedCSL, err := s.signCSL(profileID, nil)
+		signedCSL, err := s.signCSL(profileID, profileVersion, nil)
 		require.Empty(t, signedCSL)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to get profile")
@@ -453,7 +454,7 @@ func TestService_signCSL(t *testing.T) {
 			KMSRegistry:    mockKMSRegistryErr,
 		})
 
-		signedCSL, err := s.signCSL(profileID, nil)
+		signedCSL, err := s.signCSL(profileID, profileVersion, nil)
 		require.Empty(t, signedCSL)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "failed to get KMS")
@@ -474,7 +475,7 @@ func TestService_signCSL(t *testing.T) {
 			KMSRegistry:    mockKMSRegistry,
 		})
 
-		signedCSL, err := s.signCSL(profileID, cslWrapper.VC)
+		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)
 		require.Empty(t, signedCSL)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "prepareSigningOpts failed")
@@ -495,7 +496,7 @@ func TestService_signCSL(t *testing.T) {
 			Crypto:         cryptoErr,
 		})
 
-		signedCSL, err := s.signCSL(profileID, cslWrapper.VC)
+		signedCSL, err := s.signCSL(profileID, profileVersion, cslWrapper.VC)
 		require.Empty(t, signedCSL)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "sign CSL failed")
@@ -644,14 +645,16 @@ func getVerifiedCSL(
 	return csl
 }
 
-func createStatusUpdatedEvent(t *testing.T, cslURL, profileID string, index int, status bool) *spi.Event {
+func createStatusUpdatedEvent(
+	t *testing.T, cslURL, profileID, profileVersion string, index int, status bool) *spi.Event {
 	t.Helper()
 
 	ep := credentialstatus.UpdateCredentialStatusEventPayload{
-		CSLURL:    cslURL,
-		ProfileID: profileID,
-		Index:     index,
-		Status:    status,
+		CSLURL:         cslURL,
+		ProfileID:      profileID,
+		ProfileVersion: profileVersion,
+		Index:          index,
+		Status:         status,
 	}
 
 	payload, err := json.Marshal(ep)

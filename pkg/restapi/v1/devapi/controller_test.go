@@ -21,10 +21,15 @@ import (
 	"github.com/trustbloc/vcs/pkg/service/requestobject"
 )
 
+const (
+	profileID      = "123"
+	profileVersion = "v1.0"
+)
+
 func TestController(t *testing.T) {
 	route := NewMockrouter(gomock.NewController(t))
 
-	route.EXPECT().GET("/:profileType/profiles/:profileID/well-known/did-config", gomock.Any()).Return(nil)
+	route.EXPECT().GET("/:profileType/profiles/:profileID/:profileVersion/well-known/did-config", gomock.Any()).Return(nil)
 	route.EXPECT().GET("/request-object/:uuid", gomock.Any()).Return(nil)
 	assert.NotNil(t, devapi.NewController(&devapi.Config{}, route))
 }
@@ -38,8 +43,8 @@ func TestDidConfig(t *testing.T) {
 		DidConfigService: did,
 	}, route)
 
-	did.EXPECT().DidConfig(gomock.Any(), didconfiguration.ProfileTypeIssuer, "123").Return(nil, nil)
-	assert.NoError(t, c.DidConfig(echoContext(), "issuer", "123"))
+	did.EXPECT().DidConfig(gomock.Any(), didconfiguration.ProfileTypeIssuer, profileID, profileVersion).Return(nil, nil)
+	assert.NoError(t, c.DidConfig(echoContext(), "issuer", profileID, profileVersion))
 }
 
 func TestRequestObjectByUUID(t *testing.T) {

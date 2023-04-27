@@ -29,7 +29,7 @@ func (s *Service) ExchangeAuthorizationCode(ctx context.Context, opState string)
 	}
 	tx.State = newState
 
-	profile, err := s.profileService.GetProfile(tx.ProfileID)
+	profile, err := s.profileService.GetProfile(tx.ProfileID, tx.ProfileVersion)
 	if err != nil {
 		s.sendFailedEvent(ctx, tx, err)
 		return "", err

@@ -40,7 +40,9 @@ import (
 )
 
 const (
-	orgID = "orgID1"
+	orgID          = "orgID1"
+	profileID      = "testID"
+	profileVersion = "v1.0"
 )
 
 var (
@@ -71,7 +73,7 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		Return(nil, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -89,12 +91,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 
 		c := echoContext(withRequestBody([]byte(sampleVCJsonLD)))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -112,12 +114,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 
 		c := echoContext(withRequestBody([]byte(sampleVCJWT)))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success LDP with TemplateId", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -160,12 +162,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		b, _ := json.Marshal(req)
 		c := echoContext(withRequestBody(b))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success LDP without TemplateId", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -204,12 +206,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		b, _ := json.Marshal(req)
 		c := echoContext(withRequestBody(b))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
 	t.Run("Fail LDP without TemplateId and many templates", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -255,12 +257,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		b, _ := json.Marshal(req)
 		c := echoContext(withRequestBody(b))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.ErrorContains(t, err, "credential template should be specified")
 	})
 
 	t.Run("Fail LDP no template with TemplateId", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -300,12 +302,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		b, _ := json.Marshal(req)
 		c := echoContext(withRequestBody(b))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.ErrorContains(t, err, "credential template not found")
 	})
 
 	t.Run("Fail LDP no credential templates", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -336,12 +338,12 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		b, _ := json.Marshal(req)
 		c := echoContext(withRequestBody(b))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.ErrorContains(t, err, "credential templates are not specified for profile")
 	})
 
 	t.Run("Success LDP no template with TemplateId", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -378,14 +380,14 @@ func TestController_PostIssueCredentials(t *testing.T) {
 		b, _ := json.Marshal(req)
 		c := echoContext(withRequestBody(b))
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		require.ErrorContains(t, err, "no claims specified")
 	})
 
 	t.Run("Failed", func(t *testing.T) {
 		controller := NewController(&Config{Tracer: trace.NewNoopTracerProvider().Tracer("")})
 		c := echoContext(withRequestBody([]byte("abc")))
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 
 		requireValidationError(t, "invalid-value", "requestBody", err)
 	})
@@ -399,7 +401,7 @@ func TestController_IssueCredentials(t *testing.T) {
 		Return(&verifiable.Credential{}, nil)
 
 	t.Run("Success JSON-LD", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -422,13 +424,14 @@ func TestController_IssueCredentials(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		verifiableCredentials, err := controller.issueCredential(c.Request().Context(), orgID, &body, "testId")
+		verifiableCredentials, err := controller.issueCredential(
+			c.Request().Context(), orgID, &body, profileID, profileVersion)
 		require.NotNil(t, verifiableCredentials)
 		require.NoError(t, err)
 	})
 
 	t.Run("Success JWT", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 			Return(&profileapi.Issuer{
 				OrganizationID: orgID,
 				ID:             "testId",
@@ -451,7 +454,8 @@ func TestController_IssueCredentials(t *testing.T) {
 		err := util.ReadBody(c, &body)
 		require.NoError(t, err)
 
-		verifiableCredentials, err := controller.issueCredential(c.Request().Context(), orgID, &body, "testId")
+		verifiableCredentials, err := controller.issueCredential(
+			c.Request().Context(), orgID, &body, profileID, profileVersion)
 		require.NotNil(t, verifiableCredentials)
 		require.NoError(t, err)
 	})
@@ -470,7 +474,7 @@ func TestController_IssueCredentials(t *testing.T) {
 				},
 				getProfileSvc: func() profileService {
 					failedMockProfileSvc := NewMockProfileService(gomock.NewController(t))
-					failedMockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+					failedMockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 						Return(nil, errors.New("some error"))
 					return failedMockProfileSvc
 				},
@@ -484,7 +488,7 @@ func TestController_IssueCredentials(t *testing.T) {
 					return echoContext(withRequestBody([]byte(`{"credential":"","options":{}}`)))
 				},
 				getProfileSvc: func() profileService {
-					mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 						Return(&profileapi.Issuer{
 							OrganizationID: orgID,
 							ID:             "testId",
@@ -520,7 +524,7 @@ func TestController_IssueCredentials(t *testing.T) {
   },"options":{"credentialStatus":{"type":"statusPurpose"}}}`)))
 				},
 				getProfileSvc: func() profileService {
-					mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 						Return(&profileapi.Issuer{
 							OrganizationID: orgID,
 							ID:             "testId",
@@ -540,7 +544,7 @@ func TestController_IssueCredentials(t *testing.T) {
 					return echoContext(withRequestBody([]byte(sampleVCJsonLD)))
 				},
 				getProfileSvc: func() profileService {
-					mockProfileSvc.EXPECT().GetProfile("testId").Times(1).
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).
 						Return(&profileapi.Issuer{
 							OrganizationID: orgID,
 							ID:             "testId",
@@ -575,7 +579,8 @@ func TestController_IssueCredentials(t *testing.T) {
 				var body IssueCredentialData
 				err := util.ReadBody(ctx, &body)
 				require.NoError(t, err)
-				verifiableCredentials, err := controller.issueCredential(ctx.Request().Context(), orgID, &body, "testId")
+				verifiableCredentials, err := controller.issueCredential(
+					ctx.Request().Context(), orgID, &body, profileID, profileVersion)
 				require.Nil(t, verifiableCredentials)
 				require.Error(t, err)
 			})
@@ -591,7 +596,7 @@ func TestController_AuthFailed(t *testing.T) {
 	kmsRegistry.EXPECT().GetKeyManager(gomock.Any()).AnyTimes().Return(keyManager, nil)
 
 	mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-	mockProfileSvc.EXPECT().GetProfile("testId").AnyTimes().
+	mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).AnyTimes().
 		Return(&profileapi.Issuer{OrganizationID: orgID, SigningDID: &profileapi.SigningDID{}}, nil)
 
 	t.Run("No token", func(t *testing.T) {
@@ -603,7 +608,7 @@ func TestController_AuthFailed(t *testing.T) {
 			Tracer:      trace.NewNoopTracerProvider().Tracer(""),
 		})
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		requireAuthError(t, err)
 	})
 
@@ -616,7 +621,7 @@ func TestController_AuthFailed(t *testing.T) {
 			Tracer:      trace.NewNoopTracerProvider().Tracer(""),
 		})
 
-		err := controller.PostIssueCredentials(c, "testId")
+		err := controller.PostIssueCredentials(c, profileID, profileVersion)
 		requireValidationError(t, resterr.DoesntExist, "profile", err)
 	})
 }
@@ -724,14 +729,14 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 		c := echoContext(withRequestBody(
 			[]byte(`{"credentialID": "1","credentialStatus":{"type":"StatusList2021Entry"}}`)))
 
-		err := controller.PostCredentialsStatus(c, "testId")
+		err := controller.PostCredentialsStatus(c)
 		require.NoError(t, err)
 	})
 
 	t.Run("Failed", func(t *testing.T) {
 		controller := NewController(&Config{})
 		c := echoContext(withRequestBody([]byte("abc")))
-		err := controller.PostCredentialsStatus(c, "testId")
+		err := controller.PostCredentialsStatus(c)
 
 		requireValidationError(t, "invalid-value", "requestBody", err)
 	})
@@ -740,7 +745,8 @@ func TestController_PostCredentialsStatus(t *testing.T) {
 func TestController_InitiateCredentialIssuance(t *testing.T) {
 	issuerProfile := &profileapi.Issuer{
 		OrganizationID: orgID,
-		ID:             "profileID",
+		ID:             profileID,
+		Version:        profileVersion,
 		Active:         true,
 		OIDCConfig:     &profileapi.OIDC4CIConfig{},
 		CredentialTemplates: []*profileapi.CredentialTemplate{
@@ -774,7 +780,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 	)
 
 	t.Run("Success", func(t *testing.T) {
-		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(issuerProfile, nil)
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 		mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(resp, nil)
 
 		controller := NewController(&Config{
@@ -785,7 +791,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 
 		c = echoContext(withRequestBody(req))
 
-		err = controller.InitiateCredentialIssuance(c, "profileID")
+		err = controller.InitiateCredentialIssuance(c, profileID, profileVersion)
 		require.NoError(t, err)
 	})
 
@@ -798,7 +804,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Missing authorization",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(0)
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(0)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withTenantID(""))
 				},
@@ -809,7 +815,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Invalid profile",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req), withTenantID("invalid"))
 				},
@@ -821,7 +827,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Profile does not exist in the underlying storage",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("not found"))
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("not found"))
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
@@ -833,7 +839,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Get profile error",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, errors.New("get profile error"))
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, errors.New("get profile error"))
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
@@ -845,19 +851,19 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Returned empty profile",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(nil, nil)
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(nil, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 					c = echoContext(withRequestBody(req))
 				},
 				check: func(t *testing.T, err error) {
 					require.Error(t, err)
-					require.Contains(t, err.Error(), "profile with given id profileID, doesn't exist")
+					require.Contains(t, err.Error(), "profile with given id testID_v1.0, doesn't exist")
 				},
 			},
 			{
 				name: "Credential template ID is required",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateIDRequired) //nolint:lll
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
@@ -873,7 +879,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Credential template not found",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, oidc4ci.ErrCredentialTemplateNotFound) //nolint:lll
 
 					r, marshalErr := json.Marshal(&InitiateOIDC4CIRequest{})
@@ -889,7 +895,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 			{
 				name: "Service error",
 				setup: func() {
-					mockProfileSvc.EXPECT().GetProfile(gomock.Any()).Times(1).Return(issuerProfile, nil)
+					mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(issuerProfile, nil)
 					mockOIDC4CISvc.EXPECT().InitiateIssuance(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(nil, errors.New("service error")) //nolint:lll
 					c = echoContext(withRequestBody(req))
 				},
@@ -909,7 +915,7 @@ func TestController_InitiateCredentialIssuance(t *testing.T) {
 					Tracer:         trace.NewNoopTracerProvider().Tracer(""),
 				})
 
-				err = controller.InitiateCredentialIssuance(c, "profileID")
+				err = controller.InitiateCredentialIssuance(c, profileID, profileVersion)
 				tt.check(t, err)
 			})
 		}
@@ -1017,12 +1023,15 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
 				assert.Equal(t, "123", req.OpState)
 
-				return &oidc4ci.PrepareClaimDataAuthorizationResponse{}, nil
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+				}, nil
 			},
 		)
 
 		mockProfileService := NewMockProfileService(gomock.NewController(t))
-		mockProfileService.EXPECT().GetProfile(gomock.Any()).Return(&profileapi.Issuer{
+		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 			OIDCConfig: &profileapi.OIDC4CIConfig{},
 		}, nil)
 
@@ -1085,12 +1094,15 @@ func TestController_PrepareAuthorizationRequest(t *testing.T) {
 			) (*oidc4ci.PrepareClaimDataAuthorizationResponse, error) {
 				assert.Equal(t, "123", req.OpState)
 
-				return &oidc4ci.PrepareClaimDataAuthorizationResponse{}, nil
+				return &oidc4ci.PrepareClaimDataAuthorizationResponse{
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+				}, nil
 			},
 		)
 
 		mockProfileService := NewMockProfileService(gomock.NewController(t))
-		mockProfileService.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("get profile error"))
+		mockProfileService.EXPECT().GetProfile(profileID, profileVersion).Return(nil, errors.New("get profile error"))
 
 		c := &Controller{
 			oidc4ciService: mockOIDC4CIService,
@@ -1238,10 +1250,10 @@ func TestController_PrepareCredential(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
 			&profileapi.Issuer{
 				OrganizationID: orgID,
-				ID:             "profileID",
+				ID:             profileID,
 				VCConfig: &profileapi.VCConfig{
 					Format: vcsverifiable.Ldp,
 				},
@@ -1260,10 +1272,11 @@ func TestController_PrepareCredential(t *testing.T) {
 				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
-					ProfileID:  "profileID",
-					Credential: sampleVC,
-					Format:     vcsverifiable.Ldp,
-					Retry:      false,
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+					Credential:     sampleVC,
+					Format:         vcsverifiable.Ldp,
+					Retry:          false,
 				}, nil
 			},
 		)
@@ -1282,7 +1295,7 @@ func TestController_PrepareCredential(t *testing.T) {
 
 	t.Run("fail to access profile", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("profileID").Return(nil, errors.New("get profile error"))
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(nil, errors.New("get profile error"))
 
 		mockOIDC4CIService := NewMockOIDC4CIService(gomock.NewController(t))
 		mockOIDC4CIService.EXPECT().PrepareCredential(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -1293,10 +1306,11 @@ func TestController_PrepareCredential(t *testing.T) {
 				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
-					ProfileID:  "profileID",
-					Credential: sampleVC,
-					Format:     vcsverifiable.Ldp,
-					Retry:      false,
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+					Credential:     sampleVC,
+					Format:         vcsverifiable.Ldp,
+					Retry:          false,
 				}, nil
 			},
 		)
@@ -1314,10 +1328,11 @@ func TestController_PrepareCredential(t *testing.T) {
 
 	t.Run("fail to sign credential", func(t *testing.T) {
 		mockProfileSvc := NewMockProfileService(gomock.NewController(t))
-		mockProfileSvc.EXPECT().GetProfile("profileID").Times(1).Return(
+		mockProfileSvc.EXPECT().GetProfile(profileID, profileVersion).Times(1).Return(
 			&profileapi.Issuer{
 				OrganizationID: orgID,
-				ID:             "profileID",
+				ID:             profileID,
+				Version:        profileVersion,
 				VCConfig: &profileapi.VCConfig{
 					Format: vcsverifiable.Ldp,
 				},
@@ -1336,10 +1351,11 @@ func TestController_PrepareCredential(t *testing.T) {
 				assert.Equal(t, oidc4ci.TxID("123"), req.TxID)
 
 				return &oidc4ci.PrepareCredentialResult{
-					ProfileID:  "profileID",
-					Credential: nil,
-					Format:     vcsverifiable.Ldp,
-					Retry:      false,
+					ProfileID:      profileID,
+					ProfileVersion: profileVersion,
+					Credential:     nil,
+					Format:         vcsverifiable.Ldp,
+					Retry:          false,
 				}, nil
 			},
 		)
@@ -1400,7 +1416,7 @@ func TestController_PrepareCredential(t *testing.T) {
 
 func TestOpenIDConfigurationController(t *testing.T) {
 	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profileapi.Issuer{
+	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
@@ -1420,12 +1436,12 @@ func TestOpenIDConfigurationController(t *testing.T) {
 		profileSvc:      profileSvc,
 	}
 
-	assert.NoError(t, c.OpenidConfig(echoContext(), "123"))
+	assert.NoError(t, c.OpenidConfig(echoContext(), profileID, profileVersion))
 }
 
 func TestOpenIDIssuerConfigurationController(t *testing.T) {
 	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(gomock.Any()).Return(&profileapi.Issuer{
+	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
@@ -1445,20 +1461,19 @@ func TestOpenIDIssuerConfigurationController(t *testing.T) {
 		profileSvc:      profileSvc,
 	}
 
-	assert.NoError(t, c.OpenidCredentialIssuerConfig(echoContext(), "123"))
+	assert.NoError(t, c.OpenidCredentialIssuerConfig(echoContext(), profileID, profileVersion))
 }
 
 func TestOpenIdIssuerConfiguration(t *testing.T) {
 	host := "https://localhost"
-	profileID := "123456"
 	expected := &WellKnownOpenIDIssuerConfiguration{
 		AuthorizationServer: "https://localhost/oidc/authorize",
 		CredentialEndpoint:  "https://localhost/oidc/credential",
-		CredentialIssuer:    "https://localhost/issuer/123456",
+		CredentialIssuer:    "https://localhost/issuer/testID/v1.0",
 	}
 
 	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(profileID).Return(&profileapi.Issuer{
+	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
@@ -1479,7 +1494,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 			profileSvc:      profileSvc,
 		}
 
-		result, err := c.getOpenIDIssuerConfig(profileID)
+		result, err := c.getOpenIDIssuerConfig(profileID, profileVersion)
 		assert.NoError(t, err)
 		assert.Equal(t, expected.AuthorizationServer, result.AuthorizationServer)
 		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
@@ -1502,7 +1517,7 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 			profileSvc:      profileSvc,
 		}
 
-		result, err := c.getOpenIDIssuerConfig(profileID)
+		result, err := c.getOpenIDIssuerConfig(profileID, profileVersion)
 		assert.NoError(t, err)
 		assert.Equal(t, expected.AuthorizationServer, result.AuthorizationServer)
 		assert.Equal(t, expected.CredentialEndpoint, result.CredentialEndpoint)
@@ -1511,14 +1526,14 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 
 	t.Run("profile error", func(t *testing.T) {
 		svc := NewMockProfileService(gomock.NewController(t))
-		svc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("unexpected error"))
+		svc.EXPECT().GetProfile(profileID, profileVersion).Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{
 			externalHostURL: host + "/",
 			profileSvc:      svc,
 		}
 
-		result, err := c.getOpenIDIssuerConfig(profileID)
+		result, err := c.getOpenIDIssuerConfig(profileID, profileVersion)
 		assert.Nil(t, result)
 		assert.ErrorContains(t, err, "unexpected error")
 	})
@@ -1526,7 +1541,6 @@ func TestOpenIdIssuerConfiguration(t *testing.T) {
 
 func TestOpenIdConfiguration(t *testing.T) {
 	host := "https://localhost"
-	profileID := "123456"
 	expected := &WellKnownOpenIDConfiguration{
 		AuthorizationEndpoint:  "https://localhost/oidc/authorize",
 		ResponseTypesSupported: []string{"code"},
@@ -1534,7 +1548,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 	}
 
 	profileSvc := NewMockProfileService(gomock.NewController(t))
-	profileSvc.EXPECT().GetProfile(profileID).Return(&profileapi.Issuer{
+	profileSvc.EXPECT().GetProfile(profileID, profileVersion).Return(&profileapi.Issuer{
 		Name: "random_name",
 		VCConfig: &profileapi.VCConfig{
 			DIDMethod: "orb",
@@ -1555,7 +1569,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 			profileSvc:      profileSvc,
 		}
 
-		result, err := c.getOpenIDConfig(profileID)
+		result, err := c.getOpenIDConfig(profileID, profileVersion)
 		assert.NoError(t, err)
 		assert.Equal(t, expected.AuthorizationEndpoint, result.AuthorizationEndpoint)
 		assert.Equal(t, expected.TokenEndpoint, result.TokenEndpoint)
@@ -1567,7 +1581,7 @@ func TestOpenIdConfiguration(t *testing.T) {
 			profileSvc:      profileSvc,
 		}
 
-		result, err := c.getOpenIDConfig(profileID)
+		result, err := c.getOpenIDConfig(profileID, profileVersion)
 		assert.NoError(t, err)
 		assert.Equal(t, expected.AuthorizationEndpoint, result.AuthorizationEndpoint)
 		assert.Equal(t, expected.TokenEndpoint, result.TokenEndpoint)
@@ -1575,14 +1589,14 @@ func TestOpenIdConfiguration(t *testing.T) {
 
 	t.Run("profile error", func(t *testing.T) {
 		svc := NewMockProfileService(gomock.NewController(t))
-		svc.EXPECT().GetProfile(gomock.Any()).Return(nil, errors.New("unexpected error"))
+		svc.EXPECT().GetProfile(profileID, profileVersion).Return(nil, errors.New("unexpected error"))
 
 		c := &Controller{
 			externalHostURL: host + "/",
 			profileSvc:      svc,
 		}
 
-		result, err := c.getOpenIDConfig(profileID)
+		result, err := c.getOpenIDConfig(profileID, profileVersion)
 		assert.Nil(t, result)
 		assert.ErrorContains(t, err, "unexpected error")
 	})

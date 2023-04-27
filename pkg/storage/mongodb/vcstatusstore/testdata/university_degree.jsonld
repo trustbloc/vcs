@@ -19,7 +19,7 @@
     "id": "https://issuer-vcs.sandbox.trustbloc.dev/vc-issuer-test-2/status/1#0",
     "type": "StatusList2021Entry",
     "statusListIndex": "1",
-    "statusListCredential": "",
+    "statusListCredential": "https://issuer-vcs.sandbox.trustbloc.dev/vc-issuer-test-2/status/1",
     "statusPurpose": "2"
   },
   "credentialSubject": {

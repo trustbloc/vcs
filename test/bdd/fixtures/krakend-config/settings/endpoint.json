@@ -1,7 +1,7 @@
 {
   "profile": [
     {
-      "endpoint": "/issuer/profiles/{profileID}/credentials/issue",
+      "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/credentials/issue",
       "method": "POST",
       "protected": true,
       "input_headers": [
@@ -10,7 +10,7 @@
       ]
     },
     {
-      "endpoint": "/issuer/profiles/{profileID}/credentials/status",
+      "endpoint": "/issuer/credentials/status",
       "method": "POST",
       "protected": true,
       "input_headers": [
@@ -19,7 +19,7 @@
       ]
     },
     {
-      "endpoint": "/issuer/profiles/{profileID}/interactions/initiate-oidc",
+      "endpoint": "/issuer/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc",
       "method": "POST",
       "protected": true,
       "input_headers": [
@@ -40,7 +40,7 @@
       }
     },
     {
-      "endpoint": "/issuer/{profileID}/.well-known/openid-configuration",
+      "endpoint": "/issuer/{profileID}/{profileVersion}/.well-known/openid-configuration",
       "method": "GET",
       "input_query_strings": [
         "*"
@@ -52,7 +52,7 @@
       }
     },
     {
-      "endpoint": "/issuer/{profileID}/.well-known/openid-credential-issuer",
+      "endpoint": "/issuer/{profileID}/{profileVersion}/.well-known/openid-credential-issuer",
       "method": "GET",
       "input_query_strings": [
         "*"
@@ -104,7 +104,7 @@
       ]
     },
     {
-      "endpoint": "/verifier/profiles/{profileID}/credentials/verify",
+      "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/credentials/verify",
       "method": "POST",
       "protected": true,
       "input_headers": [
@@ -113,7 +113,7 @@
       ]
     },
     {
-      "endpoint": "/verifier/profiles/{profileID}/presentations/verify",
+      "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/presentations/verify",
       "method": "POST",
       "protected": true,
       "input_headers": [
@@ -122,7 +122,7 @@
       ]
     },
     {
-      "endpoint": "/verifier/profiles/{profileID}/interactions/initiate-oidc",
+      "endpoint": "/verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc",
       "method": "POST",
       "protected": true,
       "input_headers": [

@@ -22,8 +22,11 @@ import (
 	"github.com/trustbloc/vcs/test/bdd/pkg/v1/model"
 )
 
-func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, signatureRepresentation string) error {
-	if _, err := e.createCredential(credentialServiceURL, credential, vcFormat, profileName, organizationName, 0); err != nil {
+func (e *Steps) issueVC(credential, vcFormat, profileVersionedID, organizationName, signatureRepresentation string) error {
+	chunks := strings.Split(profileVersionedID, "/")
+	profileID, profileVersion := chunks[0], chunks[1]
+	if _, err := e.createCredential(credentialServiceURL,
+		credential, vcFormat, profileID, profileVersion, organizationName, 0); err != nil {
 		return err
 	}
 
@@ -52,14 +55,15 @@ func (e *Steps) issueVC(credential, vcFormat, profileName, organizationName, sig
 		checkProof = false
 	}
 
-	return e.checkVC(credBytes, profileName, signatureRepresentation, checkProof)
+	return e.checkVC(credBytes, profileVersionedID, signatureRepresentation, checkProof)
 }
 
 func (e *Steps) createCredential(
 	issueCredentialURL,
 	credential,
 	vcFormat,
-	profileName,
+	profileID,
+	profileVersion,
 	organizationName string,
 	didIndex int,
 ) (string, error) {
@@ -106,7 +110,7 @@ func (e *Steps) createCredential(
 		return cred.ID, err
 	}
 
-	endpointURL := fmt.Sprintf(issueCredentialURLFormat, issueCredentialURL, profileName)
+	endpointURL := fmt.Sprintf(issueCredentialURLFormat, issueCredentialURL, profileID, profileVersion)
 
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(requestBytes), e.tlsConfig)
@@ -132,8 +136,10 @@ func (e *Steps) createCredential(
 	return cred.ID, nil
 }
 
-func (e *Steps) verifyVC(profileName, organizationName string) error {
-	result, err := e.getVerificationResult(credentialServiceURL, profileName, organizationName)
+func (e *Steps) verifyVC(profileVersionedID, organizationName string) error {
+	chunks := strings.Split(profileVersionedID, "/")
+	profileID, profileVersion := chunks[0], chunks[1]
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, organizationName)
 	if err != nil {
 		return err
 	}
@@ -145,8 +151,10 @@ func (e *Steps) verifyVC(profileName, organizationName string) error {
 	return nil
 }
 
-func (e *Steps) verifyRevokedVC(profileName, organizationName string) error {
-	result, err := e.getVerificationResult(credentialServiceURL, profileName, organizationName)
+func (e *Steps) verifyRevokedVC(profileVersionedID, organizationName string) error {
+	chunks := strings.Split(profileVersionedID, "/")
+	profileID, profileVersion := chunks[0], chunks[1]
+	result, err := e.getVerificationResult(credentialServiceURL, profileID, profileVersion, organizationName)
 	if err != nil {
 		return err
 	}
@@ -166,8 +174,8 @@ func (e *Steps) verifyRevokedVC(profileName, organizationName string) error {
 	return nil
 }
 
-func (e *Steps) revokeVCWithError(profileName, organizationName string) error {
-	err := e.revokeVC(profileName, organizationName)
+func (e *Steps) revokeVCWithError(profileVersionedID, organizationName string) error {
+	err := e.revokeVC(profileVersionedID, organizationName)
 	if err == nil {
 		return fmt.Errorf("error expected, but got nil")
 	}
@@ -179,7 +187,9 @@ func (e *Steps) revokeVCWithError(profileName, organizationName string) error {
 	return nil
 }
 
-func (e *Steps) revokeVC(profileName, organizationName string) error {
+func (e *Steps) revokeVC(profileVersionedID, organizationName string) error {
+	chunks := strings.Split(profileVersionedID, "/")
+	profileID, profileVersion := chunks[0], chunks[1]
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return err
@@ -196,10 +206,12 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 	}
 
 	req := &model.UpdateCredentialStatusRequest{
-		CredentialID: cred.ID,
+		ProfileID:      profileID,
+		ProfileVersion: profileVersion,
+		CredentialID:   cred.ID,
 		CredentialStatus: model.CredentialStatus{
 			Status: "true",
-			Type:   string(e.bddContext.IssuerProfiles[profileName].VCConfig.Status.Type),
+			Type:   string(e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type),
 		},
 	}
 
@@ -208,7 +220,7 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 		return err
 	}
 
-	endpointURL := fmt.Sprintf(updateCredentialStatusURLFormat, credentialServiceURL, profileName)
+	endpointURL := fmt.Sprintf(updateCredentialStatusURLFormat, credentialServiceURL)
 
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
@@ -232,7 +244,7 @@ func (e *Steps) revokeVC(profileName, organizationName string) error {
 }
 
 func (e *Steps) getVerificationResult(
-	verifyCredentialURL, profileName, organizationName string) (*model.VerifyCredentialResponse, error) {
+	verifyCredentialURL, profileID, profileVersion, organizationName string) (*model.VerifyCredentialResponse, error) {
 	loader, err := bddutil.DocumentLoader()
 	if err != nil {
 		return nil, err
@@ -257,7 +269,7 @@ func (e *Steps) getVerificationResult(
 		return nil, err
 	}
 
-	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifyCredentialURL, profileName)
+	endpointURL := fmt.Sprintf(verifyCredentialURLFormat, verifyCredentialURL, profileID, profileVersion)
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	resp, err := bddutil.HTTPSDo(http.MethodPost, endpointURL, "application/json", token, //nolint: bodyclose
 		bytes.NewBuffer(reqBytes), e.tlsConfig)
@@ -285,19 +297,19 @@ func (e *Steps) getVerificationResult(
 	return payload, nil
 }
 
-func (e *Steps) checkVC(vcBytes []byte, profileName, signatureRepresentation string, checkProof bool) error {
+func (e *Steps) checkVC(vcBytes []byte, profileVersionedID, signatureRepresentation string, checkProof bool) error {
 	vcMap, err := getVCMap(vcBytes)
 	if err != nil {
 		return err
 	}
 
-	expectedStatusType := e.bddContext.IssuerProfiles[profileName].VCConfig.Status.Type
+	expectedStatusType := e.bddContext.IssuerProfiles[profileVersionedID].VCConfig.Status.Type
 	err = checkCredentialStatusType(vcMap, string(expectedStatusType))
 	if err != nil {
 		return err
 	}
 
-	err = checkIssuer(vcMap, profileName)
+	err = checkIssuer(vcMap, strings.Split(profileVersionedID, "/")[0])
 	if err != nil {
 		return err
 	}

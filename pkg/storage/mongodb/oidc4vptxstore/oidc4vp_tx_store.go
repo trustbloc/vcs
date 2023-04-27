@@ -30,6 +30,7 @@ const (
 type txDocument struct {
 	ID                     primitive.ObjectID     `bson:"_id,omitempty"`
 	ProfileID              string                 `bson:"profileIDID"`
+	ProfileVersion         string                 `bson:"profileVersion"`
 	PresentationDefinition map[string]interface{} `bson:"presentationDefinition"`
 	ReceivedClaimsID       string                 `bson:"receivedClaimsID"`
 	ExpireAt               time.Time              `bson:"expire_at"`
@@ -80,7 +81,7 @@ func (p *TxStore) migrate(ctx context.Context) error {
 }
 
 // Create creates transaction document in a database.
-func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) (oidc4vp.TxID,
+func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID, profileVersion string) (oidc4vp.TxID,
 	*oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
@@ -95,6 +96,7 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) 
 	txDoc := &txDocument{
 		ExpireAt:               time.Now().Add(p.ttl),
 		ProfileID:              profileID,
+		ProfileVersion:         profileVersion,
 		PresentationDefinition: pdContent,
 	}
 
@@ -115,7 +117,7 @@ func (p *TxStore) Create(pd *presexch.PresentationDefinition, profileID string) 
 	return oidc4vp.TxID(txID.Hex()), tx, nil
 }
 
-// Get profile by give id.
+// Get oidc4vp.Transaction by given strID.
 func (p *TxStore) Get(strID oidc4vp.TxID) (*oidc4vp.Transaction, error) {
 	ctxWithTimeout, cancel := p.mongoClient.ContextWithTimeout()
 	defer cancel()
@@ -197,6 +199,7 @@ func txFromDocument(txDoc *txDocument) (*oidc4vp.Transaction, error) {
 	return &oidc4vp.Transaction{
 		ID:                     oidc4vp.TxID(txDoc.ID.Hex()),
 		ProfileID:              txDoc.ProfileID,
+		ProfileVersion:         txDoc.ProfileVersion,
 		PresentationDefinition: pd,
 		ReceivedClaimsID:       txDoc.ReceivedClaimsID,
 	}, nil

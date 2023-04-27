@@ -91,11 +91,11 @@ type VPTokenClaims struct {
 	Iss   string                   `json:"iss"`
 }
 
-func (e *Steps) initiateInteraction(profileName, organizationName string) error {
-	return e.initiateInteractionHelper(profileName, organizationName, nil)
+func (e *Steps) initiateInteraction(profileVersionedID, organizationName string) error {
+	return e.initiateInteractionHelper(profileVersionedID, organizationName, nil)
 }
 
-func (e *Steps) initiateInteractionWithFields(profileName, organizationName, fields string) error {
+func (e *Steps) initiateInteractionWithFields(profileVersionedID, organizationName, fields string) error {
 	fieldsArr := strings.Split(fields, ",")
 
 	reqBody, err := json.Marshal(&initiateOIDC4VPData{
@@ -107,10 +107,10 @@ func (e *Steps) initiateInteractionWithFields(profileName, organizationName, fie
 		return err
 	}
 
-	return e.initiateInteractionHelper(profileName, organizationName, bytes.NewReader(reqBody))
+	return e.initiateInteractionHelper(profileVersionedID, organizationName, bytes.NewReader(reqBody))
 }
 
-func (e *Steps) initiateInteractionHelper(profileName, organizationName string, body io.Reader) error {
+func (e *Steps) initiateInteractionHelper(profileVersionedID, organizationName string, body io.Reader) error {
 	e.vpFlowExecutor = &VPFlowExecutor{
 		tlsConfig:      e.tlsConfig,
 		ariesServices:  e.ariesServices,
@@ -142,7 +142,13 @@ func (e *Steps) initiateInteractionHelper(profileName, organizationName string, 
 	e.vpFlowExecutor.jSONLDDocumentLoader = loader
 
 	token := e.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	return e.vpFlowExecutor.initiateInteraction(profileName, token, body)
+
+	chunks := strings.Split(profileVersionedID, "/")
+	if len(chunks) != 2 {
+		return errors.New("initiateInteraction - invalid profileVersionedID field")
+	}
+
+	return e.vpFlowExecutor.initiateInteraction(chunks[0], chunks[1], token, body)
 }
 
 func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {

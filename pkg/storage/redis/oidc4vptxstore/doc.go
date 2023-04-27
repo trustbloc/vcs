@@ -15,6 +15,7 @@ import (
 
 type txDocument struct {
 	ProfileID              string                           `json:"profileId"`
+	ProfileVersion         string                           `json:"profileVersion"`
 	ReceivedClaimsID       string                           `json:"receivedClaimsId,omitempty"`
 	PresentationDefinition *presexch.PresentationDefinition `json:"presentationDefinition"`
 	ExpireAt               time.Time                        `json:"expireAt"`

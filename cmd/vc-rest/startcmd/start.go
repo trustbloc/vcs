@@ -121,7 +121,7 @@ const (
 	defaultHealthCheckTimeout       = 5 * time.Second
 	cslSize                         = 10000
 	devApiRequestObjectEndpoint     = "/request-object/:uuid"
-	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/well-known/did-config"
+	devApiDidConfigEndpoint         = "/:profileType/profiles/:profileID/:profileVersion/well-known/did-config"
 	logLevelsEndpoint               = "/loglevels"
 	profilerEndpoints               = "/debug/pprof"
 	versionEndpoint                 = "/version/system"

@@ -569,8 +569,8 @@ func newMockVCStatusStore() *mockVCStore {
 	}
 }
 
-func (m *mockVCStore) Get(ctx context.Context, testProfile, vcID string) (*verifiable.TypedID, error) {
-	v, ok := m.s[fmt.Sprintf("%s_%s", testProfile, vcID)]
+func (m *mockVCStore) Get(ctx context.Context, profileID, profileVersion, vcID string) (*verifiable.TypedID, error) {
+	v, ok := m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, vcID)]
 	if !ok {
 		return nil, errors.New("data not found")
 	}
@@ -578,12 +578,13 @@ func (m *mockVCStore) Get(ctx context.Context, testProfile, vcID string) (*verif
 	return v, nil
 }
 
-func (m *mockVCStore) Put(ctx context.Context, testProfile, vcID string, typedID *verifiable.TypedID) error {
+func (m *mockVCStore) Put(
+	_ context.Context, profileID, profileVersion, vcID string, typedID *verifiable.TypedID) error {
 	if m.putErr != nil {
 		return m.putErr
 	}
 
-	m.s[fmt.Sprintf("%s_%s", testProfile, vcID)] = typedID
+	m.s[fmt.Sprintf("%s_%s_%s", profileID, profileVersion, vcID)] = typedID
 	return nil
 }
 

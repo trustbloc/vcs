@@ -91,7 +91,7 @@ type kmsRegistry interface {
 }
 
 type profileService interface {
-	GetProfile(profileID profileapi.ID) (*profileapi.Verifier, error)
+	GetProfile(profileID profileapi.ID, profileVersion profileapi.Version) (*profileapi.Verifier, error)
 }
 
 type verifyCredentialSvc interface {
@@ -165,8 +165,8 @@ func NewController(config *Config) *Controller {
 }
 
 // PostVerifyCredentials Verify credential
-// (POST /verifier/profiles/{profileID}/credentials/verify).
-func (c *Controller) PostVerifyCredentials(e echo.Context, profileID string) error {
+// (POST /verifier/profiles/{profileID}/{profileVersion}/credentials/verify).
+func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVersion string) error {
 	logger.Debug("PostVerifyCredentials begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "PostVerifyCredentials")
@@ -185,7 +185,7 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID string) err
 		return err
 	}
 
-	resp, err := c.verifyCredential(ctx, &body, profileID, tenantID)
+	resp, err := c.verifyCredential(ctx, &body, profileID, profileVersion, tenantID)
 	if err != nil {
 		return err
 	}
@@ -197,9 +197,10 @@ func (c *Controller) verifyCredential(
 	ctx context.Context,
 	body *VerifyCredentialData,
 	profileID string,
+	profileVersion string,
 	tenantID string,
 ) (*VerifyCredentialResponse, error) {
-	profile, err := c.accessProfile(profileID, tenantID)
+	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -231,8 +232,8 @@ func (c *Controller) verifyCredential(
 }
 
 // PostVerifyPresentation Verify presentation.
-// (POST /verifier/profiles/{profileID}/presentations/verify).
-func (c *Controller) PostVerifyPresentation(e echo.Context, profileID string) error {
+// (POST /verifier/profiles/{profileID}/{profileVersion}/presentations/verify).
+func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVersion string) error {
 	logger.Debug("PostVerifyPresentation begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "PostVerifyPresentation")
@@ -251,7 +252,7 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID string) er
 		return err
 	}
 
-	resp, err := c.verifyPresentation(ctx, &body, profileID, tenantID)
+	resp, err := c.verifyPresentation(ctx, &body, profileID, profileVersion, tenantID)
 	if err != nil {
 		return err
 	}
@@ -260,8 +261,8 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID string) er
 }
 
 func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresentationData,
-	profileID, tenantID string) (*VerifyPresentationResponse, error) {
-	profile, err := c.accessProfile(profileID, tenantID)
+	profileID, profileVersion, tenantID string) (*VerifyPresentationResponse, error) {
+	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +287,9 @@ func (c *Controller) verifyPresentation(ctx context.Context, body *VerifyPresent
 	return mapVerifyPresentationChecks(verRes), nil
 }
 
-func (c *Controller) InitiateOidcInteraction(e echo.Context, profileID string) error {
+// InitiateOidcInteraction initiates OpenID presentation flow through VCS.
+// POST /verifier/profiles/{profileID}/{profileVersion}/interactions/initiate-oidc.
+func (c *Controller) InitiateOidcInteraction(e echo.Context, profileID, profileVersion string) error {
 	logger.Debug("InitiateOidcInteraction begin")
 
 	ctx, span := c.tracer.Start(e.Request().Context(), "InitiateOidcInteraction")
@@ -297,7 +300,7 @@ func (c *Controller) InitiateOidcInteraction(e echo.Context, profileID string) e
 		return err
 	}
 
-	profile, err := c.accessProfile(profileID, tenantID)
+	profile, err := c.accessProfile(profileID, profileVersion, tenantID)
 	if err != nil {
 		return err
 	}
@@ -412,6 +415,8 @@ func matchField(ids []string, target string) (bool, error) {
 	return false, nil
 }
 
+// CheckAuthorizationResponse is used by verifier applications to initiate OpenID presentation flow through VCS.
+// (POST /verifier/interactions/authorization-response).
 func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 	logger.Debug("CheckAuthorizationResponse begin")
 	startTime := time.Now()
@@ -444,6 +449,8 @@ func (c *Controller) CheckAuthorizationResponse(e echo.Context) error {
 	return nil
 }
 
+// RetrieveInteractionsClaim is used by verifier applications to get claims obtained during oidc4vp interaction.
+// (GET /verifier/interactions/{txID}/claim).
 func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) error {
 	logger.Debug("RetrieveInteractionsClaim begin")
 
@@ -462,7 +469,7 @@ func (c *Controller) RetrieveInteractionsClaim(e echo.Context, txID string) erro
 		return err
 	}
 
-	_, err = c.accessProfile(tx.ProfileID, tenantID)
+	_, err = c.accessProfile(tx.ProfileID, tx.ProfileVersion, tenantID)
 	if err != nil {
 		return err
 	}
@@ -727,8 +734,8 @@ func decodeFormValue(output *string, valName string, values url.Values) error {
 	return nil
 }
 
-func (c *Controller) accessProfile(profileID string, tenantID string) (*profileapi.Verifier, error) {
-	profile, err := c.profileSvc.GetProfile(profileID)
+func (c *Controller) accessProfile(profileID, profileVersion, tenantID string) (*profileapi.Verifier, error) {
+	profile, err := c.profileSvc.GetProfile(profileID, profileVersion)
 	if err != nil {
 		if strings.Contains(err.Error(), "data not found") {
 			return nil, resterr.NewValidationError(resterr.DoesntExist, "profile",

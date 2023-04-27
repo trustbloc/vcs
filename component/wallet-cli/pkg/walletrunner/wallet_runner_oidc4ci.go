@@ -183,7 +183,7 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 }
 
 func (s *Service) getIssuerOIDCConfig(issuerURL string) (*issuerv1.WellKnownOpenIDConfiguration, error) {
-	// GET /issuer/{profileID}/.well-known/openid-configuration
+	// GET /issuer/{profileID}/{profileVersion}/.well-known/openid-configuration
 	resp, err := s.httpClient.Get(issuerURL + "/.well-known/openid-configuration")
 	if err != nil {
 		return nil, fmt.Errorf("get issuer well-known: %w", err)
