@@ -763,7 +763,7 @@ func findPresentationDefinition(profile *profileapi.Verifier,
 	pdExternalID string) (*presexch.PresentationDefinition, error) {
 	pds := profile.PresentationDefinitions
 
-	if pdExternalID == "" && len(pds) > 0 {
+	if pdExternalID == "" && len(pds) == 1 {
 		return pds[0], nil
 	}
 
@@ -772,7 +772,8 @@ func findPresentationDefinition(profile *profileapi.Verifier,
 			return pd, nil
 		}
 	}
-	return nil, fmt.Errorf("presentation definition not found for profile with id=%s", profile.ID)
+
+	return nil, fmt.Errorf("presentation definition id=%s not found for profile with id=%s", pdExternalID, profile.ID)
 }
 
 func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerificationCheckResult) *VerifyCredentialResponse {
