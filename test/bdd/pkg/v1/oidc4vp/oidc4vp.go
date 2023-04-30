@@ -157,7 +157,7 @@ func (e *Steps) verifyAuthorizationRequestAndDecodeClaims() error {
 		return err
 	}
 
-	_, err = e.waitForEvent("oidc_interaction_qr_scanned")
+	_, err = e.waitForEvent("verifier.oidc-interaction-qr-scanned.v1")
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (e *Steps) sendAuthorizedResponse() error {
 }
 
 func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
-	txID, err := e.waitForEvent("oidc_interaction_succeeded")
+	txID, err := e.waitForEvent("verifier.oidc-interaction-succeeded.v1")
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (e *Steps) retrieveInteractionsClaim(organizationName string) error {
 }
 
 func (e *Steps) waitForOIDCInteractionSucceededEvent(organizationName string) error {
-	txID, err := e.waitForEvent("oidc_interaction_succeeded")
+	txID, err := e.waitForEvent("verifier.oidc-interaction-succeeded.v1")
 	if err != nil {
 		return err
 	}
