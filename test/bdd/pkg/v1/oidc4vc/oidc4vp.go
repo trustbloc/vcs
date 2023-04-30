@@ -74,7 +74,7 @@ func (s *Steps) fetchRequestObjectAndDecodeClaims() error {
 		return err
 	}
 
-	_, err = s.waitForEvent("oidc_interaction_qr_scanned")
+	_, err = s.waitForEvent("verifier.oidc-interaction-qr-scanned.v1")
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (s *Steps) sendAuthorizedResponse() error {
 }
 
 func (s *Steps) retrieveInteractionsClaim(organizationName string) error {
-	txID, err := s.waitForEvent("oidc_interaction_succeeded")
+	txID, err := s.waitForEvent("verifier.oidc-interaction-succeeded.v1")
 	if err != nil {
 		return err
 	}
