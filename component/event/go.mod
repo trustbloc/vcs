@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/event
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.2.1-0.20230425184546-a8b546e29100
+	github.com/hyperledger/aries-framework-go v0.2.1-0.20230501135648-a9a7ad029347
 	github.com/piprate/json-gold v0.4.2
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
@@ -66,10 +66,11 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230420151605-a45b1b02336f // indirect
-	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230417184158-344a7f82c4c2 // indirect
-	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20220610133818-119077b0ec85 // indirect
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230417184158-344a7f82c4c2 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
