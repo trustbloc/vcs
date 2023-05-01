@@ -17,6 +17,7 @@ Feature: Using VC REST API
     And   V1 verifiable credential is verified under "<verifierProfile>" profile for organization "<organization>"
     Then   V1 "<wrongIssuerProfile>" did unsuccessful attempt to revoke credential for organization "<organization>"
     Then   V1 verifiable credential is successfully revoked under "<issuerProfile>" profile for organization "<organization>"
+    Then we wait 3 seconds
     And   V1 verifiable credential is unable to be verified under "<verifierProfile>" profile for organization "<organization>"
 
     Examples:
