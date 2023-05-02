@@ -32,6 +32,7 @@ type mongoDocument struct {
 
 	OpState                            string `bson:"opState,omitempty"`
 	ProfileID                          string
+	ProfileVersion                     string
 	OrgID                              string
 	CredentialTemplate                 *profileapi.CredentialTemplate
 	CredentialFormat                   vcsverifiable.Format
@@ -200,6 +201,7 @@ func (s *Store) mapTransactionDataToMongoDocument(data *oidc4ci.TransactionData)
 		ExpireAt:                           time.Now().UTC().Add(s.ttl),
 		OpState:                            data.OpState,
 		ProfileID:                          data.ProfileID,
+		ProfileVersion:                     data.ProfileVersion,
 		OrgID:                              data.OrgID,
 		CredentialTemplate:                 data.CredentialTemplate,
 		CredentialFormat:                   data.CredentialFormat,
@@ -235,6 +237,7 @@ func mapDocumentToTransaction(doc *mongoDocument) *oidc4ci.Transaction {
 		ID: oidc4ci.TxID(doc.ID.Hex()),
 		TransactionData: oidc4ci.TransactionData{
 			ProfileID:                          doc.ProfileID,
+			ProfileVersion:                     doc.ProfileVersion,
 			OrgID:                              doc.OrgID,
 			CredentialTemplate:                 doc.CredentialTemplate,
 			CredentialFormat:                   doc.CredentialFormat,
