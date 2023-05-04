@@ -46,3 +46,8 @@ type PerCredentialData struct {
 	Metrics map[string]string `json:"metrics"`
 	Error   string            `json:"error"`
 }
+
+// initiateOIDC4VPData defines model for InitiateOIDC4VPData.
+type initiateOIDC4VPData struct {
+	PresentationDefinitionId *string `json:"presentationDefinitionId,omitempty"`
+}

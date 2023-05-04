@@ -25,35 +25,39 @@ import (
 )
 
 type TestCase struct {
-	walletRunner          *walletrunner.Service
-	httpClient            *http.Client
-	vcsAPIURL             string
-	issuerProfileID       string
-	issuerProfileVersion  string
-	verifierProfileID     string
-	credentialTemplateID  string
-	credentialType        string
-	credentialFormat      string
-	token                 string
-	claimData             map[string]interface{}
-	disableRevokeTestCase bool
-	disableVPTestCase     bool
+	walletRunner           *walletrunner.Service
+	httpClient             *http.Client
+	vcsAPIURL              string
+	issuerProfileID        string
+	issuerProfileVersion   string
+	verifierProfileID      string
+	verifierProfileVersion string
+	credentialTemplateID   string
+	credentialType         string
+	credentialFormat       string
+	token                  string
+	claimData              map[string]interface{}
+	disableRevokeTestCase  bool
+	disableVPTestCase      bool
+	verifierPresentationID string
 }
 
 type TestCaseOptions struct {
-	vcProviderOptions     []vcprovider.ConfigOption
-	httpClient            *http.Client
-	vcsAPIURL             string
-	issuerProfileID       string
-	issuerProfileVersion  string
-	verifierProfileID     string
-	credentialTemplateID  string
-	credentialType        string
-	credentialFormat      string
-	token                 string
-	claimData             map[string]interface{}
-	disableRevokeTestCase bool
-	disableVPTestCase     bool
+	vcProviderOptions      []vcprovider.ConfigOption
+	httpClient             *http.Client
+	vcsAPIURL              string
+	issuerProfileID        string
+	issuerProfileVersion   string
+	verifierProfileID      string
+	credentialTemplateID   string
+	credentialType         string
+	credentialFormat       string
+	token                  string
+	claimData              map[string]interface{}
+	disableRevokeTestCase  bool
+	disableVPTestCase      bool
+	verifierProfileVersion string
+	verifierPresentationID string
 }
 
 type TestCaseOption func(opts *TestCaseOptions)
@@ -94,19 +98,21 @@ func NewTestCase(options ...TestCaseOption) (*TestCase, error) {
 	}
 
 	return &TestCase{
-		walletRunner:          runner,
-		httpClient:            opts.httpClient,
-		vcsAPIURL:             opts.vcsAPIURL,
-		issuerProfileID:       opts.issuerProfileID,
-		issuerProfileVersion:  opts.issuerProfileVersion,
-		verifierProfileID:     opts.verifierProfileID,
-		credentialTemplateID:  opts.credentialTemplateID,
-		credentialType:        opts.credentialType,
-		credentialFormat:      opts.credentialFormat,
-		token:                 opts.token,
-		claimData:             opts.claimData,
-		disableRevokeTestCase: opts.disableRevokeTestCase,
-		disableVPTestCase:     opts.disableVPTestCase,
+		walletRunner:           runner,
+		httpClient:             opts.httpClient,
+		vcsAPIURL:              opts.vcsAPIURL,
+		issuerProfileID:        opts.issuerProfileID,
+		issuerProfileVersion:   opts.issuerProfileVersion,
+		verifierProfileID:      opts.verifierProfileID,
+		verifierProfileVersion: opts.verifierProfileVersion,
+		credentialTemplateID:   opts.credentialTemplateID,
+		credentialType:         opts.credentialType,
+		credentialFormat:       opts.credentialFormat,
+		token:                  opts.token,
+		claimData:              opts.claimData,
+		disableRevokeTestCase:  opts.disableRevokeTestCase,
+		disableVPTestCase:      opts.disableVPTestCase,
+		verifierPresentationID: opts.verifierPresentationID,
 	}, nil
 }
 
@@ -149,6 +155,18 @@ func WithIssuerProfileID(issuerProfileID string) TestCaseOption {
 func WithIssuerProfileVersion(issuerProfileVersion string) TestCaseOption {
 	return func(opts *TestCaseOptions) {
 		opts.issuerProfileVersion = issuerProfileVersion
+	}
+}
+
+func WithVerifierProfileVersion(verifierProfileVersion string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.verifierProfileVersion = verifierProfileVersion
+	}
+}
+
+func WithVerifierPresentationID(presentationID string) TestCaseOption {
+	return func(opts *TestCaseOptions) {
+		opts.verifierPresentationID = presentationID
 	}
 }
 
@@ -345,13 +363,24 @@ func (c *TestCase) fetchCredentialOfferURL() (string, string, error) {
 }
 
 func (c *TestCase) fetchAuthorizationRequest() (string, error) {
+	reqData := initiateOIDC4VPData{}
+	if c.verifierPresentationID != "" {
+		reqData.PresentationDefinitionId = &c.verifierPresentationID
+	}
+	data, err := json.Marshal(reqData)
+	if err != nil {
+		return "", err
+	}
+
 	req, err := http.NewRequest(http.MethodPost,
 		fmt.Sprintf(
 			"%s/verifier/profiles/%s/%s/interactions/initiate-oidc",
 			c.vcsAPIURL,
 			c.verifierProfileID,
+			c.verifierProfileVersion,
 		),
-		http.NoBody)
+		bytes.NewBuffer(data),
+	)
 	if err != nil {
 		return "", fmt.Errorf("create initiate oidc4vp request: %w", err)
 	}
@@ -373,9 +402,15 @@ func (c *TestCase) fetchAuthorizationRequest() (string, error) {
 		}()
 	}
 
+	respData, _ := io.ReadAll(resp.Body) //nolint
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unexpected http status for fetchAuthorizationRequest. got %v and %v",
+			resp.StatusCode, string(respData))
+	}
+
 	var parsedResp initiateOIDC4VPResponse
 
-	if err = json.NewDecoder(resp.Body).Decode(&parsedResp); err != nil {
+	if err = json.Unmarshal(respData, &parsedResp); err != nil {
 		return "", fmt.Errorf("decode initiate oidc4vp response: %w", err)
 	}
 
