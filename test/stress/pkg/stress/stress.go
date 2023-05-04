@@ -26,21 +26,23 @@ type Run struct {
 }
 
 type Config struct {
-	TLSConfig            *tls.Config            `json:"-"`
-	ApiURL               string                 `json:"api_url"`
-	TokenClientID        string                 `json:"token_client_id"`
-	TokenClientSecret    string                 `json:"token_client_secret"`
-	UserCount            int                    `json:"user_count"`
-	ConcurrentRequests   int                    `json:"concurrent_requests"`
-	IssuerProfileID      string                 `json:"issuer_profile_id"`
-	IssuerProfileVersion string                 `json:"issuer_profile_version"`
-	VerifierProfileID    string                 `json:"verifier_profile_id"`
-	CredentialTemplateID string                 `json:"credential_template_id"`
-	CredentialType       string                 `json:"credential_type"`
-	ClaimData            map[string]interface{} `json:"claim_data"`
-	DisableRevokeTest    bool                   `json:"disable_revoke_test"`
-	Detailed             bool                   `json:"detailed"`
-	DisableVPTest        bool                   `json:"disable_vp_test"`
+	TLSConfig              *tls.Config            `json:"-"`
+	ApiURL                 string                 `json:"api_url"`
+	TokenClientID          string                 `json:"token_client_id"`
+	TokenClientSecret      string                 `json:"token_client_secret"`
+	UserCount              int                    `json:"user_count"`
+	ConcurrentRequests     int                    `json:"concurrent_requests"`
+	IssuerProfileID        string                 `json:"issuer_profile_id"`
+	IssuerProfileVersion   string                 `json:"issuer_profile_version"`
+	VerifierProfileID      string                 `json:"verifier_profile_id"`
+	CredentialTemplateID   string                 `json:"credential_template_id"`
+	CredentialType         string                 `json:"credential_type"`
+	ClaimData              map[string]interface{} `json:"claim_data"`
+	DisableRevokeTest      bool                   `json:"disable_revoke_test"`
+	Detailed               bool                   `json:"detailed"`
+	DisableVPTest          bool                   `json:"disable_vp_test"`
+	VerifierProfileVersion string                 `json:"verifier_profile_version"`
+	VerifierPresentationID string                 `json:"verifier_presentation_id"`
 }
 
 func NewStressRun(
@@ -122,7 +124,9 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 			WithVCSAPIURL(vcsAPIURL),
 			WithIssuerProfileID(r.cfg.IssuerProfileID),
 			WithIssuerProfileVersion(r.cfg.IssuerProfileVersion),
+			WithVerifierProfileVersion(r.cfg.VerifierProfileVersion),
 			WithVerifierProfileID(r.cfg.VerifierProfileID),
+			WithVerifierPresentationID(r.cfg.VerifierPresentationID),
 			WithCredentialTemplateID(r.cfg.CredentialTemplateID),
 			WithHTTPClient(httpClient),
 			WithCredentialType(r.cfg.CredentialType),
