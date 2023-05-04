@@ -22,7 +22,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.2.1-0.20230501135648-a9a7ad029347
+	github.com/hyperledger/aries-framework-go v0.3.0
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
@@ -34,7 +34,7 @@ require (
 	github.com/ory/fosite v0.43.0
 	github.com/ory/x v0.0.487
 	github.com/pborman/uuid v1.2.1
-	github.com/piprate/json-gold v0.4.2
+	github.com/piprate/json-gold v0.5.0
 	github.com/prometheus/client_golang v1.11.0
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.2
 	github.com/redis/go-redis/v9 v9.0.3
@@ -118,7 +118,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect

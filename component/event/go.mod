@@ -6,13 +6,13 @@ module github.com/trustbloc/vcs/component/event
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.2.1-0.20230501135648-a9a7ad029347
-	github.com/piprate/json-gold v0.4.2
+	github.com/hyperledger/aries-framework-go v0.3.0
+	github.com/piprate/json-gold v0.5.0
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.2
-	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/logutil-go v1.0.0-rc1
+	github.com/trustbloc/cmdutil-go v1.0.0
+	github.com/trustbloc/logutil-go v1.0.0
 	github.com/trustbloc/vcs v0.0.0
 	go.opentelemetry.io/otel/trace v1.14.0
 )
@@ -68,7 +68,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
