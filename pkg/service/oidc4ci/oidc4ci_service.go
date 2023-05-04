@@ -462,7 +462,7 @@ func (s *Service) createEvent(
 		return nil, err
 	}
 
-	event := spi.NewEventWithPayload(uuid.NewString(), "oidc4ci", eventType, payload)
+	event := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/issuer", eventType, payload)
 	event.TransactionID = string(tx.ID)
 
 	return event, nil

@@ -36,7 +36,7 @@ import (
 
 const (
 	cslRequestTokenName         = "csl"
-	credentialStatusEventSource = "credentialstatus"
+	credentialStatusEventSource = "source://vcs/status" //nolint:gosec
 )
 
 var logger = log.New("credentialstatus")

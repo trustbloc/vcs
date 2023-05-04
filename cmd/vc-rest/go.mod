@@ -13,7 +13,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/globocom/echo-prometheus v0.1.2
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.2.1-0.20230501135648-a9a7ad029347
+	github.com/hyperledger/aries-framework-go v0.3.0
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c
@@ -25,9 +25,9 @@ require (
 	github.com/sevenNt/echo-pprof v0.1.1-0.20230131020615-4dd36891e14b
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.2
-	github.com/trustbloc/cmdutil-go v0.0.0-20221125151303-09d42adcc811
-	github.com/trustbloc/logutil-go v1.0.0-rc1
-	github.com/trustbloc/vcs v0.1.8
+	github.com/trustbloc/cmdutil-go v1.0.0
+	github.com/trustbloc/logutil-go v1.0.0
+	github.com/trustbloc/vcs v0.0.0
 	github.com/trustbloc/vcs/component/credentialstatus v0.0.0-00010101000000-000000000000a
 	github.com/trustbloc/vcs/component/event v0.0.0-00010101000000-000000000000
 	github.com/trustbloc/vcs/component/healthchecks v0.0.0-00010101000000-000000000000
@@ -117,7 +117,7 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect

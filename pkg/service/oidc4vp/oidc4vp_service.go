@@ -191,7 +191,7 @@ func (s *Service) createEvent(tx *Transaction, profile *profileapi.Verifier,
 		return nil, err
 	}
 
-	event := spi.NewEventWithPayload(uuid.NewString(), profile.URL, eventType, payload)
+	event := spi.NewEventWithPayload(uuid.NewString(), "source://vcs/verifier", eventType, payload)
 	event.TransactionID = string(tx.ID)
 
 	return event, nil
