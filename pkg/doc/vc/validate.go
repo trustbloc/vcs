@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -24,6 +25,8 @@ const (
 	// https://www.w3.org/TR/vc-data-model/#base-context
 	baseContext = "https://www.w3.org/2018/credentials/v1"
 )
+
+var logger = log.New("vc")
 
 func ValidateCredential(
 	cred interface{},
@@ -48,7 +51,9 @@ func ValidateCredential(
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
 			errors.New("credential expired"))
 	}
-
+	panic(enforceStrictValidation)
+	logger.Info("enforceStrictValidation", log.WithID(
+		fmt.Sprintf("%t %t", enforceStrictValidation, isJWT(cred))))
 	// Due to the current implementation in AFGO (func verifiable.ParseCredential()),
 	// strict credential validation can only be applied to LDP or unsecured JWT.
 	// Means, that in case first argument in verifiable.ParseCredential() is a JWS -
@@ -95,6 +100,8 @@ func validateCredentialClaims(credential *verifiable.Credential, documentLoader 
 	if err != nil {
 		return fmt.Errorf("unable to marshal credential: %w", err)
 	}
+
+	logger.Info("validateCredentialClaims", log.WithID(string(credentialBytes)))
 
 	err = docjsonld.ValidateJSONLD(string(credentialBytes),
 		docjsonld.WithDocumentLoader(documentLoader),
