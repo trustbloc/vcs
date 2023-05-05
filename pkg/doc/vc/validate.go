@@ -113,6 +113,6 @@ func isJWT(cred interface{}) bool {
 		str = string(v)
 		isStr = true
 	}
-	
+
 	return isStr && (jwt.IsJWTUnsecured(str) || jwt.IsJWS(str))
 }

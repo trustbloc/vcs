@@ -64,7 +64,7 @@ func New(config *Config) *Service {
 
 var logger = log.New("verify-presentation")
 
-func (s *Service) VerifyPresentation(
+func (s *Service) VerifyPresentation( //nolint:gocognit
 	ctx context.Context,
 	presentation *verifiable.Presentation,
 	opts *Options,
