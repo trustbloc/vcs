@@ -632,6 +632,12 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			errors.New("credentials should not be nil"))
 	}
 
+	_, err = c.parseCredential( // todo we dont need parse. refactor to properly check claims data structure.
+		result.Credential, result.EnforceStrictValidation, profile.VCConfig.Format)
+	if err != nil {
+		return err
+	}
+
 	signedCredential, err := c.signCredential(ctx, result.Credential, nil, profile)
 	if err != nil {
 		return err
