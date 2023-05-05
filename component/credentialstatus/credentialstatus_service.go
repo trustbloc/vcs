@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
@@ -361,7 +362,7 @@ func (s *Service) createStatusUpdatedEvent(
 	}
 
 	return spi.NewEventWithPayload(
-		cslURL,
+		uuid.NewString(),
 		credentialStatusEventSource,
 		spi.CredentialStatusStatusUpdated,
 		payload), nil
