@@ -178,7 +178,7 @@ func (c *Controller) PostVerifyCredentials(e echo.Context, profileID, profileVer
 		return err
 	}
 
-	span.SetAttributes(attributeutil.JSON("verify_credential_request", body))
+	span.SetAttributes(attributeutil.JSON("verify_credential_request", body, attributeutil.WithRedacted("credential")))
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
@@ -245,7 +245,8 @@ func (c *Controller) PostVerifyPresentation(e echo.Context, profileID, profileVe
 		return err
 	}
 
-	span.SetAttributes(attributeutil.JSON("verify_presentation_request", body))
+	span.SetAttributes(attributeutil.JSON("verify_presentation_request", body,
+		attributeutil.WithRedacted("presentation")))
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {

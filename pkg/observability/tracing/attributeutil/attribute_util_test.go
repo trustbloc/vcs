@@ -35,6 +35,24 @@ func TestJSON(t *testing.T) {
 			want: attribute.KeyValue{Key: attribute.Key("key"), Value: attribute.StringValue(`{"foo":"[REDACTED]"}`)},
 		},
 		{
+			name: "nested bar redacted",
+			val:  map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
+			opts: []attributeutil.Opt{attributeutil.WithRedacted("foo.bar")},
+			want: attribute.KeyValue{Key: attribute.Key("key"), Value: attribute.StringValue(`{"foo":{"bar":"[REDACTED]"}}`)}, //nolint:lll
+		},
+		{
+			name: "foo redacted in array",
+			val:  []map[string]interface{}{{"foo": "bar"}, {"foo": "baz"}},
+			opts: []attributeutil.Opt{attributeutil.WithRedacted("#.foo")},
+			want: attribute.KeyValue{Key: attribute.Key("key"), Value: attribute.StringValue(`[{"foo":"[REDACTED]"},{"foo":"[REDACTED]"}]`)}, //nolint:lll
+		},
+		{
+			name: "path not found",
+			val:  map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
+			opts: []attributeutil.Opt{attributeutil.WithRedacted("foo.missing")},
+			want: attribute.KeyValue{Key: attribute.Key("key"), Value: attribute.StringValue(`{"foo":{"bar":"baz"}}`)},
+		},
+		{
 			name: "nil value",
 			val:  nil,
 			opts: nil,

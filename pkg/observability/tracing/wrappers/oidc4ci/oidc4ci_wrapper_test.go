@@ -23,12 +23,17 @@ func TestWrapper_InitiateIssuance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	svc := NewMockService(ctrl)
-	svc.EXPECT().InitiateIssuance(gomock.Any(), &oidc4ci.InitiateIssuanceRequest{}, &profile.Issuer{}).
-		Return(&oidc4ci.InitiateIssuanceResponse{}, nil).Times(1)
+	svc.EXPECT().InitiateIssuance(gomock.Any(),
+		&oidc4ci.InitiateIssuanceRequest{
+			ClaimData: map[string]interface{}{"foo": "bar"},
+		},
+		&profile.Issuer{}).Return(&oidc4ci.InitiateIssuanceResponse{}, nil).Times(1)
 
 	w := Wrap(svc, trace.NewNoopTracerProvider().Tracer(""))
 
-	_, err := w.InitiateIssuance(context.Background(), &oidc4ci.InitiateIssuanceRequest{}, &profile.Issuer{})
+	_, err := w.InitiateIssuance(context.Background(), &oidc4ci.InitiateIssuanceRequest{
+		ClaimData: map[string]interface{}{"foo": "bar"},
+	}, &profile.Issuer{})
 	require.NoError(t, err)
 }
 

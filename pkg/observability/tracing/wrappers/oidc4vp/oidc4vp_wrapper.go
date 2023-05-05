@@ -53,7 +53,7 @@ func (w *Wrapper) VerifyOIDCVerifiablePresentation(ctx context.Context, txID oid
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(txID)))
-	span.SetAttributes(attributeutil.JSON("token", token))
+	span.SetAttributes(attributeutil.JSON("token", token, attributeutil.WithRedacted("#.Presentation")))
 
 	if err := w.svc.VerifyOIDCVerifiablePresentation(ctx, txID, token); err != nil {
 		return err
@@ -81,7 +81,7 @@ func (w *Wrapper) RetrieveClaims(ctx context.Context, tx *oidc4vp.Transaction) m
 	defer span.End()
 
 	span.SetAttributes(attribute.String("tx_id", string(tx.ID)))
-	span.SetAttributes(attributeutil.JSON("tx", tx))
+	span.SetAttributes(attributeutil.JSON("tx", tx, attributeutil.WithRedacted("ReceivedClaims.credentials")))
 
 	cm := w.svc.RetrieveClaims(ctx, tx)
 
