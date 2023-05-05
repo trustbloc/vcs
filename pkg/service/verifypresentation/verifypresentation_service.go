@@ -22,7 +22,6 @@ import (
 	"github.com/piprate/json-gold/ld"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -31,15 +30,6 @@ type vcVerifier interface {
 	ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error //nolint:lll
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
-	ValidateCredential(
-		ctx context.Context,
-		cred interface{},
-		formats []vcsverifiable.Format,
-		checkExpiration bool,
-		enforceStrictValidation bool,
-		documentLoader ld.DocumentLoader,
-		opts ...verifiable.CredentialOpt,
-	) (*verifiable.Credential, error)
 }
 
 type Config struct {
@@ -64,7 +54,7 @@ func New(config *Config) *Service {
 
 var logger = log.New("verify-presentation")
 
-func (s *Service) VerifyPresentation( //nolint:gocognit
+func (s *Service) VerifyPresentation(
 	ctx context.Context,
 	presentation *verifiable.Presentation,
 	opts *Options,
@@ -115,25 +105,6 @@ func (s *Service) VerifyPresentation( //nolint:gocognit
 		}
 
 		logger.Debug(fmt.Sprintf("Checks.Credential.Proof took %v", time.Since(st)))
-	}
-
-	if profile.Checks.Credential.CredentialExpiry || profile.Checks.Credential.Strict {
-		st := time.Now()
-
-		err := s.validateCredentialExpirationAndStrict(ctx,
-			lazyCredentials,
-			profile.Checks.Credential.CredentialExpiry,
-			profile.Checks.Credential.Strict,
-			profile.Checks.Credential.Format,
-		)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialExpiryStrict",
-				Error: err.Error(),
-			})
-		}
-
-		logger.Debug(fmt.Sprintf("Checks.Credential.CredentialExpiry took %v", time.Since(st)))
 	}
 
 	if profile.Checks.Credential.Status {
@@ -246,32 +217,6 @@ func (s *Service) validateCredentialsProof(
 		}
 
 		err = s.vcVerifier.ValidateCredentialProof(ctx, vcBytes, "", "", true, vpJWT != "")
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (s *Service) validateCredentialExpirationAndStrict(
-	ctx context.Context,
-	credentials []*LazyCredential,
-	checkExpiration bool,
-	enforceStrictValidation bool,
-	formats []vcsverifiable.Format,
-) error {
-	for _, cred := range credentials {
-		vcBytes, err := cred.Serialized()
-		if err != nil {
-			return err
-		}
-
-		_, err = s.vcVerifier.ValidateCredential(ctx, vcBytes, formats, checkExpiration, enforceStrictValidation,
-			s.documentLoader,
-			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
-			verifiable.WithDisabledProofCheck(),
-		)
 		if err != nil {
 			return err
 		}

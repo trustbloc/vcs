@@ -110,8 +110,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 					mockVerifier.EXPECT().ValidateLinkedDomain(
 						context.Background(),
 						gomock.Any()).Times(1).Return(nil)
-					mockVerifier.EXPECT().ValidateCredential(gomock.Any(), gomock.Any(), gomock.Any(), true, true,
-						gomock.Any(), gomock.Any())
 					return mockVerifier
 				},
 			},
@@ -127,12 +125,10 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Format: nil,
 						},
 						Credential: profileapi.CredentialChecks{
-							Proof:            true,
-							Status:           true,
-							LinkedDomain:     true,
-							Strict:           true,
-							CredentialExpiry: true,
-							Format:           nil,
+							Proof:        true,
+							Status:       true,
+							LinkedDomain: true,
+							Format:       nil,
 						},
 					},
 				},

@@ -10,9 +10,7 @@ import (
 	"context"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/piprate/json-gold/ld"
 
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
@@ -50,14 +48,4 @@ type ServiceInterface interface {
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
 
 	ValidateLinkedDomain(ctx context.Context, signingDID string) error
-
-	ValidateCredential(
-		ctx context.Context,
-		cred interface{},
-		formats []vcsverifiable.Format,
-		checkExpiration bool,
-		enforceStrictValidation bool,
-		documentLoader ld.DocumentLoader,
-		opts ...verifiable.CredentialOpt,
-	) (*verifiable.Credential, error)
 }
