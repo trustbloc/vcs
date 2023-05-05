@@ -21,10 +21,12 @@ import (
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
+	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
 
 type vcVerifier interface {
@@ -64,11 +66,12 @@ func New(config *Config) *Service {
 
 var logger = log.New("verify-presentation")
 
-func (s *Service) VerifyPresentation(
+func (s *Service) VerifyPresentation( //nolint:gocognit
 	ctx context.Context,
 	presentation *verifiable.Presentation,
 	opts *Options,
-	profile *profileapi.Verifier) ([]PresentationVerificationCheckResult, error) {
+	profile *profileapi.Verifier,
+) ([]PresentationVerificationCheckResult, error) {
 	startTime := time.Now().UTC()
 	defer func() {
 		logger.Debug("VerifyPresentation", log.WithDuration(time.Since(startTime)))
@@ -120,17 +123,13 @@ func (s *Service) VerifyPresentation(
 	if profile.Checks.Credential.CredentialExpiry || profile.Checks.Credential.Strict {
 		st := time.Now()
 
-		err := s.validateCredentialExpirationAndStrict(ctx,
+		if res := s.validateCredentialExpirationAndStrict(ctx,
 			lazyCredentials,
 			profile.Checks.Credential.CredentialExpiry,
 			profile.Checks.Credential.Strict,
 			profile.Checks.Credential.Format,
-		)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialExpiryStrict",
-				Error: err.Error(),
-			})
+		); res != nil {
+			result = append(result, *res)
 		}
 
 		logger.Debug(fmt.Sprintf("Checks.Credential.CredentialExpiry took %v", time.Since(st)))
@@ -260,11 +259,14 @@ func (s *Service) validateCredentialExpirationAndStrict(
 	checkExpiration bool,
 	enforceStrictValidation bool,
 	formats []vcsverifiable.Format,
-) error {
+) *PresentationVerificationCheckResult {
 	for _, cred := range credentials {
 		vcBytes, err := cred.Serialized()
 		if err != nil {
-			return err
+			return &PresentationVerificationCheckResult{
+				Check: "credentialExpiryStrict",
+				Error: err.Error(),
+			}
 		}
 
 		_, err = s.vcVerifier.ValidateCredential(ctx, vcBytes, formats, checkExpiration, enforceStrictValidation,
@@ -272,8 +274,26 @@ func (s *Service) validateCredentialExpirationAndStrict(
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 			verifiable.WithDisabledProofCheck(),
 		)
+
+		if v, ok := err.(*resterr.CustomError); ok {
+			if errors.Is(v.Err, vc.ErrCredentialExpired) {
+				return &PresentationVerificationCheckResult{
+					Check: "credentialExpiry",
+					Error: v.Error(),
+				}
+			} else {
+				return &PresentationVerificationCheckResult{
+					Check: "credentialsStrictCheck",
+					Error: v.Error(),
+				}
+			}
+		}
+
 		if err != nil {
-			return err
+			return &PresentationVerificationCheckResult{
+				Check: "credentialExpiryStrict",
+				Error: err.Error(),
+			}
 		}
 	}
 

@@ -66,7 +66,7 @@ func New(config *Config) *Service {
 }
 
 func (s *Service) ValidateCredential(
-	ctx context.Context,
+	_ context.Context,
 	cred interface{},
 	formats []vcsverifiable.Format,
 	checkExpiration bool,

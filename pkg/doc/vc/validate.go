@@ -25,6 +25,8 @@ const (
 	baseContext = "https://www.w3.org/2018/credentials/v1"
 )
 
+var ErrCredentialExpired = errors.New("credential expired")
+
 func ValidateCredential(
 	cred interface{},
 	formats []vcsverifiable.Format,
@@ -46,7 +48,7 @@ func ValidateCredential(
 
 	if checkExpiration && credential.Expired != nil && time.Now().UTC().After(credential.Expired.Time) {
 		return nil, resterr.NewValidationError(resterr.InvalidValue, "credential",
-			errors.New("credential expired"))
+			ErrCredentialExpired)
 	}
 
 	// Due to the current implementation in AFGO (func verifiable.ParseCredential()),
@@ -113,6 +115,6 @@ func isJWT(cred interface{}) bool {
 		str = string(v)
 		isStr = true
 	}
-	
+
 	return isStr && (jwt.IsJWTUnsecured(str) || jwt.IsJWS(str))
 }
