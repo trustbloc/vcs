@@ -267,7 +267,7 @@ func (s *Service) validateCredentialExpirationAndStrict(
 			return err
 		}
 
-		s.vcVerifier.ValidateCredential(ctx, vcBytes, formats, checkExpiration, enforceStrictValidation,
+		_, err = s.vcVerifier.ValidateCredential(ctx, vcBytes, formats, checkExpiration, enforceStrictValidation,
 			s.documentLoader,
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 			verifiable.WithDisabledProofCheck(),
