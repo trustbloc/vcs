@@ -819,6 +819,10 @@ func (ep *mockedEventPublisher) Publish(ctx context.Context, topic string, messa
 	var err error
 
 	for _, event := range messages {
+		if err = validateEvent(event); err != nil {
+			return err
+		}
+
 		err = ep.eventHandler.HandleEvent(ctx, event)
 		if err != nil {
 			return err
@@ -826,6 +830,47 @@ func (ep *mockedEventPublisher) Publish(ctx context.Context, topic string, messa
 	}
 
 	return err
+}
+
+func validateEvent(e *spi.Event) error {
+	unexpectedFieldFmt := "unexpected %s field"
+	if e.SpecVersion != "1.0" {
+		return fmt.Errorf(unexpectedFieldFmt, "SpecVersion")
+	}
+
+	if c := strings.Split(e.ID, "-"); len(c) != 5 {
+		return fmt.Errorf(unexpectedFieldFmt, "ID")
+	}
+
+	if e.Source != "source://vcs/status" {
+		return fmt.Errorf(unexpectedFieldFmt, "Source")
+	}
+
+	if e.Time.IsZero() {
+		return fmt.Errorf(unexpectedFieldFmt, "Time")
+	}
+
+	if e.DataContentType != "application/json" {
+		return fmt.Errorf(unexpectedFieldFmt, "DataContentType")
+	}
+
+	if len(e.Data) == 0 {
+		return fmt.Errorf(unexpectedFieldFmt, "Data")
+	}
+
+	if e.TransactionID != "" {
+		return fmt.Errorf(unexpectedFieldFmt, "TransactionID")
+	}
+
+	if e.Subject != "" {
+		return fmt.Errorf(unexpectedFieldFmt, "Subject")
+	}
+
+	if e.Tracing != "" {
+		return fmt.Errorf(unexpectedFieldFmt, "Tracing")
+	}
+
+	return nil
 }
 
 func getTestProfile() *profileapi.Issuer {
