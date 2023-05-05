@@ -33,6 +33,10 @@ var oldFormatToNew = map[Format]OIDCFormat{ //nolint
 
 func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 	strRep, isStr := data.(string)
+	if v, ok := data.([]byte); ok {
+		strRep = string(v)
+		isStr = true
+	}
 
 	var dataBytes []byte
 
