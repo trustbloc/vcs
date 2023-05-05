@@ -50,7 +50,12 @@ func ValidateFormat(data interface{}, formats []Format) ([]byte, error) {
 		}
 
 		var err error
-		dataBytes, err = json.Marshal(data)
+		switch v := data.(type) {
+		case []byte:
+			dataBytes = v
+		default:
+			dataBytes, err = json.Marshal(data)
+		}
 
 		if err != nil {
 			return nil, fmt.Errorf("invlaid format: %w", err)

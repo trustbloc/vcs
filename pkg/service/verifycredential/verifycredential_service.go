@@ -22,6 +22,7 @@ import (
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/bitstring"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
@@ -62,6 +63,18 @@ func New(config *Config) *Service {
 		vdr:                     config.VDR,
 		httpClient:              config.HTTPClient,
 	}
+}
+
+func (s *Service) ValidateCredential(
+	ctx context.Context,
+	cred interface{},
+	formats []vcsverifiable.Format,
+	checkExpiration bool,
+	enforceStrictValidation bool,
+	documentLoader ld.DocumentLoader,
+	opts ...verifiable.CredentialOpt,
+) (*verifiable.Credential, error) {
+	return vc.ValidateCredential(cred, formats, checkExpiration, enforceStrictValidation, documentLoader, opts...)
 }
 
 func (s *Service) VerifyCredential(ctx context.Context, credential *verifiable.Credential, opts *Options,
