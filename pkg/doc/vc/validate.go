@@ -7,12 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	docjsonld "github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
 
@@ -33,9 +33,24 @@ func ValidateCredential(
 	documentLoader jsonld.DocumentLoader,
 	opts ...verifiable.CredentialOpt,
 ) (*verifiable.Credential, error) {
-	vcBytes, err := vcsverifiable.ValidateFormat(cred, formats)
-	if err != nil {
-		return nil, err
+	//vcBytes, err := vcsverifiable.ValidateFormat(cred, formats)
+	//if err != nil {
+	//	return nil, err
+	//}
+
+	var vcBytes []byte
+	switch d := cred.(type) {
+	case []byte:
+		vcBytes = d
+	case string:
+		vcBytes = []byte(d)
+	default:
+		vv, err := json.Marshal(cred)
+		if err != nil {
+			return nil, err
+		}
+
+		vcBytes = vv
 	}
 
 	// validate the VC (ignore the proof and issuanceDate)
@@ -108,7 +123,5 @@ func validateCredentialClaims(credential *verifiable.Credential, documentLoader 
 }
 
 func isJWT(cred interface{}) bool {
-	str, isStr := cred.(string)
-
-	return isStr && (jwt.IsJWTUnsecured(str) || jwt.IsJWS(str))
+	return true
 }
