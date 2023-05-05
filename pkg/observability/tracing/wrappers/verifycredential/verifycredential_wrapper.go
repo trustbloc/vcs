@@ -39,7 +39,6 @@ func (w *Wrapper) VerifyCredential(ctx context.Context, credential *verifiable.C
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
-	span.SetAttributes(attributeutil.JSON("credential", credential))
 	span.SetAttributes(attributeutil.JSON("opts", opts))
 
 	res, err := w.svc.VerifyCredential(ctx, credential, opts, profile)

@@ -10,9 +10,12 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// JSON returns attribute with the value marshaled to JSON. Value can be redacted using WithRedacted option.
 func JSON(key string, value interface{}, opts ...Opt) attribute.KeyValue {
 	op := &options{}
 
@@ -28,16 +31,10 @@ func JSON(key string, value interface{}, opts ...Opt) attribute.KeyValue {
 		}
 	}
 
-	if len(op.redacted) > 0 {
-		var m map[string]interface{}
-
-		_ = json.Unmarshal(b, &m)
-
-		for _, k := range op.redacted {
-			m[k] = "[REDACTED]"
+	for _, path := range op.redacted {
+		if gjson.GetBytes(b, path).Exists() {
+			b, _ = sjson.SetBytes(b, path, "[REDACTED]")
 		}
-
-		b, _ = json.Marshal(m)
 	}
 
 	return attribute.KeyValue{
@@ -46,6 +43,7 @@ func JSON(key string, value interface{}, opts ...Opt) attribute.KeyValue {
 	}
 }
 
+// FormParams returns attribute with value represented as form params. Value can be redacted using WithRedacted option.
 func FormParams(key string, params map[string][]string, opts ...Opt) attribute.KeyValue {
 	op := &options{}
 
@@ -84,6 +82,8 @@ type options struct {
 
 type Opt func(*options)
 
+// WithRedacted returns option that replaces value with [REDACTED] for the given key. In case of JSON attribute, key is
+// a path to the value to be redacted. Refer to https://github.com/tidwall/gjson/blob/master/SYNTAX.md for path syntax.
 func WithRedacted(key string) Opt {
 	return func(o *options) {
 		o.redacted = append(o.redacted, key)

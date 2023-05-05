@@ -43,7 +43,6 @@ func (w *Wrapper) VerifyPresentation(
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
-	span.SetAttributes(attributeutil.JSON("presentation", presentation))
 	span.SetAttributes(attributeutil.JSON("opts", opts))
 
 	res, err := w.svc.VerifyPresentation(ctx, presentation, opts, profile)

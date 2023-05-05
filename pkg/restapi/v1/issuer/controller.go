@@ -123,7 +123,7 @@ func (c *Controller) PostIssueCredentials(e echo.Context, profileID, profileVers
 		return err
 	}
 
-	span.SetAttributes(attributeutil.JSON("issue_credential_request", body))
+	span.SetAttributes(attributeutil.JSON("issue_credential_request", body, attributeutil.WithRedacted("credential")))
 
 	tenantID, err := util.GetTenantIDFromRequest(e)
 	if err != nil {
