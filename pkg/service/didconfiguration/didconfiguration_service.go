@@ -153,7 +153,7 @@ func (s *Service) DidConfig(
 		}
 		cred.Subject = map[string]interface{}{
 			"id":     profile.SigningDID.DID,
-			"origin": s.externalURL,
+			"origin": profile.URL,
 		}
 		kms, err := s.kmsRegistry.GetKeyManager(profile.KMSConfig)
 
