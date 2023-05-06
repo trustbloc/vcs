@@ -267,8 +267,8 @@ func (s *Service) validateCredentialExpirationAndStrict(
 			return err
 		}
 
-		_, err = s.vcVerifier.ValidateCredential(ctx, string(unQuote(vcBytes)),
-			formats, checkExpiration, enforceStrictValidation, s.documentLoader,
+		_, err = s.vcVerifier.ValidateCredential(ctx, vcBytes, formats, checkExpiration, enforceStrictValidation,
+			s.documentLoader,
 			verifiable.WithJSONLDDocumentLoader(s.documentLoader),
 			verifiable.WithDisabledProofCheck(),
 		)
@@ -346,16 +346,4 @@ func (s *Service) extractCredentialStatus(cred *LazyCredential) (*verifiable.Typ
 	}
 
 	return finalObj, issuerID, nil
-}
-
-func unQuote(s []byte) []byte {
-	if len(s) <= 1 {
-		return s
-	}
-
-	if s[0] == '"' && s[len(s)-1] == '"' {
-		return s[1 : len(s)-1]
-	}
-
-	return s
 }

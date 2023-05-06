@@ -688,7 +688,7 @@ func validateAuthorizationResponse(ctx echo.Context) (*authorizationResponse, er
 		return nil, err
 	}
 
-	logger.Debug("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
+	logger.Info("AuthorizationResponse id_token decoded", logfields.WithIDToken(res.IDToken))
 
 	var vpTokenStr string
 
