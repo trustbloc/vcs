@@ -18,10 +18,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"github.com/trustbloc/vcs/pkg/dataprotect"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/event/spi"
@@ -887,7 +887,7 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
-					resp.Credential.Expired.Time.Truncate(time.Hour*24))
+					resp.Credential.(*verifiable.Credential).Expired.Time.Truncate(time.Hour*24))
 
 				require.NoError(t, err)
 				require.NotNil(t, resp)
@@ -942,11 +942,11 @@ func TestService_PrepareCredential(t *testing.T) {
 			},
 			check: func(t *testing.T, resp *oidc4ci.PrepareCredentialResult, err error) {
 				assert.Equal(t, time.Now().UTC().Add(55*time.Hour).Truncate(time.Hour*24),
-					resp.Credential.Expired.Time.Truncate(time.Hour*24))
+					resp.Credential.(*verifiable.Credential).Expired.Time.Truncate(time.Hour*24))
 
-				require.Equal(t, resp.Credential.CustomFields["description"],
+				require.Equal(t, resp.Credential.(*verifiable.Credential).CustomFields["description"],
 					"awesome-description")
-				require.Equal(t, resp.Credential.CustomFields["name"],
+				require.Equal(t, resp.Credential.(*verifiable.Credential).CustomFields["name"],
 					"awesome-credential")
 				require.NoError(t, err)
 				require.NotNil(t, resp)

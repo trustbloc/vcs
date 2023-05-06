@@ -109,10 +109,6 @@ func validateCredentialClaims(credential *verifiable.Credential, documentLoader 
 
 func isJWT(cred interface{}) bool {
 	str, isStr := cred.(string)
-	if v, ok := cred.([]byte); ok {
-		str = string(v)
-		isStr = true
-	}
 
 	return isStr && (jwt.IsJWTUnsecured(str) || jwt.IsJWS(str))
 }
