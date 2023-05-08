@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
@@ -30,6 +31,7 @@ import (
 
 const (
 	typeKey = "type"
+	sdKey   = "_sd"
 )
 
 type vcVerifier interface {
@@ -198,7 +200,7 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 		}
 
 		for _, d := range cred.SDJWTDisclosures {
-			if d.Name == "_sd" {
+			if d.Name == sdKey {
 				continue
 			}
 			if d.Name == typeKey || d.Name == "@type" {
@@ -209,8 +211,10 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 				continue
 			}
 
-			data[d.Name] = d.Value
-			claimsKeys = append(claimsKeys, d.Name)
+			if v := s.checkValue(d.Value); v != nil {
+				data[d.Name] = v
+				claimsKeys = append(claimsKeys, d.Name)
+			}
 		}
 
 		data["@context"] = ctx
@@ -232,6 +236,30 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 	return nil
 }
 
+func (s *Service) checkValue(data interface{}) interface{} {
+	v, ok := data.(map[string]interface{})
+	if !ok {
+		return data
+	}
+
+	if len(v) == 0 {
+		return nil
+	}
+
+	_, ok = v[sdKey]
+	if !ok { // we are ok, no need to clear the map
+		return data
+	}
+
+	mp := utils.CopyMap(v)
+	delete(mp, sdKey)
+	if len(mp) == 0 {
+		return nil
+	}
+
+	return mp
+}
+
 func (s *Service) handleSubject(
 	sub verifiable.Subject,
 	types []interface{},
@@ -239,7 +267,7 @@ func (s *Service) handleSubject(
 	claimsKeys []string,
 ) ([]interface{}, []string, map[string]interface{}) {
 	for k, v := range sub.CustomFields {
-		if k == "_sd" {
+		if k == sdKey {
 			continue
 		}
 		if k == typeKey || k == "@type" {
@@ -250,8 +278,10 @@ func (s *Service) handleSubject(
 			continue
 		}
 
-		data[k] = v
-		claimsKeys = append(claimsKeys, k)
+		if v2 := s.checkValue(v); v2 != nil {
+			data[k] = v2
+			claimsKeys = append(claimsKeys, k)
+		}
 	}
 
 	return types, claimsKeys, data

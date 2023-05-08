@@ -799,8 +799,12 @@ func TestCredentialStrict(t *testing.T) {
 		Subject: []verifiable.Subject{
 			{
 				CustomFields: map[string]interface{}{
-					"type":   []string{"VerifiedEmployee"},
-					"degree": "abcd",
+					"type":       []string{"VerifiedEmployee"},
+					"degree":     "abcd",
+					"familyName": map[string]interface{}{},
+					"givenName": map[string]interface{}{
+						"_sd": []string{"a", "b"},
+					},
 				},
 			},
 		},
