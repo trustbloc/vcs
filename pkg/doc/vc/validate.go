@@ -15,7 +15,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
@@ -24,6 +26,8 @@ const (
 	// https://www.w3.org/TR/vc-data-model/#base-context
 	baseContext = "https://www.w3.org/2018/credentials/v1"
 )
+
+var logger = log.New("vc-validate-credentials")
 
 func ValidateCredential(
 	cred interface{},
@@ -91,6 +95,18 @@ func validateSDJWTCredential(
 }
 
 func validateCredentialClaims(credential *verifiable.Credential, documentLoader jsonld.DocumentLoader) error {
+	if logger.IsEnabled(log.DEBUG) {
+		var claimsKeys []string
+		for k := range credential.CustomFields {
+			claimsKeys = append(claimsKeys, k)
+		}
+
+		logger.Debug("strict validation check",
+			logfields.WithClaimKeys(claimsKeys),
+			logfields.WithCredentialID(credential.ID),
+		)
+	}
+
 	credentialBytes, err := credential.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("unable to marshal credential: %w", err)
