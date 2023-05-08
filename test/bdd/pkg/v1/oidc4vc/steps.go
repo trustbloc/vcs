@@ -105,6 +105,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 
 	sc.Step(`^User gives a consent$`, s.checkRequestPresentation)
 	sc.Step(`^Wallet sends authorization response$`, s.sendAuthorizedResponse)
+	sc.Step(`^Wallet sends authorization response and receives an error$`, s.sendAuthorizedResponseAndReceiveFailedClaims)
 	sc.Step(`^Verifier from organization "([^"]*)" retrieves interactions claims$`,
 		s.retrieveInteractionsClaim)
 

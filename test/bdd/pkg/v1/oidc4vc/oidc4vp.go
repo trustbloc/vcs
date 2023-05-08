@@ -94,6 +94,20 @@ func (s *Steps) checkRequestPresentation() error {
 	return nil
 }
 
+func (s *Steps) sendAuthorizedResponseAndReceiveFailedClaims() error {
+	err := s.sendAuthorizedResponse()
+	if err == nil {
+		return errors.New("error is expected from sendAuthorizedResponse")
+	}
+
+	if strings.Contains(err.Error(), "presentation verification checks failed: failed to validate JWT "+
+		"credential claims: crdential validation failed: JSON-LD doc has different structure after compaction") {
+		return nil
+	}
+
+	return err
+}
+
 func (s *Steps) sendAuthorizedResponse() error {
 	body, err := s.vpFlowExecutor.CreateAuthorizedResponse()
 	if err != nil {
