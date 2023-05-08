@@ -240,10 +240,8 @@ func (s *PreAuthorizeStep) checkCredential(shouldBeValid string) error {
 			return errors.New("/oidc/credentials should return error, but no error returned")
 		}
 
-		if s.receiveCredentialsErr.Error() ==
-			"get credential: prepare credential: status code 400, code: invalid-value; incorrect value: credential; "+
-				"message: failed to validate JWT credential claims: crdential validation failed: "+
-				"JSON-LD doc has different structure after compaction" {
+		if strings.Contains(s.receiveCredentialsErr.Error(),
+			"JSON-LD doc has different structure after compaction") {
 			return nil
 		}
 

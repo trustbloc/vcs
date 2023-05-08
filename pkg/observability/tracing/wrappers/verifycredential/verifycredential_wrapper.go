@@ -13,11 +13,9 @@ import (
 	"context"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-	"github.com/piprate/json-gold/ld"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/observability/tracing/attributeutil"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 	"github.com/trustbloc/vcs/pkg/service/verifycredential"
@@ -30,18 +28,6 @@ type Service verifycredential.ServiceInterface
 type Wrapper struct {
 	svc    Service
 	tracer trace.Tracer
-}
-
-func (w *Wrapper) ValidateCredential(
-	ctx context.Context,
-	cred interface{},
-	formats []vcsverifiable.Format,
-	checkExpiration bool,
-	enforceStrictValidation bool,
-	documentLoader ld.DocumentLoader,
-	opts ...verifiable.CredentialOpt,
-) (*verifiable.Credential, error) {
-	return w.svc.ValidateCredential(ctx, cred, formats, checkExpiration, enforceStrictValidation, documentLoader, opts...)
 }
 
 func Wrap(svc Service, tracer trace.Tracer) *Wrapper {

@@ -87,7 +87,7 @@ func TestValidatePresentation(t *testing.T) {
 			name: "Error invalid format JWT",
 			args: args{
 				cred: func(t *testing.T) interface{} {
-					return []byte("anything")
+					return []byte(sampleVPJWT)
 				},
 				format: vcsverifiable.Jwt,
 				opts:   []verifiable.PresentationOpt{},

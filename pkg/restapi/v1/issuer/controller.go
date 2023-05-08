@@ -15,10 +15,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
@@ -627,13 +629,16 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		return err
 	}
 
-	credentialParsed, err := c.parseCredential(
-		result.Credential, result.EnforceStrictValidation, profile.VCConfig.Format)
-	if err != nil {
+	if result.Credential == nil {
+		return resterr.NewSystemError("OIDC4CIService", "PrepareCredential",
+			errors.New("credentials should not be nil"))
+	}
+
+	if err = c.validateClaims(result.Credential, result.EnforceStrictValidation); err != nil {
 		return err
 	}
 
-	signedCredential, err := c.signCredential(ctx, credentialParsed, nil, profile)
+	signedCredential, err := c.signCredential(ctx, result.Credential, nil, profile)
 	if err != nil {
 		return err
 	}
@@ -644,6 +649,58 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		OidcFormat: string(result.OidcFormat),
 		Retry:      result.Retry,
 	}, nil)
+}
+
+func (c *Controller) validateClaims( //nolint:gocognit
+	cred *verifiable.Credential,
+	strictValidation bool,
+) error {
+	if !strictValidation {
+		return nil
+	}
+
+	data := map[string]interface{}{}
+
+	var ctx []interface{}
+	for _, ct := range cred.Context {
+		ctx = append(ctx, ct)
+	}
+
+	var types []interface{}
+	for _, t := range cred.Types {
+		types = append(types, t)
+	}
+
+	if sub, ok := cred.Subject.(verifiable.Subject); ok { //nolint:nestif
+		for k, v := range sub.CustomFields {
+			if k == "type" || k == "@type" {
+				if v1, ok1 := v.(string); ok1 {
+					types = append(types, v1)
+
+					continue
+				}
+
+				if reflect.TypeOf(v).Kind() == reflect.Slice {
+					s := reflect.ValueOf(v)
+					for i := 0; i < s.Len(); i++ {
+						types = append(types, s.Index(i).Interface())
+					}
+				}
+
+				continue
+			}
+
+			data[k] = v
+		}
+	}
+
+	data["@context"] = ctx
+	data["type"] = types
+
+	return jsonld.ValidateJSONLDMap(data,
+		jsonld.WithDocumentLoader(c.documentLoader),
+		jsonld.WithStrictValidation(strictValidation),
+	)
 }
 
 // OpenidConfig request openid configuration for issuer.

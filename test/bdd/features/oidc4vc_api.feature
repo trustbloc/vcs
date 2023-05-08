@@ -37,7 +37,7 @@ Feature: OIDC4VC REST API
     Then Wallet sends authorization response
     And Verifier from organization "test_org" retrieves interactions claims
 
-  Scenario: OIDC credential issuance and verification
+  Scenario: OIDC credential issuance and verification (Invalid Claims)
     When Issuer initiates credential issuance using authorization code flow
     Then Issuer receives initiate issuance URL
 

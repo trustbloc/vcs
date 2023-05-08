@@ -10,14 +10,17 @@ import (
 	"context"
 	_ "embed"
 	"errors"
+	"net/http"
 	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/sdjwt/common"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	kmskeytypes "github.com/hyperledger/aries-framework-go/pkg/kms"
 	mockvdr "github.com/hyperledger/aries-framework-go/pkg/mock/vdr"
+	"github.com/piprate/json-gold/ld"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -110,8 +113,6 @@ func TestService_VerifyPresentation(t *testing.T) {
 					mockVerifier.EXPECT().ValidateLinkedDomain(
 						context.Background(),
 						gomock.Any()).Times(1).Return(nil)
-					mockVerifier.EXPECT().ValidateCredential(gomock.Any(), gomock.Any(), gomock.Any(), true, true,
-						gomock.Any(), gomock.Any())
 					return mockVerifier
 				},
 			},
@@ -130,9 +131,9 @@ func TestService_VerifyPresentation(t *testing.T) {
 							Proof:            true,
 							Status:           true,
 							LinkedDomain:     true,
-							Strict:           true,
-							CredentialExpiry: true,
 							Format:           nil,
+							CredentialExpiry: true,
+							Strict:           true,
 						},
 					},
 				},
@@ -784,4 +785,39 @@ func TestExtractCredentialStatus(t *testing.T) {
 		assert.ErrorContains(t, err, "unsupported status list type type string")
 		assert.Empty(t, issuer)
 	})
+}
+
+func TestCredentialStrict(t *testing.T) {
+	l := NewLazyCredential(&verifiable.Credential{
+		Context: []string{
+			"https://www.w3.org/2018/credentials/v1",
+			"https://www.w3.org/2018/credentials/examples/v1",
+		},
+		Types: []string{
+			"VerifiableCredential",
+		},
+		Subject: []verifiable.Subject{
+			{
+				CustomFields: map[string]interface{}{
+					"type":   []string{"VerifiedEmployee"},
+					"degree": "abcd",
+				},
+			},
+		},
+		SDJWTDisclosures: []*common.DisclosureClaim{
+			{
+				Name:  "_sd",
+				Value: "aaaaaa",
+			},
+			{
+				Name:  "degreeType",
+				Value: "random",
+			},
+		},
+	})
+
+	s := New(&Config{
+		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
+	})
+	assert.NoError(t, s.checkCredentialStrict([]*LazyCredential{l}))
 }

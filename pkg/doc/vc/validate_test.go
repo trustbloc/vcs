@@ -107,7 +107,7 @@ func TestValidateCredential(t *testing.T) {
 			name: "Error invalid format JWT",
 			args: args{
 				cred: func(t *testing.T) interface{} {
-					return []byte("anything")
+					return []byte(sampleVCJWT)
 				},
 				format: vcsverifiable.Jwt,
 				opts:   []verifiable.CredentialOpt{},
