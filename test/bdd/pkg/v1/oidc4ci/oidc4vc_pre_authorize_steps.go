@@ -236,7 +236,6 @@ func (s *PreAuthorizeStep) checkCredential(shouldBeValid string) error {
 	valid, _ := strconv.ParseBool(shouldBeValid)
 
 	if !valid {
-		fmt.Println(fmt.Sprintf("GOT ERROR !!!!!!!!! %v", s.receiveCredentialsErr.Error()))
 		if s.receiveCredentialsErr == nil {
 			return errors.New("/oidc/credentials should return error, but no error returned")
 		}
