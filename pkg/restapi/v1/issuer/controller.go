@@ -11,7 +11,6 @@ package issuer
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -20,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -678,10 +676,6 @@ func (c *Controller) validateClaims(
 	}
 
 	var claimsKeys []string
-	//for k, v := range cred.CustomFields {
-	//	data[k] = v
-	//	claimsKeys = append(claimsKeys, k)
-	//}
 
 	if sub, ok := cred.Subject.(verifiable.Subject); ok {
 		for k, v := range sub.CustomFields {
@@ -694,13 +688,9 @@ func (c *Controller) validateClaims(
 
 				if reflect.TypeOf(v).Kind() == reflect.Slice {
 					s := reflect.ValueOf(v)
-					sl2 := make([]interface{}, s.Len())
-
 					for i := 0; i < s.Len(); i++ {
-						sl2[i] = s.Index(i).Interface()
+						types = append(types, s.Index(i).Interface())
 					}
-
-					types = append(types, sl2...)
 				}
 
 				continue
@@ -714,10 +704,10 @@ func (c *Controller) validateClaims(
 	data["@context"] = ctx
 	data["type"] = types
 
-	d, _ := json.Marshal(data)
-
-	logger.Debug(fmt.Sprintf("raw cred for validation : %v", spew.Sdump(cred)))
-	logger.Debug(fmt.Sprintf("strict validation check. raw: %v", string(d)),
+	//d, _ := json.Marshal(data)
+	//
+	//logger.Debug(fmt.Sprintf("raw cred for validation : %v", spew.Sdump(cred)))
+	logger.Debug("strict validation check",
 		logfields.WithClaimKeys(claimsKeys),
 		logfields.WithCredentialID(cred.ID),
 	)

@@ -16,12 +16,14 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -71,7 +73,7 @@ func (s *Service) VerifyPresentation(
 		for _, c := range presentation.Credentials() {
 			lazyCredentials = append(lazyCredentials, NewLazyCredential(c))
 
-			logger.Debug(fmt.Sprintf("LAZY : %v", spew.Sdump(c)))
+			//logger.Debug(fmt.Sprintf("LAZY : %v", spew.Sdump(c)))
 		}
 	}
 
@@ -94,6 +96,30 @@ func (s *Service) VerifyPresentation(
 		}
 
 		logger.Debug(fmt.Sprintf("Checks.Presentation.Proof took %v", time.Since(st)))
+	}
+
+	if profile.Checks.Credential.CredentialExpiry {
+		err := s.checkCredentialExpiry(lazyCredentials)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "credentialExpiry",
+				Error: err.Error(),
+			})
+		}
+	}
+
+	if profile.Checks.Credential.Strict {
+		st := time.Now()
+
+		err := s.checkCredentialStrict(lazyCredentials)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "credentialStrict",
+				Error: err.Error(),
+			})
+		}
+
+		logger.Debug(fmt.Sprintf("Checks.Credential.Strict took %v", time.Since(st)))
 	}
 
 	if profile.Checks.Credential.Proof {
@@ -135,6 +161,134 @@ func (s *Service) VerifyPresentation(
 	}
 
 	return result, nil
+}
+
+func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error {
+	for _, input := range lazy {
+		cred, ok := input.Raw().(*verifiable.Credential)
+		if !ok {
+			logger.Warn(fmt.Sprintf("can not validate expiry. unexpected type %v",
+				reflect.TypeOf(input).String()))
+			return nil
+		}
+
+		data := map[string]interface{}{}
+
+		var ctx []interface{}
+		for _, ct := range cred.Context {
+			ctx = append(ctx, ct)
+		}
+
+		var types []interface{}
+		for _, t := range cred.Types {
+			types = append(types, t)
+		}
+
+		var claimsKeys []string
+		if sub, ok := cred.Subject.(verifiable.Subject); ok {
+			types, claimsKeys, data = s.handleSubject(sub, types, data, claimsKeys)
+		}
+
+		if sub, ok := cred.Subject.([]verifiable.Subject); ok {
+			for _, subSub := range sub {
+				types, claimsKeys, data = s.handleSubject(subSub, types, data, claimsKeys)
+			}
+		}
+
+		for _, d := range cred.SDJWTDisclosures {
+			if d.Name == "_sd" {
+				continue
+			}
+			if d.Name == "type" || d.Name == "@type" {
+				if parsed := s.handleTypeParam(d.Value); len(parsed) > 0 {
+					types = append(types, parsed...)
+				}
+
+				continue
+			}
+
+			data[d.Name] = d.Value
+			claimsKeys = append(claimsKeys, d.Name)
+		}
+
+		data["@context"] = ctx
+		data["type"] = types
+
+		logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)),
+			logfields.WithClaimKeys(claimsKeys),
+			logfields.WithCredentialID(cred.ID),
+		)
+
+		if err := jsonld.ValidateJSONLDMap(data,
+			jsonld.WithDocumentLoader(s.documentLoader),
+			jsonld.WithStrictValidation(true),
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Service) handleSubject(
+	sub verifiable.Subject,
+	types []interface{},
+	data map[string]interface{},
+	claimsKeys []string,
+) ([]interface{}, []string, map[string]interface{}) {
+	for k, v := range sub.CustomFields {
+		if k == "_sd" {
+			continue
+		}
+		if k == "type" || k == "@type" {
+			if parsed := s.handleTypeParam(v); len(parsed) > 0 {
+				types = append(types, parsed...)
+			}
+
+			continue
+		}
+
+		data[k] = v
+		claimsKeys = append(claimsKeys, k)
+	}
+
+	return types, claimsKeys, data
+}
+
+func (s *Service) handleTypeParam(input interface{}) []interface{} {
+	var types []interface{}
+
+	if v1, ok1 := input.(string); ok1 {
+		types = append(types, v1)
+
+		return types
+	}
+
+	if reflect.TypeOf(input).Kind() == reflect.Slice {
+		s := reflect.ValueOf(input)
+		for i := 0; i < s.Len(); i++ {
+			types = append(types, s.Index(i).Interface())
+		}
+	}
+
+	return types
+}
+
+func (s *Service) checkCredentialExpiry(lazy []*LazyCredential) error {
+	for _, input := range lazy {
+		credential, ok := input.Raw().(*verifiable.Credential)
+		if !ok {
+			logger.Warn(fmt.Sprintf("can not validate expiry. unexpected type %v",
+				reflect.TypeOf(input).String()))
+			return nil
+		}
+		if credential.Expired != nil && time.Now().UTC().After(credential.Expired.Time) {
+			return errors.New("credential expired")
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) validatePresentationProof(targetPresentation interface{}, opts *Options) error {

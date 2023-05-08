@@ -100,8 +100,7 @@ func (s *Steps) sendAuthorizedResponseAndReceiveFailedClaims() error {
 		return errors.New("error is expected from sendAuthorizedResponse")
 	}
 
-	if strings.Contains(err.Error(), "presentation verification checks failed: failed to validate JWT "+
-		"credential claims: crdential validation failed: JSON-LD doc has different structure after compaction") {
+	if strings.Contains(err.Error(), "JSON-LD doc has different structure after compaction") {
 		return nil
 	}
 
