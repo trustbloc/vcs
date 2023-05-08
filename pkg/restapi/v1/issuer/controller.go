@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -685,7 +686,23 @@ func (c *Controller) validateClaims(
 	if sub, ok := cred.Subject.(verifiable.Subject); ok {
 		for k, v := range sub.CustomFields {
 			if k == "type" || k == "@type" {
-				types = append(types, k)
+				if v1, ok1 := v.(string); ok1 {
+					types = append(types, v1)
+
+					continue
+				}
+
+				if reflect.TypeOf(v).Kind() == reflect.Slice {
+					s := reflect.ValueOf(v)
+					sl2 := make([]interface{}, s.Len())
+
+					for i := 0; i < s.Len(); i++ {
+						sl2[i] = s.Index(i).Interface()
+					}
+
+					types = append(types, sl2...)
+				}
+
 				continue
 			}
 
