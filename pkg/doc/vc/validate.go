@@ -97,11 +97,11 @@ func validateSDJWTCredential(
 func validateCredentialClaims(credential *verifiable.Credential, documentLoader jsonld.DocumentLoader) error {
 	if logger.IsEnabled(log.DEBUG) {
 		var claimsKeys []string
-		for k, _ := range credential.CustomFields {
+		for k := range credential.CustomFields {
 			claimsKeys = append(claimsKeys, k)
 		}
 
-		logger.Debug(fmt.Sprintf("strict validation check"),
+		logger.Debug("strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(credential.ID),
 		)
