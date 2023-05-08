@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -68,19 +67,6 @@ func ValidateCredential(
 
 		jwtRepresentation := credential.JWT
 		credential.JWT = ""
-		logObj := map[string]interface{}{
-			"@context": credential.Context,
-			"types":    credential.Types,
-		}
-
-		var claimsKeys []string
-		for k, _ := range credential.CustomFields {
-			logObj[k] = "redacted"
-			claimsKeys = append(claimsKeys, k)
-		}
-
-		j, _ := json.Marshal(logObj)
-		logger.Info(fmt.Sprintf("strict validation check. %v", string(j)), logfields.WithClaimKeys(claimsKeys))
 
 		err = validateCredentialClaims(credential, documentLoader)
 		if err != nil {
@@ -109,6 +95,18 @@ func validateSDJWTCredential(
 }
 
 func validateCredentialClaims(credential *verifiable.Credential, documentLoader jsonld.DocumentLoader) error {
+	if logger.IsEnabled(log.DEBUG) {
+		var claimsKeys []string
+		for k, _ := range credential.CustomFields {
+			claimsKeys = append(claimsKeys, k)
+		}
+
+		logger.Debug(fmt.Sprintf("strict validation check"),
+			logfields.WithClaimKeys(claimsKeys),
+			logfields.WithCredentialID(credential.ID),
+		)
+	}
+
 	credentialBytes, err := credential.MarshalJSON()
 	if err != nil {
 		return fmt.Errorf("unable to marshal credential: %w", err)
