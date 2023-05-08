@@ -216,12 +216,6 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 		data["@context"] = ctx
 		data[typeKey] = types
 
-		// logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
-		// logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)),
-		//	logfields.WithClaimKeys(claimsKeys),
-		//	logfields.WithCredentialID(cred.ID),
-		// )
-
 		logger.Debug("strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(cred.ID),
