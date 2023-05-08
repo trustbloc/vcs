@@ -26,7 +26,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
-	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -47,8 +46,6 @@ import (
 const (
 	issuerProfileSvcComponent = "issuer.ProfileService"
 )
-
-var logger = log.New("issuer-controller")
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
@@ -674,8 +671,6 @@ func (c *Controller) validateClaims( //nolint:gocognit
 		types = append(types, t)
 	}
 
-	var claimsKeys []string
-
 	if sub, ok := cred.Subject.(verifiable.Subject); ok { //nolint:nestif
 		for k, v := range sub.CustomFields {
 			if k == "type" || k == "@type" {
@@ -696,7 +691,6 @@ func (c *Controller) validateClaims( //nolint:gocognit
 			}
 
 			data[k] = v
-			claimsKeys = append(claimsKeys, k)
 		}
 	}
 
