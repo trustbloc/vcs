@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
@@ -683,6 +684,11 @@ func (c *Controller) validateClaims(
 
 	if sub, ok := cred.Subject.(verifiable.Subject); ok {
 		for k, v := range sub.CustomFields {
+			if k == "type" || k == "@type" {
+				types = append(types, k)
+				continue
+			}
+
 			data[k] = v
 			claimsKeys = append(claimsKeys, k)
 		}
@@ -693,6 +699,7 @@ func (c *Controller) validateClaims(
 
 	d, _ := json.Marshal(data)
 
+	logger.Debug(fmt.Sprintf("raw cred for validation : %v", spew.Sdump(cred)))
 	logger.Debug(fmt.Sprintf("strict validation check. raw: %v", string(d)),
 		logfields.WithClaimKeys(claimsKeys),
 		logfields.WithCredentialID(cred.ID),
