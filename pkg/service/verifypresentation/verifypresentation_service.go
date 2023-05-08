@@ -10,11 +10,13 @@ package verifypresentation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/trustbloc/logutil-go/pkg/log"
@@ -224,6 +226,11 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(cred.ID),
 		)
+
+		j, _ := json.Marshal(data)
+		logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("spew2 %v", string(j)))
+		logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)))
 
 		if err := jsonld.ValidateJSONLDMap(data,
 			jsonld.WithDocumentLoader(s.documentLoader),
