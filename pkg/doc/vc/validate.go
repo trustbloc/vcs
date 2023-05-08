@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package vc
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -15,7 +16,9 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
 )
@@ -24,6 +27,8 @@ const (
 	// https://www.w3.org/TR/vc-data-model/#base-context
 	baseContext = "https://www.w3.org/2018/credentials/v1"
 )
+
+var logger = log.New("vc-validate-credentials")
 
 func ValidateCredential(
 	cred interface{},
@@ -63,6 +68,19 @@ func ValidateCredential(
 
 		jwtRepresentation := credential.JWT
 		credential.JWT = ""
+		logObj := map[string]interface{}{
+			"@context": credential.Context,
+			"types":    credential.Types,
+		}
+
+		var claimsKeys []string
+		for k, _ := range credential.CustomFields {
+			logObj[k] = "redacted"
+			claimsKeys = append(claimsKeys, k)
+		}
+
+		j, _ := json.Marshal(logObj)
+		logger.Info(fmt.Sprintf("strict validation check. %v", string(j)), logfields.WithClaimKeys(claimsKeys))
 
 		err = validateCredentialClaims(credential, documentLoader)
 		if err != nil {
