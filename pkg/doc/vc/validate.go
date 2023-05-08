@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jwt"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	jsonld "github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
 	"github.com/trustbloc/vcs/pkg/restapi/resterr"
@@ -24,6 +25,8 @@ const (
 	// https://www.w3.org/TR/vc-data-model/#base-context
 	baseContext = "https://www.w3.org/2018/credentials/v1"
 )
+
+var logger = log.New("vc-validate-credentials")
 
 func ValidateCredential(
 	cred interface{},
@@ -81,6 +84,10 @@ func validateSDJWTCredential(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create display credential: %w", err)
 	}
+
+	v, _ := displayCredential.MarshalJSON()
+
+	logger.Info("display credential for sd jwt", log.WithID(string(v)))
 
 	err = validateCredentialClaims(displayCredential, documentLoader)
 	if err != nil {
