@@ -677,7 +677,7 @@ func (c *Controller) validateClaims(
 
 	var claimsKeys []string
 
-	if sub, ok := cred.Subject.(verifiable.Subject); ok {
+	if sub, ok := cred.Subject.(verifiable.Subject); ok { //nolint:nestif
 		for k, v := range sub.CustomFields {
 			if k == "type" || k == "@type" {
 				if v1, ok1 := v.(string); ok1 {
