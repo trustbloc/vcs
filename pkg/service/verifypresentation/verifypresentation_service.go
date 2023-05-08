@@ -219,7 +219,7 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error {
 		//	logfields.WithCredentialID(cred.ID),
 		//)
 
-		logger.Debug(fmt.Sprintf("strict validation check"),
+		logger.Debug("strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(cred.ID),
 		)
