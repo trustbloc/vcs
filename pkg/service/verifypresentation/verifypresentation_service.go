@@ -15,7 +15,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
@@ -214,8 +213,13 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error {
 		data["@context"] = ctx
 		data["type"] = types
 
-		logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
-		logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)),
+		//logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
+		//logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)),
+		//	logfields.WithClaimKeys(claimsKeys),
+		//	logfields.WithCredentialID(cred.ID),
+		//)
+
+		logger.Debug(fmt.Sprintf("strict validation check"),
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(cred.ID),
 		)
