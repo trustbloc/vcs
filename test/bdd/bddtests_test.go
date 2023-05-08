@@ -87,7 +87,7 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	}
 
 	ctx.BeforeSuite(beforeSuiteHook)
-	ctx.AfterSuite(afterSuiteHook)
+	//ctx.AfterSuite(afterSuiteHook)
 }
 
 func beforeSuiteHook() {

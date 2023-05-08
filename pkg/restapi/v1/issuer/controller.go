@@ -11,6 +11,7 @@ package issuer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,13 +20,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -44,6 +48,8 @@ import (
 const (
 	issuerProfileSvcComponent = "issuer.ProfileService"
 )
+
+var logger = log.New("issuer-controller")
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
@@ -632,6 +638,10 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 			errors.New("credentials should not be nil"))
 	}
 
+	if err = c.validateClaims(result.Credential, result.EnforceStrictValidation); err != nil {
+		return err
+	}
+
 	signedCredential, err := c.signCredential(ctx, result.Credential, nil, profile)
 	if err != nil {
 		return err
@@ -643,6 +653,55 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 		OidcFormat: string(result.OidcFormat),
 		Retry:      result.Retry,
 	}, nil)
+}
+
+func (c *Controller) validateClaims(
+	cred *verifiable.Credential,
+	strictValidation bool,
+) error {
+	if !strictValidation {
+		return nil
+	}
+
+	data := map[string]interface{}{}
+
+	var ctx []interface{}
+	for _, ct := range cred.Context {
+		ctx = append(ctx, ct)
+	}
+
+	var types []interface{}
+	for _, t := range cred.Types {
+		types = append(types, t)
+	}
+
+	var claimsKeys []string
+	//for k, v := range cred.CustomFields {
+	//	data[k] = v
+	//	claimsKeys = append(claimsKeys, k)
+	//}
+
+	if sub, ok := cred.Subject.(verifiable.Subject); ok {
+		for k, v := range sub.CustomFields {
+			data[k] = v
+			claimsKeys = append(claimsKeys, k)
+		}
+	}
+
+	data["@context"] = ctx
+	data["type"] = types
+
+	d, _ := json.Marshal(data)
+
+	logger.Debug(fmt.Sprintf("strict validation check. raw: %v", string(d)),
+		logfields.WithClaimKeys(claimsKeys),
+		logfields.WithCredentialID(cred.ID),
+	)
+
+	return jsonld.ValidateJSONLDMap(data,
+		jsonld.WithDocumentLoader(c.documentLoader),
+		jsonld.WithStrictValidation(strictValidation),
+	)
 }
 
 // OpenidConfig request openid configuration for issuer.
