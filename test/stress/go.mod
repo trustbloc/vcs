@@ -10,7 +10,7 @@ require (
 	github.com/bluele/gcache v0.0.2
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go v0.3.1-0.20230508170346-4b06af1fda02
+	github.com/hyperledger/aries-framework-go v0.3.1
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230314165048-d06b1132a27b

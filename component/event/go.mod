@@ -6,7 +6,7 @@ module github.com/trustbloc/vcs/component/event
 go 1.19
 
 require (
-	github.com/hyperledger/aries-framework-go v0.3.1-0.20230508170346-4b06af1fda02
+	github.com/hyperledger/aries-framework-go v0.3.1
 	github.com/piprate/json-gold v0.5.0
 	github.com/samber/lo v1.37.0
 	github.com/spf13/cobra v1.6.1

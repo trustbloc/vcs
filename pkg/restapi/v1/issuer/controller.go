@@ -29,7 +29,6 @@ import (
 	"github.com/trustbloc/logutil-go/pkg/log"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
@@ -703,11 +702,6 @@ func (c *Controller) validateClaims( //nolint:gocognit
 
 	data["@context"] = ctx
 	data["type"] = types
-
-	logger.Debug("strict validation check",
-		logfields.WithClaimKeys(claimsKeys),
-		logfields.WithCredentialID(cred.ID),
-	)
 
 	return jsonld.ValidateJSONLDMap(data,
 		jsonld.WithDocumentLoader(c.documentLoader),
