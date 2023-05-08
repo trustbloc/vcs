@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/cucumber/godog"
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"golang.org/x/oauth2"
 
@@ -39,6 +40,8 @@ type PreAuthorizeStep struct {
 	tokenResponse           *accessTokenResponse
 	credential              interface{}
 	oauthClient             *oauth2.Config
+	claimsAreValid          bool
+	receiveCredentialsErr   error
 }
 
 func NewPreAuthorizeStep(ctx *bddcontext.BDDContext) *PreAuthorizeStep {
@@ -51,7 +54,7 @@ func NewPreAuthorizeStep(ctx *bddcontext.BDDContext) *PreAuthorizeStep {
 }
 
 func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
-	sc.Step(`^issuer with id "([^"]*)" wants to issue credentials to his client with pre-auth code flow$`, s.prepareIssuer)
+	sc.Step(`^issuer with id "([^"]*)" wants to issue credentials to his client with pre-auth code flow and claims are "([^"]*)"$`, s.prepareIssuer)
 
 	sc.Step(`^issuer sends request to initiate-issuance with requirePin "([^"]*)"$`, s.initiateIssuance)
 	sc.Step(`^issuer receives response with oidc url`, s.parseUrl)
@@ -61,7 +64,7 @@ func (s *PreAuthorizeStep) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^client should receive access token for further interactions with vc api$`, s.receiveToken)
 
 	sc.Step(`^client requests credential for claim data with pre-authorize flow$`, s.getCredential)
-	sc.Step(`^client receives a valid credential with pre-authorize flow$`, s.checkCredential)
+	sc.Step(`^client receives a "([^"]*)" credential with pre-authorize flow$`, s.checkCredential)
 
 	sc.Step(`^claim data are removed from the database$`, s.checkClaimData)
 }
@@ -130,7 +133,7 @@ func (s *PreAuthorizeStep) receiveToken() error {
 	return nil
 }
 
-func (s *PreAuthorizeStep) prepareIssuer(profileVersionedID string) error {
+func (s *PreAuthorizeStep) prepareIssuer(profileVersionedID string, validClaims string) error {
 	issuer, ok := s.bddContext.IssuerProfiles[profileVersionedID]
 	if !ok {
 		return fmt.Errorf("issuer profile '%s' not found", profileVersionedID)
@@ -142,7 +145,10 @@ func (s *PreAuthorizeStep) prepareIssuer(profileVersionedID string) error {
 		return err
 	}
 
+	valid, _ := strconv.ParseBool(validClaims)
+
 	s.issuer = issuer
+	s.claimsAreValid = valid
 	s.bddContext.Args[getOrgAuthTokenKey(issuer.OrganizationID)] = accessToken
 
 	s.oauthClient = &oauth2.Config{
@@ -163,13 +169,19 @@ func (s *PreAuthorizeStep) initiateIssuance(requirePin string) error {
 	issuanceURL := fmt.Sprintf(initiateCredentialIssuanceURLFormat, s.issuer.ID, s.issuer.Version)
 	token := s.bddContext.Args[getOrgAuthTokenKey(s.issuer.OrganizationID)]
 
+	claims := map[string]interface{}{
+		"familyName":   "John Doe",
+		"givenName":    "John",
+		"degree":       "MIT",
+		"degreeSchool": "MIT school",
+	}
+
+	if !s.claimsAreValid {
+		claims["someInvalidFieldNotFromSchema"] = uuid.New().String()
+	}
+
 	req := &initiateOIDC4CIRequest{
-		ClaimData: lo.ToPtr(map[string]interface{}{
-			"familyName":   "John Doe",
-			"givenName":    "John",
-			"degree":       "MIT",
-			"degreeSchool": "MIT school",
-		}),
+		ClaimData:            lo.ToPtr(claims),
 		CredentialTemplateId: "templateID",
 		GrantType:            "urn:ietf:params:oauth:grant-type:pre-authorized_code",
 		Scope:                []string{"openid", "profile"},
@@ -206,20 +218,42 @@ func (s *PreAuthorizeStep) initiateIssuance(requirePin string) error {
 }
 
 func (s *PreAuthorizeStep) getCredential() error {
+	s.receiveCredentialsErr = nil
 	cred, err := getCredential(s.oauthClient, (&oauth2.Token{
 		AccessToken: s.tokenResponse.AccessToken,
 	}).WithExtra(map[string]interface{}{
 		"c_nonce": *s.tokenResponse.CNonce,
 	}), s.bddContext.TLSConfig, false)
-	if err != nil {
-		return err
-	}
+	s.receiveCredentialsErr = err
 
-	s.credential = cred.Credential
+	if cred != nil {
+		s.credential = cred.Credential
+	}
 	return nil
 }
 
-func (s *PreAuthorizeStep) checkCredential() error {
+func (s *PreAuthorizeStep) checkCredential(shouldBeValid string) error {
+	valid, _ := strconv.ParseBool(shouldBeValid)
+
+	if !valid {
+		if s.receiveCredentialsErr == nil {
+			return errors.New("/oidc/credentials should return error, but no error returned")
+		}
+
+		if s.receiveCredentialsErr.Error() ==
+			"get credential: prepare credential: status code 400, code: invalid-value; incorrect value: credential; "+
+				"message: failed to validate JWT credential claims: crdential validation failed: "+
+				"JSON-LD doc has different structure after compaction" {
+			return nil
+		}
+
+		return s.receiveCredentialsErr
+	}
+
+	if s.receiveCredentialsErr != nil {
+		return s.receiveCredentialsErr
+	}
+
 	if s.credential == nil {
 		return fmt.Errorf("credential is empty")
 	}
@@ -229,11 +263,11 @@ func (s *PreAuthorizeStep) checkCredential() error {
 
 func (s *PreAuthorizeStep) checkClaimData() error {
 	if err := s.getCredential(); err != nil {
-		if strings.Contains(err.Error(), "get claim data: data not found") {
-			return nil
-		}
-
 		return err
+	}
+
+	if strings.Contains(s.receiveCredentialsErr.Error(), "get claim data: data not found") {
+		return nil
 	}
 
 	return errors.New("claim data found")

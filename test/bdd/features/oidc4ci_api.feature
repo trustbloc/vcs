@@ -26,7 +26,7 @@ Feature: OIDC4CI REST API
     Then client receives a valid credential
 
   Scenario Outline: Credential issuance using OIDC4CI pre-authorization code flow
-    Given issuer with id "<issuerName>" wants to issue credentials to his client with pre-auth code flow
+    Given issuer with id "<issuerName>" wants to issue credentials to his client with pre-auth code flow and claims are "<claimsValid>"
 
     When issuer sends request to initiate-issuance with requirePin "<requirePin>"
     Then issuer receives response with oidc url
@@ -36,11 +36,28 @@ Feature: OIDC4CI REST API
     Then client should receive access token for further interactions with vc api
 
     When client requests credential for claim data with pre-authorize flow
-    Then client receives a valid credential with pre-authorize flow
+    Then client receives a "<claimsValid>" credential with pre-authorize flow
     And claim data are removed from the database
 
     Examples:
-      | issuerName               | requirePin |
-      | bank_issuer/v1.0         | true       |
-      | bank_issuer/v1.0         | false      |
-      | issuer_without_oidc/v1.0 | true       |
+      | issuerName               | requirePin | claimsValid |
+      | bank_issuer/v1.0         | true       | true        |
+      | bank_issuer/v1.0         | false      | true        |
+      | issuer_without_oidc/v1.0 | true       | true        |
+
+  Scenario Outline: Credential issuance using OIDC4CI pre-authorization code flow (Invalid claims struct)
+    Given issuer with id "<issuerName>" wants to issue credentials to his client with pre-auth code flow and claims are "<claimsValid>"
+
+    When issuer sends request to initiate-issuance with requirePin "<requirePin>"
+    Then issuer receives response with oidc url
+    And issuer represent this url to client as qrcode
+
+    When client scans qrcode
+    Then client should receive access token for further interactions with vc api
+
+    When client requests credential for claim data with pre-authorize flow
+    Then client receives a "<claimsValid>" credential with pre-authorize flow
+
+    Examples:
+      | issuerName               | requirePin | claimsValid |
+      | bank_issuer/v1.0         | false      | false       |
