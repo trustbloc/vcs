@@ -655,7 +655,7 @@ func (c *Controller) PrepareCredential(e echo.Context) error {
 	}, nil)
 }
 
-func (c *Controller) validateClaims(
+func (c *Controller) validateClaims( //nolint:gocognit
 	cred *verifiable.Credential,
 	strictValidation bool,
 ) error {
@@ -704,9 +704,6 @@ func (c *Controller) validateClaims(
 	data["@context"] = ctx
 	data["type"] = types
 
-	//d, _ := json.Marshal(data)
-	//
-	//logger.Debug(fmt.Sprintf("raw cred for validation : %v", spew.Sdump(cred)))
 	logger.Debug("strict validation check",
 		logfields.WithClaimKeys(claimsKeys),
 		logfields.WithCredentialID(cred.ID),

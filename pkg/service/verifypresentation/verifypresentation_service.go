@@ -28,6 +28,10 @@ import (
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
 )
 
+const (
+	typeKey = "type"
+)
+
 type vcVerifier interface {
 	ValidateCredentialProof(ctx context.Context, vcByte []byte, proofChallenge, proofDomain string, vcInVPValidation, isJWT bool) error //nolint:lll
 	ValidateVCStatus(ctx context.Context, vcStatus *verifiable.TypedID, issuer string) error
@@ -56,11 +60,12 @@ func New(config *Config) *Service {
 
 var logger = log.New("verify-presentation")
 
-func (s *Service) VerifyPresentation(
+func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	ctx context.Context,
 	presentation *verifiable.Presentation,
 	opts *Options,
-	profile *profileapi.Verifier) ([]PresentationVerificationCheckResult, error) {
+	profile *profileapi.Verifier,
+) ([]PresentationVerificationCheckResult, error) {
 	startTime := time.Now().UTC()
 	defer func() {
 		logger.Debug("VerifyPresentation", log.WithDuration(time.Since(startTime)))
@@ -71,8 +76,6 @@ func (s *Service) VerifyPresentation(
 	if presentation != nil {
 		for _, c := range presentation.Credentials() {
 			lazyCredentials = append(lazyCredentials, NewLazyCredential(c))
-
-			//logger.Debug(fmt.Sprintf("LAZY : %v", spew.Sdump(c)))
 		}
 	}
 
@@ -162,7 +165,7 @@ func (s *Service) VerifyPresentation(
 	return result, nil
 }
 
-func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error {
+func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint:gocognit
 	for _, input := range lazy {
 		cred, ok := input.Raw().(*verifiable.Credential)
 		if !ok {
@@ -198,7 +201,7 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error {
 			if d.Name == "_sd" {
 				continue
 			}
-			if d.Name == "type" || d.Name == "@type" {
+			if d.Name == typeKey || d.Name == "@type" {
 				if parsed := s.handleTypeParam(d.Value); len(parsed) > 0 {
 					types = append(types, parsed...)
 				}
@@ -211,13 +214,13 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error {
 		}
 
 		data["@context"] = ctx
-		data["type"] = types
+		data[typeKey] = types
 
-		//logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
-		//logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)),
+		// logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
+		// logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)),
 		//	logfields.WithClaimKeys(claimsKeys),
 		//	logfields.WithCredentialID(cred.ID),
-		//)
+		// )
 
 		logger.Debug("strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
@@ -245,7 +248,7 @@ func (s *Service) handleSubject(
 		if k == "_sd" {
 			continue
 		}
-		if k == "type" || k == "@type" {
+		if k == typeKey || k == "@type" {
 			if parsed := s.handleTypeParam(v); len(parsed) > 0 {
 				types = append(types, parsed...)
 			}
