@@ -16,11 +16,10 @@ import (
 	"time"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/trustbloc/logutil-go/pkg/log"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
@@ -197,29 +196,31 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 			}
 		}
 
-		for _, d := range cred.SDJWTDisclosures {
-			if d.Name == "_sd" {
-				continue
-			}
-			if d.Name == typeKey || d.Name == "@type" {
-				if parsed := s.handleTypeParam(d.Value); len(parsed) > 0 {
-					types = append(types, parsed...)
-				}
-
-				continue
-			}
-
-			data[d.Name] = d.Value
-			claimsKeys = append(claimsKeys, d.Name)
-		}
+		//for _, d := range cred.SDJWTDisclosures {
+		//	if d.Name == "_sd" {
+		//		continue
+		//	}
+		//	if d.Name == typeKey || d.Name == "@type" {
+		//		if parsed := s.handleTypeParam(d.Value); len(parsed) > 0 {
+		//			types = append(types, parsed...)
+		//		}
+		//
+		//		continue
+		//	}
+		//
+		//	data[d.Name] = d.Value
+		//	claimsKeys = append(claimsKeys, d.Name)
+		//}
 
 		data["@context"] = ctx
 		data[typeKey] = types
 
-		logger.Debug("strict validation check",
+		logger.Debug("verifier strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
 			logfields.WithCredentialID(cred.ID),
 		)
+		logger.Debug(fmt.Sprintf("type %v", types))
+		logger.Debug(fmt.Sprintf("type %t", types))
 
 		if err := jsonld.ValidateJSONLDMap(data,
 			jsonld.WithDocumentLoader(s.documentLoader),

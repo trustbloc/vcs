@@ -26,6 +26,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/piprate/json-gold/ld"
 	"github.com/samber/lo"
+	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vcs/internal/logfields"
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/trustbloc/vcs/pkg/doc/vc"
@@ -46,6 +48,8 @@ import (
 const (
 	issuerProfileSvcComponent = "issuer.ProfileService"
 )
+
+var logger = log.New("issue-vc")
 
 var _ ServerInterface = (*Controller)(nil) // make sure Controller implements ServerInterface
 
@@ -671,6 +675,7 @@ func (c *Controller) validateClaims( //nolint:gocognit
 		types = append(types, t)
 	}
 
+	var claimsKeys []string
 	if sub, ok := cred.Subject.(verifiable.Subject); ok { //nolint:nestif
 		for k, v := range sub.CustomFields {
 			if k == "type" || k == "@type" {
@@ -691,11 +696,20 @@ func (c *Controller) validateClaims( //nolint:gocognit
 			}
 
 			data[k] = v
+			claimsKeys = append(claimsKeys, k)
+
 		}
 	}
 
 	data["@context"] = ctx
 	data["type"] = types
+
+	logger.Debug("issuer strict validation check",
+		logfields.WithClaimKeys(claimsKeys),
+		logfields.WithCredentialID(cred.ID),
+	)
+	logger.Debug(fmt.Sprintf("type %v", types))
+	logger.Debug(fmt.Sprintf("type %t", types))
 
 	return jsonld.ValidateJSONLDMap(data,
 		jsonld.WithDocumentLoader(c.documentLoader),
