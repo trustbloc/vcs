@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -69,6 +70,8 @@ func (s *Service) VerifyPresentation(
 	if presentation != nil {
 		for _, c := range presentation.Credentials() {
 			lazyCredentials = append(lazyCredentials, NewLazyCredential(c))
+
+			logger.Debug(fmt.Sprintf("LAZY : %v", spew.Sdump(c)))
 		}
 	}
 
