@@ -11,7 +11,6 @@ package oidc4ci
 
 import (
 	"context"
-	"strings"
 
 	"github.com/samber/lo"
 	"go.opentelemetry.io/otel/attribute"
@@ -45,7 +44,7 @@ func (w *Wrapper) InitiateIssuance(
 	span.SetAttributes(attributeutil.JSON("initiate_issuance_request", req, attributeutil.WithRedacted("ClaimData")))
 
 	if req.ClaimData != nil {
-		span.SetAttributes(attributeutil.JSON("claim_data_fields", strings.Join(lo.Keys(req.ClaimData), ",")))
+		span.SetAttributes(attribute.StringSlice("claim_keys", lo.Keys(req.ClaimData)))
 	}
 
 	resp, err := w.svc.InitiateIssuance(ctx, req, profile)
@@ -86,7 +85,7 @@ func (w *Wrapper) ValidatePreAuthorizedCodeRequest(ctx context.Context, preAutho
 		return nil, err
 	}
 
-	span.SetAttributes(attribute.String("resolved tx_id", string(tx.ID)))
+	span.SetAttributes(attribute.String("tx_id", string(tx.ID)))
 
 	return tx, nil
 }

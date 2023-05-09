@@ -56,6 +56,7 @@ func TestNew(t *testing.T) {
 				vdr:            &mockvdr.MockVDRegistry{},
 				documentLoader: testutil.DocumentLoader(t),
 				vcVerifier:     NewMockVcVerifier(gomock.NewController(t)),
+				claimKeys:      map[string][]string{},
 			},
 		},
 	}
@@ -789,6 +790,7 @@ func TestExtractCredentialStatus(t *testing.T) {
 
 func TestCredentialStrict(t *testing.T) {
 	l := NewLazyCredential(&verifiable.Credential{
+		ID: "credentialID",
 		Context: []string{
 			"https://www.w3.org/2018/credentials/v1",
 			"https://www.w3.org/2018/credentials/examples/v1",
@@ -820,4 +822,5 @@ func TestCredentialStrict(t *testing.T) {
 		DocumentLoader: ld.NewDefaultDocumentLoader(http.DefaultClient),
 	})
 	assert.NoError(t, s.checkCredentialStrict([]*LazyCredential{l}))
+	assert.ElementsMatch(t, []string{"type", "degree"}, s.GetClaimKeys()["credentialID"])
 }

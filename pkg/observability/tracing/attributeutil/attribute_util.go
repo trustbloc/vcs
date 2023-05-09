@@ -32,7 +32,7 @@ func JSON(key string, value interface{}, opts ...Opt) attribute.KeyValue {
 	}
 
 	for _, path := range op.redacted {
-		if gjson.GetBytes(b, path).Exists() {
+		if data := gjson.GetBytes(b, path); data.String() != "" {
 			b, _ = sjson.SetBytes(b, path, "[REDACTED]")
 		}
 	}
