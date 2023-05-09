@@ -8,6 +8,7 @@ go 1.19
 
 require (
 	github.com/alexliesenfeld/health v0.6.0
+	github.com/aws/aws-sdk-go v1.43.9
 	github.com/aws/aws-sdk-go-v2 v1.17.7
 	github.com/aws/aws-sdk-go-v2/config v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/kms v1.20.0
@@ -21,10 +22,9 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/tink/go v1.7.0
 	github.com/google/uuid v1.3.0
-	github.com/hyperledger/aries-framework-go v0.3.1
+	github.com/hyperledger/aries-framework-go v0.3.2
 	github.com/hyperledger/aries-framework-go-ext/component/storage/mongodb v0.0.0-20220728172020-0a8903e45149
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3
 	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3
 	github.com/jinzhu/copier v0.3.5
@@ -120,10 +120,12 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
 	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kawamuray/jsonpath v0.0.0-20201211160320-7483bafabd7e // indirect
 	github.com/kilic/bls12-381 v0.1.1-0.20210503002446-7b7597926c69 // indirect

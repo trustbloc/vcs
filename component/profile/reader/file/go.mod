@@ -7,7 +7,7 @@ go 1.19
 
 require (
 	github.com/hashicorp/go-version v1.2.0
-	github.com/hyperledger/aries-framework-go v0.3.1
+	github.com/hyperledger/aries-framework-go v0.3.2
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/jwk v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221213152252-f0c83a5a922c
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221213152252-f0c83a5a922c

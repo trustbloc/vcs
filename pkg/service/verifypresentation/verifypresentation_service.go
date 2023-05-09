@@ -15,21 +15,18 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/trustbloc/logutil-go/pkg/log"
+	"github.com/trustbloc/vcs/internal/logfields"
 
+	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
+	"github.com/trustbloc/logutil-go/pkg/log"
 
-	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
-)
-
-const (
-	typeKey = "type"
 )
 
 type vcVerifier interface {
@@ -110,20 +107,6 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		}
 	}
 
-	if profile.Checks.Credential.Strict {
-		st := time.Now()
-
-		err := s.checkCredentialStrict(lazyCredentials)
-		if err != nil {
-			result = append(result, PresentationVerificationCheckResult{
-				Check: "credentialStrict",
-				Error: err.Error(),
-			})
-		}
-
-		logger.Debug(fmt.Sprintf("Checks.Credential.Strict took %v", time.Since(st)))
-	}
-
 	if profile.Checks.Credential.Proof {
 		st := time.Now()
 
@@ -162,6 +145,20 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 		logger.Debug(fmt.Sprintf("Checks.Credential.LinkedDomain took %v", time.Since(st)))
 	}
 
+	if profile.Checks.Credential.Strict {
+		st := time.Now()
+
+		err := s.checkCredentialStrict(lazyCredentials)
+		if err != nil {
+			result = append(result, PresentationVerificationCheckResult{
+				Check: "credentialStrict",
+				Error: err.Error(),
+			})
+		}
+
+		logger.Debug(fmt.Sprintf("Checks.Credential.Strict took %v", time.Since(st)))
+	}
+
 	return result, nil
 }
 
@@ -169,59 +166,46 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 	for _, input := range lazy {
 		cred, ok := input.Raw().(*verifiable.Credential)
 		if !ok {
-			logger.Warn(fmt.Sprintf("can not validate expiry. unexpected type %v",
+			logger.Warn(fmt.Sprintf("can not validate strict. unexpected type %v",
 				reflect.TypeOf(input).String()))
 			return nil
 		}
 
-		data := map[string]interface{}{}
+		if logger.IsEnabled(log.DEBUG) {
+			var claimsKeys []string
+			for k := range cred.CustomFields {
+				claimsKeys = append(claimsKeys, k)
+			}
 
-		var ctx []interface{}
-		for _, ct := range cred.Context {
-			ctx = append(ctx, ct)
+			logger.Debug("verifier strict validation check",
+				logfields.WithClaimKeys(claimsKeys),
+				logfields.WithCredentialID(cred.ID),
+			)
 		}
 
-		var types []interface{}
-		for _, t := range cred.Types {
-			types = append(types, t)
-		}
+		var credMap map[string]interface{}
+		var err error
 
-		var claimsKeys []string
-		if sub, ok := cred.Subject.(verifiable.Subject); ok {
-			types, claimsKeys, data = s.handleSubject(sub, types, data, claimsKeys)
-		}
+		if cred.SDJWTHashAlg != "" {
+			credMap, err = cred.CreateDisplayCredentialMap(verifiable.DisplayAllDisclosures())
+			if err != nil {
+				return err
+			}
+		} else {
+			cred.JWT = ""
 
-		if sub, ok := cred.Subject.([]verifiable.Subject); ok {
-			for _, subSub := range sub {
-				types, claimsKeys, data = s.handleSubject(subSub, types, data, claimsKeys)
+			credentialBytes, err := cred.MarshalJSON()
+			if err != nil {
+				return fmt.Errorf("unable to marshal credential: %w", err)
+			}
+
+			credMap, err = json.ToMap(credentialBytes)
+			if err != nil {
+				return err
 			}
 		}
 
-		for _, d := range cred.SDJWTDisclosures {
-			if d.Name == "_sd" {
-				continue
-			}
-			if d.Name == typeKey || d.Name == "@type" {
-				if parsed := s.handleTypeParam(d.Value); len(parsed) > 0 {
-					types = append(types, parsed...)
-				}
-
-				continue
-			}
-
-			data[d.Name] = d.Value
-			claimsKeys = append(claimsKeys, d.Name)
-		}
-
-		data["@context"] = ctx
-		data[typeKey] = types
-
-		logger.Debug("strict validation check",
-			logfields.WithClaimKeys(claimsKeys),
-			logfields.WithCredentialID(cred.ID),
-		)
-
-		if err := jsonld.ValidateJSONLDMap(data,
+		if err := jsonld.ValidateJSONLDMap(credMap,
 			jsonld.WithDocumentLoader(s.documentLoader),
 			jsonld.WithStrictValidation(true),
 		); err != nil {
@@ -230,50 +214,6 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 	}
 
 	return nil
-}
-
-func (s *Service) handleSubject(
-	sub verifiable.Subject,
-	types []interface{},
-	data map[string]interface{},
-	claimsKeys []string,
-) ([]interface{}, []string, map[string]interface{}) {
-	for k, v := range sub.CustomFields {
-		if k == "_sd" {
-			continue
-		}
-		if k == typeKey || k == "@type" {
-			if parsed := s.handleTypeParam(v); len(parsed) > 0 {
-				types = append(types, parsed...)
-			}
-
-			continue
-		}
-
-		data[k] = v
-		claimsKeys = append(claimsKeys, k)
-	}
-
-	return types, claimsKeys, data
-}
-
-func (s *Service) handleTypeParam(input interface{}) []interface{} {
-	var types []interface{}
-
-	if v1, ok1 := input.(string); ok1 {
-		types = append(types, v1)
-
-		return types
-	}
-
-	if reflect.TypeOf(input).Kind() == reflect.Slice {
-		s := reflect.ValueOf(input)
-		for i := 0; i < s.Len(); i++ {
-			types = append(types, s.Index(i).Interface())
-		}
-	}
-
-	return types
 }
 
 func (s *Service) checkCredentialExpiry(lazy []*LazyCredential) error {
