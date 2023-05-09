@@ -294,6 +294,7 @@ func (s *Service) ValidatePreAuthorizedCodeRequest(
 			fmt.Errorf("server expects user pin"))
 	}
 
+	//trigger
 	newState := TransactionStatePreAuthCodeValidated
 	if err = s.validateStateTransition(tx.State, newState); err != nil {
 		return nil, err
