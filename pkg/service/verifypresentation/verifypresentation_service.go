@@ -196,7 +196,8 @@ func (s *Service) checkCredentialStrict2(lazy []*LazyCredential) error { //nolin
 			return err
 		}
 
-		logger.Debug(fmt.Sprintf("OLD. spew %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("OLD. spew cred before %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("OLD. spew cred after %v", spew.Sdump(displayCredential)))
 		logger.Debug(fmt.Sprintf("OLD. spew2 %v", string(bytes)))
 		logger.Debug(fmt.Sprintf("OLD. strict validation check %v", spew.Sdump(r)))
 
