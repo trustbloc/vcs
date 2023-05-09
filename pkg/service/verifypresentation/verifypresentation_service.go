@@ -19,6 +19,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/hyperledger/aries-framework-go/pkg/common/utils"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
+	json2 "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -117,7 +118,9 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Strict {
 		st := time.Now()
 
-		err := s.checkCredentialStrict(lazyCredentials)
+		_ = s.checkCredentialStrict(lazyCredentials)
+		err := s.checkCredentialStrict2(lazyCredentials)
+
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
 				Check: "credentialStrict",
@@ -167,6 +170,45 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	}
 
 	return result, nil
+}
+
+func (s *Service) checkCredentialStrict2(lazy []*LazyCredential) error { //nolint:gocognit
+	for _, input := range lazy {
+		cred, ok := input.Raw().(*verifiable.Credential)
+		if !ok {
+			logger.Warn(fmt.Sprintf("can not validate expiry. unexpected type %v",
+				reflect.TypeOf(input).String()))
+			return nil
+		}
+
+		displayCredential, err := cred.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		if err != nil {
+			return err
+		}
+
+		bytes, err := displayCredential.MarshalJSON()
+		if err != nil {
+			return err
+		}
+
+		r, err := json2.ToMap(bytes)
+		if err != nil {
+			return err
+		}
+
+		logger.Debug(fmt.Sprintf("OLD. spew %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("OLD. spew2 %v", string(bytes)))
+		logger.Debug(fmt.Sprintf("OLD. strict validation check %v", spew.Sdump(r)))
+
+		if err := jsonld.ValidateJSONLDMap(r,
+			jsonld.WithDocumentLoader(s.documentLoader),
+			jsonld.WithStrictValidation(true),
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint:gocognit
@@ -228,9 +270,9 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 		)
 
 		j, _ := json.Marshal(data)
-		logger.Debug(fmt.Sprintf("spew %v", spew.Sdump(cred)))
-		logger.Debug(fmt.Sprintf("spew2 %v", string(j)))
-		logger.Debug(fmt.Sprintf("strict validation check %v", spew.Sdump(data)))
+		logger.Debug(fmt.Sprintf("NEW. spew %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("NEW. spew2 %v", string(j)))
+		logger.Debug(fmt.Sprintf("NEW. strict validation check %v", spew.Sdump(data)))
 
 		if err := jsonld.ValidateJSONLDMap(data,
 			jsonld.WithDocumentLoader(s.documentLoader),
