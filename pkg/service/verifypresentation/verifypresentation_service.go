@@ -15,15 +15,14 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/trustbloc/vcs/internal/logfields"
-
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
-	"github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
+	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	vdrapi "github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdr"
 	"github.com/piprate/json-gold/ld"
 	"github.com/trustbloc/logutil-go/pkg/log"
 
+	"github.com/trustbloc/vcs/internal/logfields"
 	"github.com/trustbloc/vcs/pkg/doc/vc/crypto"
 	"github.com/trustbloc/vcs/pkg/internal/common/diddoc"
 	profileapi "github.com/trustbloc/vcs/pkg/profile"
@@ -45,6 +44,7 @@ type Service struct {
 	vdr            vdrapi.Registry
 	documentLoader ld.DocumentLoader
 	vcVerifier     vcVerifier
+	claimKeys      map[string][]string
 }
 
 func New(config *Config) *Service {
@@ -52,6 +52,7 @@ func New(config *Config) *Service {
 		vdr:            config.VDR,
 		documentLoader: config.DocumentLoader,
 		vcVerifier:     config.VcVerifier,
+		claimKeys:      map[string][]string{},
 	}
 }
 
@@ -67,6 +68,9 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	defer func() {
 		logger.Debug("VerifyPresentation", log.WithDuration(time.Since(startTime)))
 	}()
+
+	s.claimKeys = map[string][]string{}
+
 	var result []PresentationVerificationCheckResult
 
 	var lazyCredentials []*LazyCredential
@@ -171,18 +175,6 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 			return nil
 		}
 
-		if logger.IsEnabled(log.DEBUG) {
-			var claimsKeys []string
-			for k := range cred.CustomFields {
-				claimsKeys = append(claimsKeys, k)
-			}
-
-			logger.Debug("verifier strict validation check",
-				logfields.WithClaimKeys(claimsKeys),
-				logfields.WithCredentialID(cred.ID),
-			)
-		}
-
 		var credMap map[string]interface{}
 		var err error
 
@@ -193,19 +185,38 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 			}
 		} else {
 			cred.JWT = ""
+			var credentialBytes []byte
 
-			credentialBytes, err := cred.MarshalJSON()
+			credentialBytes, err = cred.MarshalJSON()
 			if err != nil {
 				return fmt.Errorf("unable to marshal credential: %w", err)
 			}
 
-			credMap, err = json.ToMap(credentialBytes)
+			credMap, err = jsonutil.ToMap(credentialBytes)
 			if err != nil {
 				return err
 			}
 		}
 
-		if err := jsonld.ValidateJSONLDMap(credMap,
+		var claimKeys []string
+
+		m, ok := credMap["credentialSubject"].(map[string]interface{})
+		if ok {
+			for k := range m {
+				claimKeys = append(claimKeys, k)
+			}
+		}
+
+		s.claimKeys[cred.ID] = claimKeys
+
+		if logger.IsEnabled(log.DEBUG) {
+			logger.Debug("verifier strict validation check",
+				logfields.WithClaimKeys(claimKeys),
+				logfields.WithCredentialID(cred.ID),
+			)
+		}
+
+		if err = jsonld.ValidateJSONLDMap(credMap,
 			jsonld.WithDocumentLoader(s.documentLoader),
 			jsonld.WithStrictValidation(true),
 		); err != nil {
@@ -389,4 +400,9 @@ func (s *Service) extractCredentialStatus(cred *LazyCredential) (*verifiable.Typ
 	}
 
 	return finalObj, issuerID, nil
+}
+
+// GetClaimKeys returns credential claim keys.
+func (s *Service) GetClaimKeys() map[string][]string {
+	return s.claimKeys
 }
