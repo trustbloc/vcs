@@ -137,7 +137,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 					) (*oidc4ci.Transaction, error) {
 						assert.NotEqual(t, data.OpState, initialOpState)
 						assert.Equal(t, data.OpState, data.PreAuthCode)
-						assert.True(t, len(data.UserPin) == 0)
+						assert.True(t, len(data.UserPin) > 0)
 						assert.Equal(t, true, data.IsPreAuthFlow)
 						assert.NotEmpty(t, data.ClaimDataID)
 						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
@@ -153,7 +153,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 								},
 								PreAuthCode:   expectedCode,
 								IsPreAuthFlow: true,
-								UserPin:       "567",
+								UserPin:       "123456789",
 							},
 						}, nil
 					})
@@ -179,12 +179,7 @@ func TestService_InitiateIssuance(t *testing.T) {
 				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), walletWellKnownURL).Return(
 					&oidc4ci.OIDCConfiguration{}, nil)
 
-				pinGenerator.EXPECT().Generate("txID").Return("123456789")
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, tx *oidc4ci.Transaction) error {
-						assert.Equal(t, "123456789", tx.UserPin)
-						return nil
-					})
+				pinGenerator.EXPECT().Generate(gomock.Any()).Return("123456789")
 
 				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
 					CredentialTemplateID: "templateID",
@@ -418,71 +413,6 @@ func TestService_InitiateIssuance(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, "openid-credential-offer://?credential_offer=%7B%22credential_issuer%22%3A%22https%3A%2F%2Fvcs.pb.example.com%2Fissuer%2Ftest_issuer%22%2C%22credentials%22%3A%5B%7B%22format%22%3A%22jwt_vc_json-ld%22%2C%22types%22%3A%5B%22VerifiableCredential%22%2C%22PermanentResidentCard%22%5D%7D%5D%2C%22grants%22%3A%7B%22urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Apre-authorized_code%22%3A%7B%22pre-authorized_code%22%3A%22super-secret-pre-auth-code%22%2C%22user_pin_required%22%3Afalse%7D%7D%7D", //nolint
 					resp.InitiateIssuanceURL)
-			},
-		},
-		{
-			name: "Fail Pre-Auth with PIN because of saving pin tx",
-			setup: func() {
-				initialOpState := "eyJhbGciOiJSU0Et"
-				expectedCode := "super-secret-pre-auth-code"
-				claimData := map[string]interface{}{
-					"my_awesome_claim": "claim",
-				}
-
-				profile = &testProfile
-				mockTransactionStore.EXPECT().Create(gomock.Any(), gomock.Any(), gomock.Any()).
-					DoAndReturn(func(
-						ctx context.Context,
-						data *oidc4ci.TransactionData,
-						params ...func(insertOptions *oidc4ci.InsertOptions),
-					) (*oidc4ci.Transaction, error) {
-						assert.NotEqual(t, data.OpState, initialOpState)
-						assert.Equal(t, data.OpState, data.PreAuthCode)
-						assert.True(t, len(data.UserPin) == 0)
-						assert.Equal(t, true, data.IsPreAuthFlow)
-						assert.NotEmpty(t, data.ClaimDataID)
-						assert.Equal(t, oidc4ci.TransactionStateIssuanceInitiated, data.State)
-
-						return &oidc4ci.Transaction{
-							ID: "txID",
-							TransactionData: oidc4ci.TransactionData{
-								ProfileID: profile.ID,
-								CredentialTemplate: &profileapi.CredentialTemplate{
-									ID: "templateID",
-								},
-								PreAuthCode:   expectedCode,
-								IsPreAuthFlow: true,
-								UserPin:       "567",
-							},
-						}, nil
-					})
-
-				chunks := &dataprotect.EncryptedData{
-					Encrypted:      []byte{0x1, 0x2, 0x3},
-					EncryptedNonce: []byte{0x0, 0x2},
-				}
-
-				crypto.EXPECT().Encrypt(gomock.Any(), gomock.Any()).
-					Return(chunks, nil)
-				mockClaimDataStore.EXPECT().Create(gomock.Any(), gomock.Any()).Return("claimDataID", nil)
-
-				mockWellKnownService.EXPECT().GetOIDCConfiguration(gomock.Any(), issuerWellKnownURL).Return(
-					&oidc4ci.OIDCConfiguration{}, nil)
-
-				pinGenerator.EXPECT().Generate("txID").Return("123456789")
-				mockTransactionStore.EXPECT().Update(gomock.Any(), gomock.Any()).Return(errors.New("pin saving error"))
-
-				issuanceReq = &oidc4ci.InitiateIssuanceRequest{
-					CredentialTemplateID: "templateID",
-					ClientWellKnownURL:   walletWellKnownURL,
-					ClaimEndpoint:        "https://vcs.pb.example.com/claim",
-					OpState:              initialOpState,
-					UserPinRequired:      true,
-					ClaimData:            claimData,
-				}
-			},
-			check: func(t *testing.T, resp *oidc4ci.InitiateIssuanceResponse, err error) {
-				require.ErrorContains(t, err, "store pin tx: pin saving error")
 			},
 		},
 		{
