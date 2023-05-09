@@ -118,8 +118,14 @@ func (s *Service) VerifyPresentation( //nolint:funlen,gocognit
 	if profile.Checks.Credential.Strict {
 		st := time.Now()
 
-		_ = s.checkCredentialStrict(lazyCredentials)
-		err := s.checkCredentialStrict2(lazyCredentials)
+		err := s.checkCredentialStrict(lazyCredentials)
+		if err != nil {
+			logger.Error(fmt.Sprintf("NEW VALIDATION RETURNED ERROR %v", err))
+		}
+		err = s.checkCredentialStrict2(lazyCredentials)
+		if err != nil {
+			logger.Error(fmt.Sprintf("OLD VALIDATION RETURNED ERROR %v", err))
+		}
 
 		if err != nil {
 			result = append(result, PresentationVerificationCheckResult{
@@ -214,37 +220,42 @@ func (s *Service) checkCredentialStrict2(lazy []*LazyCredential) error { //nolin
 
 func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint:gocognit
 	for _, input := range lazy {
-		cred, ok := input.Raw().(*verifiable.Credential)
+		cred2, ok := input.Raw().(*verifiable.Credential)
 		if !ok {
 			logger.Warn(fmt.Sprintf("can not validate expiry. unexpected type %v",
 				reflect.TypeOf(input).String()))
 			return nil
 		}
 
+		displayCredential, err := cred2.CreateDisplayCredential(verifiable.DisplayAllDisclosures())
+		if err != nil {
+			return err
+		}
+
 		data := map[string]interface{}{}
 
 		var ctx []interface{}
-		for _, ct := range cred.Context {
+		for _, ct := range displayCredential.Context {
 			ctx = append(ctx, ct)
 		}
 
 		var types []interface{}
-		for _, t := range cred.Types {
+		for _, t := range displayCredential.Types {
 			types = append(types, t)
 		}
 
 		var claimsKeys []string
-		if sub, ok := cred.Subject.(verifiable.Subject); ok {
+		if sub, ok := displayCredential.Subject.(verifiable.Subject); ok {
 			types, claimsKeys, data = s.handleSubject(sub, types, data, claimsKeys)
 		}
 
-		if sub, ok := cred.Subject.([]verifiable.Subject); ok {
+		if sub, ok := displayCredential.Subject.([]verifiable.Subject); ok {
 			for _, subSub := range sub {
 				types, claimsKeys, data = s.handleSubject(subSub, types, data, claimsKeys)
 			}
 		}
 
-		for _, d := range cred.SDJWTDisclosures {
+		for _, d := range displayCredential.SDJWTDisclosures {
 			if d.Name == sdKey {
 				continue
 			}
@@ -267,11 +278,12 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 
 		logger.Debug("strict validation check",
 			logfields.WithClaimKeys(claimsKeys),
-			logfields.WithCredentialID(cred.ID),
+			logfields.WithCredentialID(displayCredential.ID),
 		)
 
 		j, _ := json.Marshal(data)
-		logger.Debug(fmt.Sprintf("NEW. spew %v", spew.Sdump(cred)))
+		logger.Debug(fmt.Sprintf("NEW. spew old raw %v", spew.Sdump(cred2)))
+		logger.Debug(fmt.Sprintf("NEW. spew new raw %v", spew.Sdump(displayCredential)))
 		logger.Debug(fmt.Sprintf("NEW. spew2 %v", string(j)))
 		logger.Debug(fmt.Sprintf("NEW. strict validation check %v", spew.Sdump(data)))
 
