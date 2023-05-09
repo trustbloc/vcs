@@ -116,19 +116,13 @@ func (s *Service) InitiateIssuance( // nolint:funlen,gocyclo,gocognit
 		data.OpState = data.PreAuthCode // set opState as it will be empty for pre-auth
 	}
 
+	if req.UserPinRequired {
+		data.UserPin = s.pinGenerator.Generate(uuid.NewString())
+	}
+
 	tx, err := s.store.Create(ctx, data)
 	if err != nil {
 		return nil, fmt.Errorf("store tx: %w", err)
-	}
-
-	if req.UserPinRequired {
-		data.UserPin = s.pinGenerator.Generate(string(tx.ID))
-		tx.UserPin = data.UserPin
-
-		err = s.store.Update(ctx, tx)
-		if err != nil {
-			return nil, fmt.Errorf("store pin tx: %w", err)
-		}
 	}
 
 	if errSendEvent := s.sendEvent(ctx, tx, spi.IssuerOIDCInteractionInitiated); errSendEvent != nil {
