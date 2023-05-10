@@ -95,10 +95,11 @@ func (e *Steps) initiateInteraction(profileVersionedID, organizationName string)
 	return e.initiateInteractionHelper(profileVersionedID, organizationName, nil)
 }
 
-func (e *Steps) initiateInteractionWithFields(profileVersionedID, organizationName, fields string) error {
+func (e *Steps) initiateInteractionWithPresentationIDAndFields(profileVersionedID, organizationName, pdID, fields string) error {
 	fieldsArr := strings.Split(fields, ",")
 
 	reqBody, err := json.Marshal(&initiateOIDC4VPData{
+		PresentationDefinitionId: pdID,
 		PresentationDefinitionFilters: &presentationDefinitionFilters{
 			Fields: &fieldsArr,
 		},

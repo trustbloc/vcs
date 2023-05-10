@@ -23,24 +23,22 @@ Feature: Using OIDC4VP REST API
     And User saves credentials into wallet
 
   @e2e
-  Scenario: Initiate, check authorization response for ldp verifier
-    Given OIDC4VP interaction initiated under "v_myprofile_ldp/v1.0" profile for organization "test_org"
+  Scenario Outline: Initiate, check authorization response for ldp verifier with specific presentation definition ID and fields
+    Given OIDC4VP interaction initiated under "v_myprofile_ldp/v1.0" profile for organization "test_org" with presentation definition ID "<presentationDefinitionID>" and fields "<fields>"
     And Wallet verify authorization request and decode claims
     And Wallet looks for credential that match authorization
     And Wallet send authorization response
     And Verifier form organization "test_org" requests interactions claims
     Then we wait 2 seconds
     And Verifier form organization "test_org" requests deleted interactions claims
-
-  Scenario: Initiate, check authorization response for ldp verifier with specific fields
-    Given OIDC4VP interaction initiated under "v_myprofile_ldp/v1.0" profile for organization "test_org" with fields "degree_type_id"
-    And Wallet verify authorization request and decode claims
-    And Wallet looks for credential that match authorization
-    And Wallet send authorization response
-    And Verifier form organization "test_org" requests interactions claims
+    Examples:
+      | presentationDefinitionID                  | fields                                                       |
+      | 32f54163-no-limit-disclosure-single-field | degree_type_id                                               |
+      | 3c8b1d9a-limit-disclosure-optional-fields | unit_of_measure_barrel,api_gravity,category,supplier_address |
+      | lp403pb9-schema-match                     | schema_id                                                    |
 
   Scenario: Initiate, check received claims expiry for ldp verifier
-    Given OIDC4VP interaction initiated under "v_myprofile_ldp/v1.0" profile for organization "test_org"
+    Given OIDC4VP interaction initiated under "v_myprofile_ldp/v1.0" profile for organization "test_org" with presentation definition ID "32f54163-no-limit-disclosure-single-field" and fields "degree_type_id"
     And Wallet verify authorization request and decode claims
     And Wallet looks for credential that match authorization
     And Wallet send authorization response
