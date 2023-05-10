@@ -149,9 +149,9 @@ func (s *Service) GetVPFlowExecutor() *VPFlowExecutor {
 	return s.vpFlowExecutor
 }
 
-func (e *VPFlowExecutor) InitiateInteraction(url, authToken string) (*InitiateOIDC4VPResponse, error) {
+func (e *VPFlowExecutor) InitiateInteraction(url, authToken string, body io.Reader) (*InitiateOIDC4VPResponse, error) {
 	resp, err := httputil.HTTPSDo(http.MethodPost, url, "application/json", authToken, //nolint: bodyclose
-		nil, e.tlsConfig)
+		body, e.tlsConfig)
 	if err != nil {
 		return nil, err
 	}

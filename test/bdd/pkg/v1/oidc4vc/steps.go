@@ -96,7 +96,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	// VP
 	sc.Step(`^User saves credentials into the wallet$`, s.saveCredentialsInWallet)
 
-	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)"$`,
+	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)"$`,
 		s.initiateInteraction)
 	sc.Step(`^User receives authorization request$`, s.verifyAuthorizationRequest)
 

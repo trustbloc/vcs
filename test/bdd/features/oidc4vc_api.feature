@@ -27,7 +27,7 @@ Feature: OIDC4VC REST API
       | i_myprofile_ud_es256k_jwt/v1.0  | test_org     | university_degree.json                | jwt_vc_json-ld |
     And User saves credentials into the wallet
 
-    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile for organization "test_org"
+    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile for organization "test_org" with presentation definition ID "32f54163-no-limit-disclosure-single-field" and fields "degree_type_id"
     Then User receives authorization request
 
     When User invokes authorization request using Wallet
@@ -49,7 +49,7 @@ Feature: OIDC4VC REST API
       | i_myprofile_ud_es256k_jwt/v1.0  | test_org     | university_degree_invalid_claims.json | jwt_vc_json-ld |
     And User saves credentials into the wallet
 
-    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile for organization "test_org"
+    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile for organization "test_org" with presentation definition ID "32f54163-no-limit-disclosure-single-field" and fields "degree_type_id"
     Then User receives authorization request
 
     When User invokes authorization request using Wallet
