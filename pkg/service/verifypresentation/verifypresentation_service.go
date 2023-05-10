@@ -344,9 +344,11 @@ func (s *Service) validateCredentialsStatus(
 			return err
 		}
 
-		err = s.vcVerifier.ValidateVCStatus(ctx, extractedType, issuer)
-		if err != nil {
-			return err
+		if extractedType != nil {
+			err = s.vcVerifier.ValidateVCStatus(ctx, extractedType, issuer)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
