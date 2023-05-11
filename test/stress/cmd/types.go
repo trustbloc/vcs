@@ -31,8 +31,9 @@ type request struct {
 }
 
 type clusterResult struct {
-	Id    string            `json:"id"`
-	Nodes map[string]string `json:"nodes"`
+	Id        string            `json:"id"`
+	Nodes     map[string]string `json:"nodes"`
+	TotalRate int               `json:"total_rate"`
 }
 
 type combinedResult struct {

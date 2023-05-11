@@ -121,8 +121,9 @@ func main() {
 		cfg.ConcurrentRequests /= len(healthyMembers)
 
 		res := &clusterResult{
-			Id:    cfg.ID,
-			Nodes: map[string]string{},
+			Id:        cfg.ID,
+			Nodes:     map[string]string{},
+			TotalRate: cfg.ConcurrentRequests * len(healthyMembers),
 		}
 
 		for member, url := range healthyMembers {
@@ -243,6 +244,7 @@ func main() {
 			PerRunnerInfo:   map[string]*perRunnerInfo{},
 			CombinedMetrics: map[string]metric{},
 			GroupedErrors:   map[string]int{},
+			TotalRate:       res.TotalRate,
 		}
 
 		meticData := map[string]*stress.Metric{}
@@ -284,7 +286,6 @@ func main() {
 				runnerInfo.RawMetrics = run.Result.Metrics
 
 				runnerInfo.Rate = run.Result.ConcurrentRequests
-				finalResult.TotalRate += runnerInfo.Rate
 
 				runnerInfo.RequestCount = run.Result.UserCount
 				finalResult.TotalRequests += run.Result.UserCount
