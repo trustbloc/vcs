@@ -10,6 +10,7 @@ package verifypresentation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	"go.opentelemetry.io/otel/attribute"
@@ -43,12 +44,28 @@ func (w *Wrapper) VerifyPresentation(
 	defer span.End()
 
 	span.SetAttributes(attribute.String("profile_id", profile.ID))
-	span.SetAttributes(attributeutil.JSON("opts", opts))
+
+	if opts != nil {
+		span.SetAttributes(attributeutil.JSON("opts", opts))
+	}
 
 	res, err := w.svc.VerifyPresentation(ctx, presentation, opts, profile)
 	if err != nil {
+		w.setClaimKeys(span)
 		return nil, err
 	}
 
+	w.setClaimKeys(span)
 	return res, nil
+}
+
+func (w *Wrapper) setClaimKeys(span trace.Span) {
+	svc, ok := w.svc.(*verifypresentation.Service)
+	if !ok {
+		return
+	}
+
+	for id, claimKeys := range svc.GetClaimKeys() {
+		span.SetAttributes(attribute.StringSlice(fmt.Sprintf("claim_keys_%s", id), claimKeys))
+	}
 }
