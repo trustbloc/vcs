@@ -39,7 +39,7 @@ func main() {
 	err1 := godotenv.Load(".env")
 	fmt.Println(err1)
 	e := echo.New()
-	hostName, _ := os.Hostname()
+	hostName := getNodeName()
 	apiAddress := os.Getenv("API_ADDRESS")
 	k8SvcName := os.Getenv("K8_HEADLESS_SVC")
 	port := strings.Split(apiAddress, ":")[1]
@@ -56,18 +56,13 @@ func main() {
 
 	go func() {
 		for context.Background().Err() == nil {
-			localName := hostName
-			if v := os.Getenv("CUSTOM_HOST"); v != "" {
-				localName = v
-			}
-
 			var b strings.Builder
-			b.WriteString(fmt.Sprintf("http://%v", localName))
+			b.WriteString(fmt.Sprintf("http://%v", hostName))
 			if k8SvcName != "" {
 				b.WriteString(fmt.Sprintf(".%v", k8SvcName))
 			}
 			b.WriteString(fmt.Sprintf(":%v", port))
-			if err := rdb.HSet(context.Background(), orchestratorKey, localName, b.String()).Err(); err != nil {
+			if err := rdb.HSet(context.Background(), orchestratorKey, hostName, b.String()).Err(); err != nil {
 				panic(err)
 			}
 
@@ -243,11 +238,11 @@ func main() {
 		}
 
 		finalResult := &combinedResult{
-			AllResultsReceived: true,
-			TotalNodes:         len(res.Nodes),
-			PerRunnerInfo:      map[string]*perRunnerInfo{},
-			CombinedMetrics:    map[string]metric{},
-			GroupedErrors:      map[string]int{},
+			IsFinished:      true,
+			TotalNodes:      len(res.Nodes),
+			PerRunnerInfo:   map[string]*perRunnerInfo{},
+			CombinedMetrics: map[string]metric{},
+			GroupedErrors:   map[string]int{},
 		}
 
 		meticData := map[string]*stress.Metric{}
@@ -259,7 +254,7 @@ func main() {
 			runnerResult := rdb.Get(c.Request().Context(), resultId)
 			if runnerResult.Err() != nil {
 				runnerInfo.ResultError = lo.ToPtr(runnerResult.Err().Error())
-				finalResult.AllResultsReceived = false
+				finalResult.IsFinished = false
 				continue
 			}
 
@@ -267,19 +262,19 @@ func main() {
 			rb, err := runnerResult.Bytes()
 			if err != nil {
 				runnerInfo.ResultError = lo.ToPtr(runnerResult.Err().Error())
-				finalResult.AllResultsReceived = false
+				finalResult.IsFinished = false
 				continue
 			}
 
 			if err := json.Unmarshal(rb, &run); err != nil {
 				runnerInfo.ResultError = lo.ToPtr(fmt.Errorf("can not unmarshal. %w", err).Error())
-				finalResult.AllResultsReceived = false
+				finalResult.IsFinished = false
 				continue
 			}
 
 			runnerInfo.State = run.State
 			if runnerInfo.State == "running" {
-				finalResult.AllResultsReceived = false
+				finalResult.IsFinished = false
 			}
 
 			runnerInfo.ErrorCount = run.ErrorsCount
@@ -298,7 +293,8 @@ func main() {
 					for _, m := range run.Result.Metrics {
 						v, ok := meticData[m.Name]
 						if !ok {
-							meticData[m.Name] = m
+							cp := *m
+							meticData[m.Name] = &cp
 							continue
 						}
 

@@ -19,7 +19,7 @@ type runResult struct {
 }
 
 type metric struct {
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
 	Avg  string `json:"avg"`
 	Max  string `json:"max"`
 	Min  string `json:"min"`
@@ -36,14 +36,14 @@ type clusterResult struct {
 }
 
 type combinedResult struct {
-	TotalRate          int                       `json:"total_rate"`
-	TotalNodes         int                       `json:"total_nodes"`
-	TotalRequests      int                       `json:"total_requests"`
-	TotalErrors        int                       `json:"total_errors"`
-	GroupedErrors      map[string]int            `json:"grouped_errors"`
-	AllResultsReceived bool                      `json:"all_results_received"`
-	CombinedMetrics    map[string]metric         `json:"combined_metrics"`
-	PerRunnerInfo      map[string]*perRunnerInfo `json:"per_runner_info"`
+	TotalRate       int                       `json:"total_rate"`
+	TotalNodes      int                       `json:"total_nodes"`
+	TotalRequests   int                       `json:"total_requests"`
+	TotalErrors     int                       `json:"total_errors"`
+	GroupedErrors   map[string]int            `json:"grouped_errors"`
+	CombinedMetrics map[string]metric         `json:"combined_metrics"`
+	PerRunnerInfo   map[string]*perRunnerInfo `json:"per_runner_info"`
+	IsFinished      bool                      `json:"is_finished"`
 }
 
 type perRunnerInfo struct {
