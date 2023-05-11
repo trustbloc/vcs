@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/imroc/req/v3"
+	"github.com/joho/godotenv"
+	"github.com/samber/lo"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -34,6 +36,8 @@ const (
 )
 
 func main() {
+	err1 := godotenv.Load(".env")
+	fmt.Println(err1)
 	e := echo.New()
 	hostName, _ := os.Hostname()
 	apiAddress := os.Getenv("API_ADDRESS")
@@ -41,10 +45,14 @@ func main() {
 	port := strings.Split(apiAddress, ":")[1]
 
 	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    []string{"localhost:6379"},
-		Password: "", // no password set
-		DB:       0,  // use default DB
+		Addrs:    strings.Split(os.Getenv("REDIS_URL"), ","),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
 	})
+
+	if redisErr := rdb.Ping(context.TODO()).Err(); redisErr != nil {
+		panic(redisErr)
+	}
 
 	go func() {
 		for context.Background().Err() == nil {
@@ -76,7 +84,7 @@ func main() {
 	e.GET("/nodes", func(c echo.Context) error {
 		members, err := getClusterMembers(c.Request().Context(), rdb)
 		if err != nil {
-			return err
+			return c.String(http.StatusBadRequest, err.Error())
 		}
 
 		return c.JSON(http.StatusOK, members)
@@ -88,12 +96,12 @@ func main() {
 		c.Response().Header().Set("node", hostName)
 		err := json.NewDecoder(c.Request().Body).Decode(&cfg)
 		if err != nil {
-			return err
+			return c.String(http.StatusBadRequest, err.Error())
 		}
 
 		clusterMembers, err := getClusterMembers(c.Request().Context(), rdb)
 		if err != nil {
-			return err
+			return c.String(http.StatusBadRequest, err.Error())
 		}
 
 		cfg.ID = uuid.NewString()
@@ -112,7 +120,7 @@ func main() {
 		}
 
 		if len(healthyMembers) == 0 {
-			return errors.New("no healthy cluster members")
+			return c.String(http.StatusBadRequest, errors.New("no healthy cluster members").Error())
 		}
 
 		cfg.ConcurrentRequests /= len(healthyMembers)
@@ -137,16 +145,17 @@ func main() {
 
 			resultId = resp.String()
 			res.Nodes[member] = resultId
+			time.Sleep(2 * time.Second)
 		}
 
 		b, err := json.Marshal(res)
 		if err != nil {
-			return err
+			return c.String(http.StatusBadRequest, err.Error())
 		}
 
 		rdb.Set(c.Request().Context(), getClusterResultKey(res.Id), b, 3*time.Hour)
 
-		return c.String(200, res.Id)
+		return c.JSON(200, res)
 	})
 
 	e.POST("/internal/run", func(c echo.Context) error {
@@ -156,7 +165,7 @@ func main() {
 
 		err := json.NewDecoder(c.Request().Body).Decode(&cfg)
 		if err != nil {
-			return err
+			return c.String(http.StatusBadRequest, err.Error())
 		}
 
 		cfg.TLSConfig = &tls.Config{
@@ -178,9 +187,9 @@ func main() {
 			testRunResult.Result = res
 			testRunResult.FinishedAt = &now
 
-			if testRunResult.Result != nil && !cfg.Detailed {
-				testRunResult.PerCredentialData = nil
-			}
+			//if testRunResult.Result != nil && !cfg.Detailed {
+			//	testRunResult.PerCredentialData = nil
+			//}
 
 			if err2 != nil {
 				logger.Error(fmt.Sprintf("got error %v for run id %v",
@@ -222,8 +231,104 @@ func main() {
 
 	e.GET("/run/:id", func(c echo.Context) error {
 		item := rdb.Get(c.Request().Context(), getClusterResultKey(c.Param("id")))
+		var res clusterResult
 
-		return c.String(200, item.String())
+		b, err := item.Bytes()
+		if err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
+
+		if err = json.Unmarshal(b, &res); err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
+
+		finalResult := &combinedResult{
+			AllResultsReceived: true,
+			TotalNodes:         len(res.Nodes),
+			PerRunnerInfo:      map[string]*perRunnerInfo{},
+			CombinedMetrics:    map[string]metric{},
+			GroupedErrors:      map[string]int{},
+		}
+
+		meticData := map[string]*stress.Metric{}
+
+		for id, resultId := range res.Nodes {
+			runnerInfo := &perRunnerInfo{}
+			finalResult.PerRunnerInfo[id] = runnerInfo
+
+			runnerResult := rdb.Get(c.Request().Context(), resultId)
+			if runnerResult.Err() != nil {
+				runnerInfo.ResultError = lo.ToPtr(runnerResult.Err().Error())
+				finalResult.AllResultsReceived = false
+				continue
+			}
+
+			var run runResult
+			rb, err := runnerResult.Bytes()
+			if err != nil {
+				runnerInfo.ResultError = lo.ToPtr(runnerResult.Err().Error())
+				finalResult.AllResultsReceived = false
+				continue
+			}
+
+			if err := json.Unmarshal(rb, &run); err != nil {
+				runnerInfo.ResultError = lo.ToPtr(fmt.Errorf("can not unmarshal. %w", err).Error())
+				finalResult.AllResultsReceived = false
+				continue
+			}
+
+			runnerInfo.State = run.State
+			if runnerInfo.State == "running" {
+				finalResult.AllResultsReceived = false
+			}
+
+			runnerInfo.ErrorCount = run.ErrorsCount
+			finalResult.TotalErrors += run.ErrorsCount
+
+			if run.Result != nil {
+				runnerInfo.RawMetrics = run.Result.Metrics
+
+				runnerInfo.Rate = run.Result.ConcurrentRequests
+				finalResult.TotalRate += runnerInfo.Rate
+
+				runnerInfo.RequestCount = run.Result.UserCount
+				finalResult.TotalRequests += run.Result.UserCount
+
+				if len(run.Result.Metrics) > 0 {
+					for _, m := range run.Result.Metrics {
+						v, ok := meticData[m.Name]
+						if !ok {
+							meticData[m.Name] = m
+							continue
+						}
+
+						v.Avg = (v.Avg + m.Avg) / 2
+						if v.Min > m.Min {
+							v.Min = m.Min
+						}
+						if v.Max < m.Max {
+							v.Max = m.Max
+						}
+					}
+				}
+
+				if len(run.Errors) > 0 {
+					for _, errStr := range run.Errors {
+						finalResult.GroupedErrors[errStr] += 1
+					}
+				}
+			}
+		}
+
+		for k, v := range meticData {
+			finalResult.CombinedMetrics[k] = metric{
+				Avg: v.Avg.String(),
+				Max: v.Max.String(),
+				Min: v.Min.String(),
+			}
+		}
+
+		return c.JSON(200, finalResult)
 	})
 
 	if errStart := e.Start(os.Getenv("API_ADDRESS")); errStart != nil {

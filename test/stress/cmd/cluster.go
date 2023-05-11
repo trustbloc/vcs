@@ -44,8 +44,3 @@ func getClusterResultKey(id string) string {
 func getResultKey(id string) string {
 	return fmt.Sprintf("stress:result:%v", id)
 }
-
-type clusterResult struct {
-	Id    string            `json:"id"`
-	Nodes map[string]string `json:"nodes"`
-}

@@ -7,12 +7,14 @@ module github.com/trustbloc/vcs/test/stress
 go 1.19
 
 require (
-	github.com/bluele/gcache v0.0.2
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
+	github.com/hyperledger/aries-framework-go v0.3.2
 	github.com/imroc/req/v3 v3.34.0
+	github.com/joho/godotenv v1.4.0
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/redis/go-redis/v9 v9.0.3
+	github.com/samber/lo v1.37.0
 	github.com/trustbloc/logutil-go v1.0.0-rc1
 	github.com/trustbloc/vcs/component/wallet-cli v0.0.0-20230314165048-d06b1132a27b
 	github.com/trustbloc/vcs/test/bdd v0.0.0-20230314165048-d06b1132a27b
@@ -38,6 +40,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.17.6 // indirect
 	github.com/aws/smithy-go v1.13.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bluele/gcache v0.0.2 // indirect
 	github.com/btcsuite/btcd v0.22.1 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
@@ -135,7 +138,6 @@ require (
 	github.com/quic-go/qtls-go1-19 v0.3.2 // indirect
 	github.com/quic-go/qtls-go1-20 v0.2.2 // indirect
 	github.com/quic-go/quic-go v0.34.0 // indirect
-	github.com/samber/lo v1.37.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
