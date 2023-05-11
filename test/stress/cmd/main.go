@@ -36,8 +36,7 @@ const (
 )
 
 func main() {
-	err1 := godotenv.Load(".env")
-	fmt.Println(err1)
+	_ = godotenv.Load(".env")
 	e := echo.New()
 	hostName := getNodeName()
 	apiAddress := os.Getenv("API_ADDRESS")
