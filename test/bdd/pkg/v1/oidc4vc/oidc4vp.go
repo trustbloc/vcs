@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package oidc4vc
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ const (
 	RetrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
 
-func (s *Steps) initiateInteraction(profileVersionedID, organizationName string) error {
+func (s *Steps) initiateInteraction(profileVersionedID, organizationName, pdID, fields string) error {
 	chunks := strings.Split(profileVersionedID, "/")
 	if len(chunks) != 2 {
 		return errors.New("invalid profileVersionedID format")
@@ -46,7 +47,20 @@ func (s *Steps) initiateInteraction(profileVersionedID, organizationName string)
 
 	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
 	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, chunks[0], chunks[1])
-	initiateInteractionResult, err := s.vpFlowExecutor.InitiateInteraction(endpointURL, token)
+
+	fieldsArr := strings.Split(fields, ",")
+
+	reqBody, err := json.Marshal(&initiateOIDC4VPData{
+		PresentationDefinitionId: pdID,
+		PresentationDefinitionFilters: &presentationDefinitionFilters{
+			Fields: &fieldsArr,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	initiateInteractionResult, err := s.vpFlowExecutor.InitiateInteraction(endpointURL, token, bytes.NewReader(reqBody))
 	if err != nil {
 		return err
 	}
@@ -163,4 +177,13 @@ func (s *Steps) waitForEvent(eventType string) (string, error) {
 		time.Sleep(pullTopicsWaitInMilliSec * time.Millisecond)
 	}
 	return "", errors.New("webhook waiting timeout exited")
+}
+
+type initiateOIDC4VPData struct {
+	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
+	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
+}
+
+type presentationDefinitionFilters struct {
+	Fields *[]string `json:"fields,omitempty"`
 }

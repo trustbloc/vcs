@@ -145,7 +145,7 @@ func (e *VPFlowExecutor) queryCredentialFromWallet() error {
 	}
 
 	// New way of doing it
-	vps, ps, err := e.requestObject.Claims.VPToken.PresentationDefinition.CreateVPArray(credentials, e.jSONLDDocumentLoader)
+	vps, ps, err := e.requestObject.Claims.VPToken.PresentationDefinition.CreateVPArray(credentials, e.jSONLDDocumentLoader, verifiable.WithJSONLDDocumentLoader(e.jSONLDDocumentLoader))
 	if err != nil {
 		return fmt.Errorf("failed to create VP array from selected credentials: %w", err)
 	}
@@ -353,6 +353,7 @@ func (v noVerifier) Verify(_ jose.Headers, _, _, _ []byte) error {
 }
 
 type initiateOIDC4VPData struct {
+	PresentationDefinitionId      string                         `json:"presentationDefinitionId,omitempty"`
 	PresentationDefinitionFilters *presentationDefinitionFilters `json:"presentationDefinitionFilters,omitempty"`
 }
 
