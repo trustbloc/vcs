@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,10 +44,17 @@ func main() {
 	k8SvcName := os.Getenv("K8_HEADLESS_SVC")
 	port := strings.Split(apiAddress, ":")[1]
 
+	var redisTls *tls.Config
+	tlsDisabled, _ := strconv.ParseBool(os.Getenv("REDIS_DISABLE_TLS"))
+	if !tlsDisabled {
+		redisTls = &tls.Config{}
+	}
+
 	rdb := redis.NewUniversalClient(&redis.UniversalOptions{
-		Addrs:    strings.Split(os.Getenv("REDIS_URL"), ","),
-		Password: os.Getenv("REDIS_PASSWORD"),
-		DB:       0,
+		Addrs:     strings.Split(os.Getenv("REDIS_URL"), ","),
+		Password:  os.Getenv("REDIS_PASSWORD"),
+		DB:        0,
+		TLSConfig: redisTls,
 	})
 
 	if redisErr := rdb.Ping(context.TODO()).Err(); redisErr != nil {

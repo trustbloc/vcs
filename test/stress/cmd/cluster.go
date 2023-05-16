@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -20,7 +21,7 @@ func getNodeName() string {
 		hostName = v
 	}
 
-	return hostName
+	return strings.ReplaceAll(hostName, ".", "-")
 }
 
 func getClusterMembers(ctx context.Context, rdb redis.UniversalClient) (map[string]string, error) {
