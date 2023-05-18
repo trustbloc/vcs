@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	util2 "github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -697,7 +698,7 @@ func (c *Controller) validateClaims( //nolint:gocognit
 	data["@context"] = ctx
 	data["type"] = types
 
-	return jsonld.ValidateJSONLDMap(data,
+	return validator.ValidateJSONLDMap(data,
 		jsonld.WithDocumentLoader(c.documentLoader),
 		jsonld.WithStrictValidation(strictValidation),
 	)

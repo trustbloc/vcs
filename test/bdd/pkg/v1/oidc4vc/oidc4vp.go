@@ -37,16 +37,13 @@ const (
 	RetrieveInteractionsClaimURLFormat = credentialServiceURL + "/verifier/interactions/%s/claim"
 )
 
-func (s *Steps) initiateInteraction(profileVersionedID, organizationName, pdID, fields string) error {
-	chunks := strings.Split(profileVersionedID, "/")
-	if len(chunks) != 2 {
-		return errors.New("invalid profileVersionedID format")
-	}
-
-	s.vpFlowExecutor = s.walletRunner.NewVPFlowExecutor(false)
-
-	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, chunks[0], chunks[1])
+func (s *Steps) runOIDC4VPFlow(profileVersionedID, organizationName, pdID, fields string) error {
+	providerConf := s.walletRunner.GetConfig()
+	providerConf.WalletUserId = providerConf.WalletParams.UserID
+	providerConf.WalletPassPhrase = providerConf.WalletParams.Passphrase
+	providerConf.WalletDidID = providerConf.WalletParams.DidID[0]
+	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID[0]
+	providerConf.SkipSchemaValidation = true
 
 	fieldsArr := strings.Split(fields, ",")
 
@@ -60,110 +57,79 @@ func (s *Steps) initiateInteraction(profileVersionedID, organizationName, pdID, 
 		return err
 	}
 
-	s.initiateOIDC4VPResponse, s.initiateInteractionResultErr = s.vpFlowExecutor.InitiateInteraction(
-		endpointURL,
-		token,
-		bytes.NewReader(reqBody),
-	)
-
-	return nil
-}
-
-func (s *Steps) verifyAuthorizationRequestErr(errStr string) error {
-	if s.initiateInteractionResultErr == nil {
-		return errors.New("error is expected, but got nil for s.initiateInteractionResultErr")
+	chunks := strings.Split(profileVersionedID, "/")
+	if len(chunks) != 2 {
+		return errors.New("runOIDC4VPFlow - invalid profileVersionedID field")
 	}
 
-	if strings.Contains(s.initiateInteractionResultErr.Error(), errStr) {
-		return nil
-	}
+	endpointURL := fmt.Sprintf(InitiateOidcInteractionURLFormat, chunks[0], chunks[1])
+	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	vpFlowExecutor := s.walletRunner.NewVPFlowExecutor(true)
 
-	return fmt.Errorf("expected error to contains - %v. but got %v",
-		errStr, s.initiateInteractionResultErr.Error())
-}
-
-func (s *Steps) verifyAuthorizationRequest() error {
-	if s.initiateInteractionResultErr != nil {
-		return s.initiateInteractionResultErr
-	}
-
-	if len(s.initiateOIDC4VPResponse.AuthorizationRequest) == 0 {
-		return fmt.Errorf("authorizationRequest is empty")
-	}
-
-	if len(s.initiateOIDC4VPResponse.TxId) == 0 {
-		return fmt.Errorf("transactionID is empty")
-	}
-
-	return nil
-}
-
-func (s *Steps) fetchRequestObjectAndDecodeClaims() error {
-	rawRequestObject, _, err := s.vpFlowExecutor.FetchRequestObject(s.initiateOIDC4VPResponse.AuthorizationRequest)
+	initiateInteractionResult, err := vpFlowExecutor.InitiateInteraction(endpointURL, token, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return err
+		return fmt.Errorf("OIDC4Vp fetch authorization request: %w", err)
 	}
 
-	_, err = s.waitForEvent("verifier.oidc-interaction-qr-scanned.v1")
+	err = s.walletRunner.RunOIDC4VPFlow(initiateInteractionResult.AuthorizationRequest)
 	if err != nil {
-		return err
-	}
-
-	return s.vpFlowExecutor.VerifyAuthorizationRequestAndDecodeClaims(rawRequestObject)
-}
-
-func (s *Steps) queryCredentialFromWallet() error {
-	return s.vpFlowExecutor.QueryCredentialFromWallet()
-}
-
-func (s *Steps) checkRequestPresentation() error {
-	if s.vpFlowExecutor.RequestPresentation() == nil {
-		return fmt.Errorf("requestPresentation is empty")
+		return fmt.Errorf("s.walletRunner.RunOIDC4VPFlow: %w", err)
 	}
 
 	return nil
 }
 
-func (s *Steps) sendAuthorizedResponseAndReceiveFailedClaims() error {
-	err := s.sendAuthorizedResponse()
+func (s *Steps) runOIDC4VPFlowWithError(profileVersionedID, organizationName, pdID, fields, errorContains string) error {
+	err := s.runOIDC4VPFlow(profileVersionedID, organizationName, pdID, fields)
 	if err == nil {
-		return errors.New("error is expected from sendAuthorizedResponse")
+		return errors.New("error expected")
 	}
 
-	if strings.Contains(err.Error(), "JSON-LD doc has different structure after compaction") {
-		return nil
+	if !strings.Contains(err.Error(), errorContains) {
+		return fmt.Errorf("unexpected error on runOIDC4VPFlowWithError: %w", err)
 	}
 
-	return err
+	return nil
 }
 
-func (s *Steps) sendAuthorizedResponse() error {
-	body, err := s.vpFlowExecutor.CreateAuthorizedResponse()
-	if err != nil {
-		return err
-	}
-
-	_, err = s.vpFlowExecutor.SendAuthorizedResponse(body)
-	return err
-}
-
-func (s *Steps) retrieveInteractionsClaim(organizationName string) error {
+func (s *Steps) waitForOIDCInteractionSucceededEvent(organizationName string) error {
 	txID, err := s.waitForEvent("verifier.oidc-interaction-succeeded.v1")
 	if err != nil {
 		return err
 	}
 
-	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
-	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, txID)
+	s.vpClaimsTransactionID = txID
 
-	return s.vpFlowExecutor.RetrieveInteractionsClaim(endpointURL, token)
+	return nil
+}
+
+func (s *Steps) retrieveInteractionsClaim(organizationName string) error {
+	if err := s.waitForOIDCInteractionSucceededEvent(organizationName); err != nil {
+		return err
+	}
+
+	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
+
+	return s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token)
+}
+
+func (s *Steps) retrieveExpiredOrDeletedInteractionsClaim(organizationName string) error {
+	token := s.bddContext.Args[getOrgAuthTokenKey(organizationName)]
+
+	endpointURL := fmt.Sprintf(RetrieveInteractionsClaimURLFormat, s.vpClaimsTransactionID)
+
+	if err := s.walletRunner.NewVPFlowExecutor(true).RetrieveInteractionsClaim(endpointURL, token); err == nil {
+		return fmt.Errorf("error expected, but got nil")
+	}
+
+	return nil
 }
 
 func (s *Steps) waitForEvent(eventType string) (string, error) {
 	incoming := &spi.Event{}
 
 	for i := 0; i < pullTopicsAttemptsBeforeFail; {
-
 		resp, err := bddutil.HTTPSDo(http.MethodGet, oidc4vpWebhookURL, "application/json", "", //nolint: bodyclose
 			nil, s.tlsConfig)
 		if err != nil {

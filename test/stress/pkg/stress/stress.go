@@ -116,9 +116,6 @@ func (r *Run) Run(ctx context.Context) (*Result, error) {
 	for i := 0; i < r.cfg.UserCount; i++ {
 		testCase, err := NewTestCase(
 			WithVCProviderOption(func(c *vcprovider.Config) {
-				c.DidKeyType = "ED25519"
-				c.DidMethod = "ion"
-				c.InsecureTls = true
 				c.KeepWalletOpen = true
 			}),
 			WithVCSAPIURL(vcsAPIURL),

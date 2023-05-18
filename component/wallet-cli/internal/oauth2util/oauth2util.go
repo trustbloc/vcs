@@ -16,7 +16,7 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-func Token(ctx context.Context, oidcProviderURL, clientID, secret string, scopes []string, insecureSkipVerify bool) (string, error) {
+func Token(ctx context.Context, oidcProviderURL, clientID, secret string, scopes []string, tls *tls.Config) (string, error) {
 	conf := clientcredentials.Config{
 		TokenURL:     oidcProviderURL + "/oauth2/token",
 		ClientID:     clientID,
@@ -27,9 +27,7 @@ func Token(ctx context.Context, oidcProviderURL, clientID, secret string, scopes
 
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecureSkipVerify,
-			},
+			TLSClientConfig: tls,
 		},
 	})
 

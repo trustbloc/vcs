@@ -29,7 +29,7 @@ type Signer struct {
 	SignatureType           vcsverifiable.SignatureType
 	KeyType                 kms.KeyType
 	Format                  vcsverifiable.Format               // VC format - LDP/JWT.
-	SignatureRepresentation verifiable.SignatureRepresentation // For LDP only.
+	SignatureRepresentation verifiable.SignatureRepresentation // For LDP only - proof/JWS.
 	KMS                     keyManager
 	VCStatusListType        StatusType // Type of VC status list
 	SDJWT                   SDJWT

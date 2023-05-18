@@ -19,13 +19,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
-
-	"github.com/trustbloc/vcs/pkg/restapi/v1/common"
-	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
+	"github.com/hyperledger/aries-framework-go/pkg/kms"
 
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/httputil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/ldutil"
 	"github.com/trustbloc/vcs/component/wallet-cli/internal/oauth2util"
+	vcsverifiable "github.com/trustbloc/vcs/pkg/doc/verifiable"
+	issuerv1 "github.com/trustbloc/vcs/pkg/restapi/v1/issuer"
 )
 
 const (
@@ -50,9 +50,12 @@ func defaultVCSLocalConfig() *Config {
 		IssueVCURL:          issueCredentialURL,
 		DidDomain:           didDomain,
 		DidServiceAuthToken: didServiceAuthToken,
-		VCFormat:            "jwt_vc",
+		VCFormat:            vcsverifiable.JwtVCJsonLD,
 		OrgName:             "test_org",
 		OrgSecret:           "test-org-secret",
+		DidKeyType:          kms.ED25519,
+		DidMethod:           "ion",
+		WalletDidCount:      1,
 	}
 }
 
@@ -109,7 +112,7 @@ func (p *vcsCredentialsProvider) GetCredentials() (map[string][]byte, error) {
 
 func (p *vcsCredentialsProvider) authorizeOrganization(clientID, secret string) (string, error) {
 	accessToken, err := oauth2util.Token(context.Background(), p.conf.OidcProviderURL,
-		clientID, secret, []string{"org_admin"}, p.conf.InsecureTls)
+		clientID, secret, []string{"org_admin"}, p.conf.TLS)
 	if err != nil {
 		return "", err
 	}
@@ -137,7 +140,7 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 		return nil, fmt.Errorf("cred subject has wrong type, not verifiable.Subject")
 	}
 
-	subjs[0].ID = p.conf.WalletParams.DidID
+	subjs[0].ID = p.conf.WalletParams.DidID[0]
 
 	reqData, err := GetIssueCredentialRequestData(cred, p.conf.VCFormat)
 	if err != nil {
@@ -174,16 +177,16 @@ func (p *vcsCredentialsProvider) createVCSCredential(credential, authToken strin
 	return respBytes, nil
 }
 
-func GetIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat string) (interface{}, error) {
+func GetIssueCredentialRequestData(vc *verifiable.Credential, desiredFormat vcsverifiable.OIDCFormat) (interface{}, error) {
 	switch desiredFormat {
-	case string(common.JwtVcJsonLd):
+	case vcsverifiable.JwtVCJsonLD, vcsverifiable.JwtVCJson:
 		claims, err := vc.JWTClaims(false)
 		if err != nil {
 			return nil, err
 		}
 
 		return claims.MarshalUnsecuredJWT()
-	case string(common.LdpVc):
+	case vcsverifiable.LdpVC:
 		return vc, nil
 
 	default:

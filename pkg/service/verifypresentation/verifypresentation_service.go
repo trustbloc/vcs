@@ -15,6 +15,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/hyperledger/aries-framework-go/component/models/ld/validator"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/jsonld"
 	jsonutil "github.com/hyperledger/aries-framework-go/pkg/doc/util/json"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
@@ -216,7 +217,7 @@ func (s *Service) checkCredentialStrict(lazy []*LazyCredential) error { //nolint
 			)
 		}
 
-		if err = jsonld.ValidateJSONLDMap(credMap,
+		if err = validator.ValidateJSONLDMap(credMap,
 			jsonld.WithDocumentLoader(s.documentLoader),
 			jsonld.WithStrictValidation(true),
 		); err != nil {

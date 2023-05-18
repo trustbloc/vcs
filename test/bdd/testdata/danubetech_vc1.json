@@ -18,12 +18,5 @@
 		},
 		"name": "Jayden Doe",
 		"spouse": "did:example:c276e12ec21ebfeb1f712ebc6f1"
-	},
-	"proof": {
-		"type": "Ed25519Signature2018",
-		"created": "2020-05-11T22:04:22Z",
-		"proofPurpose": "assertionMethod",
-		"verificationMethod": "did:v1:test:nym:z6MkfqxbQu6ikzpZRM3GwaFiUzy5vDgbmt99MGLA38kZUnEB#z6MkgmQGoevpPSeqb74jYSomuoWhXyJ9t5XtMAPq6NVFGssL",
-		"jws": "eyJjcml0IjpbImI2NCJdLCJiNjQiOmZhbHNlLCJhbGciOiJFZERTQSJ9..8yOb_c5bF_qSe6UQIDKZ-iktUt5ZYJ811f70HeZyHdCcM0GRF4SqG6bZZxIU4fFbfOC4ArDbJuHRsxKxAIlhBg"
 	}
 }

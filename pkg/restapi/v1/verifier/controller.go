@@ -785,16 +785,30 @@ func findPresentationDefinition(profile *profileapi.Verifier,
 	pds := profile.PresentationDefinitions
 
 	if pdExternalID == "" && len(pds) == 1 {
-		return pds[0], nil
+		return copyPresentationDefinition(pds[0])
 	}
 
 	for _, pd := range pds {
 		if pd.ID == pdExternalID {
-			return pd, nil
+			return copyPresentationDefinition(pd)
 		}
 	}
 
 	return nil, fmt.Errorf("presentation definition id=%s not found for profile with id=%s", pdExternalID, profile.ID)
+}
+
+func copyPresentationDefinition(pd *presexch.PresentationDefinition) (*presexch.PresentationDefinition, error) {
+	b, err := json.Marshal(pd)
+	if err != nil {
+		return nil, fmt.Errorf("marshal pd: %w", err)
+	}
+
+	var copyPD *presexch.PresentationDefinition
+	if err = json.Unmarshal(b, &copyPD); err != nil {
+		return nil, fmt.Errorf("unmarshal pd: %w", err)
+	}
+
+	return copyPD, nil
 }
 
 func mapVerifyCredentialChecks(checks []verifycredential.CredentialsVerificationCheckResult) *VerifyCredentialResponse {

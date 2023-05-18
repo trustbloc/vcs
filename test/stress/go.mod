@@ -9,7 +9,7 @@ go 1.19
 require (
 	github.com/google/uuid v1.3.0
 	github.com/greenpau/go-calculator v1.0.1
-	github.com/hyperledger/aries-framework-go v0.3.2
+	github.com/hyperledger/aries-framework-go v0.3.3-0.20230517105250-ead111355603
 	github.com/imroc/req/v3 v3.34.0
 	github.com/joho/godotenv v1.4.0
 	github.com/labstack/echo/v4 v4.9.0
@@ -83,13 +83,13 @@ require (
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/longform v0.0.0-20221201213446-c4c1e76daa49 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/orb v1.0.0-rc5.0.20221201213446-c4c1e76daa49 // indirect
 	github.com/hyperledger/aries-framework-go-ext/component/vdr/sidetree v1.0.0-rc3.0.20221104150937-07bfbe450122 // indirect
-	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/component/kmscrypto v0.0.0-20230517133327-301aa0597250 // indirect
 	github.com/hyperledger/aries-framework-go/component/log v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230501135648-a9a7ad029347 // indirect
+	github.com/hyperledger/aries-framework-go/component/models v0.0.0-20230517133327-301aa0597250 // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/edv v0.0.0-20221025204933-b807371b6f1e // indirect
 	github.com/hyperledger/aries-framework-go/component/storage/leveldb v0.0.0-20221202141134-083803ecf0a3 // indirect
 	github.com/hyperledger/aries-framework-go/component/storageutil v0.0.0-20230427134832-0c9969493bd3 // indirect
-	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230427134832-0c9969493bd3 // indirect
+	github.com/hyperledger/aries-framework-go/spi v0.0.0-20230517133327-301aa0597250 // indirect
 	github.com/hyperledger/ursa-wrapper-go v0.3.1 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/go-cid v0.0.7 // indirect

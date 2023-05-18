@@ -177,7 +177,9 @@ func (s *Service) RunOIDC4CI(config *OIDC4CIConfig) error {
 
 	log.Printf("Credential with ID [%s] and type [%v] added successfully", vcParsed.ID, config.CredentialType)
 
-	s.wallet.Close()
+	if !s.keepWalletOpen {
+		s.wallet.Close()
+	}
 
 	return nil
 }
@@ -227,27 +229,13 @@ func (s *Service) getIssuerCredentialsOIDCConfig(issuerURL string) (*issuerv1.We
 }
 
 func (s *Service) getAuthCode(config *OIDC4CIConfig, authCodeURL string) (string, error) {
-	var loginURL, consentURL *url.URL
+	//var loginURL, consentURL *url.URL
 	var authCode string
 
 	httpClient := &http.Client{
 		Jar:       s.httpClient.Jar,
 		Transport: s.httpClient.Transport,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			// intercept login request
-			if strings.Contains(req.URL.String(), "/login?login_challenge=") {
-				loginURL = req.URL
-
-				return http.ErrUseLastResponse
-			}
-
-			// intercept consent request
-			if strings.Contains(req.URL.String(), "/consent?consent_challenge=") {
-				consentURL = req.URL
-
-				return http.ErrUseLastResponse
-			}
-
 			// intercept client auth code
 			if strings.HasPrefix(req.URL.String(), config.RedirectURI) {
 				authCode = req.URL.Query().Get("code")
@@ -263,39 +251,6 @@ func (s *Service) getAuthCode(config *OIDC4CIConfig, authCodeURL string) (string
 	resp, err := httpClient.Get(authCodeURL)
 	if err != nil {
 		return "", fmt.Errorf("get auth code: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	if loginURL == nil {
-		return "", fmt.Errorf("login URL is empty")
-	}
-
-	s.print(fmt.Sprintf("Authenticating user as [%s]", config.Login))
-	resp, err = httpClient.PostForm(loginURL.String(),
-		url.Values{
-			"challenge": loginURL.Query()["login_challenge"],
-			"email":     {config.Login},
-			"password":  {config.Password},
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("post login: %w", err)
-	}
-	_ = resp.Body.Close()
-
-	if consentURL == nil {
-		return "", fmt.Errorf("consent URL is empty")
-	}
-
-	s.print("Getting user consent [accept]")
-	resp, err = httpClient.PostForm(consentURL.String(),
-		url.Values{
-			"challenge": loginURL.Query()["consent_challenge"],
-			"submit":    {"accept"},
-		},
-	)
-	if err != nil {
-		return "", fmt.Errorf("post consent: %w", err)
 	}
 	_ = resp.Body.Close()
 
@@ -341,7 +296,7 @@ func (s *Service) getCredential(
 	km := s.ariesServices.KMS()
 	cr := s.ariesServices.Crypto()
 
-	didKeyID := s.vcProviderConf.WalletParams.DidKeyID
+	didKeyID := s.vcProviderConf.WalletParams.DidKeyID[0]
 
 	kmsSigner, err := signer.NewKMSSigner(km, cr, strings.Split(didKeyID, "#")[1], s.vcProviderConf.WalletParams.SignType, nil)
 	if err != nil {

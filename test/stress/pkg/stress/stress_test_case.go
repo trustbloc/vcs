@@ -227,8 +227,8 @@ func (c *TestCase) Invoke() (string, interface{}, error) {
 	providerConf := c.walletRunner.GetConfig()
 	providerConf.WalletUserId = providerConf.WalletParams.UserID
 	providerConf.WalletPassPhrase = providerConf.WalletParams.Passphrase
-	providerConf.WalletDidID = providerConf.WalletParams.DidID
-	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID
+	providerConf.WalletDidID = providerConf.WalletParams.DidID[0]
+	providerConf.WalletDidKeyID = providerConf.WalletParams.DidKeyID[0]
 	providerConf.SkipSchemaValidation = true
 
 	if !c.disableVPTestCase {
