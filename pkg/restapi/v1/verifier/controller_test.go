@@ -1702,7 +1702,7 @@ func TestController_initiateOidcInteraction(t *testing.T) {
 
 func TestMatchField(t *testing.T) {
 	t.Run("Success", func(t *testing.T) {
-		matched, err := matchField(nil, "id")
+		_, matched, err := matchField(nil, "id")
 		require.NoError(t, err)
 		require.False(t, matched)
 	})
@@ -1720,6 +1720,16 @@ func TestApplyFieldsFilter(t *testing.T) {
 
 		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 0)
 		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Fail - field not found", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPDWithFieldIDs), &pd)
+		require.NoError(t, err)
+
+		_, err = applyFieldsFilter(&pd, []string{"degree_type_id", "random_field"})
+		require.ErrorContains(t, err, "field random_field not found")
 	})
 
 	t.Run("Success - empty string filter(accept fields with empty ID)", func(t *testing.T) {
@@ -1764,6 +1774,21 @@ func TestApplyFieldsFilter(t *testing.T) {
 
 		require.Len(t, result.InputDescriptors[0].Constraints.Fields, 1)
 		require.Len(t, result.InputDescriptors[1].Constraints.Fields, 1)
+	})
+
+	t.Run("Fail - test invalid regex", func(t *testing.T) {
+		var pd presexch.PresentationDefinition
+
+		err := json.Unmarshal([]byte(testPD), &pd)
+		require.NoError(t, err)
+
+		const testPrefix = `*[ ]\K(?<!\d )(?=(?: ?\d){8})(?!(?: ?\d){9})\d[ \d]+\d`
+
+		pd.InputDescriptors[0].Constraints.Fields[0].ID = testPrefix + "_first"
+		pd.InputDescriptors[1].Constraints.Fields[0].ID = testPrefix + "_second"
+
+		_, err = applyFieldsFilter(&pd, []string{testPrefix})
+		require.ErrorContains(t, err, "failed to compile regex")
 	})
 
 	t.Run("Success - test suffix filter", func(t *testing.T) {

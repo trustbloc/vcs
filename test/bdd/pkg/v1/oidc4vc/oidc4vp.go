@@ -60,17 +60,33 @@ func (s *Steps) initiateInteraction(profileVersionedID, organizationName, pdID, 
 		return err
 	}
 
-	initiateInteractionResult, err := s.vpFlowExecutor.InitiateInteraction(endpointURL, token, bytes.NewReader(reqBody))
-	if err != nil {
-		return err
-	}
-
-	s.initiateOIDC4VPResponse = initiateInteractionResult
+	s.initiateOIDC4VPResponse, s.initiateInteractionResultErr = s.vpFlowExecutor.InitiateInteraction(
+		endpointURL,
+		token,
+		bytes.NewReader(reqBody),
+	)
 
 	return nil
 }
 
+func (s *Steps) verifyAuthorizationRequestErr(errStr string) error {
+	if s.initiateInteractionResultErr == nil {
+		return errors.New("error is expected, but got nil for s.initiateInteractionResultErr")
+	}
+
+	if strings.Contains(s.initiateInteractionResultErr.Error(), errStr) {
+		return nil
+	}
+
+	return fmt.Errorf("expected error to contains - %v. but got %v",
+		errStr, s.initiateInteractionResultErr.Error())
+}
+
 func (s *Steps) verifyAuthorizationRequest() error {
+	if s.initiateInteractionResultErr != nil {
+		return s.initiateInteractionResultErr
+	}
+
 	if len(s.initiateOIDC4VPResponse.AuthorizationRequest) == 0 {
 		return fmt.Errorf("authorizationRequest is empty")
 	}

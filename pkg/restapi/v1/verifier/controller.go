@@ -365,55 +365,75 @@ func (c *Controller) initiateOidcInteraction(
 	}, err
 }
 
-func applyPresentationDefinitionFilters(pd *presexch.PresentationDefinition,
-	filters *PresentationDefinitionFilters) (*presexch.PresentationDefinition, error) {
+func applyPresentationDefinitionFilters(
+	pd *presexch.PresentationDefinition,
+	filters *PresentationDefinitionFilters,
+) (*presexch.PresentationDefinition, error) {
 	return applyFieldsFilter(pd, lo.FromPtr(filters.Fields))
 }
 
-func applyFieldsFilter(pd *presexch.PresentationDefinition, fields []string) (*presexch.PresentationDefinition, error) {
+func applyFieldsFilter(
+	pd *presexch.PresentationDefinition,
+	fields []string,
+) (*presexch.PresentationDefinition, error) {
+	var allMatchedFields []string
 	for _, desc := range pd.InputDescriptors {
 		var filteredFields []*presexch.Field
 
-		for _, field := range desc.Constraints.Fields {
-			matched, err := matchField(fields, field.ID)
+		var constraintsFields []string
+		fieldMap := map[string]*presexch.Field{}
+		for _, f := range desc.Constraints.Fields {
+			constraintsFields = append(constraintsFields, f.ID)
+			fieldMap[f.ID] = f
+		}
+
+		for _, field := range fields {
+			matchedFieldID, matched, err := matchField(constraintsFields, field)
 			if err != nil {
 				return nil, err
 			}
 
 			if matched {
-				filteredFields = append(filteredFields, field)
+				filteredFields = append(filteredFields, fieldMap[matchedFieldID])
+				allMatchedFields = append(allMatchedFields, field)
 			}
 		}
 
 		desc.Constraints.Fields = filteredFields
 	}
 
+	for _, f := range fields {
+		if !lo.Contains(allMatchedFields, f) {
+			return nil, fmt.Errorf("field %v not found", f)
+		}
+	}
+
 	return pd, nil
 }
 
-func matchField(ids []string, target string) (bool, error) {
+func matchField(ids []string, target string) (string, bool, error) {
 	const wildcard = "*"
 
 	for _, id := range ids {
 		// this case covers both exact id and empty string rule
 		if id == target {
-			return true, nil
+			return id, true, nil
 		}
 
-		if strings.Contains(id, wildcard) {
-			exp := strings.ReplaceAll(id, wildcard, "."+wildcard)
+		if strings.Contains(target, wildcard) {
+			exp := strings.ReplaceAll(target, wildcard, "."+wildcard)
 			r, err := regexp.Compile(exp)
 			if err != nil {
-				return false, fmt.Errorf("failed to compile regex=%s. %w", exp, err)
+				return "", false, fmt.Errorf("failed to compile regex=%s. %w", exp, err)
 			}
 
-			if r.MatchString(target) {
-				return true, nil
+			if r.MatchString(id) {
+				return id, true, nil
 			}
 		}
 	}
 
-	return false, nil
+	return "", false, nil
 }
 
 // CheckAuthorizationResponse is used by verifier applications to initiate OpenID presentation flow through VCS.

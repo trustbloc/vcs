@@ -57,3 +57,18 @@ Feature: OIDC4VC REST API
 
     When User gives a consent
     Then Wallet sends authorization response and receives an error
+
+  Scenario: OIDC credential issuance and verification (Invalid Field)
+    When Issuer initiates credential issuance using authorization code flow
+    Then Issuer receives initiate issuance URL
+
+    When User interacts with Wallet to initiate OIDC credential issuance
+    Then Wallet receives an access token
+
+    And   New verifiable credentials is created from table:
+      | IssuerProfile                   | Organization | Credential                            | VCFormat       |
+      | i_myprofile_ud_es256k_jwt/v1.0  | test_org     | university_degree_invalid_claims.json | jwt_vc_json-ld |
+    And User saves credentials into the wallet
+
+    When User interacts with Verifier and initiate OIDC4VP interaction under "v_myprofile_jwt/v1.0" profile for organization "test_org" with presentation definition ID "32f54163-no-limit-disclosure-single-field" and fields "degree_type_id,invalidfield"
+    Then User receives authorization request error "field invalidfield not found"

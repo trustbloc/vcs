@@ -108,7 +108,11 @@ func (e *Steps) initiateInteractionWithPresentationIDAndFields(profileVersionedI
 		return err
 	}
 
-	return e.initiateInteractionHelper(profileVersionedID, organizationName, bytes.NewReader(reqBody))
+	return e.initiateInteractionHelper(
+		profileVersionedID,
+		organizationName,
+		bytes.NewReader(reqBody),
+	)
 }
 
 func (e *Steps) initiateInteractionHelper(profileVersionedID, organizationName string, body io.Reader) error {
