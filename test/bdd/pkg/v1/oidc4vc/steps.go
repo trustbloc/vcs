@@ -43,9 +43,10 @@ type Steps struct {
 	vpFlowExecutor          *walletrunner.VPFlowExecutor
 
 	// Stress testing
-	usersNum      int
-	concurrentReq int
-	stressResult  *stress.Result
+	usersNum                     int
+	concurrentReq                int
+	stressResult                 *stress.Result
+	initiateInteractionResultErr error
 }
 
 // NewSteps returns new Steps context.
@@ -99,6 +100,7 @@ func (s *Steps) RegisterSteps(sc *godog.ScenarioContext) {
 	sc.Step(`^User interacts with Verifier and initiate OIDC4VP interaction under "([^"]*)" profile for organization "([^"]*)" with presentation definition ID "([^"]*)" and fields "([^"]*)"$`,
 		s.initiateInteraction)
 	sc.Step(`^User receives authorization request$`, s.verifyAuthorizationRequest)
+	sc.Step(`^User receives authorization request error "([^"]*)"$`, s.verifyAuthorizationRequestErr)
 
 	sc.Step(`^User invokes authorization request using Wallet$`, s.fetchRequestObjectAndDecodeClaims)
 	sc.Step(`^Wallet queries credential that match authorization and display them for User$`, s.queryCredentialFromWallet)
